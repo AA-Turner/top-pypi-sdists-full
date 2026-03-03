@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from functools import wraps
 from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any, NoReturn, cast
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import jsonschema_rs
 
@@ -15,7 +15,7 @@ import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import media_types, string_to_boolean
 from schemathesis.core.failures import AcceptedNegativeData, Failure
-from schemathesis.core.jsonschema import get_type
+from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, get_type
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.generation.case import Case
@@ -36,9 +36,6 @@ from schemathesis.openapi.checks import (
 )
 from schemathesis.specs.openapi.utils import expand_status_code, expand_status_codes
 from schemathesis.transport.prepare import prepare_path
-
-# Large size limit for regex patterns to support schemas with large quantifiers (e.g., {1,262144})
-_PATTERN_OPTIONS = jsonschema_rs.FancyRegexOptions(size_limit=1_000_000_000)
 
 if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
@@ -373,6 +370,82 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
     return False
 
 
+def _path_string_type_mutation_becomes_valid_after_serialization(case: Case) -> bool:
+    """Check if string type mutation for a numeric path parameter remains semantically valid.
+
+    Path parameters are sent as strings and URL-decoded by servers before routing/handling.
+    Therefore, a negative string mutation for an integer/number parameter can still be accepted
+    when the decoded value is parseable as that numeric type (e.g. `%2B1` -> `+1`).
+    """
+    from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter
+
+    meta = case.meta
+    if meta is None:
+        return False
+
+    path_component = meta.components.get(ParameterLocation.PATH)
+    if path_component is None or not path_component.mode.is_negative:
+        return False
+
+    # If there are other negative components, we should still validate them.
+    for location in (
+        ParameterLocation.QUERY,
+        ParameterLocation.HEADER,
+        ParameterLocation.COOKIE,
+        ParameterLocation.BODY,
+    ):
+        component = meta.components.get(location)
+        if component is not None and component.mode.is_negative:
+            return False
+
+    phase_data = meta.phase.data
+    if (
+        not isinstance(phase_data, FuzzingPhaseData)
+        or phase_data.parameter_location != ParameterLocation.PATH
+        or not phase_data.description
+        or not phase_data.description.startswith("Invalid type string")
+    ):
+        return False
+
+    if not case.path_parameters:
+        return False
+
+    names = [phase_data.parameter] if phase_data.parameter else list(case.path_parameters.keys())
+    for param_name in names:
+        if (
+            param_name is None
+            or param_name not in case.path_parameters
+            or param_name not in case.operation.path_parameters
+        ):
+            continue
+
+        value = case.path_parameters[param_name]
+        if not isinstance(value, str):
+            continue
+
+        parameter = case.operation.path_parameters.get(param_name)
+        if parameter is None:
+            continue
+        assert isinstance(parameter, OpenApiParameter)
+        expected_types = get_type(parameter.definition.get("schema", {}))
+        decoded = unquote(value)
+
+        if "integer" in expected_types:
+            try:
+                int(decoded)
+                return True
+            except ValueError:
+                continue
+        if "number" in expected_types:
+            try:
+                float(decoded)
+                return True
+            except ValueError:
+                continue
+
+    return False
+
+
 def _has_unverifiable_mutations(case: Case) -> bool:
     """Check if mutations cannot be verified as actually producing invalid data.
 
@@ -412,6 +485,7 @@ def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -
         and not has_only_additional_properties_in_non_body_parameters(case)
         and not _body_negation_becomes_valid_after_serialization(case)
         and not _single_element_array_becomes_valid_after_serialization(case)
+        and not _path_string_type_mutation_becomes_valid_after_serialization(case)
         and not _has_unverifiable_mutations(case)
     ):
         extra_info = ""
@@ -562,7 +636,7 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
                 continue
 
             value_without_additional_properties = {k: v for k, v in value.items() if k in container}
-            if not validator_cls(schema, pattern_options=_PATTERN_OPTIONS).is_valid(
+            if not validator_cls(schema, pattern_options=FANCY_REGEX_OPTIONS).is_valid(
                 value_without_additional_properties
             ):
                 # Other types of negation found
@@ -744,11 +818,15 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
                 ("header", "headers"),
                 ("cookie", "cookies"),
                 ("query", "query"),
+                # `params` is the requests-style kwarg for query parameters passed directly via call_and_validate
+                ("query", "params"),
             ):
                 if container_name in kwargs:
-                    container = kwargs[container_name].copy()
-                    _remove_auth_from_container(container, security_parameters, location=location)
-                    kwargs[container_name] = container
+                    container = kwargs[container_name]
+                    if isinstance(container, dict):
+                        container = container.copy()
+                        _remove_auth_from_container(container, security_parameters, location=location)
+                        kwargs[container_name] = container
             kwargs.pop("session", None)
             kwargs.pop("auth", None)
             if case.operation.app is not None:
@@ -870,8 +948,11 @@ def _contains_auth(
                 return AuthKind.EXPLICIT
             return AuthKind.GENERATED
         if has_query(parameter):
-            if (ctx._override and name in ctx._override.query) or (
-                response._override and name in response._override.query
+            transport_params = ctx._transport_kwargs.get("params") if ctx._transport_kwargs else None
+            if (
+                (ctx._override and name in ctx._override.query)
+                or (response._override and name in response._override.query)
+                or (isinstance(transport_params, dict) and name in transport_params)
             ):
                 return AuthKind.EXPLICIT
             return AuthKind.GENERATED

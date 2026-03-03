@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -68,14 +67,11 @@ def standardize(data, robust=False, window=None, **kwargs):
         if any(is_string(data)):
             out = data
             warn(
-                "The data is not standardized."
-                "Some elements in the list is of string type.",
+                "The data is not standardized.Some elements in the list is of string type.",
                 category=NeuroKitWarning,
             )
         else:
-            out = list(
-                _standardize(np.array(data), robust=robust, window=window, **kwargs)
-            )
+            out = list(_standardize(np.array(data), robust=robust, window=window, **kwargs))
 
     elif isinstance(data, pd.DataFrame):
         # only standardize columns that are not string and are not nan
@@ -94,15 +90,14 @@ def standardize(data, robust=False, window=None, **kwargs):
         else:
             out = pd.Series(_standardize(data, robust=robust, window=window, **kwargs))
 
+    elif is_string(data):
+        out = data
+        warn(
+            "The data is not standardized as it is of string type.",
+            category=NeuroKitWarning,
+        )
     else:
-        if is_string(data):
-            out = data
-            warn(
-                "The data is not standardized as it is of string type.",
-                category=NeuroKitWarning,
-            )
-        else:
-            out = _standardize(data, robust=robust, window=window, **kwargs)
+        out = _standardize(data, robust=robust, window=window, **kwargs)
 
     return out
 
@@ -123,13 +118,13 @@ def _standardize(data, robust=False, window=None, **kwargs):
         df = pd.DataFrame(data)  # Force dataframe
 
         if robust is False:
-            z = (df - df.rolling(window, min_periods=0, **kwargs).mean()) / df.rolling(
-                window, min_periods=0, **kwargs
-            ).std(ddof=1)
+            z = (df - df.rolling(window, min_periods=0, **kwargs).mean()) / df.rolling(window, min_periods=0, **kwargs).std(
+                ddof=1
+            )
         else:
-            z = (
-                df - df.rolling(window, min_periods=0, **kwargs).median()
-            ) / df.rolling(window, min_periods=0, **kwargs).apply(mad)
+            z = (df - df.rolling(window, min_periods=0, **kwargs).median()) / df.rolling(
+                window, min_periods=0, **kwargs
+            ).apply(mad)
 
         # Fill the created nans
         z = z.bfill()

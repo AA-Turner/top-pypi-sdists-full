@@ -1,17 +1,13 @@
 import argparse
-import asyncio
-import datetime
-import io
+import contextlib
 import json
 import logging
-import os
 import re
 import string
 import subprocess
 import sys
-import time
 import uuid
-
+from pathlib import Path
 from random import choice
 
 from wslink import backends
@@ -192,8 +188,8 @@ def generatePassword():
 def validateKeySet(obj, expected_keys, object_name):
     all_key_found = True
     for key in expected_keys:
-        if not key in obj:
-            print("ERROR: %s is missing %s key." % (object_name, key))
+        if key not in obj:
+            print(f"ERROR: {object_name} is missing {key} key.")
             all_key_found = False
     return all_key_found
 
@@ -206,18 +202,18 @@ def checkSanitize(key_pair, sanitize):
             checkItem = sanitize[key]
             value = key_pair[key]
             if checkItem["type"] == "inList":
-                if not value in checkItem["list"]:
+                if value not in checkItem["list"]:
                     logger.warning(
-                        "key %s: sanitize %s with default" % (key, key_pair[key])
+                        "key %s: sanitize %s with default", key, key_pair[key]
                     )
                     key_pair[key] = checkItem["default"]
             elif checkItem["type"] == "regexp":
-                if not "compiled" in checkItem:
+                if "compiled" not in checkItem:
                     # User is responsible to add begin- and end- string symbols, to make sure entire string is matched.
                     checkItem["compiled"] = re.compile(checkItem["regexp"])
-                if checkItem["compiled"].match(value) == None:
+                if checkItem["compiled"].match(value) is None:
                     logger.warning(
-                        "key %s: sanitize %s with default" % (key, key_pair[key])
+                        "key %s: sanitize %s with default", key, key_pair[key]
                     )
                     key_pair[key] = checkItem["default"]
 
@@ -234,7 +230,7 @@ def replaceVariables(template_str, variable_list, sanitize):
         template_str = item_template.safe_substitute(key_pair)
 
     if "$" in template_str:
-        logger.error("Some properties could not be resolved: " + template_str)
+        logger.error("Some properties could not be resolved: %s", template_str)
 
     return template_str
 
@@ -280,7 +276,7 @@ def jsonResponse(payload):
 # =============================================================================
 
 
-class SessionManager(object):
+class SessionManager:
     def __init__(self, config, mapping):
         self.sessions = {}
         self.config = config
@@ -300,7 +296,7 @@ class SessionManager(object):
             options["id"] = id
             options["host"] = host
             options["port"] = port
-            if not "secret" in options:
+            if "secret" not in options:
                 options["secret"] = generatePassword()
             options["sessionURL"] = replaceVariables(
                 self.config["configuration"]["sessionURL"],
@@ -345,7 +341,7 @@ class SessionManager(object):
 # =============================================================================
 
 
-class ProxyMappingManager(object):
+class ProxyMappingManager:
     def update(sessions):
         pass
 
@@ -356,11 +352,13 @@ class ProxyMappingManagerTXT(ProxyMappingManager):
         self.pattern = pattern
 
     def update(self, sessions):
-        with io.open(self.file_path, "w", encoding="utf-8") as map_file:
-            for id in sessions:
-                map_file.write(
-                    self.pattern % (id, sessions[id]["host"], sessions[id]["port"])
-                )
+        Path(self.file_path).write_text(
+            "".join(
+                self.pattern % (id, sessions[id]["host"], sessions[id]["port"])
+                for id in sessions
+            ),
+            encoding="utf-8",
+        )
 
 
 # =============================================================================
@@ -368,7 +366,7 @@ class ProxyMappingManagerTXT(ProxyMappingManager):
 # =============================================================================
 
 
-class ResourceManager(object):
+class ResourceManager:
     """
     Class that provides methods to keep track on available resources (host/port)
     """
@@ -389,7 +387,7 @@ class ResourceManager(object):
         """
         Return a (host, port) pair if any available otherwise will return None
         """
-        # find host with max availibility
+        # find host with max availability
         winner = None
         availibilityCount = 0
         for host in self.resources:
@@ -418,7 +416,7 @@ class ResourceManager(object):
 # =============================================================================
 
 
-class ProcessManager(object):
+class ProcessManager:
     def __init__(self, configuration):
         self.config = configuration
         self.log_dir = configuration["configuration"]["log_dir"]
@@ -429,20 +427,20 @@ class ProcessManager(object):
             self.processes[id].terminate()
 
     def _getLogFilePath(self, id):
-        return "%s%s%s.txt" % (self.log_dir, os.sep, id)
+        return Path(self.log_dir) / f"{id}.txt"
 
     def startProcess(self, session):
         proc = None
 
         # Create output log file
         logFilePath = self._getLogFilePath(session["id"])
-        with io.open(logFilePath, mode="a+", buffering=1, encoding="utf-8") as log_file:
+        with logFilePath.open(mode="a+", buffering=1, encoding="utf-8") as log_file:
             try:
                 proc = subprocess.Popen(
                     session["cmd"], stdout=log_file, stderr=log_file
                 )
                 self.processes[session["id"]] = proc
-            except:
+            except:  # noqa: E722
                 logger.error("The command line failed")
                 logger.error(" ".join(map(str, session["cmd"])))
                 return None
@@ -452,10 +450,8 @@ class ProcessManager(object):
     def stopProcess(self, id):
         proc = self.processes[id]
         del self.processes[id]
-        try:
-            proc.terminate()
-        except:
-            pass  # we tried
+        with contextlib.suppress(Exception):
+            proc.terminate()  # we tried
 
     def listEndedProcess(self):
         session_to_release = []
@@ -470,7 +466,7 @@ class ProcessManager(object):
     # ========================================================================
     # Look for ready line in process output. Return True if found, False
     # otherwise. If no ready_line is configured and process is running return
-    # False. This will then rely on the timout time.
+    # False. This will then rely on the timeout time.
     # ========================================================================
 
     def isReady(self, session, count=0):
@@ -487,8 +483,8 @@ class ProcessManager(object):
         application = self.config["apps"][session["application"]]
         ready_line = application.get("ready_line", None)
 
-        # If no ready_line is configured and the process is running then thats
-        # enough.
+        # If no ready_line is configured and the process is running
+        # then that's enough.
         if not ready_line:
             return False
 
@@ -496,7 +492,7 @@ class ProcessManager(object):
 
         # Check the output for ready_line
         logFilePath = self._getLogFilePath(session["id"])
-        with io.open(logFilePath, "r", 1, encoding="utf-8") as log_file:
+        with logFilePath.open(encoding="utf-8") as log_file:
             for line in log_file.readlines():
                 if ready_line in line:
                     ready = True
@@ -514,10 +510,10 @@ def parseConfig(options):
     # Read values from the configuration file
     try:
         config_comments = remove_comments(
-            io.open(options.config[0], encoding="utf-8").read()
+            Path(options.config[0]).read_text(encoding="utf-8")
         )
         config = json.loads(config_comments)
-    except:
+    except:  # noqa: E722
         message = "ERROR: Unable to read config file.\n"
         message += str(sys.exc_info()[1]) + "\n" + str(sys.exc_info()[2])
         print(message)
@@ -543,9 +539,9 @@ def parseConfig(options):
         print(sample_config_file)
         sys.exit(2)
 
-    if not "content" in config["configuration"]:
+    if "content" not in config["configuration"]:
         config["configuration"]["content"] = ""
-    if not "sanitize" in config["configuration"]:
+    if "sanitize" not in config["configuration"]:
         config["configuration"]["sanitize"] = {}
 
     return config

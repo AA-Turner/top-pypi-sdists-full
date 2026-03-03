@@ -1749,7 +1749,10 @@ class ContextGroundingService(FolderContext, BaseService):
         elif target_file_name:
             target_file_glob_pattern = target_file_name
         elif storage_bucket_folder_path_prefix:
-            target_file_glob_pattern = f"{storage_bucket_folder_path_prefix}/*"
+            if storage_bucket_folder_path_prefix.endswith("/*"):
+                target_file_glob_pattern = storage_bucket_folder_path_prefix
+            else:
+                target_file_glob_pattern = f"{storage_bucket_folder_path_prefix}/*"
         else:
             target_file_glob_pattern = "**"
 

@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from .utils_complexity_attractor import _attractor_lorenz
 
 
-def complexity_simulate(
-    duration=10, sampling_rate=1000, method="ornstein", hurst_exponent=0.5, **kwargs
-):
+def complexity_simulate(duration=10, sampling_rate=1000, method="ornstein", hurst_exponent=0.5, **kwargs):
     """**Simulate chaotic time series**
 
     This function generates a chaotic signal using different algorithms and complex systems.
@@ -121,9 +118,7 @@ def complexity_simulate(
         # x-dimension of Lorenz system
         signal = _attractor_lorenz(sampling_rate=sampling_rate, duration=duration, **kwargs)[:, 0]
     elif method in ["mackeyglass"]:
-        signal = _complexity_simulate_mackeyglass(
-            duration=duration, sampling_rate=sampling_rate, **kwargs
-        )
+        signal = _complexity_simulate_mackeyglass(duration=duration, sampling_rate=sampling_rate, **kwargs)
     else:
         signal = _complexity_simulate_randomwalk(int(duration * sampling_rate))
     return signal
@@ -132,9 +127,7 @@ def complexity_simulate(
 # =============================================================================
 # Methods
 # =============================================================================
-def _complexity_simulate_mackeyglass(
-    duration=10, sampling_rate=1000, x0="fixed", a=0.2, b=0.1, c=10.0, n=1000, discard=250
-):
+def _complexity_simulate_mackeyglass(duration=10, sampling_rate=1000, x0="fixed", a=0.2, b=0.1, c=10.0, n=1000, discard=250):
     """Generate time series using the Mackey-Glass equation. Generates time series using the discrete approximation of
     the Mackey-Glass delay differential equation described by Grassberger & Procaccia (1983).
 
@@ -188,15 +181,11 @@ def _complexity_simulate_mackeyglass(
     B = a * tau / (2 * n + b * tau)
 
     for i in range(n - 1, grids - 1):
-        x[i + 1] = A * x[i] + B * (
-            x[i - n] / (1 + x[i - n] ** c) + x[i - n + 1] / (1 + x[i - n + 1] ** c)
-        )
+        x[i + 1] = A * x[i] + B * (x[i - n] / (1 + x[i - n] ** c) + x[i - n + 1] / (1 + x[i - n + 1] ** c))
     return x[n * discard :: sampling_rate]
 
 
-def _complexity_simulate_ornstein(
-    duration=10, sampling_rate=1000, theta=0.3, sigma=0.1, hurst_exponent=0.7
-):
+def _complexity_simulate_ornstein(duration=10, sampling_rate=1000, theta=0.3, sigma=0.1, hurst_exponent=0.7):
     """This is based on https://github.com/LRydin/MFDFA.
 
     Parameters
@@ -222,9 +211,7 @@ def _complexity_simulate_ornstein(
     length = duration * sampling_rate
 
     # The fractional Gaussian noise
-    dB = (duration ** hurst_exponent) * _complexity_simulate_fractionalnoise(
-        size=length, hurst_exponent=hurst_exponent
-    )
+    dB = (duration**hurst_exponent) * _complexity_simulate_fractionalnoise(size=length, hurst_exponent=hurst_exponent)
 
     # Initialise the array y
     y = np.zeros([length])
@@ -270,9 +257,7 @@ def _complexity_simulate_fractionalnoise(size=1000, hurst_exponent=0.5):
 
     # Correlation function
     cor = 0.5 * (
-        np.abs(k - 1) ** (2 * hurst_exponent)
-        - 2 * np.abs(k) ** (2 * hurst_exponent)
-        + np.abs(k + 1) ** (2 * hurst_exponent)
+        np.abs(k - 1) ** (2 * hurst_exponent) - 2 * np.abs(k) ** (2 * hurst_exponent) + np.abs(k + 1) ** (2 * hurst_exponent)
     )
 
     # Eigenvalues of the correlation function

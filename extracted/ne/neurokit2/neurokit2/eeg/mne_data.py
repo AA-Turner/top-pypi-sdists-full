@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-
 def mne_data(what="raw", path=None):
     """**Access MNE Datasets**
 
@@ -58,9 +55,7 @@ def mne_data(what="raw", path=None):
 
     # Epochs
     elif what in ["epochs", "evoked"]:
-        raw = mne.io.read_raw_fif(path + "/MEG/sample/sample_audvis_filt-0-40_raw.fif").pick_types(
-            meg=False, eeg=True
-        )
+        raw = mne.io.read_raw_fif(path + "/MEG/sample/sample_audvis_filt-0-40_raw.fif").pick_types(meg=False, eeg=True)
 
         events = mne.read_events(path + "/MEG/sample/sample_audvis_filt-0-40_raw-eve.fif")
         event_id = {"audio/left": 1, "audio/right": 2, "visual/left": 3, "visual/right": 4}

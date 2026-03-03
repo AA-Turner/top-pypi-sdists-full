@@ -76,9 +76,7 @@ def fractal_psdslope(signal, method="voss1988", show=False, **kwargs):
 
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Translated from https://github.com/FredHasselman/casnet/blob/master/R/fd.R
     # Detrend
@@ -120,17 +118,12 @@ def fractal_psdslope(signal, method="voss1988", show=False, **kwargs):
 # Plotting
 # =============================================================================
 def _fractal_psdslope_plot(frequency, psd, slope, intercept, fd, ax=None):
-
     if ax is None:
         fig, ax = plt.subplots()
-        fig.suptitle(
-            "Power Spectral Density (PSD) slope analysis" + ", slope = " + str(np.round(slope, 2))
-        )
+        fig.suptitle("Power Spectral Density (PSD) slope analysis" + ", slope = " + str(np.round(slope, 2)))
     else:
         fig = None
-        ax.set_title(
-            "Power Spectral Density (PSD) slope analysis" + ", slope = " + str(np.round(slope, 2))
-        )
+        ax.set_title("Power Spectral Density (PSD) slope analysis" + ", slope = " + str(np.round(slope, 2)))
 
     ax.set_ylabel(r"$\log_{10}$(Power)")
     ax.set_xlabel(r"$\log_{10}$(Frequency)")

@@ -1,16 +1,18 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
+
 import sys
 import time
 from logging import INFO
 
+from contrast_rewriter import LOG_FORMAT, LOG_TIME_FORMAT
 from contrast_vendor import structlog
-from contrast_rewriter import LOG_TIME_FORMAT, LOG_FORMAT
 
 
 def basic_stringifier(logger, method_name, event_dict) -> str:
-    date_and_time = time.strftime(LOG_TIME_FORMAT, time.localtime())
+    # Use UTC to match agent JSON logs (which are UTC / Z).
+    date_and_time = time.strftime(LOG_TIME_FORMAT, time.gmtime())
     return LOG_FORMAT.format(
         date_and_time=date_and_time,
         logger_name="contrast-agent",
@@ -30,9 +32,10 @@ from typing import TYPE_CHECKING  # noqa: E402
 if TYPE_CHECKING:
     from contrast.agent.request_context import RequestContext
 
-import os  # noqa: E402
 import contextlib  # noqa: E402
+import os  # noqa: E402
 from contextvars import ContextVar  # noqa: E402
+
 from contrast.agent.assess.string_tracker import StringTracker  # noqa: E402
 from contrast.version import __version__  # noqa: E402
 

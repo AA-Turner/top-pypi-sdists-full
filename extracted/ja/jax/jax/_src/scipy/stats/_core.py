@@ -14,8 +14,8 @@
 
 from __future__ import annotations
 
-from collections import namedtuple
 import math
+from typing import NamedTuple
 
 import numpy as np
 
@@ -28,7 +28,10 @@ from jax._src.typing import ArrayLike, Array
 from jax._src.util import canonicalize_axis
 
 
-ModeResult = namedtuple('ModeResult', ('mode', 'count'))
+class ModeResult(NamedTuple):
+  mode: Array
+  count: Array   # type: ignore[bad-override, assignment]
+
 
 @api.jit(static_argnames=['axis', 'nan_policy', 'keepdims'])
 def mode(a: ArrayLike, axis: int | None = 0, nan_policy: str = "propagate", keepdims: bool = False) -> ModeResult:
@@ -99,6 +102,8 @@ def mode(a: ArrayLike, axis: int | None = 0, nan_policy: str = "propagate", keep
       "In order to best JIT compile `mode`, we cannot know whether `x` contains nans. "
       "Please check if nans exist in `x` outside of the `mode` function."
     )
+  if axis is not None:
+    axis = canonicalize_axis(axis, x.ndim)
 
   input_shape = x.shape
   if keepdims:
@@ -125,7 +130,6 @@ def mode(a: ArrayLike, axis: int | None = 0, nan_policy: str = "propagate", keep
       vals, counts = jnp.unique(x, return_counts=True, size=x.size)
       return vals[jnp.argmax(counts)], counts.max()
 
-  axis = canonicalize_axis(axis, x.ndim)
   x = jnp.moveaxis(x, axis, 0)
   x = x.reshape(x.shape[0], math.prod(x.shape[1:]))
   vals, counts = api.vmap(_mode_helper, in_axes=1)(x)

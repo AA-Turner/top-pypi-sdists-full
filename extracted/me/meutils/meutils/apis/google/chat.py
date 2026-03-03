@@ -582,7 +582,7 @@ if __name__ == '__main__':
 
     api_key = "sk-"
 
-    base_url = "http://107.167.7.34:3001/v1beta"
+    base_url = "http://cloud.dataeyes.ai/v1beta"
     api_key = "sk-AFnPUz5qgP82Npc9TDAPNirj36HvXXoGKU4VcWXQ0zgNjhKh"
 
     model = "gemini-2.5-flash-image"
@@ -613,6 +613,16 @@ if __name__ == '__main__':
         # ]
 
     )
+
+    data = {
+        "model": "gemini-3.1-flash-image-preview_2K",
+        "prompt": "制作具有喜怒哀乐等不同漫画表情的头像，用4宫格展示 --2K",
+        "image": [
+            "https://cdnmjimg2024.m.nengshuohuihua.com/nanobanana/2-0.jpg?auth_key=1772419080-224d1e64f7b14373a0a0f91bb30e211d-0-c1ddd5f409d78532da17cccf981b5f7e"
+        ],
+        "n": 1,
+        "response_format": "url"
+    }
 
     logger.debug(request)
 

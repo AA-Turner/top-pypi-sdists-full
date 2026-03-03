@@ -100,6 +100,7 @@ enum class CalcFlag : signed char {
 /// options affecting how pdb file is read
 struct PdbReadOptions {
   int max_line_length = 0;
+  bool check_non_ascii = false;
   bool ignore_ter = false; // ignores TER records completely
   bool split_chain_on_ter = false;
   bool skip_remarks = false;
@@ -613,8 +614,9 @@ struct Chain {
 
 inline std::string atom_str(const Chain& chain,
                             const ResidueId& res_id,
-                            const Atom& atom) {
-  return atom_str(chain.name, res_id, atom.name, atom.altloc);
+                            const Atom& atom,
+                            bool as_cid=false) {
+  return atom_str(chain.name, res_id, atom.name, atom.altloc, as_cid);
 }
 
 struct const_CRA {
@@ -630,12 +632,13 @@ struct CRA {
   operator const_CRA() const { return const_CRA{chain, residue, atom}; }
 };
 
-inline std::string atom_str(const const_CRA& cra) {
+inline std::string atom_str(const const_CRA& cra, bool as_cif=false) {
   static const ResidueId null_residue_id = {};
   return atom_str(cra.chain ? cra.chain->name : "null",
                   cra.residue ? *cra.residue : null_residue_id,
                   cra.atom ? cra.atom->name : "null",
-                  cra.atom ? cra.atom->altloc : '\0');
+                  cra.atom ? cra.atom->altloc : '\0',
+                  as_cif);
 }
 
 inline bool atom_matches(const const_CRA& cra, const AtomAddress& addr, bool ignore_segment=false) {
@@ -901,6 +904,7 @@ struct Structure {
 
   CoorFormat input_format = CoorFormat::Unknown;
   bool has_d_fraction = false;  // uses Refmac's ccp4_deuterium_fraction
+  int non_ascii_line = 0;  // first PDB line with non-ASCII bytes, or 0
   /// in input PDB file: y = TER records were read, e = errors were detected
   char ter_status = '\0';
 
@@ -918,6 +922,8 @@ struct Structure {
   double resolution = 0;
 
   const SpaceGroup* find_spacegroup() const {
+    if (!cell.is_crystal())
+      return nullptr;
     return find_spacegroup_by_name(spacegroup_hm, cell.alpha, cell.gamma);
   }
 

@@ -1,11 +1,12 @@
+from __future__ import annotations
+
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from abstra_internals.controllers.main import UnknownNodeTypeError
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import (
-    AgentStage,
     ComponentStage,
     FormStage,
     HookStage,
@@ -24,9 +25,9 @@ class StageDTO(TypedDict):
     id: str
     type: str
     title: str
-    position: Dict[str, float]
-    props: Dict[str, Optional[str]]
-    module: Optional[str]  # For module stages only
+    position: dict[str, float]
+    props: dict[str, str | None]
+    module: str | None  # For module stages only
     input: bool
     output: bool
 
@@ -91,7 +92,7 @@ class WorkflowController:
 
     def build_adjacency_list(
         self,
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         workflow = self.get_workflow_settings()
         transitions = workflow["transitions"]
         adj = {}
@@ -114,7 +115,7 @@ class WorkflowController:
         initial_stages = self.get_initial_stages()
         longest_path = []
 
-        def dfs(stage_id: str, current_path: List[str]):
+        def dfs(stage_id: str, current_path: list[str]):
             if stage_id in current_path:
                 return
             current_path = current_path.copy()
@@ -133,7 +134,7 @@ class WorkflowController:
     def make_stage_dto(self, stage: Stage) -> StageDTO:
         filename = None
         props = {}
-        if isinstance(stage, (HookStage, ScriptStage, FormStage, JobStage, AgentStage)):
+        if isinstance(stage, (HookStage, ScriptStage, FormStage, JobStage)):
             filename = stage.file
             props["filename"] = filename
         path = None
@@ -168,7 +169,6 @@ class WorkflowController:
                 or isinstance(stage, ScriptStage)
                 or isinstance(stage, HookStage)
                 or isinstance(stage, JobStage)
-                or isinstance(stage, AgentStage)
             ):
                 stage_dto["props"]["filename"] = stage.file
 
@@ -232,7 +232,7 @@ class WorkflowController:
         self,
         source_stage_id: str,
         target_stage_id: str,
-        task_type: Optional[str] = None,
+        task_type: str | None = None,
     ):
         """
         Add a new transition between two stages in the workflow.
@@ -321,7 +321,7 @@ class WorkflowController:
 
         self.repos.project.save(project)
 
-    def update_workflow(self, workflow_state_dto: Dict, module: Optional[str] = None):
+    def update_workflow(self, workflow_state_dto: dict, module: str | None = None):
         """
         Update the entire workflow configuration with new stages and transitions.
 
@@ -542,7 +542,6 @@ class WorkflowController:
                     or isinstance(stage, ScriptStage)
                     or isinstance(stage, HookStage)
                     or isinstance(stage, JobStage)
-                    or isinstance(stage, AgentStage)
                 ):
                     stage.update({"file": f"{stage_dto['props']['filename']}"})
                     stage.file = f"{stage_dto['props']['filename']}"
@@ -624,19 +623,6 @@ class WorkflowController:
                     package_name=None,
                 )
                 project.components.append(stage)
-            elif stage_dto["type"] == "agents":
-                stage = AgentStage(
-                    id=stage_dto["id"],
-                    file=stage_dto["props"]["filename"],
-                    title=stage_dto["title"],
-                    workflow_position=(
-                        stage_dto["position"]["x"],
-                        stage_dto["position"]["y"],
-                    ),
-                    workflow_transitions=[],
-                    is_initial=False,
-                )
-                project.agents.append(stage)
             else:
                 raise UnknownNodeTypeError(stage_dto["type"])
 
@@ -667,7 +653,7 @@ class WorkflowController:
 
         return self.get_workflow_settings()
 
-    def fix_positions_with_autolayout(self, stage_ids: Optional[List[str]] = None):
+    def fix_positions_with_autolayout(self, stage_ids: list[str] | None = None):
         """
         Fix the positions of the workflow stages in the graph.
         This method ensures that all stages have valid positions, either by

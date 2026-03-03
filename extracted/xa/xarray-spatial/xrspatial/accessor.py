@@ -39,6 +39,82 @@ class XrsSpatialDataArrayAccessor:
         from .curvature import curvature
         return curvature(self._obj, **kwargs)
 
+    # ---- Terrain Metrics ----
+
+    def tri(self, **kwargs):
+        from .terrain_metrics import tri
+        return tri(self._obj, **kwargs)
+
+    def tpi(self, **kwargs):
+        from .terrain_metrics import tpi
+        return tpi(self._obj, **kwargs)
+
+    def roughness(self, **kwargs):
+        from .terrain_metrics import roughness
+        return roughness(self._obj, **kwargs)
+
+    # ---- Hydrology ----
+
+    def flow_direction(self, **kwargs):
+        from .flow_direction import flow_direction
+        return flow_direction(self._obj, **kwargs)
+
+    def flow_direction_dinf(self, **kwargs):
+        from .flow_direction_dinf import flow_direction_dinf
+        return flow_direction_dinf(self._obj, **kwargs)
+
+    def flow_accumulation(self, **kwargs):
+        from .flow_accumulation import flow_accumulation
+        return flow_accumulation(self._obj, **kwargs)
+
+    def watershed(self, pour_points, **kwargs):
+        from .watershed import watershed
+        return watershed(self._obj, pour_points, **kwargs)
+
+    def basin(self, **kwargs):
+        from .basin import basin
+        return basin(self._obj, **kwargs)
+
+    def basins(self, **kwargs):
+        from .watershed import basins
+        return basins(self._obj, **kwargs)
+
+    def sink(self, **kwargs):
+        from .sink import sink
+        return sink(self._obj, **kwargs)
+
+    def fill(self, **kwargs):
+        from .fill import fill
+        return fill(self._obj, **kwargs)
+
+    def stream_order(self, flow_accum, **kwargs):
+        from .stream_order import stream_order
+        return stream_order(self._obj, flow_accum, **kwargs)
+
+    def stream_link(self, flow_accum, **kwargs):
+        from .stream_link import stream_link
+        return stream_link(self._obj, flow_accum, **kwargs)
+
+    def snap_pour_point(self, pour_points, **kwargs):
+        from .snap_pour_point import snap_pour_point
+        return snap_pour_point(self._obj, pour_points, **kwargs)
+
+    def flow_path(self, start_points, **kwargs):
+        from .flow_path import flow_path
+        return flow_path(self._obj, start_points, **kwargs)
+
+    def flow_length(self, **kwargs):
+        from .flow_length import flow_length
+        return flow_length(self._obj, **kwargs)
+
+    def twi(self, slope_agg, **kwargs):
+        from .twi import twi
+        return twi(self._obj, slope_agg, **kwargs)
+
+    def hand(self, flow_accum, elevation, **kwargs):
+        from .hand import hand
+        return hand(self._obj, flow_accum, elevation, **kwargs)
+
     def viewshed(self, x, y, **kwargs):
         from .viewshed import viewshed
         return viewshed(self._obj, x, y, **kwargs)
@@ -97,6 +173,18 @@ class XrsSpatialDataArrayAccessor:
         from .cost_distance import cost_distance
         return cost_distance(self._obj, friction, **kwargs)
 
+    def surface_distance(self, elevation, **kwargs):
+        from .surface_distance import surface_distance
+        return surface_distance(self._obj, elevation, **kwargs)
+
+    def surface_allocation(self, elevation, **kwargs):
+        from .surface_distance import surface_allocation
+        return surface_allocation(self._obj, elevation, **kwargs)
+
+    def surface_direction(self, elevation, **kwargs):
+        from .surface_distance import surface_direction
+        return surface_direction(self._obj, elevation, **kwargs)
+
     # ---- Pathfinding ----
 
     def a_star_search(self, start, goal, **kwargs):
@@ -144,6 +232,12 @@ class XrsSpatialDataArrayAccessor:
     def mahalanobis(self, other_bands, **kwargs):
         from .mahalanobis import mahalanobis
         return mahalanobis([self._obj] + list(other_bands), **kwargs)
+
+    # ---- Raster to vector ----
+
+    def polygonize(self, **kwargs):
+        from .polygonize import polygonize
+        return polygonize(self._obj, **kwargs)
 
     # ---- Multispectral (self = NIR band) ----
 
@@ -203,6 +297,82 @@ class XrsSpatialDatasetAccessor:
         from .curvature import curvature
         return curvature(self._obj, **kwargs)
 
+    # ---- Terrain Metrics ----
+
+    def tri(self, **kwargs):
+        from .terrain_metrics import tri
+        return tri(self._obj, **kwargs)
+
+    def tpi(self, **kwargs):
+        from .terrain_metrics import tpi
+        return tpi(self._obj, **kwargs)
+
+    def roughness(self, **kwargs):
+        from .terrain_metrics import roughness
+        return roughness(self._obj, **kwargs)
+
+    # ---- Hydrology ----
+
+    def flow_direction(self, **kwargs):
+        from .flow_direction import flow_direction
+        return flow_direction(self._obj, **kwargs)
+
+    def flow_direction_dinf(self, **kwargs):
+        from .flow_direction_dinf import flow_direction_dinf
+        return flow_direction_dinf(self._obj, **kwargs)
+
+    def flow_accumulation(self, **kwargs):
+        from .flow_accumulation import flow_accumulation
+        return flow_accumulation(self._obj, **kwargs)
+
+    def watershed(self, pour_points, **kwargs):
+        from .watershed import watershed
+        return watershed(self._obj, pour_points, **kwargs)
+
+    def basin(self, **kwargs):
+        from .basin import basin
+        return basin(self._obj, **kwargs)
+
+    def basins(self, **kwargs):
+        from .watershed import basins
+        return basins(self._obj, **kwargs)
+
+    def sink(self, **kwargs):
+        from .sink import sink
+        return sink(self._obj, **kwargs)
+
+    def fill(self, **kwargs):
+        from .fill import fill
+        return fill(self._obj, **kwargs)
+
+    def stream_order(self, flow_accum, **kwargs):
+        from .stream_order import stream_order
+        return stream_order(self._obj, flow_accum, **kwargs)
+
+    def stream_link(self, flow_accum, **kwargs):
+        from .stream_link import stream_link
+        return stream_link(self._obj, flow_accum, **kwargs)
+
+    def snap_pour_point(self, pour_points, **kwargs):
+        from .snap_pour_point import snap_pour_point
+        return snap_pour_point(self._obj, pour_points, **kwargs)
+
+    def flow_path(self, start_points, **kwargs):
+        from .flow_path import flow_path
+        return flow_path(self._obj, start_points, **kwargs)
+
+    def flow_length(self, **kwargs):
+        from .flow_length import flow_length
+        return flow_length(self._obj, **kwargs)
+
+    def twi(self, slope_agg, **kwargs):
+        from .twi import twi
+        return twi(self._obj, slope_agg, **kwargs)
+
+    def hand(self, flow_accum, elevation, **kwargs):
+        from .hand import hand
+        return hand(self._obj, flow_accum, elevation, **kwargs)
+
     # ---- Classification ----
 
     def natural_breaks(self, **kwargs):
@@ -252,6 +422,18 @@ class XrsSpatialDatasetAccessor:
     def cost_distance(self, friction, **kwargs):
         from .cost_distance import cost_distance
         return cost_distance(self._obj, friction, **kwargs)
+
+    def surface_distance(self, elevation, **kwargs):
+        from .surface_distance import surface_distance
+        return surface_distance(self._obj, elevation, **kwargs)
+
+    def surface_allocation(self, elevation, **kwargs):
+        from .surface_distance import surface_allocation
+        return surface_allocation(self._obj, elevation, **kwargs)
+
+    def surface_direction(self, elevation, **kwargs):
+        from .surface_distance import surface_direction
+        return surface_direction(self._obj, elevation, **kwargs)
 
     # ---- Multispectral (band mapping via kwargs) ----
 

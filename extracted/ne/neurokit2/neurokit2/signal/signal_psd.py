@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -144,13 +143,9 @@ def signal_psd(
     if isinstance(min_frequency, str):
         if sampling_rate is None:
             # This is to compute min_frequency if both min_frequency and sampling_rate are not provided (#800)
-            min_frequency = (2 * np.median(np.diff(t))) / (
-                N / 2
-            )  # for high frequency resolution
+            min_frequency = (2 * np.median(np.diff(t))) / (N / 2)  # for high frequency resolution
         else:
-            min_frequency = (2 * sampling_rate) / (
-                N / 2
-            )  # for high frequency resolution
+            min_frequency = (2 * sampling_rate) / (N / 2)  # for high frequency resolution
 
     # MNE
     if method in ["multitaper", "multitapers", "mne"]:
@@ -163,9 +158,7 @@ def signal_psd(
 
     # FFT (Numpy)
     elif method in ["fft"]:
-        frequency, power = _signal_psd_fft(
-            signal, sampling_rate=sampling_rate, **kwargs
-        )
+        frequency, power = _signal_psd_fft(signal, sampling_rate=sampling_rate, **kwargs)
 
     # Lombscargle (AtroPy)
     elif method.lower() in ["lombscargle", "lomb"]:
@@ -230,11 +223,7 @@ def signal_psd(
     data = pd.DataFrame({"Frequency": frequency, "Power": power})
 
     # Filter
-    data = data.loc[
-        np.logical_and(
-            data["Frequency"] >= min_frequency, data["Frequency"] <= max_frequency
-        )
-    ]
+    data = data.loc[np.logical_and(data["Frequency"] >= min_frequency, data["Frequency"] <= max_frequency)]
     #    data["Power"] = 10 * np.log(data["Power"])
 
     if show is True:
@@ -265,9 +254,7 @@ def _signal_psd_fft(signal, sampling_rate=1000, n=None):
 # =============================================================================
 
 
-def _signal_psd_multitaper(
-    signal, sampling_rate=1000, min_frequency=0, max_frequency=np.inf
-):
+def _signal_psd_multitaper(signal, sampling_rate=1000, min_frequency=0, max_frequency=np.inf):
     try:
         import mne
     except ImportError as e:
@@ -295,9 +282,7 @@ def _signal_psd_multitaper(
 # =============================================================================
 
 
-def _signal_psd_welch(
-    signal, sampling_rate=1000, nperseg=None, window_type="hann", **kwargs
-):
+def _signal_psd_welch(signal, sampling_rate=1000, nperseg=None, window_type="hann", **kwargs):
     if nperseg is not None:
         nfft = int(nperseg * 2)
     else:
@@ -323,10 +308,7 @@ def _signal_psd_welch(
 # =============================================================================
 
 
-def _signal_psd_lomb(
-    signal, sampling_rate=1000, min_frequency=0, max_frequency=np.inf, t=None
-):
-
+def _signal_psd_lomb(signal, sampling_rate=1000, min_frequency=0, max_frequency=np.inf, t=None):
     try:
         import astropy.timeseries
 
@@ -334,17 +316,15 @@ def _signal_psd_lomb(
             if max_frequency == np.inf:
                 max_frequency = sampling_rate / 2  # sanitize highest frequency
             t = np.arange(len(signal)) / sampling_rate
-            frequency, power = astropy.timeseries.LombScargle(
-                t, signal, normalization="psd"
-            ).autopower(
+            frequency, power = astropy.timeseries.LombScargle(t, signal, normalization="psd").autopower(
                 minimum_frequency=min_frequency, maximum_frequency=max_frequency
             )
         else:
             # determine maximum frequency with astropy defaults for unevenly spaced data
             # https://docs.astropy.org/en/stable/api/astropy.timeseries.LombScargle.html#astropy.timeseries.LombScargle.autopower
-            frequency, power = astropy.timeseries.LombScargle(
-                t, signal, normalization="psd"
-            ).autopower(minimum_frequency=min_frequency)
+            frequency, power = astropy.timeseries.LombScargle(t, signal, normalization="psd").autopower(
+                minimum_frequency=min_frequency
+            )
 
     except ImportError as e:
         raise ImportError(
@@ -370,14 +350,9 @@ def _signal_psd_burg(
     side="one-sided",
     nperseg=None,
 ):
-
     nfft = int(nperseg * 2)
-    ar, rho, _ = _signal_arma_burg(
-        signal, order=order, criteria=criteria, corrected=corrected
-    )
-    psd = _signal_psd_from_arma(
-        ar=ar, rho=rho, sampling_rate=sampling_rate, nfft=nfft, side=side
-    )
+    ar, rho, _ = _signal_arma_burg(signal, order=order, criteria=criteria, corrected=corrected)
+    psd = _signal_psd_from_arma(ar=ar, rho=rho, sampling_rate=sampling_rate, nfft=nfft, side=side)
 
     # signal is real, not complex
     if nfft % 2 == 0:
@@ -406,7 +381,6 @@ def _signal_psd_burg(
 
 
 def _signal_arma_burg(signal, order=16, criteria="KIC", corrected=True):
-
     # Sanitize order and signal
     N = len(signal)
     if order <= 0.0:
@@ -422,9 +396,7 @@ def _signal_arma_burg(signal, order=16, criteria="KIC", corrected=True):
     denominator = rho * 2.0 * N
 
     ar = np.zeros(0, dtype=complex)  # AR parametric signal model estimate
-    ref = np.zeros(
-        0, dtype=complex
-    )  # vector K of reflection coefficients (parcor coefficients)
+    ref = np.zeros(0, dtype=complex)  # vector K of reflection coefficients (parcor coefficients)
     ef = signal.astype(complex)  # forward prediction error
     eb = signal.astype(complex)  # backward prediction error
     temp = 1.0
@@ -432,7 +404,6 @@ def _signal_arma_burg(signal, order=16, criteria="KIC", corrected=True):
     # Main recursion
 
     for k in range(0, order):
-
         # calculate the next order reflection coefficient
         numerator = sum([ef[j] * eb[j - 1].conjugate() for j in range(k + 1, N)])
         denominator = temp * denominator - abs(ef[k]) ** 2 - abs(eb[N - 1]) ** 2
@@ -444,9 +415,7 @@ def _signal_arma_burg(signal, order=16, criteria="KIC", corrected=True):
 
         if criteria is not None:
             # k=k+1 because order goes from 1 to P whereas k starts at 0.
-            residual_new = _criteria(
-                criteria=criteria, N=N, k=k + 1, rho=new_rho, corrected=corrected
-            )
+            residual_new = _criteria(criteria=criteria, N=N, k=k + 1, rho=new_rho, corrected=corrected)
             if k == 0:
                 residual_old = 2.0 * abs(residual_new)
 
@@ -458,9 +427,7 @@ def _signal_arma_burg(signal, order=16, criteria="KIC", corrected=True):
             residual_old = residual_new
         rho = new_rho
         if rho <= 0:
-            raise ValueError(
-                f"Found a negative value (expected positive strictly) {rho}. Decrease the order."
-            )
+            raise ValueError(f"Found a negative value (expected positive strictly) {rho}. Decrease the order.")
 
         ar = np.resize(ar, ar.size + 1)
         ar[k] = kp
@@ -477,9 +444,7 @@ def _signal_arma_burg(signal, order=16, criteria="KIC", corrected=True):
                 ar_previous = ar[j]  # previous value
                 ar[j] = ar_previous + kp * ar[k - j - 1].conjugate()  # Eq. (8.2)
                 if j != k - j - 1:
-                    ar[k - j - 1] = (
-                        ar[k - j - 1] + kp * ar_previous.conjugate()
-                    )  # Eq. (8.2)
+                    ar[k - j - 1] = ar[k - j - 1] + kp * ar_previous.conjugate()  # Eq. (8.2)
 
             # Update the forward and backward prediction errors
             for j in range(N - 1, k, -1):
@@ -537,11 +502,7 @@ def _criteria(criteria=None, N=None, k=None, rho=None, corrected=True):
 
     elif criteria == "KIC":
         if corrected is True:
-            residual = (
-                np.log(rho)
-                + k / N / (N - k)
-                + (3.0 - (k + 2.0) / N) * (k + 1.0) / (N - k - 2.0)
-            )
+            residual = np.log(rho) + k / N / (N - k) + (3.0 - (k + 2.0) / N) * (k + 1.0) / (N - k - 2.0)
         else:
             residual = np.log(rho) + 3.0 * (k + 1.0) / float(N)
 
@@ -556,10 +517,7 @@ def _criteria(criteria=None, N=None, k=None, rho=None, corrected=True):
     return residual
 
 
-def _signal_psd_from_arma(
-    ar=None, ma=None, rho=1.0, sampling_rate=1000, nfft=None, side="one-sided"
-):
-
+def _signal_psd_from_arma(ar=None, ma=None, rho=1.0, sampling_rate=1000, nfft=None, side="one-sided"):
     if ar is None and ma is None:
         raise ValueError("Either AR or MA model must be provided")
 

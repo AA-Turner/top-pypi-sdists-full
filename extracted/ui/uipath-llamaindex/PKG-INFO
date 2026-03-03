@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-llamaindex
-Version: 0.5.5
+Version: 0.5.6
 Summary: Python SDK that enables developers to build and deploy LlamaIndex agents to the UiPath Cloud Platform
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-integrations-python/
@@ -18,7 +18,7 @@ Requires-Dist: llama-index-workflows<3.0.0,>=2.14.1
 Requires-Dist: llama-index<1.0.0,>=0.14.13
 Requires-Dist: openinference-instrumentation-llama-index>=4.3.9
 Requires-Dist: uipath-runtime<0.10.0,>=0.9.0
-Requires-Dist: uipath<2.9.0,>=2.8.18
+Requires-Dist: uipath<2.11.0,>=2.10.0
 Provides-Extra: bedrock
 Requires-Dist: aiobotocore>=2.5.0; extra == 'bedrock'
 Requires-Dist: boto3>=1.28.0; extra == 'bedrock'
@@ -141,7 +141,7 @@ To properly use the CLI for packaging and publishing, your project should includ
 
 ### Developer Tools
 
-Check out [uipath-dev](https://github.com/uipath/uipath-dev-python) - an interactive terminal application for building, testing, and debugging UiPath Python runtimes, agents, and automation scripts.
+Check out [uipath-dev](https://github.com/uipath/uipath-dev-python) - an interactive application for building, testing, and debugging UiPath Python runtimes, agents, and automation scripts.
 
 ### Setting Up a Development Environment
 

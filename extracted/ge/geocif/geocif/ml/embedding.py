@@ -8,6 +8,7 @@ Refactored version with fixes for:
 - Better type hints and documentation
 """
 
+import warnings
 from collections import Counter
 from typing import Optional
 
@@ -114,7 +115,9 @@ def _compute_correlations_fast(X: pd.DataFrame, y: pd.Series) -> pd.Series:
         return pd.Series(dtype=float)
     
     # Use pandas corrwith for vectorized correlation
-    correlations = numeric_df.corrwith(y).round(3)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        correlations = numeric_df.corrwith(y).round(3)
     
     return correlations.dropna()
 
@@ -220,7 +223,9 @@ def get_all_features_correlation(
 
     for region_id, group in tqdm(df_all.groupby("Region", sort=False), leave=False):
         # Vectorized correlation computation
-        correlations = group[numeric_cols].corrwith(group["__target__"]).round(3).dropna()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            correlations = group[numeric_cols].corrwith(group["__target__"]).round(3).dropna()
         
         if correlations.empty:
             continue
@@ -295,7 +300,9 @@ def compute_feature_importance_by_correlation(
     target = df[target_col]
     features_df = df[feature_cols]
     
-    correlations = features_df.corrwith(target).round(3)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        correlations = features_df.corrwith(target).round(3)
     
     result = pd.DataFrame({
         'Feature': correlations.index,

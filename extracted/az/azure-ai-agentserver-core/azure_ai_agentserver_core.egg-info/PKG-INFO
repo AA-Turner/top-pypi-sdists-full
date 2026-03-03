@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-core
-Version: 1.0.0b14
+Version: 1.0.0b15
 Summary: Agents server adapter for Azure AI
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -25,7 +25,7 @@ Requires-Dist: azure-identity>=1.25.1
 Requires-Dist: openai>=1.80.0
 Requires-Dist: opentelemetry-api>=1.35
 Requires-Dist: opentelemetry-exporter-otlp-proto-http
-Requires-Dist: starlette>=0.45.0
+Requires-Dist: starlette<2.0.0,>=1.0.0rc1
 Requires-Dist: uvicorn>=0.31.0
 Requires-Dist: aiohttp>=3.13.0
 Requires-Dist: cachetools>=6.0.0

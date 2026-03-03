@@ -1612,11 +1612,11 @@ class CfnDeliveryDestination(
         import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
         
         # Create CloudFront distribution
-        # bucket: s3.Bucket
+        # origin: s3.IBucket
         
         distribution = cloudfront.Distribution(scope, "Distribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3BucketOrigin.with_origin_access_control(bucket)
+                origin=origins.S3BucketOrigin.with_origin_access_control(origin)
             )
         )
         
@@ -2001,11 +2001,11 @@ class CfnDeliveryDestinationProps:
             import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
             
             # Create CloudFront distribution
-            # bucket: s3.Bucket
+            # origin: s3.IBucket
             
             distribution = cloudfront.Distribution(scope, "Distribution",
                 default_behavior=cloudfront.BehaviorOptions(
-                    origin=origins.S3BucketOrigin.with_origin_access_control(bucket)
+                    origin=origins.S3BucketOrigin.with_origin_access_control(origin)
                 )
             )
             
@@ -4000,11 +4000,11 @@ class CfnLogGroup(
     Example::
 
         # Works across different resource types
-        bucket = s3.CfnBucket(scope, "Bucket")
-        Mixins.of(bucket).apply(EncryptionAtRest())
+        my_bucket = s3.CfnBucket(scope, "Bucket")
+        Mixins.of(my_bucket).apply(EncryptionAtRest())
         
-        log_group = logs.CfnLogGroup(scope, "LogGroup")
-        Mixins.of(log_group).apply(EncryptionAtRest())
+        my_log_group = logs.CfnLogGroup(scope, "LogGroup")
+        Mixins.of(my_log_group).apply(EncryptionAtRest())
     '''
 
     def __init__(
@@ -17829,33 +17829,21 @@ class RetentionDays(enum.Enum):
 
     Example::
 
-        import aws_cdk.aws_logs as logs
-        
-        
-        api_key_provider = appsync.AppSyncAuthProvider(
-            authorization_type=appsync.AppSyncAuthorizationType.API_KEY
+        pipeline_log_group = logs.LogGroup(self, "PipelineLogGroup",
+            log_group_name="/custom/imagebuilder/pipeline/logs",
+            retention=logs.RetentionDays.ONE_MONTH
         )
         
-        api = appsync.EventApi(self, "api",
-            api_name="Api",
-            owner_contact="OwnerContact",
-            authorization_config=appsync.EventApiAuthConfig(
-                auth_providers=[api_key_provider
-                ],
-                connection_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
-                ],
-                default_publish_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
-                ],
-                default_subscribe_auth_mode_types=[appsync.AppSyncAuthorizationType.API_KEY
-                ]
-            ),
-            log_config=appsync.AppSyncLogConfig(
-                field_log_level=appsync.AppSyncFieldLogLevel.INFO,
-                retention=logs.RetentionDays.ONE_WEEK
-            )
+        image_log_group = logs.LogGroup(self, "ImageLogGroup",
+            log_group_name="/custom/imagebuilder/image/logs",
+            retention=logs.RetentionDays.ONE_WEEK
         )
         
-        api.add_channel_namespace("default")
+        logged_pipeline = imagebuilder.ImagePipeline(self, "LoggedPipeline",
+            recipe=example_image_recipe,
+            image_pipeline_log_group=pipeline_log_group,
+            image_log_group=image_log_group
+        )
     '''
 
     ONE_DAY = "ONE_DAY"

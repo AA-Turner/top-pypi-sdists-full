@@ -364,8 +364,9 @@ archive = Archive(stack, "Archive",
 )
 ```
 
-To enable archives or schema discovery on an event bus, customers has the choice of using either an AWS owned key or a customer managed key.
-For more information, see [KMS key options for event bus encryption](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-at-rest-key-options.html).
+To enable archives on an event bus, customers have the choice of using either an AWS owned key or a customer managed key.
+Note that schema discovery is not supported for event buses encrypted using a customer managed key. To enable schema discovery on an event bus, choose to use an AWS owned key.
+For more information, see [KMS key options for event bus encryption](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-at-rest-key-options.html) and [Encrypting event buses with customer managed keys](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-event-bus-cmkey.html).
 
 ## Configuring logging
 
@@ -5564,8 +5565,8 @@ class CfnRule(
         
         
         # Works with L2 constructs
-        bucket = s3.Bucket(scope, "Bucket")
-        bucket_events = BucketEvents.from_bucket(bucket)
+        my_bucket = s3.Bucket(scope, "Bucket")
+        bucket_events = BucketEvents.from_bucket(my_bucket)
         
         events.Rule(scope, "Rule",
             event_pattern=bucket_events.object_created_pattern(
@@ -8381,8 +8382,8 @@ class CfnRuleProps:
             
             
             # Works with L2 constructs
-            bucket = s3.Bucket(scope, "Bucket")
-            bucket_events = BucketEvents.from_bucket(bucket)
+            my_bucket = s3.Bucket(scope, "Bucket")
+            bucket_events = BucketEvents.from_bucket(my_bucket)
             
             events.Rule(scope, "Rule",
                 event_pattern=bucket_events.object_created_pattern(
@@ -9751,28 +9752,20 @@ class EventPattern:
 
         Example::
 
-            import aws_cdk.aws_lambda as lambda_
-            
-            
-            fn = lambda_.Function(self, "MyFunc",
+            my_function_handler = lambda_.Function(self, "MyFunction",
+                code=lambda_.Code.from_asset("resource/myfunction"),
                 runtime=lambda_.Runtime.NODEJS_LATEST,
-                handler="index.handler",
-                code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+                handler="index.handler"
             )
             
-            rule = events.Rule(self, "rule",
-                event_pattern=events.EventPattern(
-                    source=["aws.ec2"]
-                )
+            event_rule = cloudtrail.Trail.on_event(self, "MyCloudWatchEvent",
+                target=targets.LambdaFunction(my_function_handler)
             )
             
-            queue = sqs.Queue(self, "Queue")
-            
-            rule.add_target(targets.LambdaFunction(fn,
-                dead_letter_queue=queue,  # Optional: add a dead letter queue
-                max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-                retry_attempts=2
-            ))
+            event_rule.add_event_pattern(
+                account=["123456789012"],
+                source=["aws.s3"]
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__264f4a923c365a000e5a04c62f1ad7135199fc91a3db5ae7069fce8dc4b4c944)
@@ -11149,29 +11142,19 @@ class OnEventOptions(EventCommonOptions):
 
         Example::
 
-            # Lambda function containing logic that evaluates compliance with the rule.
-            eval_compliance_fn = lambda_.Function(self, "CustomFunction",
-                code=lambda_.AssetCode.from_inline("exports.handler = (event) => console.log(event);"),
-                handler="index.handler",
-                runtime=lambda_.Runtime.NODEJS_18_X
+            import aws_cdk.aws_lambda as lambda_
+            from aws_cdk.aws_events_targets import LambdaFunction
+            
+            
+            repo = ecr.Repository(self, "Repo")
+            lambda_handler = lambda_.Function(self, "LambdaFunction",
+                runtime=lambda_.Runtime.PYTHON_3_12,
+                code=lambda_.Code.from_inline("# dummy func"),
+                handler="index.handler"
             )
             
-            # A custom rule that runs on configuration changes of EC2 instances
-            custom_rule = config.CustomRule(self, "Custom",
-                configuration_changes=True,
-                lambda_function=eval_compliance_fn,
-                rule_scope=config.RuleScope.from_resource(config.ResourceType.EC2_INSTANCE)
-            )
-            
-            # A rule to detect stack drifts
-            drift_rule = config.CloudFormationStackDriftDetectionCheck(self, "Drift")
-            
-            # Topic to which compliance notification events will be published
-            compliance_topic = sns.Topic(self, "ComplianceTopic")
-            
-            # Send notification on compliance change events
-            drift_rule.on_compliance_change("ComplianceChange",
-                target=targets.SnsTopic(compliance_topic)
+            repo.on_event("OnEventTargetLambda",
+                target=LambdaFunction(lambda_handler)
             )
         '''
         if isinstance(event_pattern, dict):
@@ -11273,27 +11256,21 @@ class Rule(
 
     Example::
 
-        import aws_cdk.aws_lambda as lambda_
+        import aws_cdk.aws_redshiftserverless as redshiftserverless
+        
+        # workgroup: redshiftserverless.CfnWorkgroup
         
         
-        fn = lambda_.Function(self, "MyFunc",
-            runtime=lambda_.Runtime.NODEJS_LATEST,
-            handler="index.handler",
-            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+        rule = events.Rule(self, "Rule",
+            schedule=events.Schedule.rate(cdk.Duration.hours(1))
         )
         
-        rule = events.Rule(self, "rule",
-            event_pattern=events.EventPattern(
-                source=["aws.ec2"]
-            )
-        )
+        dlq = sqs.Queue(self, "DeadLetterQueue")
         
-        queue = sqs.Queue(self, "Queue")
-        
-        rule.add_target(targets.LambdaFunction(fn,
-            dead_letter_queue=queue,  # Optional: add a dead letter queue
-            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-            retry_attempts=2
+        rule.add_target(targets.RedshiftQuery(workgroup.attr_workgroup_workgroup_arn,
+            database="dev",
+            dead_letter_queue=dlq,
+            sql=["SELECT * FROM foo", "SELECT * FROM baz"]
         ))
     '''
 

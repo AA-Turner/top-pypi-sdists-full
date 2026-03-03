@@ -27,6 +27,7 @@ import hashlib
 import json
 import math
 import re
+import sqlite3
 from salmalm.db import get_connection
 import threading
 import time
@@ -173,7 +174,7 @@ class RAGEngine(RAGIndexerMixin):
         """Init  ."""
         self._db_path = db_path or (DATA_DIR / "rag.db")
         self._config_path = config_path
-        self._conn = None
+        self._conn: Optional[sqlite3.Connection] = None
         self._db_lock = threading.Lock()
         self._mtimes: Dict[str, float] = {}
         self._last_check = 0
@@ -195,6 +196,8 @@ class RAGEngine(RAGIndexerMixin):
         if self._conn:
             return
         self._conn = get_connection(self._db_path)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("""CREATE TABLE IF NOT EXISTS chunks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source TEXT NOT NULL,
@@ -281,22 +284,11 @@ class RAGEngine(RAGIndexerMixin):
 
         return unigrams + bigrams + char_trigrams + jamo_tokens
 
-    # BUG-CY: cap file size to prevent OOM during indexing
-    _MAX_INDEX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
-
     def index_file(self, label: str, fpath: Path) -> None:
-        """Index a single file.
-
-        BUG-CY fix: skip files larger than _MAX_INDEX_FILE_BYTES to prevent OOM.
-        """
+        """Index a single file."""
         self._ensure_db()
         try:
             mtime = fpath.stat().st_mtime
-            # Skip oversized files
-            size = fpath.stat().st_size
-            if size > self._MAX_INDEX_FILE_BYTES:
-                log.warning("[RAG] Skipping large file (%s KB > 10 MB cap): %s", size // 1024, label)
-                return
             self._mtimes[label] = mtime
             text = fpath.read_text(encoding="utf-8", errors="replace")
             self._index_text(label, text, mtime)
@@ -347,10 +339,6 @@ class RAGEngine(RAGIndexerMixin):
 
         for label, fpath in files:
             try:
-                # BUG-CY fix: skip oversized files
-                if fpath.stat().st_size > self._MAX_INDEX_FILE_BYTES:
-                    log.warning("[RAG] Skipping large file (%s KB): %s", fpath.stat().st_size // 1024, label)
-                    continue
                 mtime = fpath.stat().st_mtime
                 self._mtimes[label] = mtime
                 text = fpath.read_text(encoding="utf-8", errors="replace")

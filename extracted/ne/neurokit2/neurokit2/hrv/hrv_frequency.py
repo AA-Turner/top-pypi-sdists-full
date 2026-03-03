@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib.pyplot as plt
@@ -26,7 +25,7 @@ def hrv_frequency(
     normalize=True,
     order_criteria=None,
     interpolation_rate=100,
-    **kwargs
+    **kwargs,
 ):
     """**Computes frequency-domain indices of Heart Rate Variability (HRV)**
 
@@ -210,7 +209,7 @@ def hrv_frequency(
         normalize=normalize,
         order_criteria=order_criteria,
         t=t,
-        **kwargs
+        **kwargs,
     )
 
     power.columns = ["ULF", "VLF", "LF", "HF", "VHF"]
@@ -274,9 +273,8 @@ def _hrv_frequency_show(
     normalize=True,
     max_frequency=0.5,
     t=None,
-    **kwargs
+    **kwargs,
 ):
-
     if "ax" in kwargs:
         ax = kwargs.get("ax")
         kwargs.pop("ax")

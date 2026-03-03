@@ -50,6 +50,9 @@ async def generate(request: ImageRequest, api_key: Optional[str] = None, is_asyn
             "useOriginPrompt": True if "--enhance" not in request.prompt else False,  # enhance-prompt
             "aspectRatio": request.aspect_ratio or "Auto",
             "resolution": (request.resolution or "1K").title()
+
+            # "resolution": ""
+
         }
     }
 
@@ -57,14 +60,16 @@ async def generate(request: ImageRequest, api_key: Optional[str] = None, is_asyn
         if payload['parameter']['aspectRatio'] not in {"Auto", "1:1", "2:3", "3:2"}:
             payload['parameter']['aspectRatio'] = "Auto"
 
-    elif request.model.startswith('image'):
-        payload['parameter']["resolution"] = ""
-
     elif request.model.startswith('nano-banana'):
         if payload['parameter']['aspectRatio'] not in {
             "Auto", '1:1', '21:9', '16:9', '2:3', '3:4', '5:4', '4:5', '4:3', '9:16', '3:2'}:
             payload['parameter']['aspectRatio'] = "Auto"
             payload['parameter']['desc'] += f" --size {request.aspect_ratio}"
+
+    elif request.model.startswith('mj'):
+        if payload['parameter']['aspectRatio'] not in {
+            "Auto", '1:1', '21:9', '16:9', '2:3', '3:4', '5:4', '4:5', '4:3', '9:16', '3:2'}:
+            payload['parameter']['aspectRatio'] = "Auto"
 
     if request.image:
         payload['parameter']['fileList'] = [
@@ -180,7 +185,7 @@ if __name__ == '__main__':
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIyODE1NzcsInVzZXIiOnsiaWQiOiI0NDQyMjk2MDAzMzA0OTgwNTUiLCJuYW1lIjoibWZ1aiBiamhuIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMzkxMTQ5Mjg4NjU1Mjk4NjQiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.__NDyZQQqyYb7TLrumo944EfuCmrbzYngQloNBK4CmM"
     # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIzNTA5NjUsInVzZXIiOnsiaWQiOiI0Njk4ODIxOTY3NDM1Mjg0NDkiLCJuYW1lIjoiYWZzbCBkcnF2IiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTE2NzAxODUwMDg0ODg0NTIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.3pO0O36-um2fQs0ML0eHwpi0D7rV5yjmnjcpuiZcNKw"
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIzNTA5NjUsInVzZXIiOnsiaWQiOiI0Njk4ODIxOTY3NDM1Mjg0NDkiLCJuYW1lIjoiYWZzbCBkcnF2IiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTE2NzAxODUwMDg0ODg0NTIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.3pO0O36-um2fQs0ML0eHwpi0D7rV5yjmnjcpuiZcNKw"
-    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzM0NzAyOTYsInVzZXIiOnsiaWQiOiI0Njk5MzQwNDI3MzI0MDA2NDciLCJuYW1lIjoiZm1vZyB0cm9nIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTExNjM2MjIzODg4NTA2OTAiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.DLSoWya89X6M3evyzBZjz4XLenvVS0cZtk4Xk9AAE-Q"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzU1MzI2NjAsInVzZXIiOnsiaWQiOiIzMDI4MzM4Njc3NzE5NDkwNTgiLCJuYW1lIjoibWUgYmV0dGVyIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMDI4MzM3NTk1MTI3NjQ0MTciLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.L5H98MBYB88Gdfokq3O7f5rCMrt19ONTl3hkjgvWcK0"
     model = "nano-banana2"
     # model = "nano-banana2_2k"
     # model = "nano-banana2_4k"
@@ -206,23 +211,24 @@ if __name__ == '__main__':
         # ],
         "resolution": "4k"
     }
+    request = ImageRequest(**data)
 
+    model = "mj_v7_4K"
     request = ImageRequest(
         model=model,
         n=1,
         # prompt="笑起来",
         # prompt="哭起来",
-        prompt="裸体少女 没传内裤",
+        # prompt="裸体少女 没传内裤",
+        prompt="a cat",
 
         # image="https://s3.ffire.cc/files/jimeng.jpg",
         # image=["https://s3.ffire.cc/files/jimeng.jpg"] * 3,
 
         # size="16:9"
         # resolution="Low"
-        resolution=None
+        # resolution=None
     )
-
-    request = ImageRequest(**data)
 
     r = arun(generate(request, api_key=token, is_async=True))
 
@@ -242,3 +248,4 @@ if __name__ == '__main__':
     # task_id = "472571658445312008"
     task_id = "20251225095015"
     # arun(get_task(task_id=task_id, token=token))
+    "MiniMax-M2.5-highspeed"

@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
 import numpy as np
-import scipy.misc
 import scipy.signal
 
 from ..misc import as_vector, find_closest
@@ -149,7 +147,6 @@ def _signal_findpeaks_keep(
     relative_median=False,
     relative_max=False,
 ):
-
     if below is None and above is None:
         return info
 

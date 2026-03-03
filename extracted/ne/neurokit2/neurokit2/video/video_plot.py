@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -66,19 +65,17 @@ def video_plot(video, sampling_rate=30, frames=3, signals=None):
     if nrows == 1:
         ax = [ax]  # Otherwise it will make ax[i] non subscritable
     for i, vid in enumerate(video):
-        vid = _video_plot_format(vid, frames=frames, desired_length=desired_length)
+        vid_plt = _video_plot_format(vid, frames=frames, desired_length=desired_length)
         ax[i].axis("off")
-        ax[i].imshow(vid, aspect="auto")
+        ax[i].imshow(vid_plt, aspect="auto")
 
     if signals is not None:
         for j, signal in enumerate(signals):
-
-            # Make sure the size is correct
-            if len(signal) != length:
-                signal = signal_resample(signal, desired_length=desired_length)
-
-            # Plot
-            ax[i + j + 1].plot(signal)
+            # Make sure the size is correct and plot
+            if len(signal) == length:
+                ax[i + j + 1].plot(signal)
+            else:
+                ax[i + j + 1].plot(signal_resample(signal, desired_length=desired_length))
 
             for frame in frames:
                 ax[i + j + 1].axvline(

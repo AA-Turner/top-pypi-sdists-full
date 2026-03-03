@@ -1967,6 +1967,8 @@ class CfnPolicyStore(
         # The values are placeholders you should change.
         from aws_cdk import aws_verifiedpermissions as verifiedpermissions
         
+        # default_: Any
+        
         cfn_policy_store = verifiedpermissions.CfnPolicyStore(self, "MyCfnPolicyStore",
             validation_settings=verifiedpermissions.CfnPolicyStore.ValidationSettingsProperty(
                 mode="mode"
@@ -1977,6 +1979,17 @@ class CfnPolicyStore(
                 mode="mode"
             ),
             description="description",
+            encryption_settings=verifiedpermissions.CfnPolicyStore.EncryptionSettingsProperty(
+                default=default_,
+                kms_encryption_settings=verifiedpermissions.CfnPolicyStore.KmsEncryptionSettingsProperty(
+                    key="key",
+        
+                    # the properties below are optional
+                    encryption_context={
+                        "encryption_context_key": "encryptionContext"
+                    }
+                )
+            ),
             schema=verifiedpermissions.CfnPolicyStore.SchemaDefinitionProperty(
                 cedar_format="cedarFormat",
                 cedar_json="cedarJson"
@@ -1996,6 +2009,7 @@ class CfnPolicyStore(
         validation_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.ValidationSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         deletion_protection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.DeletionProtectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        encryption_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.EncryptionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.SchemaDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2006,6 +2020,7 @@ class CfnPolicyStore(
         :param validation_settings: Specifies the validation setting for this policy store. Currently, the only valid and required value is ``Mode`` . .. epigraph:: We recommend that you turn on ``STRICT`` mode only after you define a schema. If a schema doesn't exist, then ``STRICT`` mode causes any policy to fail validation, and Verified Permissions rejects the policy. You can turn off validation by using the `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ . Then, when you have a schema defined, use `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ again to turn validation back on.
         :param deletion_protection: Specifies whether the policy store can be deleted. If enabled, the policy store can't be deleted. The default state is ``DISABLED`` .
         :param description: Descriptive text that you can provide to help with identification of the current policy store.
+        :param encryption_settings: 
         :param schema: Creates or updates the policy schema in a policy store. Cedar can use the schema to validate any Cedar policies and policy templates submitted to the policy store. Any changes to the schema validate only policies and templates submitted after the schema change. Existing policies and templates are not re-evaluated against the changed schema. If you later update a policy, then it is evaluated against the new schema at that time.
         :param tags: The list of key-value pairs to associate with the policy store.
         '''
@@ -2017,6 +2032,7 @@ class CfnPolicyStore(
             validation_settings=validation_settings,
             deletion_protection=deletion_protection,
             description=description,
+            encryption_settings=encryption_settings,
             schema=schema,
             tags=tags,
         )
@@ -2131,6 +2147,14 @@ class CfnPolicyStore(
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrEncryptionState")
+    def attr_encryption_state(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: EncryptionState
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrEncryptionState"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrPolicyStoreId")
     def attr_policy_store_id(self) -> builtins.str:
         '''The unique ID of the new or updated policy store.
@@ -2207,6 +2231,23 @@ class CfnPolicyStore(
             type_hints = typing.get_type_hints(_typecheckingstub__fc845780a5a1510b90c3ed3b31f4edddbe3eb47e0d043f7f9f7b3f43b1788034)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionSettings")
+    def encryption_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.EncryptionSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.EncryptionSettingsProperty"]], jsii.get(self, "encryptionSettings"))
+
+    @encryption_settings.setter
+    def encryption_settings(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.EncryptionSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d826e3ad5604637914a01b52d2b06b6b7bb4ce5fc9269c60a14fa92d364f321)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="schema")
@@ -2292,6 +2333,313 @@ class CfnPolicyStore(
 
         def __repr__(self) -> str:
             return "DeletionProtectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyStore.EncryptionSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "default": "default",
+            "kms_encryption_settings": "kmsEncryptionSettings",
+        },
+    )
+    class EncryptionSettingsProperty:
+        def __init__(
+            self,
+            *,
+            default: typing.Any = None,
+            kms_encryption_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.KmsEncryptionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param default: 
+            :param kms_encryption_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-encryptionsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_verifiedpermissions as verifiedpermissions
+                
+                # default_: Any
+                
+                encryption_settings_property = verifiedpermissions.CfnPolicyStore.EncryptionSettingsProperty(
+                    default=default_,
+                    kms_encryption_settings=verifiedpermissions.CfnPolicyStore.KmsEncryptionSettingsProperty(
+                        key="key",
+                
+                        # the properties below are optional
+                        encryption_context={
+                            "encryption_context_key": "encryptionContext"
+                        }
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__178e8e6dc482b32c366caa769e4c37a98b2afb38f71f6174708f37e73e34a46a)
+                check_type(argname="argument default", value=default, expected_type=type_hints["default"])
+                check_type(argname="argument kms_encryption_settings", value=kms_encryption_settings, expected_type=type_hints["kms_encryption_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if default is not None:
+                self._values["default"] = default
+            if kms_encryption_settings is not None:
+                self._values["kms_encryption_settings"] = kms_encryption_settings
+
+        @builtins.property
+        def default(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-encryptionsettings.html#cfn-verifiedpermissions-policystore-encryptionsettings-default
+            '''
+            result = self._values.get("default")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def kms_encryption_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.KmsEncryptionSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-encryptionsettings.html#cfn-verifiedpermissions-policystore-encryptionsettings-kmsencryptionsettings
+            '''
+            result = self._values.get("kms_encryption_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.KmsEncryptionSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyStore.EncryptionStateProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "default": "default",
+            "kms_encryption_state": "kmsEncryptionState",
+        },
+    )
+    class EncryptionStateProperty:
+        def __init__(
+            self,
+            *,
+            default: typing.Any,
+            kms_encryption_state: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.KmsEncryptionStateProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param default: 
+            :param kms_encryption_state: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-encryptionstate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_verifiedpermissions as verifiedpermissions
+                
+                # default_: Any
+                
+                encryption_state_property = verifiedpermissions.CfnPolicyStore.EncryptionStateProperty(
+                    default=default_,
+                    kms_encryption_state=verifiedpermissions.CfnPolicyStore.KmsEncryptionStateProperty(
+                        encryption_context={
+                            "encryption_context_key": "encryptionContext"
+                        },
+                        key="key"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__280302b4907364f2e7a0001df27f52536ef047d00faee9cb4031ea626956ba33)
+                check_type(argname="argument default", value=default, expected_type=type_hints["default"])
+                check_type(argname="argument kms_encryption_state", value=kms_encryption_state, expected_type=type_hints["kms_encryption_state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "default": default,
+                "kms_encryption_state": kms_encryption_state,
+            }
+
+        @builtins.property
+        def default(self) -> typing.Any:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-encryptionstate.html#cfn-verifiedpermissions-policystore-encryptionstate-default
+            '''
+            result = self._values.get("default")
+            assert result is not None, "Required property 'default' is missing"
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def kms_encryption_state(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.KmsEncryptionStateProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-encryptionstate.html#cfn-verifiedpermissions-policystore-encryptionstate-kmsencryptionstate
+            '''
+            result = self._values.get("kms_encryption_state")
+            assert result is not None, "Required property 'kms_encryption_state' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.KmsEncryptionStateProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionStateProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyStore.KmsEncryptionSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "encryption_context": "encryptionContext"},
+    )
+    class KmsEncryptionSettingsProperty:
+        def __init__(
+            self,
+            *,
+            key: builtins.str,
+            encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param key: 
+            :param encryption_context: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_verifiedpermissions as verifiedpermissions
+                
+                kms_encryption_settings_property = verifiedpermissions.CfnPolicyStore.KmsEncryptionSettingsProperty(
+                    key="key",
+                
+                    # the properties below are optional
+                    encryption_context={
+                        "encryption_context_key": "encryptionContext"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d5c11fd42f6583c22c32641a1329cc6e2eaaf8d9702d99dd3fcc9b3a40dc599c)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument encryption_context", value=encryption_context, expected_type=type_hints["encryption_context"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+            }
+            if encryption_context is not None:
+                self._values["encryption_context"] = encryption_context
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionsettings.html#cfn-verifiedpermissions-policystore-kmsencryptionsettings-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def encryption_context(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionsettings.html#cfn-verifiedpermissions-policystore-kmsencryptionsettings-encryptioncontext
+            '''
+            result = self._values.get("encryption_context")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KmsEncryptionSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyStore.KmsEncryptionStateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"encryption_context": "encryptionContext", "key": "key"},
+    )
+    class KmsEncryptionStateProperty:
+        def __init__(
+            self,
+            *,
+            encryption_context: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            key: builtins.str,
+        ) -> None:
+            '''
+            :param encryption_context: 
+            :param key: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionstate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_verifiedpermissions as verifiedpermissions
+                
+                kms_encryption_state_property = verifiedpermissions.CfnPolicyStore.KmsEncryptionStateProperty(
+                    encryption_context={
+                        "encryption_context_key": "encryptionContext"
+                    },
+                    key="key"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4d782802c433a4ade2b2a08513266dd43e6b703217016be692e0d51bbf2caf4a)
+                check_type(argname="argument encryption_context", value=encryption_context, expected_type=type_hints["encryption_context"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_context": encryption_context,
+                "key": key,
+            }
+
+        @builtins.property
+        def encryption_context(
+            self,
+        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionstate.html#cfn-verifiedpermissions-policystore-kmsencryptionstate-encryptioncontext
+            '''
+            result = self._values.get("encryption_context")
+            assert result is not None, "Required property 'encryption_context' is missing"
+            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-kmsencryptionstate.html#cfn-verifiedpermissions-policystore-kmsencryptionstate-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KmsEncryptionStateProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2439,6 +2787,7 @@ class CfnPolicyStore(
         "validation_settings": "validationSettings",
         "deletion_protection": "deletionProtection",
         "description": "description",
+        "encryption_settings": "encryptionSettings",
         "schema": "schema",
         "tags": "tags",
     },
@@ -2450,6 +2799,7 @@ class CfnPolicyStoreProps:
         validation_settings: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.ValidationSettingsProperty", typing.Dict[builtins.str, typing.Any]]],
         deletion_protection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.DeletionProtectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        encryption_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.EncryptionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicyStore.SchemaDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2458,6 +2808,7 @@ class CfnPolicyStoreProps:
         :param validation_settings: Specifies the validation setting for this policy store. Currently, the only valid and required value is ``Mode`` . .. epigraph:: We recommend that you turn on ``STRICT`` mode only after you define a schema. If a schema doesn't exist, then ``STRICT`` mode causes any policy to fail validation, and Verified Permissions rejects the policy. You can turn off validation by using the `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ . Then, when you have a schema defined, use `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ again to turn validation back on.
         :param deletion_protection: Specifies whether the policy store can be deleted. If enabled, the policy store can't be deleted. The default state is ``DISABLED`` .
         :param description: Descriptive text that you can provide to help with identification of the current policy store.
+        :param encryption_settings: 
         :param schema: Creates or updates the policy schema in a policy store. Cedar can use the schema to validate any Cedar policies and policy templates submitted to the policy store. Any changes to the schema validate only policies and templates submitted after the schema change. Existing policies and templates are not re-evaluated against the changed schema. If you later update a policy, then it is evaluated against the new schema at that time.
         :param tags: The list of key-value pairs to associate with the policy store.
 
@@ -2471,6 +2822,8 @@ class CfnPolicyStoreProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_verifiedpermissions as verifiedpermissions
             
+            # default_: Any
+            
             cfn_policy_store_props = verifiedpermissions.CfnPolicyStoreProps(
                 validation_settings=verifiedpermissions.CfnPolicyStore.ValidationSettingsProperty(
                     mode="mode"
@@ -2481,6 +2834,17 @@ class CfnPolicyStoreProps:
                     mode="mode"
                 ),
                 description="description",
+                encryption_settings=verifiedpermissions.CfnPolicyStore.EncryptionSettingsProperty(
+                    default=default_,
+                    kms_encryption_settings=verifiedpermissions.CfnPolicyStore.KmsEncryptionSettingsProperty(
+                        key="key",
+            
+                        # the properties below are optional
+                        encryption_context={
+                            "encryption_context_key": "encryptionContext"
+                        }
+                    )
+                ),
                 schema=verifiedpermissions.CfnPolicyStore.SchemaDefinitionProperty(
                     cedar_format="cedarFormat",
                     cedar_json="cedarJson"
@@ -2496,6 +2860,7 @@ class CfnPolicyStoreProps:
             check_type(argname="argument validation_settings", value=validation_settings, expected_type=type_hints["validation_settings"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument encryption_settings", value=encryption_settings, expected_type=type_hints["encryption_settings"])
             check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2505,6 +2870,8 @@ class CfnPolicyStoreProps:
             self._values["deletion_protection"] = deletion_protection
         if description is not None:
             self._values["description"] = description
+        if encryption_settings is not None:
+            self._values["encryption_settings"] = encryption_settings
         if schema is not None:
             self._values["schema"] = schema
         if tags is not None:
@@ -2548,6 +2915,16 @@ class CfnPolicyStoreProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.EncryptionSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policystore.html#cfn-verifiedpermissions-policystore-encryptionsettings
+        '''
+        result = self._values.get("encryption_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPolicyStore.EncryptionSettingsProperty"]], result)
 
     @builtins.property
     def schema(
@@ -3069,6 +3446,7 @@ def _typecheckingstub__8cc0f2986096a74fa71e43f21c340737b2abb3e3f40afbfe29ca3f0bd
     validation_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.ValidationSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     deletion_protection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.DeletionProtectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    encryption_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.EncryptionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.SchemaDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -3133,6 +3511,12 @@ def _typecheckingstub__fc845780a5a1510b90c3ed3b31f4edddbe3eb47e0d043f7f9f7b3f43b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2d826e3ad5604637914a01b52d2b06b6b7bb4ce5fc9269c60a14fa92d364f321(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyStore.EncryptionSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__59218b40bcf4539ad10409fa2f065ad910ceb568598b66b8276c1d8844d45901(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyStore.SchemaDefinitionProperty]],
 ) -> None:
@@ -3148,6 +3532,38 @@ def _typecheckingstub__a4e637b2595daab8d8dca7da125f3bf21d442c1f8fb59f4caefd71bce
 def _typecheckingstub__c70b9477a0dc9dad5a293d5f268b74672d7816a3722f79105d3236fca32076a9(
     *,
     mode: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__178e8e6dc482b32c366caa769e4c37a98b2afb38f71f6174708f37e73e34a46a(
+    *,
+    default: typing.Any = None,
+    kms_encryption_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.KmsEncryptionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__280302b4907364f2e7a0001df27f52536ef047d00faee9cb4031ea626956ba33(
+    *,
+    default: typing.Any,
+    kms_encryption_state: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.KmsEncryptionStateProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5c11fd42f6583c22c32641a1329cc6e2eaaf8d9702d99dd3fcc9b3a40dc599c(
+    *,
+    key: builtins.str,
+    encryption_context: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d782802c433a4ade2b2a08513266dd43e6b703217016be692e0d51bbf2caf4a(
+    *,
+    encryption_context: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    key: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3172,6 +3588,7 @@ def _typecheckingstub__0f8a612a98cf26f16f9e9de3e5b0a5faaf9ae49bfb39376380ab1ee24
     validation_settings: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.ValidationSettingsProperty, typing.Dict[builtins.str, typing.Any]]],
     deletion_protection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.DeletionProtectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    encryption_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.EncryptionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicyStore.SchemaDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

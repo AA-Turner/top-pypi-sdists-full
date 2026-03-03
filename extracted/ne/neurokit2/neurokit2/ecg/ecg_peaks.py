@@ -268,9 +268,7 @@ def ecg_peaks(ecg_cleaned, sampling_rate=1000, method="neurokit", correct_artifa
     if correct_artifacts:
         info["ECG_R_Peaks_Uncorrected"] = info["ECG_R_Peaks"].copy()
 
-        fixpeaks, info["ECG_R_Peaks"] = signal_fixpeaks(
-            info["ECG_R_Peaks"], sampling_rate=sampling_rate, method="Kubios"
-        )
+        fixpeaks, info["ECG_R_Peaks"] = signal_fixpeaks(info["ECG_R_Peaks"], sampling_rate=sampling_rate, method="Kubios")
 
         # Add prefix and merge
         fixpeaks = {"ECG_fixpeaks_" + str(key): val for key, val in fixpeaks.items()}

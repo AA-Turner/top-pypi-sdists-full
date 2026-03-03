@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import pandas as pd
 
@@ -94,9 +92,7 @@ def eda_peaks(eda_phasic, sampling_rate=1000, method="neurokit", amplitude_min=0
             eda_phasic = eda_phasic.values
 
     # Get basic
-    info = eda_findpeaks(
-        eda_phasic, sampling_rate=sampling_rate, method=method, amplitude_min=amplitude_min
-    )
+    info = eda_findpeaks(eda_phasic, sampling_rate=sampling_rate, method=method, amplitude_min=amplitude_min)
     info = eda_fixpeaks(info)
 
     # Get additional features (rise time, half recovery time, etc.)
@@ -123,9 +119,7 @@ def _eda_peaks_getfeatures(info, eda_phasic, sampling_rate=1000, recovery_percen
     # Sanity checks -----------------------------------------------------------
 
     # Peaks (remove peaks before first onset)
-    valid_peaks = np.logical_and(
-        info["SCR_Peaks"] > np.nanmin(info["SCR_Onsets"]), ~np.isnan(info["SCR_Onsets"])
-    )  # pylint: disable=E1111
+    valid_peaks = np.logical_and(info["SCR_Peaks"] > np.nanmin(info["SCR_Onsets"]), ~np.isnan(info["SCR_Onsets"]))  # pylint: disable=E1111
     peaks = info["SCR_Peaks"][valid_peaks]
 
     # Onsets (remove onsets with after last peak)
@@ -171,9 +165,7 @@ def _eda_peaks_getfeatures(info, eda_phasic, sampling_rate=1000, recovery_percen
         segment = segment[0 : np.argmin(segment)]
 
         # Find recovery time
-        recovery_value = find_closest(
-            recovery_values[i], segment, direction="smaller", strictly=False
-        )
+        recovery_value = find_closest(recovery_values[i], segment, direction="smaller", strictly=False)
 
         # Detect recovery points only if there are datapoints below recovery value
         if np.min(segment) < recovery_value:

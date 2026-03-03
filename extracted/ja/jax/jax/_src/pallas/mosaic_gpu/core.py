@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import abc
 import collections
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 import dataclasses
@@ -37,9 +36,9 @@ from jax._src import pretty_printer as pp
 from jax._src import state
 from jax._src import tree_util
 from jax._src import util
-from jax._src.lib.mlir.dialects import arith as arith_dialect
 from jax._src.pallas import core as pallas_core
 from jax._src.pallas import primitives as pallas_primitives
+from jax._src.pallas import utils as pallas_utils
 from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.state import types as state_types
@@ -53,6 +52,7 @@ from jaxlib.mlir import ir
 _Ref = state.AbstractRef | state_types.TransformedRef
 
 DimensionSemantics = Literal["parallel", "sequential"]
+TransposeTransform = state_types.TransposeTransform
 
 # We align all our SMEM allocations to 1024 bytes. TMA and WGMMA are very
 # sensitive to alignment and while this is quite conservative, it gets the job
@@ -76,7 +76,7 @@ def is_trivial_index(idx, shape) -> bool:
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
-class CompilerParams(pallas_core.CompilerParams):
+class CompilerParams:
   """Mosaic GPU compiler parameters.
 
   Attributes:
@@ -102,16 +102,21 @@ class CompilerParams(pallas_core.CompilerParams):
       thread ever calls commit_smem(), reads from the committed SMEM and then
       issues an async copy overwriting that region (this is a very artificial
       and highly unlikely scenario).
+    reduction_scratch_bytes: The number of shared memory bytes to reserve as
+      scratch space for cross-warp reductions. The higher this value, the more
+      registers can be reduced in parallel. 2 * 128 * 6 * 4 = 6144 bytes is
+      typically a good value in order to extract most of the potential gains on
+      H100 and B200.
     profile_space: The number of profiler events that can be collected in a
       single invocation. It is undefined behavior if a thread collects more
       events than this.
     profile_dir: The directory to which profiling traces will be written to.
   """
-  BACKEND: ClassVar[pallas_core.Backend] = "mosaic_gpu"
   approx_math: bool = False
   dimension_semantics: Sequence[DimensionSemantics] | None = None
   max_concurrent_steps: int = 1
   unsafe_no_auto_barriers: bool = False
+  reduction_scratch_bytes: int = 128 * 4 * 4
   profile_space: int = 0
   profile_dir: str = ""
   lowering_semantics: mgpu.core.LoweringSemantics = mgpu.core.LoweringSemantics.Lane
@@ -145,7 +150,7 @@ class MemorySpace(enum.Enum):
       shape: Sequence[int],
       dtype: jnp.dtype,
       *,
-      transforms: Sequence[MemoryRefTransform] = (),
+      transforms: Sequence[state_types.Transform] = (),
       packed: bool | None = None,
       collective: bool | None = None,
       layout: TMEMLayout | None = None,
@@ -232,7 +237,7 @@ def kernel(
     num_threads: int | None = None,
     thread_name: str | None = None,
     interpret: Any = None,
-    **mesh_kwargs: object,
+    **mesh_kwargs: Any,
 ):
   """Entry point for defining a Mosaic GPU kernel.
 
@@ -287,14 +292,13 @@ def kernel(
             collective_axes=_thread_name,
             **(scratch_shapes if isinstance(scratch_shapes, Mapping) else {}),
         )
-      if mesh.kernel_name is not None:
-        cmap_body.__name__ = mesh.kernel_name
-      else:
-        # The body function name is used to set the name of the kernel as a
-        # fallback if the kernel name is not set explicitly.
-        cmap_body.__name__ = getattr(body, "__name__", "anonymous")
+      name = (
+          getattr(body, "__name__", "anonymous")
+          if mesh.kernel_name is None
+          else mesh.kernel_name
+      )
       pallas_core.core_map(
-          mesh, compiler_params=compiler_params, interpret=interpret
+          mesh, compiler_params=compiler_params, interpret=interpret, name=name
       )(cmap_body)
     _, outs = state_discharge.run_state(stateful)((
         operands,
@@ -306,14 +310,14 @@ def kernel(
   def _vmap_rule(axis_size, in_batched, *args):
     axis_name = object()
 
-    def batched_body(*refs):
+    def batched_body(*refs, **scratch_ref_kwargs):
       idx = lax.axis_index(axis_name)
       lens = (len(args), len(out_shape))
       operand_refs, out_refs, scratch_refs = util.split_list(refs, lens)
       slice_ref = lambda r, b=True: (r.at[idx] if b else r)
       operand_refs = tree_util.tree_map(slice_ref, operand_refs, in_batched)
       out_refs = tree_util.tree_map(slice_ref, out_refs)
-      return body(*operand_refs, *out_refs, *scratch_refs)
+      return body(*operand_refs, *out_refs, *scratch_refs, **scratch_ref_kwargs)
 
     out_shape_ = out_shape[0] if unwrap_out else out_shape
     add_batch_dim = lambda x: x.update(shape=(axis_size, *x.shape))
@@ -324,7 +328,7 @@ def kernel(
         scratch_shapes=scratch_shapes,
         compiler_params=compiler_params,
         grid=(axis_size,) + grid,
-        grid_names=(axis_name,) + grid_names,
+        grid_names=(axis_name,) + grid_names,  # pyrefly: ignore[bad-argument-type]
         cluster=cluster,
         cluster_names=cluster_names,
         num_threads=num_threads,
@@ -340,7 +344,7 @@ def kernel(
 
 @dataclasses.dataclass(frozen=True)
 class GPUMemoryRef(pallas_core.MemoryRef):
-  transforms: Sequence[MemoryRefTransform] = ()
+  transforms: Sequence[state_types.Transform] = ()
 
   layout: tcgen05.TMEMLayout | None = dataclasses.field(default=None, kw_only=True)
   collective: bool | None = dataclasses.field(default=None, kw_only=True)
@@ -353,17 +357,17 @@ class GPUMemoryRef(pallas_core.MemoryRef):
 
   def get_ref_aval(self) -> _Ref:
     aval: Any = jax_core.ShapedArray(self.shape, self.dtype)
-    for t in self.transforms:
-      aval = t(aval)
+    aval = state_types.transform_type(self.transforms, aval)
     if self.memory_space == MemorySpace.TMEM:
       aval = AbstractTMEMRef(
           aval, self.memory_space, self.layout, self.collective
       )
     else:
       aval = state.AbstractRef(aval, memory_space=self.memory_space)
-    ref = pallas_core.TransformedRef(aval, ())
-    for t in reversed(self.transforms):
-      ref = t.undo(ref)
+    transforms: list[state_types.Transform] = pallas_core.undo_transforms(
+        aval, self.transforms
+    )
+    ref = state_types.TransformedRef(aval, tuple(transforms))
     if not ref.transforms:
       return ref.ref
     return ref
@@ -505,11 +509,11 @@ class AbstractRefUnion(state.AbstractRef):
   def _iter(self, tracer):
     return iter(flatten_ref_union(tracer))
 
-  def _getitem(self, tracer, index):
-    return list(iter(tracer))[index]
+  def _getitem(self, tracer, idx):
+    return list(iter(tracer))[idx]
 
-  def _setitem(self, tracer, index, value):
-    del tracer, index, value  # Unused.
+  def _setitem(self, tracer, idx, value):
+    del tracer, idx, value  # Unused.
     raise ValueError("Ref unions can't be assigned to.")
 
   def update(self, inner_aval=None, memory_space=None, kind=None):
@@ -588,32 +592,11 @@ class RefUnion(GPUMemoryRef):
                             memory_space=self.memory_space)
 
 
-class MemoryRefTransform(pallas_core.MemoryRefTransform, abc.ABC):
-  @abc.abstractmethod
-  def to_gpu_transform(self) -> mgpu.MemRefTransform:
-    pass
-
-  @abc.abstractmethod
-  def to_gpu_transform_attr(self) -> ir.Attribute:
-    pass
-
-  def batch(self, leading_rank: int):
-    """Returns a transform that accepts a ref with the extra `leading_rank` dims.
-
-    The returned transform should leave the leading dimensions unchanged and
-    only apply to the suffix of the shape.
-    """
-    raise NotImplementedError
-
-  def __call__(self, aval: jax_core.ShapedArray) -> jax_core.ShapedArray:
-    return aval.update(
-        shape=self.to_gpu_transform().transform_shape(aval.shape)
-    )
-
 Index = Union[mgpu.DynamicSlice, slice, int, ir.Value]
 
+
 @dataclasses.dataclass(frozen=True)
-class TilingTransform(MemoryRefTransform):
+class TilingTransform(state_types.Transform):
   """Represents a tiling transformation for memory refs.
 
   A tiling of (X, Y) on an array of shape (M, N) will result in a transformed
@@ -622,44 +605,61 @@ class TilingTransform(MemoryRefTransform):
   """
   tiling: tuple[int, ...]
 
-  def undo(self, ref: pallas_core.TransformedRef) -> pallas_core.TransformedRef:
-    return dataclasses.replace(
-        ref, transforms=(*ref.transforms, UntileRef(self.tiling))
-    )
+  def transform_type(self, x):
+    match x:
+      case jax_core.ShapedArray():
+        shape = x.shape
+        if shape is None:
+          return x
+        leading_dims = shape[: -len(self.tiling) :]
+        tiled_dims = shape[-len(self.tiling) :]
+        assert all(d % t == 0 for d, t in zip(tiled_dims, self.tiling))
+        num_tiles = [d // t for d, t in zip(tiled_dims, self.tiling)]
+        new_shape = (*leading_dims, *num_tiles, *self.tiling)
+        return x.update(shape=new_shape)
+      case state_types.AbstractRef():
+        return x.update(inner_aval=self.transform_type(x.inner_aval))
+      case _:
+        raise TypeError(f"Cannot transform type: {x}")
 
-  def batch(self, leading_rank: int):
-    return self
-
-  def to_gpu_transform(self) -> mgpu.MemRefTransform:
-    return mgpu.TileTransform(self.tiling)
-
-  def to_gpu_transform_attr(self) -> ir.Attribute:
-    return mgpu.dialect.TileTransformAttr.get(self.tiling)
-
+  def undo(self, x: jax_core.AbstractValue) -> state_types.Transform:
+    return UntilingTransform(self.tiling)
 
 @tree_util.register_dataclass
 @dataclasses.dataclass(frozen=True)
-class UntileRef(state_types.Transform):
+class UntilingTransform(state_types.Transform):
   tiling: tuple[int, ...] = dataclasses.field(metadata=dict(static=True))
 
-  def transform_shape(self, shape):
-    if shape is None:
-      return None
-    assert shape[-len(self.tiling) :] == self.tiling
-    shape = shape[: -len(self.tiling)]  # Drop tiling
-    return shape[: -len(self.tiling)] + tuple(
-        block_dim * tiling_dim
-        for block_dim, tiling_dim in zip(shape[-len(self.tiling) :], self.tiling)
-    )
+  def transform_type(self, x):
+    match x:
+      case jax_core.ShapedArray():
+        shape = x.shape
+        if shape is None:
+          return x
+        assert shape[-len(self.tiling) :] == self.tiling, (shape, self.tiling)
+        shape = shape[: -len(self.tiling)]  # Drop tiling
+        new_shape = shape[: -len(self.tiling)] + tuple(
+            block_dim * tiling_dim
+            for block_dim, tiling_dim in zip(
+                shape[-len(self.tiling) :], self.tiling
+            )
+        )
+        return x.update(shape=new_shape)
+      case state_types.AbstractRef():
+        return x.update(inner_aval=self.transform_type(x.inner_aval))
+      case _:
+        raise TypeError(f"Cannot transform type: {x}")
 
-  def transform_dtype(self, dtype):
-    return dtype
+  def undo(self, x: jax_core.AbstractValue) -> state_types.Transform:
+    return TilingTransform(self.tiling)
 
-  def untransform_transpose(
-      self, perm: tuple[int, ...]
-  ) -> tuple[tuple[int, ...], state_types.Transform]:
-    # The transpose in question is applied to the utiled ref so we
+  def commute_transpose(
+      self, _: jax_core.AbstractValue,
+      transpose: state_types.TransposeTransform,
+  ) -> tuple[state_types.TransposeTransform, UntilingTransform]:
+    # The transpose in question is applied to the untiled ref so we
     # need to translate it by duplicating and offsetting the last part.
+    perm = transpose.permutation
     off = len(perm)
     new_suffix = [i + off for i in perm[-len(self.tiling) :]]
     if set(new_suffix) != set(range(off, off + len(self.tiling))):
@@ -670,188 +670,163 @@ class UntileRef(state_types.Transform):
       )
 
     new_tiling = tuple(self.tiling[i - off] for i in new_suffix)
-    return (*perm, *new_suffix), dataclasses.replace(self, tiling=new_tiling)
+    new_transpose = state_types.TransposeTransform((*perm, *new_suffix))
+    return new_transpose, dataclasses.replace(self, tiling=new_tiling)
 
-  def untransform_reshape(
-      self, dtype: jnp.dtype, shape: tuple[int, ...]
-  ) -> tuple[tuple[int, ...], state_types.Transform]:
-    del dtype
-    # TODO(slebedev): Support this.
-    raise NotImplementedError("Reshapes don't commute with tiling.")
-
-  def untransform_index(
-      self, dtype: jnp.dtype | ir.Type, idxs: tuple[Index, ...]
-  ) -> tuple[tuple[Index, ...], state_types.Transform]:
-    del dtype
+  def commute_ndindexer(
+      self, aval: jax_core.AbstractValue, indexer: indexing.NDIndexer
+  ) -> tuple[indexing.NDIndexer, UntilingTransform]:
+    del aval
+    idxs = indexer.indices
+    indexer_shape = indexer.shape
     untiled_idxs = idxs[: -len(self.tiling)]
     tiled_idxs = idxs[-len(self.tiling) :]
-    idxs_after_tiling: list[Index] = []
-    for idx, tile in zip(tiled_idxs, self.tiling):
-      if isinstance(idx, slice):
-        if idx.step is not None and idx.step != 1:
-          raise NotImplementedError(
-              f"Strided slices unsupported. Got stride: {idx.step}"
-          )
-        if (idx.start is not None and idx.start % tile) or (
-            idx.stop is not None and idx.stop % tile
-        ):
-          raise ValueError(
-              f"Expected slice start ({idx.start}) and slice stop ({idx.stop})"
-              f" to be divisible by the tile size ({tile})"
-          )
-        idxs_after_tiling.append(slice(idx.start // tile, idx.stop // tile))
-      elif isinstance(idx, mgpu.DynamicSlice):
-        if idx.length % tile:
-          raise ValueError(
-              f"Dynamic slice length ({idx.length}) is not divisible by the"
-              f" tiling ({tile})"
-          )
-        if isinstance(idx.base, ir.Value):
-          if not mgpu_utils.is_known_divisible(idx.base, tile):
-            raise ValueError(
-                "Dynamic slice base index (which is a dynamic value) cannot be"
-                f" statically proven to be divisible by the tiling ({tile})"
+    idxs_after_tiling: list[indexing.Slice] = []
+    leading_shape, untiled_shape = (
+        indexer_shape[: -len(self.tiling)],
+        indexer_shape[-len(self.tiling) :],
+    )
+    for idx, tile, dim in zip(tiled_idxs, self.tiling, untiled_shape):
+      match idx:
+        case slice() | indexing.Slice():
+          if isinstance(idx, slice):
+            ds = indexing.Slice.from_slice(idx, dim)
+          else:
+            ds = idx
+          if ds.stride is not None and ds.stride != 1:
+            raise NotImplementedError(
+                f"Strided slices unsupported. Got stride: {ds.stride}"
             )
-          new_base = arith_dialect.divui(idx.base, mgpu.c(tile, idx.base.type))
-        else:
-          if idx.base % tile:
+          start, size = ds.start, ds.size
+          if (
+              start is not None and isinstance(start, int) and start % tile
+          ) or (size is not None and isinstance(size, int) and size % tile):
             raise ValueError(
-                f"Dynamic slice base ({idx.base}) is not divisible by the"
-                f" tiling ({tile})"
+                f"Expected slice start ({start}) and slice size ({size})"
+                f" to be divisible by the tile size ({tile})"
             )
-          new_base = idx.base // tile
-        idxs_after_tiling.append(mgpu.DynamicSlice(new_base, idx.length // tile))
-      else:
-        raise TypeError(f"Unsupported index type: {type(idx)}")
-    return (*untiled_idxs, *idxs_after_tiling, *(slice(None) for _ in self.tiling)), self
-
-  def undo_to_gpu_transform(self) -> mgpu.MemRefTransform:
-    return mgpu.TileTransform(self.tiling)
+          def _maybe_cdiv_with_cast(x, y):
+            if x is None:
+              return None
+            if isinstance(x, jax.Array):
+              # If x is an int32, we need to make sure y is an int32 to avoid
+              # a dtype mismatch.
+              y = jnp.array(y, x.dtype)
+            return pallas_utils.cdiv(x, y)
+          new_start = _maybe_cdiv_with_cast(start, tile)
+          new_size = _maybe_cdiv_with_cast(size, tile)
+          idxs_after_tiling.append(indexing.Slice(new_start, new_size))
+        case _:
+          raise TypeError(f"Unsupported index type: {type(idx)}")
+    assert all(a % b == 0 for a, b in zip(untiled_shape, self.tiling))
+    tiled_shape = [
+        *(a // b for a, b in zip(untiled_shape, self.tiling)),
+        *self.tiling,
+    ]
+    new_indexer = indexing.NDIndexer.from_indices_shape(
+        indices=(*untiled_idxs, *idxs_after_tiling),
+        shape=(*leading_shape, *tiled_shape)
+    )
+    return new_indexer, self
 
   def pretty_print(self, context: jax_core.JaxprPpContext) -> pp.Doc:
     return pp.text(f"{{untile({list(self.tiling)})}}")
 
 
-def _perm_inverse(permutation: tuple[int, ...]) -> tuple[int, ...]:
-  inverse = [-1] * len(permutation)
-  for i, p in enumerate(permutation):
-    inverse[p] = i
-  return tuple(inverse)
+def batch_transform(
+    transform: state_types.Transform, leading_rank: int
+) -> state_types.Transform:
+  match transform:
+    case TransposeTransform() as t:
+      return TransposeTransform(
+          (*range(leading_rank), *(d + leading_rank for d in t.permutation))
+      )
+    case TilingTransform() | SwizzleTransform() as t:
+      return t
+    case _:
+      raise NotImplementedError(f"Unsupported transform: {type(transform)}")
 
 
-@dataclasses.dataclass(frozen=True)
-class TransposeTransform(MemoryRefTransform):
-  """Transpose a tiled memref."""
-  permutation: tuple[int, ...]
+def to_gpu_transform(
+    transform: state_types.Transform,
+) -> mgpu.MemRefTransform:
+  match transform:
+    case TransposeTransform(permutation):
+      return mgpu.TransposeTransform(permutation)
+    case TilingTransform(tiling):
+      return mgpu.TileTransform(tiling)
+    case SwizzleTransform(swizzle):
+      return mgpu.SwizzleTransform(swizzle)
+    case _:
+      raise TypeError(f"Unsupported transform: {type(transform)}")
 
-  def __post_init__(self):
-    if set(self.permutation) != set(range(len(self.permutation))):
-      raise ValueError(f"Permutation {self.permutation} is not a permutation.")
 
-  def batch(self, leading_rank: int):
-    return TransposeTransform(
-        (*range(leading_rank), *(d + leading_rank for d in self.permutation))
-    )
-
-  def undo(self, ref: pallas_core.TransformedRef) -> pallas_core.TransformedRef:
-    return dataclasses.replace(
-        ref,
-        transforms=(
-            *ref.transforms,
-            TransposeRef(_perm_inverse(self.permutation)),
-        ),
-    )
-
-  def to_gpu_transform(self) -> mgpu.MemRefTransform:
-    return mgpu.TransposeTransform(self.permutation)
-
-  def to_gpu_transform_attr(self) -> ir.Attribute:
-    return mgpu.dialect.TransposeTransformAttr.get(self.permutation)
+# TODO(sharadmv): upstream into pallas core
+def commute_transpose_indexer(
+    _: jax_core.AbstractValue,
+    transpose: state_types.TransposeTransform,
+    indexer: indexing.NDIndexer,
+) -> tuple[indexing.NDIndexer, state_types.TransposeTransform]:
+  idxs = indexer.indices
+  removed_dims = [
+      i
+      for i, idx in enumerate(idxs)
+      if not isinstance(idx, (slice, indexing.Slice))
+  ]
+  new_perm = tuple(
+      p - sum(d < p for d in removed_dims)
+      for p in transpose.permutation
+      if p not in removed_dims
+  )
+  new_shape = tuple(
+      indexer.shape[i] for i in state_types._perm_inverse(transpose.permutation)
+  )
+  new_idxs = tuple(
+      idxs[i] for i in state_types._perm_inverse(transpose.permutation)
+  )
+  new_indexer = indexing.NDIndexer.from_indices_shape(
+      indices=new_idxs, shape=new_shape
+  )
+  return new_indexer, state_types.TransposeTransform(new_perm)
 
 
 @tree_util.register_dataclass
-@dataclasses.dataclass(frozen=True)
-class TransposeRef(state_types.RefTransposer):
-
-  def untransform_transpose(
-      self, perm
-  ) -> tuple[tuple[int, ...], state_types.Transform]:
-    raise NotImplementedError(
-        "Commuting of transpose over transpose is not supported."
-    )
-
-  def untransform_reshape(
-      self, dtype: jnp.dtype | ir.Type, shape: tuple[int, ...]
-  ) -> tuple[tuple[int, ...], state_types.Transform]:
-    del shape, dtype
-    raise NotImplementedError("Can't reshape a transposed memref.")
-
-  def untransform_index(
-      self, dtype: jnp.dtype | ir.Type, idxs: tuple[Index, ...]
-  ) -> tuple[tuple[Index, ...], state_types.Transform]:
-    del dtype
-    removed_dims = [
-        i for i, idx in enumerate(idxs) if not isinstance(idx, (slice, mgpu.ds))
-    ]
-    new_perm = tuple(
-        p - sum(d < p for d in removed_dims)
-        for p in self.permutation
-        if p not in removed_dims
-    )
-    new_idxs = tuple(idxs[i] for i in _perm_inverse(self.permutation))
-    return new_idxs, TransposeRef(new_perm)
-
-  def undo_to_gpu_transform(self) -> mgpu.MemRefTransform:
-    return mgpu.TransposeTransform(_perm_inverse(self.permutation))
-
-
-@tree_util.register_pytree_node_class
 @dataclasses.dataclass
 class PeerMemRef(state_types.Transform):
   device_id: Any
-  device_id_type: pallas_primitives.DeviceIdType
+  device_id_type: pallas_primitives.DeviceIdType = dataclasses.field(
+      metadata=dict(static=True)
+  )
 
-  def transform_shape(self, shape):
-    return shape
+  def undo(self, x: jax_core.AbstractValue) -> state_types.Transform:
+    raise NotImplementedError()
 
-  def transform_dtype(self, dtype):
-    return dtype
+  def transform_type(self, x):
+    return x
 
-  def untransform_index(
-      self, idxs: tuple[Index, ...]
-  ) -> tuple[tuple[Index, ...], state_types.Transform]:
-    return idxs, self
-
-  def tree_flatten(self):
-    return (self.device_id,), (self.device_id_type,)
-
-  @classmethod
-  def tree_unflatten(cls, metadata, arrays):
-    return cls(arrays[0], metadata[0])
+  def commute_ndindexer(
+      self, _: jax_core.AbstractValue, indexer: indexing.NDIndexer
+  ) -> tuple[indexing.NDIndexer, PeerMemRef]:
+    return indexer, self
 
 
-@tree_util.register_pytree_node_class
+@tree_util.register_dataclass
 @dataclasses.dataclass
 class MulticastRef(state_types.Transform):
-  collective_axes: tuple[Hashable, ...]
+  collective_axes: tuple[Hashable, ...] = dataclasses.field(
+      metadata=dict(static=True)
+  )
 
-  def transform_shape(self, shape):
-    return shape
+  def transform_type(self, x):
+    return x
 
-  def transform_dtype(self, dtype):
-    return dtype
+  def undo(self, x: jax_core.AbstractValue) -> state_types.Transform:
+    raise NotImplementedError()
 
-  def untransform_index(
-      self, idxs: tuple[Index, ...]
-  ) -> tuple[tuple[Index, ...], state_types.Transform]:
-    return idxs, self
-
-  def tree_flatten(self):
-    return (), self.collective_axes
-
-  @classmethod
-  def tree_unflatten(cls, metadata, arrays):
-    return cls(metadata[0])
+  def commute_ndindexer(
+      self, _: jax_core.AbstractValue, indexer: indexing.NDIndexer
+  ) -> tuple[indexing.NDIndexer, MulticastRef]:
+    return indexer, self
 
 
 def remote_ref(
@@ -916,21 +891,23 @@ def transpose_ref(
   return ref.transpose(permutation)
 
 def untile_ref(ref, tiling: tuple[int, ...]) -> pallas_core.TransformedRef:
-  return transform_ref(ref, UntileRef(tiling))
+  return transform_ref(ref, UntilingTransform(tiling))
 
 def unswizzle_ref(ref, swizzle: int) -> pallas_core.TransformedRef:
   return transform_ref(ref, UnswizzleRef(swizzle))
 
 
-@tree_util.register_pytree_node_class
+@tree_util.register_dataclass
 @dataclasses.dataclass(frozen=True)
 class ExtractAliasedRef(state_types.Transform):
   """Bitcasts the underlying ref at the given offset to the given shape and dtype."""
-  dtype: dtypes.DType
-  shape: tuple[int, ...]
-  offset: int
+  dtype: dtypes.DType = dataclasses.field(metadata=dict(static=True))
+  shape: tuple[int, ...] = dataclasses.field(metadata=dict(static=True))
+  offset: int = dataclasses.field(metadata=dict(static=True))
   # TMEM-specific params
-  layout: tcgen05.TMEMLayout | None
+  layout: tcgen05.TMEMLayout | None = dataclasses.field(
+      metadata=dict(static=True)
+  )
 
   @classmethod
   def from_transformed_ref(
@@ -941,26 +918,18 @@ class ExtractAliasedRef(state_types.Transform):
   ):
     return cls(dtypes.dtype(ref.dtype), ref.ref.shape, byte_offset, layout)
 
-  def transform_shape(self, shape):
-    if shape is None:
-      return None
-    return self.shape
-
-  def transform_dtype(self, dtype):
-    del dtype  # Unused.
-    return self.dtype
-
-  def tree_flatten(self):
-    return (), (self.dtype, self.shape, self.offset, self.layout)
-
-  @classmethod
-  def tree_unflatten(cls, metadata, arrays):
-    assert not arrays
-    return cls(*metadata)
+  def transform_type(self, x):
+    match x:
+      case state_types.AbstractRef():
+        return x.update(inner_aval=self.transform_type(x.inner_aval))
+      case jax_core.ShapedArray():
+        return x.update(shape=self.shape, dtype=self.dtype)
+      case _:
+        raise TypeError(f"Unsupported type: {x}")
 
 
 @dataclasses.dataclass(frozen=True)
-class SwizzleTransform(MemoryRefTransform):
+class SwizzleTransform(state_types.Transform):
   swizzle: int
 
   def __post_init__(self):
@@ -970,32 +939,25 @@ class SwizzleTransform(MemoryRefTransform):
           " accepted."
       )
 
-  def batch(self, leading_rank: int):
-    return self
+  def transform_type(
+      self, x: jax_core.AbstractValue
+  ) -> jax_core.AbstractValue:
+    match x:
+      case jax_core.ShapedArray():
+        swizzle_elems = (self.swizzle * 8) // dtypes.itemsize_bits(x.dtype)
+        if swizzle_elems != x.shape[-1]:
+          raise ValueError(
+              f"Swizzle {self.swizzle} requires the trailing dimension to be of"
+              f" size {swizzle_elems}, but got shape: {x.shape}"
+          )
+        return x
+      case state_types.AbstractRef():
+        return x.update(inner_aval=self.transform_type(x.inner_aval))
+      case _:
+        raise NotImplementedError(f"Unsupported type: {x}")
 
-  def undo(self, ref: pallas_core.TransformedRef) -> pallas_core.TransformedRef:
-    return dataclasses.replace(
-        ref, transforms=(*ref.transforms, UnswizzleRef(self.swizzle))
-    )
-
-  def to_gpu_transform(self) -> mgpu.MemRefTransform:
-    raise RuntimeError("SwizzleTransform does not have a GPU transform.")
-
-  def to_gpu_transform_attr(self) -> ir.Attribute:
-    return mgpu.dialect.SwizzleTransformAttr.get(self.swizzle)
-
-  def undo_to_gpu_transform(self) -> mgpu.MemRefTransform:
-    # There's no swizzle transform in mgpu right now. It's a separate arg.
-    raise NotImplementedError
-
-  def __call__(self, aval: jax_core.ShapedArray) -> jax_core.ShapedArray:
-    swizzle_elems = (self.swizzle * 8) // dtypes.itemsize_bits(aval.dtype)
-    if swizzle_elems != aval.shape[-1]:
-      raise ValueError(
-          f"Swizzle {self.swizzle} requires the trailing dimension to be of"
-          f" size {swizzle_elems}, but got shape: {aval.shape}"
-      )
-    return aval
+  def undo(self, x: jax_core.AbstractValue) -> state_types.Transform:
+    return UnswizzleRef(self.swizzle)
 
 
 @tree_util.register_dataclass
@@ -1003,40 +965,57 @@ class SwizzleTransform(MemoryRefTransform):
 class UnswizzleRef(state_types.Transform):
   swizzle: int = dataclasses.field(metadata=dict(static=True))
 
+  def transform_type(self, x: jax_core.AbstractValue) -> jax_core.AbstractValue:
+    # Swizzling preserves the type
+    return x
+
+  def undo(self, x: jax_core.AbstractValue) -> state_types.Transform:
+    return SwizzleTransform(self.swizzle)
+
   def swizzle_elems(self, dtype: jnp.dtype | ir.Type) -> int:
     if not isinstance(dtype, ir.Type):
       dtype = mgpu_utils.dtype_to_ir_type(dtype)
     return (self.swizzle * 8) // mgpu.bitwidth(dtype)
 
-  def untransform_transpose(self, perm) -> tuple[tuple[int, ...], state_types.Transform]:
+  def commute_transpose(
+      self, _: jax_core.AbstractValue, transpose: state_types.TransposeTransform
+  ) -> tuple[state_types.TransposeTransform, UnswizzleRef]:
+    perm = transpose.permutation
     if perm[-1] != len(perm) - 1:
       raise ValueError("Can't transpose the swizzled dimension.")
+    return transpose, self
 
-    return perm, self
-
-  def untransform_reshape(
-      self, dtype: jnp.dtype | ir.Type, shape: tuple[int, ...]
-  ) -> tuple[tuple[int, ...], state_types.Transform]:
-    if shape[-1] != self.swizzle_elems(dtype):
+  def commute_reshape(
+      self, aval: jax_core.ShapedArray, transform: state_types.ReshapeTransform
+  ) -> tuple[state_types.ReshapeTransform, UnswizzleRef]:
+    shape = aval.shape
+    if shape[-1] != self.swizzle_elems(aval.dtype):
       raise ValueError(
           f"Reshape shape {shape} is not divisible by swizzle elements"
-          f" {self.swizzle_elems(dtype)}"
+          f" {self.swizzle_elems(aval.dtype)}"
       )
-    return shape, self
+    return transform, self
 
-  def untransform_index(
-      self, dtype: jnp.dtype | ir.Type, idxs: tuple[Index, ...]
-  ) -> tuple[tuple[Index, ...], state_types.Transform]:
+  def commute_ndindexer(
+      self, aval: jax_core.AbstractValue, indexer: indexing.NDIndexer
+  ) -> tuple[indexing.NDIndexer, UnswizzleRef]:
+    if not hasattr(aval, "dtype"):
+      raise ValueError(
+          f"Cannot commute unswizzle and indexer with {aval}, which does not"
+          " have a dtype"
+      )
+    dtype = aval.dtype
     swizzle_elems = self.swizzle_elems(dtype)
+    idxs = indexer.indices
     if not idxs:
-      return idxs, self
-    if not all(isinstance(idx, (slice, mgpu.ds)) for idx in idxs[-2:]):
+      return indexer, self
+    if not all(isinstance(idx, (slice, indexing.Slice)) for idx in idxs[-2:]):
       raise NotImplementedError(
-          "Non-slice indices are not supported in 2 minormost dims"
+          f"Non-slice indices are not supported in 2 minormost dims: {idxs}"
       )
     last_idx = idxs[-1]
-    if isinstance(last_idx, mgpu.DynamicSlice):
-      if last_idx.base != 0 or last_idx.length != swizzle_elems:
+    if isinstance(last_idx, indexing.Slice):
+      if last_idx.start != 0 or last_idx.size != swizzle_elems:
         raise ValueError("Swizzled dims cannot be sliced")
     else:
       assert isinstance(last_idx, slice)
@@ -1046,7 +1025,7 @@ class UnswizzleRef(state_types.Transform):
           or (last_idx.stop is not None and last_idx.stop != swizzle_elems)
       ):
         raise ValueError("Swizzled dims cannot be sliced")
-    return idxs, self
+    return indexer, self
 
   def pretty_print(self, context: jax_core.JaxprPpContext) -> pp.Doc:
     return pp.text(f"{{unswizzle({self.swizzle})}}")
@@ -1068,7 +1047,7 @@ class BlockSpec(pallas_core.BlockSpec):
       the pipelining helpers to use collective async copies, which can improve
       performance.
   """
-  transforms: Sequence[MemoryRefTransform] = ()
+  transforms: Sequence[state_types.Transform] = ()
   delay_release: int = 0
   collective_axes: tuple[Hashable, ...] = ()
 
@@ -1099,7 +1078,7 @@ class BlockSpec(pallas_core.BlockSpec):
     )
     block_inner_aval = bm.block_aval.inner_aval
     for t in self.transforms:
-      block_inner_aval = t(block_inner_aval)  # type: ignore[arg-type]
+      block_inner_aval = t.transform_type(block_inner_aval)  # type: ignore[arg-type]
     return bm.replace(
         transformed_block_aval=bm.block_aval.update(
             inner_aval=block_inner_aval
@@ -1120,7 +1099,7 @@ class barrier_dtype(dtypes.extended):
 
 @dataclasses.dataclass(frozen=True)
 class BarrierType(dtypes.ExtendedDType):
-  type: ClassVar[Any] = barrier_dtype
+  type: ClassVar[Any] = barrier_dtype  # pyrefly: ignore[bad-override]
   name: ClassVar[str] = "barrier"
 
   num_arrivals: int
@@ -1132,7 +1111,7 @@ class BarrierType(dtypes.ExtendedDType):
 
 @dataclasses.dataclass(frozen=True)
 class ClusterBarrierType(dtypes.ExtendedDType):
-  type: ClassVar[Any] = barrier_dtype
+  type: ClassVar[Any] = barrier_dtype  # pyrefly: ignore[bad-override]
   name: ClassVar[str] = "cluster_barrier"
 
   collective_axes: tuple[str | tuple[str, ...], ...]
@@ -1177,6 +1156,7 @@ class Barrier:
       raise ValueError(
           f"Num arrivals must be at least 1, but got {self.num_arrivals}"
       )
+
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class ClusterBarrier:
@@ -1240,13 +1220,21 @@ class WGMMAAbstractAccumulatorRef(state.AbstractRef):
     )
 
   def _getitem(self, tracer, idx):
-    from jax._src.pallas.mosaic_gpu.primitives import wgmma_accumulator_deref  # pytype: disable=import-error
-    arr = wgmma_accumulator_deref(tracer)
-
+    from jax._src.pallas.mosaic_gpu.primitives import wgmma_accumulator_load  # pytype: disable=import-error
+    arr = wgmma_accumulator_load(tracer, wait_n=0)
     if not is_trivial_index(idx, tracer.shape):
       arr = arr[idx]
 
     return arr
+
+  def _setitem(self, tracer, idx, value):
+    from jax._src.pallas.mosaic_gpu.primitives import wgmma_accumulator_store  # pytype: disable=import-error
+    if not is_trivial_index(idx, tracer.shape):
+      raise NotImplementedError(
+          "Non-trivial indexing on WGMMAAbstractAccumulatorRef is not supported"
+          " for stores."
+      )
+    wgmma_accumulator_store(tracer, value)
 
 
 class AbstractTMEMRef(state.AbstractRef):
@@ -1309,8 +1297,8 @@ class Mesh:
     object.__setattr__(self, "cluster_names", tuple(self.cluster_names))
 
   @property
-  def backend(self) -> str:
-    return "mosaic_gpu"
+  def default_memory_space(self) -> MemorySpace:
+    return MemorySpace.GMEM
 
   @property
   def shape(self) -> collections.OrderedDict[object, int]:
@@ -1327,7 +1315,7 @@ class Mesh:
       )
     return collections.OrderedDict(pairs)
 
-  def discharges_effect(self, effect: jax_core.Effect):
+  def discharges_effect(self, effect: jax_core.Effect) -> bool:
     return effect is _wgmma_pipeline_effect or effect is _memory_effect
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -1348,7 +1336,11 @@ class WarpMesh:
         (self.axis_name, self._NUM_WARPS_PER_WARPGROUP),
     ])
 
-  def discharges_effect(self, effect: jax_core.Effect):
+  @property
+  def default_memory_space(self) -> MemorySpace:
+    raise NotImplementedError
+
+  def discharges_effect(self, effect: jax_core.Effect) -> Literal[False]:
     del effect
     return False
 
@@ -1390,9 +1382,7 @@ def _gpu_mesh_discharge_rule(
       interpret=interpret,
       cost_estimate=cost_estimate,
       name=name,
-      memory_space=GMEM,
       metadata=metadata,
-      scratch_shapes=[],
   )
 
 
@@ -1403,6 +1393,7 @@ class MemoryEffect(jax_core.Effect):
   pass
 
 
+pallas_core.kernel_local_effects.add_type(MemoryEffect)
 effects.control_flow_allowed_effects.add_type(MemoryEffect)
 _memory_effect = MemoryEffect()
 
@@ -1411,6 +1402,7 @@ class _WGMMAPipelineEffect(effects.Effect):
   pass
 
 
+pallas_core.kernel_local_effects.add_type(_WGMMAPipelineEffect)
 effects.control_flow_allowed_effects.add_type(_WGMMAPipelineEffect)
 _wgmma_pipeline_effect = _WGMMAPipelineEffect()
 
@@ -1452,7 +1444,9 @@ class ParameterizedLayout(SomeLayout):
     object.__setattr__(self, "args", tuple(self.args))
     object.__setattr__(self, "kwargs", frozen_dict.FrozenDict(self.kwargs))
 
-  def to_mgpu(self) -> mgpu.FragmentedLayout:
+  def to_mgpu(self, *args, **kwargs) -> mgpu.FragmentedLayout:
+    if args or kwargs:
+      raise ValueError(f"Can't instantiate {self} with arguments.")
     return self.layout_cls.to_mgpu(*self.args, **self.kwargs)
 
 
@@ -1461,7 +1455,9 @@ class ReducedLayout(SomeLayout):
   layout: SomeLayout
   axes: Sequence[int]
 
-  def to_mgpu(self) -> mgpu.FragmentedLayout:
+  def to_mgpu(self, *args, **kwargs) -> mgpu.FragmentedLayout:
+    if args or kwargs:
+      raise ValueError(f"Can't instantiate {self} with arguments.")
     layout = self.layout.to_mgpu()
     if not isinstance(layout, mgpu.TiledLayout):
       raise ValueError("Only TiledLayout supports reductions.")
@@ -1496,12 +1492,12 @@ class Layout(SomeLayout, enum.Enum):
   def __call__(self, *args, **kwargs) -> ParameterizedLayout:
     return ParameterizedLayout(self, args, kwargs)
 
-  def to_mgpu(self, *args, **kwargs) -> mgpu.FragmentedLayout:
+  def to_mgpu(self, *args, **kwargs) -> mgpu.FragmentedLayout:  # pyrefly: ignore[bad-override]
     def check_no_args():
       if args or kwargs:
         raise ValueError(f"Can't instantiate {self} with arguments.")
 
-    match self:
+    match self:  # pyrefly: ignore[non-exhaustive-match]  # pyrefly#2080
       case Layout.WGMMA_TRANSPOSED:
         check_no_args()
         return mgpu.WGMMA_TRANSPOSED_LAYOUT
@@ -1572,7 +1568,7 @@ class TMEMLayout(enum.Enum):
     return ParameterizedLayout(self, args, kwargs)
 
   def to_mgpu(self, *args, **kwargs) -> tcgen05.TMEMLayout:
-    match self:
+    match self:  # pyrefly: ignore[non-exhaustive-match]  # pyrefly#2080
       case TMEMLayout.SCALES_LAYOUT:
         return tcgen05.scales_layout(*args, **kwargs)
       case TMEMLayout.SPARSE_METADATA_LAYOUT:

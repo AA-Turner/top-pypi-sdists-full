@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from mindroom.api.google_tools_helper import check_google_tool_configured
 from mindroom.config.main import Config
 from mindroom.credentials import CredentialsManager, get_credentials_manager
-from mindroom.tools_metadata import ensure_tool_registry_loaded, export_tools_metadata
+from mindroom.tool_system.metadata import ensure_tool_registry_loaded, export_tools_metadata
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
@@ -58,9 +58,12 @@ async def get_registered_tools() -> ToolsResponse:
     config, config_path = load_runtime_config()
     ensure_tool_registry_loaded(config, config_path=config_path)
     tools = export_tools_metadata()
+    existing_tool_names = {tool.get("name") for tool in tools}
 
     # Append config-only tool presets so the dashboard picker can offer them.
     for preset_name, expansion in Config.TOOL_PRESETS.items():
+        if preset_name in existing_tool_names:
+            continue
         tools.append(
             {
                 "name": preset_name,

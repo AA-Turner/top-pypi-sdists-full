@@ -126,7 +126,10 @@ class K8sCluster(clusters.ClusterEnv):
   # in case of latency for core DNS to update pod IP to etcd/API server
   @retry(exceptions=ValueError)
   def _pod(cls):
-    ip = socket.gethostbyname(os.getenv('HOSTNAME'))
+    hostname = os.getenv('HOSTNAME')
+    if hostname is None:
+      raise RuntimeError("expected HOSTNAME env variable to be defined")
+    ip = socket.gethostbyname(hostname)
     with cls._handle_api_exception():
       [pod] = cls._core_api.list_namespaced_pod(
         namespace=cls._namespace(),

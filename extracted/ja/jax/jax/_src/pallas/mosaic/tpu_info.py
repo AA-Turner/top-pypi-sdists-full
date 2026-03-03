@@ -19,6 +19,7 @@ import enum
 from typing import Callable
 
 from jax import numpy as jnp
+from jax._src import core as jax_core
 from jax._src import dtypes
 from jax._src import util as jax_util
 from jax._src.pallas.mosaic import core
@@ -93,12 +94,12 @@ class TpuInfo:
 
   def is_matmul_supported(
       self,
-      lhs_dtype: jnp.dtype | str,
-      rhs_dtype: jnp.dtype | str,
+      lhs_dtype: dtypes.DTypeLike,
+      rhs_dtype: dtypes.DTypeLike,
   ) -> bool:
-    """Returns whether the given matmul input dtypes are supported on the chip."""
-    lhs_dt = jnp.dtype(lhs_dtype) if isinstance(lhs_dtype, str) else lhs_dtype
-    rhs_dt = jnp.dtype(rhs_dtype) if isinstance(rhs_dtype, str) else rhs_dtype
+    """Returns whether the chip natively supports matmul on the given input dtypes (no casting needed)."""
+    lhs_dtype = dtypes.dtype(lhs_dtype)
+    rhs_dtype = dtypes.dtype(rhs_dtype)
 
     F32 = jnp.float32
     BF16 = jnp.bfloat16
@@ -112,22 +113,22 @@ class TpuInfo:
 
     match self.generation:
       case 2 | 3:
-        return lhs_dt == rhs_dt == F32
+        return lhs_dtype == rhs_dtype == F32
       case 4:
-        return lhs_dt in {F32, BF16} and rhs_dt in {F32, BF16, S8}
+        return lhs_dtype in (F32, BF16) and rhs_dtype in (F32, BF16, S8)
       case 5 | 6:
         return (
             (
-                lhs_dt in {F32, BF16, F8E5M2, F8E4M3B11FNUZ}
-                and rhs_dt in {F32, BF16, F8E5M2, F8E4M3B11FNUZ}
+                lhs_dtype in (F32, BF16, F8E5M2, F8E4M3B11FNUZ)
+                and rhs_dtype in (F32, BF16, F8E5M2, F8E4M3B11FNUZ)
             )
-            or (lhs_dt in {U8, S8} and rhs_dt in {U8, S8})
-            or (lhs_dt in {U4, S4} and rhs_dt in {U4, S4})
+            or (lhs_dtype in (U8, S8) and rhs_dtype in (U8, S8))
+            or (lhs_dtype in (U4, S4) and rhs_dtype in (U4, S4))
         )
       case 7:
-        return (lhs_dt in {F32, BF16} and rhs_dt in {F32, BF16}) or (
-            lhs_dt in {F32, BF16, F8E5M2, F8E4M3FN}
-            and rhs_dt in {F8E5M2, F8E4M3FN}
+        return (lhs_dtype in (F32, BF16) and rhs_dtype in (F32, BF16)) or (
+            lhs_dtype in (F32, BF16, F8E5M2, F8E4M3FN)
+            and rhs_dtype in (F8E5M2, F8E4M3FN)
         )
       case _:
         return False
@@ -167,6 +168,7 @@ def is_tpu_device() -> bool:
       "TPU v6 lite",
       "TPU v6e",
       "TPU7x",
+      "TPU7",
   }
 
 
@@ -334,7 +336,7 @@ def get_tpu_info() -> TpuInfo:
               dma_granule_size_bytes=32,
           ),
       )
-    case "TPU7x":
+    case "TPU7x" | "TPU7":
       num_cores = core.get_num_device_cores()
       num_chip_cores = 2
       return TpuInfo(
@@ -354,7 +356,7 @@ def get_tpu_info() -> TpuInfo:
           fp8_ops_per_second=int(4.60e15 // num_chip_cores),
           int4_ops_per_second=0,  # Not Available
           sparse_core=SparseCoreInfo(
-              num_cores=4,
+              num_cores=2,
               num_subcores=16,
               num_lanes=16,
               dma_granule_size_bytes=64,
@@ -364,3 +366,69 @@ def get_tpu_info() -> TpuInfo:
       if d in registry:
         return registry[d]()
       raise ValueError(f"Unsupported TPU device kind: {device_kind}")
+
+
+# TODO(sharadmv): Generalize Tiling to capture the various options
+# (compact 2nd minor, large 2nd minor, regular tiling)
+class Tiling(enum.Enum):
+  COMPACT = enum.auto()
+  SPARSE_CORE = enum.auto()
+
+  @property
+  def shape(self) -> tuple[int, ...]:
+    # TODO(slebedev): Use ``get_tpu_info()`` instead of hardcoding the values.
+    match self:  # pyrefly: ignore[non-exhaustive-match]  # pyrefly#2080
+      case Tiling.COMPACT:
+        return (8, 128)
+      case Tiling.SPARSE_CORE:
+        return (8,)
+      case _:
+        raise NotImplementedError  # pyrefly#2080
+
+
+def infer_tiling(
+    ty: jax_core.AbstractValue,
+    tiling: Tiling | None = None,
+) -> tuple[int | None, ...] | None:
+  """Compute a tiling for the given shape and type.
+
+  For an n-dimensional shape, returns the tiling for the last
+  ``len(tiling.shape)`` dimensions and 1 for the leading dims. For example:
+  - 2D tiling: (256, 256) -> (8, 128) and (2, 3, 128, 128) -> (1, 1, 8, 128).
+  - 1D tiling: (16,) -> (8,) and (2, 3, 8) -> (1, 1, 8).
+
+  Types are not required to have a dtype, so for such types we return None for
+  all dimensions because their tiling is unknown.
+  """
+  assert hasattr(ty, "shape")
+  shape = ty.shape
+  if not hasattr(ty, "dtype"):
+    return (None,) * len(shape)
+  if ty.dtype == jnp.dtype("int4"):
+    packing = 8
+  else:
+    packing = 4 // ty.dtype.itemsize
+
+  if tiling is None:
+    tiling = Tiling.COMPACT
+  tiling_rank = len(tiling.shape)
+  if len(shape) < tiling_rank:
+    raise ValueError(
+        f"Shape must have at least {tiling_rank} dimensions: {shape=}"
+    )
+
+  leading_dims, final_dims = shape[:-tiling_rank], shape[-tiling_rank:]
+  tpu_generation = get_tpu_info().generation
+  match tiling:  # pyrefly: ignore[non-exhaustive-match]  # pyrefly#2080
+    case Tiling.COMPACT:
+      # We want to find the minimum power of 2 that fits the second-minor
+      # dimension of shape, with maximum value equal to ``tiling.shape[0]``.
+      second_minor, _ = final_dims
+      max_tiling = tiling.shape[0]
+      second_minor_tiling = (1 + int(tpu_generation < 4)) * packing
+      while second_minor_tiling < min(second_minor, max_tiling):
+        second_minor_tiling *= 2
+      return (*(1,) * len(leading_dims), second_minor_tiling, tiling.shape[1])
+    case Tiling.SPARSE_CORE:
+      [tile_size] = tiling.shape
+      return (*(1,) * len(leading_dims), tile_size * packing)

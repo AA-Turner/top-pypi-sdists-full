@@ -19,6 +19,7 @@ from typing import NamedTuple
 import pytest
 from rich.console import Console
 
+from plato._generated.models import SessionDetailsResponse
 from plato.v2.models import SandboxState
 from plato.v2.sync.sandbox import SandboxClient, Tunnel
 
@@ -185,8 +186,8 @@ class TestSandboxClientMethods:
         status = sandbox_session.client.status(sandbox_session.state.session_id)
 
         assert status is not None
-        assert isinstance(status, dict)
-        assert "jobs" in status
+        assert isinstance(status, SessionDetailsResponse)
+        assert status.jobs is not None
 
     # -------------------------------------------------------------------------
     # state()
@@ -529,7 +530,7 @@ class TestSandboxArtifactModeSpecific:
 
         # Get public URL for the artifact
         status = artifact_session.client.status(state.session_id)
-        jobs = status.get("jobs", [])
+        jobs = status.jobs
         if not jobs:
             pytest.skip("No jobs found in session")
 

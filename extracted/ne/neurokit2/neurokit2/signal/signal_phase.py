@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import itertools
 
 import numpy as np
@@ -79,7 +78,6 @@ def signal_phase(signal, method="radians"):
 # Method
 # =============================================================================
 def _signal_phase_binary(signal):
-
     phase = itertools.chain.from_iterable(np.linspace(0, 1, sum([1 for i in v])) for _, v in itertools.groupby(signal))
     phase = np.array(list(phase))
 

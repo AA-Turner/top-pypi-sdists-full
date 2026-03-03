@@ -29,9 +29,8 @@ import weakref
 import numpy as np
 
 from jax._src import config
-from jax._src.lib import weakref_lru_cache as _weakref_lru_cache
+from jax._src.lib import weakref_lru_cache as lib_weakref_lru_cache
 from jax._src.lib import utils as jaxlib_utils
-from jax._src.lib import jaxlib_extension_version
 
 logger = logging.getLogger(__name__)
 
@@ -218,12 +217,6 @@ def subs_list2(
   assert next(base_, sentinel) is sentinel
   return out
 
-def split_dict(dct: dict[T1, T2], names: Sequence[T1]) -> list[T2]:
-  dct = dict(dct)
-  lst = [dct.pop(name) for name in names]
-  assert not dct
-  return lst
-
 def concatenate(xs: Iterable[Sequence[T]]) -> list[T]:
   """Concatenates/flattens a list of lists."""
   return list(it.chain.from_iterable(xs))
@@ -262,29 +255,6 @@ toposort: Callable[[Iterable[Any]], list[Any]]
 toposort = partial(jaxlib_utils.topological_sort, "parents")
 
 
-def split_merge(
-    predicate: Callable[[T], bool],
-    xs: Sequence[T]
-) -> tuple[list[T], list[T], Callable[[Sequence[T], Sequence[T]], list[T]]]:
-  sides = list(map(predicate, xs))
-  lhs = [x for x, s in zip(xs, sides) if s]
-  rhs = [x for x, s in zip(xs, sides) if not s]
-  def merge(new_lhs, new_rhs):
-    out = []
-    for s in sides:
-      if s:
-        out.append(new_lhs[0])
-        new_lhs = new_lhs[1:]
-      else:
-        out.append(new_rhs[0])
-        new_rhs = new_rhs[1:]
-    assert not new_rhs
-    assert not new_lhs
-    return out
-
-  return lhs, rhs, merge
-
-
 def cache(max_size=4096, trace_context_in_key: bool | Callable = True):
   if trace_context_in_key:
     trace_context = (trace_context_in_key if callable(trace_context_in_key)
@@ -300,6 +270,7 @@ def cache(max_size=4096, trace_context_in_key: bool | Callable = True):
           return f(*args, **kwargs)
         return cached(trace_context(), *args, **kwargs)
 
+      wrapper = cast(Any, wrapper)  # avoids missing-attribute typing errors
       wrapper.cache_clear = cached.cache_clear
       wrapper.cache_info = cached.cache_info
       register_cache(wrapper, str(f))
@@ -335,7 +306,7 @@ memoize = cache(max_size=None)
 def _ignore(): return None
 
 def weakref_lru_cache(
-    call: Callable, maxsize: int | None = 2048,
+    f=None, *, maxsize: int | None = 2048,
     trace_context_in_key: bool = True, explain: Callable | None = None):
   """
   Least recently used cache decorator with weakref support.
@@ -344,15 +315,18 @@ def weakref_lru_cache(
   and strong refs to all other arguments. In all other respects it should
   behave similar to `functools.lru_cache`. The cache is thread local.
   """
-  if jaxlib_extension_version >= 396:
-    cached_call = _weakref_lru_cache.weakref_lru_cache(  # type: ignore
-        config.trace_context if trace_context_in_key else _ignore, call, maxsize,  # type: ignore
-        explain = lambda: explain if config.explain_cache_misses.value else None)  # type: ignore
-  else:
-    cached_call = _weakref_lru_cache.weakref_lru_cache(
-        config.trace_context if trace_context_in_key else _ignore, call, maxsize)
-  register_cache(cached_call, str(call))
-  return cached_call
+  kwargs = dict(maxsize=maxsize, trace_context_in_key=trace_context_in_key,
+                explain=explain)
+  if f is None:
+    return lambda g: _weakref_lru_cache(g, **kwargs)
+  return _weakref_lru_cache(f, **kwargs)
+
+def _weakref_lru_cache(f, maxsize, trace_context_in_key, explain):
+  cached_f = lib_weakref_lru_cache.weakref_lru_cache(  # type: ignore
+      config.trace_context if trace_context_in_key else _ignore, f, maxsize,  # type: ignore
+      explain = lambda: explain if config.explain_cache_misses.value else None)  # type: ignore
+  register_cache(cached_f, str(f))
+  return cached_f
 
 
 @dataclasses.dataclass(frozen=True, slots=True, weakref_slot=True)
@@ -450,7 +424,7 @@ def multi_weakref_lru_cache(
       return call(*orig_args, **orig_kwargs)
 
 
-    cached_call = _weakref_lru_cache.weakref_lru_cache(
+    cached_call = lib_weakref_lru_cache.weakref_lru_cache(
         config.trace_context if trace_context_in_key else _ignore,
         cache_miss, maxsize
     )
@@ -476,6 +450,7 @@ def multi_weakref_lru_cache(
                                                   for v in acc_weakrefs))
         return cached_call(key, *args, **kwargs)
 
+    wrapper = cast(Any, wrapper)  # avoids missing-attribute typing errors
     wrapper.cache_info = cached_call.cache_info
     wrapper.cache_clear = cached_call.cache_clear
     wrapper.cache_keys = cached_call.cache_keys
@@ -593,12 +568,12 @@ def wraps(
       doc = getattr(wrapped, "__doc__", "") or ""
       fun.__dict__.update(getattr(wrapped, "__dict__", {}))
       fun.__annotations__ = getattr(wrapped, "__annotations__", {})
-      fun.__name__ = name if namestr is None else namestr.format(fun=name)
+      fun.__name__ = name if namestr is None else namestr.format(fun=name)  # pyrefly: ignore[missing-attribute]
       fun.__module__ = getattr(wrapped, "__module__", "<unknown module>")
       fun.__doc__ = (doc if docstr is None
                      else docstr.format(fun=name, doc=doc, **kwargs))
-      fun.__qualname__ = getattr(wrapped, "__qualname__", fun.__name__)
-      fun.__wrapped__ = wrapped
+      fun.__qualname__ = getattr(wrapped, "__qualname__", fun.__name__)  # pyrefly: ignore[missing-attribute]
+      fun.__wrapped__ = wrapped  # pyrefly: ignore[missing-attribute]
     except Exception:
       pass
     return fun
@@ -684,10 +659,10 @@ class HashablePartial:
 def maybe_named_axis(axis, if_pos, if_named):
   try:
     pos = operator.index(axis)
-    named = False
   except TypeError:
-    named = True
-  return if_named(axis) if named else if_pos(pos)
+    return if_named(axis)
+  else:
+    return if_pos(pos)
 
 def distributed_debug_log(*pairs):
   """Format and log `pairs` if config.jax_distributed_debug is enabled.
@@ -761,7 +736,9 @@ class HashableWrapper:
 
 def _original_func(f: Callable) -> Callable:
   if isinstance(f, property):
-    return cast(property, f).fget
+    fget = cast(property, f).fget
+    assert fget is not None
+    return fget
   elif isinstance(f, functools.cached_property):
     return f.func
   return f
@@ -801,7 +778,7 @@ def use_cpp_method(is_enabled: bool = True) -> Callable[[T], T]:
   def decorator(f):
     if is_enabled:
       original_func = _original_func(f)
-      original_func._use_cpp = True
+      original_func._use_cpp = True  # pyrefly: ignore[missing-attribute]
     return f
   return decorator
 
@@ -843,8 +820,4 @@ def pprint_bytes(num_bytes: int | float) -> str:
   scaled_value = num_bytes / (1000**exponent)
   return f"{scaled_value:.2f}{prefixes[exponent]}B"
 
-if hasattr(jaxlib_utils, "install_failure_signal_handler"):
-  install_failure_signal_handler = jaxlib_utils.install_failure_signal_handler
-else:
-  def install_failure_signal_handler(call_previous_handler: bool = True):
-    pass
+install_failure_signal_handler = jaxlib_utils.install_failure_signal_handler

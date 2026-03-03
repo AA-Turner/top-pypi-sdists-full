@@ -18,7 +18,10 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from langgraph_api import config
 from langgraph_api.serde import json_dumpb
 from langgraph_api.utils import get_auth_ctx, with_user
-from langgraph_api.validation import sanitize_reserved_keys
+from langgraph_api.validation import (
+    sanitize_reserved_keys,
+    should_strip_reserved_metadata,
+)
 
 logger = structlog.getLogger(__name__)
 SchemaType = (
@@ -64,7 +67,10 @@ class ApiResponse(JSONResponse):
 def _json_loads(content: bytearray, schema: SchemaType) -> typing.Any:
     """Parse JSON and validate schema. Used by threadpool for large payloads."""
     json_data = orjson.loads(content)
-    sanitize_reserved_keys(json_data)
+    sanitize_reserved_keys(
+        json_data,
+        strip_metadata=should_strip_reserved_metadata(schema),
+    )
     if schema is not None:
         schema.validate(json_data)
     return json_data

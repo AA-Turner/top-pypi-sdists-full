@@ -34,11 +34,11 @@ from jax._src.effects import (
 )
 from jax._src.hijax import (
     HiPrimitive as HiPrimitive,
+    HipSpec as HipSpec,
     HiType as HiType,
     MutableHiType as MutableHiType,
     VJPHiPrimitive as VJPHiPrimitive,
     register_hitype as register_hitype,
-    VJPHiPrimitive as VJPHiPrimitive,
 )
 from jax._src.state import (
     AbstractRef as AbstractRef,

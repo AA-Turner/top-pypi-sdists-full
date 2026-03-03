@@ -7,7 +7,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import re
 from collections import Counter
 
 log = logging.getLogger("salmalm")
@@ -125,18 +124,12 @@ def validate_tool_calls(tool_calls: list) -> tuple[list, dict]:
         log.warning("[TOOLS] %d tool calls in one turn — capped to %d",
                     len(tool_calls), _MAX_TOOL_CALLS_PER_TURN)
         tool_calls = tool_calls[:_MAX_TOOL_CALLS_PER_TURN]
-    _TOOL_NAME_RE = re.compile(r'^[a-zA-Z0-9_\-]{1,128}$')
     for tc in tool_calls:
-        # Validate tool name: alphanumeric/underscore/hyphen only, max 128 chars
-        tc_name = tc.get("name", "")
-        if not _TOOL_NAME_RE.match(str(tc_name)):
-            error_outputs[tc.get("id", "")] = f"❌ Invalid tool name: {str(tc_name)[:64]!r}"
-            continue
         if not isinstance(tc.get("arguments"), dict):
             try:
                 tc["arguments"] = json.loads(tc["arguments"]) if isinstance(tc["arguments"], str) else {}
             except (json.JSONDecodeError, TypeError):
-                error_outputs[tc["id"]] = f"❌ Invalid tool arguments for {tc_name} / 잘못된 도구 인자"
+                error_outputs[tc["id"]] = f"❌ Invalid tool arguments for {tc['name']} / 잘못된 도구 인자"
                 continue
         valid_tools.append(tc)
     return valid_tools, error_outputs

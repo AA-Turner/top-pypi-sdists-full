@@ -65,8 +65,8 @@ zip, unsafe_zip = safe_zip, zip
 _no_operand_sentinel = object()
 
 @api_boundary
-def switch(index, branches: Sequence[Callable], *operands,
-           operand=_no_operand_sentinel):
+def switch(index, branches: Sequence[Callable], *operands: Any,
+           operand: Any = _no_operand_sentinel):
   """Apply exactly one of the ``branches`` given by ``index``.
 
   If ``index`` is out of bounds, it is clamped to within bounds.
@@ -135,7 +135,7 @@ def switch(index, branches: Sequence[Callable], *operands,
 def _switch_internal(
     index: ArrayLike,
     branches: Sequence[Callable],
-    operands: Sequence[ArrayLike], *,
+    operands: Sequence[Any], *,
     branches_platforms: BranchesPlatforms | None):
   if (config.disable_jit.value and core.is_concrete(index)):
     return branches[int(index)](*operands)  # type: ignore
@@ -268,11 +268,12 @@ def cond(pred, true_fun: Callable, false_fun: Callable, *operands,
       return false_fun(*operands)
 
   args = FlatTree.flatten((operands, {}))
+  dbg_true = api_util.debug_info("cond", true_fun, operands, {})
+  api_util.check_no_transformed_refs_args(lambda: dbg_true, args.vals)
   avals = args.map(core.get_aval)
   avals = avals.map2(
       lambda a, x: core.AvalQDD(a, cur_qdd(x)) if a.has_qdd else a,
       args)
-  dbg_true = api_util.debug_info("cond", true_fun, operands, {})
   if config.mutable_array_checks.value:
     api_util.check_no_aliased_ref_args(lambda: dbg_true, list(avals), list(args))
   dbg_false = api_util.debug_info("cond", false_fun, operands, {})
@@ -513,31 +514,30 @@ def _cond_batching_rule(axis_data, args, dims, *, branches, **params):
                       **params)
     return out, out_dims
 
-def _cond_linearize(nzs, *primals_in, branches, **params):
+def _cond_linearize(is_vjp, nzs, *primals_in, branches, **params):
   idx_nz, *nzs = nzs
   assert not idx_nz
-  nzs_out = [ad.linearize_jaxpr(jaxpr, nzs, allow_fwds=False)[2]
+  nzs_out = [ad.linearize_jaxpr(jaxpr, nzs, allow_fwds=False, is_vjp=is_vjp)[2]
              for jaxpr in branches]
   nzs_out = map(any, zip(*nzs_out))
   primal_jaxprs, tangent_jaxprs, branch_res_avals = [], [], []
   for jaxpr in branches:
     primal_jaxpr, num_res_out, _, _, tangent_jaxpr = \
-        ad.linearize_jaxpr(jaxpr, nzs, instantiate=nzs_out, allow_fwds=False)
+        ad.linearize_jaxpr(jaxpr, nzs, instantiate=nzs_out, allow_fwds=False, is_vjp=is_vjp)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     res_avals = primal_jaxpr.out_avals[len(primal_jaxpr.out_avals)-num_res_out:]
     primal_jaxprs.append(primal_jaxpr)
     tangent_jaxprs.append(tangent_jaxpr)
     branch_res_avals.append(res_avals)
 
   all_res_avals, res_avals_per_branch = _merge_branch_residuals(branch_res_avals)
-  num_res = len(all_res_avals)
   primal_jaxprs = _join_cond_outputs(
-      primal_jaxprs, all_res_avals, res_avals_per_branch, len(nzs_out))
+      primal_jaxprs, all_res_avals, res_avals_per_branch, len(nzs_out))  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
   tangent_jaxprs = _join_cond_pe_staged_jaxpr_inputs(
       tangent_jaxprs, all_res_avals, res_avals_per_branch)
   tangent_avals_out = [a.to_tangent_aval() for a in jaxpr.out_avals]
 
   primals_res_out = cond_p.bind(*primals_in, branches=primal_jaxprs, **params)
-  primals, res = split_list(primals_res_out, [len(nzs_out)])
+  primals, res = split_list(primals_res_out, [len(nzs_out)])  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
 
   def tangent_fun(res, *tangents_in):
     nz_tangents_in = [t for t in tangents_in if not isinstance(t, ad.Zero)]
@@ -575,7 +575,7 @@ def _cond_jvp(primals, tangents, *, branches, **params):
   out_primals, out_tangents = split_list(out, [len(out_nz)])
   out_tangents_iter = iter(out_tangents)
   out_tangents = [next(out_tangents_iter) if nz else
-                  ad_util.Zero.from_primal_value(p)
+                  ad_util.p2tz(p)
                   for p, nz in zip(out_primals, out_nz)]
   return out_primals, out_tangents
 
@@ -634,7 +634,7 @@ def _cond_partial_eval(trace, *tracers, branches, **params):
   name_stack = source_info_util.current_name_stack()[len(trace.name_stack):]
   source = source_info_util.current().replace(name_stack=name_stack)
   eqn = pe.new_eqn_recipe(
-      trace, [index_tracer] + res_tracers + ops_tracers, out_tracers, cond_p, params,
+      trace, [index_tracer] + res_tracers + ops_tracers, out_tracers, cond_p, params,  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
       core.join_effects(*(j.effects for j in branches_unknown)), source)
   for t in out_tracers: t.recipe = eqn
   return util.merge_lists(out_uks, out_consts, out_tracers)
@@ -664,7 +664,7 @@ def _cond_partial_eval_custom(saveable, unks_in, inst_in, eqn):
     _, _, unks_out_, _, _ = pe.partial_eval_jaxpr_custom(
         jaxpr.jaxpr, in_unknowns=ops_uk, in_inst=True,
         ensure_out_unknowns=False, ensure_out_inst=True, saveable=saveable)
-    unks_out = map(operator.or_, unks_out, unks_out_)
+    unks_out = map(operator.or_, unks_out, unks_out_)  # pyrefly: ignore[bad-assignment]  # pyrefly#2385
 
   # Next, use the computed output unknowns to build a known jaxpr and a staged
   # jaxpr for each branch.
@@ -765,7 +765,7 @@ def _join_cond_outputs(jaxprs: Sequence[core.ClosedJaxpr],
       outs_and_residuals = core.jaxpr_as_fun(jaxpr)(*args)
       outs, residuals = split_list(outs_and_residuals, [num_non_res_outputs])
       aug_residuals = map(ad_util.zeros_like_aval, all_res_avals)
-      aug_residuals = util.subvals(aug_residuals, zip(res_indices, residuals))
+      aug_residuals = util.subvals(aug_residuals, zip(res_indices, residuals))  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
       return outs + list(aug_residuals)
 
     wrapped_f_aug = lu.wrap_init(f_aug, debug_info=jaxpr.jaxpr.debug_info)
@@ -786,7 +786,7 @@ def _join_cond_pe_staged_jaxpr_inputs(
     res_vars = jaxpr.jaxpr.invars[:num_res]
     non_res_vars = jaxpr.jaxpr.invars[num_res:]
 
-    aug_res_vars = list(util.subvals(all_res_vars, zip(res_indices, res_vars)))
+    aug_res_vars = list(util.subvals(all_res_vars, zip(res_indices, res_vars)))  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     aug_invars = aug_res_vars + non_res_vars
     jaxpr_aug = core.Jaxpr(jaxpr.jaxpr.constvars, aug_invars,
                            jaxpr.jaxpr.outvars, jaxpr.jaxpr.eqns,
@@ -813,7 +813,7 @@ def _cond_dce_rule(used_outputs: list[bool], eqn: core.JaxprEqn,
   used_inputs: list[bool] = [False] * (len(eqn.invars) - 1)  # -1 for pred
   for jaxpr in branches:
     _, used_inputs_ = pe.dce_jaxpr(jaxpr, used_outputs, instantiate=False)
-    used_inputs = map(operator.or_, used_inputs, used_inputs_)
+    used_inputs = map(operator.or_, used_inputs, used_inputs_)  # pyrefly: ignore[bad-assignment]  # pyrefly#2385
 
   # Next, compute DCEd branches, instantiating according to used_inputs.
   dce_branches_ = [pe.dce_jaxpr(jaxpr, used_outputs, instantiate=used_inputs)[0]
@@ -957,13 +957,13 @@ def _cond_is_high(*_, branches, **__) -> bool:
   return any(j.jaxpr.is_high for j in branches)
 cond_p.is_high = _cond_is_high  # type: ignore
 
-def _cond_to_lojax(pred, *hi_args, branches):
+def _cond_to_lojax(pred, *hi_args, branches, **kwds):
   jaxpr = branches[0]
   lo_branches = tuple(pe.lower_jaxpr(j) for j in branches)
   lo_args = [lo_val for aval, x in zip(branches[0].in_aval_qdds, hi_args)
              for lo_val in (aval.read_loval(x) if aval.has_qdd
                             else aval.lower_val(x))]
-  all_outs = cond_p.bind(pred, *lo_args, branches=lo_branches)
+  all_outs = cond_p.bind(pred, *lo_args, branches=lo_branches, **kwds)
   lo_muts_out = sum(len(aval.lo_ty()) for aval in branches[0].final_aval_qdds if aval.has_qdd)
   out_mut, lo_outs = split_list(all_outs, [lo_muts_out])
 
@@ -1044,7 +1044,8 @@ def _cond_lowering(ctx, index, *args, branches,
       out_vals, tokens_out = mlir.jaxpr_subcomp(
           ctx.module_context, jaxpr.jaxpr, name_stack.extend(f'branch_{i}_fun'),
           tokens_in, consts, *args,
-          dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering)
+          dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering,
+          outer_traceback=ctx.traceback)
       out_tokens = [tokens_out.get(eff) for eff in ordered_effects]
       out_vals = [*out_tokens, *out_vals]
       hlo.return_(mlir.flatten_ir_values(out_vals))
@@ -1065,7 +1066,7 @@ def _cond_state_discharge_rule(should_discharge, in_avals, out_avals, index, *ar
       discharge_state(branch.jaxpr, branch.consts, should_discharge=should_discharge[1:])
       for branch in branches)
   # Don't thread the ref values through the cond if they never change.
-  forwarded_outvars = None
+  forwarded_outvars: list[int | None] | None = None
   for branch in discharged_branches:
     invar_pos = {v: i for i, v in enumerate(branch.invars)}
     branch_forwarding = [

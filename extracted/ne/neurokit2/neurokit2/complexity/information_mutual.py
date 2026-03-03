@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 import scipy.ndimage
@@ -139,8 +138,7 @@ def mutual_information(x, y, method="varoquaux", bins="default", **kwargs):
                 p_x = pd.cut(x, i, labels=False)
                 p_y = pd.cut(y, j, labels=False)
                 new_mi = _mutual_information_sklearn(p_x, p_y) / np.log2(np.min([i, j]))
-                if new_mi > mi:
-                    mi = new_mi
+                mi = max(mi, new_mi)
     else:
         if isinstance(bins, str):
             # Hacine-Gharbi (2018)
@@ -233,15 +231,11 @@ def _mutual_information_knn(x, y, k=3):
     dvec = sklearn.neighbors.KDTree(points, metric="chebyshev").query(points, k=k + 1)[0][:, k]
 
     a = np.array([x]).T
-    a = sklearn.neighbors.KDTree(a, metric="chebyshev").query_radius(
-        a, dvec - 1e-15, count_only=True
-    )
+    a = sklearn.neighbors.KDTree(a, metric="chebyshev").query_radius(a, dvec - 1e-15, count_only=True)
     a = np.mean(scipy.special.digamma(a))
 
     b = np.array([y]).T
-    b = sklearn.neighbors.KDTree(b, metric="chebyshev").query_radius(
-        b, dvec - 1e-15, count_only=True
-    )
+    b = sklearn.neighbors.KDTree(b, metric="chebyshev").query_radius(b, dvec - 1e-15, count_only=True)
     b = np.mean(scipy.special.digamma(b))
 
     c = scipy.special.digamma(k)

@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import sqlite3
 import urllib.request
 import urllib.error
 from typing import Dict, List, Optional, Tuple
@@ -48,7 +49,7 @@ def _embed_openai(texts: List[str], api_key: str) -> List[List[float]]:
         },
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read(4 * 1024 * 1024))
+        data = json.loads(resp.read())
     # Sort by index to ensure correct order
     items = sorted(data["data"], key=lambda x: x["index"])
     return [item["embedding"] for item in items]
@@ -68,7 +69,7 @@ def _embed_google(texts: List[str], api_key: str) -> List[List[float]]:
             headers={"Content-Type": "application/json", "x-goog-api-key": api_key},
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read(4 * 1024 * 1024))
+            data = json.loads(resp.read())
         results.append(data["embedding"]["values"])
     return results
 
@@ -88,7 +89,7 @@ def get_available_provider() -> Optional[str]:
     return None
 
 
-def get_embedding(text: str, provider: Optional[str] = None, conn=None) -> Optional[Tuple[List[float], str]]:
+def get_embedding(text: str, provider: Optional[str] = None, conn: Optional[sqlite3.Connection] = None) -> Optional[Tuple[List[float], str]]:
     """Get embedding for text, using cache if available.
     
     Returns (embedding, provider) or None on failure.
@@ -167,7 +168,7 @@ def get_embedding(text: str, provider: Optional[str] = None, conn=None) -> Optio
         return None
 
 
-def batch_embed(texts: List[str], provider: Optional[str] = None, conn=None) -> List[Optional[Tuple[List[float], str]]]:
+def batch_embed(texts: List[str], provider: Optional[str] = None, conn: Optional[sqlite3.Connection] = None) -> List[Optional[Tuple[List[float], str]]]:
     """Batch embed texts. Returns list of (embedding, provider) or None for failures."""
     if not texts:
         return []

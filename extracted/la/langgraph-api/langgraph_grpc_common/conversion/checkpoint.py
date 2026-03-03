@@ -230,7 +230,7 @@ def prune_strategy_from_proto(
 
 
 def prune_strategy_to_proto(
-    strategy: Literal["keep_latest", "delete_all"],
+    strategy: str,
 ) -> checkpointer_pb2.PruneRequest.PruneStrategy.ValueType:
     match strategy:
         case "keep_latest":

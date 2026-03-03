@@ -79,6 +79,5 @@ class EventEmitter:
             return
 
         if event not in self.allowed_events:
-            raise ValueError(
-                f"'{event}' is not a known event of this EventEmitter: {self.allowed_events}"
-            )
+            msg = f"'{event}' is not a known event of this EventEmitter: {self.allowed_events}"
+            raise ValueError(msg)

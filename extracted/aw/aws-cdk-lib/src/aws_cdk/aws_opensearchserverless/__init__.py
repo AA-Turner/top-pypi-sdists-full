@@ -64,14 +64,17 @@ from .. import (
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
     ITaggable as _ITaggable_36806126,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..interfaces.aws_ec2 import ISecurityGroupRef as _ISecurityGroupRef_efa4ff18
 from ..interfaces.aws_opensearchserverless import (
     AccessPolicyReference as _AccessPolicyReference_645132eb,
+    CollectionGroupReference as _CollectionGroupReference_d971af95,
     CollectionReference as _CollectionReference_355c1500,
     IAccessPolicyRef as _IAccessPolicyRef_b72e06bb,
+    ICollectionGroupRef as _ICollectionGroupRef_f25bb5c3,
     ICollectionRef as _ICollectionRef_3c562476,
     IIndexRef as _IIndexRef_53f6bc35,
     ILifecyclePolicyRef as _ILifecyclePolicyRef_57cf5ace,
@@ -778,6 +781,521 @@ class CfnCollection(
             return "EncryptionConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
+
+
+@jsii.implements(_IInspectable_c2943556, _ICollectionGroupRef_f25bb5c3, _ITaggableV2_4e6798f8)
+class CfnCollectionGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionGroup",
+):
+    '''Resource Type definition for AWS::OpenSearchServerless::CollectionGroup.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html
+    :cloudformationResource: AWS::OpenSearchServerless::CollectionGroup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_opensearchserverless as opensearchserverless
+        
+        cfn_collection_group = opensearchserverless.CfnCollectionGroup(self, "MyCfnCollectionGroup",
+            name="name",
+            standby_replicas="standbyReplicas",
+        
+            # the properties below are optional
+            capacity_limits=opensearchserverless.CfnCollectionGroup.CapacityLimitsProperty(
+                max_indexing_capacity_in_ocu=123,
+                max_search_capacity_in_ocu=123,
+                min_indexing_capacity_in_ocu=123,
+                min_search_capacity_in_ocu=123
+            ),
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        standby_replicas: builtins.str,
+        capacity_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollectionGroup.CapacityLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::OpenSearchServerless::CollectionGroup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the collection group.
+        :param standby_replicas: Indicates whether standby replicas are used for the collection group.
+        :param capacity_limits: 
+        :param description: The description of the collection group.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__003fddde4e2ea8eeef1b525032927b2637c125782d2cf567beca47cb6a1d6ef6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCollectionGroupProps(
+            name=name,
+            standby_replicas=standby_replicas,
+            capacity_limits=capacity_limits,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCollectionGroup")
+    @builtins.classmethod
+    def arn_for_collection_group(
+        cls,
+        resource: "_ICollectionGroupRef_f25bb5c3",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4dd231287510a173223ad9aa37ec26f6a8a09383a6f2eeb39745011afd2bc93)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCollectionGroup", [resource]))
+
+    @jsii.member(jsii_name="fromCollectionGroupArn")
+    @builtins.classmethod
+    def from_collection_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_ICollectionGroupRef_f25bb5c3":
+        '''Creates a new ICollectionGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19312e0fc87badd4f1b37bb2d281a162ac29b13443731d63a5d6fe9e7cb1c3fe)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_ICollectionGroupRef_f25bb5c3", jsii.sinvoke(cls, "fromCollectionGroupArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromCollectionGroupId")
+    @builtins.classmethod
+    def from_collection_group_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        collection_group_id: builtins.str,
+    ) -> "_ICollectionGroupRef_f25bb5c3":
+        '''Creates a new ICollectionGroupRef from a collectionGroupId.
+
+        :param scope: -
+        :param id: -
+        :param collection_group_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83d923d70786409503f366ae46752633a5a2ae69825ea786b4b90c131ab26db6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument collection_group_id", value=collection_group_id, expected_type=type_hints["collection_group_id"])
+        return typing.cast("_ICollectionGroupRef_f25bb5c3", jsii.sinvoke(cls, "fromCollectionGroupId", [scope, id, collection_group_id]))
+
+    @jsii.member(jsii_name="isCfnCollectionGroup")
+    @builtins.classmethod
+    def is_cfn_collection_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCollectionGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b1de17ec0d0badb4e0225c4ec668e6f33e10411c7639f3c4ef8991fd4bdbedc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCollectionGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a260672e8538392a1923884fdd3b2912fbfa84e245af3752a2be40d94e6d34e2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80020ac66d2b982d225e76952a7dd7225b9390db6937cb1e6fbe1cf58b88855f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the collection group.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The unique identifier of the collection group.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="collectionGroupRef")
+    def collection_group_ref(self) -> "_CollectionGroupReference_d971af95":
+        '''A reference to a CollectionGroup resource.'''
+        return typing.cast("_CollectionGroupReference_d971af95", jsii.get(self, "collectionGroupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the collection group.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64f5b74cc31e9aaf70f71e3e01a4b3419e7297b13e1d014daa5c97829f9ea888)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="standbyReplicas")
+    def standby_replicas(self) -> builtins.str:
+        '''Indicates whether standby replicas are used for the collection group.'''
+        return typing.cast(builtins.str, jsii.get(self, "standbyReplicas"))
+
+    @standby_replicas.setter
+    def standby_replicas(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b7d9ec15e1156166964a9082868f72b0e6a33a4bc7dd6d62fdb97dab852cc8b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "standbyReplicas", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="capacityLimits")
+    def capacity_limits(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollectionGroup.CapacityLimitsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollectionGroup.CapacityLimitsProperty"]], jsii.get(self, "capacityLimits"))
+
+    @capacity_limits.setter
+    def capacity_limits(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollectionGroup.CapacityLimitsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5b1734d95e67462693b94da7772b35fbffaf352844a9b43d5fb358ce628ad531)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "capacityLimits", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the collection group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f988e354c256660c645322a51f75e5b184b91022ce111cb9789235333d69459b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5d4df361a167d377eda19869c576227fdd5cbcda26328fb471c65ef942bac47)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionGroup.CapacityLimitsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_indexing_capacity_in_ocu": "maxIndexingCapacityInOcu",
+            "max_search_capacity_in_ocu": "maxSearchCapacityInOcu",
+            "min_indexing_capacity_in_ocu": "minIndexingCapacityInOcu",
+            "min_search_capacity_in_ocu": "minSearchCapacityInOcu",
+        },
+    )
+    class CapacityLimitsProperty:
+        def __init__(
+            self,
+            *,
+            max_indexing_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+            max_search_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+            min_indexing_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+            min_search_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param max_indexing_capacity_in_ocu: The maximum indexing capacity for collections in the group.
+            :param max_search_capacity_in_ocu: The maximum search capacity for collections in the group.
+            :param min_indexing_capacity_in_ocu: The minimum indexing capacity for collections in the group.
+            :param min_search_capacity_in_ocu: The minimum search capacity for collections in the group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collectiongroup-capacitylimits.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_opensearchserverless as opensearchserverless
+                
+                capacity_limits_property = opensearchserverless.CfnCollectionGroup.CapacityLimitsProperty(
+                    max_indexing_capacity_in_ocu=123,
+                    max_search_capacity_in_ocu=123,
+                    min_indexing_capacity_in_ocu=123,
+                    min_search_capacity_in_ocu=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9205af2262e3ac0c3eb73e8a04c80f4aafc56f803339fe4fdd4801dacbf9212f)
+                check_type(argname="argument max_indexing_capacity_in_ocu", value=max_indexing_capacity_in_ocu, expected_type=type_hints["max_indexing_capacity_in_ocu"])
+                check_type(argname="argument max_search_capacity_in_ocu", value=max_search_capacity_in_ocu, expected_type=type_hints["max_search_capacity_in_ocu"])
+                check_type(argname="argument min_indexing_capacity_in_ocu", value=min_indexing_capacity_in_ocu, expected_type=type_hints["min_indexing_capacity_in_ocu"])
+                check_type(argname="argument min_search_capacity_in_ocu", value=min_search_capacity_in_ocu, expected_type=type_hints["min_search_capacity_in_ocu"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_indexing_capacity_in_ocu is not None:
+                self._values["max_indexing_capacity_in_ocu"] = max_indexing_capacity_in_ocu
+            if max_search_capacity_in_ocu is not None:
+                self._values["max_search_capacity_in_ocu"] = max_search_capacity_in_ocu
+            if min_indexing_capacity_in_ocu is not None:
+                self._values["min_indexing_capacity_in_ocu"] = min_indexing_capacity_in_ocu
+            if min_search_capacity_in_ocu is not None:
+                self._values["min_search_capacity_in_ocu"] = min_search_capacity_in_ocu
+
+        @builtins.property
+        def max_indexing_capacity_in_ocu(self) -> typing.Optional[jsii.Number]:
+            '''The maximum indexing capacity for collections in the group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collectiongroup-capacitylimits.html#cfn-opensearchserverless-collectiongroup-capacitylimits-maxindexingcapacityinocu
+            '''
+            result = self._values.get("max_indexing_capacity_in_ocu")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_search_capacity_in_ocu(self) -> typing.Optional[jsii.Number]:
+            '''The maximum search capacity for collections in the group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collectiongroup-capacitylimits.html#cfn-opensearchserverless-collectiongroup-capacitylimits-maxsearchcapacityinocu
+            '''
+            result = self._values.get("max_search_capacity_in_ocu")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_indexing_capacity_in_ocu(self) -> typing.Optional[jsii.Number]:
+            '''The minimum indexing capacity for collections in the group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collectiongroup-capacitylimits.html#cfn-opensearchserverless-collectiongroup-capacitylimits-minindexingcapacityinocu
+            '''
+            result = self._values.get("min_indexing_capacity_in_ocu")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_search_capacity_in_ocu(self) -> typing.Optional[jsii.Number]:
+            '''The minimum search capacity for collections in the group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collectiongroup-capacitylimits.html#cfn-opensearchserverless-collectiongroup-capacitylimits-minsearchcapacityinocu
+            '''
+            result = self._values.get("min_search_capacity_in_ocu")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityLimitsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_opensearchserverless.CfnCollectionGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "standby_replicas": "standbyReplicas",
+        "capacity_limits": "capacityLimits",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnCollectionGroupProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        standby_replicas: builtins.str,
+        capacity_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollectionGroup.CapacityLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCollectionGroup``.
+
+        :param name: The name of the collection group.
+        :param standby_replicas: Indicates whether standby replicas are used for the collection group.
+        :param capacity_limits: 
+        :param description: The description of the collection group.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_opensearchserverless as opensearchserverless
+            
+            cfn_collection_group_props = opensearchserverless.CfnCollectionGroupProps(
+                name="name",
+                standby_replicas="standbyReplicas",
+            
+                # the properties below are optional
+                capacity_limits=opensearchserverless.CfnCollectionGroup.CapacityLimitsProperty(
+                    max_indexing_capacity_in_ocu=123,
+                    max_search_capacity_in_ocu=123,
+                    min_indexing_capacity_in_ocu=123,
+                    min_search_capacity_in_ocu=123
+                ),
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05b5eaaa32a385be6264c079cdcc6ba7e9c9e965cb532827253f8222fa526bbf)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument standby_replicas", value=standby_replicas, expected_type=type_hints["standby_replicas"])
+            check_type(argname="argument capacity_limits", value=capacity_limits, expected_type=type_hints["capacity_limits"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "standby_replicas": standby_replicas,
+        }
+        if capacity_limits is not None:
+            self._values["capacity_limits"] = capacity_limits
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the collection group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html#cfn-opensearchserverless-collectiongroup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def standby_replicas(self) -> builtins.str:
+        '''Indicates whether standby replicas are used for the collection group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html#cfn-opensearchserverless-collectiongroup-standbyreplicas
+        '''
+        result = self._values.get("standby_replicas")
+        assert result is not None, "Required property 'standby_replicas' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def capacity_limits(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollectionGroup.CapacityLimitsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html#cfn-opensearchserverless-collectiongroup-capacitylimits
+        '''
+        result = self._values.get("capacity_limits")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCollectionGroup.CapacityLimitsProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the collection group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html#cfn-opensearchserverless-collectiongroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html#cfn-opensearchserverless-collectiongroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCollectionGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -3543,6 +4061,8 @@ __all__ = [
     "CfnAccessPolicy",
     "CfnAccessPolicyProps",
     "CfnCollection",
+    "CfnCollectionGroup",
+    "CfnCollectionGroupProps",
     "CfnCollectionProps",
     "CfnIndex",
     "CfnIndexProps",
@@ -3723,6 +4243,110 @@ def _typecheckingstub__834b94cc298846a5bf61134fb27e603dd476782999349d69ca2c27cb8
     *,
     aws_owned_key: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__003fddde4e2ea8eeef1b525032927b2637c125782d2cf567beca47cb6a1d6ef6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    standby_replicas: builtins.str,
+    capacity_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollectionGroup.CapacityLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4dd231287510a173223ad9aa37ec26f6a8a09383a6f2eeb39745011afd2bc93(
+    resource: _ICollectionGroupRef_f25bb5c3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19312e0fc87badd4f1b37bb2d281a162ac29b13443731d63a5d6fe9e7cb1c3fe(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83d923d70786409503f366ae46752633a5a2ae69825ea786b4b90c131ab26db6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    collection_group_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b1de17ec0d0badb4e0225c4ec668e6f33e10411c7639f3c4ef8991fd4bdbedc(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a260672e8538392a1923884fdd3b2912fbfa84e245af3752a2be40d94e6d34e2(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80020ac66d2b982d225e76952a7dd7225b9390db6937cb1e6fbe1cf58b88855f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64f5b74cc31e9aaf70f71e3e01a4b3419e7297b13e1d014daa5c97829f9ea888(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b7d9ec15e1156166964a9082868f72b0e6a33a4bc7dd6d62fdb97dab852cc8b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b1734d95e67462693b94da7772b35fbffaf352844a9b43d5fb358ce628ad531(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCollectionGroup.CapacityLimitsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f988e354c256660c645322a51f75e5b184b91022ce111cb9789235333d69459b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5d4df361a167d377eda19869c576227fdd5cbcda26328fb471c65ef942bac47(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9205af2262e3ac0c3eb73e8a04c80f4aafc56f803339fe4fdd4801dacbf9212f(
+    *,
+    max_indexing_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+    max_search_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+    min_indexing_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+    min_search_capacity_in_ocu: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05b5eaaa32a385be6264c079cdcc6ba7e9c9e965cb532827253f8222fa526bbf(
+    *,
+    name: builtins.str,
+    standby_replicas: builtins.str,
+    capacity_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollectionGroup.CapacityLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

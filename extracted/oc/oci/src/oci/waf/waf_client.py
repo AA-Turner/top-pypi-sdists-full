@@ -167,7 +167,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/change_network_address_list_compartment.py.html>`__ to see an example of how to use change_network_address_list_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/change_network_address_list_compartment.py.html>`__ to see an example of how to use change_network_address_list_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkAddressListId']
@@ -285,7 +285,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/change_web_app_firewall_compartment.py.html>`__ to see an example of how to use change_web_app_firewall_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/change_web_app_firewall_compartment.py.html>`__ to see an example of how to use change_web_app_firewall_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallId']
@@ -403,7 +403,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/change_web_app_firewall_policy_compartment.py.html>`__ to see an example of how to use change_web_app_firewall_policy_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/change_web_app_firewall_policy_compartment.py.html>`__ to see an example of how to use change_web_app_firewall_policy_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallPolicyId']
@@ -516,7 +516,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/create_network_address_list.py.html>`__ to see an example of how to use create_network_address_list API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/create_network_address_list.py.html>`__ to see an example of how to use create_network_address_list API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -620,7 +620,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/create_web_app_firewall.py.html>`__ to see an example of how to use create_web_app_firewall API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/create_web_app_firewall.py.html>`__ to see an example of how to use create_web_app_firewall API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -724,7 +724,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/create_web_app_firewall_policy.py.html>`__ to see an example of how to use create_web_app_firewall_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/create_web_app_firewall_policy.py.html>`__ to see an example of how to use create_web_app_firewall_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -829,7 +829,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/delete_network_address_list.py.html>`__ to see an example of how to use delete_network_address_list API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/delete_network_address_list.py.html>`__ to see an example of how to use delete_network_address_list API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkAddressListId']
@@ -941,7 +941,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/delete_web_app_firewall.py.html>`__ to see an example of how to use delete_web_app_firewall API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/delete_web_app_firewall.py.html>`__ to see an example of how to use delete_web_app_firewall API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallId']
@@ -1053,7 +1053,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/delete_web_app_firewall_policy.py.html>`__ to see an example of how to use delete_web_app_firewall_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/delete_web_app_firewall_policy.py.html>`__ to see an example of how to use delete_web_app_firewall_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallPolicyId']
@@ -1160,7 +1160,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/get_network_address_list.py.html>`__ to see an example of how to use get_network_address_list API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/get_network_address_list.py.html>`__ to see an example of how to use get_network_address_list API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkAddressListId']
@@ -1267,7 +1267,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/get_web_app_firewall.py.html>`__ to see an example of how to use get_web_app_firewall API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/get_web_app_firewall.py.html>`__ to see an example of how to use get_web_app_firewall API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallId']
@@ -1374,7 +1374,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/get_web_app_firewall_policy.py.html>`__ to see an example of how to use get_web_app_firewall_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/get_web_app_firewall_policy.py.html>`__ to see an example of how to use get_web_app_firewall_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallPolicyId']
@@ -1481,7 +1481,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1619,7 +1619,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_network_address_lists.py.html>`__ to see an example of how to use list_network_address_lists API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_network_address_lists.py.html>`__ to see an example of how to use list_network_address_lists API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1787,7 +1787,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_protection_capabilities.py.html>`__ to see an example of how to use list_protection_capabilities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_protection_capabilities.py.html>`__ to see an example of how to use list_protection_capabilities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1955,7 +1955,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_protection_capability_group_tags.py.html>`__ to see an example of how to use list_protection_capability_group_tags API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_protection_capability_group_tags.py.html>`__ to see an example of how to use list_protection_capability_group_tags API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2121,7 +2121,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_web_app_firewall_policies.py.html>`__ to see an example of how to use list_web_app_firewall_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_web_app_firewall_policies.py.html>`__ to see an example of how to use list_web_app_firewall_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2287,7 +2287,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_web_app_firewalls.py.html>`__ to see an example of how to use list_web_app_firewalls API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_web_app_firewalls.py.html>`__ to see an example of how to use list_web_app_firewalls API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2426,7 +2426,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2550,7 +2550,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2679,7 +2679,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2795,7 +2795,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/update_network_address_list.py.html>`__ to see an example of how to use update_network_address_list API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/update_network_address_list.py.html>`__ to see an example of how to use update_network_address_list API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkAddressListId']
@@ -2912,7 +2912,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/update_web_app_firewall.py.html>`__ to see an example of how to use update_web_app_firewall API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/update_web_app_firewall.py.html>`__ to see an example of how to use update_web_app_firewall API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallId']
@@ -3029,7 +3029,7 @@ class WafClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/waf/update_web_app_firewall_policy.py.html>`__ to see an example of how to use update_web_app_firewall_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/waf/update_web_app_firewall_policy.py.html>`__ to see an example of how to use update_web_app_firewall_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['webAppFirewallPolicyId']

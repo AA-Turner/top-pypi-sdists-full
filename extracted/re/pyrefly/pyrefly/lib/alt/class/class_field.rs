@@ -16,6 +16,7 @@ use pyrefly_derive::VisitMut;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::FuncFlags;
 use pyrefly_types::callable::FuncId;
 use pyrefly_types::callable::FunctionKind;
@@ -38,6 +39,7 @@ use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprTuple;
 use ruff_python_ast::helpers::is_dunder;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -1984,6 +1986,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(errors, x.range(), ErrorInfo::Kind(ErrorKind::UnannotatedAttribute), "This expression is implicitly inferred to be `Any | None`. Please provide an explicit type annotation.".to_owned());
                 self.union(self.heap.mk_none(), self.heap.mk_any_implicit())
             }
+            // We interpret `self.foo = ()` to mean the type of foo is an arbitrary-length tuple,
+            // since an empty tuple base attr almost always means to hold a tuple of something in
+            // derived classes. We exclude `__match_args__` because its value is semantically
+            // significant: `__match_args__ = ()` means "no positional match arguments" and
+            // should have type `tuple[()]`, not `tuple[Any, ...]`.
+            (None, Expr::Tuple(ExprTuple { elts, .. }))
+                if elts.is_empty() && *name != dunder::MATCH_ARGS =>
+            {
+                self.error(errors, x.range(), ErrorInfo::Kind(ErrorKind::UnannotatedAttribute), "This expression is implicitly inferred to be `tuple[Any, ...]`. Please provide an explicit type annotation.".to_owned());
+                self.heap.mk_unbounded_tuple(self.heap.mk_any_implicit())
+            }
             (None, _) => self.expr_infer(x, errors),
         };
         self.expand_vars_mut(&mut ty);
@@ -2568,6 +2581,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         module: module.clone(),
                         cls: None,
                         name: field_name.clone(),
+                        def_index: None,
                     };
                     ty = self.heap.mk_function(Function {
                         signature: callable,
@@ -3056,12 +3070,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 continue;
             }
-            // Substitute `Self` with derived class to support contravariant occurrences of `Self`
-            let want_attribute = self.as_instance_attribute(
-                field_name,
-                &want_class_field,
-                &Instance::of_protocol(parent, self.instantiate(cls)),
-            );
+            let want_attribute = {
+                let mut attr = self.as_instance_attribute(
+                    field_name,
+                    &want_class_field,
+                    // Substitute `Self` with derived class to support contravariant occurrences of `Self`
+                    &Instance::of_protocol(parent, self.instantiate(cls)),
+                );
+                if !want_class_field.has_explicit_annotation() {
+                    match &mut attr {
+                        ClassAttribute::ReadOnly(ty, _) | ClassAttribute::ReadWrite(ty)
+                            if ty.has_toplevel_func_metadata() =>
+                        {
+                            // If parent return type was Never (for example a method that only raises),
+                            // skip override consistency checks on the return type so we don't produce noisy bad-override diagnostics.
+                            ty.transform_toplevel_callable(&mut |callable: &mut Callable| {
+                                if callable.ret.is_never() {
+                                    callable.ret = Type::any_implicit();
+                                }
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+                attr
+            };
             if got_attribute.is_none() {
                 // Optimisation: Only compute the `got_attr` once, and only if we actually need it.
                 got_attribute = Some(self.as_instance_attribute(

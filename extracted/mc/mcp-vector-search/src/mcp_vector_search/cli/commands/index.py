@@ -19,7 +19,7 @@ from ...config.defaults import get_default_cache_path
 from ...core.embeddings import create_embedding_function
 from ...core.exceptions import ProjectNotFoundError
 from ...core.factory import create_database
-from ...core.indexer import SemanticIndexer
+from ...core.indexer import SemanticIndexer, SemanticIndexerConfig
 from ...core.progress import ProgressTracker
 from ...core.project import ProjectManager
 from ..output import (
@@ -419,6 +419,12 @@ def main(
         min=0,
         rich_help_panel="⚡ Performance",
     ),
+    two_pass: bool | None = typer.Option(
+        None,
+        "--two-pass/--no-two-pass",
+        help="Use sequential chunk-all then embed-all instead of pipeline (default: auto from MCP_VECTOR_SEARCH_TWO_PASS env var)",
+        rich_help_panel="⚡ Performance",
+    ),
 ) -> None:
     """📑 Index your codebase for semantic search.
 
@@ -537,6 +543,7 @@ def main(
                     re_embed=re_embed,
                     embedding_model_override=embedding_model,
                     embed_batch_size=embed_batch_size,
+                    two_pass=two_pass,
                 )
             )
 
@@ -703,6 +710,7 @@ async def run_indexing(
     re_embed: bool = False,
     embedding_model_override: str | None = None,
     embed_batch_size: int = 0,
+    two_pass: bool | None = None,
 ) -> None:
     """Run the indexing process.
 
@@ -714,6 +722,7 @@ async def run_indexing(
         skip_blame: Skip git blame tracking for faster indexing
         re_embed: Re-embed all chunks with current or specified model without re-parsing
         embedding_model_override: Override embedding model (e.g., microsoft/graphcodebert-base)
+        two_pass: Override two_pass mode (None = use env var / config default)
     """
     # Load project configuration
     project_manager = ProjectManager(project_root)
@@ -995,6 +1004,12 @@ async def run_indexing(
     # Create progress tracker for progress bars (always enabled now)
     progress_tracker_obj = ProgressTracker(console, verbose=verbose)
 
+    indexer_cfg = SemanticIndexerConfig.from_env()
+    if two_pass is not None:
+        import dataclasses
+
+        indexer_cfg = dataclasses.replace(indexer_cfg, two_pass=two_pass)
+
     indexer = SemanticIndexer(
         database=database,
         project_root=project_root,
@@ -1006,6 +1021,7 @@ async def run_indexing(
         ignore_patterns=vendor_patterns_set,
         skip_blame=skip_blame,
         progress_tracker=progress_tracker_obj,
+        indexer_config=indexer_cfg,
     )
     # Set cancellation flag for graceful shutdown
     if cancellation_flag:
@@ -1123,8 +1139,6 @@ async def _run_batch_indexing(
 
         import time
 
-        from ..output import console
-
         console.print()
         console.print("[cyan]📦[/cyan] Starting chunking process...")
 
@@ -1183,8 +1197,6 @@ async def _run_batch_indexing(
     elif show_progress:
         # ========== PROGRESS TUI MODE (default) ==========
         import time
-
-        from ..output import console
 
         console.print()  # Add blank line before progress
 
@@ -1292,10 +1304,8 @@ async def _run_batch_indexing(
             logger.debug(f"Could not load KG stats: {e}")
     else:
         # KG not built - show hint
-        from ..output import console as output_console
-
-        output_console.print()
-        output_console.print(
+        console.print()
+        console.print(
             "[dim]💡 Run 'mcp-vector-search kg build' to enable graph queries[/dim]"
         )
 
@@ -1514,6 +1524,7 @@ async def _reindex_entire_project(project_root: Path) -> None:
         database=database,
         project_root=project_root,
         config=config,
+        indexer_config=SemanticIndexerConfig.from_env(),
     )
 
     try:
@@ -1571,6 +1582,7 @@ async def _reindex_single_file(project_root: Path, file_path: Path) -> None:
         database=database,
         project_root=project_root,
         config=config,
+        indexer_config=SemanticIndexerConfig.from_env(),
     )
 
     async with database:
@@ -1759,8 +1771,6 @@ def _show_background_status(project_root: Path) -> None:
         project_root: Project root directory
     """
     from rich.table import Table
-
-    from ..output import console
 
     progress_file = project_root / ".mcp-vector-search" / "indexing_progress.json"
 
@@ -2065,8 +2075,6 @@ async def _compute_relationships_sync(project_root: Path) -> None:
         TimeRemainingColumn,
     )
 
-    from ..output import console
-
     # Load project configuration
     project_manager = ProjectManager(project_root)
 
@@ -2252,8 +2260,6 @@ async def _show_two_phase_status(project_root: Path) -> None:
     """
     from rich.table import Table
 
-    from ..output import console
-
     # Load project configuration
     project_manager = ProjectManager(project_root)
 
@@ -2274,6 +2280,7 @@ async def _show_two_phase_status(project_root: Path) -> None:
         database=database,
         project_root=project_root,
         config=config,
+        indexer_config=SemanticIndexerConfig.from_env(),
     )
 
     # Get two-phase status

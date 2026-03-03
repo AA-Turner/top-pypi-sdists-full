@@ -6,6 +6,7 @@ Pure stdlib only.
 
 import json
 import re
+import sqlite3
 import threading
 import time
 import secrets
@@ -22,7 +23,7 @@ _DB_PATH = BASE_DIR / "personal.db"
 _db_lock = threading.Lock()
 
 
-def _get_db():
+def _get_db() -> sqlite3.Connection:
     """Get db."""
     return _connect_db(_DB_PATH, wal=True, row_factory=True, check_same_thread=False)
 
@@ -285,7 +286,7 @@ def _save_link_impl(args: dict) -> str:
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "SalmAlm/1.0"})
             with urllib.request.urlopen(req, timeout=10) as resp:
-                html = resp.read(16 * 1024 * 1024).decode("utf-8", errors="replace")[:50000]
+                html = resp.read().decode("utf-8", errors="replace")[:50000]
             m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
             if m:
                 title = re.sub(r"\s+", " ", m.group(1)).strip()[:200]

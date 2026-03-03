@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 import scipy.ndimage
@@ -93,9 +92,7 @@ def signal_smooth(signal, method="convolution", kernel="boxzen", size=10, alpha=
     # Check length.
     size = int(size)
     if size > length or size < 1:
-        raise TypeError(
-            "NeuroKit error: signal_smooth(): 'size' should be between 1 and length of the signal."
-        )
+        raise TypeError("NeuroKit error: signal_smooth(): 'size' should be between 1 and length of the signal.")
 
     method = method.lower()
 
@@ -104,25 +101,24 @@ def signal_smooth(signal, method="convolution", kernel="boxzen", size=10, alpha=
         smoothed, _ = fit_loess(signal, alpha=alpha)
 
     # Convolution
+    elif kernel == "boxcar":
+        # This is faster than using np.convolve (like is done in _signal_smoothing)
+        # because of optimizations made possible by the uniform boxcar kernel shape.
+        smoothed = scipy.ndimage.uniform_filter1d(signal, size, mode="nearest")
+
+    elif kernel == "boxzen":
+        # hybrid method
+        # 1st pass - boxcar kernel
+        x = scipy.ndimage.uniform_filter1d(signal, size, mode="nearest")
+
+        # 2nd pass - parzen kernel
+        smoothed = _signal_smoothing(x, kernel="parzen", size=size)
+
+    elif kernel == "median":
+        smoothed = _signal_smoothing_median(signal, size)
+
     else:
-        if kernel == "boxcar":
-            # This is faster than using np.convolve (like is done in _signal_smoothing)
-            # because of optimizations made possible by the uniform boxcar kernel shape.
-            smoothed = scipy.ndimage.uniform_filter1d(signal, size, mode="nearest")
-
-        elif kernel == "boxzen":
-            # hybrid method
-            # 1st pass - boxcar kernel
-            x = scipy.ndimage.uniform_filter1d(signal, size, mode="nearest")
-
-            # 2nd pass - parzen kernel
-            smoothed = _signal_smoothing(x, kernel="parzen", size=size)
-
-        elif kernel == "median":
-            smoothed = _signal_smoothing_median(signal, size)
-
-        else:
-            smoothed = _signal_smoothing(signal, kernel=kernel, size=size)
+        smoothed = _signal_smoothing(signal, kernel=kernel, size=size)
 
     return smoothed
 
@@ -131,7 +127,6 @@ def signal_smooth(signal, method="convolution", kernel="boxzen", size=10, alpha=
 # Internals
 # =============================================================================
 def _signal_smoothing_median(signal, size=5):
-
     # Enforce odd kernel size.
     if size % 2 == 0:
         size += 1
@@ -141,7 +136,6 @@ def _signal_smoothing_median(signal, size=5):
 
 
 def _signal_smoothing(signal, kernel, size=5):
-
     # Get window.
     window = scipy.signal.get_window(kernel, size)
     w = window / window.sum()

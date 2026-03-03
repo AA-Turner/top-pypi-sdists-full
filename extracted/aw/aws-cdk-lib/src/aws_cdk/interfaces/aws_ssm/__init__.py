@@ -540,13 +540,13 @@ typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IRe
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ssm.MaintenanceWindowReference",
     jsii_struct_bases=[],
-    name_mapping={"maintenance_window_id": "maintenanceWindowId"},
+    name_mapping={"window_id": "windowId"},
 )
 class MaintenanceWindowReference:
-    def __init__(self, *, maintenance_window_id: builtins.str) -> None:
+    def __init__(self, *, window_id: builtins.str) -> None:
         '''A reference to a MaintenanceWindow resource.
 
-        :param maintenance_window_id: The Id of the MaintenanceWindow resource.
+        :param window_id: The WindowId of the MaintenanceWindow resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -557,21 +557,21 @@ class MaintenanceWindowReference:
             from aws_cdk.interfaces import aws_ssm as interfaces_ssm
             
             maintenance_window_reference = interfaces_ssm.MaintenanceWindowReference(
-                maintenance_window_id="maintenanceWindowId"
+                window_id="windowId"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cb33a09c3dfc7973432d718faac07715f6677b4083711351d04c330763c198d)
-            check_type(argname="argument maintenance_window_id", value=maintenance_window_id, expected_type=type_hints["maintenance_window_id"])
+            check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "maintenance_window_id": maintenance_window_id,
+            "window_id": window_id,
         }
 
     @builtins.property
-    def maintenance_window_id(self) -> builtins.str:
-        '''The Id of the MaintenanceWindow resource.'''
-        result = self._values.get("maintenance_window_id")
-        assert result is not None, "Required property 'maintenance_window_id' is missing"
+    def window_id(self) -> builtins.str:
+        '''The WindowId of the MaintenanceWindow resource.'''
+        result = self._values.get("window_id")
+        assert result is not None, "Required property 'window_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -962,7 +962,7 @@ def _typecheckingstub__bcb6101d3c62b0309a6bc1a2847a94afe116c447d404db2cbbf9e653f
 
 def _typecheckingstub__2cb33a09c3dfc7973432d718faac07715f6677b4083711351d04c330763c198d(
     *,
-    maintenance_window_id: builtins.str,
+    window_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -873,6 +873,7 @@ export default {render}`;
     static {
         this.prototype.default_view = ReactiveESMView;
         this.define(({ Any, Array, Bool, Nullable, Str }) => ({
+            _defs: [Array(Any), []],
             css_bundle: [Nullable(Str), null],
             bundle: [Nullable(Str), null],
             children: [Array(Str), []],

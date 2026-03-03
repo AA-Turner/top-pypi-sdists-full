@@ -8,6 +8,7 @@ import System.ComponentModel
 import System.Drawing
 import System.Globalization
 import System.Numerics
+import System.Numerics.Colors
 
 System_Drawing_SizeF = typing.Any
 System_Drawing_Point = typing.Any
@@ -718,6 +719,11 @@ class Color(System.IEquatable[System_Drawing_Color]):
 
     @staticmethod
     @overload
+    def from_argb(argb: System.Numerics.Colors.Argb[int]) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    @overload
     def from_argb(alpha: int, red: int, green: int, blue: int) -> System.Drawing.Color:
         ...
 
@@ -752,6 +758,9 @@ class Color(System.IEquatable[System_Drawing_Color]):
         ...
 
     def to_argb(self) -> int:
+        ...
+
+    def to_argb_value(self) -> System.Numerics.Colors.Argb[int]:
         ...
 
     def to_known_color(self) -> System.Drawing.KnownColor:

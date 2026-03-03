@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.gridspec
 import numpy as np
 import pandas as pd
@@ -60,9 +59,7 @@ def microstates_static(microstates, sampling_rate=1000, show=False):
 
     if show is True:
         fig = plt.figure(constrained_layout=False)
-        spec = matplotlib.gridspec.GridSpec(
-            ncols=2, nrows=2, height_ratios=[1, 1], width_ratios=[1, 1]
-        )
+        spec = matplotlib.gridspec.GridSpec(ncols=2, nrows=2, height_ratios=[1, 1], width_ratios=[1, 1])
 
         ax0 = fig.add_subplot(spec[1, :])
         ax1 = fig.add_subplot(spec[0, :-1])
@@ -106,7 +103,6 @@ def _microstates_duration(microstates, sampling_rate=1000, out=None):
 
 
 def _microstates_duration_plot(durations, types, ax=None):
-
     # Make data for violin
     states = np.unique(types)
     data = []
@@ -120,7 +116,11 @@ def _microstates_duration_plot(durations, types, ax=None):
         fig = None
 
     parts = ax.violinplot(
-        data, positions=range(len(states)), vert=False, showmedians=True, showextrema=False
+        data,
+        positions=range(len(states)),
+        vert=False,
+        showmedians=True,
+        showextrema=False,
     )
     for component in parts:
         if isinstance(parts[component], list):
@@ -215,7 +215,8 @@ def _microstates_lifetime(microstates, out=None):
     # Get Area under curve (AUCs)
     if out is None:
         out = {}
+    trapezoid = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
     for s in states:
-        out[str(s) + "_LifetimeDistribution"] = np.trapz(lifetimes[s])
+        out[str(s) + "_LifetimeDistribution"] = trapezoid(lifetimes[s])
 
     return out, lifetimes

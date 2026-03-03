@@ -15,6 +15,7 @@ from .ppg_quality import ppg_quality
 from .ppg_segment import ppg_segment
 from .ppg_simulate import ppg_simulate
 
+
 __all__ = [
     "ppg_simulate",
     "ppg_clean",

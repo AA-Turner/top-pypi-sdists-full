@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoray
-Version: 0.8.4
+Version: 0.8.6
 Summary: Abstract your array operations.
 Project-URL: Documentation, https://autoray.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/autoray/
@@ -17,9 +17,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Provides-Extra: docs
-Requires-Dist: astroid; extra == 'docs'
 Requires-Dist: furo; extra == 'docs'
 Requires-Dist: ipython; extra == 'docs'
 Requires-Dist: myst-nb; extra == 'docs'
@@ -38,10 +38,10 @@ Description-Content-Type: text/markdown
 
 [![tests](https://github.com/jcmgray/autoray/actions/workflows/tests.yml/badge.svg)](https://github.com/jcmgray/autoray/actions/workflows/tests.yml)
 [![codecov](https://codecov.io/gh/jcmgray/autoray/branch/main/graph/badge.svg?token=Q5evNiuT9S)](https://codecov.io/gh/jcmgray/autoray)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/ba896d74c4954dd58da01df30c7bf326)](https://app.codacy.com/gh/jcmgray/autoray/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Docs](https://readthedocs.org/projects/autoray/badge/?version=latest)](https://autoray.readthedocs.io)
 [![PyPI](https://img.shields.io/pypi/v/autoray?color=teal)](https://pypi.org/project/autoray/)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/autoray/badges/version.svg)](https://anaconda.org/conda-forge/autoray)
+[![Pixi Badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json)](https://pixi.sh)
 
 [`autoray`](https://autoray.readthedocs.io/en/latest) is a lightweight python AUTOmatic-arRAY library for
 abstracting your tensor operations. Primarily it provides an

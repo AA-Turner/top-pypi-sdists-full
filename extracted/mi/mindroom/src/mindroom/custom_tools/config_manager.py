@@ -16,23 +16,14 @@ from mindroom.config.main import Config
 from mindroom.config.models import AgentLearningMode  # noqa: TC001
 from mindroom.constants import CONFIG_PATH
 from mindroom.logging_config import get_logger
-from mindroom.tools_metadata import TOOL_METADATA, ToolCategory, ToolStatus
+from mindroom.tool_system.metadata import TOOL_METADATA, ToolCategory, ToolStatus
 
 logger = get_logger(__name__)
 
 
 def _is_known_tool_entry(tool_name: str) -> bool:
-    """Return whether a tool entry is either a real tool or a tool preset."""
-    return tool_name in TOOL_METADATA or Config.is_tool_preset(tool_name)
-
-
-def _tool_entry_summary(tool_name: str) -> str:
-    """Return a concise summary for a tool or preset entry."""
-    preset = Config.get_tool_preset(tool_name)
-    if preset is not None:
-        return f"Tool preset that expands to: {', '.join(preset)}."
-    metadata = TOOL_METADATA[tool_name]
-    return metadata.description
+    """Return whether a tool entry is a known registered tool."""
+    return tool_name in TOOL_METADATA
 
 
 def validate_knowledge_bases(
@@ -65,7 +56,7 @@ def validate_knowledge_bases(
     return f"Error: Unknown knowledge bases: {invalid}. Available knowledge bases: {available}."
 
 
-class InfoType(str, Enum):
+class _InfoType(str, Enum):
     """Types of information that can be retrieved."""
 
     MINDROOM_DOCS = "mindroom_docs"
@@ -132,31 +123,31 @@ class ConfigManagerTools(Toolkit):
 
         """
         try:
-            if info_type == InfoType.MINDROOM_DOCS:
+            if info_type == _InfoType.MINDROOM_DOCS:
                 return self._get_mindroom_info()
-            if info_type == InfoType.CONFIG_SCHEMA:
+            if info_type == _InfoType.CONFIG_SCHEMA:
                 return self._get_config_schema()
-            if info_type == InfoType.AVAILABLE_MODELS:
+            if info_type == _InfoType.AVAILABLE_MODELS:
                 return self._get_available_models()
-            if info_type == InfoType.AGENTS:
+            if info_type == _InfoType.AGENTS:
                 return self._list_agents()
-            if info_type == InfoType.TEAMS:
+            if info_type == _InfoType.TEAMS:
                 return self._list_teams()
-            if info_type == InfoType.AVAILABLE_TOOLS:
+            if info_type == _InfoType.AVAILABLE_TOOLS:
                 return self._list_available_tools()
-            if info_type == InfoType.TOOL_DETAILS:
+            if info_type == _InfoType.TOOL_DETAILS:
                 if not name:
                     return "Error: tool_details requires 'name' parameter with the tool name"
                 return self._get_tool_details(name)
-            if info_type == InfoType.AGENT_CONFIG:
+            if info_type == _InfoType.AGENT_CONFIG:
                 if not name:
                     return "Error: agent_config requires 'name' parameter with the agent name"
                 return self._get_agent_config(name)
-            if info_type == InfoType.AGENT_TEMPLATE:
+            if info_type == _InfoType.AGENT_TEMPLATE:
                 if not name:
                     return "Error: agent_template requires 'name' parameter with the template type (researcher, developer, social, communicator, analyst, productivity)"
                 return self._generate_agent_template(name)
-            return f"Error: Unknown info_type '{info_type}'. Valid options: {', '.join([t.value for t in InfoType])}"
+            return f"Error: Unknown info_type '{info_type}'. Valid options: {', '.join([t.value for t in _InfoType])}"
         except Exception as e:
             logger.exception(f"Failed to get info for type {info_type}")
             return f"Error getting {info_type}: {e}"
@@ -445,35 +436,18 @@ class ConfigManagerTools(Toolkit):
                 tools_by_category[category] = []
             tools_by_category[category].append((tool_name, description))
 
-        preset_entries = [
-            (preset_name, _tool_entry_summary(preset_name)) for preset_name in sorted(Config.TOOL_PRESETS)
-        ]
-
         output = ["## Available Tools by Category:\n"]
         for category in sorted(tools_by_category.keys()):
             output.append(f"\n### {category.title()}:")
             for tool_name, description in tools_by_category[category]:
                 output.append(f"- **{tool_name}**: {description}")
-        if preset_entries:
-            output.append("\n### Tool Presets:")
-            for preset_name, description in preset_entries:
-                output.append(f"- **{preset_name}**: {description}")
 
         return "\n".join(output)
 
     def _get_tool_details(self, tool_name: str) -> str:
         """Get detailed information about a specific tool."""
-        preset = Config.get_tool_preset(tool_name)
-        if preset is not None:
-            return (
-                f"## Tool Preset: {tool_name}\n\n"
-                "**Type**: Config-only preset macro\n"
-                f"**Expands To**: {', '.join(preset)}\n"
-                "**Notes**: Presets are expanded by Config.get_agent_tools and are not runtime toolkits."
-            )
-
         if tool_name not in TOOL_METADATA:
-            available = ", ".join(sorted([*TOOL_METADATA.keys(), *Config.TOOL_PRESETS.keys()]))
+            available = ", ".join(sorted(TOOL_METADATA.keys()))
             return f"Unknown tool: {tool_name}\n\nAvailable tools: {available}"
 
         output = [f"## Tool: {tool_name}\n"]
@@ -577,7 +551,7 @@ class ConfigManagerTools(Toolkit):
             logger.exception("Failed to create agent")
             return f"Error creating agent: {e}"
 
-    def _update_agent_config(  # noqa: C901
+    def _update_agent_config(  # noqa: C901, PLR0912, PLR0915
         self,
         agent_name: str,
         display_name: str | None,
@@ -612,30 +586,54 @@ class ConfigManagerTools(Toolkit):
                 if knowledge_base_error:
                     return knowledge_base_error
 
-            # Map of field names to (new_value, display_formatter)
-            updates = {
-                "display_name": (display_name, lambda v: v),
-                "role": (role, lambda v: v),
-                "tools": (tools, lambda v: ", ".join(v) if v else "(empty)"),
-                "instructions": (instructions, lambda v: f"{len(v)} instructions" if v else "(empty)"),
-                "model": (model, lambda v: v),
-                "rooms": (rooms, lambda v: ", ".join(v) if v else "(empty)"),
-                "knowledge_bases": (knowledge_bases, lambda v: ", ".join(v) if v else "(empty)"),
-                "include_default_tools": (include_default_tools, lambda v: str(v)),
-                "markdown": (markdown, lambda v: str(v)),
-                "learning": (learning, lambda v: str(v)),
-                "learning_mode": (learning_mode, lambda v: str(v)),
-            }
-
-            # Apply updates and track changes
             changes = []
-            for field_name, (new_value, formatter) in updates.items():
-                if new_value is not None:
-                    current_value = getattr(agent, field_name)
-                    if new_value != current_value:
-                        setattr(agent, field_name, new_value)
-                        display_name = field_name.replace("_", " ").title()
-                        changes.append(f"{display_name} -> {formatter(new_value)}")
+
+            if display_name is not None and display_name != agent.display_name:
+                agent.display_name = display_name
+                changes.append(f"Display Name -> {display_name}")
+
+            if role is not None and role != agent.role:
+                agent.role = role
+                changes.append(f"Role -> {role}")
+
+            if tools is not None and tools != agent.tools:
+                agent.tools = tools
+                changes.append(f"Tools -> {', '.join(tools) if tools else '(empty)'}")
+
+            if instructions is not None and instructions != agent.instructions:
+                agent.instructions = instructions
+                if instructions:
+                    changes.append(f"Instructions -> {len(instructions)} instructions")
+                else:
+                    changes.append("Instructions -> (empty)")
+
+            if model is not None and model != agent.model:
+                agent.model = model
+                changes.append(f"Model -> {model}")
+
+            if rooms is not None and rooms != agent.rooms:
+                agent.rooms = rooms
+                changes.append(f"Rooms -> {', '.join(rooms) if rooms else '(empty)'}")
+
+            if knowledge_bases is not None and knowledge_bases != agent.knowledge_bases:
+                agent.knowledge_bases = knowledge_bases
+                changes.append(f"Knowledge Bases -> {', '.join(knowledge_bases) if knowledge_bases else '(empty)'}")
+
+            if include_default_tools is not None and include_default_tools != agent.include_default_tools:
+                agent.include_default_tools = include_default_tools
+                changes.append(f"Include Default Tools -> {include_default_tools}")
+
+            if markdown is not None and markdown != agent.markdown:
+                agent.markdown = markdown
+                changes.append(f"Markdown -> {markdown}")
+
+            if learning is not None and learning != agent.learning:
+                agent.learning = learning
+                changes.append(f"Learning -> {learning}")
+
+            if learning_mode is not None and learning_mode != agent.learning_mode:
+                agent.learning_mode = learning_mode
+                changes.append(f"Learning Mode -> {learning_mode}")
 
             if not changes:
                 return "No changes made. All provided values are the same as current configuration."

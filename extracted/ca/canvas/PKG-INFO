@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canvas
-Version: 0.106.0
+Version: 0.107.0
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT
@@ -21,6 +21,7 @@ Requires-Dist: ipython<9,>=8.21.0
 Requires-Dist: jsonschema<5,>=4.21.1
 Requires-Dist: pathspec>=0.12.1
 Requires-Dist: protobuf<5,>=4.25.3
+Requires-Dist: psutil==7.2.2
 Requires-Dist: psycopg[binary,pool]<4,>=3.2.2
 Requires-Dist: pydantic<3,>=2.6.1
 Requires-Dist: pyjwt==2.10.1

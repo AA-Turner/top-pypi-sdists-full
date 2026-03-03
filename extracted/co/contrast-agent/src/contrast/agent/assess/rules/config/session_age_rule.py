@@ -1,7 +1,7 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from datetime import timedelta
 import contextlib
+from datetime import datetime, timedelta
 
 
 class SessionAgeRuleMixin:
@@ -14,12 +14,16 @@ class SessionAgeRuleMixin:
         A value of 30 mins or less is considered safe
 
         Flask represents this value as either a timedelta or as an integer in seconds.
-        All other frameworks represent it as an integer representing seconds.
+        Falcon represents this value as a datetime (e.g. cookie "expires").
         """
         if self.count_threshold_reached():
             return False
         if isinstance(value, timedelta):
             return value > timedelta(minutes=30)
+
+        if isinstance(value, datetime):
+            seconds = (value - datetime.now(value.tzinfo)).total_seconds()
+            return seconds > 30 * 60
 
         if isinstance(value, str):
             with contextlib.suppress(ValueError):

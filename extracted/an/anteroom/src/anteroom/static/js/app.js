@@ -18,6 +18,7 @@ const App = (() => {
     let _eventSource = null;
     let _esConnectedAt = 0;
     let _esFailCount = 0;
+    let _recovering = false;
     const _shownApprovalIds = new Set();
 
     // --- Theme System ---
@@ -122,6 +123,8 @@ const App = (() => {
     }
 
     function _handle401() {
+        if (_recovering) return;
+
         const now = Date.now();
         const key = '_anteroom_401_ts';
         const retryKey = '_anteroom_401_retries';
@@ -143,6 +146,7 @@ const App = (() => {
                     btn.textContent = 'Retry';
                     btn.style.cssText = 'background:#fff;color:#dc2626;border:none;border-radius:4px;padding:4px 12px;cursor:pointer;font-weight:600;';
                     btn.onclick = () => {
+                        _recovering = true;
                         sessionStorage.removeItem(key);
                         sessionStorage.removeItem(retryKey);
                         banner.remove();
@@ -155,11 +159,13 @@ const App = (() => {
                 return;
             }
             // Auto-retry after a delay
+            _recovering = true;
             sessionStorage.setItem(retryKey, String(retries + 1));
             setTimeout(() => { window.location.href = '/'; }, 2000);
             return;
         }
         // First 401 — reset retry counter and redirect immediately
+        _recovering = true;
         sessionStorage.setItem(retryKey, '0');
         window.location.href = '/';
     }
@@ -735,6 +741,11 @@ const App = (() => {
         };
 
         _eventSource.onerror = () => {
+            if (_recovering) {
+                if (_eventSource) { _eventSource.close(); _eventSource = null; }
+                return;
+            }
+
             const elapsed = Date.now() - _esConnectedAt;
             _esFailCount++;
 
@@ -889,7 +900,15 @@ const App = (() => {
         spaces.forEach(s => {
             const item = document.createElement('div');
             item.className = 'project-item' + (state.currentSpaceId === s.id ? ' active' : '');
-            item.innerHTML = `<span>${DOMPurify.sanitize(s.name)}</span>`;
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = s.name;
+            if (s.origin) {
+                const badge = document.createElement('span');
+                badge.className = 'space-origin';
+                badge.textContent = s.origin;
+                nameSpan.appendChild(badge);
+            }
+            item.appendChild(nameSpan);
             item.addEventListener('click', async () => {
                 state.currentSpaceId = s.id;
                 document.getElementById('space-select').value = s.id;
@@ -899,14 +918,26 @@ const App = (() => {
             list.appendChild(item);
         });
 
+        const chatIndicator = document.getElementById('chat-space-indicator');
+        const chatIndicatorName = document.getElementById('chat-space-indicator-name');
+        const chatIndicatorOrigin = document.getElementById('chat-space-indicator-origin');
+
         if (state.currentSpaceId) {
             const active = spaces.find(s => s.id === state.currentSpaceId);
             if (active && activeBar && activeName) {
                 activeName.textContent = active.name;
                 activeBar.style.display = 'flex';
             }
-        } else if (activeBar) {
-            activeBar.style.display = 'none';
+            if (active && chatIndicator && chatIndicatorName) {
+                chatIndicatorName.textContent = active.name;
+                if (chatIndicatorOrigin) {
+                    chatIndicatorOrigin.textContent = active.origin || '';
+                }
+                chatIndicator.style.display = 'flex';
+            }
+        } else {
+            if (activeBar) activeBar.style.display = 'none';
+            if (chatIndicator) chatIndicator.style.display = 'none';
         }
     }
 

@@ -3,8 +3,57 @@ from pathlib import Path
 import inspect
 import os
 import sys
+from importlib.metadata import distributions
 from django import VERSION
 from packaging.version import parse as parse_version
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--log-env",
+        action="store_true",
+        default=False,
+        help="Log python environment information (pip freeze)",
+    )
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+
+    if os.getenv("GITHUB_ACTIONS") == "true" or session.config.getoption("--log-env"):
+
+        def freeze():
+            lines = []
+            for dist in distributions():
+                name = dist.metadata["Name"]
+                version = dist.version
+
+                direct_url = dist.read_text("direct_url.json")
+                if direct_url:
+                    # Editable or VCS install
+                    import json
+
+                    data = json.loads(direct_url)
+                    if "url" in data:
+                        lines.append(f"{name} @ {data['url']}")
+                        continue
+
+                lines.append(f"{name}=={version}")
+
+            return sorted(lines)
+
+        def write_reqs(number: int) -> bool:
+            try:
+                with open(
+                    f"requirements-test-{number}.txt", "x", encoding="utf-8"
+                ) as f:
+                    f.write("\n".join(freeze()) + "\n")
+                return True
+            except FileExistsError:
+                return False
+
+        run = 0
+        while not write_reqs(run):
+            run += 1
 
 
 # conftest.py
@@ -99,7 +148,9 @@ def pytest_configure(config: pytest.Config) -> None:
         # verify that the environment is set up correctly - this is used in CI to make
         # sure we're testing against the dependencies we think we are
         expected_python = os.getenv("TEST_PYTHON_VERSION")
-        expected_django = os.getenv("TEST_DJANGO_VERSION")
+        expected_django = os.getenv("TEST_DJANGO_VERSION", "").removeprefix("dj")
+        if expected_django.isdigit():
+            expected_django = ".".join(expected_django)
 
         if expected_python:
             expected_python = parse_version(expected_python)

@@ -88,14 +88,15 @@ def execute_code(
             session_timeout=timeout,
             kube_namespace=_get_kube_namespace(),
         ) as session:
-            result = session.run(
-                code=code,
-                libraries=libraries or [],
-                timeout=timeout,
-            )
+            if use_artifact_session:
+                result = session.run(  # type: ignore[call-arg]
+                    code=code, libraries=libraries or [], timeout=timeout, clear_plots=True
+                )
+            else:
+                result = session.run(code=code, libraries=libraries or [], timeout=timeout)
 
             if use_artifact_session and hasattr(result, "plots") and result.plots:
-                plot = result.plots[0]
+                plot = result.plots[-1]
                 results.append(
                     ImageContent(
                         data=plot.content_base64,

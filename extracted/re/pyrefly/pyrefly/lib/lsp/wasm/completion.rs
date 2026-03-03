@@ -508,7 +508,7 @@ impl Transaction<'_> {
         let Some(actual_type) = actual_type else {
             return false;
         };
-        self.ad_hoc_solve(handle, |solver| {
+        self.ad_hoc_solve(handle, "completion_type_compat", |solver| {
             solver.is_subset_eq(actual_type, expected_type)
         })
         .map(|compatible| !compatible)
@@ -563,7 +563,7 @@ impl Transaction<'_> {
 
                 let is_deprecated = ty.as_ref().is_some_and(|t| {
                     if let Type::ClassDef(cls) = t {
-                        self.ad_hoc_solve(handle, |solver| {
+                        self.ad_hoc_solve(handle, "completion_deprecation", |solver| {
                             solver.get_metadata_for_class(cls).deprecation().is_some()
                         })
                         .unwrap_or(false)
@@ -888,7 +888,7 @@ impl Transaction<'_> {
                 if let Some(answers) = self.get_answers(handle)
                     && let Some(base_type) = answers.get_type_trace(base_range)
                 {
-                    self.ad_hoc_solve(handle, |solver| {
+                    self.ad_hoc_solve(handle, "completion_attributes", |solver| {
                         solver
                             .completions(base_type, None, true)
                             .iter()
@@ -1015,13 +1015,20 @@ impl Transaction<'_> {
                         &mut result,
                         in_string_literal,
                     );
-                    self.add_literal_completions(handle, position, &mut result, in_string_literal);
-                    self.add_dict_key_completions(
+                    let dict_key_claimed = self.add_dict_key_completions(
                         handle,
                         mod_module.as_ref(),
                         position,
                         &mut result,
                     );
+                    if !dict_key_claimed {
+                        self.add_literal_completions(
+                            handle,
+                            position,
+                            &mut result,
+                            in_string_literal,
+                        );
+                    }
                     // in foo(x=<>, y=2<>), the first containing node is AnyNodeRef::Arguments(_)
                     // in foo(<>), the first containing node is AnyNodeRef::ExprCall
                     if let Some(first) = nodes.first()

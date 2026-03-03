@@ -238,14 +238,8 @@ class SkillLoader:
             if len(parts) >= 2:
                 url = f"https://github.com/{parts[0]}/{parts[1]}.git"
 
-        # BUG-DJ fix: only allow https:// URLs to prevent SSRF via file://, git://, ftp://
-        if not url.startswith("https://"):
-            return "❌ Only HTTPS URLs are allowed for skill installation."
-
         # Extract repo name for directory
         repo_name = url.rstrip("/").rstrip(".git").split("/")[-1]
-        if not repo_name:
-            return "❌ Could not determine repository name from URL."
         target = skills_dir / repo_name
 
         if target.exists():

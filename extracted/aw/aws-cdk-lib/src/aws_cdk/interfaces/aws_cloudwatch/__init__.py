@@ -35,6 +35,55 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.AlarmMuteRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"alarm_mute_rule_arn": "alarmMuteRuleArn"},
+)
+class AlarmMuteRuleReference:
+    def __init__(self, *, alarm_mute_rule_arn: builtins.str) -> None:
+        '''A reference to a AlarmMuteRule resource.
+
+        :param alarm_mute_rule_arn: The Arn of the AlarmMuteRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            alarm_mute_rule_reference = interfaces_cloudwatch.AlarmMuteRuleReference(
+                alarm_mute_rule_arn="alarmMuteRuleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a96a894c3e3ce3a85ad1fdae64962a99174f720bb052efd2e1096d6fde57c59)
+            check_type(argname="argument alarm_mute_rule_arn", value=alarm_mute_rule_arn, expected_type=type_hints["alarm_mute_rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alarm_mute_rule_arn": alarm_mute_rule_arn,
+        }
+
+    @builtins.property
+    def alarm_mute_rule_arn(self) -> builtins.str:
+        '''The Arn of the AlarmMuteRule resource.'''
+        result = self._values.get("alarm_mute_rule_arn")
+        assert result is not None, "Required property 'alarm_mute_rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AlarmMuteRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.AlarmReference",
     jsii_struct_bases=[],
     name_mapping={"alarm_arn": "alarmArn", "alarm_name": "alarmName"},
@@ -258,6 +307,51 @@ class DashboardReference:
         return "DashboardReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAlarmMuteRuleRef")
+class IAlarmMuteRuleRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AlarmMuteRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmMuteRuleRef")
+    def alarm_mute_rule_ref(self) -> "AlarmMuteRuleReference":
+        '''(experimental) A reference to a AlarmMuteRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAlarmMuteRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AlarmMuteRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IAlarmMuteRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmMuteRuleRef")
+    def alarm_mute_rule_ref(self) -> "AlarmMuteRuleReference":
+        '''(experimental) A reference to a AlarmMuteRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AlarmMuteRuleReference", jsii.get(self, "alarmMuteRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAlarmMuteRuleRef).__jsii_proxy_class__ = lambda : _IAlarmMuteRuleRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IAlarmRef")
@@ -648,10 +742,12 @@ class MetricStreamReference:
 
 
 __all__ = [
+    "AlarmMuteRuleReference",
     "AlarmReference",
     "AnomalyDetectorReference",
     "CompositeAlarmReference",
     "DashboardReference",
+    "IAlarmMuteRuleRef",
     "IAlarmRef",
     "IAnomalyDetectorRef",
     "ICompositeAlarmRef",
@@ -663,6 +759,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__3a96a894c3e3ce3a85ad1fdae64962a99174f720bb052efd2e1096d6fde57c59(
+    *,
+    alarm_mute_rule_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__a217ba13c11edc5835368167ddbaa01cba65af05c8b67482c46acd94b5fc5758(
     *,
@@ -709,5 +812,5 @@ def _typecheckingstub__fd4b5eb67c7a5b2c989d807371acca126080a0b48d263d4d19312a05a
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, IMetricStreamRef]:
+for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, IMetricStreamRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

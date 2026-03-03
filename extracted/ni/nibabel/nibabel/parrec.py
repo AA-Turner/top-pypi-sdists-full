@@ -346,9 +346,10 @@ def _split_header(fobj):
 def _process_gen_dict(gen_dict):
     """Process `gen_dict` key, values into `general_info`"""
     general_info = {}
+    hdr_key_dict_lower = {key.lower(): val for key, val in _hdr_key_dict.items()}
     for key, value in gen_dict.items():
         # get props for this hdr field
-        props = _hdr_key_dict[key]
+        props = hdr_key_dict_lower[key.lower()]
         # turn values into meaningful dtype
         if len(props) == 2:
             # only dtype spec and no shape
@@ -358,7 +359,7 @@ def _process_gen_dict(gen_dict):
             value = np.fromstring(value, props[1], sep=' ')
             # if shape is None, allow arbitrary length
             if props[2] is not None:
-                value.shape = props[2]
+                value = value.reshape(props[2])
         general_info[props[0]] = value
     return general_info
 
@@ -782,10 +783,10 @@ class PARRECHeader(SpatialHeader):
         # Here we set the parameters we can to simplify PAR/REC
         # to NIfTI conversion.
         descr = (
-            f"{self.general_info['exam_name']};"
-            f"{self.general_info['patient_name']};"
-            f"{self.general_info['exam_date'].replace(' ', '')};"
-            f"{self.general_info['protocol_name']}"
+            f'{self.general_info["exam_name"]};'
+            f'{self.general_info["patient_name"]};'
+            f'{self.general_info["exam_date"].replace(" ", "")};'
+            f'{self.general_info["protocol_name"]}'
         )[:80]
         is_fmri = self.general_info['max_dynamics'] > 1
         # PAR/REC uses msec, but in _calc_zooms we convert to sec

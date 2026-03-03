@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 
@@ -100,7 +99,6 @@ def fit_r2(y, y_predicted, adjusted=True, n_parameters=2):
 # Internals
 # =============================================================================
 def _fit_error_prepare(y, y_predicted, n_parameters=2):
-
     # n, i.e., how many observations (signal length)
     n = len(y)
 
@@ -115,5 +113,5 @@ def _fit_error_prepare(y, y_predicted, n_parameters=2):
     df = n - n_parameters
 
     # Calculate sum of squared errors
-    SSE = np.sum(residual ** 2)
+    SSE = np.sum(residual**2)
     return SSE, n, df

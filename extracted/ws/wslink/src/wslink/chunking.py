@@ -1,13 +1,9 @@
+import contextlib
 import os
-import sys
 import secrets
-import msgpack
-from typing import Dict, Tuple, Union
+from typing import TypedDict  # pylint: disable=no-name-in-module
 
-if sys.version_info >= (3, 8):
-    from typing import TypedDict  # pylint: disable=no-name-in-module
-else:
-    from typing_extensions import TypedDict
+import msgpack
 
 UINT32_LENGTH = 4
 ID_LOCATION = 0
@@ -28,7 +24,7 @@ def _encode_header(id: int, offset: int, size: int) -> bytes:
     )
 
 
-def _decode_header(header: bytes) -> Tuple[int, int, int]:
+def _decode_header(header: bytes) -> tuple[int, int, int]:
     id = int.from_bytes(
         header[ID_LOCATION:ID_LENGTH],
         "little",
@@ -51,14 +47,8 @@ def _decode_header(header: bytes) -> Tuple[int, int, int]:
 
 def generate_chunks(message: bytes, max_size: int):
     total_size = len(message)
-
-    if max_size == 0:
-        max_content_size = total_size
-    else:
-        max_content_size = max(max_size - HEADER_LENGTH, 1)
-
+    max_content_size = total_size if max_size == 0 else max(max_size - HEADER_LENGTH, 1)
     id = int.from_bytes(secrets.token_bytes(ID_LENGTH), "little", signed=False)
-
     offset = 0
 
     while offset < total_size:
@@ -68,8 +58,6 @@ def generate_chunks(message: bytes, max_size: int):
         yield header + chunk_content
 
         offset += max_content_size
-
-    return
 
 
 class PendingMessage(TypedDict):
@@ -83,12 +71,12 @@ class PendingMessage(TypedDict):
 # Chunks for a given message can come in any order
 # Chunks across messages can be interleaved.
 class UnChunker:
-    pending_messages: Dict[bytes, PendingMessage]
+    pending_messages: dict[bytes, PendingMessage]
     max_message_size: int
 
     def __init__(self):
         self.pending_messages = {}
-        self.max_message_size = int(os.environ.get("WSLINK_AUTH_MSG_SIZE", 512))
+        self.max_message_size = int(os.environ.get("WSLINK_AUTH_MSG_SIZE", "512"))
 
     def set_max_message_size(self, size):
         self.max_message_size = size
@@ -96,19 +84,20 @@ class UnChunker:
     def release_pending_messages(self):
         self.pending_messages = {}
 
-    def process_chunk(self, chunk: bytes) -> Union[bytes, None]:
+    def process_chunk(self, chunk: bytes) -> bytes | None:
         header, chunk_content = chunk[:HEADER_LENGTH], chunk[HEADER_LENGTH:]
         id, offset, total_size = _decode_header(header)
 
-        pending_message = self.pending_messages.get(id, None)
+        pending_message = self.pending_messages.get(id)
 
         if pending_message is None:
             if total_size > self.max_message_size:
-                raise ValueError(
-                    f"""Total size for message {id} exceeds the allocation limit allowed.
-    Maximum size = {self.max_message_size},
-    Received size = {total_size}."""
+                msg = (
+                    f"Total size for message {id} exceeds the allocation limit allowed.\n"
+                    f"Maximum size = {self.max_message_size},\n"
+                    f"Received size = {total_size}."
                 )
+                raise ValueError(msg)
 
             pending_message = PendingMessage(
                 received_size=0, content=bytearray(total_size)
@@ -118,9 +107,8 @@ class UnChunker:
         # This should never happen, but still check it
         if total_size != len(pending_message["content"]):
             del self.pending_messages[id]
-            raise ValueError(
-                f"Total size in chunk header for message {id} does not match total size declared by previous chunk."
-            )
+            msg = f"Total size in chunk header for message {id} does not match total size declared by previous chunk."
+            raise ValueError(msg)
 
         content_size = len(chunk_content)
         content_view = memoryview(pending_message["content"])
@@ -147,7 +135,7 @@ class StreamPendingMessage(TypedDict):
 # Chunks for a given message are expected to come sequentially
 # Chunks across messages can be interleaved.
 class StreamUnChunker:
-    pending_messages: Dict[bytes, StreamPendingMessage]
+    pending_messages: dict[bytes, StreamPendingMessage]
 
     def __init__(self):
         self.pending_messages = {}
@@ -158,11 +146,11 @@ class StreamUnChunker:
     def release_pending_messages(self):
         self.pending_messages = {}
 
-    def process_chunk(self, chunk: bytes) -> Union[bytes, None]:
+    def process_chunk(self, chunk: bytes) -> bytes | None:
         header, chunk_content = chunk[:HEADER_LENGTH], chunk[HEADER_LENGTH:]
         id, offset, total_size = _decode_header(header)
 
-        pending_message = self.pending_messages.get(id, None)
+        pending_message = self.pending_messages.get(id)
 
         if pending_message is None:
             pending_message = StreamPendingMessage(
@@ -175,20 +163,22 @@ class StreamUnChunker:
         # This should never happen, but still check it
         if offset != pending_message["received_size"]:
             del self.pending_messages[id]
-            raise ValueError(
-                f"""Received an unexpected chunk for message {id}.
-    Expected offset = {pending_message['received_size']},
-    Received offset = {offset}."""
+            msg = (
+                f"Received an unexpected chunk for message {id}.\n"
+                f"Expected offset = {pending_message['received_size']},\n"
+                f"Received offset = {offset}."
             )
+            raise ValueError(msg)
 
         # This should never happen, but still check it
         if total_size != pending_message["total_size"]:
             del self.pending_messages[id]
-            raise ValueError(
-                f"""Received an unexpected total size in chunk header for message {id}.
-    Expected size = {pending_message['total_size']},
-    Received size = {total_size}."""
+            msg = (
+                f"Received an unexpected total size in chunk header for message {id}.\n"
+                f"Expected size = {pending_message['total_size']},\n"
+                f"Received size = {total_size}."
             )
+            raise ValueError(msg)
 
         content_size = len(chunk_content)
         pending_message["received_size"] += content_size
@@ -198,23 +188,22 @@ class StreamUnChunker:
 
         full_message = None
 
-        try:
+        with contextlib.suppress(msgpack.OutOfData):
             full_message = unpacker.unpack()
-        except msgpack.OutOfData:
-            pass  # message is incomplete, keep ingesting chunks
 
         if full_message is not None:
             del self.pending_messages[id]
 
             if pending_message["received_size"] < total_size:
                 # In principle feeding a stream to the unpacker could yield multiple outputs
-                # for example unpacker.feed(b'0123') would yield b'0', b'1', ect
+                # for example unpacker.feed(b'0123') would yield b'0', b'1', etc
                 # or concatenated packed payloads would yield two or more unpacked objects
                 # but in our use case we expect a full message to be mapped to a single object
-                raise ValueError(
-                    f"""Received a parsable payload shorter than expected for message {id}.
-    Expected size = {total_size},
-    Received size = {pending_message['received_size']}."""
+                msg = (
+                    f"Received a parsable payload shorter than expected for message {id}.\n"
+                    f"Expected size = {total_size},\n"
+                    f"Received size = {pending_message['received_size']}."
                 )
+                raise ValueError(msg)
 
         return full_message

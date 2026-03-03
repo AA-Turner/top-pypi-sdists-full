@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -242,9 +241,7 @@ def entropy_multiscale(
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
     # Prevent multiple arguments error in case 'delay' is passed in kwargs
     if "delay" in kwargs:
         kwargs.pop("delay")
@@ -346,7 +343,7 @@ def entropy_multiscale(
 
     # The MSE index is quantified as the area under the curve (AUC),
     # which is like the sum normalized by the number of values. It's similar to the mean.
-    mse = np.trapz(mse) / len(mse)
+    mse = np.trapezoid(mse) / len(mse)
 
     # Plot overlay
     if show is True:
@@ -408,37 +405,36 @@ def _entropy_multiscale(
         )[0]
 
     # 2D coarse-graining (time-shifted, used in composite)
+    # CMSE
+    elif refined is False:
+        return _validmean(
+            [
+                algorithm(
+                    coarse[i],
+                    delay=1,
+                    dimension=dimension,
+                    tolerance=tolerance,
+                    **kwargs,
+                )[0]
+                for i in range(len(coarse))
+            ]
+        )
+    # RCMSE
     else:
-        # CMSE
-        if refined is False:
-            return _validmean(
-                [
-                    algorithm(
-                        coarse[i],
-                        delay=1,
-                        dimension=dimension,
-                        tolerance=tolerance,
-                        **kwargs,
-                    )[0]
-                    for i in range(len(coarse))
-                ]
-            )
-        # RCMSE
-        else:
-            phis = np.array(
-                [
-                    _phi(
-                        coarse[i],
-                        delay=1,
-                        dimension=dimension,
-                        tolerance=tolerance,
-                        approximate=False,
-                    )[0]
-                    for i in range(len(coarse))
-                ]
-            )
-            # Average all phi of the same dimension, then divide, then log
-            return _phi_divide([_validmean(phis[:, 0]), _validmean(phis[:, 1])])
+        phis = np.array(
+            [
+                _phi(
+                    coarse[i],
+                    delay=1,
+                    dimension=dimension,
+                    tolerance=tolerance,
+                    approximate=False,
+                )[0]
+                for i in range(len(coarse))
+            ]
+        )
+        # Average all phi of the same dimension, then divide, then log
+        return _phi_divide([_validmean(phis[:, 0]), _validmean(phis[:, 1])])
 
 
 def _validmean(x):

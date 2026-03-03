@@ -24,11 +24,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 
-# BUG-BI fix: TTL cache for redact config — avoids file I/O on every log call
-_redact_config_cache: dict | None = None
-_redact_config_cache_ts: float = 0.0
-_REDACT_CONFIG_TTL = 30.0  # seconds
-
 from salmalm.constants import VERSION, KST, DATA_DIR
 # ── Sensitive Data Redaction ─────────────────────────────────
 
@@ -49,14 +44,7 @@ _COMPILED_PATTERNS = [re.compile(p) for p in REDACT_PATTERNS]
 
 
 def _load_redact_config() -> dict:
-    """Load redaction config from ~/.salmalm/security.json.
-
-    BUG-BI fix: TTL-cached to prevent file I/O on every log/redact call.
-    """
-    global _redact_config_cache, _redact_config_cache_ts
-    now = time.time()
-    if _redact_config_cache is not None and now - _redact_config_cache_ts < _REDACT_CONFIG_TTL:
-        return _redact_config_cache
+    """Load redaction config from ~/.salmalm/security.json."""
     config_path = DATA_DIR / "security.json"
     defaults = {"redactEnabled": True, "customPatterns": []}
     try:
@@ -67,8 +55,6 @@ def _load_redact_config() -> dict:
             defaults.update(cfg)
     except Exception as e:  # noqa: broad-except
         log.debug(f"Suppressed: {e}")
-    _redact_config_cache = defaults
-    _redact_config_cache_ts = now
     return defaults
 
 
@@ -83,14 +69,9 @@ def redact_sensitive(text: str) -> str:
     for pat in _COMPILED_PATTERNS:
         result = pat.sub("[REDACTED]", result)
     # Custom patterns
-    # BUG-BJ fix: guard custom patterns against ReDoS
-    # Limit pattern length and use a quick compile-test before applying
     for custom in cfg.get("customPatterns", []):
-        if not isinstance(custom, str) or len(custom) > 256:
-            continue
         try:
-            _pat = re.compile(custom)
-            result = _pat.sub("[REDACTED]", result)
+            result = re.sub(custom, "[REDACTED]", result)
         except re.error:
             pass
     return result
@@ -129,8 +110,7 @@ class LoginRateLimiter:
 
             if len(attempts) >= self.max_attempts:
                 # Exponential backoff: 2^(attempts-max) seconds, capped at lockout_seconds
-                # BUG-BK fix: clamp exponent before 2** to avoid bignum computation
-                over = min(len(attempts) - self.max_attempts + 1, 30)
+                over = len(attempts) - self.max_attempts + 1
                 backoff = min(2**over, self.lockout_seconds)
                 self._lockouts[key] = now + backoff
                 return False, backoff
@@ -279,22 +259,19 @@ class SecurityAuditor:
         return report
 
     def _check_a01_access_control(self) -> dict:
-        """A01: Broken Access Control — 접근 제어 취약점.
-
-        BUG-BL fix: WebHandler (Mixin) removed; check FastAPI router auth instead.
-        """
+        """A01: Broken Access Control — 접근 제어 취약점."""
         issues = []
-        # Check _require_auth helper exists in FastAPI routers
+        # Check that _require_auth exists and is used
         try:
-            from salmalm.web.auth import _require_auth  # noqa: F401
-        except ImportError:
-            issues.append("CRITICAL: _require_auth not available in FastAPI routers")
+            from salmalm.web import WebHandler
 
-        # Check admin-only routes guard
-        try:
-            from salmalm.web.routes.web_auth import router as auth_router  # noqa: F401
-        except ImportError:
-            issues.append("WARN: Auth router not importable")
+            public_paths = WebHandler._PUBLIC_PATHS
+            if "/api/vault" in public_paths:
+                issues.append("CRITICAL: /api/vault is public")
+            if "/api/chat" in public_paths:
+                issues.append("WARN: /api/chat is public")
+        except Exception as e:  # noqa: broad-except
+            log.debug(f"Suppressed: {e}")
 
         # Check session token entropy (128-bit = 32 hex chars)
         import secrets
@@ -303,16 +280,14 @@ class SecurityAuditor:
         if len(test_token) < 32:
             issues.append("Token entropy below 128-bit")
 
-        # Check CORS allowlist (not open reflection) — via asgi.py
+        # Check CSRF protection
         try:
-            from salmalm.web.asgi import _cors_headers
-            from starlette.requests import Request as _Req
-            # Can't easily create a Request object here; just verify the function exists
-            # and its source restricts origins
-            import inspect
-            src = inspect.getsource(_cors_headers)
-            if "allowlist" not in src and "ALLOWED_ORIGINS" not in src and "loopback" not in src.lower():
-                issues.append("WARN: CORS headers function may not use allowlist")
+            from salmalm.web import WebHandler
+
+            if hasattr(WebHandler, "_check_origin"):
+                pass  # Good
+            else:
+                issues.append("Missing CSRF protection")
         except Exception as e:  # noqa: broad-except
             log.debug(f"Suppressed: {e}")
 
@@ -321,7 +296,7 @@ class SecurityAuditor:
             "id": "A01",
             "title": "Broken Access Control / 접근 제어",
             "status": status,
-            "details": issues or ["FastAPI routers use _require_auth; CORS allowlist active"],
+            "details": issues or ["All API endpoints require auth or are intentionally public"],
         }
 
     def _check_a02_cryptographic_failures(self) -> dict:
@@ -354,43 +329,40 @@ class SecurityAuditor:
         }
 
     def _check_a03_injection(self) -> dict:
-        """A03: Injection — 인젝션 취약점.
-
-        BUG-BL/BM fix: web.py no longer exists (Mixin removed).
-        Scan FastAPI routes directory instead.
-        """
+        """A03: Injection — 인젝션 취약점."""
         issues = []
-        # Static analysis: scan FastAPI routes for f-string SQL injection
-        routes_dir = Path(__file__).resolve().parent.parent / "web" / "routes"
+        # Verify parameterized queries are used
+        # (Static analysis: grep for string formatting in SQL)
         try:
-            for route_file in routes_dir.glob("*.py"):
-                content = route_file.read_text(encoding="utf-8", errors="replace")
-                if re.search(r'\.execute\(f["\']', content):
-                    bad_lines = [
-                        i + 1
-                        for i, ln in enumerate(content.split("\n"))
-                        if "execute(f" in ln and re.search(r"SELECT|INSERT|UPDATE|DELETE", ln, re.I)
-                    ]
-                    if bad_lines:
-                        issues.append(f"Potential SQL injection in {route_file.name} lines: {bad_lines}")
+            web_src = Path(__file__).resolve().parent.parent / "web.py"
+            content = web_src.read_text()
+            # Check for f-string SQL (dangerous pattern)
+            if re.search(r'execute\(f["\']', content):
+                lines = [i + 1 for i, l in enumerate(content.split("\n")) if "execute(f" in l and "SELECT" in l.upper()]
+                if lines:
+                    issues.append(f"Potential SQL injection in web.py lines: {lines}")
         except Exception as e:  # noqa: broad-except
             log.debug(f"Suppressed: {e}")
 
-        # Check CSP headers via FastAPI middleware
+        # Check XSS protection (CSP headers)
         try:
-            from salmalm.web.app import create_app
-            import inspect
-            src = inspect.getsource(create_app)
-            if "Content-Security-Policy" not in src and "security_headers" not in src.lower():
-                issues.append("WARN: CSP headers may be missing from FastAPI middleware")
+            from salmalm.web import WebHandler
+
+            handler = WebHandler
+            if hasattr(handler, "_security_headers"):
+                pass  # CSP headers present
+            else:
+                issues.append("Missing CSP headers")
         except Exception as e:  # noqa: broad-except
             log.debug(f"Suppressed: {e}")
 
         # Check path traversal protection
         try:
             from salmalm.tools.tools_common import _resolve_path  # noqa: F401
+
+            pass  # Function exists
         except ImportError:
-            issues.append("Missing path traversal protection (_resolve_path)")
+            issues.append("Missing path traversal protection")
 
         status = (
             "FAIL" if any("CRITICAL" in i or "SQL injection" in i for i in issues) else ("WARN" if issues else "PASS")
@@ -403,10 +375,7 @@ class SecurityAuditor:
         }
 
     def _check_a04_insecure_design(self) -> dict:
-        """A04: Insecure Design — 불안전한 설계.
-
-        BUG-BL fix: WebHandler removed; check FastAPI body size limit instead.
-        """
+        """A04: Insecure Design — 불안전한 설계."""
         issues = []
         # Check rate limiting
         try:
@@ -417,14 +386,15 @@ class SecurityAuditor:
         except Exception as e:  # noqa: broad-except
             issues.append("Rate limiter not available")
 
-        # Check request size limits via FastAPI/ASGI handler
+        # Check request size limits
         try:
-            from salmalm.web.asgi import _MAX_BODY
-            if _MAX_BODY > 100 * 1024 * 1024:
-                issues.append(f"Request size limit too high: {_MAX_BODY} bytes")
-        except ImportError:
-            # May be configured differently — non-fatal
-            pass
+            from salmalm.web import WebHandler
+
+            if hasattr(WebHandler, "_MAX_POST_SIZE"):
+                if WebHandler._MAX_POST_SIZE > 100 * 1024 * 1024:
+                    issues.append("Request size limit too high")
+            else:
+                issues.append("No request size limit")
         except Exception as e:  # noqa: broad-except
             log.debug(f"Suppressed: {e}")
 
@@ -439,27 +409,36 @@ class SecurityAuditor:
             "id": "A04",
             "title": "Insecure Design / 불안전한 설계",
             "status": status,
-            "details": issues or ["Rate limiting, request size limits (FastAPI), exec sandboxing OK"],
+            "details": issues or ["Rate limiting, request size limits, exec sandboxing OK"],
         }
 
     def _check_a05_security_misconfiguration(self) -> dict:
-        """A05: Security Misconfiguration — 보안 설정 오류.
-
-        BUG-BL fix: WebHandler removed; check FastAPI security middleware instead.
-        """
+        """A05: Security Misconfiguration — 보안 설정 오류."""
         issues = []
         # Check for debug mode
         if os.environ.get("SALMALM_DEBUG"):
             issues.append("WARN: Debug mode enabled (SALMALM_DEBUG)")
-        # Check security headers via FastAPI middleware
+        # Check for hardcoded secrets
         try:
-            from salmalm.web.app import create_app
-            import inspect
-            src = inspect.getsource(create_app)
-            _required_headers = ["X-Frame-Options", "X-Content-Type-Options", "Strict-Transport-Security"]
-            for hdr in _required_headers:
-                if hdr not in src:
-                    issues.append(f"WARN: Security header may be missing: {hdr}")
+            from salmalm.constants import VERSION  # noqa: F401
+        except Exception as e:  # noqa: broad-except
+            log.debug(f"Suppressed: {e}")
+        # Check security headers
+        try:
+            from salmalm.web import WebHandler
+
+            if not hasattr(WebHandler, "_security_headers"):
+                issues.append("Missing security headers method")
+        except Exception as e:  # noqa: broad-except
+            log.debug(f"Suppressed: {e}")
+        # Check allowed HTTP methods
+        try:
+            from salmalm.web import WebHandler
+
+            _methods = ["do_GET", "do_POST", "do_PUT", "do_OPTIONS"]  # noqa: F841
+            for m in ["do_DELETE", "do_PATCH", "do_TRACE"]:
+                if hasattr(WebHandler, m):
+                    issues.append(f"WARN: Unnecessary HTTP method enabled: {m.replace('do_', '')}")
         except Exception as e:  # noqa: broad-except
             log.debug(f"Suppressed: {e}")
         status = "WARN" if issues else "PASS"
@@ -467,7 +446,7 @@ class SecurityAuditor:
             "id": "A05",
             "title": "Security Misconfiguration / 보안 설정 오류",
             "status": status,
-            "details": issues or ["No debug mode, FastAPI security headers middleware present"],
+            "details": issues or ["No debug mode, security headers present, minimal HTTP methods"],
         }
 
     def _check_a06_vulnerable_components(self) -> dict:
@@ -513,18 +492,14 @@ class SecurityAuditor:
         }
 
     def _check_a08_integrity(self) -> dict:
-        """A08: Data Integrity — 데이터 무결성.
-
-        BUG-BM fix: web.py no longer exists (Mixin removed); scan routes dir instead.
-        """
+        """A08: Data Integrity — 데이터 무결성."""
         issues = []
-        # Check if update routes use hash verification
-        routes_dir = Path(__file__).resolve().parent.parent / "web" / "routes"
+        # Check if update verification exists
         try:
-            for route_file in routes_dir.glob("*.py"):
-                content = route_file.read_text(encoding="utf-8", errors="replace")
-                if "pip install" in content and "hash" not in content.lower():
-                    issues.append(f"WARN: pip install without hash verification in {route_file.name}")
+            web_src = Path(__file__).resolve().parent.parent / "web.py"
+            content = web_src.read_text()
+            if "pip install" in content and "hash" not in content.lower():
+                issues.append("WARN: pip install without hash verification")
         except Exception as e:  # noqa: broad-except
             log.debug(f"Suppressed: {e}")
         status = "WARN" if issues else "PASS"

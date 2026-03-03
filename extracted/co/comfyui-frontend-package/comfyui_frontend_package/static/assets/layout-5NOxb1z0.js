@@ -1,0 +1,2 @@
+import{t as e}from"./src-DOEdveGB.js";const t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`border-none`,`rounded-lg`]);export{t};
+//# sourceMappingURL=layout-5NOxb1z0.js.map

@@ -82,6 +82,8 @@ class DynamicDiv(DynamicDOMElement):
       raise ValueError("Can't call `render` twice.")
     self._root_elem.render()
     self._rendered = True
+    if isinstance(self.elem, str):
+      raise TypeError("Cannot render when self.elem is a string.")
     self.append(self.elem)
 
   def append(self, child: DOMElement):

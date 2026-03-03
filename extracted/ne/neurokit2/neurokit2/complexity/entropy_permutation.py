@@ -136,9 +136,8 @@ def entropy_permutation(signal, delay=1, dimension=3, corrected=True, weighted=F
 
         if corrected:
             pen = pen / np.log2(math.factorial(dimension + 1))
-    else:
-        if corrected:
-            pen = pen / np.log2(math.factorial(dimension))
+    elif corrected:
+        pen = pen / np.log2(math.factorial(dimension))
 
     return pen, info
 
@@ -147,14 +146,7 @@ def entropy_permutation(signal, delay=1, dimension=3, corrected=True, weighted=F
 # Permutation Entropy
 # =============================================================================
 def _entropy_permutation(
-    signal,
-    dimension=3,
-    delay=1,
-    corrected=True,
-    weighted=False,
-    algorithm=entropy_shannon,
-    sorting="quicksort",
-    **kwargs
+    signal, dimension=3, delay=1, corrected=True, weighted=False, algorithm=entropy_shannon, sorting="quicksort", **kwargs
 ):
     patterns, info = complexity_ordinalpatterns(
         signal,

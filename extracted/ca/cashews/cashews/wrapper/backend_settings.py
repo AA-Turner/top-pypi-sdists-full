@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Union
 from urllib.parse import parse_qsl, urlparse
 
 from cashews.backends.interface import Backend
@@ -79,7 +80,7 @@ def settings_url_parse(url: str) -> tuple[BackendOrFabric, dict[str, Any], Pickl
 
 def _serialize_params(params: dict[str, str]) -> dict[str, str | int | bool | float]:
     new_params = {}
-    bool_keys = ("safe", "suppress", "enable", "disable", "client_side")
+    bool_keys = ("safe", "suppress", "enable", "disable", "client_side", "cluster")
     true_values = (
         "1",
         "true",

@@ -68,7 +68,7 @@
     __esExport("ButtonIcon", button_icon_1.ButtonIcon);
     var icon_1 = require("6c7fbea0ef") /* ./icon */;
     __esExport("ClickableIcon", icon_1.ClickableIcon);
-    var card_1 = require("25fcfb521e") /* ./card */;
+    var card_1 = require("3684eee729") /* ./card */;
     __esExport("Card", card_1.Card);
     var checkbox_button_group_1 = require("51fbe9e2d0") /* ./checkbox_button_group */;
     __esExport("CheckboxButtonGroup", checkbox_button_group_1.CheckboxButtonGroup);
@@ -82,13 +82,13 @@
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("5bee7c9df6") /* ./tabulator */;
+    var tabulator_1 = require("03df1ee2df") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
     var datetime_slider_1 = require("c97cc0eade") /* ./datetime_slider */;
     __esExport("DatetimeSlider", datetime_slider_1.DatetimeSlider);
-    var deckgl_1 = require("01df2ec63b") /* ./deckgl */;
+    var deckgl_1 = require("d58ba73420") /* ./deckgl */;
     __esExport("DeckGLPlot", deckgl_1.DeckGLPlot);
     var discrete_player_1 = require("0dca2cd4f6") /* ./discrete_player */;
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
@@ -106,11 +106,11 @@
     __esExport("IPyWidget", ipywidget_1.IPyWidget);
     var json_1 = require("245cd3cfde") /* ./json */;
     __esExport("JSON", json_1.JSON);
-    var jsoneditor_1 = require("a123a88e31") /* ./jsoneditor */;
+    var jsoneditor_1 = require("5b9fdb9011") /* ./jsoneditor */;
     __esExport("JSONEditor", jsoneditor_1.JSONEditor);
     var katex_1 = require("f672d71a9f") /* ./katex */;
     __esExport("KaTeX", katex_1.KaTeX);
-    var location_1 = require("bd8e0fe48b") /* ./location */;
+    var location_1 = require("9012b81346") /* ./location */;
     __esExport("Location", location_1.Location);
     var mathjax_1 = require("d889a68424") /* ./mathjax */;
     __esExport("MathJax", mathjax_1.MathJax);
@@ -130,11 +130,11 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("d42fdf93ec") /* ./react_component */;
+    var react_component_1 = require("413c9b5023") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("d92390e7cb") /* ./reactive_esm */;
+    var reactive_esm_1 = require("e27ba47db3") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -160,7 +160,7 @@
     __esExport("TooltipIcon", tooltip_icon_1.TooltipIcon);
     var trend_1 = require("29d55a28a9") /* ./trend */;
     __esExport("TrendIndicator", trend_1.TrendIndicator);
-    var vega_1 = require("119dc23765") /* ./vega */;
+    var vega_1 = require("22dbf7c070") /* ./vega */;
     __esExport("VegaPlot", vega_1.VegaPlot);
     var video_1 = require("79dc37b888") /* ./video */;
     __esExport("Video", video_1.Video);
@@ -769,7 +769,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("d92390e7cb") /* ./reactive_esm */;
+    const reactive_esm_1 = require("e27ba47db3") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -933,7 +933,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"d92390e7cb": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"e27ba47db3": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -1824,6 +1824,7 @@ export default {render}`;
     (() => {
         _c.prototype.default_view = ReactiveESMView;
         _c.define(({ Any, Array, Bool, Nullable, Str }) => ({
+            _defs: [Array(Any), []],
             css_bundle: [Nullable(Str), null],
             bundle: [Nullable(Str), null],
             children: [Array(Str), []],
@@ -18839,7 +18840,7 @@ ${namesToRegister
         }));
     })();
 },
-"25fcfb521e": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
+"3684eee729": /* models/card.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const tslib_1 = require("tslib");
@@ -19025,8 +19026,11 @@ ${namesToRegister
             }
         }
         _toggle_button(e) {
-            for (const path of e.composedPath()) {
-                if (path instanceof HTMLInputElement) {
+            const is_panel_widget = (el) => el instanceof HTMLInputElement || (el instanceof HTMLElement &&
+                Array.from(el.classList).some((c) => c.startsWith("bk-panel-models-widgets-")));
+            for (const el of e.composedPath()) {
+                // If the click came from any Panel widget in the header, don't toggle.
+                if (is_panel_widget(el)) {
                     return;
                 }
             }
@@ -19868,7 +19872,7 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"5bee7c9df6": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"03df1ee2df": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
@@ -20353,7 +20357,7 @@ ${namesToRegister
             return sorters;
         }
         invalidate_render() {
-            this.tabulator.destroy();
+            this.tabulator?.destroy();
             this.tabulator = null;
             this.rerender_();
         }
@@ -20410,10 +20414,12 @@ ${namesToRegister
                 el.classList.add(cls);
             }
         }
+        remove() {
+            this.tabulator?.destroy();
+            super.remove();
+        }
         render() {
-            if (this.tabulator != null) {
-                this.tabulator.destroy();
-            }
+            this.tabulator?.destroy();
             super.render();
             this._initializing = true;
             this._building = true;
@@ -20539,7 +20545,7 @@ ${namesToRegister
             }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
         }
         recompute_page_size() {
-            if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size)) {
+            if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size) || this._initializing || !this.tabulator) {
                 return;
             }
             this._automatic_page_size = true;
@@ -24422,7 +24428,7 @@ ${namesToRegister
         });
     })();
 },
-"01df2ec63b": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
+"d58ba73420": /* models/deckgl.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -24475,7 +24481,7 @@ ${namesToRegister
             this._connect_sources();
         }
         remove() {
-            this.deckGL.finalize();
+            this.deckGL?.finalize();
             super.remove();
         }
         _update_layers() {
@@ -27551,7 +27557,7 @@ ${namesToRegister
     }();
     exports.default = d;
 },
-"a123a88e31": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
+"5b9fdb9011": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -27602,8 +27608,8 @@ ${namesToRegister
             return styles;
         }
         remove() {
+            this.editor?.destroy();
             super.remove();
-            this.editor.destroy();
         }
         render() {
             super.render();
@@ -27699,12 +27705,18 @@ ${namesToRegister
         _a.prototype.default_view = KaTeXView;
     })();
 },
-"bd8e0fe48b": /* models/location.js */ function _(require, module, exports, __esModule, __esExport) {
+"9012b81346": /* models/location.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const view_1 = require("@bokehjs/core/view");
     const model_1 = require("@bokehjs/model");
     class LocationView extends view_1.View {
+        constructor() {
+            super(...arguments);
+            this._idle_ready = false;
+            this._pending_url = null;
+            this._idle_connected = false;
+        }
         initialize() {
             super.initialize();
             this.model.pathname = window.location.pathname;
@@ -27734,25 +27746,53 @@ ${namesToRegister
             super.remove();
             window.removeEventListener("hashchange", this._hash_listener);
         }
-        update(change) {
-            if (!this.model.reload || (change === "reload")) {
-                window.history.pushState({}, "", `${this.model.pathname}${this.model.search}${this.model.hash}`);
-                this.model.href = window.location.href;
-                if (change === "reload") {
-                    window.location.reload();
+        _ensure_idle_gate() {
+            if (this._idle_connected) {
+                return;
+            }
+            this._idle_connected = true;
+            const doc = this.model.document;
+            if (doc.is_idle) {
+                this._idle_ready = true;
+                return;
+            }
+            doc.idle.connect(() => {
+                this._idle_ready = true;
+                if (this._pending_url != null) {
+                    const url = this._pending_url;
+                    this._pending_url = null;
+                    window.history.pushState({}, "", url);
+                    this.model.href = window.location.href;
                 }
+            });
+        }
+        _set_url_gated(url) {
+            this._ensure_idle_gate();
+            if (this._idle_ready) {
+                window.history.pushState({}, "", url);
+                this.model.href = window.location.href;
             }
             else {
-                if (change == "pathname") {
-                    window.location.pathname = (this.model.pathname);
-                }
-                if (change == "search") {
-                    window.location.search = (this.model.search);
-                }
-                if (change == "hash") {
-                    window.location.hash = (this.model.hash);
-                }
+                this._pending_url = url;
             }
+        }
+        update(change) {
+            const url = `${this.model.pathname}${this.model.search}${this.model.hash}`;
+            if (change === "reload") {
+                window.history.pushState({}, "", url);
+                this.model.href = window.location.href;
+                window.location.reload();
+                return;
+            }
+            if (!this.model.reload) {
+                this._set_url_gated(url);
+                return;
+            }
+            if (change === "hash") {
+                window.location.hash = this.model.hash;
+                return;
+            }
+            window.location.href = url;
         }
     }
     exports.LocationView = LocationView;
@@ -29197,7 +29237,7 @@ ${namesToRegister
         }));
     })();
 },
-"d42fdf93ec": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"413c9b5023": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const build_views_1 = require("@bokehjs/core/build_views");
@@ -29205,7 +29245,7 @@ ${namesToRegister
     const array_1 = require("@bokehjs/core/util/array");
     const assert_1 = require("@bokehjs/core/util/assert");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("d92390e7cb") /* ./reactive_esm */;
+    const reactive_esm_1 = require("e27ba47db3") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
@@ -29424,8 +29464,10 @@ ${namesToRegister
             for (const child of this.model.children) {
                 const callbacks = this._child_callbacks.get(child) || [];
                 const new_children = new_views.get(child) || [];
-                for (const callback of callbacks) {
-                    callback(new_children);
+                if (new_children) {
+                    for (const callback of callbacks) {
+                        callback(new_children);
+                    }
                 }
             }
             this._update_children();
@@ -29553,27 +29595,6 @@ async function render(id) {
 
     componentDidMount() {
       const view = this.view
-      if (view == null) { return }
-      for (const view of this.props.parent._scheduled_removals) { view.remove() }
-      this.props.parent._scheduled_removals = []
-      if (this.use_shadow_dom) {
-        this.updateElement()
-        this.props.parent.rerender_(view)
-        this.props.parent._child_rendered.set(view, true)
-        this.props.parent.notify_mount(this.props.name, view.model.id)
-      } else {
-        view.patch_container(this.containerRef.current)
-        view.model.render_module.then(async (mod) => {
-          this.setState(
-            {rendered: await mod.default.render(view.model.id)},
-            () => {
-              this.props.parent.notify_mount(this.props.name, view.model.id)
-              this.view.r_after_render()
-              this.view.after_rendered()
-            }
-          )
-        })
-      }
       this.render_callback = (new_views) => {
         const view = this.view
         if (!view) {
@@ -29604,6 +29625,27 @@ async function render(id) {
         }
       }
       this.props.parent.on_child_render(this.props.name, this.render_callback)
+      if (view == null) { return }
+      for (const rview of this.props.parent._scheduled_removals) { rview.remove() }
+      this.props.parent._scheduled_removals = []
+      if (this.use_shadow_dom) {
+        this.updateElement()
+        this.props.parent.rerender_(view)
+        this.props.parent._child_rendered.set(view, true)
+        this.props.parent.notify_mount(this.props.name, view.model.id)
+      } else {
+        view.patch_container(this.containerRef.current)
+        view.model.render_module.then(async (mod) => {
+          this.setState(
+            {rendered: await mod.default.render(view.model.id)},
+            () => {
+              this.props.parent.notify_mount(this.props.name, view.model.id)
+              this.view.r_after_render()
+              this.view.after_rendered()
+            }
+          )
+        })
+      }
     }
 
     componentWillUnmount() {
@@ -29691,7 +29733,7 @@ async function render(id) {
           React.useEffect(() => {
             target.on_child_render(child, () => {
               const current_models = data_model.attributes[child]
-              const previous_models = children_state.map(child => child.props.index)
+              const previous_models = children_state.map(child => child.props.id)
               if (current_models.some((model, i) => model.id !== previous_models[i])) {
                 set_children(current_models.map((model, i) => (
                   React.createElement(Child, { parent: target, name: child, key: model.id, id: model.id })
@@ -32052,7 +32094,7 @@ ${compiled}`;
         }));
     })();
 },
-"119dc23765": /* models/vega.js */ function _(require, module, exports, __esModule, __esExport) {
+"22dbf7c070": /* models/vega.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -32113,9 +32155,7 @@ ${compiled}`;
             }
         }
         remove() {
-            if (this.vega_view) {
-                this.vega_view.finalize();
-            }
+            this.vega_view?.finalize();
             super.remove();
         }
         _dispatch_event(name, value) {
@@ -41028,5 +41068,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"78ccb7a2c5","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"d92390e7cb","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"25fcfb521e","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"5bee7c9df6","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"d42fdf93ec","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"78ccb7a2c5","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"e27ba47db3","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"3684eee729","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"03df1ee2df","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"5b9fdb9011","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"413c9b5023","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

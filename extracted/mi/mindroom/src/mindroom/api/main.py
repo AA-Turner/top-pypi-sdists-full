@@ -29,7 +29,7 @@ from mindroom.api.tools import router as tools_router
 from mindroom.config.main import Config
 from mindroom.constants import CONFIG_PATH, CONFIG_TEMPLATE_PATH, safe_replace
 from mindroom.credentials_sync import sync_env_to_credentials
-from mindroom.tool_dependencies import auto_install_enabled, auto_install_tool_extra
+from mindroom.tool_system.dependencies import auto_install_enabled, auto_install_tool_extra
 
 if TYPE_CHECKING:
     from supabase import Client as SupabaseClient
@@ -45,7 +45,7 @@ async def _watch_config(stop_event: asyncio.Event) -> None:
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Manage application startup and shutdown."""
     print(f"Loading config from: {CONFIG_PATH}")
     print(f"Config exists: {CONFIG_PATH.exists()}")
@@ -65,7 +65,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await watch_task
 
 
-app = FastAPI(title="MindRoom Widget Backend", lifespan=lifespan)
+app = FastAPI(title="MindRoom Widget Backend", _lifespan=_lifespan)
 
 # Configure CORS for widget - allow multiple origins including port forwarding
 app.add_middleware(

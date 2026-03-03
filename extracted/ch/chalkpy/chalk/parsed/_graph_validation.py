@@ -28,7 +28,7 @@ from chalk.parsed.duplicate_input_gql import (
     UpsertGraphGQL,
     UpsertResolverGQL,
 )
-from chalk.utils.duration import parse_chalk_duration
+from chalk.utils.duration import parse_chalk_duration_s
 from chalk.utils.string import add_quotes, oxford_comma_list
 
 
@@ -87,7 +87,7 @@ def _validate_max_staleness(
 ):
     if feature.maxStaleness is not None and feature.maxStaleness != "infinity":
         try:
-            parse_chalk_duration(feature.maxStaleness)
+            parse_chalk_duration_s(feature.maxStaleness)
         except ValueError as e:
             builder.add_error(
                 header=f'Could not parse max_staleness for feature "{feature.id.fqn}"',
@@ -114,8 +114,8 @@ def _validate_materialized_agg_max_staleness(
 ):
     if (
         feature.windowMaterialization is not None
-        and feature.maxStaleness is not None
-        and parse_chalk_duration(feature.maxStaleness).total_seconds() > 0
+        and feature.maxStaleness
+        and parse_chalk_duration_s(feature.maxStaleness) > 0
     ):
         builder.add_warning(
             header=f'Materialized aggregation with max_staleness on "{feature.id.fqn}"',

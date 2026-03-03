@@ -834,7 +834,8 @@ def verify_aws_efs(  # noqa: PLR0911, PLR0912, C901
         elif not contains_registered_security_group:
             # condition 2.2.
             logger.warning(
-                f"EFS with id {aws_efs_id} does not contain a mount target with the subnet {subnet_id} and security group id {aws_security_groups[0]}. This misconfiguration might pose security risks and incur connection issues, preventing the EFS from working as expected."
+                f"EFS with id {aws_efs_id} has a mount target in subnet {subnet_id}, but it is not associated with the expected security group {aws_security_groups[0]}. "
+                f"This misconfiguration might pose security risks and cause connection issues if the mount target's security group does not allow inbound NFS traffic (port 2049) from your worker nodes."
             )
             if strict:
                 return False

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import datetime
 
 import numpy as np
@@ -79,7 +78,6 @@ def _benchmark_ecg_preprocessing_databases(function, ecgs, rpeaks):
     results = []
     for participant in ecgs["Participant"].unique():
         for database in ecgs[ecgs["Participant"] == participant]["Database"].unique():
-
             # Extract the right slice of data
             ecg_slice = ecgs[(ecgs["Participant"] == participant) & (ecgs["Database"] == database)]
             rpeaks_slice = rpeaks[(rpeaks["Participant"] == participant) & (rpeaks["Database"] == database)]
@@ -141,13 +139,19 @@ def benchmark_ecg_compareRpeaks(true_rpeaks, found_rpeaks, sampling_rate=250):
     if len(found_rpeaks) <= 3:
         return np.nan, "R-peaks detected <= 3"
 
-    length = np.max(np.concatenate([true_rpeaks, found_rpeaks]))
+    length = np.max(np.concatenate([true_rpeaks, found_rpeaks])) + 1
 
     true_interpolated = signal_period(
-        true_rpeaks, sampling_rate=sampling_rate, desired_length=length, interpolation_method="linear"
+        true_rpeaks,
+        sampling_rate=sampling_rate,
+        desired_length=length,
+        interpolation_method="linear",
     )
     found_interpolated = signal_period(
-        found_rpeaks, sampling_rate=sampling_rate, desired_length=length, interpolation_method="linear"
+        found_rpeaks,
+        sampling_rate=sampling_rate,
+        desired_length=length,
+        interpolation_method="linear",
     )
 
     return np.mean(np.abs(found_interpolated - true_interpolated)), "None"

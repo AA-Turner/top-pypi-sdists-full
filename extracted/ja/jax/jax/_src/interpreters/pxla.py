@@ -62,7 +62,7 @@ from jax._src.lib import xla_client as xc
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import hlo
 from jax._src.partition_spec import PartitionSpec
-from jax._src.sharding import Sharding as JSharding
+from jax._src.sharding import Sharding as JSharding, IndivisibleError
 from jax._src.mesh import (AbstractMesh, Mesh, get_abstract_mesh,
                            get_concrete_mesh)
 from jax._src.sharding_impls import (
@@ -491,9 +491,8 @@ class MapTrace(core.Trace):
                            (primitive, tuple(params.items())))
     tracers = map(self.to_map_tracer, tracers)
     vals, shard_axes = unzip2([(t.val, t.shard_axes) for t in tracers])
-    info = self.emap_info
     names = core.get_axis_env().axis_names()
-    all_axes = tuple(_map_schedule(map(s.get, names)) for s in shard_axes)  # pytype: disable=wrong-arg-types  # always-use-return-annotations
+    all_axes = tuple(_map_schedule(map(s.get, names)) for s in shard_axes)  # pytype: disable=wrong-arg-types  # always-use-return-annotations  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     f_mapped, out_shard_axes = _multi_pmap(f, self.emap_info, names, all_axes)
     with core.eval_context(), api.disable_jit(False):
       outvals = f_mapped(*vals)
@@ -750,7 +749,6 @@ def stage_parallel_callable(
       _shard_aval(pci.axis_size, axis, aval) if axis is not None else aval
       for axis, aval in safe_zip(pci.in_axes, pci.avals))
 
-  orig_fun = fun
   fun = _change_argument_ranks(fun, pci.in_axes, pci.out_axes_thunk)
   with core.extend_axis_env_nd([(pci.axis_name, pci.global_axis_size)]):
     with dispatch.log_elapsed_time(
@@ -1602,7 +1600,8 @@ def _pmap_lowering(ctx: mlir.LoweringRuleContext, *in_nodes, axis_name,
         sub_ctx, call_jaxpr,
         ctx.name_stack.extend(util.wrap_name('pmap', name)),
         mlir.TokenSet(), (), *in_nodes_sharded,
-        dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering)
+        dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering,
+        outer_traceback=ctx.traceback)
   out_avals = [v.aval for v in call_jaxpr.outvars]
   outs = [_hlo_unshard(ctx, aval, new_env, out_axis, shard)
           for aval, out_axis, shard in zip(out_avals, out_axes, sharded_outs)]
@@ -1958,8 +1957,8 @@ def _cached_lowering_to_hlo(closed_jaxpr: core.ClosedJaxpr, module_name, backend
   axis_ctx: mlir.AxisContext
 
   if nreps == 1:
-    in_mlir_shardings = map(_to_logical_sharding, in_avals, in_shardings)
-    out_mlir_shardings = map(_to_logical_sharding, out_avals, out_shardings)
+    in_mlir_shardings = map(_to_logical_sharding, in_avals, in_shardings)  # pyrefly: ignore[bad-assignment]  # pyrefly#2385
+    out_mlir_shardings = map(_to_logical_sharding, out_avals, out_shardings)  # pyrefly: ignore[bad-assignment]  # pyrefly#2385
     replicated_args = [False] * len(in_avals)
     axis_ctx = sharding_impls.ShardingContext(num_devices, device_assignment,
                                               abstract_mesh)
@@ -2038,6 +2037,8 @@ def jaxpr_transfer_mem_kinds(jaxpr: core.Jaxpr):
     if eqn.primitive is dispatch.device_put_p:
       out.extend(d for d in eqn.params['devices']
                  if isinstance(d, core.MemorySpace))
+    elif eqn.primitive.name == 'compute_on':
+      out.extend(o for o in eqn.params['out_memory_spaces'])
     elif eqn.primitive.name == 'call_exported':
       out.extend(aval.memory_space for aval in eqn.params['exported'].out_avals)
 
@@ -2506,15 +2507,19 @@ class MeshComputation(stages.Lowering):
       compilation_device_list = device_list
     assert isinstance(compilation_device_list, (type(None), xc.DeviceList))
 
-    if self._executable is None or compiler_options_kvs or device_assignment:
-      executable = UnloadedMeshExecutable.from_hlo(
-          self._name, self._hlo, **self.compile_args,
-          compiler_options_kvs=compiler_options_kvs,
-          device_list=compilation_device_list)
-      if not compiler_options_kvs:
-        self._executable = executable
-      return executable
-    return self._executable
+    # Only cache executable into `self` if `.compile()` in AOT is called without
+    # specifying compiler_options and device_assignment.
+    use_cache = compiler_options is None and device_assignment is None
+    if use_cache and self._executable is not None:
+      return self._executable
+
+    executable = UnloadedMeshExecutable.from_hlo(
+        self._name, self._hlo, **self.compile_args,
+        compiler_options_kvs=compiler_options_kvs,
+        device_list=compilation_device_list)
+    if use_cache:
+      self._executable = executable
+    return executable
 
   def cost_analysis(self) -> dict[str, float]:
     backend = self.compile_args["backend"]
@@ -2682,6 +2687,8 @@ def _get_out_sharding_from_orig_sharding(
       else:
         try:
           out.append(orig_handler(o, out_aval, orig_in_s))
+        except IndivisibleError:
+          raise
         except:
           out.append(o)
     else:
@@ -2914,7 +2921,7 @@ def _maybe_get_and_check_out_shardings(
       orig_hlo_s = orig._to_xla_hlo_sharding(aval.ndim)  # pytype: disable=attribute-error
       # MANUAL HloSharding comes from other partitioning frameworks.
       if (not dtypes.issubdtype(aval.dtype, dtypes.extended) and
-          not xla_hlo_s.is_manual() and
+          not xla_hlo_s.is_manual() and aval.size != 0 and
           (not op_shardings.are_hlo_shardings_equal(xla_hlo_s, orig_hlo_s) or
            xla_s.memory_kind != orig.memory_kind)):  # pytype: disable=attribute-error
         raise AssertionError(
@@ -3136,6 +3143,15 @@ class MeshExecutableFastpathData(NamedTuple):
   const_args: Sequence[ArrayLike]
 
 
+def clear_in_memory_compilation_cache() -> None:
+  """Clears the in-memory compilation cache.
+
+  This function clears all cached executables that were compiled by
+  _cached_compilation function.
+  """
+  _cached_compilation.cache_clear()
+
+
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class JitGlobalCppCacheKeys:
   donate_argnums: tuple[int, ...] | None = None
@@ -3158,10 +3174,10 @@ class JitGlobalCppCacheKeys:
             self.donate_argnames is not None or
             self.device is not None or
             self.backend is not None or
-            any(not isinstance(i, UnspecifiedValue) for i in self.in_shardings_leaves) or
-            any(not isinstance(o, UnspecifiedValue) for o in self.out_shardings_leaves) or
-            any(i is not None for i in self.in_layouts_leaves) or
-            any(o is not None for o in self.out_layouts_leaves) or
+            any(not isinstance(i, UnspecifiedValue) for i in (self.in_shardings_leaves or [])) or
+            any(not isinstance(o, UnspecifiedValue) for o in (self.out_shardings_leaves or [])) or
+            any(i is not None for i in (self.in_layouts_leaves or [])) or
+            any(o is not None for o in (self.out_layouts_leaves or [])) or
             self.compiler_options_kvs)
 
 

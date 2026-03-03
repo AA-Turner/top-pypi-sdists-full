@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from ..signal.signal_formatpeaks import _signal_formatpeaks_sanitize
 
 

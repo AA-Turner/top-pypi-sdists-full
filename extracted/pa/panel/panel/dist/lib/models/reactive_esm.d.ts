@@ -66,6 +66,7 @@ export declare const RenderPolicy: import("@bokehjs/core/kinds").Kinds.Enum<"chi
 export declare namespace ReactiveESM {
     type Attrs = p.AttrsOf<Props>;
     type Props = HTMLBox.Props & {
+        _defs: p.Property<any[]>;
         css_bundle: p.Property<string | null>;
         bundle: p.Property<string | null>;
         children: p.Property<any>;

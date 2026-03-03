@@ -12,56 +12,10 @@ import json
 import zipfile
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path as _Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from salmalm.constants import VERSION, BASE_DIR, MEMORY_DIR, VAULT_FILE, KST, DATA_DIR
 from salmalm.security.crypto import log
-
-
-_MAX_UNCOMPRESSED_FILE = 50 * 1024 * 1024   # 50MB per file
-_MAX_UNCOMPRESSED_TOTAL = 200 * 1024 * 1024  # 200MB total across all files
-_MAX_COMPRESSION_RATIO = 100                  # BUG-DV: ZIP bomb guard
-
-
-def _check_zip_bomb(zf: "zipfile.ZipFile") -> Optional[str]:
-    """BUG-DV fix: Reject ZIP files with suspicious compression ratios (ZIP bomb).
-
-    Returns an error string if the archive looks like a bomb, else None.
-    """
-    import zipfile as _zf
-    total_compressed = 0
-    total_uncompressed = 0
-    for info in zf.infolist():
-        if info.file_size > _MAX_UNCOMPRESSED_FILE:
-            return f"Entry '{info.filename[:80]}' exceeds {_MAX_UNCOMPRESSED_FILE // 1024 // 1024}MB limit"
-        total_compressed += info.compress_size or 1
-        total_uncompressed += info.file_size
-        if total_uncompressed > _MAX_UNCOMPRESSED_TOTAL:
-            return f"Total uncompressed size exceeds {_MAX_UNCOMPRESSED_TOTAL // 1024 // 1024}MB limit"
-    if total_compressed > 0 and (total_uncompressed / total_compressed) > _MAX_COMPRESSION_RATIO:
-        return f"Suspicious compression ratio {total_uncompressed / total_compressed:.0f}:1 (max {_MAX_COMPRESSION_RATIO}:1)"
-    return None
-
-
-def _safe_zip_dest(base_dir: _Path, zip_entry: str, prefix: str) -> Optional[_Path]:
-    """Return the resolved destination path for a ZIP entry, or None if Zip Slip detected.
-
-    BUG-DE fix: ZIP entries like 'memory/../../etc/cron.d/evil' would resolve
-    outside base_dir without this check.
-    """
-    if not zip_entry.startswith(prefix):
-        return None
-    rel = zip_entry[len(prefix):]
-    if not rel or rel.endswith("/"):
-        return None  # Directory entry — skip
-    try:
-        dest = (base_dir / rel).resolve()
-        dest.relative_to(base_dir.resolve())  # raises ValueError if outside base_dir
-        return dest
-    except (ValueError, OSError):
-        log.warning("[MIGRATION] Zip Slip blocked: %s → %s", zip_entry, base_dir)
-        return None
 
 # ── Paths ──────────────────────────────────────────────────────
 _HOME_DIR = DATA_DIR
@@ -406,12 +360,6 @@ class AgentImporter:
         except zipfile.BadZipFile:
             return {"ok": False, "error": "Invalid ZIP file / 잘못된 ZIP 파일"}
 
-        # BUG-DV fix: ZIP bomb check
-        bomb_err = _check_zip_bomb(zf)
-        if bomb_err:
-            zf.close()
-            return {"ok": False, "error": f"ZIP bomb detected: {bomb_err}"}
-
         manifest = {}
         if "manifest.json" in zf.namelist():
             try:
@@ -446,14 +394,6 @@ class AgentImporter:
         except zipfile.BadZipFile:
             result.ok = False
             result.errors.append("Invalid ZIP file / 잘못된 ZIP 파일")
-            return result
-
-        # BUG-DV fix: ZIP bomb check before any extraction
-        bomb_err = _check_zip_bomb(zf)
-        if bomb_err:
-            zf.close()
-            result.ok = False
-            result.errors.append(f"ZIP bomb detected: {bomb_err}")
             return result
 
         # Read and validate manifest
@@ -533,23 +473,20 @@ class AgentImporter:
             result.errors.append(f"personas: {e}")
 
     def _import_memory(self, zf: zipfile.ZipFile, result: ImportResult):
-        """Import memory. BUG-DE fix: Zip Slip guard via _safe_zip_dest()."""
+        """Import memory."""
         try:
             count = 0
             for name in zf.namelist():
                 if not name.startswith("memory/") or not name.endswith(".md"):
                     continue
-                fname = name[len("memory/"):]
+                fname = name[len("memory/") :]
                 if not fname:
                     continue
                 # MEMORY.md goes to BASE_DIR
                 if fname == "MEMORY.md":
                     dest = BASE_DIR / "MEMORY.md"
                 else:
-                    dest = _safe_zip_dest(MEMORY_DIR, name, "memory/")
-                    if dest is None:
-                        result.errors.append(f"memory: Zip Slip blocked for {name!r}")
-                        continue
+                    dest = MEMORY_DIR / fname
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if dest.exists() and self.conflict_mode == "skip":
                     continue
@@ -642,17 +579,15 @@ class AgentImporter:
             result.errors.append(f"data: {e}")
 
     def _import_plugins(self, zf: zipfile.ZipFile, result: ImportResult):
-        """Import plugins. BUG-DE fix: Zip Slip guard via _safe_zip_dest()."""
+        """Import plugins."""
         try:
             _PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
             count = 0
             for name in zf.namelist():
                 if not name.startswith("plugins/") or name.endswith("/"):
                     continue
-                dest = _safe_zip_dest(_PLUGINS_DIR, name, "plugins/")
-                if dest is None:
-                    result.errors.append(f"plugins: Zip Slip blocked for {name!r}")
-                    continue
+                rel = name[len("plugins/") :]
+                dest = _PLUGINS_DIR / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(zf.read(name))
                 count += 1
@@ -662,17 +597,15 @@ class AgentImporter:
             result.errors.append(f"plugins: {e}")
 
     def _import_skills(self, zf: zipfile.ZipFile, result: ImportResult):
-        """Import skills. BUG-DE fix: Zip Slip guard via _safe_zip_dest()."""
+        """Import skills."""
         try:
             _SKILLS_DIR.mkdir(parents=True, exist_ok=True)
             count = 0
             for name in zf.namelist():
                 if not name.startswith("skills/") or name.endswith("/"):
                     continue
-                dest = _safe_zip_dest(_SKILLS_DIR, name, "skills/")
-                if dest is None:
-                    result.errors.append(f"skills: Zip Slip blocked for {name!r}")
-                    continue
+                rel = name[len("skills/") :]
+                dest = _SKILLS_DIR / rel
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(zf.read(name))
                 count += 1

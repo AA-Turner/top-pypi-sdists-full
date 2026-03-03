@@ -16,7 +16,7 @@
 from collections.abc import Callable, Sequence
 import enum
 import functools
-from typing import TypeAlias, TypeVar, overload
+from typing import overload, TypeAlias, TypeVar
 
 import jax
 from jax import api_util
@@ -25,16 +25,19 @@ from jax._src import core as jax_core
 from jax._src import dtypes
 from jax._src import effects
 from jax._src import linear_util as lu
+from jax._src.api_util import check_no_transformed_refs_args
 from jax._src.interpreters import partial_eval as pe
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith
 from jax._src.lib.mlir.dialects import scf
 from jax._src.lib.mlir.dialects import vector
 from jax._src.pallas import core as pallas_core
+from jax._src.pallas import primitives as pallas_primitives
 from jax._src.pallas.mosaic import core as tpu_core
 from jax._src.pallas.mosaic import lowering as tc_lowering
 from jax._src.pallas.mosaic import sc_core
 from jax._src.pallas.mosaic import sc_lowering
+from jax._src.state import indexing
 from jax._src.state import primitives as state_primitives
 from jax._src.state import types as state_types
 from jax.experimental.mosaic.dialects import tpu
@@ -42,9 +45,6 @@ import jax.numpy as jnp
 
 
 _ensure_ir_value = tc_lowering._ensure_mlir_value
-aval_to_ir_type = functools.partial(
-    tc_lowering.aval_to_ir_type, sc_lowering.dynamic_shape_replacement_fn
-)
 
 TransformedRef: TypeAlias = state_types.TransformedRef
 Ref: TypeAlias = state_types.AbstractRef | TransformedRef
@@ -132,7 +132,7 @@ def _swap_abstract_eval(ref, x, *args, has_mask, tree, add):
     )
   if tref.shape != x.shape:
     raise ValueError(f"Value must have shape {tref.shape}, got {x.shape}")
-  effects = {state_types.WriteEffect(0)}
+  effects: set[jax_core.Effect] = {state_types.WriteEffect(0)}
   if add:
     effects.add(state_types.ReadEffect(0))
   return x, effects
@@ -224,7 +224,7 @@ def addupdate_compressed(ref: Ref, x: jax.Array, *, mask: jax.Array) -> None:
 def _indexed_shape(ref: Ref, indices: Sequence[jax.Array]) -> tuple[int, ...]:
   if len(indices) != ref.ndim:
     raise ValueError(f"The number of indices does not match {ref.ndim=}")
-  prev_idx = None
+  prev_idx: jax.Array | None = None
   for idx in indices:
     if idx.ndim != 1:
       raise ValueError(
@@ -272,7 +272,7 @@ def _gather_lowering_rule(
   if transforms:
     ref_block_shape, *_ = ctx.block_shapes
     ref, _ = tc_lowering._transform_ref(
-        ref, ref_aval.dtype, ref_block_shape, transforms
+        ref, ref_aval, ref_block_shape, transforms
     )
   [out_aval] = ctx.avals_out
   vec_type = ir.VectorType.get(
@@ -327,7 +327,7 @@ def _scatter_abstract_eval(*flat_args, tree, add):
     raise ValueError(
         f"{mask.shape=} does not match expected shape {expected_shape}"
     )
-  effects = {state_types.WriteEffect(0)}
+  effects: set[jax_core.Effect] = {state_types.WriteEffect(0)}
   if add:
     effects.add(state_types.ReadEffect(0))
   return (), effects
@@ -346,7 +346,7 @@ def _scatter_lowering_rule(
   if transforms:
     ref_block_shape, *_ = ctx.block_shapes
     ref, _ = tc_lowering._transform_ref(
-        ref, ref_aval.dtype, ref_block_shape, transforms
+        ref, ref_aval, ref_block_shape, transforms
     )
   tpu.vector_store_idx(x, ref, indices, mask=mask, add=add)
   return ()
@@ -425,7 +425,7 @@ def _bitcast_abstract_eval(x, dtype):
 def _bitcast_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, *, dtype):
   del dtype  # Unused.
   [out_aval] = ctx.avals_out
-  return vector.bitcast(aval_to_ir_type(out_aval), x)
+  return vector.bitcast(ctx.aval_to_ir_type(out_aval), x)
 
 
 def bitcast(x: jax.Array, dtype: jax.typing.DTypeLike) -> jax.Array:
@@ -467,12 +467,12 @@ def subcore_barrier():
   """Blocks until all subcores on the same core reach this instruction.
 
   The barrier must be used with the vector subcore, either via
-  :class:jax.experimental.pallas.tpu_sc.VectorSubcoreMesh or by specifying
-  ```
-  pltpu.CompilerParams(
-      kernel_type=pltpu.KernelType.SC_VECTOR_SUBCORE,
-      dimension_semantics[..., "subcore_parallel", ...])
-  ```
+  :class:jax.experimental.pallas.tpu_sc.VectorSubcoreMesh or by passing::
+
+      pltpu.CompilerParams(
+          kernel_type=pltpu.CoreType.SC_VECTOR_SUBCORE,
+          dimension_semantics[..., "subcore_parallel", ...])
+
   to ``pallas_call``.
   """
   barrier_p.bind()
@@ -524,21 +524,78 @@ def scan_count(
 masked_cummax_p = jax_core.Primitive("masked_cummax")
 masked_cummax_p.multiple_results = False
 
+masked_cummin_p = jax_core.Primitive("masked_cummin")
+masked_cummin_p.multiple_results = False
+
+masked_cumsum_p = jax_core.Primitive("masked_cumsum")
+masked_cumsum_p.multiple_results = False
+
+
 @masked_cummax_p.def_abstract_eval
+@masked_cummin_p.def_abstract_eval
+@masked_cumsum_p.def_abstract_eval
 def _masked_cummax_abstract_eval(x, mask):
-  if x.dtype != jnp.int32 and x.dtype != jnp.float32:
-    raise NotImplementedError(f"x.dtype={x.dtype} must be int32 or float32")
+  if x.dtype not in (jnp.uint32, jnp.int32, jnp.float32):
+    raise NotImplementedError(
+        f"x.dtype={x.dtype} must be uint32, int32 or float32")
   if not jnp.issubdtype(mask.dtype, jnp.bool):
     raise TypeError(f"mask.dtype={mask.dtype} is not a boolean dtype")
   if x.shape != mask.shape:
     raise ValueError(f"x.shape={x.shape} != mask.shape={mask.shape}")
   return x
 
-@sc_lowering.register_lowering_rule(masked_cummax_p)
-def _masked_cummax_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, mask):
-  del ctx  # Unused.
-  return tpu.scan(
-      x.type, x, ir.Attribute.parse("#tpu.reduction_kind<max>"), mask=mask)
+
+def _masked_cumop_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, mask,
+                                *, reduction_kind: str):
+  sign_bit_vec = None
+  # tpu.scan comparisons assume unsigned int predicates, so we compare
+  # with the sign bit flipped.
+  if ctx.avals_in[0].dtype == jnp.int32 and reduction_kind in ("max", "min"):
+    u32 = ir.IntegerType.get_signless(32)
+    sign_bit_vec = vector.broadcast(
+        x.type, arith.constant(u32, ir.IntegerAttr.get(u32, 0x80000000)))
+    x = arith.xori(x, sign_bit_vec)
+  result = tpu.scan(
+      x.type, x, ir.Attribute.parse(f"#tpu.reduction_kind<{reduction_kind}>"),
+      mask=mask)
+  if sign_bit_vec is not None:  # Flip the sign bit back
+    return arith.xori(result, sign_bit_vec)
+  return result
+
+
+sc_lowering.register_lowering_rule(masked_cummax_p)(
+    functools.partial(_masked_cumop_lowering_rule, reduction_kind="max"))
+sc_lowering.register_lowering_rule(masked_cummin_p)(
+    functools.partial(_masked_cumop_lowering_rule, reduction_kind="min"))
+sc_lowering.register_lowering_rule(masked_cumsum_p)(
+    functools.partial(_masked_cumop_lowering_rule, reduction_kind="sum"))
+
+
+def _reduce_op_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, axes,
+                             *, reduction_kind, out_sharding=None):
+  del out_sharding  # Unused.
+  if axes != (0,):
+    raise NotImplementedError(
+        f"reductions require axes to be (0,) on SparseCore, but got {axes}.")
+  vec_dim = ctx.avals_in[0].shape[0]
+  i1t = ir.IntegerType.get_signless(1)
+  c1 = arith.constant(i1t, ir.IntegerAttr.get(i1t, 1))
+  x_shp = ctx.avals_in[0].shape
+  c1v = vector.broadcast(ir.VectorType.get(x_shp, c1.type), c1)
+  return vector.extract(
+      _masked_cumop_lowering_rule(ctx, x, c1v, reduction_kind=reduction_kind),
+      [], [vec_dim - 1])
+
+sc_lowering.register_lowering_rule(
+    lax.reduce_max_p, kernel_types=[tpu_core.CoreType.SC_VECTOR_SUBCORE])(
+    functools.partial(_reduce_op_lowering_rule, reduction_kind="max"))
+sc_lowering.register_lowering_rule(
+    lax.reduce_min_p, kernel_types=[tpu_core.CoreType.SC_VECTOR_SUBCORE])(
+    functools.partial(_reduce_op_lowering_rule, reduction_kind="min"))
+sc_lowering.register_lowering_rule(
+    lax.reduce_sum_p, kernel_types=[tpu_core.CoreType.SC_VECTOR_SUBCORE])(
+    functools.partial(_reduce_op_lowering_rule, reduction_kind="sum"))
+
 
 def cummax(x: jax.Array, *, mask: jax.Array | None = None) -> jax.Array:
   """Returns the cumulative max of the array along its innermost axis.
@@ -554,43 +611,31 @@ def cummax(x: jax.Array, *, mask: jax.Array | None = None) -> jax.Array:
       are eligible for the max. If `None`, all elements are eligible.
   """
   if x.ndim != 1:
-    raise NotImplementedError(f"masked_cummax: x={x.aval} must be rank 1")
+    raise NotImplementedError(f"cummax: x={x.aval} must be rank 1")
   if mask is None:
     mask = lax.full(x.shape, True)
   return masked_cummax_p.bind(x, mask)
 
-@sc_lowering.register_lowering_rule(
-    lax.reduce_max_p, kernel_types=[tpu_core.KernelType.SC_VECTOR_SUBCORE])
-def _reduce_max_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, axes):
-  if axes != (0,):
-    raise NotImplementedError(
-        f"reduce_max requires axes to be (0,) on SparseCore, but got {axes}.")
-  vec_dim = ctx.avals_in[0].shape[0]
-  i1t = ir.IntegerType.get_signless(1)
-  c1 = arith.constant(i1t, ir.IntegerAttr.get(i1t, 1))
-  c1v = vector.broadcast(ir.VectorType.get(x.type.shape, c1.type), c1)
-  return vector.extract(
-      _masked_cummax_lowering_rule(ctx, x, c1v), [], [vec_dim - 1])
 
+def cummin(x: jax.Array, *, mask: jax.Array | None = None) -> jax.Array:
+  """Returns the cumulative min of the array along its innermost axis.
 
-masked_cumsum_p = jax_core.Primitive("masked_cumsum")
-masked_cumsum_p.multiple_results = False
+  Elements from `x` will pass through directly to the result until the first
+  valid value is encountered (`mask[i] == True`). If you would like to specify
+  a default value for such elements instead, write
+  `x = jnp.where(mask, x, default_value)` before or after calling this function.
 
-@masked_cumsum_p.def_abstract_eval
-def _masked_cumsum_abstract_eval(x, mask):
-  if x.dtype != jnp.int32 and x.dtype != jnp.float32:
-    raise NotImplementedError(f"x.dtype={x.dtype} must be int32 or float32")
-  if not jnp.issubdtype(mask.dtype, jnp.bool):
-    raise TypeError(f"mask.dtype={mask.dtype} is not a boolean dtype")
-  if x.shape != mask.shape:
-    raise ValueError(f"x.shape={x.shape} != mask.shape={mask.shape}")
-  return jax_core.ShapedArray(x.shape, x.dtype)
+  Args:
+    x: An array of integers or floats.
+    mask: An optional array of booleans, which specifies which elements of `x`
+      are eligible for the min. If `None`, all elements are eligible.
+  """
+  if x.ndim != 1:
+    raise NotImplementedError(f"cummin: x={x.aval} must be rank 1")
+  if mask is None:
+    mask = lax.full(x.shape, True)
+  return masked_cummin_p.bind(x, mask)
 
-@sc_lowering.register_lowering_rule(masked_cumsum_p)
-def _masked_cumsum_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, mask):
-  del ctx  # Unused.
-  return tpu.scan(
-      x.type, x, ir.Attribute.parse("#tpu.reduction_kind<sum>"), mask=mask)
 
 @sc_lowering.register_lowering_rule(lax.cumsum_p)
 def _cumsum_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, axis,
@@ -607,6 +652,7 @@ def _cumsum_lowering_rule(ctx: sc_lowering.LoweringRuleContext, x, axis,
   return tpu.scan(
       x.type, x, ir.Attribute.parse("#tpu.reduction_kind<sum>"), mask=c1v)
 
+
 def cumsum(x: jax.Array, *, mask: jax.Array | None = None) -> jax.Array:
   """Returns the cumulative sum of the array along its innermost axis.
 
@@ -622,17 +668,6 @@ def cumsum(x: jax.Array, *, mask: jax.Array | None = None) -> jax.Array:
   if mask is None:
     mask = lax.full(x.shape, True)
   return masked_cumsum_p.bind(x, mask)
-
-@sc_lowering.register_lowering_rule(
-    lax.reduce_sum_p, kernel_types=[tpu_core.KernelType.SC_VECTOR_SUBCORE])
-def _reduce_sum_lowering_rule(
-    ctx: sc_lowering.LoweringRuleContext, x, axes, out_sharding):
-  del out_sharding  # Unused.
-  vec_dim = ctx.avals_in[0].shape[0]
-  if axes != (0,):
-    raise NotImplementedError(f"SC reduce_sum: axes={axes} must be (0,).")
-  return vector.extract(
-      _cumsum_lowering_rule(ctx, x, 0, reverse=False), [], [vec_dim - 1])
 
 
 masked_sort_p = jax_core.Primitive("masked_sort")
@@ -858,18 +893,15 @@ def parallel_loop(lower, upper, step=1, *, unroll=1, carry=None):
             f" {result_tree} != {carry_tree}"
         )
       return result
+
     flat_avals = [
         pallas_core.index_map_grid_aval,
         *(c.aval for c in flat_carries),
     ]
+    debug_info = api_util.debug_info("parallel_loop", body, flat_avals, {})
+    check_no_transformed_refs_args(lambda: debug_info, flat_carries)
     jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-        lu.wrap_init(
-            wrapped,
-            debug_info=api_util.debug_info(
-                "parallel_loop", body, flat_avals, {}
-            ),
-        ),
-        flat_avals,
+        lu.wrap_init(wrapped, debug_info=debug_info), flat_avals
     )
     carry_tree.unflatten(jaxpr.outvars)  # Verify same structure.
     disallowed_effects = effects.control_flow_allowed_effects.filter_not_in(
@@ -943,6 +975,8 @@ def _pack_abstract_eval(a, b, *, format, preferred_element_type):
       packed_shape = (2 * a.size,)
     case PackFormat.COMPRESSED:
       packed_shape = (a.size, 2)
+    case _:
+      raise TypeError(f"Unexpected format: {format}")
   return jax_core.ShapedArray(packed_shape, packed_dtype)
 
 
@@ -958,7 +992,7 @@ def _pack_lowering_rule(
   del preferred_element_type  # Unused.
   [out_aval] = ctx.avals_out
   return tpu.pack_subelements(
-      aval_to_ir_type(out_aval),
+      ctx.aval_to_ir_type(out_aval),
       [a, b],
       [0, 1],
       _format_to_ir_attribute(format),
@@ -1042,7 +1076,7 @@ def _unpack_lowering_rule(
 ):
   del preferred_element_type  # Unused.
   out_aval, _ = ctx.avals_out
-  out_type = aval_to_ir_type(out_aval)
+  out_type = ctx.aval_to_ir_type(out_aval)
   return (
       tpu.unpack_subelements(out_type, ab, 0, _format_to_ir_attribute(format)),
       tpu.unpack_subelements(out_type, ab, 1, _format_to_ir_attribute(format)),
@@ -1146,3 +1180,85 @@ def all_reduce_ffs(x: jax.Array, *, reduce: int = 1) -> jax.Array:
     ``x`` or ``x.size`` if there are no true elements.
   """
   return all_reduce_ffs_p.bind(x, reduce=reduce)
+
+
+fetch_and_add_p = jax_core.Primitive("sc_fetch_and_add")
+fetch_and_add_p.multiple_results = False
+
+
+@fetch_and_add_p.def_effectful_abstract_eval
+def _fetch_and_add_abstract_eval(*args):
+  x_ref, value, *indices, subcore_id = args
+  if x_ref.dtype != jnp.int32:
+    raise NotImplementedError(
+        f"Only int32 refs are supported, but got {x_ref.dtype}"
+    )
+  if x_ref.memory_space != tpu_core.MemorySpace.SMEM:
+    raise ValueError(
+        f"Only refs in SMEM memory space are supported, but got {x_ref}"
+    )
+  if value.dtype != x_ref.dtype or value.shape:
+    raise ValueError(
+        "The value must be a scalar of the same type as the ref"
+        f" ({x_ref.dtype}), but got {value}."
+    )
+  if any(i.dtype != jnp.int32 or i.shape for i in indices):
+    raise ValueError(
+        f"All indices must be scalars of type int32, but got {indices}."
+    )
+  if subcore_id.dtype != jnp.int32 or subcore_id.shape:
+    raise ValueError(
+        f"subcore_id= must be a scalar of type int32, but got {subcore_id}."
+    )
+  return value, {state_types.ReadEffect(0), state_types.WriteEffect(0)}
+
+
+@sc_lowering.register_lowering_rule(fetch_and_add_p)
+def _fetch_and_add_lowering_rule(ctx: sc_lowering.LoweringRuleContext, *args):
+  del ctx  # Unused.
+  x_ref, value, *indices, subcore_id = args
+  core_type = ir.Attribute.parse("#tpu.core_type<sc_vector_subcore>")
+  return tpu.fetch_and_add_sync(
+      x_ref, indices, value, core_type=core_type, core_id=subcore_id
+  )
+
+
+def fetch_and_add(
+    x_ref: jax.Ref | state_types.TransformedRef,
+    value: jax.typing.ArrayLike,
+    *,
+    subcore_id: jax.typing.ArrayLike,
+) -> jax.Array:
+  """Adds value to the ``x_ref`` on another subcore.
+
+  Be careful to ensure subcores are synchronized between initializing the SMEM
+  (on the target subcore) and adding to it, potentially using
+  ``plsc.subcore_barrier()``.
+
+  Args:
+    x_ref: A scalar SMEM ref.
+    value: The value to add to ``x_ref`` on ``subcore_id``.
+    subcore_id: The ID of the vector subcore to use.
+
+  Returns:
+    The value of ``x_ref`` on the specified subcore before adding ``value``.
+  """
+  if x_ref.size != 1:
+    raise ValueError(f"Expected a scalar ref, but got {x_ref.shape=}.")
+
+  x_ref, transforms = pallas_primitives._get_ref_and_transforms(x_ref)
+  match transforms:
+    case []:
+      indices = [jnp.int32(0)] * x_ref.ndim
+    case [indexing.NDIndexer(indices=indices) as indexer]:
+      if any(isinstance(i, indexing.Slice) for i in indexer.indices):
+        raise ValueError(
+            "fetch_and_add only supports refs indexed with non-slice indices,"
+            f" but got {indices}"
+        )
+    case _:
+      raise ValueError(
+          "fetch_and_add requires a scalar ref with a single non-slice"
+          f" indexer, but got {transforms}"
+      )
+  return fetch_and_add_p.bind(x_ref, value, *indices, subcore_id)

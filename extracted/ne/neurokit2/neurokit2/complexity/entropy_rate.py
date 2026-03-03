@@ -93,20 +93,18 @@ def entropy_rate(signal, kmax=10, symbolize="mean", show=False):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Force to array
     if not isinstance(signal, np.ndarray):
         signal = np.array(signal)
 
     # Make discrete
-    if np.isscalar(signal) is False:
+    if not np.isscalar(signal):
         signal = complexity_symbolize(signal, method=symbolize)
 
     # Convert into range if integer
-    if np.isscalar(kmax) is True:
+    if np.isscalar(kmax):
         kmax = np.arange(1, kmax + 1)
 
     # Compute self-entropy

@@ -308,6 +308,8 @@ if __name__ == '__main__':
     print(len(v.model_dump_json()))
     print(v.model_dump_json(indent=4, exclude_none=True))
 
+    print(SoraVideoRequest(model="mj_v7_4K"))
+
     # data = {
     #     'id': 'cgt-20250613160030-2dvd7',
     #     'model': 'doubao-seedance-1-0-pro-250528',

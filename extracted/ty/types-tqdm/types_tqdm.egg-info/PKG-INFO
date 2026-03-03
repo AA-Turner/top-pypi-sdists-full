@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-tqdm
-Version: 4.67.3.20260205
+Version: 4.67.3.20260303
 Summary: Typing stubs for tqdm
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: types-requests
@@ -36,4 +36,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`e56ab929fdaa7c663a61eab843419e6ede2251d1`](https://github.com/python/typeshed/commit/e56ab929fdaa7c663a61eab843419e6ede2251d1).
+[`0e16ea31d2e188fdc126cb31e7c4fcc6b5a8da96`](https://github.com/python/typeshed/commit/0e16ea31d2e188fdc126cb31e7c4fcc6b5a8da96).

@@ -50,7 +50,7 @@ def _brave_request(endpoint: str, params: dict, timeout: int = 15) -> dict:
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read(4 * 1024 * 1024).decode("utf-8"))
+            data = json.loads(resp.read().decode("utf-8"))
         return data
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")[:500]

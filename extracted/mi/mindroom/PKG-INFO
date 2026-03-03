@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.3.10
+Version: 2026.3.27
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -50,6 +50,7 @@ Requires-Dist: apify-client>=1.12.2; (platform_machine != 'aarch64') and extra =
 Provides-Extra: arxiv
 Requires-Dist: arxiv; extra == 'arxiv'
 Requires-Dist: pypdf; extra == 'arxiv'
+Provides-Extra: attachments
 Provides-Extra: aws-lambda
 Requires-Dist: boto3>=1.40.8; extra == 'aws-lambda'
 Provides-Extra: aws-ses
@@ -156,7 +157,6 @@ Provides-Extra: hackernews
 Requires-Dist: httpx>=0.27; extra == 'hackernews'
 Provides-Extra: homeassistant
 Requires-Dist: httpx>=0.27; extra == 'homeassistant'
-Provides-Extra: imdb
 Provides-Extra: jina
 Requires-Dist: httpx>=0.27; extra == 'jina'
 Requires-Dist: pydantic>=2; extra == 'jina'
@@ -187,6 +187,7 @@ Provides-Extra: openai
 Requires-Dist: openai; extra == 'openai'
 Provides-Extra: openbb
 Requires-Dist: openbb; extra == 'openbb'
+Provides-Extra: openclaw-compat
 Provides-Extra: openweather
 Requires-Dist: requests; extra == 'openweather'
 Provides-Extra: oxylabs

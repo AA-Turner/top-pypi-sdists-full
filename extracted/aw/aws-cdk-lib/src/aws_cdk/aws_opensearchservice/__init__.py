@@ -1039,6 +1039,7 @@ class CfnApplication(
                 iam_identity_center_instance_arn="iamIdentityCenterInstanceArn",
                 iam_role_for_identity_center_application_arn="iamRoleForIdentityCenterApplicationArn"
             ),
+            kms_key_arn="kmsKeyArn",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1056,6 +1057,7 @@ class CfnApplication(
         data_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         endpoint: typing.Optional[builtins.str] = None,
         iam_identity_center_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.IamIdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::OpenSearchService::Application``.
@@ -1067,6 +1069,7 @@ class CfnApplication(
         :param data_sources: List of data sources.
         :param endpoint: The endpoint URL of an OpenSearch application.
         :param iam_identity_center_options: Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources. This setup supports single sign-on (SSO) through IAM Identity Center, allowing centralized user management.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt the application.
         :param tags: An arbitrary set of tags (key-value pairs) for this application.
         '''
         if __debug__:
@@ -1079,6 +1082,7 @@ class CfnApplication(
             data_sources=data_sources,
             endpoint=endpoint,
             iam_identity_center_options=iam_identity_center_options,
+            kms_key_arn=kms_key_arn,
             tags=tags,
         )
 
@@ -1253,6 +1257,19 @@ class CfnApplication(
             type_hints = typing.get_type_hints(_typecheckingstub__905379ee8909936359e4e55480945820a97987b6908dbca0355618f385959e81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "iamIdentityCenterOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt the application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__892a31269f72a79e55c114dd392262fb429d253208e1b65c1417b0da4f5000f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1514,6 +1531,7 @@ class CfnApplication(
         "data_sources": "dataSources",
         "endpoint": "endpoint",
         "iam_identity_center_options": "iamIdentityCenterOptions",
+        "kms_key_arn": "kmsKeyArn",
         "tags": "tags",
     },
 )
@@ -1526,6 +1544,7 @@ class CfnApplicationProps:
         data_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.DataSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         endpoint: typing.Optional[builtins.str] = None,
         iam_identity_center_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.IamIdentityCenterOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplication``.
@@ -1535,6 +1554,7 @@ class CfnApplicationProps:
         :param data_sources: List of data sources.
         :param endpoint: The endpoint URL of an OpenSearch application.
         :param iam_identity_center_options: Settings container for integrating IAM Identity Center with OpenSearch UI applications, which enables enabling secure user authentication and access control across multiple data sources. This setup supports single sign-on (SSO) through IAM Identity Center, allowing centralized user management.
+        :param kms_key_arn: The ARN of the KMS key used to encrypt the application.
         :param tags: An arbitrary set of tags (key-value pairs) for this application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html
@@ -1567,6 +1587,7 @@ class CfnApplicationProps:
                     iam_identity_center_instance_arn="iamIdentityCenterInstanceArn",
                     iam_role_for_identity_center_application_arn="iamRoleForIdentityCenterApplicationArn"
                 ),
+                kms_key_arn="kmsKeyArn",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -1580,6 +1601,7 @@ class CfnApplicationProps:
             check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
             check_type(argname="argument iam_identity_center_options", value=iam_identity_center_options, expected_type=type_hints["iam_identity_center_options"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -1592,6 +1614,8 @@ class CfnApplicationProps:
             self._values["endpoint"] = endpoint
         if iam_identity_center_options is not None:
             self._values["iam_identity_center_options"] = iam_identity_center_options
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
         if tags is not None:
             self._values["tags"] = tags
 
@@ -1648,6 +1672,15 @@ class CfnApplicationProps:
         '''
         result = self._values.get("iam_identity_center_options")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.IamIdentityCenterOptionsProperty"]], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchservice-application.html#cfn-opensearchservice-application-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -11114,6 +11147,7 @@ def _typecheckingstub__9ac25677906ac058ff21dd4dd3fa4bc5649dbf0708d3cec14da66245b
     data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     endpoint: typing.Optional[builtins.str] = None,
     iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11173,6 +11207,12 @@ def _typecheckingstub__905379ee8909936359e4e55480945820a97987b6908dbca0355618f38
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__892a31269f72a79e55c114dd392262fb429d253208e1b65c1417b0da4f5000f4(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d20068bc5112f252408ee83569f019899dca7f54b496b672a61b37e57f49966a(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -11211,6 +11251,7 @@ def _typecheckingstub__236cc96183229711206ae6d51551db123c35fb8ce3a2105d7bac41736
     data_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.DataSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     endpoint: typing.Optional[builtins.str] = None,
     iam_identity_center_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IamIdentityCenterOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

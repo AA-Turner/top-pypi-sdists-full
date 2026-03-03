@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     import polars as pl
     from typing_extensions import Self
 
+from ._embedding_mixin import EmbeddingMixin
+
 
 class RuleMinerMixin:
     """Mixin for association rules and recommendations on frequent itemset models."""
@@ -70,7 +72,9 @@ class RuleMinerMixin:
                 pass
 
         if is_empty:
-            import pandas as pd
+            from rusket._dependencies import import_optional_dependency
+
+            pd = import_optional_dependency("pandas")
 
             empty_df = pd.DataFrame(columns=["antecedents", "consequents"] + return_metrics)
             if hasattr(self, "_convert_to_orig_type"):
@@ -182,25 +186,21 @@ class RuleMinerMixin:
             # Spark
             is_empty = rules_df.isEmpty()
         else:
-            try:
-                is_empty = len(rules_df) == 0
-            except Exception:
-                pass
+            is_empty = len(rules_df) == 0
 
         if is_empty:
             return []
 
         # Ensure we are working with Pandas for recommend_for_cart logic since we use .apply()
-        import pandas as pd
+        from rusket._dependencies import import_optional_dependency
+
+        pd = import_optional_dependency("pandas")
 
         if not isinstance(rules_df, pd.DataFrame):
-            try:
-                if hasattr(rules_df, "to_pandas"):
-                    rules_df = rules_df.to_pandas()
-                else:
-                    rules_df = rules_df.toPandas()
-            except Exception:
-                pass
+            if hasattr(rules_df, "to_pandas"):
+                rules_df = rules_df.to_pandas()
+            else:
+                rules_df = rules_df.toPandas()
 
         cart_set = set(items)
         valid_rules = rules_df[rules_df["antecedents"].apply(lambda ant: set(ant).issubset(cart_set))].sort_values(
@@ -253,6 +253,28 @@ class BaseModel(ABC):
         Must be implemented by subclasses.
         """
         pass
+
+    @classmethod
+    def from_ratings(
+        cls,
+        data: Any,
+        user_col: str | None = None,
+        item_col: str | None = None,
+        rating_col: str | None = None,
+        verbose: int = 0,
+        **kwargs: Any,
+    ) -> Self:
+        """Alias for from_transactions, specifically meant for Recommenders."""
+        if "transaction_col" not in kwargs:
+            kwargs["transaction_col"] = user_col
+        if rating_col is not None:
+            kwargs["rating_col"] = rating_col
+        return cls.from_transactions(
+            data,
+            item_col=item_col,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def __dir__(self) -> list[str]:
         """Provides a clean public API surface for AI code assistants and REPLs.
@@ -488,13 +510,17 @@ class Miner(BaseModel):
 
     def _convert_to_orig_type(self, df: pd.DataFrame) -> Any:
         """Helper to convert the resulting pandas DataFrame back to the input DataFrame type."""
-        import pandas as pd
+        from rusket._dependencies import import_optional_dependency
+
+        pd = import_optional_dependency("pandas")
 
         if df is None or not isinstance(df, pd.DataFrame):
             return df
 
         if self._orig_df_type == "pyarrow":
-            import pyarrow as pa
+            from rusket._dependencies import import_optional_dependency
+
+            pa = import_optional_dependency("pyarrow")
 
             # Convert tuples to lists for Arrow compatibility
             for col in ["antecedents", "consequents", "itemsets"]:
@@ -502,7 +528,9 @@ class Miner(BaseModel):
                     df[col] = df[col].apply(lambda x: list(x) if isinstance(x, (tuple, set)) else x)
             return pa.Table.from_pandas(df)
         elif self._orig_df_type == "polars":
-            import polars as pl
+            from rusket._dependencies import import_optional_dependency
+
+            pl = import_optional_dependency("polars")
 
             # Convert tuples to lists for pyarrow compatibility
             for col in ["antecedents", "consequents", "itemsets"]:
@@ -513,7 +541,10 @@ class Miner(BaseModel):
         elif self._orig_df_type == "spark":
             # Best-effort conversion to Spark
             try:
-                from pyspark.sql import SparkSession
+                from rusket._dependencies import import_optional_dependency
+
+                pyspark_sql = import_optional_dependency("pyspark.sql", "pyspark")
+                SparkSession = pyspark_sql.SparkSession
 
                 # Convert tuples to lists for Spark schema compatibility
                 for col in ["antecedents", "consequents", "itemsets"]:
@@ -587,8 +618,12 @@ class Miner(BaseModel):
             miner._orig_df_type = "pandas"
             return miner
 
-        import pandas as _pd
-        import polars as _pl
+        from rusket._dependencies import import_optional_dependency
+
+        _pd = import_optional_dependency("pandas")
+        from rusket._dependencies import import_optional_dependency
+
+        _pl = import_optional_dependency("polars")
 
         if not isinstance(data, (_pd.DataFrame, _pl.DataFrame)):
             raise TypeError(f"Expected a Pandas/Polars/Spark DataFrame or list of lists, got {type(data)}")
@@ -650,7 +685,9 @@ class Miner(BaseModel):
             A DataFrame containing ``group_col``, ``support``, and ``itemsets``.
             The type mirrors the input ``data`` type.
         """
-        import pandas as _pd
+        from rusket._dependencies import import_optional_dependency
+
+        _pd = import_optional_dependency("pandas")
 
         min_support = kwargs.get("min_support", getattr(self, "min_support", 0.5))
         max_len = kwargs.get("max_len", getattr(self, "max_len", None))
@@ -682,7 +719,9 @@ class Miner(BaseModel):
 
         # ── Polars path ───────────────────────────────────────────────────────
         try:
-            import polars as _pl
+            from rusket._dependencies import import_optional_dependency
+
+            _pl = import_optional_dependency("polars")
 
             is_polars = isinstance(df, _pl.DataFrame)
         except ImportError:
@@ -756,7 +795,7 @@ class Miner(BaseModel):
         return self
 
 
-class ImplicitRecommender(BaseModel):
+class ImplicitRecommender(BaseModel, EmbeddingMixin):
     """Base class for implicit feedback recommender models.
 
     Inherited by ALS and BPR.
@@ -775,7 +814,7 @@ class ImplicitRecommender(BaseModel):
         item_col: str | None = None,
         verbose: int = 0,
         **kwargs: Any,
-    ) -> ImplicitRecommender:
+    ) -> Self:
         """Initialize the model from a long-format DataFrame.
 
         Prepares the interaction matrix but does **not** fit the model.
@@ -823,7 +862,10 @@ class ImplicitRecommender(BaseModel):
     ) -> ImplicitRecommender:
         """Prepare interaction matrix from a long-format DataFrame without fitting."""
         import numpy as np
-        import pandas as _pd
+
+        from rusket._dependencies import import_optional_dependency
+
+        _pd = import_optional_dependency("pandas")
         from scipy import sparse as sp
 
         from ._compat import to_dataframe
@@ -835,7 +877,9 @@ class ImplicitRecommender(BaseModel):
         i_col = item_col or str(cols[1])
 
         try:
-            import polars as pl
+            from rusket._dependencies import import_optional_dependency
+
+            pl = import_optional_dependency("polars")
 
             is_polars = isinstance(data, pl.DataFrame)
         except ImportError:
@@ -880,7 +924,7 @@ class ImplicitRecommender(BaseModel):
         return self.fit(self._prepared_interactions)
 
     @abstractmethod
-    def fit(self, interactions: Any) -> ImplicitRecommender:
+    def fit(self, interactions: Any = None) -> ImplicitRecommender:
         """Fit the model to a user-item interaction matrix.
 
         Must be implemented by subclasses.
@@ -1056,88 +1100,8 @@ class ImplicitRecommender(BaseModel):
 
         return visualize_latent_space(self, labels=labels, n_items=n_items)
 
-    def pca(self, n_components: int = 3, normalize: bool = True) -> Any:
-        """Reduces the item embeddings to `n_components` dimensions using PCA.
 
-        This enables a fluent visualization API:
-        ```python
-        model.fit().pca().plot()
-        ```
-
-        Parameters
-        ----------
-        n_components : int, default=3
-            Number of principal components to keep.
-        normalize : bool, default=True
-            Whether to L2-normalize the item factors before PCA computation.
-            Normalizing factors often creates a better visualization for cosine distance.
-
-        Returns
-        -------
-        ProjectedSpace
-            A wrapper object containing the projected coordinates, with a ``.plot()`` method.
-        """
-        import numpy as np
-
-        from .pca import ProjectedSpace, pca
-
-        factors = self.item_factors
-        if normalize:
-            norms = np.linalg.norm(factors, axis=1, keepdims=True)
-            factors = factors / np.clip(norms, a_min=1e-10, a_max=None)
-
-        coords: np.ndarray = pca(factors, n_components=n_components)
-        return ProjectedSpace(coords, self._item_labels)
-
-    def pacmap(self, n_components: int = 2, normalize: bool = True, **kwargs: Any) -> Any:
-        """Reduces the item embeddings to `n_components` dimensions using PaCMAP.
-
-        PaCMAP provides superior preservation of both local and global structure
-        compared to PCA, making it ideal for visualizing latent item clusters.
-
-        This enables a fluent visualization API:
-        ```python
-        model.fit().pacmap(n_components=2).plot()
-        ```
-
-        Parameters
-        ----------
-        n_components : int, default=2
-            Number of dimensions to embed into.
-        normalize : bool, default=True
-            Whether to L2-normalize the item factors before PaCMAP computation.
-            Normalizing factors often creates a better visualization for cosine distance.
-        **kwargs : Any
-            Additional arguments passed to ``rusket.pacmap()`` (e.g., ``n_neighbors``, ``lr``).
-
-        Returns
-        -------
-        ProjectedSpace
-            A wrapper object containing the projected coordinates, with a ``.plot()`` method.
-        """
-        import numpy as np
-
-        from .pacmap import pacmap
-        from .pca import ProjectedSpace
-
-        factors = self.item_factors
-        if normalize:
-            norms = np.linalg.norm(factors, axis=1, keepdims=True)
-            factors = factors / np.clip(norms, a_min=1e-10, a_max=None)
-
-        coords: np.ndarray = pacmap(factors, n_components=n_components, **kwargs)
-        return ProjectedSpace(coords, self._item_labels)
-
-    def pacmap2(self, normalize: bool = True, **kwargs: Any) -> Any:
-        """Shorthand for ``pacmap(n_components=2)``."""
-        return self.pacmap(n_components=2, normalize=normalize, **kwargs)
-
-    def pacmap3(self, normalize: bool = True, **kwargs: Any) -> Any:
-        """Shorthand for ``pacmap(n_components=3)``."""
-        return self.pacmap(n_components=3, normalize=normalize, **kwargs)
-
-
-class SequentialRecommender(BaseModel):
+class SequentialRecommender(BaseModel, EmbeddingMixin):
     """Base class for sequential recommendation models.
 
     Inherited by FPMC.
@@ -1154,6 +1118,7 @@ class SequentialRecommender(BaseModel):
         data: Any,
         transaction_col: str | None = None,
         item_col: str | None = None,
+        timestamp_col: str | None = None,
         verbose: int = 0,
         **kwargs: Any,
     ) -> SequentialRecommender:
@@ -1163,83 +1128,3 @@ class SequentialRecommender(BaseModel):
     def item_factors(self) -> Any:
         """Item factor matrix (n_items, factors)."""
         raise NotImplementedError(f"{self.__class__.__name__} does not implement item_factors.")
-
-    def pca(self, n_components: int = 3, normalize: bool = True) -> Any:
-        """Reduces the item embeddings to `n_components` dimensions using PCA.
-
-        This enables a fluent visualization API:
-        ```python
-        model.fit().pca().plot()
-        ```
-
-        Parameters
-        ----------
-        n_components : int, default=3
-            Number of principal components to keep.
-        normalize : bool, default=True
-            Whether to L2-normalize the item factors before PCA computation.
-            Normalizing factors often creates a better visualization for cosine distance.
-
-        Returns
-        -------
-        ProjectedSpace
-            A wrapper object containing the projected coordinates, with a ``.plot()`` method.
-        """
-        import numpy as np
-
-        from .pca import ProjectedSpace, pca
-
-        factors = self.item_factors
-        if normalize:
-            norms = np.linalg.norm(factors, axis=1, keepdims=True)
-            factors = factors / np.clip(norms, a_min=1e-10, a_max=None)
-
-        coords = pca(factors, n_components=n_components)
-        return ProjectedSpace(coords, self._item_labels)
-
-    def pacmap(self, n_components: int = 2, normalize: bool = True, **kwargs: Any) -> Any:
-        """Reduces the item embeddings to `n_components` dimensions using PaCMAP.
-
-        PaCMAP provides superior preservation of both local and global structure
-        compared to PCA, making it ideal for visualizing latent item clusters.
-
-        This enables a fluent visualization API:
-        ```python
-        model.fit().pacmap(n_components=2).plot()
-        ```
-
-        Parameters
-        ----------
-        n_components : int, default=2
-            Number of dimensions to embed into.
-        normalize : bool, default=True
-            Whether to L2-normalize the item factors before PaCMAP computation.
-            Normalizing factors often creates a better visualization for cosine distance.
-        **kwargs : Any
-            Additional arguments passed to ``rusket.pacmap()`` (e.g., ``n_neighbors``, ``lr``).
-
-        Returns
-        -------
-        ProjectedSpace
-            A wrapper object containing the projected coordinates, with a ``.plot()`` method.
-        """
-        import numpy as np
-
-        from .pacmap import pacmap
-        from .pca import ProjectedSpace
-
-        factors = self.item_factors
-        if normalize:
-            norms = np.linalg.norm(factors, axis=1, keepdims=True)
-            factors = factors / np.clip(norms, a_min=1e-10, a_max=None)
-
-        coords = pacmap(factors, n_components=n_components, **kwargs)
-        return ProjectedSpace(coords, self._item_labels)
-
-    def pacmap2(self, normalize: bool = True, **kwargs: Any) -> Any:
-        """Shorthand for ``pacmap(n_components=2)``."""
-        return self.pacmap(n_components=2, normalize=normalize, **kwargs)
-
-    def pacmap3(self, normalize: bool = True, **kwargs: Any) -> Any:
-        """Shorthand for ``pacmap(n_components=3)``."""
-        return self.pacmap(n_components=3, normalize=normalize, **kwargs)

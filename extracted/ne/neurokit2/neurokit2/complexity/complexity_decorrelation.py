@@ -62,9 +62,7 @@ def complexity_decorrelation(signal, show=False):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Unbiased autocor (see https://github.com/mne-tools/mne-features/)
     autocor, _ = signal_autocor(signal, unbiased=True)
@@ -79,8 +77,7 @@ def complexity_decorrelation(signal, show=False):
     if show is True:
         # Max length of autocorrelation to plot
         max_len = int(dt * 4)
-        if max_len > len(autocor):
-            max_len = len(autocor)
+        max_len = min(max_len, len(autocor))
 
         plt.plot(autocor[0:max_len])
         plt.xlabel("Lag")

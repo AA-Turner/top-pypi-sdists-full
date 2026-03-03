@@ -26,6 +26,7 @@ import jax
 from jax import core as jax_core
 from jax import lax
 from jax import tree_util
+from jax._src import state
 from jax._src import util as jax_util
 from jax._src.pallas import core as pallas_core
 from jax._src.pallas import primitives as primitives
@@ -33,7 +34,6 @@ from jax._src.pallas.mosaic import core as tpu_core
 from jax._src.pallas.mosaic import helpers as tpu_helpers
 from jax._src.pallas.mosaic import primitives as tpu_primitives
 from jax._src.pallas.mosaic import tpu_info
-from jax._src.state import types as state_types
 from jax.experimental import pallas as pl
 import jax.numpy as jnp
 
@@ -42,7 +42,7 @@ SMEM = tpu_core.MemorySpace.SMEM
 VMEM = tpu_core.MemorySpace.VMEM
 HBM = tpu_core.MemorySpace.HBM
 ANY = pallas_core.MemorySpace.ANY
-REF = pallas_core.MemoryRef
+REF = jax.Ref
 GridDimensionSemantics = tpu_core.GridDimensionSemantics
 PARALLEL = tpu_core.PARALLEL
 ARBITRARY = tpu_core.ARBITRARY
@@ -54,20 +54,6 @@ GridIndices = tuple[jax.Array, ...]
 CondVal = Union[jax.Array, bool]
 PipelineBlockSpecs = Union[Sequence[pallas_core.BlockSpec], Any]
 PipelineRefs = Union[Sequence[REF], Any]
-
-
-class Tiling(enum.Enum):
-  COMPACT = enum.auto()
-  SPARSE_CORE = enum.auto()
-
-  @property
-  def shape(self) -> tuple[int, ...]:
-    # TODO(slebedev): Use ``get_tpu_info()`` instead of hardcoding the values.
-    match self:
-      case Tiling.COMPACT:
-        return (8, 128)
-      case Tiling.SPARSE_CORE:
-        return (8,)
 
 
 def _broadcast_pytree_to(from_pytree, to_pytree):
@@ -87,53 +73,6 @@ def _broadcast_pytree_to(from_pytree, to_pytree):
   broadcast_leaves = [None if a is proxy else a for a in broadcast_leaves]
   assert len(broadcast_leaves) == treedef.num_leaves
   return tree_util.tree_unflatten(treedef, broadcast_leaves)
-
-
-def _get_tpu_generation() -> int:
-  return tpu_info.get_tpu_info().generation
-
-
-def _make_tiling(
-    shape: tuple[int, ...],
-    ty: jax_core.AbstractValue,
-    tiling: Tiling | None = None,
-) -> tuple[int | None, ...]:
-  """Compute a tiling for the given shape and type.
-
-  For an n-dimensional shape, returns the tiling for the last
-  ``len(tiling.shape)`` dimensions and 1 for the leading dims. For example:
-  - 2D tiling: (256, 256) -> (8, 128) and (2, 3, 128, 128) -> (1, 1, 8, 128).
-  - 1D tiling: (16,) -> (8,) and (2, 3, 8) -> (1, 1, 8).
-
-  Types are not required to have a dtype, so for such types we return None for
-  all dimensions because their tiling is unknown.
-  """
-  if not hasattr(ty, "dtype"):
-    return (None,) * len(shape)
-  packing = 4 // ty.dtype.itemsize
-
-  if tiling is None:
-    tiling = Tiling.COMPACT
-  tiling_rank = len(tiling.shape)
-  if len(shape) < tiling_rank:
-    raise ValueError(
-        f"Shape must have at least {tiling_rank} dimensions: {shape=}"
-    )
-
-  leading_dims, final_dims = shape[:-tiling_rank], shape[-tiling_rank:]
-  match tiling:
-    case Tiling.COMPACT:
-      # We want to find the minimum power of 2 that fits the second-minor
-      # dimension of shape, with maximum value equal to ``tiling.shape[0]``.
-      second_minor, _ = final_dims
-      max_tiling = tiling.shape[0]
-      second_minor_tiling = (1 + int(_get_tpu_generation() < 4)) * packing
-      while second_minor_tiling < min(second_minor, max_tiling):
-        second_minor_tiling *= 2
-      return (*(1,) * len(leading_dims), second_minor_tiling, tiling.shape[1])
-    case Tiling.SPARSE_CORE:
-      [tile_size] = tiling.shape
-      return (*(1,) * len(leading_dims), tile_size * packing)
 
 
 def _round_up_to_nearest_multiple(
@@ -430,11 +369,11 @@ class BufferedRefBase:
     if (src_shape := getattr(src_ty, "shape", None)) is None:
       raise ValueError(f"Type {src_ty} does not have a shape")
 
-    tiling = _make_tiling(src_shape, src_ty, getattr(self, "tiling", None))
+    tiling = tpu_info.infer_tiling(src_ty, getattr(self, "tiling", None))
     block_indices = self.compute_index(*grid_indices)
     return tuple(
         _make_block_slice(bi, bs, ss, t)
-        for bi, bs, ss, t in zip(
+        for bi, bs, ss, t in zip(  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
             block_indices, self.block_shape, src_shape, tiling, strict=True
         )
     )
@@ -455,7 +394,7 @@ def _ref_to_value_aval(ref):
   """Return the inner of a ref, or a ShapedArray for TransformedRefs."""
   return (
       jax_core.ShapedArray(shape=ref.shape, dtype=ref.dtype)
-      if isinstance(ref, state_types.TransformedRef)
+      if isinstance(ref, state.TransformedRef)
       else jax.typeof(ref).inner_aval
   )
 
@@ -518,7 +457,7 @@ class BufferedRef(BufferedRefBase):
   # TODO(ramiroleal): Improve prefetch/postyeet interface to avoid
   # using this ref.
   swap: ArrayRef | None
-  tiling: Tiling | None = dataclasses.field(metadata=dict(static=True))
+  tiling: tpu_info.Tiling | None = dataclasses.field(metadata=dict(static=True))
 
   def __post_init__(self):
     if self.is_buffered and self.buffer_count < 1:
@@ -570,10 +509,10 @@ class BufferedRef(BufferedRefBase):
       buffer_type,
       buffer_count,
       needs_swap_ref=True,
-      grid_rank=None,
+      grid_rank=0,
       use_lookahead=False,
       source_memory_space: tpu_core.MemorySpace | Literal[ANY] = ANY,  # type: ignore[valid-type]
-      tiling: Tiling | None = None,
+      tiling: tpu_info.Tiling | None = None,
   ) -> BufferedRef:
     """Create a BufferedRef.
 
@@ -737,7 +676,7 @@ class BufferedRef(BufferedRefBase):
         for x in self.block_shape
         if not (x is None or isinstance(x, pl.Squeezed))
     )
-    assert not (self.window_ref is None or isinstance(self.window_ref, REF))
+    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     if not self.is_buffered:
       return self.window_ref.at[buffer_slice]
     else:
@@ -753,6 +692,7 @@ class BufferedRef(BufferedRefBase):
     if self._copy_in_slot_reg is not None:
       val = self._copy_in_slot_reg
     else:
+      assert self.copy_in_slot is not None
       val = self.copy_in_slot[0]
     return val
 
@@ -767,6 +707,7 @@ class BufferedRef(BufferedRefBase):
     if self._copy_out_slot_reg is not None:
       val = self._copy_out_slot_reg
     else:
+      assert self.copy_out_slot is not None
       val = self.copy_out_slot[0]
     return val
 
@@ -781,6 +722,7 @@ class BufferedRef(BufferedRefBase):
     if self._wait_in_slot_reg is not None:
       val = self._wait_in_slot_reg
     else:
+      assert self.wait_in_slot is not None
       val = self.wait_in_slot[0]
     return val
 
@@ -795,6 +737,7 @@ class BufferedRef(BufferedRefBase):
     if self._wait_out_slot_reg is not None:
       val = self._wait_out_slot_reg
     else:
+      assert self.wait_out_slot is not None
       val = self.wait_out_slot[0]
     return val
 
@@ -810,6 +753,7 @@ class BufferedRef(BufferedRefBase):
       raise ValueError("Can only get fetch indices if using lookahead.")
     if self.next_fetch_sreg is not None:
       return self.next_fetch_sreg
+    assert self.next_fetch_smem is not None
     return tuple(smem[0] for smem in self.next_fetch_smem)
 
   def bind_existing_ref(self, window_ref, indices):
@@ -855,12 +799,17 @@ class BufferedRef(BufferedRefBase):
     """Initialize slot indices."""
     if not self.is_buffered: return
     if self.is_input:
+      assert self.copy_in_slot is not None
+      assert self.wait_in_slot is not None
       self.copy_in_slot[0] = 0
       self.wait_in_slot[0] = 0
       if self.use_lookahead:
+        assert self.next_fetch_smem is not None
         for i in range(len(self.next_fetch_smem)):
           self.next_fetch_smem[i][0] = 0
     if self.is_output:
+      assert self.copy_out_slot is not None
+      assert self.wait_out_slot is not None
       self.copy_out_slot[0] = 0
       self.wait_out_slot[0] = 0
     if self.swap is not None:
@@ -927,11 +876,19 @@ class BufferedRef(BufferedRefBase):
     if not self.is_buffered:
       return self
     def _do_load():
-      copy_in = self.copy_in_slot[0] if self.is_input else None
-      copy_out = self.copy_out_slot[0] if self.is_output else None
-      wait_in = self.wait_in_slot[0] if self.is_input else None
-      wait_out = self.wait_out_slot[0] if self.is_output else None
+      copy_in = copy_out = wait_in = wait_out = None
+      if self.is_input:
+        assert self.copy_in_slot is not None
+        assert self.wait_in_slot is not None
+        copy_in = self.copy_in_slot[0]
+        wait_in = self.wait_in_slot[0]
+      if self.is_output:
+        assert self.copy_out_slot is not None
+        assert self.wait_out_slot is not None
+        copy_out = self.copy_out_slot[0]
+        wait_out = self.wait_out_slot[0]
       if self.use_lookahead:
+        assert self.next_fetch_smem is not None
         next_fetch = tuple(self.next_fetch_smem[i][0] for i in range(
             len(self.next_fetch_smem)))
       else:
@@ -950,6 +907,7 @@ class BufferedRef(BufferedRefBase):
         wait_out = _ensure_not_none(self._wait_out_slot_reg)
       if self.use_lookahead:
         if self.next_fetch_sreg is None:
+          assert self.next_fetch_smem is not None
           next_fetch = tuple(jnp.int32(0) for _ in range(
               len(self.next_fetch_smem)))
         else:
@@ -976,17 +934,22 @@ class BufferedRef(BufferedRefBase):
     @pl.when(predicate)
     def _():
       if self.is_input:
+        assert self.copy_in_slot is not None
         assert self._copy_in_slot_reg is not None
         self.copy_in_slot[0] = self._copy_in_slot_reg
+        assert self.wait_in_slot is not None
         assert self._wait_in_slot_reg is not None
         self.wait_in_slot[0] = self._wait_in_slot_reg
         if self.use_lookahead:
+          assert self.next_fetch_smem is not None
           assert self.next_fetch_sreg is not None
           for i in range(len(self.next_fetch_smem)):
             self.next_fetch_smem[i][0] = self.next_fetch_sreg[i]
       if self.is_output:
+        assert self.copy_out_slot is not None
         assert self._copy_out_slot_reg is not None
         self.copy_out_slot[0] = self._copy_out_slot_reg
+        assert self.wait_out_slot is not None
         assert self._wait_out_slot_reg is not None
         self.wait_out_slot[0] = self._wait_out_slot_reg
 
@@ -994,7 +957,7 @@ class BufferedRef(BufferedRefBase):
     """Starts copy of HBM dma slice into the current slot."""
     assert self.is_input
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, REF))
+    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_recvs is not None
     if self.swap is not None:
       self.swap[0] = True
@@ -1015,7 +978,7 @@ class BufferedRef(BufferedRefBase):
     """Starts copy of HBM dma slice from the current slot."""
     assert self.is_output
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, REF))
+    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_sends is not None
     if self.swap is not None:
       self.swap[0] = True
@@ -1036,7 +999,7 @@ class BufferedRef(BufferedRefBase):
     """Waits for input copy to finish."""
     assert self.is_input
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, REF))
+    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_recvs is not None
     src_slice = self.get_dma_slice(_ref_to_value_aval(src_ref), grid_indices)
     dst_slice = tuple(
@@ -1057,7 +1020,7 @@ class BufferedRef(BufferedRefBase):
     """Waits for output copy to finish."""
     assert self.is_output
     if not self.is_buffered: return
-    assert not (self.window_ref is None or isinstance(self.window_ref, REF))
+    assert not (self.window_ref is None or isinstance(self.window_ref, state.AbstractRef))
     assert self.sem_sends is not None
     wait_slot = self.current_wait_out_slot
     dst_slice = self.get_dma_slice(_ref_to_value_aval(dst_ref), grid_indices)
@@ -1089,8 +1052,10 @@ class BufferedRef(BufferedRefBase):
     if self.accum_ref is not None:
       accum_dtype = self.accum_ref.dtype
       def _init():
+        assert self.accum_ref is not None  # pyrefly#40
         self.accum_ref[...] = jnp.zeros_like(self.accum_ref[...])
       def _set():
+        assert self.accum_ref is not None  # pyrefly#40
         self.accum_ref[...] = self.current_ref[...].astype(accum_dtype)
       lax.cond(init, _init, _set)
 
@@ -1270,8 +1235,8 @@ class Scheduler:
       grid: tuple[int | jax.Array, ...],
       grid_offsets: tuple[int | jax.Array, ...],
       num_stages: int,
-      first_cycle=None,
-      last_cycle=None,
+      first_cycle: jax.Array | bool,
+      last_cycle: jax.Array | bool,
       init_accumulators=None,
       trace_scopes=True,
   ):
@@ -1348,7 +1313,7 @@ class Scheduler:
 
   def grid_env(self):
     return pallas_core.grid_env(
-        list(map(pallas_core.GridAxis, self.indices, self.grid)))
+        list(map(pallas_core.GridAxis, self.indices, self.grid)))  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
 
   def out_of_fetch(self, buffered_ref):
     """Returns whether there are no more blocks to fetch."""
@@ -1400,7 +1365,7 @@ class Scheduler:
     # TODO(justinfu): Should cache this, but it doesn't actually do computation
     # in both default & fixed schedules right now so it doesn't increase
     # the Jaxpr size.
-    do_copy = schedule["prologue_copy_in"](self, buffered_ref, src_ref)
+    do_copy: Any = schedule["prologue_copy_in"](self, buffered_ref, src_ref)
 
     with self._named_scope(f"ep_initialize_{step}"):
       if step == 0:
@@ -1452,7 +1417,7 @@ class Scheduler:
   def wait_in(self, buffered_ref, src_ref, schedule=None) -> "BufferedRef":
     if schedule is None:
       schedule = _default_schedule
-    pred = schedule["wait_in"](self, buffered_ref, src_ref)
+    pred: Any = schedule["wait_in"](self, buffered_ref, src_ref)
 
     @self._named_scope("ep_wait_in")
     def _wait():
@@ -1478,7 +1443,7 @@ class Scheduler:
   def copy_in(self, buffered_ref, src_ref, schedule=None) -> "BufferedRef":
     if schedule is None:
       schedule = _default_schedule
-    pred = schedule['copy_in'](self, buffered_ref, src_ref)
+    pred: Any = schedule['copy_in'](self, buffered_ref, src_ref)
     if not buffered_ref.is_input:
       return buffered_ref
 
@@ -1503,7 +1468,7 @@ class Scheduler:
   def prefetch(self, buffered_ref, src_ref, schedule=None):
     if schedule is None:
       schedule = _default_schedule
-    pred = schedule['prefetch'](self, buffered_ref, src_ref)
+    pred: Any = schedule['prefetch'](self, buffered_ref, src_ref)
 
     if not buffered_ref.is_input or not buffered_ref.is_buffered:
       return
@@ -1554,7 +1519,7 @@ class Scheduler:
   def wait_out(self, buffered_ref, dst_ref, schedule=None) -> "BufferedRef":
     if schedule is None:
       schedule = _default_schedule
-    pred = schedule['wait_out'](self, buffered_ref, dst_ref)
+    pred: Any = schedule['wait_out'](self, buffered_ref, dst_ref)
 
     @pl.when(pred)
     @self._named_scope("ep_wait_out")
@@ -1575,7 +1540,7 @@ class Scheduler:
   def copy_out(self, buffered_ref, dst_ref, schedule=None) -> "BufferedRef":
     if schedule is None:
       schedule = _default_schedule
-    pred = schedule['copy_out'](self, buffered_ref, dst_ref)
+    pred: Any = schedule['copy_out'](self, buffered_ref, dst_ref)
 
     @self._named_scope("ep_copy_out")
     def _copy_out_and_accumulate():
@@ -1601,7 +1566,7 @@ class Scheduler:
   def finalize(self, buffered_ref, dst_ref, schedule=None):
     if schedule is None:
       schedule = _default_schedule
-    pred = schedule['epilogue_wait_out'](self, buffered_ref, dst_ref)
+    pred: Any = schedule['epilogue_wait_out'](self, buffered_ref, dst_ref)
 
     @pl.when(pred)
     @self._named_scope("ep_finalize")
@@ -1716,10 +1681,10 @@ def make_pipeline_allocations(
     *refs,
     in_specs=(),
     out_specs=(),
-    tiling: Tiling | None = None,
+    tiling: tpu_info.Tiling | None = None,
     should_accumulate_out=False,
     needs_swap_ref=True,
-    grid=None,
+    grid=(),
 ):
   """Create BufferedRefs for the pipeline.
 
@@ -1860,6 +1825,7 @@ def _partition_grid(
         grid, first_divisible_dimension, partitioned_dim_size
     )
     offsets = jax_util.tuple_update(
+        # pyrefly: ignore[bad-argument-type]
         (0,) * len(grid), first_divisible_dimension, partitioned_dim_offset
     )
   else:
@@ -1892,6 +1858,7 @@ def _partition_grid(
         core_id * base_num_iters + rem,
     )
     offsets = jax_util.tuple_update(
+        # pyrefly: ignore[bad-argument-type]
         (0,) * len(grid), partition_dimension, grid_offset
     )
   return new_grid, offsets  # type: ignore[return-value]
@@ -1933,7 +1900,7 @@ def emit_pipeline(
     grid: tuple[int | jax.Array, ...],
     in_specs=(),
     out_specs=(),
-    tiling: Tiling | None = None,
+    tiling: tpu_info.Tiling | None = None,
     should_accumulate_out: bool = False,
     core_axis: int | None = None,
     core_axis_name: str | None = None,

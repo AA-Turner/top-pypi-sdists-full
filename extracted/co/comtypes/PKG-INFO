@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comtypes
-Version: 1.4.15
+Version: 1.4.16
 Summary: Pure Python COM package
 Author-email: Thomas Heller <theller@python.net>
 License-Expression: MIT

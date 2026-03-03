@@ -183,7 +183,7 @@ class HTTPNode:
 
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read(4 * 1024 * 1024))  # type: ignore[no-any-return]  # BUG-DI fix
+                return json.loads(resp.read())  # type: ignore[no-any-return]
         except Exception as e:
             return {"error": str(e)}
 
@@ -291,20 +291,7 @@ class NodeManager:
         return True
 
     def add_http_node(self, name: str, url: str, token: str = "") -> bool:
-        """Add an HTTP agent node.
-
-        BUG-DJ fix: validate URL against SSRF blocklist before storing.
-        """
-        try:
-            from salmalm.tools.tools_common import _is_private_url_follow_redirects
-            blocked, reason, _ = _is_private_url_follow_redirects(url)
-            if blocked:
-                log.warning("[NET] add_http_node blocked (SSRF): %s — %s", url, reason)
-                return False
-        except Exception:
-            from urllib.parse import urlparse as _up
-            if _up(url).scheme not in ("http", "https"):
-                return False
+        """Add an HTTP agent node."""
         node = HTTPNode(name, url, token)
         self._nodes[name] = node
         self.save_config()

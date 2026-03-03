@@ -357,7 +357,7 @@ PyTreeAuxData = Any  # alias for tree_util._AuxData
 
 
 class _SerializeAuxData(Protocol):
-  def __call__(self, aux_data: PyTreeAuxData) -> bytes:
+  def __call__(self, aux_data: PyTreeAuxData, /) -> bytes:
     """Serializes the PyTree node AuxData.
 
     The AuxData is returned by the ``flatten_func`` registered by
@@ -366,7 +366,7 @@ class _SerializeAuxData(Protocol):
 
 
 class _DeserializeAuxData(Protocol):
-  def __call__(self, serialized_aux_data: bytes) -> PyTreeAuxData:
+  def __call__(self, serialized_aux_data: bytes, /) -> PyTreeAuxData:
     """Deserializes the PyTree node AuxData.
 
     The result will be passed to ``_BuildFromChildren``.
@@ -497,6 +497,7 @@ def register_namedtuple_serialization(
   def serialize_auxdata(aux_data: PyTreeAuxData) -> bytes:
     # Store the serialized keys in the serialized auxdata
     del aux_data
+    # pyrefly: ignore[missing-attribute]
     return json.dumps(nodetype._fields).encode("utf-8")
 
   def deserialize_auxdata(serialized_aux_data: bytes) -> PyTreeAuxData:
@@ -901,8 +902,8 @@ def _module_to_bytecode(module: ir.Module) -> bytes:
   # Note that this does not verify any JAX custom calls, which are only
   # guaranteed 3w of forward compatibility, and only prevents use of new
   # StableHLO features from failing on older hardware.
-  target_version = hlo.get_version_from_compatibility_requirement(
-    hlo.StablehloCompatibilityRequirement.WEEK_4)
+  target_version = hlo.get_version_from_compatibility_requirement(  # pyrefly: ignore[missing-attribute]
+    hlo.StablehloCompatibilityRequirement.WEEK_4)  # pyrefly: ignore[missing-attribute]
   module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
       mlir_str, target_version, xb.get_backend().serialize_with_sdy)
   return module_serialized
@@ -995,7 +996,7 @@ def _wrap_main_func(
       new_arg_attrs = []
       for idx in new_main_arg_indices:
         new_arg_attr = {}
-        for attr in arg_attrs[idx]:
+        for attr in arg_attrs[idx]:  # pyrefly: ignore[not-iterable]
           if attr.name == "tf.aliasing_output":
             i = new_main_result_indices.index(attr.attr.value)
             new_arg_attr[attr.name] = ir.IntegerAttr.get(
@@ -1162,7 +1163,7 @@ _GPU_FFI_KERNELS = [
     "cusolver_gesvd_ffi", "cusolver_gesvdj_ffi",
     "hipsolver_gesvd_ffi", "hipsolver_gesvdj_ffi",
     # tridiagonal on GPU
-    "cusolver_sytrd_ffi",
+    "cusolver_sytrd_ffi", "hipsolver_sytrd_ffi",
     # tridiagonal_solve on GPU
     "cusparse_gtsv2_ffi",
 ]
@@ -1174,6 +1175,7 @@ _CUSTOM_CALL_TARGETS_GUARANTEED_STABLE = {
     "Sharding", "SPMDFullToShardShape", "SPMDShardToFullShape",
     "annotate_device_placement",
     "cu_threefry2x32_ffi",
+    "hip_threefry2x32_ffi",
     # Triton IR does not guarantee stability.
     # "__gpu$xla.gpu.triton",
     # eigh on TPU
@@ -1373,7 +1375,7 @@ def _get_vjp_fun(
     if has_named_shardings or mesh:
       vjp_in_shardings = tuple(
           _get_named_sharding(has_named_shardings, named_sharding,  # type: ignore
-                              hlo_sharding, aval, mesh)
+                              hlo_sharding, aval, mesh)  # pyrefly: ignore[bad-argument-type]
           for named_sharding, hlo_sharding, aval in zip(
             itertools.chain(in_named_shardings, out_named_shardings),
             itertools.chain(in_shardings_hlo, out_shardings_hlo),
@@ -1547,8 +1549,8 @@ call_exported_p.def_impl(_call_exported_impl)
 def get_mesh_from_symbol(symtab: ir.SymbolTable) -> mesh_lib.AbstractMesh:
   if "mesh" not in symtab:
     return mesh_lib.empty_abstract_mesh
-  mesh_attr = sdy.MeshAttr(symtab["mesh"].mesh)
-  axes = [sdy.MeshAxisAttr(a) for a in mesh_attr.axes]
+  mesh_attr = sdy.MeshAttr(symtab["mesh"].mesh)  # pyrefly: ignore[missing-attribute]
+  axes = [sdy.MeshAxisAttr(a) for a in mesh_attr.axes]  # pyrefly: ignore[missing-attribute]
   if not axes:
     return mesh_lib.empty_abstract_mesh
   axes_sizes = tuple(a.size for a in axes)

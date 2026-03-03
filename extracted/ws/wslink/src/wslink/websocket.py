@@ -4,8 +4,8 @@ LinkProtocol to provide additional RPC callbacks for their web-applications. The
 ServerProtocol to hook all the needed LinkProtocols together.
 """
 
-import logging
 import asyncio
+import logging
 
 from wslink import register as exportRpc
 from wslink import schedule_callback
@@ -21,7 +21,10 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-class LinkProtocol(object):
+def noop(*_, **__): ...
+
+
+class LinkProtocol:
     """
     Subclass this to communicate with wslink clients. LinkProtocol
     objects provide rpc and pub/sub actions.
@@ -29,8 +32,8 @@ class LinkProtocol(object):
 
     def __init__(self):
         # need a no-op in case they are called before connect.
-        self.publish = lambda x, y: None
-        self.addAttachment = lambda x: None
+        self.publish = noop
+        self.addAttachment = noop
         self.coreServer = None
 
     def init(self, publish, addAttachment, stopServer):
@@ -52,12 +55,8 @@ class LinkProtocol(object):
 
         """
 
-        pass
-
     def onClose(self, client_id):
         """Called when a websocket connection is closed."""
-
-        pass
 
 
 # =============================================================================
@@ -84,11 +83,11 @@ class NetworkMonitor:
         """Trigger completion event"""
         self.event.set()
 
-    def on_enter(self, *args, **kwargs):
+    def on_enter(self, *_, **__):
         """Increase pending request"""
         self.pending += 1
 
-    def on_exit(self, *args, **kwargs):
+    def on_exit(self, *_, **__):
         """Decrease pending request and trigger completion event if we reach 0 pending request"""
         self.pending -= 1
         if self.pending == 0 and not self.event.is_set():
@@ -118,7 +117,7 @@ class NetworkMonitor:
             await self.event.wait()
 
 
-class ServerProtocol(object):
+class ServerProtocol:
     """
     Defines the core server protocol for wslink. Gathers a list of LinkProtocol
     objects that provide rpc and publish functionality.
@@ -143,12 +142,11 @@ class ServerProtocol(object):
         Let sub classes define what they need to do to properly initialize
         themselves.
         """
-        pass
 
     def setSharedObject(self, key, shared):
         if not hasattr(self, "sharedObjects"):
             self.sharedObjects = {}
-        if shared == None and key in self.sharedObjects:
+        if shared is None and key in self.sharedObjects:
             del self.sharedObjects[key]
         else:
             self.sharedObjects[key] = shared
@@ -156,8 +154,7 @@ class ServerProtocol(object):
     def getSharedObject(self, key):
         if key in self.sharedObjects:
             return self.sharedObjects[key]
-        else:
-            return None
+        return None
 
     def registerLinkProtocol(self, protocol):
         assert isinstance(protocol, LinkProtocol)
@@ -172,7 +169,7 @@ class ServerProtocol(object):
         protocol.coreServer = None
         try:
             self.linkProtocols.remove(protocol)
-        except ValueError as e:
+        except ValueError:
             error_message = "Link protocol missing from registered list."
             logger.error(error_message)
             self.log_emitter("error", error_message)
@@ -192,12 +189,8 @@ class ServerProtocol(object):
 
         """
 
-        pass
-
     def onClose(self, client_id):
         """Called when a websocket connection is closed."""
-
-        pass
 
     @exportRpc("application.exit")
     def exit(self):
@@ -207,5 +200,5 @@ class ServerProtocol(object):
     @exportRpc("application.exit.later")
     def exitLater(self, secondsLater=60):
         """RPC callback to exit after a short delay"""
-        print(f"schedule exit for {secondsLater} seconds from now")
+        logger.info("schedule exit for %s seconds from now", secondsLater)
         schedule_callback(secondsLater, self.stopServer)

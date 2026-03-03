@@ -42,7 +42,8 @@ class ClusterEnvironment(object):
         'last_modified_at': 'datetime',
         'deleted_at': 'datetime',
         'anonymous': 'bool',
-        'is_default': 'bool'
+        'is_default': 'bool',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
@@ -55,10 +56,11 @@ class ClusterEnvironment(object):
         'last_modified_at': 'last_modified_at',
         'deleted_at': 'deleted_at',
         'anonymous': 'anonymous',
-        'is_default': 'is_default'
+        'is_default': 'is_default',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, anonymous=False, is_default=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, anonymous=False, is_default=False, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """ClusterEnvironment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -74,6 +76,7 @@ class ClusterEnvironment(object):
         self._deleted_at = None
         self._anonymous = None
         self._is_default = None
+        self._cloud_id = None
         self.discriminator = None
 
         self.id = id
@@ -90,6 +93,8 @@ class ClusterEnvironment(object):
             self.anonymous = anonymous
         if is_default is not None:
             self.is_default = is_default
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def id(self):
@@ -332,6 +337,29 @@ class ClusterEnvironment(object):
         """
 
         self._is_default = is_default
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this ClusterEnvironment.  # noqa: E501
+
+        ID of the Cloud this Cluster Environment is associated with.  # noqa: E501
+
+        :return: The cloud_id of this ClusterEnvironment.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this ClusterEnvironment.
+
+        ID of the Cloud this Cluster Environment is associated with.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this ClusterEnvironment.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -12,7 +12,10 @@ from .agenda import Agenda
 from .annotations import Logged
 from .dependencies import (
     ConcurrencyLimit,
+    Cooldown,
     Cron,
+    Debounce,
+    RateLimit,
     CurrentDocket,
     CurrentExecution,
     CurrentWorker,
@@ -37,7 +40,10 @@ __all__ = [
     "__version__",
     "Agenda",
     "ConcurrencyLimit",
+    "Cooldown",
     "Cron",
+    "Debounce",
+    "RateLimit",
     "CurrentDocket",
     "CurrentExecution",
     "CurrentWorker",

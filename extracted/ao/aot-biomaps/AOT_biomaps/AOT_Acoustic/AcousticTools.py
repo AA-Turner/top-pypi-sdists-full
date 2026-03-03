@@ -214,6 +214,23 @@ def getAngle(pathFile):
         print(f"Error reading angle from file: {e}")
         return None
 
+def getFrequency(fileName, num_elements, dx):
+     
+    profile = hex_to_binary_profile(fileName[6:-4], num_elements)
+
+    if set(fileName[6:-4].lower().replace(" ", "")) == {'f'}:
+        fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
+    else:   
+        ft_prof = np.fft.fft(profile)
+        idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
+        freqs = np.fft.fftfreq(len(profile), d=dx)
+
+        # freqs est en m^-1 car delta_x est en mètres.
+        fs_m_inv = abs(freqs[idx_max]) 
+
+        fs_key = fs_m_inv # Fréquence spatiale en mm^-1
+    return  int(fs_key / (1/(len(profile)*dx)))
+
 def format_angle(a):
     return f"{'1' if a < 0 else '0'}{abs(int(a)):02d}"
         
@@ -268,3 +285,4 @@ def calculate_angle_from_delays(delays, c=1540):
         theta = 0.0
 
     return int(np.round(theta,0))
+

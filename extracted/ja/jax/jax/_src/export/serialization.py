@@ -17,10 +17,10 @@
 from __future__ import annotations
 
 import types
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable
 import itertools
 from functools import partial
-from typing import Any, TypeVar
+from typing import cast, Any, TypeVar
 
 try:
   import flatbuffers
@@ -144,7 +144,6 @@ def _serialize_exported(
   ser_flatbuf.ExportedAddOutTree(builder, out_tree)
   ser_flatbuf.ExportedAddOutAvals(builder, out_avals)
   ser_flatbuf.ExportedAddNrDevices(builder, exp.nr_devices)
-  ser_flatbuf.ExportedAddNrDevicesShort(builder, exp.nr_devices)  # For forward compatibility, can remove after January 2026
   ser_flatbuf.ExportedAddInShardings(builder, in_shardings)
   ser_flatbuf.ExportedAddOutShardings(builder, out_shardings)
   ser_flatbuf.ExportedAddPlatforms(builder, platforms)
@@ -167,9 +166,10 @@ def _serialize_exported(
 def _serialize_array(
     builder: flatbuffers.Builder,
     serialize_one: Callable[[flatbuffers.Builder, T], int],
-    elements: Sequence[T],
+    elements: Iterable[T],
 ) -> int:
   element_offsets = [serialize_one(builder, e) for e in elements]
+  del elements
   ser_flatbuf.PyTreeDefStartChildrenVector(builder, len(element_offsets))
   for sc in reversed(element_offsets):
     builder.PrependUOffsetTRelative(sc)
@@ -177,8 +177,6 @@ def _serialize_array(
 
 
 def _deserialize_exported(exp: ser_flatbuf.Exported) -> _export.Exported:
-  serialization_version = exp.SerializationVersion()
-
   fun_name = exp.FunctionName().decode("utf-8")
   in_tree = tree_util.tree_structure(
       _deserialize_pytreedef_to_pytree(exp.InTree())
@@ -219,8 +217,10 @@ def _deserialize_exported(exp: ser_flatbuf.Exported) -> _export.Exported:
                                   partial(_deserialize_aval, scope=scope, sharding=None))
     out_avals = _deserialize_tuple(exp.OutAvalsLength, exp.OutAvals,
                                    partial(_deserialize_aval, scope=scope, sharding=None))
-    in_shardings_hlo, in_shardings = in_shardings, (None,) * len(in_shardings)  # type: ignore
-    out_shardings_hlo, out_shardings = out_shardings, (None,) * len(out_shardings)  # type: ignore
+    in_shardings_hlo = cast(tuple[_export.HloSharding | None, ...], in_shardings)
+    in_shardings = (None,) * len(in_shardings)  # type: ignore
+    out_shardings_hlo = cast(tuple[_export.HloSharding | None, ...], out_shardings)
+    out_shardings = (None,) * len(out_shardings)  # type: ignore
   platforms = _deserialize_tuple(
       exp.PlatformsLength,
       exp.Platforms,
@@ -316,6 +316,7 @@ def _serialize_pytreedef(
         builder, serialize_key, node_data[1]
     )
   elif node_type in _export.serialization_registry:
+    assert node_type is not None
     kind = ser_flatbuf.PyTreeDefKind.custom
     serialized_name, serialize_auxdata = _export.serialization_registry[node_type]
     custom_name = builder.CreateString(serialized_name)
@@ -378,7 +379,8 @@ def _deserialize_pytreedef_to_pytree(p: ser_flatbuf.PyTreeDef):
     auxdata = deserialize_auxdata(p.CustomAuxdataAsNumpy().tobytes())
     return from_iter(auxdata, children)
   else:
-    assert False, kind
+    raise ValueError(
+        f"Cannot deserialize PyTreeDef with unknown kind: {kind}")
 
 
 _dtype_to_dtype_kind = {
@@ -499,7 +501,7 @@ def _deserialize_partition_spec_one_axis(
 def _serialize_partition_spec(builder: flatbuffers.Builder,
                               spec: partition_spec.PartitionSpec) -> int:
   partitions = _serialize_array(builder, _serialize_partition_spec_one_axis,
-                                spec._partitions)
+                                spec._partitions)  # pyrefly: ignore[bad-argument-type]
   reduced = _serialize_array(builder,  # type: ignore
                              lambda builder, ps: builder.CreateString(ps),
                              spec.reduced)
@@ -585,8 +587,9 @@ def _deserialize_aval(aval: ser_flatbuf.AbstractValue, *,
   else:
     mem_space = core.MemorySpace.Device
 
-  aval = core.ShapedArray(shape, dtype, memory_space=mem_space)
-  return core.update_aval_with_sharding(aval, sharding)
+  return core.update_aval_with_sharding(
+      core.ShapedArray(shape, dtype, memory_space=mem_space), sharding
+  )
 
 
 def _serialize_sharding(
@@ -719,4 +722,4 @@ def _deserialize_disabled_safety_check(
     # TODO(necula): remove this after June 2025, when we should not have any
     # more serialized artifacts with shape_assertions.
     return _export.DisabledSafetyCheck.custom_call("no op")
-  assert False, kind
+  raise ValueError(f"Cannot deserialize DisabledSafetyCheck with unknown kind: {kind}")

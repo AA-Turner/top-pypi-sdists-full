@@ -79,13 +79,13 @@ This example defines an Amazon EKS cluster with the following configuration:
 * A Kubernetes pod with a container based on the [paulbouwer/hello-kubernetes](https://github.com/paulbouwer/hello-kubernetes) image.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 # provisioning a cluster
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 
 # apply a kubernetes manifest to the cluster
@@ -149,12 +149,12 @@ A more detailed breakdown of each is provided further down this README.
 Creating a new cluster is done using the `Cluster` or `FargateCluster` constructs. The only required properties are the kubernetes `version` and `kubectlLayer`.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -169,13 +169,13 @@ This can happen in one of three situations:
 This affects the EKS cluster itself, the custom resource that created the cluster, associated IAM roles, node groups, security groups, VPC and any other CloudFormation resources managed by this construct.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 import aws_cdk as core
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl"),
     removal_policy=core.RemovalPolicy.RETAIN
 )
 ```
@@ -183,12 +183,12 @@ eks.Cluster(self, "HelloEKS",
 You can also use `FargateCluster` to provision a cluster that uses only fargate workers.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.FargateCluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -211,14 +211,14 @@ By default, this library will allocate a managed node group with 2 *m5.large* in
 At cluster instantiation time, you can customize the number of instances and their type:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     default_capacity=5,
     default_capacity_instance=ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.SMALL),
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -227,13 +227,13 @@ To access the node group that was created on your behalf, you can use `cluster.d
 Additional customizations are available post instantiation. To apply them, set the default capacity to 0, and use the `cluster.addNodegroupCapacity` method:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     default_capacity=0,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -312,7 +312,7 @@ Node groups are available with IPv6 configured networks.  For custom roles assig
 > For more details visit [Configuring the Amazon VPC CNI plugin for Kubernetes to use IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/cni-iam-role.html#cni-iam-role-create-role)
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 ipv6_management = iam.PolicyDocument(
@@ -337,9 +337,9 @@ eks_cluster_node_group_role = iam.Role(self, "eksClusterNodeGroupRole",
 )
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     default_capacity=0,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -448,13 +448,13 @@ has been changed. As a workaround, you need to add a temporary policy to the clu
 successful replacement. Consider this example if you are renaming the cluster from `foo` to `bar`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "cluster-to-rename",
     cluster_name="foo",  # rename this to 'bar'
-    kubectl_layer=KubectlV34Layer(self, "kubectl"),
-    version=eks.KubernetesVersion.V1_34
+    kubectl_layer=KubectlV35Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_35
 )
 
 # allow the cluster admin role to delete the cluster 'foo'
@@ -507,12 +507,12 @@ To create an EKS cluster that **only** uses Fargate capacity, you can use `Farga
 The following code defines an Amazon EKS cluster with a default Fargate Profile that matches all pods from the "kube-system" and "default" namespaces. It is also configured to [run CoreDNS on Fargate](https://docs.aws.amazon.com/eks/latest/userguide/fargate-getting-started.html#fargate-gs-coredns).
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.FargateCluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -592,13 +592,13 @@ To disable bootstrapping altogether (i.e. to fully customize user-data), set `bo
 You can also configure the cluster to use an auto-scaling group as the default capacity:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     default_capacity_type=eks.DefaultCapacityType.EC2,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -705,13 +705,13 @@ AWS Identity and Access Management (IAM) and native Kubernetes [Role Based Acces
 You can configure the [cluster endpoint access](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html) by using the `endpointAccess` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -731,49 +731,49 @@ From the docs:
 To deploy the controller on your EKS cluster, configure the `albController` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V2_8_2
     ),
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
 To provide additional Helm chart values supported by `albController` in CDK, use the `additionalHelmChartValues` property. For example, the following code snippet shows how to set the `enableWafV2` flag:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V2_8_2,
         additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
             enable_wafv2=False
         )
     ),
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
 To overwrite an existing ALB controller service account, use the `overwriteServiceAccount` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V2_8_2,
         overwrite_service_account=True
     ),
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -810,16 +810,16 @@ if cluster.alb_controller:
 You can specify the VPC of the cluster using the `vpc` and `vpcSubnets` properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     vpc=vpc,
     vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)],
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -863,12 +863,12 @@ The `ClusterHandler` is a set of Lambda functions (`onEventHandler`, `isComplete
 You can configure the environment of the Cluster Handler functions by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 # proxy_instance_security_group: ec2.SecurityGroup
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     cluster_handler_environment={
         "https_proxy": "http://proxy.myproxy.com"
     },
@@ -877,7 +877,7 @@ cluster = eks.Cluster(self, "hello-eks",
     # Cluster Handler Lambdas so that it can reach the proxy.
     #
     cluster_handler_security_group=proxy_instance_security_group,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -886,7 +886,7 @@ cluster = eks.Cluster(self, "hello-eks",
 You can optionally choose to configure your cluster to use IPv6 using the [`ipFamily`](https://docs.aws.amazon.com/eks/latest/APIReference/API_KubernetesNetworkConfigRequest.html#AmazonEKS-Type-KubernetesNetworkConfigRequest-ipFamily) definition for your cluster.  Note that this will require the underlying subnets to have an associated IPv6 CIDR.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 # vpc: ec2.Vpc
 
 
@@ -911,11 +911,11 @@ for subnet in subnets:
     subnetcount = subnetcount + 1
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     vpc=vpc,
     ip_family=eks.IpFamily.IP_V6,
     vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -946,15 +946,15 @@ cluster = eks.Cluster.from_cluster_attributes(self, "Cluster",
 You can configure the environment of this function by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     kubectl_environment={
         "http_proxy": "http://proxy.myproxy.com"
     },
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -971,12 +971,12 @@ Depending on which version of kubernetes you're targeting, you will need to use 
 the `@aws-cdk/lambda-layer-kubectl-vXY` packages.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -1012,7 +1012,7 @@ cluster1 = eks.Cluster(self, "MyCluster",
     kubectl_layer=layer,
     vpc=vpc,
     cluster_name="cluster-name",
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_35
 )
 
 # or
@@ -1028,7 +1028,7 @@ cluster2 = eks.Cluster.from_cluster_attributes(self, "MyCluster",
 By default, the kubectl provider is configured with 1024MiB of memory. You can use the `kubectlMemory` option to specify the memory size for the AWS Lambda function:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 # or
 # vpc: ec2.Vpc
@@ -1036,8 +1036,8 @@ from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
 
 eks.Cluster(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 eks.Cluster.from_cluster_attributes(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
@@ -1072,14 +1072,14 @@ cluster.add_auto_scaling_group_capacity("self-ng-arm",
 When you create a cluster, you can specify a `mastersRole`. The `Cluster` construct will associate this role with the `system:masters` [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) group, giving it super-user access to the cluster.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 # role: iam.Role
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     masters_role=role,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -1125,28 +1125,28 @@ You can use the `secretsEncryptionKey` to configure which key the cluster will u
 > This setting can only be specified when the cluster is created and cannot be updated.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.Cluster(self, "MyCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
 You can also use a similar configuration for running a cluster built using the FargateCluster construct.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.FargateCluster(self, "MyFargateCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -1165,12 +1165,12 @@ When you create an Amazon EKS cluster, you can configure it to leverage the [EKS
 Once you have identified the on-premises node and pod (optional) CIDRs you will use for your hybrid nodes and the workloads running on them, you can specify them during cluster creation using the `remoteNodeNetworks` and `remotePodNetworks` (optional) properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "Cluster",
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
     remote_node_networks=[eks.RemoteNodeNetwork(
         cidrs=["10.0.0.0/16"]
     )
@@ -1223,7 +1223,7 @@ To access the Kubernetes resources from the console, make sure your viewing prin
 in the `aws-auth` ConfigMap. Some options to consider:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 # cluster: eks.Cluster
 # your_current_role: iam.Role
 # vpc: ec2.Vpc
@@ -1241,7 +1241,7 @@ your_current_role.add_to_policy(iam.PolicyStatement(
 
 ```python
 # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 # vpc: ec2.Vpc
 
 
@@ -1251,8 +1251,8 @@ masters_role = iam.Role(self, "MastersRole",
 
 cluster = eks.Cluster(self, "EksCluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
     masters_role=masters_role
 )
 
@@ -1291,14 +1291,14 @@ AWS IAM principals from both Amazon EKS access entry APIs and the aws-auth confi
 To specify the `authenticationMode`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "Cluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 ```
@@ -1343,7 +1343,7 @@ eks.AccessPolicy.from_access_policy_name("AmazonEKSAdminPolicy",
 Use `grantAccess()` to grant the AccessPolicy to an IAM principal:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 # vpc: ec2.Vpc
 
 
@@ -1362,8 +1362,8 @@ eks_admin_view_role = iam.Role(self, "EKSAdminViewRole",
 cluster = eks.Cluster(self, "Cluster",
     vpc=vpc,
     masters_role=cluster_admin_role,
-    version=eks.KubernetesVersion.V1_34,
-    kubectl_layer=KubectlV34Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 
@@ -1791,13 +1791,13 @@ Pruning is enabled by default but can be disabled through the `prune` option
 when a cluster is defined:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     prune=False,
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -2196,15 +2196,15 @@ You can enable logging for each one separately using the `clusterLogging`
 property. For example:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "Cluster",
     # ...
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_35,
     cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
     ],
-    kubectl_layer=KubectlV34Layer(self, "kubectl")
+    kubectl_layer=KubectlV35Layer(self, "kubectl")
 )
 ```
 
@@ -2282,6 +2282,7 @@ from ..aws_autoscaling import (
     BlockDevice as _BlockDevice_0cfc0568,
     CapacityDistributionStrategy as _CapacityDistributionStrategy_2393ccfe,
     CommonAutoScalingGroupProps as _CommonAutoScalingGroupProps_808bbf2d,
+    DeletionProtection as _DeletionProtection_3beb1830,
     GroupMetrics as _GroupMetrics_7cdf729b,
     HealthCheck as _HealthCheck_03a4bd5a,
     HealthChecks as _HealthChecks_b8757873,
@@ -3329,18 +3330,18 @@ class AlbControllerHelmChartOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_35,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V2_8_2,
                     additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
                         enable_wafv2=False
                     )
                 ),
-                kubectl_layer=KubectlV34Layer(self, "kubectl")
+                kubectl_layer=KubectlV35Layer(self, "kubectl")
             )
         '''
         if __debug__:
@@ -3419,16 +3420,16 @@ class AlbControllerOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_35,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V2_8_2,
                     overwrite_service_account=True
                 ),
-                kubectl_layer=KubectlV34Layer(self, "kubectl")
+                kubectl_layer=KubectlV35Layer(self, "kubectl")
             )
         '''
         if isinstance(additional_helm_chart_values, dict):
@@ -3735,16 +3736,16 @@ class AlbControllerVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         
         eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_35,
             alb_controller=eks.AlbControllerOptions(
                 version=eks.AlbControllerVersion.V2_8_2,
                 overwrite_service_account=True
             ),
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
     '''
 
@@ -4020,14 +4021,14 @@ class AuthenticationMode(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         # vpc: ec2.Vpc
         
         
         eks.Cluster(self, "Cluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_34,
-            kubectl_layer=KubectlV34Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_35,
+            kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
             authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
         )
     '''
@@ -4052,6 +4053,7 @@ class AuthenticationMode(enum.Enum):
         "capacity_rebalance": "capacityRebalance",
         "cooldown": "cooldown",
         "default_instance_warmup": "defaultInstanceWarmup",
+        "deletion_protection": "deletionProtection",
         "desired_capacity": "desiredCapacity",
         "group_metrics": "groupMetrics",
         "health_check": "healthCheck",
@@ -4092,6 +4094,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         capacity_rebalance: typing.Optional[builtins.bool] = None,
         cooldown: typing.Optional["_Duration_4839e8c3"] = None,
         default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
@@ -4129,6 +4132,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. Default: false
         :param cooldown: Default scaling cooldown for this AutoScalingGroup. Default: Duration.minutes(5)
         :param default_instance_warmup: The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics. This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics, resulting in more reliable usage data. Set this value equal to the amount of time that it takes for resource consumption to become stable after an instance reaches the InService state. To optimize the performance of scaling policies that scale continuously, such as target tracking and step scaling policies, we strongly recommend that you enable the default instance warmup, even if its value is set to 0 seconds Default instance warmup will not be added if no value is specified Default: None
+        :param deletion_protection: Deletion protection for the Auto Scaling group. Default: DeletionProtection.NONE
         :param desired_capacity: Initial amount of instances in the fleet. If this is set to a number, every deployment will reset the amount of instances to this number. It is recommended to leave this value blank. Default: minCapacity, and leave unchanged during deployment
         :param group_metrics: Enable monitoring for group metrics, these metrics describe the group rather than any of its instances. To report all group metrics use ``GroupMetrics.all()`` Group metrics are reported in a granularity of 1 minute at no additional charge. Default: - no group metrics will be reported
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
@@ -4182,6 +4186,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
             check_type(argname="argument capacity_rebalance", value=capacity_rebalance, expected_type=type_hints["capacity_rebalance"])
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument default_instance_warmup", value=default_instance_warmup, expected_type=type_hints["default_instance_warmup"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument group_metrics", value=group_metrics, expected_type=type_hints["group_metrics"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -4227,6 +4232,8 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
             self._values["cooldown"] = cooldown
         if default_instance_warmup is not None:
             self._values["default_instance_warmup"] = default_instance_warmup
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if desired_capacity is not None:
             self._values["desired_capacity"] = desired_capacity
         if group_metrics is not None:
@@ -4381,6 +4388,17 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         '''
         result = self._values.get("default_instance_warmup")
         return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional["_DeletionProtection_3beb1830"]:
+        '''Deletion protection for the Auto Scaling group.
+
+        :default: DeletionProtection.NONE
+
+        :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/resource-deletion-protection.html#asg-deletion-protection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional["_DeletionProtection_3beb1830"], result)
 
     @builtins.property
     def desired_capacity(self) -> typing.Optional[jsii.Number]:
@@ -13375,6 +13393,7 @@ class CfnPodIdentityAssociation(
         
             # the properties below are optional
             disable_session_tags=False,
+            policy="policy",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -13393,6 +13412,7 @@ class CfnPodIdentityAssociation(
         role_arn: builtins.str,
         service_account: builtins.str,
         disable_session_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -13405,6 +13425,7 @@ class CfnPodIdentityAssociation(
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the Pods that use this service account.
         :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
         :param disable_session_tags: The state of the automatic sessions tags. The value of *true* disables these tags. EKS Pod Identity adds a pre-defined set of session tags when it assumes the role. You can use these tags to author a single role that can work across resources by allowing access to AWS resources based on matching tags. By default, EKS Pod Identity attaches six tags, including tags for cluster name, namespace, and service account name. For the list of tags added by EKS Pod Identity, see `List of session tags added by EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/pod-id-abac.html#pod-id-abac-tags>`_ in the *Amazon EKS User Guide* .
+        :param policy: The policy of the pod identity association.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
         :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account. This role is assumed by using the EKS Pod Identity association role, then the credentials for this role are injected into the Pod.
         '''
@@ -13418,6 +13439,7 @@ class CfnPodIdentityAssociation(
             role_arn=role_arn,
             service_account=service_account,
             disable_session_tags=disable_session_tags,
+            policy=policy,
             tags=tags,
             target_role_arn=target_role_arn,
         )
@@ -13590,6 +13612,19 @@ class CfnPodIdentityAssociation(
         jsii.set(self, "disableSessionTags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Optional[builtins.str]:
+        '''The policy of the pod identity association.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__999a87481174c22f124c5820eccbdce5ddb18fef113174cff7a0201e6600f7c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Metadata that assists with categorization and organization.'''
@@ -13625,6 +13660,7 @@ class CfnPodIdentityAssociation(
         "role_arn": "roleArn",
         "service_account": "serviceAccount",
         "disable_session_tags": "disableSessionTags",
+        "policy": "policy",
         "tags": "tags",
         "target_role_arn": "targetRoleArn",
     },
@@ -13638,6 +13674,7 @@ class CfnPodIdentityAssociationProps:
         role_arn: builtins.str,
         service_account: builtins.str,
         disable_session_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        policy: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -13648,6 +13685,7 @@ class CfnPodIdentityAssociationProps:
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the Pods that use this service account.
         :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
         :param disable_session_tags: The state of the automatic sessions tags. The value of *true* disables these tags. EKS Pod Identity adds a pre-defined set of session tags when it assumes the role. You can use these tags to author a single role that can work across resources by allowing access to AWS resources based on matching tags. By default, EKS Pod Identity attaches six tags, including tags for cluster name, namespace, and service account name. For the list of tags added by EKS Pod Identity, see `List of session tags added by EKS Pod Identity <https://docs.aws.amazon.com/eks/latest/userguide/pod-id-abac.html#pod-id-abac-tags>`_ in the *Amazon EKS User Guide* .
+        :param policy: The policy of the pod identity association.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
         :param target_role_arn: The Amazon Resource Name (ARN) of the target IAM role to associate with the service account. This role is assumed by using the EKS Pod Identity association role, then the credentials for this role are injected into the Pod.
 
@@ -13669,6 +13707,7 @@ class CfnPodIdentityAssociationProps:
             
                 # the properties below are optional
                 disable_session_tags=False,
+                policy="policy",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -13683,6 +13722,7 @@ class CfnPodIdentityAssociationProps:
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument service_account", value=service_account, expected_type=type_hints["service_account"])
             check_type(argname="argument disable_session_tags", value=disable_session_tags, expected_type=type_hints["disable_session_tags"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument target_role_arn", value=target_role_arn, expected_type=type_hints["target_role_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -13693,6 +13733,8 @@ class CfnPodIdentityAssociationProps:
         }
         if disable_session_tags is not None:
             self._values["disable_session_tags"] = disable_session_tags
+        if policy is not None:
+            self._values["policy"] = policy
         if tags is not None:
             self._values["tags"] = tags
         if target_role_arn is not None:
@@ -13754,6 +13796,15 @@ class CfnPodIdentityAssociationProps:
         '''
         result = self._values.get("disable_session_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def policy(self) -> typing.Optional[builtins.str]:
+        '''The policy of the pod identity association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-policy
+        '''
+        result = self._values.get("policy")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -14233,15 +14284,15 @@ class ClusterLoggingTypes(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         
         cluster = eks.Cluster(self, "Cluster",
             # ...
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_35,
             cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
             ],
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
     '''
 
@@ -14481,13 +14532,13 @@ class DefaultCapacityType(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_35,
             default_capacity_type=eks.DefaultCapacityType.EC2,
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
     '''
 
@@ -14654,13 +14705,13 @@ class EndpointAccess(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_35,
             endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
     '''
 
@@ -17026,7 +17077,7 @@ class IpFamily(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         # vpc: ec2.Vpc
         
         
@@ -17051,11 +17102,11 @@ class IpFamily(enum.Enum):
             subnetcount = subnetcount + 1
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_35,
             vpc=vpc,
             ip_family=eks.IpFamily.IP_V6,
             vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
     '''
 
@@ -18312,13 +18363,13 @@ class KubernetesVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_35,
             default_capacity=0,
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
         
         cluster.add_nodegroup_capacity("custom-node-group",
@@ -18570,6 +18621,17 @@ class KubernetesVersion(
         ``@aws-cdk/lambda-layer-kubectl-v34``.
         '''
         return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_34"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_35")
+    def V1_35(cls) -> "KubernetesVersion":
+        '''Kubernetes version 1.35.
+
+        When creating a ``Cluster`` with this version, you need to also specify the
+        ``kubectlLayer`` property with a ``KubectlV35Layer`` from
+        ``@aws-cdk/lambda-layer-kubectl-v35``.
+        '''
+        return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_35"))
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -21433,7 +21495,7 @@ class Cluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         # or
         # vpc: ec2.Vpc
@@ -21441,8 +21503,8 @@ class Cluster(
         
         eks.Cluster(self, "MyCluster",
             kubectl_memory=Size.gibibytes(4),
-            version=eks.KubernetesVersion.V1_34,
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            version=eks.KubernetesVersion.V1_35,
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
         eks.Cluster.from_cluster_attributes(self, "MyCluster",
             kubectl_memory=Size.gibibytes(4),
@@ -21686,6 +21748,7 @@ class Cluster(
         capacity_rebalance: typing.Optional[builtins.bool] = None,
         cooldown: typing.Optional["_Duration_4839e8c3"] = None,
         default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
@@ -21736,6 +21799,7 @@ class Cluster(
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. Default: false
         :param cooldown: Default scaling cooldown for this AutoScalingGroup. Default: Duration.minutes(5)
         :param default_instance_warmup: The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics. This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics, resulting in more reliable usage data. Set this value equal to the amount of time that it takes for resource consumption to become stable after an instance reaches the InService state. To optimize the performance of scaling policies that scale continuously, such as target tracking and step scaling policies, we strongly recommend that you enable the default instance warmup, even if its value is set to 0 seconds Default instance warmup will not be added if no value is specified Default: None
+        :param deletion_protection: Deletion protection for the Auto Scaling group. Default: DeletionProtection.NONE
         :param desired_capacity: Initial amount of instances in the fleet. If this is set to a number, every deployment will reset the amount of instances to this number. It is recommended to leave this value blank. Default: minCapacity, and leave unchanged during deployment
         :param group_metrics: Enable monitoring for group metrics, these metrics describe the group rather than any of its instances. To report all group metrics use ``GroupMetrics.all()`` Group metrics are reported in a granularity of 1 minute at no additional charge. Default: - no group metrics will be reported
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
@@ -21775,6 +21839,7 @@ class Cluster(
             capacity_rebalance=capacity_rebalance,
             cooldown=cooldown,
             default_instance_warmup=default_instance_warmup,
+            deletion_protection=deletion_protection,
             desired_capacity=desired_capacity,
             group_metrics=group_metrics,
             health_check=health_check,
@@ -23286,7 +23351,7 @@ class ClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
             
             # or
             # vpc: ec2.Vpc
@@ -23294,8 +23359,8 @@ class ClusterProps(ClusterOptions):
             
             eks.Cluster(self, "MyCluster",
                 kubectl_memory=Size.gibibytes(4),
-                version=eks.KubernetesVersion.V1_34,
-                kubectl_layer=KubectlV34Layer(self, "kubectl")
+                version=eks.KubernetesVersion.V1_35,
+                kubectl_layer=KubectlV35Layer(self, "kubectl")
             )
             eks.Cluster.from_cluster_attributes(self, "MyCluster",
                 kubectl_memory=Size.gibibytes(4),
@@ -23875,12 +23940,12 @@ class FargateCluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         
         cluster = eks.FargateCluster(self, "MyCluster",
-            version=eks.KubernetesVersion.V1_34,
-            kubectl_layer=KubectlV34Layer(self, "kubectl")
+            version=eks.KubernetesVersion.V1_35,
+            kubectl_layer=KubectlV35Layer(self, "kubectl")
         )
     '''
 
@@ -24120,12 +24185,12 @@ class FargateClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
             
             
             cluster = eks.FargateCluster(self, "MyCluster",
-                version=eks.KubernetesVersion.V1_34,
-                kubectl_layer=KubectlV34Layer(self, "kubectl")
+                version=eks.KubernetesVersion.V1_35,
+                kubectl_layer=KubectlV35Layer(self, "kubectl")
             )
         '''
         if isinstance(alb_controller, dict):
@@ -25025,6 +25090,7 @@ def _typecheckingstub__9ac94eb5cd9569dcf4122cf20026c6f104b737f68ecd3395b237320bd
     capacity_rebalance: typing.Optional[builtins.bool] = None,
     cooldown: typing.Optional[_Duration_4839e8c3] = None,
     default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,
@@ -26347,6 +26413,7 @@ def _typecheckingstub__be8311b6089cea26f85c63a586f0c5b063230a1b4a96ffcd4c6c983a3
     role_arn: builtins.str,
     service_account: builtins.str,
     disable_session_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -26401,6 +26468,12 @@ def _typecheckingstub__cb3dbe4cc3b44e9265bbfe13e41235db909b0c1dc0e052b3bdda07fd4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__999a87481174c22f124c5820eccbdce5ddb18fef113174cff7a0201e6600f7c9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b0e0a0551adefc10761733af04b8c51e7dad6b483be9252882ecff10539c7dcc(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -26420,6 +26493,7 @@ def _typecheckingstub__40e8da56b529234cdbb596fa46af952a935adf744e907347861dfc232
     role_arn: builtins.str,
     service_account: builtins.str,
     disable_session_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    policy: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -27197,6 +27271,7 @@ def _typecheckingstub__e9e81d821b1c1d14225d1c9cc695af8e71b96a7489dcd36bd237c9363
     capacity_rebalance: typing.Optional[builtins.bool] = None,
     cooldown: typing.Optional[_Duration_4839e8c3] = None,
     default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,

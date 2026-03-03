@@ -8,8 +8,10 @@ from typing import Callable, Dict, List, Optional, Union
 
 # 3rd-party
 try:
+    import dask
     import dask.array as da
 except ImportError:
+    dask = None
     da = None
 
 try:
@@ -34,10 +36,43 @@ except ImportError:
         ndarray = False
 
 # local modules
-from xrspatial.utils import ArrayTypeFunctionMapping, ngjit, not_implemented_func, validate_arrays
+from xrspatial.utils import (
+    ArrayTypeFunctionMapping, _validate_raster, cuda_args, has_cuda_and_cupy,
+    is_cupy_array, is_dask_cupy,
+    ngjit, not_implemented_func, validate_arrays,
+)
 from xrspatial.utils import has_dask_array
 
 TOTAL_COUNT = '_total_count'
+
+
+def _unique_finite_zones(arr):
+    """Sorted unique finite values from *arr* without full materialisation.
+
+    For dask arrays uses ``da.unique`` (per-chunk reduction) so the full
+    array is never pulled into RAM.
+    """
+    if da is not None and isinstance(arr, da.Array):
+        uniq = da.unique(arr).compute()
+        return uniq[np.isfinite(uniq)]
+    return np.unique(arr[np.isfinite(arr)])
+
+
+def _unique_finite_cats(arr, nodata_values):
+    """Sorted unique values excluding NaN, Inf, and *nodata_values*.
+
+    Dask-safe: uses ``da.unique`` so the full array is never materialised.
+    """
+    if da is not None and isinstance(arr, da.Array):
+        uniq = da.unique(arr).compute()
+        mask = np.isfinite(uniq)
+        if nodata_values is not None:
+            mask &= (uniq != nodata_values)
+        return uniq[mask]
+    mask = np.isfinite(arr)
+    if nodata_values is not None:
+        mask &= (arr != nodata_values)
+    return np.unique(arr[mask])
 
 
 def _stats_count(data):
@@ -187,7 +222,7 @@ def _stats_dask_numpy(
 ) -> pd.DataFrame:
 
     # find ids for all zones
-    unique_zones = np.unique(zones[np.isfinite(zones)])
+    unique_zones = _unique_finite_zones(zones)
 
     select_all_zones = False
     # selecte zones to do analysis
@@ -199,17 +234,20 @@ def _stats_dask_numpy(
     values_blocks = values.to_delayed().ravel()
 
     stats_dict = {}
-    stats_dict["zone"] = unique_zones  # zone column
+    stats_dict["zone"] = da.from_delayed(  # zone column
+        delayed(lambda x: x)(unique_zones),
+        shape=(np.nan,), dtype=unique_zones.dtype,
+    )
 
     compute_sum_squares = False
     compute_sum = False
     compute_count = False
 
-    if 'mean' or 'std' or 'var' in stats_funcs:
+    if any(s in stats_funcs for s in ('mean', 'std', 'var')):
         compute_sum = True
         compute_count = True
 
-    if 'std' or 'var' in stats_funcs:
+    if any(s in stats_funcs for s in ('std', 'var')):
         compute_sum_squares = True
 
     basis_stats = [s for s in _DASK_BLOCK_STATS if s in stats_funcs]
@@ -287,7 +325,7 @@ def _stats_numpy(
 ) -> Union[pd.DataFrame, np.ndarray]:
 
     # find ids for all zones
-    unique_zones = np.unique(zones[np.isfinite(zones)])
+    unique_zones = _unique_finite_zones(zones)
     # selected zones to do analysis
     if zone_ids is None:
         zone_ids = unique_zones
@@ -417,6 +455,24 @@ def _stats_cupy(
     stats_df = pd.DataFrame(stats_dict)
     stats_df.set_index("zone")
     return stats_df
+
+
+def _stats_dask_cupy(
+    zones,
+    values,
+    zone_ids,
+    stats_funcs,
+    nodata_values,
+):
+    zones_cpu = zones.map_blocks(
+        lambda x: x.get(), dtype=zones.dtype, meta=np.array(()),
+    )
+    values_cpu = values.map_blocks(
+        lambda x: x.get(), dtype=values.dtype, meta=np.array(()),
+    )
+    return _stats_dask_numpy(
+        zones_cpu, values_cpu, zone_ids, stats_funcs, nodata_values,
+    )
 
 
 def stats(
@@ -610,19 +666,10 @@ def stats(
             result = result.merge(df, on='zone', how='outer')
         return result
 
+    _validate_raster(zones, func_name='stats', name='zones', ndim=2)
+    _validate_raster(values, func_name='stats', name='values', ndim=(2, 3))
+
     validate_arrays(zones, values)
-
-    if not (
-        issubclass(zones.data.dtype.type, np.integer)
-        or issubclass(zones.data.dtype.type, np.floating)
-    ):
-        raise ValueError("`zones` must be an array of integers or floats.")
-
-    if not (
-        issubclass(values.data.dtype.type, np.integer)
-        or issubclass(values.data.dtype.type, np.floating)
-    ):
-        raise ValueError("`values` must be an array of integers or floats.")
 
     # validate stats_funcs
     if has_dask_array() and isinstance(values.data, da.Array) and not isinstance(stats_funcs, list):
@@ -649,9 +696,7 @@ def stats(
         numpy_func=lambda *args: _stats_numpy(*args, return_type=return_type),
         dask_func=_stats_dask_numpy,
         cupy_func=_stats_cupy,
-        dask_cupy_func=lambda *args: not_implemented_func(
-            *args, messages='stats() does not support dask with cupy backed DataArray'  # noqa
-        ),
+        dask_cupy_func=_stats_dask_cupy,
     )
     result = mapper(values)(
         zones.data, values.data, zone_ids, stats_funcs_dict, nodata_values,
@@ -670,9 +715,7 @@ def stats(
 def _find_cats(values, cat_ids, nodata_values):
     if len(values.shape) == 2:
         # 2D case
-        unique_cats = np.unique(values.data[
-            np.isfinite(values.data) & (values.data != nodata_values)
-        ])
+        unique_cats = _unique_finite_cats(values.data, nodata_values)
     else:
         # 3D case
         unique_cats = values[values.dims[0]].data
@@ -680,7 +723,7 @@ def _find_cats(values, cat_ids, nodata_values):
     if cat_ids is None:
         cat_ids = unique_cats
     else:
-        if isinstance(values.data, np.ndarray):
+        if isinstance(values.data, np.ndarray) or is_cupy_array(values.data):
             # remove cats that do not exist in `values` raster
             cat_ids = [c for c in cat_ids if c in unique_cats]
         else:
@@ -756,7 +799,7 @@ def _crosstab_numpy(
 ) -> pd.DataFrame:
 
     # find ids for all zones
-    unique_zones = np.unique(zones[np.isfinite(zones)])
+    unique_zones = _unique_finite_zones(zones)
     # selected zones to do analysis
     if zone_ids is None:
         zone_ids = unique_zones
@@ -894,7 +937,7 @@ def _crosstab_dask_numpy(
     agg: str,
 ):
     # find ids for all zones
-    unique_zones = np.unique(zones[np.isfinite(zones)])
+    unique_zones = _unique_finite_zones(zones)
     if zone_ids is None:
         zone_ids = unique_zones
     else:
@@ -917,6 +960,52 @@ def _crosstab_dask_numpy(
         crosstab_by_block, zone_ids, cat_ids, agg
     )
     return dd.from_delayed(crosstab_df)
+
+
+def _crosstab_cupy(
+    zones: np.ndarray,
+    values: np.ndarray,
+    zone_ids,
+    unique_cats,
+    cat_ids,
+    nodata_values,
+    agg: str,
+):
+    # unique_cats / cat_ids may be cupy arrays from _find_cats
+    if is_cupy_array(unique_cats):
+        unique_cats = cupy.asnumpy(unique_cats)
+    if is_cupy_array(cat_ids):
+        cat_ids = cupy.asnumpy(cat_ids)
+    return _crosstab_numpy(
+        cupy.asnumpy(zones), cupy.asnumpy(values),
+        zone_ids, unique_cats, cat_ids, nodata_values, agg,
+    )
+
+
+def _crosstab_dask_cupy(
+    zones,
+    values,
+    zone_ids,
+    unique_cats,
+    cat_ids,
+    nodata_values,
+    agg: str,
+):
+    zones_cpu = zones.map_blocks(
+        lambda x: x.get(), dtype=zones.dtype, meta=np.array(()),
+    )
+    values_cpu = values.map_blocks(
+        lambda x: x.get(), dtype=values.dtype, meta=np.array(()),
+    )
+    # unique_cats / cat_ids may be cupy arrays from _find_cats
+    if is_cupy_array(unique_cats):
+        unique_cats = cupy.asnumpy(unique_cats)
+    if is_cupy_array(cat_ids):
+        cat_ids = cupy.asnumpy(cat_ids)
+    return _crosstab_dask_numpy(
+        zones_cpu, values_cpu, zone_ids, unique_cats, cat_ids,
+        nodata_values, agg,
+    )
 
 
 def crosstab(
@@ -1055,28 +1144,8 @@ def crosstab(
             5      7    0     1     0     0     1     1
     """
 
-    if not isinstance(zones, xr.DataArray):
-        raise TypeError("zones must be instance of DataArray")
-
-    if not isinstance(values, xr.DataArray):
-        raise TypeError("values must be instance of DataArray")
-
-    if zones.ndim != 2:
-        raise ValueError("zones must be 2D")
-
-    if not (
-            issubclass(zones.data.dtype.type, np.integer)
-            or issubclass(zones.data.dtype.type, np.floating)
-    ):
-        raise ValueError("`zones` must be an xarray of integers or floats")
-
-    if not issubclass(values.data.dtype.type, np.integer) and not issubclass(
-            values.data.dtype.type, np.floating
-    ):
-        raise ValueError("`values` must be an xarray of integers or floats")
-
-    if values.ndim not in [2, 3]:
-        raise ValueError("`values` must use either 2D or 3D coordinates.")
+    _validate_raster(zones, func_name='crosstab', name='zones', ndim=2)
+    _validate_raster(values, func_name='crosstab', name='values', ndim=(2, 3))
 
     # For 2D values, validate and align chunks between zones and values
     # This is critical for dask arrays that may come from different sources
@@ -1140,18 +1209,136 @@ def crosstab(
     mapper = ArrayTypeFunctionMapping(
         numpy_func=_crosstab_numpy,
         dask_func=_crosstab_dask_numpy,
-        cupy_func=lambda *args: not_implemented_func(
-            *args, messages='crosstab() does not support cupy backed DataArray'
-        ),
-        dask_cupy_func=lambda *args: not_implemented_func(
-            *args, messages='crosstab() does not support dask with cupy backed DataArray'  # noqa
-        ),
+        cupy_func=_crosstab_cupy,
+        dask_cupy_func=_crosstab_dask_cupy,
     )
     crosstab_df = mapper(values)(
         zones.data, values.data,
         zone_ids, unique_cats, cat_ids, nodata_values, agg
     )
     return crosstab_df
+
+
+def _apply_numpy(zones_data, values_data, func, nodata):
+    out = values_data.copy()
+    if nodata is not None:
+        zone_mask = zones_data != nodata
+    else:
+        zone_mask = np.ones(zones_data.shape, dtype=bool)
+    vfunc = np.vectorize(func)
+    if values_data.ndim == 2:
+        out[zone_mask] = vfunc(values_data[zone_mask])
+    else:  # 3D
+        for k in range(values_data.shape[2]):
+            out[:, :, k][zone_mask] = vfunc(values_data[:, :, k][zone_mask])
+    return out
+
+
+def _make_apply_kernel(func):
+    """Build a CUDA kernel that applies *func* element-wise."""
+    from numba import cuda as nb_cuda
+
+    device_func = nb_cuda.jit(device=True)(func)
+
+    @nb_cuda.jit
+    def _kernel(zones, values, out, nodata_val, has_nodata):
+        y, x = nb_cuda.grid(2)
+        if y < zones.shape[0] and x < zones.shape[1]:
+            if has_nodata and zones[y, x] == nodata_val:
+                return
+            out[y, x] = device_func(values[y, x])
+
+    return _kernel
+
+
+def _apply_cupy_gpu(zones_data, values_data, kernel, nodata):
+    """Run the CUDA apply kernel on cupy arrays."""
+    out = values_data.copy()
+    has_nodata = nodata is not None
+    nodata_val = nodata if has_nodata else 0
+
+    griddim, blockdim = cuda_args(values_data.shape[:2])
+
+    if values_data.ndim == 2:
+        kernel[griddim, blockdim](
+            zones_data, values_data, out, nodata_val, has_nodata,
+        )
+    else:
+        for k in range(values_data.shape[2]):
+            kernel[griddim, blockdim](
+                zones_data, values_data[:, :, k], out[:, :, k],
+                nodata_val, has_nodata,
+            )
+    return out
+
+
+def _apply_cupy(zones_data, values_data, func, nodata):
+    try:
+        kernel = _make_apply_kernel(func)
+        return _apply_cupy_gpu(zones_data, values_data, kernel, nodata)
+    except Exception:
+        result_np = _apply_numpy(zones_data.get(), values_data.get(), func, nodata)
+        return cupy.asarray(result_np)
+
+
+def _apply_dask_numpy(zones_data, values_data, func, nodata):
+    def _chunk_fn(zones_chunk, values_chunk):
+        return _apply_numpy(zones_chunk, values_chunk, func, nodata)
+
+    if values_data.ndim == 2:
+        return da.map_blocks(
+            _chunk_fn, zones_data, values_data,
+            dtype=values_data.dtype, meta=np.array(()),
+        )
+    else:
+        layers = []
+        for k in range(values_data.shape[2]):
+            layer = values_data[:, :, k].rechunk(zones_data.chunks)
+            layers.append(da.map_blocks(
+                _chunk_fn, zones_data, layer,
+                dtype=values_data.dtype, meta=np.array(()),
+            ))
+        return da.stack(layers, axis=2)
+
+
+def _apply_dask_cupy(zones_data, values_data, func, nodata):
+    # Try GPU: build kernel once, reuse across all chunks
+    try:
+        kernel = _make_apply_kernel(func)
+        gpu_ok = True
+    except Exception:
+        gpu_ok = False
+
+    if gpu_ok:
+        def _chunk_fn(zones_chunk, values_chunk):
+            try:
+                return _apply_cupy_gpu(zones_chunk, values_chunk, kernel, nodata)
+            except Exception:
+                result_np = _apply_numpy(
+                    zones_chunk.get(), values_chunk.get(), func, nodata,
+                )
+                return cupy.asarray(result_np)
+    else:
+        def _chunk_fn(zones_chunk, values_chunk):
+            result_np = _apply_numpy(
+                zones_chunk.get(), values_chunk.get(), func, nodata,
+            )
+            return cupy.asarray(result_np)
+
+    if values_data.ndim == 2:
+        return da.map_blocks(
+            _chunk_fn, zones_data, values_data,
+            dtype=values_data.dtype, meta=cupy.array(()),
+        )
+    else:
+        layers = []
+        for k in range(values_data.shape[2]):
+            layer = values_data[:, :, k].rechunk(zones_data.chunks)
+            layers.append(da.map_blocks(
+                _chunk_fn, zones_data, layer,
+                dtype=values_data.dtype, meta=cupy.array(()),
+            ))
+        return da.stack(layers, axis=2)
 
 
 def apply(
@@ -1162,7 +1349,7 @@ def apply(
 ):
     """
     Apply a function to the `values` agg within zones in `zones` agg.
-    Change the agg content.
+    Returns a new DataArray with the function applied.
 
     Parameters
     ----------
@@ -1173,16 +1360,23 @@ def apply(
         locations of the zones. An integer field in the zone input is
         specified to define the zones.
 
-    agg : xr.DataArray
-        agg.values is either a 2D or 3D array of integers or floats.
+    values : xr.DataArray
+        values.data is either a 2D or 3D array of integers or floats.
         The input value raster.
 
     func : callable function to apply.
 
-    nodata: int, default=None
+    nodata: int, default=0
         Nodata value in `zones` raster.
         Cells with `nodata` does not belong to any zone,
         and thus excluded from calculation.
+        Set to None to apply func to all cells.
+
+    Returns
+    -------
+    result : xr.DataArray
+        A new DataArray with the same shape, dims, coords, and attrs
+        as `values`, with `func` applied to cells within zones.
 
     Examples
     --------
@@ -1200,66 +1394,31 @@ def apply(
             [3, np.nan, 20, 10]])
         >>> agg = xr.DataArray(values_val)
         >>> func = lambda x: 0
-        >>> apply(zones, agg, func)
-        >>> agg
+        >>> result = apply(zones, agg, func)
+        >>> result
         array([[0, 0, 5, 0],
                [3, np.nan, 0, 0]])
     """
-    if not isinstance(zones, xr.DataArray):
-        raise TypeError("zones must be instance of DataArray")
-
-    if not isinstance(values, xr.DataArray):
-        raise TypeError("values must be instance of DataArray")
-
-    if zones.ndim != 2:
-        raise ValueError("zones must be 2D")
-
-    if values.ndim != 2 and values.ndim != 3:
-        raise ValueError("values must be either 2D or 3D coordinates")
+    _validate_raster(zones, func_name='apply', name='zones', ndim=2, integer_only=True)
+    _validate_raster(values, func_name='apply', name='values', ndim=(2, 3))
 
     if zones.shape != values.shape[:2]:
         raise ValueError("Incompatible shapes between `zones` and `values`")
 
-    if not issubclass(zones.values.dtype.type, np.integer):
-        raise ValueError("`zones.values` must be an array of integers")
+    # align chunks for 2D values
+    if values.ndim == 2:
+        validate_arrays(zones, values)
 
-    if not (
-        issubclass(values.values.dtype.type, np.integer)
-        or issubclass(values.values.dtype.type, np.floating)
-    ):
-        raise ValueError("`values` must be an array of integers or float")
+    mapper = ArrayTypeFunctionMapping(
+        numpy_func=_apply_numpy,
+        dask_func=_apply_dask_numpy,
+        cupy_func=_apply_cupy,
+        dask_cupy_func=_apply_dask_cupy,
+    )
+    out = mapper(values)(zones.data, values.data, func, nodata)
 
-    # entries of nodata remain the same
-    remain_entries = zones.data == nodata
-
-    # entries with to be included in calculation
-    zones_entries = zones.data != nodata
-
-    if len(values.shape) == 3:
-        z = values.shape[-1]
-        # add new z-dimension in case 3D `values` aggregate
-        remain_entries = np.repeat(
-            remain_entries[:, :, np.newaxis],
-            z,
-            axis=-1
-        )
-        zones_entries = np.repeat(
-            zones_entries[:, :, np.newaxis],
-            z,
-            axis=-1
-        )
-
-    remain_mask = np.ma.masked_array(values.data, mask=remain_entries)
-    zones_mask = np.ma.masked_array(values.data, mask=zones_entries)
-
-    # apply func to corresponding `values` of `zones`
-    vfunc = np.vectorize(func)
-    values_func = vfunc(zones_mask)
-    values.values = (
-        remain_mask.data
-        * remain_mask.mask
-        + values_func.data
-        * values_func.mask
+    return xr.DataArray(
+        out, dims=values.dims, coords=values.coords, attrs=values.attrs,
     )
 
 
@@ -1403,150 +1562,98 @@ def suggest_zonal_canvas(
     return canvas_h, canvas_w
 
 
-@ngjit
-def _area_connectivity(data, n=4):
-    out = np.zeros_like(data)
-    rows, cols = data.shape
+def _regions_numpy(data, neighborhood):
+    """Connected-component labeling using scipy.ndimage.label (union-find)."""
+    from scipy.ndimage import label
+
+    if neighborhood == 4:
+        structure = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+    else:
+        structure = np.ones((3, 3), dtype=int)
+
+    is_float = np.issubdtype(data.dtype, np.floating)
+    valid = ~np.isnan(data) if is_float else np.ones(data.shape, dtype=bool)
+    unique_vals = np.unique(data[valid])
+
+    out = np.full(data.shape, np.nan, dtype=np.float64)
     uid = 1
-
-    src_window = np.zeros(shape=(n,), dtype=data.dtype)
-    area_window = np.zeros(shape=(n,), dtype=data.dtype)
-
-    for y in range(0, rows):
-        for x in range(0, cols):
-
-            val = data[y, x]
-
-            if np.isnan(val):
-                out[y, x] = val
-                continue
-
-            if n == 8:
-                src_window[0] = data[max(y - 1, 0), max(x - 1, 0)]
-                src_window[1] = data[y, max(x - 1, 0)]
-                src_window[2] = data[min(y + 1, rows - 1), max(x - 1, 0)]
-                src_window[3] = data[max(y - 1, 0), x]
-                src_window[4] = data[min(y + 1, rows - 1), x]
-                src_window[5] = data[max(y - 1, 0), min(x + 1, cols - 1)]
-                src_window[6] = data[y, min(x + 1, cols - 1)]
-                src_window[7] = data[min(y + 1, rows - 1), min(x + 1, cols - 1)]  # noqa
-
-                area_window[0] = out[max(y - 1, 0), max(x - 1, 0)]
-                area_window[1] = out[y, max(x - 1, 0)]
-                area_window[2] = out[min(y + 1, rows - 1), max(x - 1, 0)]
-                area_window[3] = out[max(y - 1, 0), x]
-                area_window[4] = out[min(y + 1, rows - 1), x]
-                area_window[5] = out[max(y - 1, 0), min(x + 1, cols - 1)]
-                area_window[6] = out[y, min(x + 1, cols - 1)]
-                area_window[7] = out[min(y + 1, rows - 1), min(x + 1, cols - 1)]  # noqa
-
-            else:
-                src_window[0] = data[y, max(x - 1, 0)]
-                src_window[1] = data[max(y - 1, 0), x]
-                src_window[2] = data[min(y + 1, rows - 1), x]
-                src_window[3] = data[y, min(x + 1, cols - 1)]
-
-                area_window[0] = out[y, max(x - 1, 0)]
-                area_window[1] = out[max(y - 1, 0), x]
-                area_window[2] = out[min(y + 1, rows - 1), x]
-                area_window[3] = out[y, min(x + 1, cols - 1)]
-
-            # check in has matching value in neighborhood
-            rtol = 1e-05
-            atol = 1e-08
-            is_close = np.abs(src_window - val) <= (atol + rtol * np.abs(val))
-            neighbor_matches = np.where(is_close)[0]
-
-            if len(neighbor_matches) > 0:
-
-                # check in has area already assigned
-                assigned_value = None
-                for j in range(len(neighbor_matches)):
-                    area_val = area_window[neighbor_matches[j]]
-                    if area_val > 0:
-                        assigned_value = area_val
-                        break
-
-                if assigned_value is not None:
-                    out[y, x] = assigned_value
-                else:
-                    out[y, x] = uid
-                    uid += 1
-            else:
-                out[y, x] = uid
-                uid += 1
-
-    for y in range(0, rows):
-        for x in range(0, cols):
-
-            if n == 8:
-                src_window[0] = data[max(y - 1, 0), max(x - 1, 0)]
-                src_window[1] = data[y, max(x - 1, 0)]
-                src_window[2] = data[min(y + 1, rows - 1), max(x - 1, 0)]
-                src_window[3] = data[max(y - 1, 0), x]
-                src_window[4] = data[min(y + 1, rows - 1), x]
-                src_window[5] = data[max(y - 1, 0), min(x + 1, cols - 1)]
-                src_window[6] = data[y, min(x + 1, cols - 1)]
-                src_window[7] = data[min(y + 1, rows - 1), min(x + 1, cols - 1)]  # noqa
-
-                area_window[0] = out[max(y - 1, 0), max(x - 1, 0)]
-                area_window[1] = out[y, max(x - 1, 0)]
-                area_window[2] = out[min(y + 1, rows - 1), max(x - 1, 0)]
-                area_window[3] = out[max(y - 1, 0), x]
-                area_window[4] = out[min(y + 1, rows - 1), x]
-                area_window[5] = out[max(y - 1, 0), min(x + 1, cols - 1)]
-                area_window[6] = out[y, min(x + 1, cols - 1)]
-                area_window[7] = out[min(y + 1, rows - 1), min(x + 1, cols - 1)]  # noqa
-
-            else:
-                src_window[0] = data[y, max(x - 1, 0)]
-                src_window[1] = data[max(y - 1, 0), x]
-                src_window[2] = data[min(y + 1, rows - 1), x]
-                src_window[3] = data[y, min(x + 1, cols - 1)]
-
-                area_window[0] = out[y, max(x - 1, 0)]
-                area_window[1] = out[max(y - 1, 0), x]
-                area_window[2] = out[min(y + 1, rows - 1), x]
-                area_window[3] = out[y, min(x + 1, cols - 1)]
-
-            val = data[y, x]
-
-            if np.isnan(val):
-                continue
-
-            # check in has matching value in neighborhood
-            rtol = 1e-05
-            atol = 1e-08
-            is_close = np.abs(src_window - val) <= (atol + rtol * np.abs(val))
-            neighbor_matches = np.where(is_close)[0]
-
-            # check in has area already assigned
-            assigned_values_min = None
-            for j in range(len(neighbor_matches)):
-                area_val = area_window[neighbor_matches[j]]
-                nn = assigned_values_min is not None
-                if nn and assigned_values_min != area_val:
-                    if assigned_values_min > area_val:
-
-                        # replace
-                        for y1 in range(0, rows):
-                            for x1 in range(0, cols):
-                                if out[y1, x1] == assigned_values_min:
-                                    out[y1, x1] = area_val
-
-                        assigned_values_min = area_val
-
-                    else:
-                        # replace
-                        for y1 in range(0, rows):
-                            for x1 in range(0, cols):
-                                if out[y1, x1] == area_val:
-                                    out[y1, x1] = assigned_values_min
-
-                elif assigned_values_min is None:
-                    assigned_values_min = area_val
+    for v in unique_vals:
+        mask = (data == v)
+        if is_float:
+            mask &= valid
+        labeled, n_features = label(mask, structure=structure)
+        for region_id in range(1, n_features + 1):
+            out[labeled == region_id] = uid
+            uid += 1
 
     return out
+
+
+def _available_memory_bytes():
+    """Best-effort estimate of available memory in bytes."""
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if line.startswith('MemAvailable:'):
+                    return int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        import psutil
+        return psutil.virtual_memory().available
+    except (ImportError, AttributeError):
+        pass
+    return 2 * 1024 ** 3
+
+
+def _regions_dask(data, neighborhood):
+    """Dask backend: compute to numpy and run scipy label."""
+    avail = _available_memory_bytes()
+    nbytes = data.nbytes
+    if nbytes * 5 > 0.5 * avail:
+        raise MemoryError(
+            f"regions() requires ~{nbytes * 5 / 1e9:.1f} GB but only "
+            f"{avail / 1e9:.1f} GB available."
+        )
+
+    np_data = data.compute()
+    result = _regions_numpy(np_data, neighborhood)
+    return da.from_array(result, chunks=data.chunks)
+
+
+def _regions_cupy(data, neighborhood):
+    """CuPy GPU backend using cupyx.scipy.ndimage.label."""
+    import cupy as cp
+    from cupyx.scipy.ndimage import label as cp_label
+
+    if neighborhood == 4:
+        structure = cp.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+    else:
+        structure = cp.ones((3, 3), dtype=int)
+
+    is_float = cp.issubdtype(data.dtype, cp.floating)
+    valid = ~cp.isnan(data) if is_float else cp.ones(data.shape, dtype=bool)
+    unique_vals = cp.unique(data[valid])
+
+    out = cp.full(data.shape, cp.nan, dtype=cp.float64)
+    uid = 1
+    for v in unique_vals:
+        mask = (data == v)
+        if is_float:
+            mask &= valid
+        labeled, n_features = cp_label(mask, structure=structure)
+        for region_id in range(1, n_features + 1):
+            out[labeled == region_id] = uid
+            uid += 1
+
+    return out
+
+
+def _regions_dask_cupy(data, neighborhood):
+    """Dask+CuPy backend: compute to cupy and run GPU label."""
+    cp_data = data.compute()
+    result = _regions_cupy(cp_data, neighborhood)
+    return da.from_array(result, chunks=data.chunks)
 
 
 def regions(
@@ -1626,10 +1733,26 @@ def regions(
         >>> print(f"Number of unique regions: {len(np.unique(result_8.values))}")
         Number of unique regions: 2
     """
+    _validate_raster(raster, func_name='regions', name='raster', ndim=2)
+
     if neighborhood not in (4, 8):
         raise ValueError("`neighborhood` value must be either 4 or 8)")
 
-    out = _area_connectivity(raster.data, n=neighborhood)
+    data = raster.data
+
+    if isinstance(data, np.ndarray):
+        out = _regions_numpy(data, neighborhood)
+    elif has_cuda_and_cupy() and is_cupy_array(data):
+        out = _regions_cupy(data, neighborhood)
+    elif da is not None and isinstance(data, da.Array):
+        if is_dask_cupy(raster):
+            out = _regions_dask_cupy(data, neighborhood)
+        else:
+            out = _regions_dask(data, neighborhood)
+    else:
+        raise TypeError(
+            f"Unsupported array type {type(data).__name__} for regions()"
+        )
 
     return DataArray(
         out,
@@ -1729,6 +1852,35 @@ def _trim(data, excludes):
                 break
 
     return top, bottom, left, right
+
+
+def _trim_bounds_dask(data, excludes):
+    """Find trim bounds using lazy dask reductions (O(rows+cols) memory)."""
+    excluded = da.zeros_like(data, dtype=bool)
+    for v in excludes:
+        if isinstance(v, float) and np.isnan(v):
+            excluded = excluded | da.isnan(data)
+        else:
+            excluded = excluded | (data == v)
+
+    all_excl_rows = excluded.all(axis=1)
+    all_excl_cols = excluded.all(axis=0)
+    row_mask, col_mask = dask.compute(all_excl_rows, all_excl_cols)
+
+    # dask+cupy computes to cupy arrays; move to numpy for np.where
+    if is_cupy_array(row_mask):
+        row_mask = row_mask.get()
+    if is_cupy_array(col_mask):
+        col_mask = col_mask.get()
+
+    data_rows = np.where(~np.asarray(row_mask))[0]
+    data_cols = np.where(~np.asarray(col_mask))[0]
+
+    if len(data_rows) == 0 or len(data_cols) == 0:
+        return 0, -1, 0, -1  # empty slice
+
+    return (int(data_rows[0]), int(data_rows[-1]),
+            int(data_cols[0]), int(data_cols[-1]))
 
 
 def trim(
@@ -1836,7 +1988,16 @@ def trim(
             'Max Elevation': '4000',
         }
     """
-    top, bottom, left, right = _trim(raster.data, values)
+    _validate_raster(raster, func_name='trim', name='raster', ndim=2)
+
+    data = raster.data
+    if has_dask_array() and isinstance(data, da.Array):
+        top, bottom, left, right = _trim_bounds_dask(data, values)
+    else:
+        if is_cupy_array(data):
+            data = data.get()
+        top, bottom, left, right = _trim(data, values)
+
     arr = raster[top: bottom + 1, left: right + 1]
     arr.name = name
     return arr
@@ -1938,6 +2099,32 @@ def _crop(data, values):
                 break
 
     return top, bottom, left, right
+
+
+def _crop_bounds_dask(data, target_values):
+    """Find crop bounds using lazy dask reductions (O(rows+cols) memory)."""
+    matched = da.zeros_like(data, dtype=bool)
+    for v in target_values:
+        matched = matched | (data == v)
+
+    any_match_rows = matched.any(axis=1)
+    any_match_cols = matched.any(axis=0)
+    row_mask, col_mask = dask.compute(any_match_rows, any_match_cols)
+
+    # dask+cupy computes to cupy arrays; move to numpy for np.where
+    if is_cupy_array(row_mask):
+        row_mask = row_mask.get()
+    if is_cupy_array(col_mask):
+        col_mask = col_mask.get()
+
+    match_rows = np.where(np.asarray(row_mask))[0]
+    match_cols = np.where(np.asarray(col_mask))[0]
+
+    if len(match_rows) == 0 or len(match_cols) == 0:
+        return 0, data.shape[0] - 1, 0, data.shape[1] - 1
+
+    return (int(match_rows[0]), int(match_rows[-1]),
+            int(match_cols[0]), int(match_cols[-1]))
 
 
 def crop(
@@ -2056,7 +2243,17 @@ def crop(
             'Max Elevation': '4000',
         }
     """
-    top, bottom, left, right = _crop(zones.data, zones_ids)
+    _validate_raster(zones, func_name='crop', name='zones', ndim=2)
+    _validate_raster(values, func_name='crop', name='values', ndim=2)
+
+    data = zones.data
+    if has_dask_array() and isinstance(data, da.Array):
+        top, bottom, left, right = _crop_bounds_dask(data, zones_ids)
+    else:
+        if is_cupy_array(data):
+            data = data.get()
+        top, bottom, left, right = _crop(data, zones_ids)
+
     arr = values[top: bottom + 1, left: right + 1]
     arr.name = name
     return arr

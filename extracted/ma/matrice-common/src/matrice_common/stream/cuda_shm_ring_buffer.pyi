@@ -1,6 +1,8 @@
 """Auto-generated stub for module: cuda_shm_ring_buffer."""
 from typing import Any, Dict, Optional, Set, Tuple
 
+from .orin_shm_ring_buffer import OrinShmRingBuffer
+
 # Constants
 CUDA_IPC_HANDLE_SIZE: int
 MAP_SHARED: Any

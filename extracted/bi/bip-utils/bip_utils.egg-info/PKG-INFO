@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bip_utils
-Version: 2.12.0
+Version: 2.12.1
 Summary: Generation of mnemonics, seeds, private/public keys and addresses for different types of cryptocurrencies
 Author-email: Emanuele Bellocchia <ebellocchia@gmail.com>
 Maintainer-email: Emanuele Bellocchia <ebellocchia@gmail.com>
@@ -34,14 +34,13 @@ Requires-Dist: coincurve>=19.0.1; python_version >= "3.12"
 Requires-Dist: coincurve>=21.0.0; python_version >= "3.13"
 Requires-Dist: crcmod~=1.7
 Requires-Dist: ecdsa~=0.17
-Requires-Dist: ed25519-blake2b<2.0.0,>=1.4; python_version < "3.12"
-Requires-Dist: ed25519-blake2b<2.0.0,>=1.4.1; python_version >= "3.12"
+Requires-Dist: ed25519-blake2b-fork<2.0.0,>=1.4.2
 Requires-Dist: pycryptodome~=3.15
 Requires-Dist: pynacl~=1.5
-Requires-Dist: py-sr25519-bindings<2.0.0,>=0.1.3; python_version < "3.10"
-Requires-Dist: py-sr25519-bindings<2.0.0,>=0.1.4; python_version == "3.10"
-Requires-Dist: py-sr25519-bindings<2.0.0,>=0.2.0; python_version >= "3.11"
-Requires-Dist: py-sr25519-bindings<2.0.0,>=0.2.2; python_version >= "3.13"
+Requires-Dist: py-sr25519-bindings<1.0.0,>=0.1.3; python_version < "3.10"
+Requires-Dist: py-sr25519-bindings<1.0.0,>=0.1.4; python_version == "3.10"
+Requires-Dist: py-sr25519-bindings<1.0.0,>=0.2.0; python_version >= "3.11"
+Requires-Dist: py-sr25519-bindings<1.0.0,>=0.2.2; python_version >= "3.13"
 Requires-Dist: pytoniq-core-fork<0.2.0,>=0.1.47
 Requires-Dist: typing_extensions
 Provides-Extra: develop
@@ -105,9 +104,9 @@ Package dependencies:
 - [pycryptodome](https://pypi.org/project/pycryptodome/) for cryptographic functions
 - [coincurve](https://pypi.org/project/coincurve/) for secp256k1 curve
 - [ecdsa](https://pypi.org/project/ecdsa/) for nist256p1 and secp256k1 curves
-- [ed25519-blake2b](https://pypi.org/project/ed25519-blake2b/) for ed25519-blake2b curve
 - [pynacl](https://pypi.org/project/PyNaCl/) for ed25519 curve
 - [py-sr25519-bindings](https://pypi.org/project/py-sr25519-bindings/) for sr25519 curve
+- [ed25519-blake2b-fork](https://github.com/ebellocchia/python-ed25519-blake2b/) for ed25519-blake2b curve (my fork to automatically build wheels)
 - [pytoniq-core-fork](https://github.com/ebellocchia/pytoniq-core) for TON primitives (my fork to extend compatibility to Python >= 3.7)
 
 Please note that, for the py-sr25519-bindings library, Rust is required to be installed.

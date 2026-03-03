@@ -157,10 +157,6 @@ class TokenManager:
         all known keys (for legacy tokens without kid).
         """
         try:
-            # Hard size cap: legitimate tokens are <2KB. Huge tokens = DoS attempt.
-            # HMAC-SHA256 on a 100MB token would saturate a CPU core.
-            if len(token) > 8192:
-                return None
             parts = token.rsplit(".", 1)
             if len(parts) != 2:
                 return None

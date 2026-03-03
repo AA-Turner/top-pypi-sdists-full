@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -8,9 +7,7 @@ import scipy.interpolate
 from ..misc import NeuroKitWarning
 
 
-def signal_interpolate(
-    x_values, y_values=None, x_new=None, method="quadratic", fill_value=None
-):
+def signal_interpolate(x_values, y_values=None, x_new=None, method="quadratic", fill_value=None):
     """**Interpolate a signal**
 
     Interpolate a signal using different methods.
@@ -91,9 +88,7 @@ def signal_interpolate(
     """
     # Sanity checks
     if x_values is None:
-        raise ValueError(
-            "NeuroKit error: signal_interpolate(): x_values must be provided."
-        )
+        raise ValueError("NeuroKit error: signal_interpolate(): x_values must be provided.")
     if y_values is None:
         # for interpolating NaNs
         return _signal_interpolate_nan(x_values, method=method, fill_value=fill_value)
@@ -111,31 +106,24 @@ def signal_interpolate(
         if len(x_values) == x_new:
             return y_values
         x_new = np.linspace(x_values[0], x_values[-1], x_new)
-    else:
-        # if x_values is identical to x_new, no need for interpolation
-        if np.array_equal(x_values, x_new):
-            return y_values
-        elif np.any(x_values[1:] == x_values[:-1]):
-            warn(
-                "Duplicate x values detected. Averaging their corresponding y values.",
-                category=NeuroKitWarning,
-            )
-            x_values, y_values = _signal_interpolate_average_duplicates(
-                x_values, y_values
-            )
+    # if x_values is identical to x_new, no need for interpolation
+    elif np.array_equal(x_values, x_new):
+        return y_values
+    elif np.any(x_values[1:] == x_values[:-1]):
+        warn(
+            "Duplicate x values detected. Averaging their corresponding y values.",
+            category=NeuroKitWarning,
+        )
+        x_values, y_values = _signal_interpolate_average_duplicates(x_values, y_values)
 
     # If only one value, return a constant signal
     if len(x_values) == 1:
         return np.ones(len(x_new)) * y_values[0]
 
     if method == "monotone_cubic":
-        interpolation_function = scipy.interpolate.PchipInterpolator(
-            x_values, y_values, extrapolate=True
-        )
+        interpolation_function = scipy.interpolate.PchipInterpolator(x_values, y_values, extrapolate=True)
     elif method == "akima":
-        interpolation_function = scipy.interpolate.Akima1DInterpolator(
-            x_values, y_values
-        )
+        interpolation_function = scipy.interpolate.Akima1DInterpolator(x_values, y_values)
     else:
         if fill_value is None:
             fill_value = ([y_values[0]], [y_values[-1]])

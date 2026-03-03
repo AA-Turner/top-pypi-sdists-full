@@ -63,7 +63,7 @@ class MeshPeer:
                 method="GET",
             )
             resp = urllib.request.urlopen(req, timeout=5)
-            data = json.loads(resp.read(4 * 1024 * 1024).decode())
+            data = json.loads(resp.read().decode())
             self.status = "online"
             self.last_seen = time.time()
             self.version = data.get("version", "")
@@ -94,7 +94,7 @@ class MeshPeer:
                 method="POST",
             )
             resp = urllib.request.urlopen(req, timeout=60)
-            return json.loads(resp.read(4 * 1024 * 1024).decode())
+            return json.loads(resp.read().decode())
         except Exception as e:
             return {"error": str(e)}
 
@@ -112,7 +112,7 @@ class MeshPeer:
                 method="POST",
             )
             resp = urllib.request.urlopen(req, timeout=10)
-            return json.loads(resp.read(4 * 1024 * 1024).decode())
+            return json.loads(resp.read().decode())
         except Exception as e:
             return {"error": str(e)}
 
@@ -125,7 +125,7 @@ class MeshPeer:
                 method="GET",
             )
             resp = urllib.request.urlopen(req, timeout=10)
-            return json.loads(resp.read(4 * 1024 * 1024).decode())
+            return json.loads(resp.read().decode())
         except Exception as e:
             return {"error": str(e), "status": "offline"}
 

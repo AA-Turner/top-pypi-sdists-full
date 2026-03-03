@@ -2,10 +2,20 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from .exceptions import SignIsMissingError, UnSecureDataError
+from .compresors import Compressor, CompressType, get_compressor
+from .exceptions import DecompressionError, SignIsMissingError, UnSecureDataError, UnsupportedDigestmod
 from .picklers import Pickler, PicklerType, get_pickler
+
+try:
+    import xxhash
+except ImportError:
+    _XXHASH = False
+else:
+    _XXHASH = True
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._typing import ICustomDecoder, ICustomEncoder, Key, Value
@@ -13,15 +23,39 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def _seal(digestmod):
-    def sign(key: bytes, value: bytes) -> bytes:
-        return hmac.new(key, value, digestmod).hexdigest().encode()
+    def sign(secret: bytes, value: bytes) -> bytes:
+        return hmac.new(secret, value, digestmod).hexdigest().encode()
 
     return sign
 
 
-def simple_sign(key: bytes, value: bytes) -> bytes:
-    s = sum(key) + sum(value)
+def simple_sign(secret: bytes, value: bytes) -> bytes:
+    s = sum(secret) + sum(value)
     return f"{s:x}".encode()
+
+
+def _xxhash_xxh32_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh32_hexdigest(secret + value).encode()
+
+
+def _xxhash_xxh64_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh64_hexdigest(secret + value).encode()
+
+
+def _xxhash_xxh3_64_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh3_64_hexdigest(secret + value).encode()
+
+
+def _xxhash_xxh3_128_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh3_128_hexdigest(secret + value).encode()
 
 
 def _to_bytes(value: str | bytes) -> bytes:
@@ -30,17 +64,31 @@ def _to_bytes(value: str | bytes) -> bytes:
     return value
 
 
-class HashSigner:
+class Signer:
+    def sign(self, key: Key, value: bytes) -> bytes:
+        return value
+
+    def check_sign(self, key: Key, value: bytes) -> bytes:
+        return value
+
+
+class HashSigner(Signer):
     _digestmods = {
         b"sha1": _seal(hashlib.sha1),
         b"md5": _seal(hashlib.md5),
         b"sha256": _seal(hashlib.sha256),
         b"sum": simple_sign,
+        b"xxh32": _xxhash_xxh32_sign,
+        b"xxh64": _xxhash_xxh64_sign,
+        b"xxh3_64": _xxhash_xxh3_64_sign,
+        b"xxh3_128": _xxhash_xxh3_128_sign,
     }
 
     def __init__(self, secret: str | bytes, digestmod: str | bytes = b"md5"):
         self._secret = _to_bytes(secret)
         self._digestmod = _to_bytes(digestmod)
+        if self._digestmod in (b"xxh32", b"xxh64") and not _XXHASH:
+            raise UnsupportedDigestmod()
 
     def sign(self, key: Key, value: bytes) -> bytes:
         sign = self._gen_sign(key, value, self._digestmod)
@@ -71,14 +119,7 @@ class HashSigner:
         return sign, digestmod
 
 
-class NullSigner:
-    @staticmethod
-    def sign(key: Key, value: bytes) -> bytes:
-        return value
-
-    @staticmethod
-    def check_sign(key: Key, value: bytes) -> bytes:
-        return value
+NullSigner = Signer
 
 
 class Serializer:
@@ -88,12 +129,16 @@ class Serializer:
         self._check_repr = check_repr
         self._pickler = get_pickler(PicklerType.NULL)
         self._signer = NullSigner()
+        self._compressor = get_compressor(CompressType.NULL)()
 
-    def set_signer(self, signer):
+    def set_signer(self, signer: Signer) -> None:
         self._signer = signer
 
-    def set_pickler(self, pickler):
+    def set_pickler(self, pickler: Pickler) -> None:
         self._pickler = pickler
+
+    def set_compression(self, compressor: Compressor) -> None:
+        self._compressor = compressor
 
     @classmethod
     def register_type(cls, klass: type, encoder, decoder):
@@ -102,10 +147,14 @@ class Serializer:
     async def encode(self, backend: Backend, key: Key, value: Value, expire: float | None) -> bytes:  # on SET
         if isinstance(value, int) and not isinstance(value, bool):
             return value  # type: ignore[return-value]
+
+        value = await self._encode(backend, key, value, expire)
+        value = self._compressor.compress(value)
+        return self._signer.sign(key, value)
+
+    async def _encode(self, backend: Backend, key: Key, value: Value, expire: float | None) -> bytes:
         _value = await self._custom_encode(backend, key, value, expire)
-        if _value is not None:
-            return self._signer.sign(key, _value)
-        return self._signer.sign(key, self._pickler.dumps(value))
+        return _value or self._pickler.dumps(value)
 
     async def _custom_encode(self, backend, key: Key, value: Value, expire: float | None) -> bytes | None:
         value_type = bytes(type(value).__name__, "utf8")
@@ -126,6 +175,11 @@ class Serializer:
             value = self._signer.check_sign(key, value)
         except SignIsMissingError:
             return default
+
+        # for backword compatibility we ignore decompression error because
+        # it is dynamic setting that can be changed by settings
+        with suppress(DecompressionError):
+            value = self._compressor.decompress(value)
 
         try:
             value = self._decode(value)
@@ -180,18 +234,22 @@ def get_serializer(
     digestmod: str | bytes = b"md5",
     check_repr: bool = True,
     pickle_type: PicklerType | None = None,
+    compress_type: CompressType | str | None = None,
 ) -> Serializer:
     _serializer = Serializer(check_repr=check_repr)
     if secret:
         _serializer.set_signer(HashSigner(secret, digestmod))
     _serializer.set_pickler(_get_pickler(pickle_type or PicklerType.NULL, bool(secret)))
+    if isinstance(compress_type, str):
+        compress_type = CompressType(compress_type)
+    _serializer.set_compression(get_compressor(compress_type)())
     return _serializer
 
 
 def _get_pickler(pickle_type: PicklerType, hash_key: bool) -> Pickler:
     if pickle_type is PicklerType.NULL and hash_key:
         pickle_type = PicklerType.DEFAULT
-    return get_pickler(pickle_type)
+    return get_pickler(pickle_type)()
 
 
 DEFAULT_SERIALIZER = get_serializer(pickle_type=PicklerType.DEFAULT)

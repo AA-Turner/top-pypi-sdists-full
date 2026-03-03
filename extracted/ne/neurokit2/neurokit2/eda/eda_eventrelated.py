@@ -1,4 +1,3 @@
-# -** coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -91,7 +90,6 @@ def eda_eventrelated(epochs, silent=False):
     # Extract features and build dataframe
     data = {}  # Initialize an empty dict
     for i in epochs.keys():
-
         data[i] = {}  # Initialize an empty dict for the current epoch
 
         # Maximum phasic amplitude
@@ -126,12 +124,10 @@ def eda_eventrelated(epochs, silent=False):
 # Internals
 # =============================================================================
 def _eda_eventrelated_eda(epoch, output={}):
-
     # Sanitize input
     if "EDA_Phasic" not in epoch:
         warn(
-            "Input does not have an `EDA_Phasic` column."
-            " Will skip computation of maximum amplitude of phasic EDA component.",
+            "Input does not have an `EDA_Phasic` column. Will skip computation of maximum amplitude of phasic EDA component.",
             category=NeuroKitWarning,
         )
         return output
@@ -141,28 +137,24 @@ def _eda_eventrelated_eda(epoch, output={}):
 
 
 def _eda_eventrelated_scr(epoch, output={}):
-
     # Sanitize input
     if "SCR_Amplitude" not in epoch:
         warn(
-            "Input does not have an `SCR_Amplitude` column."
-            " Will skip computation of SCR peak amplitude.",
+            "Input does not have an `SCR_Amplitude` column. Will skip computation of SCR peak amplitude.",
             category=NeuroKitWarning,
         )
         return output
 
     if "SCR_RecoveryTime" not in epoch:
         warn(
-            "Input does not have an `SCR_RecoveryTime` column."
-            " Will skip computation of SCR half-recovery times.",
+            "Input does not have an `SCR_RecoveryTime` column. Will skip computation of SCR half-recovery times.",
             category=NeuroKitWarning,
         )
         return output
 
     if "SCR_RiseTime" not in epoch:
         warn(
-            "Input does not have an `SCR_RiseTime` column."
-            " Will skip computation of SCR rise times.",
+            "Input does not have an `SCR_RiseTime` column. Will skip computation of SCR rise times.",
             category=NeuroKitWarning,
         )
         return output

@@ -107,7 +107,10 @@ class CfnConnector(
                     ),
                     scale_out_policy=kafkaconnect.CfnConnector.ScaleOutPolicyProperty(
                         cpu_utilization_percentage=123
-                    )
+                    ),
+        
+                    # the properties below are optional
+                    max_autoscaling_task_count=123
                 ),
                 provisioned_capacity=kafkaconnect.CfnConnector.ProvisionedCapacityProperty(
                     worker_count=123,
@@ -629,6 +632,7 @@ class CfnConnector(
             "min_worker_count": "minWorkerCount",
             "scale_in_policy": "scaleInPolicy",
             "scale_out_policy": "scaleOutPolicy",
+            "max_autoscaling_task_count": "maxAutoscalingTaskCount",
         },
     )
     class AutoScalingProperty:
@@ -640,6 +644,7 @@ class CfnConnector(
             min_worker_count: jsii.Number,
             scale_in_policy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ScaleInPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
             scale_out_policy: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.ScaleOutPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+            max_autoscaling_task_count: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Specifies how the connector scales.
 
@@ -648,6 +653,7 @@ class CfnConnector(
             :param min_worker_count: The minimum number of workers allocated to the connector.
             :param scale_in_policy: The sacle-in policy for the connector.
             :param scale_out_policy: The sacle-out policy for the connector.
+            :param max_autoscaling_task_count: The maximum number of tasks allocated to the connector during autoscaling operations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-autoscaling.html
             :exampleMetadata: fixture=_generated
@@ -667,7 +673,10 @@ class CfnConnector(
                     ),
                     scale_out_policy=kafkaconnect.CfnConnector.ScaleOutPolicyProperty(
                         cpu_utilization_percentage=123
-                    )
+                    ),
+                
+                    # the properties below are optional
+                    max_autoscaling_task_count=123
                 )
             '''
             if __debug__:
@@ -677,6 +686,7 @@ class CfnConnector(
                 check_type(argname="argument min_worker_count", value=min_worker_count, expected_type=type_hints["min_worker_count"])
                 check_type(argname="argument scale_in_policy", value=scale_in_policy, expected_type=type_hints["scale_in_policy"])
                 check_type(argname="argument scale_out_policy", value=scale_out_policy, expected_type=type_hints["scale_out_policy"])
+                check_type(argname="argument max_autoscaling_task_count", value=max_autoscaling_task_count, expected_type=type_hints["max_autoscaling_task_count"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_worker_count": max_worker_count,
                 "mcu_count": mcu_count,
@@ -684,6 +694,8 @@ class CfnConnector(
                 "scale_in_policy": scale_in_policy,
                 "scale_out_policy": scale_out_policy,
             }
+            if max_autoscaling_task_count is not None:
+                self._values["max_autoscaling_task_count"] = max_autoscaling_task_count
 
         @builtins.property
         def max_worker_count(self) -> jsii.Number:
@@ -741,6 +753,15 @@ class CfnConnector(
             assert result is not None, "Required property 'scale_out_policy' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConnector.ScaleOutPolicyProperty"], result)
 
+        @builtins.property
+        def max_autoscaling_task_count(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of tasks allocated to the connector during autoscaling operations.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-autoscaling.html#cfn-kafkaconnect-connector-autoscaling-maxautoscalingtaskcount
+            '''
+            result = self._values.get("max_autoscaling_task_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -791,7 +812,10 @@ class CfnConnector(
                         ),
                         scale_out_policy=kafkaconnect.CfnConnector.ScaleOutPolicyProperty(
                             cpu_utilization_percentage=123
-                        )
+                        ),
+                
+                        # the properties below are optional
+                        max_autoscaling_task_count=123
                     ),
                     provisioned_capacity=kafkaconnect.CfnConnector.ProvisionedCapacityProperty(
                         worker_count=123,
@@ -1975,7 +1999,10 @@ class CfnConnectorProps:
                         ),
                         scale_out_policy=kafkaconnect.CfnConnector.ScaleOutPolicyProperty(
                             cpu_utilization_percentage=123
-                        )
+                        ),
+            
+                        # the properties below are optional
+                        max_autoscaling_task_count=123
                     ),
                     provisioned_capacity=kafkaconnect.CfnConnector.ProvisionedCapacityProperty(
                         worker_count=123,
@@ -3352,6 +3379,7 @@ def _typecheckingstub__a7fa0788a72b5a8759557a835e00eec9afbe34fb926c3c0b410cccf6e
     min_worker_count: jsii.Number,
     scale_in_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ScaleInPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
     scale_out_policy: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.ScaleOutPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+    max_autoscaling_task_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

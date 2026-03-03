@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
+from time import perf_counter
 
 from pydantic import BaseModel, Field
 
@@ -199,8 +201,12 @@ class SyncManager:
             logger.warning(f"Rsync error for {target.local_path}: {e}")
             return False
 
-    async def initial_sync(self) -> int:
+    async def initial_sync(self, on_synced: Callable[[SyncTarget, float], None] | None = None) -> int:
         """Sync all targets in parallel.
+
+        Args:
+            on_synced: Optional callback invoked after each target finishes syncing,
+                with (target, elapsed_seconds).
 
         Returns:
             Number of successful syncs
@@ -208,18 +214,18 @@ class SyncManager:
         loop = asyncio.get_event_loop()
 
         async def _sync_one(target: SyncTarget) -> bool:
-            logger.info(f"Syncing {target.local_path} -> {target.remote_path}")
+            logger.debug(f"Syncing {target.local_path} -> {target.remote_path}")
+            started = perf_counter()
             success = await loop.run_in_executor(None, self._sync_target, target)
-            if success:
-                logger.info(f"  Synced {target.local_path.name}")
-            else:
-                logger.warning(f"  Failed to sync {target.local_path.name}")
+            elapsed = perf_counter() - started
+            if not success:
+                logger.warning(f"Failed to sync {target.local_path.name}")
+            if on_synced:
+                on_synced(target, elapsed)
             return success
 
         results = await asyncio.gather(*[_sync_one(t) for t in self.targets])
-        success_count = sum(results)
-        logger.info(f"Synced {success_count}/{len(self.targets)} target(s)")
-        return success_count
+        return sum(results)
 
     async def watch(self) -> None:
         """Watch for changes and sync continuously.
@@ -247,7 +253,7 @@ class SyncManager:
         for target in self.targets:
             fswatch_cmd.append(str(target.local_path))
 
-        logger.info(f"Watching {len(self.targets)} path(s) for changes...")
+        logger.debug(f"Watching {len(self.targets)} path(s) for changes...")
 
         self._fswatch_proc = subprocess.Popen(
             fswatch_cmd,

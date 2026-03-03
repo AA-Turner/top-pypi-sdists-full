@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -57,9 +56,7 @@ def hdi(x, ci=0.95, show=False, **kwargs):
     window_size = np.ceil(ci * len(x_sorted)).astype("int")
 
     if window_size < 2:
-        raise ValueError(
-            "NeuroKit error: hdi(): `ci` is too small or x does not contain enough data points."
-        )
+        raise ValueError("NeuroKit error: hdi(): `ci` is too small or x does not contain enough data points.")
 
     nCIs = len(x_sorted) - window_size
 
@@ -89,7 +86,7 @@ def _hdi_plot(vals, hdi_low, hdi_high, ci=0.95, **kwargs):
         y,
         where=where,
         color="#E91E63",
-        label="CI {:.0%} [{:.2f}, {:.2f}]".format(ci, hdi_low, hdi_high),
+        label=f"CI {ci:.0%} [{hdi_low:.2f}, {hdi_high:.2f}]",
     )
     ax.fill_between(x, y, where=~where, color="#2196F3")
     ax.legend(loc="upper right")

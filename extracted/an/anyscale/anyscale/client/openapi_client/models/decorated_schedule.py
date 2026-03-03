@@ -49,7 +49,10 @@ class DecoratedSchedule(object):
         'cloud_id': 'str',
         'project': 'MiniProject',
         'creator': 'MiniUser',
-        'last_executions': 'list[MiniProductionJob]'
+        'last_executions': 'list[MiniProductionJob]',
+        'build': 'MiniBuild',
+        'compute_template': 'MiniComputeTemplate',
+        'cloud': 'MiniCloud'
     }
 
     attribute_map = {
@@ -69,10 +72,13 @@ class DecoratedSchedule(object):
         'cloud_id': 'cloud_id',
         'project': 'project',
         'creator': 'creator',
-        'last_executions': 'last_executions'
+        'last_executions': 'last_executions',
+        'build': 'build',
+        'compute_template': 'compute_template',
+        'cloud': 'cloud'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, id=None, created_at=None, updated_at=None, creator_id=None, next_trigger_at=None, controller_user_id=None, cloud_id=None, project=None, creator=None, last_executions=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, id=None, created_at=None, updated_at=None, creator_id=None, next_trigger_at=None, controller_user_id=None, cloud_id=None, project=None, creator=None, last_executions=None, build=None, compute_template=None, cloud=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedSchedule - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -95,6 +101,9 @@ class DecoratedSchedule(object):
         self._project = None
         self._creator = None
         self._last_executions = None
+        self._build = None
+        self._compute_template = None
+        self._cloud = None
         self.discriminator = None
 
         self.name = name
@@ -119,6 +128,12 @@ class DecoratedSchedule(object):
         self.project = project
         self.creator = creator
         self.last_executions = last_executions
+        if build is not None:
+            self.build = build
+        if compute_template is not None:
+            self.compute_template = compute_template
+        if cloud is not None:
+            self.cloud = cloud
 
     @property
     def name(self):
@@ -532,6 +547,75 @@ class DecoratedSchedule(object):
             raise ValueError("Invalid value for `last_executions`, must not be `None`")  # noqa: E501
 
         self._last_executions = last_executions
+
+    @property
+    def build(self):
+        """Gets the build of this DecoratedSchedule.  # noqa: E501
+
+        The build for this schedule's image (contains docker_image_name)  # noqa: E501
+
+        :return: The build of this DecoratedSchedule.  # noqa: E501
+        :rtype: MiniBuild
+        """
+        return self._build
+
+    @build.setter
+    def build(self, build):
+        """Sets the build of this DecoratedSchedule.
+
+        The build for this schedule's image (contains docker_image_name)  # noqa: E501
+
+        :param build: The build of this DecoratedSchedule.  # noqa: E501
+        :type: MiniBuild
+        """
+
+        self._build = build
+
+    @property
+    def compute_template(self):
+        """Gets the compute_template of this DecoratedSchedule.  # noqa: E501
+
+        The compute config for this schedule  # noqa: E501
+
+        :return: The compute_template of this DecoratedSchedule.  # noqa: E501
+        :rtype: MiniComputeTemplate
+        """
+        return self._compute_template
+
+    @compute_template.setter
+    def compute_template(self, compute_template):
+        """Sets the compute_template of this DecoratedSchedule.
+
+        The compute config for this schedule  # noqa: E501
+
+        :param compute_template: The compute_template of this DecoratedSchedule.  # noqa: E501
+        :type: MiniComputeTemplate
+        """
+
+        self._compute_template = compute_template
+
+    @property
+    def cloud(self):
+        """Gets the cloud of this DecoratedSchedule.  # noqa: E501
+
+        The cloud for this schedule  # noqa: E501
+
+        :return: The cloud of this DecoratedSchedule.  # noqa: E501
+        :rtype: MiniCloud
+        """
+        return self._cloud
+
+    @cloud.setter
+    def cloud(self, cloud):
+        """Sets the cloud of this DecoratedSchedule.
+
+        The cloud for this schedule  # noqa: E501
+
+        :param cloud: The cloud of this DecoratedSchedule.  # noqa: E501
+        :type: MiniCloud
+        """
+
+        self._cloud = cloud
 
     def to_dict(self):
         """Returns the model properties as a dict"""

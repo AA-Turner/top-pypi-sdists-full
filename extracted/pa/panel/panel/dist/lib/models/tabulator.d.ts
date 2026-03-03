@@ -60,6 +60,7 @@ export declare class DataTabulatorView extends HTMLBoxView {
     _resize_redraw(): void;
     stylesheets(): StyleSheetLike[];
     setCSSClasses(el: HTMLDivElement): void;
+    remove(): void;
     render(): void;
     style_redraw(): void;
     tableInit(): void;

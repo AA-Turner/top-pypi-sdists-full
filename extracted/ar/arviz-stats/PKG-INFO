@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: arviz-stats
-Version: 0.8.0
+Version: 1.0.0
 Summary: Statistical computation and diagnostics for ArviZ.
 Author-email: ArviZ team <arvizdevs@gmail.com>
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Education
@@ -13,21 +13,21 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: numpy>=2
-Requires-Dist: scipy>=1.10
+Requires-Dist: scipy>=1.13
 Requires-Dist: sphinx-book-theme ; extra == "doc"
 Requires-Dist: myst-parser[linkify] ; extra == "doc"
 Requires-Dist: myst-nb ; extra == "doc"
 Requires-Dist: sphinx-copybutton ; extra == "doc"
 Requires-Dist: numpydoc ; extra == "doc"
-Requires-Dist: sphinx ; extra == "doc"
+Requires-Dist: sphinx<9 ; extra == "doc"
 Requires-Dist: sphinx-design ; extra == "doc"
 Requires-Dist: jupyter-sphinx ; extra == "doc"
-Requires-Dist: h5netcdf ; extra == "doc"
+Requires-Dist: h5netcdf[h5py] ; extra == "doc"
 Requires-Dist: sphinx_autosummary_accessors ; extra == "doc"
 Requires-Dist: numba ; extra == "numba"
 Requires-Dist: xarray_einstats[einops, numba] ; extra == "numba"
@@ -35,10 +35,10 @@ Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: pytest ; extra == "test-xarray"
 Requires-Dist: pytest-cov ; extra == "test-xarray"
-Requires-Dist: h5netcdf ; extra == "test-xarray"
-Requires-Dist: arviz-base>=0.8.0,<0.9.0 ; extra == "xarray"
+Requires-Dist: h5netcdf[h5py] ; extra == "test-xarray"
+Requires-Dist: arviz-base>=1.0,<1.1 ; extra == "xarray"
 Requires-Dist: xarray-einstats ; extra == "xarray"
-Requires-Dist: xarray ; extra == "xarray"
+Requires-Dist: xarray>=2024.11.0 ; extra == "xarray"
 Project-URL: documentation, https://arviz-stats.readthedocs.io
 Project-URL: funding, https://opencollective.com/arviz
 Project-URL: source, https://github.com/arviz-devs/arviz-stats

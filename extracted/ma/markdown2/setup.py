@@ -15,7 +15,6 @@ finally:
 classifiers = """\
 Development Status :: 5 - Production/Stable
 Intended Audience :: Developers
-License :: OSI Approved :: MIT License
 Programming Language :: Python
 Programming Language :: Python :: 3
 Programming Language :: Python :: 3.9
@@ -50,6 +49,7 @@ setup(
     platforms=["any"],
     py_modules=["markdown2"],
     package_dir={"": "lib"},
+    data_files=[("testing", ["tox.ini"])],
     entry_points={
         "console_scripts": [
             "markdown2 = markdown2:main"

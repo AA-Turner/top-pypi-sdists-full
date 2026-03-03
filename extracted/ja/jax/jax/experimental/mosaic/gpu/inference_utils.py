@@ -16,7 +16,7 @@
 
 from collections.abc import Sequence
 from functools import partial
-from typing import cast, Union
+from typing import Union
 
 from jax._src.lib.mlir import ir
 
@@ -25,6 +25,7 @@ from . import tcgen05
 from . import utils
 
 MlirOperation = Union[ir.Operation, ir.OpView]
+
 
 def in_layouts(op: MlirOperation) -> Sequence[ir.Attribute]:
   """Returns the in_layouts attribute of the given operation.
@@ -221,65 +222,6 @@ def is_transformable_smem_memref(v: ir.Value) -> bool:
       and v.type.element_type != barrier_ty  # pylint: disable=attribute-error
       and utils.is_smem_ref(v)
   )
-
-
-def _value_attr(value: ir.Value, attr_type: str) -> ir.Attribute | None:
-  if attr_type == "layouts":
-    predicate = lambda v: isinstance(v.type, ir.VectorType)
-  elif attr_type == "transforms":
-    predicate = is_transformable_smem_memref
-  else:
-    raise ValueError(f"Unknown attribute: {attr_type}")
-
-  in_attr_type = "in_" + attr_type
-  out_attr_type = "out_" + attr_type
-
-  owner = value.owner
-  if isinstance(owner, ir.Operation):
-    if out_attr_type not in owner.attributes:
-      return None
-    value_result_number = [r for r in owner.results if predicate(r)].index(
-        value
-    )
-    return owner.attributes[out_attr_type][value_result_number]  # type: ignore
-
-  # Block case, useful when attempting to derive layouts for ops
-  # depending on function parameters, or loop block arguments.
-  if isinstance(owner, ir.Block):
-    owner_op = owner.owner
-    block = cast(ir.Block, owner)
-    if in_attr_type not in owner_op.attributes:
-      return None
-    value_arg_number = [r for r in block.arguments if predicate(r)].index(value)
-    return owner_op.attributes[in_attr_type][value_arg_number]  # type: ignore
-
-  raise NotImplementedError(
-      f"{owner} is not a function block nor an operation."
-  )
-
-
-def value_layout(value: ir.Value) -> ir.Attribute | None:
-  """Returns the layout for a given value as defined by its owner.
-
-  Raises:
-    ValueError: If `result` is not a Vector.
-  """
-  if not isinstance(value.type, ir.VectorType):
-    raise ValueError(f"{value} is not a vector.")
-
-  return _value_attr(value, "layouts")
-
-
-def value_transforms(value: ir.Value) -> ir.Attribute | None:
-  """Returns the transforms for a given value as defined by its owner.
-
-  Raises:
-    ValueError: If `result` is not a memref.
-  """
-  if not isinstance(value.type, ir.MemRefType):
-    raise ValueError(f"{value} is not a memref.")
-
-  return _value_attr(value, "transforms")
 
 
 def is_mma_layout(layout: fa.FragmentedLayout) -> bool:

@@ -1,4 +1,5 @@
 from copy import deepcopy
+import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from anyscale._private.sdk.base_sdk import BaseSDK
@@ -35,6 +36,59 @@ UNSCHEDULABLE_RESOURCES = Resources(cpu=0, gpu=0)
 
 # Label key for accelerator type (used by Ray for GPU/TPU scheduling)
 RAY_ACCELERATOR_TYPE_LABEL = "ray.io/accelerator-type"
+
+# Labels that affect VM instance selection in free pod shapes.
+# Labels not in this set are ignored for VM instance resolution and will generate a warning.
+VM_SCHEDULING_RELEVANT_LABELS = {
+    "ray.io/accelerator-type",
+}
+
+
+def _validate_free_pod_labels_on_vm_stack(
+    node_config: Union[HeadNodeConfig, WorkerNodeGroupConfig],
+    compute_stack: str,
+    node_name: str,
+    logger: Optional[Any] = None,
+) -> None:
+    """Warn if labels that won't affect VM instance selection are specified.
+
+    On VM stacks, only certain labels (like ray.io/accelerator-type) are used
+    for instance type selection. Other labels are silently ignored by the backend,
+    which can lead to confusion when users expect certain instance characteristics.
+
+    Args:
+        node_config: The head or worker node configuration to validate.
+        compute_stack: The compute stack type ("VM" or "KUBERNETES").
+        node_name: Name of the node group for warning messages.
+        logger: Optional logger to output warnings. If None, uses print().
+    """
+    if compute_stack != "VM":
+        return
+
+    # Check required_labels (used for free pod shape resolution)
+    labels_to_check = {}
+    if node_config.required_labels:
+        labels_to_check.update(node_config.required_labels)
+
+    if not labels_to_check:
+        return
+
+    # Find labels that won't affect instance selection
+    unused_labels = [
+        key for key in labels_to_check if key not in VM_SCHEDULING_RELEVANT_LABELS
+    ]
+
+    if unused_labels:
+        warning_msg = (
+            f"[Warning] Node group '{node_name}': The following labels in 'required_labels' "
+            f"will not affect VM instance selection and will be ignored: {unused_labels}. "
+            f"For VM stacks, only these labels are used for instance selection: "
+            f"{list(VM_SCHEDULING_RELEVANT_LABELS)}."
+        )
+        if logger:
+            logger.warning(warning_msg)
+        else:
+            print(warning_msg, file=sys.stderr)
 
 
 def _validate_no_tpu_on_vm_stack(
@@ -100,13 +154,14 @@ class PrivateComputeConfigSDK(BaseSDK):
             custom_resources=resource_dict or None,
         )
 
-    def _validate_tpu_on_vm_stack(
+    def _validate_free_pod_on_vm_stack(
         self, cloud_id: str, compute_config: ComputeConfig
     ) -> None:
-        """Validate that TPU resources are not used on VM stacks.
+        """Validate free pod shape configurations on VM stacks.
 
-        TPU free pod shapes are only supported on Kubernetes (GKE) cloud deployments.
-        This provides early validation before making backend API calls.
+        This performs early validation before making backend API calls:
+        - TPU free pod shapes are only supported on Kubernetes (GKE) cloud deployments.
+        - Labels not relevant for VM instance selection generate warnings.
 
         Args:
             cloud_id: The cloud ID to look up the cloud resource.
@@ -133,12 +188,18 @@ class PrivateComputeConfigSDK(BaseSDK):
             _validate_no_tpu_on_vm_stack(
                 compute_config.head_node, compute_stack, "head_node"
             )
+            _validate_free_pod_labels_on_vm_stack(
+                compute_config.head_node, compute_stack, "head_node", self.logger
+            )
 
         # Validate worker nodes
         if compute_config.worker_nodes:
             for worker in compute_config.worker_nodes:
                 node_name = worker.name or worker.instance_type or "worker"
                 _validate_no_tpu_on_vm_stack(worker, compute_stack, node_name)
+                _validate_free_pod_labels_on_vm_stack(
+                    worker, compute_stack, node_name, self.logger
+                )
 
     def _convert_head_node_config_to_api_model(
         self,
@@ -350,8 +411,8 @@ class PrivateComputeConfigSDK(BaseSDK):
         # Returns the default cloud if user-provided cloud is not specified (`None`).
         cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
 
-        # Validate TPU not used on VM stacks (early validation before API call)
-        self._validate_tpu_on_vm_stack(cloud_id, compute_config)
+        # Validate free pod shapes on VM stacks (early validation before API call)
+        self._validate_free_pod_on_vm_stack(cloud_id, compute_config)
 
         deployment_config = self._convert_single_deployment_compute_config_to_api_model(
             cloud_id, compute_config
@@ -387,11 +448,11 @@ class PrivateComputeConfigSDK(BaseSDK):
         # Returns the default cloud if user-provided cloud is not specified (`None`).
         cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
 
-        # Validate TPU not used on VM stacks for each config (early validation)
+        # Validate free pod shapes on VM stacks for each config (early validation)
         assert compute_config.configs
         for config in compute_config.configs:
             assert isinstance(config, ComputeConfig)
-            self._validate_tpu_on_vm_stack(cloud_id, config)
+            self._validate_free_pod_on_vm_stack(cloud_id, config)
 
         # Convert each compute config to the CloudDeploymentComputeConfig API model.
         deployment_configs = []

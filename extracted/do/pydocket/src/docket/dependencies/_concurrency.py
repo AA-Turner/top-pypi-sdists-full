@@ -5,10 +5,16 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, overload
 
 from .._cancellation import CANCEL_MSG_CLEANUP, cancel_task
-from ._base import AdmissionBlocked, Dependency
+from ._base import (
+    AdmissionBlocked,
+    Dependency,
+    current_docket,
+    current_execution,
+    current_worker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,65 +44,93 @@ class ConcurrencyBlocked(AdmissionBlocked):
         super().__init__(execution, reason=reason)
 
 
-class ConcurrencyLimit(Dependency):
+class ConcurrencyLimit(Dependency["ConcurrencyLimit"]):
     """Configures concurrency limits for task execution.
 
     Can limit concurrency globally for a task, or per specific argument value.
 
-    Example:
+    Works both as a default parameter and as ``Annotated`` metadata::
 
-    ```python
-    async def expensive_operation(
-        concurrency: ConcurrencyLimit = ConcurrencyLimit(max_concurrent=3)
-    ) -> None:
-        # Only 3 instances of this task will run at a time
-        ...
+        # Default-parameter style
+        async def process_customer(
+            customer_id: int,
+            concurrency: ConcurrencyLimit = ConcurrencyLimit("customer_id", 1),
+        ) -> None: ...
 
-    async def process_customer(
-        customer_id: int,
-        concurrency: ConcurrencyLimit = ConcurrencyLimit("customer_id", max_concurrent=1)
-    ) -> None:
-        # Only one task per customer_id will run at a time
-        ...
+        # Annotated style (parameter name auto-inferred)
+        async def process_customer(
+            customer_id: Annotated[int, ConcurrencyLimit(1)],
+        ) -> None: ...
 
-    async def backup_db(
-        db_name: str,
-        concurrency: ConcurrencyLimit = ConcurrencyLimit("db_name", max_concurrent=3)
-    ) -> None:
-        # Only 3 backup tasks per database name will run at a time
-        ...
-    ```
+        # Per-task (no argument grouping)
+        async def expensive(
+            concurrency: ConcurrencyLimit = ConcurrencyLimit(max_concurrent=3),
+        ) -> None: ...
     """
 
     single: bool = True
 
+    @overload
     def __init__(
         self,
-        argument_name: str | None = None,
+        max_concurrent: int,
+        /,
+        *,
+        scope: str | None = None,
+    ) -> None:
+        """Annotated style: ``Annotated[int, ConcurrencyLimit(1)]``."""
+
+    @overload
+    def __init__(
+        self,
+        argument_name: str,
         max_concurrent: int = 1,
         scope: str | None = None,
     ) -> None:
-        """
-        Args:
-            argument_name: The name of the task argument to use for concurrency grouping.
-                If None, limits concurrency for the task function itself.
-            max_concurrent: Maximum number of concurrent tasks
-            scope: Optional scope prefix for Redis keys (defaults to docket name)
-        """
-        self.argument_name = argument_name
-        self.max_concurrent = max_concurrent
+        """Default-param style with per-argument grouping."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        max_concurrent: int = 1,
+        scope: str | None = None,
+    ) -> None:
+        """Per-task concurrency (no argument grouping)."""
+
+    def __init__(
+        self,
+        argument_name: str | int | None = None,
+        max_concurrent: int = 1,
+        scope: str | None = None,
+    ) -> None:
+        if isinstance(argument_name, int):
+            self.argument_name: str | None = None
+            self.max_concurrent: int = argument_name
+        else:
+            self.argument_name = argument_name
+            self.max_concurrent = max_concurrent
         self.scope = scope
         self._concurrency_key: str | None = None
         self._initialized: bool = False
         self._task_key: str | None = None
         self._renewal_task: asyncio.Task[None] | None = None
 
+    def bind_to_parameter(self, name: str, value: Any) -> ConcurrencyLimit:
+        """Bind to an ``Annotated`` parameter, inferring argument_name if not set."""
+        argument_name = self.argument_name if self.argument_name is not None else name
+        return ConcurrencyLimit(
+            argument_name,
+            max_concurrent=self.max_concurrent,
+            scope=self.scope,
+        )
+
     async def __aenter__(self) -> ConcurrencyLimit:
         from ._functional import _Depends
 
-        execution = self.execution.get()
-        docket = self.docket.get()
-        worker = self.worker.get()
+        execution = current_execution.get()
+        docket = current_docket.get()
+        worker = current_worker.get()
 
         # Build concurrency key based on argument_name (if provided) or function name
         scope = self.scope or docket.name
@@ -151,9 +185,9 @@ class ConcurrencyLimit(Dependency):
 
     async def __aexit__(
         self,
-        _exc_type: type[BaseException] | None,
-        _exc_value: BaseException | None,
-        _traceback: type[BaseException] | None,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: type[BaseException] | None,
     ) -> None:
         # No-op: The original instance (used as default argument) has no state.
         # Actual cleanup is handled by _cleanup() on the per-task instance,
@@ -256,7 +290,7 @@ class ConcurrencyLimit(Dependency):
         # Note: only registered as callback for instances with valid keys
         assert self._concurrency_key and self._task_key
 
-        docket = self.docket.get()
+        docket = current_docket.get()
         async with docket.redis() as redis:
             # Remove this task from the sorted set and delete the key if empty
             # KEYS[1]: concurrency_key, ARGV[1]: task_key
@@ -272,7 +306,7 @@ class ConcurrencyLimit(Dependency):
 
     async def _renew_lease_loop(self, redelivery_timeout: timedelta) -> None:
         """Periodically refresh slot timestamp to prevent expiration."""
-        docket = self.docket.get()
+        docket = current_docket.get()
         renewal_interval = redelivery_timeout.total_seconds() / LEASE_RENEWAL_FACTOR
         key_ttl = max(
             MINIMUM_TTL_SECONDS,

@@ -19,15 +19,16 @@ from mindroom import agent_prompts
 from mindroom import tools as _tools_module  # noqa: F401
 from mindroom.constants import ROUTER_AGENT_NAME, STORAGE_PATH_OBJ, resolve_config_relative_path
 from mindroom.logging_config import get_logger
-from mindroom.plugins import load_plugins
-from mindroom.skills import build_agent_skills
-from mindroom.tools_metadata import get_tool_by_name
+from mindroom.tool_system.metadata import get_tool_by_name
+from mindroom.tool_system.plugins import load_plugins
+from mindroom.tool_system.skills import build_agent_skills
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from agno.knowledge.protocol import KnowledgeProtocol
     from agno.models.base import Model
+    from agno.tools.toolkit import Toolkit
 
     from mindroom.config.agent import AgentConfig, CultureConfig, CultureMode
     from mindroom.config.main import Config
@@ -68,7 +69,7 @@ class _AdditionalContextChunk:
 _CULTURE_MANAGER_CACHE: dict[tuple[str, str], _CachedCultureManager] = {}
 
 
-def get_datetime_context(timezone_str: str) -> str:
+def _get_datetime_context(timezone_str: str) -> str:
     """Generate current date and time context for the agent.
 
     Args:
@@ -434,7 +435,7 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
     sandbox_tools = config.get_agent_sandbox_tools(agent_name)
 
     # Create tools
-    tools: list = []  # Use list type to satisfy Agent's parameter type
+    tools: list[Toolkit] = []
     for tool_name in tool_names:
         try:
             if tool_name == "memory":
@@ -497,7 +498,7 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
     allow_self_config = (
         agent_config.allow_self_config if agent_config.allow_self_config is not None else defaults.allow_self_config
     )
-    if allow_self_config and not any(getattr(tool, "name", None) == "self_config" for tool in tools):
+    if allow_self_config and not any(tool.name == "self_config" for tool in tools):
         from mindroom.custom_tools.self_config import SelfConfigTools  # noqa: PLC0415
 
         tools.append(SelfConfigTools(agent_name=agent_name, config_path=config_path))
@@ -529,7 +530,7 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
     )
 
     # Add current date and time context with user's configured timezone
-    datetime_context = get_datetime_context(config.timezone)
+    datetime_context = _get_datetime_context(config.timezone)
 
     # Combine identity and datetime contexts
     full_context = identity_context + datetime_context

@@ -14,11 +14,17 @@ Requirements:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    not importlib.util.find_spec("plato.agent"),
+    reason="plato.agent package not installed",
+)
 
 # Get the browser agent directory path (Dockerfile is now in browser/ not docker/)
 BROWSER_DIR = Path(__file__).parent.parent.parent / "plato" / "agent" / "browser"

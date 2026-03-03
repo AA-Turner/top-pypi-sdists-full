@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 3.5.2
+Version: 3.5.3
 Summary: Find dead code, security vulnerabilities, and quality issues in Python, TypeScript, and Go. AI-powered static analysis with quality gates for CI/CD.
 Author-email: oha <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -39,6 +39,7 @@ Requires-Dist: pyyaml
 Requires-Dist: litellm>=1.81.3
 Requires-Dist: networkx
 Requires-Dist: pyperclip
+Requires-Dist: ca9>=0.1.0
 Provides-Extra: web
 Requires-Dist: flask>=2.1.1; extra == "web"
 Requires-Dist: flask-cors>=3.0.3; extra == "web"

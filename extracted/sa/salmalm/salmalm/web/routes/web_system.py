@@ -229,6 +229,66 @@ class SystemMixin:
         ok = sum(1 for r in results if r["status"] == "ok")
         self._json({"checks": results, "passed": ok, "total": len(results)})
 
+    def _get_api_logs(self) -> None:
+        """Handle GET /api/logs routes."""
+        if not self._require_auth("user"):
+            return
+        from urllib.parse import parse_qs, urlparse
+
+        qs = parse_qs(urlparse(self.path).query)
+        lines = int(qs.get("lines", ["100"])[0])
+        level = qs.get("level", [""])[0].upper()
+        log_path = DATA_DIR / "salmalm.log"
+        entries = []
+        if log_path.exists():
+            all_lines = log_path.read_text(encoding="utf-8", errors="replace").strip().split("\n")
+            for ln in all_lines[-lines:]:
+                if level and f"[{level}]" not in ln:
+                    continue
+                entries.append(ln)
+        self._json({"logs": entries, "total": len(entries)})
+
+    def _get_api_audit(self) -> None:
+        """Handle GET /api/audit routes."""
+        if not self._require_auth("user"):
+            return
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        try:
+            limit = max(1, min(int(params.get("limit", ["50"])[0]), 500))
+        except (TypeError, ValueError, IndexError):
+            limit = 50
+        event_type = params.get("type", [None])[0]
+        sid = params.get("session_id", [None])[0]
+        from salmalm.core import query_audit_log
+
+        entries = query_audit_log(limit=limit, event_type=event_type, session_id=sid)
+        self._json({"entries": entries, "count": len(entries)})
+
+    def _get_api_update_check(self):
+        # Alias for /api/check-update
+        """Get api update check."""
+        try:
+            import urllib.request
+
+            resp = urllib.request.urlopen("https://pypi.org/pypi/salmalm/json", timeout=10)
+            data = json.loads(resp.read().decode())
+            latest = data.get("info", {}).get("version", VERSION)  # noqa: F405
+            is_exe = getattr(sys, "frozen", False)
+            result = {
+                "current": VERSION,
+                "latest": latest,
+                "exe": is_exe,  # noqa: F405
+                "update_available": latest != VERSION,
+            }  # noqa: F405
+            if is_exe:
+                result["download_url"] = "https://github.com/hyunjun6928-netizen/salmalm/releases/latest"
+            self._json(result)
+        except Exception as e:
+            self._json({"current": VERSION, "latest": None, "error": str(e)[:100]})  # noqa: F405
+
     def _get_static_app_js(self):
         """Serve extracted main application JavaScript."""
         js_path = Path(__file__).parent.parent.parent / "static" / "app.js"
@@ -297,15 +357,6 @@ from salmalm.web.fastapi_deps import require_auth as _auth, optional_auth as _op
 router = _APIRouter()
 
 
-@router.get("/api/health")
-async def get_api_health():
-    """K8s readiness/liveness probe: 200=healthy/degraded, 503=unhealthy."""
-    from salmalm.core.health import get_health_report
-    report = get_health_report()
-    status_code = 503 if report.get("status") == "unhealthy" else 200
-    return _JSON(content=report, status_code=status_code)
-
-
 @router.get("/api/uptime")
 async def get_api_uptime():
     from salmalm.features.sla import uptime_monitor
@@ -355,9 +406,6 @@ async def get_api_status(request: _Request, session: str = _Query("web")):
 
 @router.get("/api/debug")
 async def get_api_debug(_u=_Depends(_auth)):
-    # BUG-CK fix: debug endpoint leaks internals — admin only
-    if _u.get("role") != "admin":
-        return _JSON(content={"error": "Admin access required"}, status_code=403)
     import gc, platform
     from salmalm.core import _metrics, get_session
     from salmalm.core.engine_pipeline import _active_requests, _shutting_down
@@ -449,7 +497,7 @@ async def get_api_update_check():
     try:
         resp = await _asyncio.to_thread(lambda: _ur.urlopen("https://pypi.org/pypi/salmalm/json", timeout=10))
         import json as _j
-        data = _j.loads(resp.read(4 * 1024 * 1024).decode())
+        data = _j.loads(resp.read().decode())
         latest = data.get("info", {}).get("version", VERSION)
         result = {"current": VERSION, "latest": latest, "exe": getattr(_sys, "frozen", False),
                   "update_available": latest != VERSION}
@@ -474,7 +522,7 @@ async def get_static_app_js(request: _Request):
 
 @router.get("/api/audit")
 async def get_api_audit(
-    limit: int = _Query(50, ge=1, le=1000), type: str = _Query(None), session_id: str = _Query(None),
+    limit: int = _Query(50), type: str = _Query(None), session_id: str = _Query(None),
     _u=_Depends(_auth),
 ):
     from salmalm.core import query_audit_log

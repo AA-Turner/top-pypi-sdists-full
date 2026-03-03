@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from ..misc import check_random_state
@@ -77,15 +76,11 @@ def emg_simulate(
         burst_duration = np.repeat(burst_duration, burst_number)
 
     if len(burst_duration) > burst_number:
-        raise ValueError(
-            "NeuroKit error: emg_simulate(): 'burst_duration' cannot be longer than the value of 'burst_number'"
-        )
+        raise ValueError("NeuroKit error: emg_simulate(): 'burst_duration' cannot be longer than the value of 'burst_number'")
 
     total_duration_bursts = np.sum(burst_duration)
     if total_duration_bursts > duration:
-        raise ValueError(
-            "NeuroKit error: emg_simulate(): The total duration of bursts cannot exceed the total duration"
-        )
+        raise ValueError("NeuroKit error: emg_simulate(): The total duration of bursts cannot exceed the total duration")
 
     # Generate bursts
     bursts = []
@@ -111,8 +106,6 @@ def emg_simulate(
     emg += rng.normal(0, noise, len(emg))
 
     # Resample
-    emg = signal_resample(
-        emg, sampling_rate=1000, desired_length=length, desired_sampling_rate=sampling_rate
-    )
+    emg = signal_resample(emg, sampling_rate=1000, desired_length=length, desired_sampling_rate=sampling_rate)
 
     return emg

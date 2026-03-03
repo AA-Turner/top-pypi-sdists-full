@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -96,9 +95,7 @@ def events_plot(events, signal=None, color="red", linestyle="--"):
         if "condition" in events.keys():
             events_list = []
             for condition in set(events["condition"]):
-                events_list.append(
-                    [x for x, y in zip(events["onset"], events["condition"]) if y == condition]
-                )
+                events_list.append([x for x, y in zip(events["onset"], events["condition"]) if y == condition])
             events = events_list
         else:
             events = events["onset"]
@@ -133,7 +130,7 @@ def events_plot(events, signal=None, color="red", linestyle="--"):
 
         # Loop through sublists
         for i, event in enumerate(events):
-            for j in events[i]:
+            for j in event:
                 plt.axvline(j, color=color[i], linestyle=linestyle[i], label=str(i))
 
         # Display only one legend per event type

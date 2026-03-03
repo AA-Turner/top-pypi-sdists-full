@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from ..misc.report import get_kwargs
@@ -76,15 +75,11 @@ def emg_methods(
     if method_cleaning in ["none"]:
         report_info["text_cleaning"] += " was directly used without any cleaning."
     else:
-        report_info["text_cleaning"] += (
-            " was cleaned using the " + method_cleaning + " method."
-        )
+        report_info["text_cleaning"] += " was cleaned using the " + method_cleaning + " method."
 
     # 2. Activation
     # -------------
-    report_info["text_activation"] = (
-        "EMG activity was detected using the " + method_activation + " method. "
-    )
+    report_info["text_activation"] = "EMG activity was detected using the " + method_activation + " method. "
     if method_activation in ["silva"]:
         if str(report_info["threshold"]) == "default":
             threshold_str = "0.05"
@@ -97,36 +92,30 @@ def emg_methods(
             electromyographic interfacess", Journal of Oral Rehabilitation, pp. 1-2, 2012."""
         )
     if method_activation in ["mixture"]:
-        report_info[
-            "text_activation"
-        ] += """A Gaussian mixture model was used to discriminate between activity and baseline. """
+        report_info["text_activation"] += (
+            """A Gaussian mixture model was used to discriminate between activity and baseline. """
+        )
         if str(report_info["threshold"]) == "default":
             threshold_str = "0.33"
         else:
             threshold_str = str(report_info["threshold"])
-        report_info[
-            "text_activation"
-        ] += f"""The minimum probability required to
+        report_info["text_activation"] += f"""The minimum probability required to
         be considered as activated was {threshold_str}. """
     elif method_activation in ["threshold"]:
-        report_info[
-            "text_activation"
-        ] += """The signal was considered as activated when the amplitude exceeded a threshold. """
+        report_info["text_activation"] += (
+            """The signal was considered as activated when the amplitude exceeded a threshold. """
+        )
         if str(report_info["threshold"]) == "default":
             threshold_str = "one tenth of the standard deviation of emg_amplitude"
         else:
             threshold_str = str(report_info["threshold"])
-        report_info[
-            "text_activation"
-        ] += f"""The minimum amplitude to detect as onset was set to {threshold_str}."""
+        report_info["text_activation"] += f"""The minimum amplitude to detect as onset was set to {threshold_str}."""
     elif method_activation in ["biosppy"]:
         if str(report_info["threshold"]) == "default":
             threshold_str = "1.2 times of the mean of the absolute of the smoothed, full-wave-rectified signal"
         else:
             threshold_str = str(report_info["threshold"])
-        report_info[
-            "text_activation"
-        ] += f"""The threshold was set to {threshold_str}."""
+        report_info["text_activation"] += f"""The threshold was set to {threshold_str}."""
 
     # 3. References
     # -------------

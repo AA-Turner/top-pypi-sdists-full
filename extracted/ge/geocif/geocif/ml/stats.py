@@ -233,10 +233,6 @@ def add_statistics(
     #        df_fewsnet["season_name"] + " " + df_fewsnet["product"]
     #    )
 
-    # HACK: Somalia Maize - only use Deyr season
-    if country == "Somalia" and crop == "Maize":
-        df_fewsnet = df_fewsnet[df_fewsnet["season_name"] == "Deyr"]
-
     # Hack replace Wheat in product column in df_fewsnet with Winter Wheat
     if "product" in df_fewsnet.columns:
         df_fewsnet.loc[:, "product"] = df_fewsnet["product"].replace("Wheat", "Winter Wheat")
@@ -251,17 +247,36 @@ def add_statistics(
     if mask.sum() == 0:
         df = add_GEOGLAM_statistics(dir_stats, df, stats, method, admin_zone)
     else:
-        # Default mapping: CEI season number → hvstat season_name
-        SEASON_MAP = {1: "Long", 2: "Short"}
-        # Fallback season names when mapped name isn't available
-        FALLBACK_SEASONS = [
-            "Main", "Meher", "Main harvest", "Annual",
-            "Summer", "Spring", "Winter", "Deyr",
+        # Priority-ordered season names: first match wins.
+        # Season 1 = primary/longest growing season for the country/crop.
+        # Season 2 = secondary/shorter season.
+        PRIMARY_SEASON_NAMES = [
+            "Long", "Gu", "Season A", "First", "1st Season",
+            "Main", "Meher", "Main harvest", "Summer", "Wet",
+        ]
+        SECONDARY_SEASON_NAMES = [
+            "Short", "Deyr", "Season B", "Second", "2nd Season",
+            "Winter", "Dry", "Main-off", "Cold-off",
         ]
 
         # Determine which season_names exist for this country/crop
         country_crop_mask = (df_fewsnet["country"] == country) & (df_fewsnet["product"] == crop)
         available_seasons = set(df_fewsnet.loc[country_crop_mask, "season_name"].unique())
+
+        def _resolve_season_filter(season_num):
+            """Pick the hvstat season_name for a given CEI season number."""
+            if season_num == 1:
+                for name in PRIMARY_SEASON_NAMES:
+                    if name in available_seasons:
+                        return [name]
+            elif season_num == 2:
+                for name in SECONDARY_SEASON_NAMES:
+                    if name in available_seasons:
+                        return [name]
+            # Fallback: use "Annual" only if no seasonal match was found
+            if "Annual" in available_seasons:
+                return ["Annual"]
+            return []
 
         # Group by Season too if the column exists
         group_by = ["Region", "Harvest Year"]
@@ -269,20 +284,20 @@ def add_statistics(
         if has_season:
             group_by.append("Season")
 
+        # Pre-compute the season filter for each season number ONCE,
+        # so ALL regions use the same season_name consistently.
+        season_filters = {}
+        if has_season:
+            for s in df["Season"].unique():
+                season_filters[s] = _resolve_season_filter(s)
+        else:
+            season_filters[None] = _resolve_season_filter(1)
+
         groups = df.groupby(group_by)
 
         # Define processing for each group
         def process_group(group, region, harvest_year, season=None):
-            # Determine which season_name(s) to match
-            if season is not None and season in SEASON_MAP:
-                mapped = SEASON_MAP[season]
-                if mapped in available_seasons:
-                    season_filter = [mapped]
-                else:
-                    # Mapped name not available — fall back
-                    season_filter = [s for s in FALLBACK_SEASONS if s in available_seasons]
-            else:
-                season_filter = [s for s in FALLBACK_SEASONS if s in available_seasons]
+            season_filter = season_filters.get(season, season_filters.get(None, []))
 
             # Case-insensitive region matching
             mask_region = df_fewsnet[admin_zone].str.lower() == region.lower()

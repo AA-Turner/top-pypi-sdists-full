@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import sqlite3
 from salmalm.db import get_connection
 import threading
 import time
@@ -153,9 +154,11 @@ class UptimeMonitor:
         self._start_dt = datetime.now(KST)
         self._lock = threading.Lock()
 
-    def _get_db(self):
+    def _get_db(self) -> sqlite3.Connection:
         """Get db."""
         conn = get_connection(AUDIT_DB)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
     def init_db(self) -> None:

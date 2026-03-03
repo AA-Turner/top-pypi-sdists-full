@@ -16,6 +16,7 @@ ANYSCALE_ENDPOINTS = {
     "azure": {
         "staging": "https://console.azure.anyscale-staging.com",
         "predeploy": "https://console.gcplane.azure.predeploy.anyscale.dev",
+        "production": "https://console.azure.anyscale.com",
     },
 }
 

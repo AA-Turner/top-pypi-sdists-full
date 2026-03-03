@@ -24,13 +24,13 @@ import json
 import os
 import re
 import secrets
+import sqlite3
 from salmalm.db import get_connection
 import threading
 import time
 from typing import Dict, List, Optional, Tuple
 
 from salmalm.constants import DATA_DIR, KST, PBKDF2_ITER
-from salmalm.db.connection import IntegrityError
 from salmalm.security.crypto import log
 
 AUTH_DB = DATA_DIR / "auth.db"
@@ -208,6 +208,7 @@ class IPBanList:
 
     def _get_conn(self):
         """Return a SQLite connection to auth.db."""
+        import sqlite3 as _sq
         conn = get_connection(AUTH_DB)
         conn.execute(self._DB_TABLE)
         conn.commit()
@@ -410,6 +411,7 @@ class DailyQuotaManager:
 
     def _get_conn(self):
         """Return a SQLite connection to auth.db."""
+        import sqlite3 as _sq
         conn = get_connection(AUTH_DB)
         conn.execute(self._DB_TABLE)
         conn.commit()
@@ -645,7 +647,7 @@ class AuthManager:
                 "role": role,
                 "api_key": raw_api_key,
             }
-        except IntegrityError:
+        except sqlite3.IntegrityError:
             raise ValueError(f"Username already exists: {username}")
         finally:
             conn.close()
@@ -659,7 +661,7 @@ class AuthManager:
 
         # Check lockout (DB-persisted)
         if self._is_locked_out(username):
-            log.warning("[LOCK] Account locked: %s", _log_safe(username))
+            log.warning(f"[LOCK] Account locked: {username}")
             return None
 
         conn = get_connection(AUTH_DB)
@@ -837,7 +839,7 @@ class AuthManager:
                     qconn.close()
                 except Exception as _qe:
                     log.warning("[AUTH] Failed to clean quota for deleted user %s: %s", uid, _qe)
-                log.warning("[AUTH] User %s (id=%s) deleted — tokens revoked, quota cleared", _log_safe(username), uid)
+                log.warning("[AUTH] User %s (id=%s) deleted — tokens revoked, quota cleared", username, uid)
         finally:
             conn.close()
         return deleted
@@ -872,7 +874,7 @@ class AuthManager:
                 _conn_rev.close()
                 if _row_rev:
                     self.revoke_all_for_user(_row_rev[0])
-                    log.warning("[AUTH] All tokens revoked for user %s after password change", _log_safe(username))
+                    log.warning("[AUTH] All tokens revoked for user %s after password change", username)
             except Exception as _rev_e:
                 log.warning("[AUTH] Failed to revoke tokens after password change: %s", _rev_e)
         return ok
@@ -899,33 +901,25 @@ def extract_auth(headers: dict) -> Optional[dict]:
     """
     if isinstance(headers, dict):
         headers = {k.lower(): v for k, v in headers.items()}
-    _MAX_TOKEN_LEN = 8192  # tokens >8KB = garbage or DoS attempt
-    _MAX_KEY_LEN = 512    # API keys are never legitimately longer than this
     auth_header = headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
-        if not token or len(token) > _MAX_TOKEN_LEN:
-            return None
         return auth_manager.verify_token(token)
     if auth_header.startswith("ApiKey "):
         api_key = auth_header[7:]
-        if not api_key or len(api_key) > _MAX_KEY_LEN:
-            return None
         return auth_manager.authenticate_api_key(api_key)
     # Check X-API-Key header
     api_key = headers.get("x-api-key", "")
     if api_key:
-        if len(api_key) > _MAX_KEY_LEN:
-            return None
         return auth_manager.authenticate_api_key(api_key)
     # Check HttpOnly cookie (fallback for browser clients that set it on login)
     cookie_header = headers.get("cookie", "")
-    if cookie_header and len(cookie_header) < 32768:  # 32KB cookie cap
+    if cookie_header:
         for part in cookie_header.split(";"):
             part = part.strip()
             if part.startswith("salmalm_token="):
                 cookie_token = part[len("salmalm_token="):]
-                if cookie_token and len(cookie_token) <= _MAX_TOKEN_LEN:
+                if cookie_token:
                     return auth_manager.verify_token(cookie_token)
     return None
 

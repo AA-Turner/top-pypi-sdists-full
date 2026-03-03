@@ -10,6 +10,8 @@ except ImportError:
 
 imagedir = os.path.join(os.path.dirname(__file__), "images")
 imagedir_bytes = imagedir.encode("utf-8")
+bmpfile = os.path.join(imagedir, "test_24.bmp")
+bmpfile_bytes = os.path.join(imagedir_bytes, b"test_24.bmp")
 
 
 class GetTest(unittest.TestCase):
@@ -32,6 +34,11 @@ class GetTest(unittest.TestCase):
         width, height = imagesize.get(os.path.join(imagedir, "test.gif"))
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
+
+    def test_load_bmp(self):
+        width, height = imagesize.get(bmpfile)
+        self.assertEqual(width, 100)
+        self.assertEqual(abs(height), 300)
 
     def test_bigendian_tiff(self):
         width, height = imagesize.get(os.path.join(imagedir, "test.tiff"))
@@ -89,6 +96,11 @@ class GetTest(unittest.TestCase):
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
 
+    def test_load_bmp_bytes(self):
+        width, height = imagesize.get(bmpfile_bytes)
+        self.assertEqual(width, 100)
+        self.assertEqual(abs(height), 300)
+
     def test_bigendian_tiff_bytes(self):
         width, height = imagesize.get(os.path.join(imagedir_bytes, b"test.tiff"))
         self.assertEqual(width, 802)
@@ -103,6 +115,16 @@ class GetTest(unittest.TestCase):
         width, height = imagesize.get(os.path.join(imagedir_bytes, b"multipage_tiff_example.tif"))
         self.assertEqual(width, 800)
         self.assertEqual(height, 600)
+
+    def test_load_webp_vp8x(self):
+        """Test VP8X format WebP file parsing.
+        
+        VP8X format stores dimensions as (width-1, height-1) in the header,
+        so the parser must add 1 to get the actual dimensions.
+        """
+        width, height = imagesize.get(os.path.join(imagedir, "test_vp8x.webp"))
+        self.assertEqual(width, 200)
+        self.assertEqual(height, 1)
 
     @unittest.skipIf(Path is None, "requires pathlib support")
     def test_load_png_path(self):
@@ -127,6 +149,12 @@ class GetTest(unittest.TestCase):
         width, height = imagesize.get(Path(imagedir, "test.gif"))
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
+
+    @unittest.skipIf(Path is None, "requires pathlib support")
+    def test_load_bmp_path(self):
+        width, height = imagesize.get(Path(bmpfile))
+        self.assertEqual(width, 100)
+        self.assertEqual(abs(height), 300)
 
     @unittest.skipIf(Path is None, "requires pathlib support")
     def test_bigendian_tiff_path(self):

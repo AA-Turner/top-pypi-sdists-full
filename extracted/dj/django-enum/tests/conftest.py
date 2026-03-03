@@ -1,7 +1,9 @@
 import inspect
+import json
 import os
 import subprocess
 import sys
+from importlib.metadata import distributions
 
 import pytest
 import django
@@ -15,6 +17,44 @@ def pytest_addoption(parser):
         default=False,
         help="Record screenshots for the documentation",
     )
+    parser.addoption(
+        "--log-env",
+        action="store_true",
+        default=False,
+        help="Log the installed environment to requirements-test-N.txt",
+    )
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    if os.getenv("GITHUB_ACTIONS") == "true" or session.config.getoption("--log-env"):
+
+        def freeze():
+            lines = []
+            for dist in distributions():
+                name = dist.metadata["Name"]
+                version = dist.version
+                direct_url = dist.read_text("direct_url.json")
+                if direct_url:
+                    data = json.loads(direct_url)
+                    if "url" in data:
+                        lines.append(f"{name} @ {data['url']}")
+                        continue
+                lines.append(f"{name}=={version}")
+            return sorted(lines)
+
+        def write_reqs(number: int) -> bool:
+            try:
+                with open(
+                    f"requirements-test-{number}.txt", "x", encoding="utf-8"
+                ) as f:
+                    f.write("\n".join(freeze()) + "\n")
+                return True
+            except FileExistsError:
+                return False
+
+        run = 0
+        while not write_reqs(run):
+            run += 1
 
 
 @pytest.fixture(autouse=True)
@@ -105,7 +145,9 @@ def require_db_version(django_db_setup, django_db_blocker):
     if os.getenv("GITHUB_ACTIONS") == "true":
         rdbms = os.environ["RDBMS"]
         expected_python = os.environ["TEST_PYTHON_VERSION"]
-        expected_django = os.environ["TEST_DJANGO_VERSION"]
+        expected_django = os.environ.get("TEST_DJANGO_VERSION", "").removeprefix("dj")
+        if expected_django.isdigit():
+            expected_django = ".".join(expected_django)
         expected_db_ver = os.environ.get("TEST_DATABASE_VERSION", None)
         expected_client = os.environ.get("TEST_DATABASE_CLIENT_VERSION", None)
 
@@ -145,8 +187,7 @@ def require_db_version(django_db_setup, django_db_blocker):
         if expected_db_ver:
             if rdbms == "postgres":
                 if expected_db_ver == "latest":
-                    # todo
-                    pass
+                    get_postgresql_version()  # verify accessible and is PostgreSQL
                 else:
                     expected_version = tuple(
                         int(v) for v in expected_db_ver.split(".") if v
@@ -178,10 +219,69 @@ def require_db_version(django_db_setup, django_db_blocker):
                             pytrace=False,
                         )
             elif rdbms == "mysql":
-                pass
+                if expected_db_ver != "latest":
+                    mysql_ver = get_mysql_version()
+                    actual = tuple(
+                        int(v) for v in mysql_ver.split(".")[:2] if v.isdigit()
+                    )
+                    expected = tuple(
+                        int(v) for v in expected_db_ver.split(".") if v.isdigit()
+                    )
+                    if actual[: len(expected)] != expected:
+                        pytest.fail(
+                            f"Unexpected MySQL version: got {mysql_ver}, expected {expected_db_ver}",
+                            pytrace=False,
+                        )
+                if expected_client == "mysqlclient2x":
+                    import MySQLdb
+
+                    if MySQLdb.version_info[0] != 2:
+                        pytest.fail(
+                            f"Unexpected mysqlclient version: got {MySQLdb.version_info},"
+                            f" expected 2.x",
+                            pytrace=False,
+                        )
             elif rdbms == "mariadb":
-                pass
+                if expected_db_ver != "latest":
+                    mariadb_ver = get_mysql_version()
+                    ver_str = mariadb_ver.split("-")[0]  # strip "-MariaDB" suffix
+                    actual = tuple(
+                        int(v) for v in ver_str.split(".")[:2] if v.isdigit()
+                    )
+                    expected = tuple(
+                        int(v) for v in expected_db_ver.split(".") if v.isdigit()
+                    )
+                    if actual[: len(expected)] != expected:
+                        pytest.fail(
+                            f"Unexpected MariaDB version: got {mariadb_ver}, expected {expected_db_ver}",
+                            pytrace=False,
+                        )
+                if expected_client == "mysqlclient2x":
+                    import MySQLdb
+
+                    if MySQLdb.version_info[0] != 2:
+                        pytest.fail(
+                            f"Unexpected mysqlclient version: got {MySQLdb.version_info},"
+                            f" expected 2.x",
+                            pytrace=False,
+                        )
             elif rdbms == "sqlite":
-                pass
+                pass  # no server version to verify for SQLite
             elif rdbms == "oracle":
-                pass
+                # expected_db_ver is the image tag, e.g. 'oracle-xe:21' or 'oracle-free:latest'
+                tag = (
+                    expected_db_ver.split(":")[-1]
+                    if ":" in expected_db_ver
+                    else expected_db_ver
+                )
+                if tag != "latest":
+                    with django_db_blocker.unblock():
+                        actual_ver = connection.connection.version  # e.g. "21.3.0.0.0"
+                    actual_major = int(actual_ver.split(".")[0])
+                    expected_major = int(tag)
+                    if actual_major != expected_major:
+                        pytest.fail(
+                            f"Unexpected Oracle version: got {actual_ver},"
+                            f" expected {expected_major}c",
+                            pytrace=False,
+                        )

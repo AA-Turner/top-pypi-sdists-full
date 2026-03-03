@@ -3442,6 +3442,7 @@ class IntegrationKeyScope(pycarlo.lib.types.Enum):
     * `CircuitBreaker`None
     * `DatabricksWebhook`None
     * `DbtCloudWebhook`None
+    * `Ingestion`None
     * `MCP`None
     * `OpenTelemetry`None
     * `S3PresignedUrl`None
@@ -3457,6 +3458,7 @@ class IntegrationKeyScope(pycarlo.lib.types.Enum):
         "CircuitBreaker",
         "DatabricksWebhook",
         "DbtCloudWebhook",
+        "Ingestion",
         "MCP",
         "OpenTelemetry",
         "S3PresignedUrl",
@@ -4161,6 +4163,7 @@ class ObjectPropertyModelPropertySourceType(pycarlo.lib.types.Enum):
     * `DATA_PRODUCT`: Data Product
     * `DBT`: DBT
     * `DOMAIN`: Domain
+    * `INGEST`: Ingest
     * `LINEAGE_API`: Lineage API
     * `TAGS_COLLECTION`: Tags Collection
     """
@@ -4172,6 +4175,7 @@ class ObjectPropertyModelPropertySourceType(pycarlo.lib.types.Enum):
         "DATA_PRODUCT",
         "DBT",
         "DOMAIN",
+        "INGEST",
         "LINEAGE_API",
         "TAGS_COLLECTION",
     )
@@ -6359,6 +6363,18 @@ class AIMessageInput(sgqlc.types.Input):
     """The mcons for the tables added in this message"""
 
 
+class AgentFilterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon")
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Name of the agent to filter alerts for."""
+
+    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    """MCON of the agent's trace table. Returns alerts associated with
+    monitors covering this table.
+    """
+
+
 class AgentSpanConditionInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("conditions", "operator")
@@ -8425,6 +8441,7 @@ class GetTraceOverviewInput(sgqlc.types.Input):
         "end_time",
         "include_previous_period_comparison",
         "filters",
+        "segment_filters",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name to filter by"""
@@ -8449,6 +8466,16 @@ class GetTraceOverviewInput(sgqlc.types.Input):
 
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
     """Optional filters to refine results"""
+
+    segment_filters = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("TraceSegmentFilterInput")),
+        graphql_name="segmentFilters",
+    )
+    """List of segment dimension filters. Each entry filters traces by
+    one dimension (MODEL, WORKFLOW, or TASK) using OR logic within the
+    dimension and AND logic across dimensions. Omitted or empty list
+    returns all traces.
+    """
 
 
 class GetTraceTimeSeriesInput(sgqlc.types.Input):
@@ -9292,6 +9319,7 @@ class NotificationExtra(sgqlc.types.Input):
         "ado_project",
         "ado_work_item_type",
         "schema_version",
+        "firehydrant_tags",
     )
     slack_is_private = sgqlc.types.Field(Boolean, graphql_name="slackIsPrivate")
     """Skip attempting to join if the channel is private. Requires a
@@ -9369,6 +9397,11 @@ class NotificationExtra(sgqlc.types.Input):
 
     schema_version = sgqlc.types.Field(String, graphql_name="schemaVersion")
     """Version of the notification settings schema"""
+
+    firehydrant_tags = sgqlc.types.Field(
+        sgqlc.types.list_of(String), graphql_name="firehydrantTags"
+    )
+    """Custom tags to include when sending notifications to FireHydrant"""
 
 
 class NotificationRoutingRules(sgqlc.types.Input):
@@ -11236,6 +11269,25 @@ class TraceFiltersInput(sgqlc.types.Input):
 
     max_total_tokens = sgqlc.types.Field(Int, graphql_name="maxTotalTokens")
     """Maximum total tokens"""
+
+
+class TraceSegmentFilterInput(sgqlc.types.Input):
+    """A single segment dimension filter: match traces whose field array
+    overlaps values.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("field", "values")
+    field = sgqlc.types.Field(sgqlc.types.non_null(TraceSegmentField), graphql_name="field")
+    """Dimension to filter on (MODEL, WORKFLOW, TASK)"""
+
+    values = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="values",
+    )
+    """Values to match (OR logic within dimension). Empty list means no
+    filtering.
+    """
 
 
 class TrackTableInput(sgqlc.types.Input):
@@ -14254,6 +14306,18 @@ class AgentMetadata(sgqlc.types.Type):
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
     """MCON of the trace table associated with this agent"""
+
+
+class AgentSegmentsResult(sgqlc.types.Type):
+    """Result of getAgentSegments query."""
+
+    __schema__ = schema
+    __field_names__ = ("segments",)
+    segments = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="segments",
+    )
+    """Distinct segment values for the requested field"""
 
 
 class AgentSpanCondition(sgqlc.types.Type):
@@ -28977,6 +29041,7 @@ class Mutation(sgqlc.types.Type):
         "cleanup_azure_agent_tasks",
         "migrate_connection_to_snowflake_agent",
         "migrate_connection_from_snowflake_agent",
+        "update_agent_enabled",
         "create_tableau_asset_warning",
         "update_tableau_asset_warning",
         "generate_dc_upgrade_template",
@@ -29348,6 +29413,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_bulk_monitor",
         "delete_bulk_monitor",
         "pause_bulk_monitor",
+        "prune_deleted_tables",
         "upload_airflow_dag_result",
         "upload_airflow_task_result",
         "upload_airflow_sla_misses",
@@ -30620,6 +30686,10 @@ class Mutation(sgqlc.types.Type):
                     "interval_minutes",
                     sgqlc.types.Arg(Int, graphql_name="intervalMinutes", default=None),
                 ),
+                (
+                    "is_agent_trace_aggregation",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAgentTraceAggregation", default=False),
+                ),
                 ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
                 (
                     "labels",
@@ -30695,6 +30765,9 @@ class Mutation(sgqlc.types.Type):
       conditions to apply to query
     * `interval_minutes` (`Int`): How often to run scheduled custom
       rule check (DEPRECATED, use schedule instead)
+    * `is_agent_trace_aggregation` (`Boolean`): If true, aggregates
+      spans by trace_id for trace-level validation. Default (false)
+      returns span-level data. (default: `false`)
     * `is_draft` (`Boolean`): Make target a draft monitor. (default:
       `false`)
     * `labels` (`[String]`): The monitor labels
@@ -32805,6 +32878,35 @@ class Mutation(sgqlc.types.Type):
       parameters.
     * `connection_id` (`UUID!`): UUID of Connection to migrate.
     * `service_uuid` (`UUID!`): UUID of DC to migrate to.
+    """
+
+    update_agent_enabled = sgqlc.types.Field(
+        "UpdateAgentEnabled",
+        graphql_name="updateAgentEnabled",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="agentId", default=None
+                    ),
+                ),
+                (
+                    "enabled",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="enabled", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Updates the enabled state of an agent.
+
+    Arguments:
+
+    * `agent_id` (`UUID!`): The UUID of the Agent to upgrade.
+    * `enabled` (`Boolean!`): Whether the agent should be enabled or
+      not.
     """
 
     create_tableau_asset_warning = sgqlc.types.Field(
@@ -47561,6 +47663,35 @@ class Mutation(sgqlc.types.Type):
     * `uuid` (`UUID!`): UUID of the bulk monitor
     """
 
+    prune_deleted_tables = sgqlc.types.Field(
+        "PruneDeletedTables",
+        graphql_name="pruneDeletedTables",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "table_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="tableMcons", default=None
+                    ),
+                ),
+                (
+                    "uuid",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Prune child monitors for deleted tables from a bulk
+    monitor
+
+    Arguments:
+
+    * `table_mcons` (`[String]`): Optional list of table MCONs to
+      prune. If not provided, all child monitors for deleted tables
+      will be pruned.
+    * `uuid` (`UUID!`): UUID of the bulk monitor
+    """
+
     upload_airflow_dag_result = sgqlc.types.Field(
         "UploadAirflowDagResult",
         graphql_name="uploadAirflowDagResult",
@@ -49648,6 +49779,7 @@ class PlatformServiceAgent(sgqlc.types.Type):
         "last_updated_on",
         "version",
         "wrapper_version",
+        "enabled",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """UUID of the agent"""
@@ -49675,6 +49807,9 @@ class PlatformServiceAgent(sgqlc.types.Type):
 
     wrapper_version = sgqlc.types.Field(String, graphql_name="wrapperVersion")
     """Agent wrapper version"""
+
+    enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
+    """Agent enabled"""
 
 
 class PlatformServiceConnection(sgqlc.types.relay.Connection):
@@ -50024,6 +50159,24 @@ class PropertyValues(sgqlc.types.Type):
     """List of object property values"""
 
 
+class PruneDeletedTables(sgqlc.types.Type):
+    """Prune child monitors for tables that have been deleted
+    (is_deleted=True).  This allows users to explicitly remove deleted
+    tables from a bulk monitor to resolve persistent error noise
+    without modifying table selection/exclusion rules.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted_count", "deleted_table_mcons")
+    deleted_count = sgqlc.types.Field(Int, graphql_name="deletedCount")
+    """Number of child monitors deleted"""
+
+    deleted_table_mcons = sgqlc.types.Field(
+        sgqlc.types.list_of(String), graphql_name="deletedTableMcons"
+    )
+    """List of table MCONs that were pruned"""
+
+
 class QPMonitorExplanationType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("data_points", "breaching_query_logs")
@@ -50081,6 +50234,7 @@ class Query(sgqlc.types.Type):
         "get_traces",
         "get_trace_time_series",
         "get_trace_overview",
+        "get_agent_segments",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
         "get_monitor_counts_by_creator",
@@ -50906,6 +51060,46 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetTraceOverviewInput!`)None
+    """
+
+    get_agent_segments = sgqlc.types.Field(
+        AgentSegmentsResult,
+        graphql_name="getAgentSegments",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                (
+                    "segment_field",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TraceSegmentField),
+                        graphql_name="segmentField",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get distinct segment values for the given field
+    across all traces. Used to populate the segments dropdown in the
+    Filter Widget.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Agent name to filter by
+    * `trace_table_mcon` (`String!`): MCON of the trace table to query
+    * `segment_field` (`TraceSegmentField!`): Field to get distinct
+      segment values for (WORKFLOW, TASK, MODEL)
     """
 
     get_table_monitor_metric = sgqlc.types.Field(
@@ -68232,6 +68426,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 ("filter", sgqlc.types.Arg(AlertsFilterInput, graphql_name="filter", default=None)),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
@@ -68256,6 +68458,9 @@ class Query(sgqlc.types.Type):
     * `ids` (`[UUID!]`): Either this or `updated_time` or
       `createdTime` must be provided.
     * `filter` (`AlertsFilterInput`): Filter alerts.
+    * `agent_filters` (`[AgentFilterInput!]`): Filter alerts by agent.
+      Returns alerts associated with monitors covering the specified
+      agent trace tables.
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
@@ -75760,6 +75965,13 @@ class UpdateAccountSecret(sgqlc.types.Type):
     """The secret that was updated"""
 
 
+class UpdateAgentEnabled(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("enable_result",)
+    enable_result = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="enableResult")
+    """The new enabled state of the agent."""
+
+
 class UpdateAgentParameters(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("update_result",)
@@ -80972,6 +81184,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "tags",
         "data_quality_dimension",
         "domain_uuids",
+        "is_agent_trace_aggregation",
         "notify_rule_run_failure",
         "variables",
         "variable_definitions",
@@ -81298,6 +81511,9 @@ class CustomRule(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainUuids"
     )
     """Domain UUIDs assigned to the monitor."""
+
+    is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
+    """If True, aggregate spans by trace_id for agent monitors."""
 
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
     """DEPRECATED: Replaced by failure audiences"""

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from plato.agents.runtime.base import AgentContext, OTelContext, PreparedAgent, Runtime
 from plato.agents.runtime.dev import install_production_agent, sync_dev_code
-from plato.agents.runtime.workspace import Workspace
+from plato.agents.runtime.transport import Transport
 from plato.utils.subprocess import run_ssh, run_ssh_streaming
 from plato.v2 import Env
 from plato.v2.types import SimConfigCompute
@@ -59,17 +59,17 @@ class PlatoVMRuntime(Runtime):
         session: Session,
         ssh_key_path: Path | None = None,
         vm_config: VMConfig | None = None,
-        workspace: Workspace | None = None,
-        workspaces: list[Workspace] | None = None,
+        workspace: Transport | None = None,
+        workspaces: list[Transport] | None = None,
     ):
         self.session = session
         self.ssh_key_path = ssh_key_path
         self.vm_config = vm_config or VMConfig()
         self.workspace = workspace  # backward compat — single workspace
-        self.workspaces: list[Workspace] = workspaces or []
+        self.workspaces: list[Transport] = workspaces or []
         self._agent_envs: dict[str, Environment] = {}
 
-    def _all_workspaces(self) -> list[Workspace]:
+    def _all_workspaces(self) -> list[Transport]:
         """Return all workspaces (single + list) for setup/sync."""
         result = list(self.workspaces)
         if self.workspace and self.workspace not in result:

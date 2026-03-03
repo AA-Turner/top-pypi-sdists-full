@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import os
 import os.path as osp
+import atexit
 from contextlib import contextmanager
 
 import casbin
+import threading
 import sqlalchemy_adapter
 from casbin import util
 from flask import current_app, has_app_context
@@ -15,8 +18,10 @@ from .watcher import new_watcher
 from ...extensions import db
 
 _EXT_KEY = "casbin_enforcer"
+_WATCHER_KEY = "casbin_watcher"
+_WATCHER_ATEXIT_KEY = "casbin_watcher_atexit_registered"
 
-
+_init_lock = threading.Lock()
 class Adapter(sqlalchemy_adapter.Adapter):
     @contextmanager
     def _session_scope(self):
@@ -58,29 +63,45 @@ def get_enforcer() -> Enforcer:
 
     The enforcer is stored in `current_app.extensions['casbin_enforcer']`.
     """
-    app = current_app
+    app = current_app._get_current_object()
     if _EXT_KEY in app.extensions:
         return app.extensions[_EXT_KEY]
+    with _init_lock:
+        if _EXT_KEY in app.extensions:
+            return app.extensions[_EXT_KEY]
+        adapter = Adapter(db.engine)
+        adapter.session_local = db.session
+        model_path = app.config.get(
+            "CASBIN_MODEL_CONF",
+            osp.join(osp.dirname(__file__), "model.conf"),
+        )
+        e = Enforcer(model_path, adapter)
+        e.add_function("key_match", util.key_match)
+        e.enable_auto_save(True)
+        uri = app.config.get("MONGO_URI", None)
+        enable_watcher = str(app.config.get(
+            "CASBIN_WATCHER_ENABLED", os.environ.get("CASBIN_WATCHER_ENABLED", "false")
+        )).lower() == "true"
 
-    adapter = Adapter(db.engine)
-    adapter.session_local = db.session
-    model_path = app.config.get(
-        "CASBIN_MODEL_CONF",
-        osp.join(osp.dirname(__file__), "model.conf"),
-    )
-    e = Enforcer(model_path, adapter)
-    e.add_function("key_match", util.key_match)
-    e.enable_auto_save(True)
-    uri = app.config.get("MONGO_URI", None)
-    enable_watcher = app.config.get("CASBIN_WATCHER_ENABLED")
-    if enable_watcher is None:
-        enable_watcher = not app.config.get("TESTING", False)
-    if uri and enable_watcher:
-        watcher = new_watcher(uri)
-        watcher.bind_enforcer(e)
-        e.set_watcher(watcher)
-    # Load from DB
-    e.load_policy()
+        if uri and enable_watcher:
+            watcher = new_watcher(uri, app=app)
+            watcher.bind_enforcer(e)
+            e.set_watcher(watcher)
+            watcher.start()
+            app.extensions[_WATCHER_KEY] = watcher
+            if not app.extensions.get(_WATCHER_ATEXIT_KEY):
+                def _shutdown_watcher() -> None:
+                    try:
+                        w = app.extensions.get(_WATCHER_KEY)
+                        if w is not None:
+                            w.stop()
+                    except Exception:
+                        pass
 
-    app.extensions[_EXT_KEY] = e
+                atexit.register(_shutdown_watcher)
+                app.extensions[_WATCHER_ATEXIT_KEY] = True
+        # Load from DB
+        e.load_policy()
+
+        app.extensions[_EXT_KEY] = e
     return e

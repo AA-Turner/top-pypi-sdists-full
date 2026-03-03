@@ -109,7 +109,7 @@ see <https://github.com/trentm/python-markdown2/wiki/Extras> for details):
 #   not yet sure if there implications with this. Compare 'pydoc sre'
 #   and 'perldoc perlre'.
 
-__version_info__ = (2, 5, 4)
+__version_info__ = (2, 5, 5)
 __version__ = '.'.join(map(str, __version_info__))
 __author__ = "Trent Mick"
 
@@ -121,10 +121,10 @@ import sys
 from collections import defaultdict, OrderedDict
 from abc import ABC, abstractmethod
 import functools
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from hashlib import sha256
 from random import random
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, TypedDict, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Type, TypedDict, Union, cast
 from collections.abc import Collection
 from enum import IntEnum, auto
 from os import urandom
@@ -133,7 +133,7 @@ from os import urandom
 _safe_mode = Literal['replace', 'escape']
 _extras_dict = dict[str, Any]
 _extras_param = Union[list[str], _extras_dict]
-_link_patterns = Iterable[tuple[re.Pattern, Union[str, Callable[[re.Match], str]]]]
+_link_patterns = Iterable[tuple[re.Pattern[str], Union[str, Callable[[re.Match[str]], str]]]]
 
 # ---- globals
 
@@ -155,7 +155,9 @@ g_escape_table = {ch: _hash_text(ch)
 
 # Ampersand-encoding based entirely on Nat Irons's Amputator MT plugin:
 #   http://bumppo.net/projects/amputator/
-_AMPERSAND_RE = re.compile(r'&(?!#?[xX]?(?:[0-9a-fA-F]+|\w+);)')
+_AMPERSAND_BODY_RE = r'#?[xX]?(?:[0-9a-fA-F]+|\w+);'
+_AMPERSAND_RE = re.compile(r'&(?!%s)' % _AMPERSAND_BODY_RE)
+_ESCAPED_AMPERSAND_RE = re.compile(r'(?:\\\\)*\\&(%s)' % _AMPERSAND_BODY_RE)
 
 
 # ---- exceptions
@@ -512,12 +514,7 @@ class Markdown:
         text = self._run_block_gamut(text)
 
         if "footnotes" in self.extras:
-            def footnote_sub(match):
-                normed_id = match.group(1)
-                self.footnote_ids.append(normed_id)
-                return str(len(self.footnote_ids))
-
-            text = re.sub(r'%s-(.*?)(?=</a></sup>)' % self._footnote_marker, footnote_sub, text)
+            text = self._do_footnote_marker(text)
             text = self._add_footnotes(text)
 
         text = self.postprocess(text)
@@ -569,6 +566,15 @@ class Markdown:
         if "metadata" in self.extras:
             rv.metadata = self.metadata
         return rv
+
+    def _do_footnote_marker(self, text):
+        def footnote_sub(match):
+            normed_id = match.group(1)
+            if normed_id not in self.footnote_ids:
+                self.footnote_ids.append(normed_id)
+            return str(len(self.footnote_ids))
+
+        return re.sub(r'%s-(.*?)(?=</a></sup>)' % self._footnote_marker, footnote_sub, text)
 
     @mark_stage(Stage.POSTPROCESS)
     def postprocess(self, text: str) -> str:
@@ -712,7 +718,7 @@ class Markdown:
         (?P<content>.*?\1End:)
         """, re.IGNORECASE | re.MULTILINE | re.DOTALL | re.VERBOSE)
 
-    def _emacs_vars_oneliner_sub(self, match: re.Match) -> str:
+    def _emacs_vars_oneliner_sub(self, match: re.Match[str]) -> str:
         if match.group(1).strip() == '-*-' and match.group(4).strip() == '-*-':
             lead_ws = re.findall(r'^\s*', match.group(1))[0]
             tail_ws = re.findall(r'\s*$', match.group(4))[0]
@@ -902,7 +908,7 @@ class Markdown:
         r'''\s+markdown=("1"|'1')''')
     def _hash_html_block_sub(
         self,
-        match: Union[re.Match, str],
+        match: Union[re.Match[str], str],
         raw: bool = False
     ) -> str:
         if isinstance(match, str):
@@ -1121,8 +1127,14 @@ class Markdown:
         return result
 
     def _tag_is_closed(self, tag_name: str, text: str) -> bool:
-        # super basic check if number of open tags == number of closing tags
-        return len(re.findall('<%s(?:.*?)>' % tag_name, text)) == len(re.findall('</%s>' % tag_name, text))
+        # check if number of open tags == number of close tags
+        if len(re.findall('<%s(?:.*?)>' % tag_name, text)) != text.count('</%s>' % tag_name):
+            return False
+
+        # check that close tag position is AFTER open tag
+        close_index = text.find(f'</{tag_name}')
+        open_index = text.find(f'<{tag_name}')
+        return open_index != -1 and close_index != -1 and open_index < close_index
 
     @mark_stage(Stage.LINK_DEFS)
     def _strip_link_definitions(self, text: str) -> str:
@@ -1152,7 +1164,7 @@ class Markdown:
             """ % less_than_tab, re.X | re.M | re.U)
         return _link_def_re.sub(self._extract_link_def_sub, text)
 
-    def _extract_link_def_sub(self, match: re.Match) -> str:
+    def _extract_link_def_sub(self, match: re.Match[str]) -> str:
         id, url, title = match.groups()
         key = id.lower()    # Link IDs are case-insensitive
         self.urls[key] = self._encode_amps_and_angles(url)
@@ -1160,7 +1172,7 @@ class Markdown:
             self.titles[key] = title
         return ""
 
-    def _extract_footnote_def_sub(self, match: re.Match) -> str:
+    def _extract_footnote_def_sub(self, match: re.Match[str]) -> str:
         id, text = match.groups()
         text = _dedent(text, skip_first_line=not text.startswith('\n')).strip()
         normed_id = re.sub(r'\W', '-', id)
@@ -1287,6 +1299,10 @@ class Markdown:
         )
         """, re.X)
 
+    # regex that checks that the start of a string is NOT escaped
+    # it does this by matching pairs of `\` chars and checking that they're NOT followed by another `\`
+    _is_unescaped_re = re.compile(r'^((?:\\\\)*(?!\\))')
+
     @mark_stage(Stage.ESCAPE_SPECIAL)
     def _escape_special_chars(self, text: str) -> str:
         # Python markdown note: the HTML tokenization here differs from
@@ -1295,27 +1311,30 @@ class Markdown:
         # it isn't susceptible to unmatched '<' and '>' in HTML tags).
         # Note, however, that '>' is not allowed in an auto-link URL
         # here.
-        lead_escape_re = re.compile(r'^((?:\\\\)*(?!\\))')
         escaped = []
         is_html_markup = False
         for token in self._sorta_html_tokenize_re.split(text):
             # check token is preceded by 0 or more PAIRS of escapes, because escape pairs
             # escape themselves and don't affect the token
-            if is_html_markup and lead_escape_re.match(token):
+            if is_html_markup and self._is_unescaped_re.match(token):
                 # Within tags/HTML-comments/auto-links, encode * and _
                 # so they don't conflict with their use in Markdown for
                 # italics and strong.  We're replacing each such
                 # character with its corresponding MD5 checksum value;
                 # this is likely overkill, but it should prevent us from
                 # colliding with the escape values by accident.
-                escape_seq, token = lead_escape_re.split(token)[1:] or ('', token)
+                escape_seq, token = self._is_unescaped_re.split(token)[1:] or ('', token)
                 escaped.append(
                     escape_seq.replace('\\\\', self._escape_table['\\'])
                     + token.replace('*', self._escape_table['*'])
                            .replace('_', self._escape_table['_'])
                 )
             else:
-                escaped.append(self._encode_backslash_escapes(token.replace('\\<', '&lt;')))
+                escaped.append(
+                    self._encode_backslash_escapes(
+                        token.replace('\\<', '&lt;').replace('\\>', '&gt;')
+                    )
+                )
             is_html_markup = not is_html_markup
         return ''.join(escaped)
 
@@ -1349,23 +1368,48 @@ class Markdown:
                 return
             return re.match(r'(<!--)(.*)(-->)', token)
 
+        # protect raw code spans from processing, as they can often contain anything that looks like HTML and
+        # trips up the regex. These are encoded and processed later on anyway
+        code_hashes = {}
+        text = self._code_span_re.sub(
+            lambda m: self._hash_span(m.string[m.start(): m.end()], code_hashes),
+            text
+        )
+
         tokens = []
         split_tokens = self._sorta_html_tokenize_re.split(text)
-        is_html_markup = False
-        for index, token in enumerate(split_tokens):
-            if is_html_markup and not self._is_auto_link(token) and not _is_code_span(index, token):
+        index = 0
+        while index < len(split_tokens):
+            is_html_markup = index % 2 != 0
+            token = split_tokens[index]
+            is_code = _is_code_span(index, token)
+
+            if is_html_markup and not self._is_auto_link(token) and not is_code:
                 is_comment = _is_comment(token)
                 if is_comment:
                     tokens.append(self._hash_span(self._sanitize_html(is_comment.group(1))))
                     # sanitise but leave comment body intact for further markdown processing
                     tokens.append(self._sanitize_html(is_comment.group(2)))
                     tokens.append(self._hash_span(self._sanitize_html(is_comment.group(3))))
+                elif self._is_unescaped_re.match(token) is None:
+                    # if the HTML is escaped then escape any special chars and add the token as-is
+                    tokens.append(self._escape_special_chars(token))
                 else:
                     tokens.append(self._hash_span(self._sanitize_html(token)))
+            elif is_html_markup and is_code:
+                # code span contents are hashed, so should be safe to just add directly
+                tokens.extend(split_tokens[index: index + 3])
+                index += 3
+                continue
             else:
                 tokens.append(self._encode_incomplete_tags(token))
-            is_html_markup = not is_html_markup
-        return ''.join(tokens)
+            index += 1
+
+        text = ''.join(tokens)
+        # put markdown code spans back into the text for processing
+        for key, code in code_hashes.items():
+            text = text.replace(key, code)
+        return text
 
     def _unhash_html_spans(self, text: str, spans=True, code=False) -> str:
         '''
@@ -1416,7 +1460,7 @@ class Markdown:
           [ ]?          # one optional space
           (?:\n[ ]*)?   # one optional newline followed by spaces
           \[
-            (?P<id>.*?)
+            (?P<id>[^\[\]]*?)
           \]
         ''', re.X | re.S)
 
@@ -1464,6 +1508,10 @@ class Markdown:
         and then hashes the now "safe" URL to prevent other safety mechanisms from tampering
         with it (eg: escaping "&" in URL parameters)
         '''
+        if not url:
+            # ignore links with empty URLs. Don't bother putting a hash there because then we'll have
+            # `"''"": "md5-..."` as an entry in the escape table, and that will cause havok
+            return url
         data_url = self._data_url_re.match(url)
         charset = None
         if data_url is not None:
@@ -1569,7 +1617,7 @@ class Markdown:
     _h_re = re.compile(_h_re_base % '*', re.X | re.M)
     _h_re_tag_friendly = re.compile(_h_re_base % '+', re.X | re.M)
 
-    def _h_sub(self, match: re.Match) -> str:
+    def _h_sub(self, match: re.Match[str]) -> str:
         '''Handles processing markdown headers'''
         if match.group(1) is not None and match.group(3) == "-":
             return match.group(1)
@@ -1602,12 +1650,12 @@ class Markdown:
         </h\1>
     ''', re.X | re.M)
 
-    def _h_tag_sub(self, match: re.Match) -> str:
+    def _h_tag_sub(self, match: re.Match[str]) -> str:
         '''Different to `_h_sub` in that this function handles existing HTML headers'''
         text = match.string[match.start(): match.end()]
         h_level = int(match.group(1))
         # extract id= attr from tag, trying to account for regex "misses"
-        id_attr = (re.match(r'.*?id=(\S+)?.*', match.group(2) or '') or '')
+        id_attr = (re.match(r'.*?id="(\S+)?".*', match.group(2) or '') or '')
         if id_attr:
             # if id attr exists, extract that
             id_attr = id_attr.group(1) or ''
@@ -1652,7 +1700,7 @@ class Markdown:
     _marker_ul = '(?:[%s])' % _marker_ul_chars
     _marker_ol = r'(?:\d+\.)'
 
-    def _list_sub(self, match: re.Match) -> str:
+    def _list_sub(self, match: re.Match[str]) -> str:
         lst = match.group(1)
         lst_type = match.group(4) in self._marker_ul_chars and "ul" or "ol"
 
@@ -1747,7 +1795,7 @@ class Markdown:
 
     _task_list_warpper_str = r'<input type="checkbox" class="task-list-item-checkbox" %sdisabled> %s'
 
-    def _task_list_item_sub(self, match: re.Match) -> str:
+    def _task_list_item_sub(self, match: re.Match[str]) -> str:
         marker = match.group(1)
         item_text = match.group(2)
         if marker in ['[x]','[X]']:
@@ -1759,7 +1807,7 @@ class Markdown:
         return ''
 
     _last_li_endswith_two_eols = False
-    def _list_item_sub(self, match: re.Match) -> str:
+    def _list_item_sub(self, match: re.Match[str]) -> str:
         item = match.group(4)
         leading_line = match.group(1)
         if leading_line or "\n\n" in item or self._last_li_endswith_two_eols:
@@ -1870,7 +1918,7 @@ class Markdown:
         formatter = HtmlCodeFormatter(**formatter_opts)
         return pygments.highlight(codeblock, lexer, formatter)
 
-    def _code_block_sub(self, match: re.Match) -> str:
+    def _code_block_sub(self, match: re.Match[str]) -> str:
         codeblock = match.group(1)
         codeblock = self._outdent(codeblock)
         codeblock = self._detab(codeblock)
@@ -1938,7 +1986,7 @@ class Markdown:
             (?!`)
         ''', re.X | re.S)
 
-    def _code_span_sub(self, match: re.Match) -> str:
+    def _code_span_sub(self, match: re.Match[str]) -> str:
         c = match.group(2).strip(" \t")
         c = self._encode_code(c)
         return "<code{}>{}</code>".format(self._html_class_str_from_tag("code"), c)
@@ -1988,14 +2036,25 @@ class Markdown:
         self._code_table[text] = hashed
         return hashed
 
-    _strong_re = re.compile(r"(\*\*|__)(?=\S)(.+?[*_]?)(?<=\S)\1", re.S)
+    _strong_re = re.compile(r'''
+        (?:_{1,}|\*{1,})?  # ignore any leading em chars because we want to wrap `<strong>` as tightly around the text as possible
+                           # eg: `***abc***` -> `*<strong>abc</strong>*` instead of `<strong>*abc*</strong>`
+                           # Makes subsequent <em> processing easier
+        (\*\*|__)(?=\S)    # strong syntax - must be followed by a non whitespace char
+        (.+?)              # the strong text itself
+        (?<=\S)\1          # closing syntax - must be preceeded by non whitespace char
+        ''',
+        re.S | re.X
+    )
     _em_re = re.compile(r"(\*|_)(?=\S)(.*?\S)\1", re.S)
 
+    _iab_processor = None
     @mark_stage(Stage.ITALIC_AND_BOLD)
     def _do_italics_and_bold(self, text: str) -> str:
-        # <strong> must go first:
-        text = self._strong_re.sub(r"<strong>\2</strong>", text)
-        text = self._em_re.sub(r"<em>\2</em>", text)
+        if not self._iab_processor:
+            self._iab_processor = GFMItalicAndBoldProcessor(self, None)
+        if self._iab_processor.test(text):
+            text = self._iab_processor.run(text)
         return text
 
     _block_quote_base = r'''
@@ -2013,10 +2072,10 @@ class Markdown:
     _bq_one_level_re_spoiler = re.compile('^[ \t]*>[ \t]*?![ \t]?', re.M)
     _bq_all_lines_spoilers = re.compile(r'\A(?:^[ \t]*>[ \t]*?!.*[\n\r]*)+\Z', re.M)
     _html_pre_block_re = re.compile(r'(\s*<pre>.+?</pre>)', re.S)
-    def _dedent_two_spaces_sub(self, match: re.Match) -> str:
+    def _dedent_two_spaces_sub(self, match: re.Match[str]) -> str:
         return re.sub(r'(?m)^  ', '', match.group(1))
 
-    def _block_quote_sub(self, match: re.Match) -> str:
+    def _block_quote_sub(self, match: re.Match[str]) -> str:
         bq = match.group(1)
         is_spoiler = 'spoiler' in self.extras and self._bq_all_lines_spoilers.match(bq)
         # trim one level of quoting
@@ -2115,7 +2174,12 @@ class Markdown:
                 if i != 0:
                     footer.append('')
                 footer.append('<li id="fn-%s">' % id)
-                footer.append(self._run_block_gamut(self.footnotes[id]))
+                footer.append(
+                    # handle any nested footnote markers
+                    self._do_footnote_marker(
+                        self._run_block_gamut(self.footnotes[id])
+                    )
+                )
                 try:
                     backlink = ('<a href="#fnref-%s" ' +
                             'class="footnoteBackLink" ' +
@@ -2149,6 +2213,7 @@ class Markdown:
         # Smart processing for ampersands and angle brackets that need
         # to be encoded.
         text = _AMPERSAND_RE.sub('&amp;', text)
+        text = _ESCAPED_AMPERSAND_RE.sub(r'&amp;\1', text)
 
         # Encode naked <'s
         text = self._naked_lt_re.sub('&lt;', text)
@@ -2159,7 +2224,7 @@ class Markdown:
         text = self._naked_gt_re.sub('&gt;', text)
         return text
 
-    _incomplete_tags_re = re.compile(r"<(!--|/?\w+?(?!\w)\s*?.+?(?:[\s/]+?|$))")
+    _incomplete_tags_re = re.compile(r"\\*<(!--|/?\w+?(?!\w)\s*?.+?(?:[\s/]+?|$))")
 
     def _encode_incomplete_tags(self, text: str) -> str:
         if self.safe_mode not in ("replace", "escape"):
@@ -2169,9 +2234,15 @@ class Markdown:
             return text  # this is not an incomplete tag, this is a link in the form <http://x.y.z>
 
         def incomplete_tags_sub(match):
-            return match.group().replace('<', '&lt;')
+            text = match.group()
+            # ensure that we handle escaped incomplete tags properly by consuming and replacing the escapes
+            if not self._is_unescaped_re.match(text):
+                text = text.replace('\\<', '&lt;')
+            return text.replace('<', '&lt;')
 
-        return self._incomplete_tags_re.sub(incomplete_tags_sub, text)
+        text = self._incomplete_tags_re.sub(incomplete_tags_sub, text)
+
+        return text
 
     def _encode_backslash_escapes(self, text: str) -> str:
         for ch, escape in list(self._escape_table.items()):
@@ -2179,7 +2250,7 @@ class Markdown:
         return text
 
     _auto_link_re = re.compile(r'<((https?|ftp):[^\'">\s]+)>', re.I)
-    def _auto_link_sub(self, match: re.Match) -> str:
+    def _auto_link_sub(self, match: re.Match[str]) -> str:
         g1 = match.group(1)
         return '<a href="{}">{}</a>'.format(self._protect_url(g1), g1)
 
@@ -2193,7 +2264,7 @@ class Markdown:
           )
           >
         """, re.I | re.X | re.U)
-    def _auto_email_link_sub(self, match: re.Match) -> str:
+    def _auto_email_link_sub(self, match: re.Match[str]) -> str:
         return self._encode_email_address(
             self._unescape_special_chars(match.group(1)))
 
@@ -2239,13 +2310,23 @@ class Markdown:
         # Remove one level of line-leading tabs or spaces
         return self._outdent_re.sub('', text)
 
-    def _hash_span(self, text: str) -> str:
+    def _hash_span(self, text: str, hash_table: Optional[dict] = None) -> str:
         '''
         Wrapper around `_hash_text` that also adds the hash to `self.hash_spans`,
         meaning it will be automatically unhashed during conversion.
+
+        Args:
+            text: the text to hash
+            hash_table: the dict to insert the hash into. If omitted will default to `self.html_spans`
+
+        Returns:
+            The hashed text
         '''
         key = _hash_text(text)
-        self.html_spans[key] = text
+        if hash_table is not None:
+            hash_table[key] = text
+        else:
+            self.html_spans[key] = text
         return key
 
     @staticmethod
@@ -2322,7 +2403,7 @@ class Markdown:
         return ''.join(blocks)
 
     @staticmethod
-    def _match_overlaps_substr(text, match: re.Match, substr: str) -> bool:
+    def _match_overlaps_substr(text: str, match: re.Match[str], substr: str) -> bool:
         '''
         Checks if a regex match overlaps with a substring in the given text.
         '''
@@ -2464,7 +2545,7 @@ class ItalicAndBoldProcessor(Extra):
         super().__init__(md, options)
         self.hash_table = {}
 
-    def run(self, text):
+    def run(self, text: str):
         if self.md.order < Stage.ITALIC_AND_BOLD:
             text = self.strong_re.sub(self.sub, text)
             text = self.em_re.sub(self.sub, text)
@@ -2478,20 +2559,427 @@ class ItalicAndBoldProcessor(Extra):
         return text
 
     @abstractmethod
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         # do nothing. Let `Markdown._do_italics_and_bold` do its thing later
         return match.string[match.start(): match.end()]
 
-    def sub_hash(self, match: re.Match) -> str:
+    def sub_hash(self, match: re.Match[str]) -> str:
         substr = match.string[match.start(): match.end()]
-        key = _hash_text(substr)
-        self.hash_table[key] = substr
-        return key
+        return self.md._hash_span(substr, self.hash_table)
 
-    def test(self, text):
+    def test(self, text: str):
         if self.md.order < Stage.ITALIC_AND_BOLD:
             return '*' in text or '_' in text
         return self.hash_table and re.search(r'md5-[0-9a-z]{32}', text)
+
+
+class GFMItalicAndBoldProcessor(Extra):
+    '''
+    An upgraded version of the `ItalicAndBoldProcessor` that covers far more edge cases and gets close
+    to Github Flavoured Markdown compliance.
+    '''
+    name = 'gfm-italic-and-bold-processor'
+    order = (Stage.ITALIC_AND_BOLD,), tuple()
+
+    def run(self, text: str):
+        nesting = True
+        orig_text = ""
+        while nesting and orig_text != _hash_text(text):
+            orig_text = _hash_text(text)
+            nesting = False
+
+            opens = {'*': [], '_': []}
+            '''Mapping of em type to a list of opening runs of that em type'''
+            unused_opens = {'*': {}, '_': {}}
+            '''
+            Mapping of em type to another mapping of unused opening runs of that em type.
+            An unused run is one that has been skipped, or only partially consumed (eg: **foo*) and
+            could be consumed by another closing run. The inner mapping is a mapping of the
+            delimiter run to an offset number, which is the number of characters from that run that
+            have been consumed so far
+            '''
+            unused_closes = {'*': [], '_': []}
+            '''
+            Mapping of em type to a list of closing delimiter runs that have not been fully consumed.
+            EG: *foo*bar*
+            '''
+            tokens = []
+            '''List of processed spans of text that will be joined to form the new `text`'''
+            index = 0
+            '''Number of chars of `text` that has been processed so far'''
+
+            delim_runs_iter = re.finditer(r'(\*+|_+)', text)
+            next_delim_run = self._next_run(delim_runs_iter)
+
+            while next_delim_run:
+                delim_run, left, right = next_delim_run
+                next_delim_run = self._next_run(delim_runs_iter)
+
+                syntax = delim_run.group(1)
+                em_type = syntax[0]
+
+                # if not a closing run, or there are no opens to consume
+                if not right or not opens[em_type]:
+                    # if it can also be an opening run
+                    if left:
+                        opens[em_type].append(delim_run)
+                    continue
+
+                # grab the open run. If it crosses a span, keep looking backwards
+                while opens[em_type] and self.body_crosses_span_borders(opens[em_type][-1], delim_run):
+                    opens[em_type].pop(-1)
+                if not opens[em_type]:
+                    if left:
+                        opens[em_type].append(delim_run)
+                    continue
+                open = opens[em_type].pop(-1)
+
+                if open.start() < index:
+                    # this happens with things like `*(**foo**)*`. We process LTR so the strong gets
+                    # processed first (since that has the first closing delimiter). We now have
+                    # `*(<strong>foo</strong>)*` and now we get round to processing the em.
+                    # It's hard compare the match (against the original text var) to the processed text
+                    # so it's easier to just note down that nesting is detected and re-run the loop
+                    nesting = True
+                    continue
+
+                # if the opening run was joined to a previous closing run (eg: **strong***em*)
+                # then re-use that previous closing run, but ignore the part that was used to
+                # close the previous emphasis
+                open_offset = unused_opens[em_type].pop(open, 0)
+                open_syntax = open.group(1)[open_offset:]
+
+                middle = None
+
+                # if the delimiter runs don't match then we need to figure out how to resolve this
+                if open_syntax != syntax:
+                    has_middle = self.has_middle(
+                        open, delim_run, opens[em_type],
+                        unused_opens[em_type], unused_closes[em_type]
+                    )
+
+                    if has_middle is not False:
+                        middle = has_middle[1]
+                        if has_middle[0] != open:
+                            # only re-assign and re-calc opening offsets if that run HAS changed
+                            open = has_middle[0]
+                            open_offset = unused_opens[em_type].pop(open, 0)
+                            open_syntax = open.group(1)[open_offset:]
+                    elif not self.should_process_imbalanced_delimiter_runs(
+                        open, delim_run, unused_opens[em_type], next_delim_run
+                    ):
+                        # if we shouldn't process them now, save these opens for a future pass
+                        unused_opens[em_type][open] = open_offset
+                        opens[em_type].append(open)
+                        if left:
+                            unused_opens[em_type][delim_run] = 0
+                            opens[em_type].append(delim_run)
+                        else:
+                            unused_closes[em_type].append(delim_run)
+                        continue
+
+                # add all the text leading up to the opening delimiter
+                tokens.append(delim_run.string[index: open.start() + open_offset])
+
+                span, close_syntax_used_chars = self.process_span(
+                    open, delim_run, middle,
+                    open_syntax=open_syntax, close_syntax=syntax
+                )
+                tokens.extend(span)
+
+                if close_syntax_used_chars is None:
+                    close_syntax_used_chars = len(syntax)
+                elif close_syntax_used_chars < len(syntax):
+                    # if we didn't use up the entire closing delimiter, mark it as unused
+                    unused_opens[em_type][delim_run] = close_syntax_used_chars
+                    opens[em_type].append(delim_run)
+                elif close_syntax_used_chars < len(open_syntax) and opens[em_type]:
+                    # if we skipped an open before, perhaps it wasn't a close at the time but now is?
+                    # eg: *a->***b**
+                    prev_open = opens[em_type][-1]
+                    prev_open_syntax = prev_open.group(1)
+                    if len(prev_open_syntax) >= (len(open_syntax) - close_syntax_used_chars):
+                        nesting = True
+
+                # Move index to end of the used delim run
+                index = delim_run.start() + close_syntax_used_chars
+
+            if index < len(text):
+                tokens.append(text[index:])
+
+            text = ''.join(tokens)
+
+        return text
+
+    def process_span(
+            self, open: re.Match[str], close: re.Match[str],
+            middle: Optional[re.Match[str]] = None,
+            open_syntax: Optional[str] = None,
+            close_syntax: Optional[str] = None
+        ) -> Tuple[List[str], Optional[int]]:
+        '''
+        Args:
+            open: the match against the opening delimiter run
+            close: the match against the closing delimiter run
+            middle: an optional delimiter run in the middle of the span
+            open_syntax: the string of the opening delimiter run. If omitted `open.group(1)` will be used.
+                Useful if there are characters in the delimiter run that need to be skipped
+            close_syntax: the string of the opening delimiter run. If omitted `close.group(1)` will be used.
+                Useful if there are characters in the delimiter run that need to be skipped
+
+        Returns:
+            A list of processed tokens, and then the number of chars from the closing syntax that were
+            consumed. If the latter item is None, then assume all chars were consumed
+        '''
+        open_syntax = open_syntax or cast(str, open.group(1))
+        middle_syntax = middle.group(1) if middle else ''
+        close_syntax = close_syntax or cast(str, close.group(1))
+
+        # calculate what em type the inner and outer emphasis is
+        outer_syntax_length = len(min(open_syntax, close_syntax))
+        inner_syntax_length = len(min(max(open_syntax, close_syntax), middle_syntax)) if middle else 0
+
+        tokens = [
+            # add anything from the opening syntax that will not be consumed
+            # eg: **one*
+            open_syntax[:-(outer_syntax_length + inner_syntax_length)],
+            # add opening tags
+            '<em>' * (outer_syntax_length % 2),
+            '<strong>' * (outer_syntax_length // 2)
+        ]
+
+        if middle:
+            # if there is a middle em (eg: ***abc*def**) then do some wrangling to figure
+            # out where to put the opening/closing inner tags depending on the size of the
+            # opening delim run
+            inner_tag = 'strong' if len(middle_syntax) == 2 else 'em'
+            if open_syntax > close_syntax:
+                tokens.append(f'<{inner_tag}>')
+
+            tokens.append(close.string[open.end(): middle.start()])
+
+            if open_syntax > close_syntax:
+                tokens.append(f'</{inner_tag}>')
+            else:
+                tokens.append(f'<{inner_tag}>')
+
+            tokens.append(close.string[middle.end(): close.start()])
+
+            if open_syntax < close_syntax:
+                tokens.append(f'</{inner_tag}>')
+        else:
+            # if no middle em then it's easy. Just add the whole text body
+            tokens.append(close.string[open.end(): close.start()])
+
+        # now add closing tags
+        tokens.append(
+            ('</strong>' * (outer_syntax_length // 2))
+            + ('</em>' * (outer_syntax_length % 2))
+        )
+
+        # figure out how many chars from the closing delimiter we've actually used
+        close_delim_chars_used = outer_syntax_length
+        if middle and open_syntax < close_syntax:
+            # if there's a middle part and it's right-aligned then add that on
+            close_delim_chars_used += inner_syntax_length
+
+        return tokens, close_delim_chars_used
+
+    def has_middle(
+        self, open: re.Match[str], close: re.Match[str], opens: List[re.Match[str]],
+        unused_opens: Dict[re.Match[str], int], unused_closes: List[re.Match[str]]
+    ) -> Union[Tuple[re.Match[str], Optional[re.Match[str]]], Literal[False]]:
+        '''
+        Check if an emphasis span has a middle delimiter run, which may change the outer tags
+
+        Args:
+            open: the current opening delimiter run
+            close: the closing delimiter run
+            opens: a list of all opening delimiter runs in the text
+            unused_opens: a mapping of unused opens within the text to their offset values
+            unused_closes: a list of unused closes within the text
+
+        Returns:
+            False if there is no middle run. Otherwise, a tuple of the new opening run and the optional
+            middle span. The middle span may be None if it is invalid
+        '''
+        open_offset = unused_opens.get(open, 0)
+        open_syntax = open.group(1)[open_offset:]
+
+        syntax = close.group(1)
+
+        if open_syntax < syntax and opens:
+            # expand the em span to the left, meaning we're covering additional chars.
+            # check we don't cross an existing span border
+            if self.body_crosses_span_borders(opens[-1], open):
+                return False
+
+            middle = open
+
+            open = opens.pop(-1)
+            open_offset = unused_opens.pop(open, 0)
+            open_syntax = open.group(1)[open_offset:]
+
+            if open_syntax == syntax:
+                # if it turns out the previous open is a perfect match then ignore the middle part
+                # eg: **foo*bar**
+                middle = None
+        elif open_syntax > syntax and unused_closes:
+            # check if there is a previous closing delim run in the current body
+            # since this is already within the body we don't need to do a cross-span border check
+            # as we're not expanding into new ground and that is covered later
+            middle = next((i for i in unused_closes if open.end() < i.start() < close.start()), None)
+        else:
+            return False
+
+        return open, middle
+
+    def should_process_imbalanced_delimiter_runs(
+        self, open: re.Match[str], close: re.Match[str],
+        unused_opens: Dict[re.Match[str], int],
+        next_delim_run: Optional[Tuple[re.Match[str], Optional[re.Match[str]], Optional[re.Match[str]]]] = None
+    ):
+        '''
+        Check if an imbalanced delimiter run should be consumed now, or left for a later pass
+
+        Args:
+            open: the opening delimiter run
+            close: the closing delimiter run
+            unused_opens: a mapping of unused opens within the text to their offset values
+            next_delim_run: the next delimiter run after the closing run
+        '''
+        # if no delimiter run after then close span immediately
+        if next_delim_run is None:
+            return True
+
+        open_offset = unused_opens.get(open, 0)
+        open_syntax = open.group(1)[open_offset:]
+        syntax = close.group(1)
+
+        if open_syntax < syntax and len(syntax) >= 3:
+            # if closing syntax is bigger and its >= three long then focus on closing any
+            # open em spans
+            return True
+
+        em_type = syntax[0]
+        next_delim_run_syntax = next_delim_run[0].group(1)
+        # if next run is of a different syntax
+        if next_delim_run_syntax[0] != em_type:
+            return True
+
+        left, right = self.delimiter_left_or_right(close)
+
+        if open_syntax < syntax and (
+            # if this run can be an opener, but the next run won't close both of them
+            (left and (
+                not next_delim_run[2]
+                or next_delim_run_syntax < open_syntax + syntax
+            ))
+            # if the next run is not an opener and won't consume this run
+            and not next_delim_run[1]
+        ):
+            return True
+
+        if open_syntax > syntax and (
+            # if this run can be a closer, but the next run is not a fresh opener
+            (right and not next_delim_run[1])
+            # if the next run is not a closer
+            and not next_delim_run[2]
+        ):
+            return True
+
+        # if there are no unused opens or closes to use up then this is just imbalanced.
+        # mark as unused and leave for later processing
+        return False
+
+    def delimiter_left_or_right(self, delim_run: re.Match[str]):
+        '''
+        Determine if a delimiter run is left or right flanking
+
+        Returns:
+            Tuple of bools that mean left and right flanking respectively
+        '''
+        run = delim_run.string[max(0, delim_run.start() - 1): delim_run.end() + 1]
+
+        return self._delimiter_left_or_right(run, delim_run.group(1))
+
+    @functools.lru_cache(maxsize=512)
+    def _delimiter_left_or_right(self, run: str, syntax: str):
+        '''
+        Cached version of `delimiter_left_or_right` that massively speeds things up when dealing
+        with many repetetive delimiter runs - eg: in a ReDoS scenario
+        '''
+        syntax_re = syntax.replace('*', r'\*')
+
+        left = (
+            # not followed by whitespace
+            re.match(r'.*%s\S' % syntax_re, run, re.S)
+            and (
+                # either not followed by punctuation
+                re.match(r'.*%s[\s\w]' % syntax_re, run, re.S)
+                # or followed by punct and preceded by punct/whitespace
+                or re.match(r'(^|[\s\W])%s([^\s\w]|$)' % syntax_re, run, re.S | re.M)
+            )
+        )
+
+        right =  (
+            # not preceded by whitespace
+            re.match(r'\S%s.*' % syntax_re, run, re.S)
+            and (
+                # either not preceded by punct
+                re.match(r'[\s\w]%s.*' % syntax_re, run, re.S)
+                # or preceded by punct and followed by whitespace or punct
+                or re.match(r'[^\s\w]%s(\s|[^\s\w]|$)' % syntax_re, run, re.S | re.M)
+            )
+        )
+
+        return left, right
+
+    def body_crosses_span_borders(self, open: re.Match[str], close: re.Match[str]):
+        '''
+        Checks if the body of an emphasis crosses a span border
+
+        Args:
+            open: the opening delimiter run
+            close: the closing delimiter run
+
+        Returns:
+            True if the emphasis crosses a span border (invalid). False if not
+        '''
+        text = open.string[open.end(): close.start()]
+        if len(text) < 7:
+            # 7 chars min is needed for '</a><a>'
+            return False
+        return self._body_crosses_span_borders(text)
+
+    @functools.lru_cache(maxsize=64)
+    def _body_crosses_span_borders(self, text: str):
+        '''Cached version of `body_crosses_span_borders`'''
+        for tag in set(re.findall(rf'</?({self.md._span_tags})', text)):
+            if not self.md._tag_is_closed(tag, text):
+                return True
+
+        return False
+
+    def _next_run(self, delim_runs_iter: Iterator[re.Match[str]]):
+        '''
+        Gets the next delimiter run from an iterator of delimiter runs
+
+        Returns:
+            A tuple containing the run, and matches dictating whether it is left or right flanking
+            respectively. Returns nothing if no valid runs left
+        '''
+        try:
+            while True:
+                delim_run = next(delim_runs_iter)
+                left, right = self.delimiter_left_or_right(delim_run)
+                if left or right:
+                    return (delim_run, left, right)
+        except StopIteration:
+            return
+
+    def test(self, text: str):
+        return text.count('*') > 1 or text.count('_') > 1
 
 
 class _LinkProcessorExtraOpts(TypedDict, total=False):
@@ -2547,7 +3035,7 @@ class LinkProcessor(Extra):
             url = self.md._strip_anglebrackets.sub(r'\1', url)
         return text, url, title, end_idx
 
-    def process_link_shortrefs(self, text: str, link_text: str, start_idx: int) -> Tuple[Optional[re.Match], str]:
+    def process_link_shortrefs(self, text: str, link_text: str, start_idx: int) -> Tuple[Optional[re.Match[str]], str]:
         '''
         Detects shortref links within a string and converts them to normal references
 
@@ -2691,7 +3179,6 @@ class LinkProcessor(Extra):
                 start_idx = text.index('[', curr_pos)
             except ValueError:
                 break
-            text_length = len(text)
 
             # Find the matching closing ']'.
             # Markdown.pl allows *matching* brackets in link text so we
@@ -2702,7 +3189,7 @@ class LinkProcessor(Extra):
 
             for p in range(
                 start_idx + 1,
-                min(start_idx + MAX_LINK_TEXT_SENTINEL, text_length)
+                min(start_idx + MAX_LINK_TEXT_SENTINEL, len(text))
             ):
                 ch = text[p]
                 if ch == ']':
@@ -2825,7 +3312,7 @@ class LinkProcessor(Extra):
 
         return text
 
-    def test(self, text):
+    def test(self, text: str):
         return '(' in text or '[' in text
 
 
@@ -2852,10 +3339,10 @@ class Admonitions(Extra):
         re.IGNORECASE | re.MULTILINE | re.VERBOSE
     )
 
-    def test(self, text):
+    def test(self, text: str):
         return self.admonitions_re.search(text) is not None
 
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         lead_indent, admonition_name, title, body = match.groups()
 
         admonition_type = '<strong>%s</strong>' % admonition_name
@@ -2883,7 +3370,7 @@ class Admonitions(Extra):
         # now indent the whole admonition back to where it started
         return self.md._uniform_indent(admonition, lead_indent, False)
 
-    def run(self, text):
+    def run(self, text: str):
         return self.admonitions_re.sub(self.sub, text)
 
 
@@ -2906,10 +3393,10 @@ class Alerts(Extra):
     ''', re.X
     )
 
-    def test(self, text):
+    def test(self, text: str):
         return "<blockquote>" in text
 
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         typ = match["type"].lower()
         heading = f"<em>{match['type'].title()}</em>"
         contents = match["contents"].strip()
@@ -2918,7 +3405,7 @@ class Alerts(Extra):
         else:
             return f'<div class="alert {typ}">\n{heading}\n<p>{contents}\n</div>'
 
-    def run(self, text):
+    def run(self, text: str):
         return self.alert_re.sub(self.sub, text)
 
 
@@ -2935,7 +3422,7 @@ class Breaks(Extra):
     order = (), (Stage.ITALIC_AND_BOLD,)
     options: _BreaksExtraOpts
 
-    def run(self, text):
+    def run(self, text: str):
         on_backslash = self.options.get('on_backslash', False)
         on_newline = self.options.get('on_newline', False)
 
@@ -2954,28 +3441,68 @@ class Breaks(Extra):
         return text
 
 
-class CodeFriendly(ItalicAndBoldProcessor):
+class CodeFriendly(GFMItalicAndBoldProcessor):
     '''
     Disable _ and __ for em and strong.
     '''
     name = 'code-friendly'
+    order = (Stage.ITALIC_AND_BOLD,), (Stage.ITALIC_AND_BOLD,)
 
-    def sub(self, match: re.Match) -> str:
-        syntax = match.group(1)
-        text: str = match.string[match.start(): match.end()]
-        if '_' in syntax:
-            # if using _this_ syntax, hash the whole thing so that it doesn't get processed
-            key = _hash_text(text)
-            self.hash_table[key] = text
-            return key
+    def __init__(self, md, options):
+        super().__init__(md, options)
+        self.hash_table = {}
+
+    def run(self, text: str):
+        if self.md.order < Stage.ITALIC_AND_BOLD:
+            text = super().run(text)
+        else:
+            orig_text = ''
+            while orig_text != text:
+                orig_text = text
+                for key, substr in self.hash_table.items():
+                    text = text.replace(key, substr)
+        return text
+
+    def process_span(
+        self, open: re.Match[str], close: re.Match[str], middle: Optional[re.Match[str]] = None,
+        open_syntax: Optional[str] = None, close_syntax: Optional[str] = None
+    ):
+        text = open.string[open.start(): close.end()]
+        open_syntax = open_syntax or cast(str, open.group(1))
+        close_syntax = close_syntax or cast(str, close.group(1))
+
+        if '_' in open_syntax:
+            # if using _this_ syntax, hash it to avoid processing, but don't hash the contents incase of nested syntax
+            text = re.sub(r'_+', lambda m: self._hash_text(m.group(0)), text)
+            return [text], None
         elif '_' in text:
-            # if the text within the bold/em markers contains '_' then hash those contents to protect them from em_re
-            text = text[len(syntax): -len(syntax)]
-            key = _hash_text(text)
-            self.hash_table[key] = text
-            return syntax + key + syntax
-        # if no underscores are present, the text is fine and we can just leave it alone
-        return super().sub(match)
+            # if the text within the bold/em markers contains '_' then hash those chars to protect them from em_re
+            text = (
+                text[len(open_syntax): -len(close_syntax)]
+                .replace('__', self._hash_text('__'))
+                .replace('_', self._hash_text('_'))
+            )
+            return [open_syntax, text, close_syntax], None
+
+        return super().process_span(open, close, middle, open_syntax, close_syntax)
+
+    def _hash_text(self, text: str):
+        '''
+        Wrapper around `_hash_text` that updates the entries in `self.hash_table`
+        '''
+        # perf: avoid calling _hash_text if we can. Lookup in existing hash table
+        if text in self.hash_table.values():
+            return tuple(self.hash_table.keys())[tuple(self.hash_table.values()).index(text)]
+
+        # add a prefix to it so we don't interfere with escaped/hashed chars from other stages
+        hashed = _hash_text(self.name + text)
+        self.hash_table[hashed] = text
+        return hashed
+
+    def test(self, text: str):
+        return super().test(text) or (
+            self.hash_table and re.search(r'md5-[0-9a-z]{32}', text)
+        )
 
 
 class FencedCodeBlocks(Extra):
@@ -2996,12 +3523,14 @@ class FencedCodeBlocks(Extra):
         \1[ \t]*\n                      # closing fence
         ''', re.M | re.X | re.S)
 
-    def test(self, text):
+    def test(self, text: str):
         if '```' not in text:
             return False
         if self.md.stage == Stage.PREPROCESS and not self.md.safe_mode:
+            # if safe mode is off then run before HASH_HTML and not worry about the tags getting messed up
             return True
         if self.md.stage == Stage.LINK_DEFS and self.md.safe_mode:
+            # if safe mode is on then run after HASH_HTML is done
             return True
         return self.md.stage == Stage.BLOCK_GAMUT
 
@@ -3038,7 +3567,7 @@ class FencedCodeBlocks(Extra):
                                                **formatter_opts)
 
         # add back the indent to all lines
-        return "\n%s\n" % self.md._uniform_indent(colored, leading_indent, True)
+        return self.md._uniform_indent(colored, leading_indent, True)
 
     def tags(self, lexer_name: str) -> tuple[str, str]:
         '''
@@ -3058,17 +3587,25 @@ class FencedCodeBlocks(Extra):
             code_class = self.md._html_class_str_from_tag('code')
         return ('<pre{}><code{}>'.format(pre_class, code_class), '</code></pre>')
 
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         lexer_name = match.group(2)
         codeblock = match.group(3)
         codeblock = codeblock[:-1]  # drop one trailing newline
+
+        # figure out what newlines were already surrounding the code block and preserve them in the output
+        leading_newlines = match.string[match.start(): match.regs[1][0]]
+        trailing_newlines = re.search(r'\n*$', match.group()).group()
 
         # Use pygments only if not using the highlightjs-lang extra
         if lexer_name and "highlightjs-lang" not in self.md.extras:
             lexer = self.md._get_pygments_lexer(lexer_name)
             if lexer:
-                leading_indent = ' '*(len(match.group(1)) - len(match.group(1).lstrip()))
-                return self._code_block_with_lexer_sub(codeblock, leading_indent, lexer)
+                leading_indent = ' ' * (len(match.group(1)) - len(match.group(1).lstrip()))
+                return (
+                    leading_newlines
+                    + self._code_block_with_lexer_sub(codeblock, leading_indent, lexer)
+                    + trailing_newlines
+                )
 
         # Fenced code blocks need to be outdented before encoding, and then reapplied
         leading_indent = ' ' * (len(match.group(1)) - len(match.group(1).lstrip()))
@@ -3080,9 +3617,15 @@ class FencedCodeBlocks(Extra):
 
         tags = self.tags(lexer_name)
 
-        return "\n{}{}{}\n{}{}\n".format(leading_indent, tags[0], codeblock, leading_indent, tags[1])
+        return (
+            f'{leading_newlines}'
+            f'{leading_indent}{tags[0]}'
+            f'{codeblock}'
+            f'\n{leading_indent}{tags[1]}'
+            f'{trailing_newlines}'
+        )
 
-    def run(self, text):
+    def run(self, text: str):
         return self.fenced_code_block_re.sub(self.sub, text)
 
 
@@ -3115,7 +3658,7 @@ class Latex(Extra):
         self.code_blocks[placeholder] = match.group(0)
         return placeholder
 
-    def run(self, text):
+    def run(self, text: str):
         try:
             import latex2mathml.converter
             self.converter = latex2mathml.converter
@@ -3148,7 +3691,7 @@ class LinkPatterns(Extra):
 
     _basic_link_re = re.compile(r'!?\[.*?\]\(.*?\)')
 
-    def run(self, text):
+    def run(self, text: str):
         link_from_hash = {}
         for regex, repl in self.options:
             replacements = []
@@ -3198,14 +3741,13 @@ class LinkPatterns(Extra):
                         .replace('*', self.md._escape_table['*'])
                         .replace('_', self.md._escape_table['_']))
                 link = '<a href="{}">{}</a>'.format(escaped_href, text[start:end])
-                hash = _hash_text(link)
-                link_from_hash[hash] = link
+                hash = self.md._hash_span(link, link_from_hash)
                 text = text[:start] + hash + text[end:]
         for hash, link in list(link_from_hash.items()):
             text = text.replace(hash, link)
         return text
 
-    def test(self, text):
+    def test(self, text: str):
         return True
 
 
@@ -3219,8 +3761,8 @@ class MarkdownInHTML(Extra):
     name = 'markdown-in-html'
     order = (), (Stage.HASH_HTML,)
 
-    def run(self, text):
-        def callback(block):
+    def run(self, text: str):
+        def callback(block: str):
             indent, block = self.md._uniform_outdent(block)
             block = self.md._hash_html_block_sub(block)
             block = self.md._uniform_indent(block, indent, include_empty_lines=True, indent_empty_lines=False)
@@ -3228,7 +3770,7 @@ class MarkdownInHTML(Extra):
 
         return self.md._strict_tag_block_sub(text, self.md._block_tags_a, callback, True)
 
-    def test(self, text):
+    def test(self, text: str):
         return True
 
 
@@ -3270,7 +3812,7 @@ class MarkdownFileLinks(LinkProcessor):
 
         return super().run(text)
 
-    def test(self, text):
+    def test(self, text: str):
         return super().test(text) and '.md' in text
 
 
@@ -3278,13 +3820,13 @@ class Mermaid(FencedCodeBlocks):
     name = 'mermaid'
     order = (FencedCodeBlocks,), ()
 
-    def tags(self, lexer_name):
+    def tags(self, lexer_name: str):
         if lexer_name == 'mermaid':
             return ('<pre class="mermaid-pre"><div class="mermaid">', '</div></pre>')
         return super().tags(lexer_name)
 
 
-class MiddleWordEm(ItalicAndBoldProcessor):
+class MiddleWordEm(GFMItalicAndBoldProcessor):
     '''
     Allows or disallows emphasis syntax in the middle of words,
     defaulting to allow. Disabling this means that `this_text_here` will not be
@@ -3309,42 +3851,56 @@ class MiddleWordEm(ItalicAndBoldProcessor):
         options.setdefault('allowed', True)
         super().__init__(md, options)
 
-        self.liberal_em_re = self.em_re
-        if not options['allowed']:
-            self.em_re = re.compile(r'(?<=\b)%s(?=\b)' % self.em_re.pattern, self.em_re.flags)
-            self.liberal_em_re = re.compile(
-                r'''
-                    (                # \1 - must be a single em char in the middle of a word
-                        (?<![*_\s])  # cannot be preceeded by em character or whitespace (must be in middle of word)
-                        [*_]         # em character
-                        (?![*_])     # cannot be followed by another em char
-                    )
-                    (?=\S)           # em opening must be followed by non-whitespace text
-                    (.*?\S)          # the emphasized text
-                    \1               # closing char
-                    (?!\s|$)         # must not be followed by whitespace (middle of word) or EOF
-                '''
-                , re.S | re.X)
+        escaped_hashes = '|'.join(md._escape_table.values())
 
-    def run(self, text):
+        self.middle_word_em_re = re.compile(
+            r'''
+            (?<!^)         # To be middle of a word, it cannot be at the start of the input
+            (?<![*_\W])    # cannot be preceeded by em char or non word char (must be in middle of word)
+            (?<!%s)        # cannot be preceeded by a hashed escape char either
+            ([*_])         # em char
+            (?=\S)         # must be followed by non-whitespace char
+            (?!
+                [*_]|$|\W  # cannot be followed by another em char, EOF or a non-word char
+                |%s        # Also cannot be followed by any of the escaped non-word chars
+            )
+            ''' % (escaped_hashes, escaped_hashes),
+            re.X | re.M
+        )
+
+        # add a prefix to it so we don't interfere with escaped/hashed chars from other stages
+        self.hash_table = {
+            '_': _hash_text(self.name + '_'),
+            '*': _hash_text(self.name + '*')
+        }
+
+    def run(self, text: str):
         if self.options['allowed']:
             # if middle word em is allowed, do nothing. This extra's only use is to prevent them
             return text
 
-        # run strong and whatnot first
-        # this also will process all strict ems
-        text = super().run(text)
+        # hash all em chars in the middle of words to prevent em_re from picking up on them
         if self.md.order < self.md.stage:
-            # hash all non-valid ems
-            text = self.liberal_em_re.sub(self.sub_hash, text)
+            text = self.middle_word_em_re.sub(self.sub, text)
+
+        # put all the em chars back
+        if self.md.order > self.md.stage:
+            text = text.replace(self.hash_table['_'], '_')
+            text = text.replace(self.hash_table['*'], '*')
+
         return text
 
-    def sub(self, match: re.Match) -> str:
-        syntax = match.group(1)
-        if len(syntax) != 1:
-            # strong syntax
+    def sub(self, match: re.Match[str]):
+        if match.re != self.middle_word_em_re:
             return super().sub(match)
-        return '<em>%s</em>' % match.group(2)
+
+        syntax = match.group(1)
+        return self.hash_table[syntax]
+
+    def test(self, text: str):
+        return super().test(text) or (
+            self.hash_table and re.search(r'md5-[0-9a-z]{32}', text)
+        )
 
 
 class Numbering(Extra):
@@ -3356,7 +3912,7 @@ class Numbering(Extra):
     name = 'numbering'
     order = (Stage.LINK_DEFS,), ()
 
-    def run(self, text):
+    def run(self, text: str):
         # First pass to define all the references
         regex_defns = re.compile(r'''
             \[\#(\w+) # the counter.  Open square plus hash plus a word \1
@@ -3421,10 +3977,10 @@ class PyShell(Extra):
     name = 'pyshell'
     order = (), (Stage.LISTS,)
 
-    def test(self, text):
+    def test(self, text: str):
         return ">>>" in text
 
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         if "fenced-code-blocks" in self.md.extras:
             dedented = _dedent(match.group(0))
             return self.md.extra_classes['fenced-code-blocks'].run("```pycon\n" + dedented + "```\n")
@@ -3437,7 +3993,7 @@ class PyShell(Extra):
              + '\n')
         return s
 
-    def run(self, text):
+    def run(self, text: str):
         less_than_tab = self.md.tab_width - 1
         _pyshell_block_re = re.compile(r"""
             ^([ ]{0,%d})>>>[ ].*\n  # first line
@@ -3478,7 +4034,7 @@ class SmartyPants(Extra):
                 "&#8217;%s" % c.capitalize())
         return text
 
-    def run(self, text):
+    def run(self, text: str):
         """Fancifies 'single quotes', "double quotes", and apostrophes.
         Converts --, ---, and ... into en dashes, em dashes, and ellipses.
 
@@ -3511,7 +4067,7 @@ class SmartyPants(Extra):
 
         return text
 
-    def test(self, text):
+    def test(self, text: str):
         return any(i in text for i in (
             "'",
             '"',
@@ -3530,10 +4086,10 @@ class Strike(Extra):
 
     _strike_re = re.compile(r"~~(?=\S)(.+?)(?<=\S)~~", re.S)
 
-    def run(self, text):
+    def run(self, text: str):
         return self._strike_re.sub(r"<s>\1</s>", text)
 
-    def test(self, text):
+    def test(self, text: str):
         return '~~' in text
 
 
@@ -3546,7 +4102,7 @@ class Tables(Extra):
     name = 'tables'
     order = (), (Stage.LISTS,)
 
-    def run(self, text):
+    def run(self, text: str):
         """Copying PHP-Markdown and GFM table syntax. Some regex borrowed from
         https://github.com/michelf/php-markdown/blob/lib/Michelf/Markdown.php#L2538
         """
@@ -3575,7 +4131,7 @@ class Tables(Extra):
             ''' % (less_than_tab, less_than_tab, less_than_tab), re.M | re.X)
         return table_re.sub(self.sub, text)
 
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         trim_space_re = r'^\s+|\s+$'
         trim_bar_re = r'^\||\|$'
         split_bar_re = r'^\||(?<![\`\\])\|'
@@ -3630,10 +4186,10 @@ class TelegramSpoiler(Extra):
 
     _tg_spoiler_re = re.compile(r"\|\|\s?(.+?)\s?\|\|", re.S)
 
-    def run(self, text):
+    def run(self, text: str):
         return self._tg_spoiler_re.sub(r"<tg-spoiler>\1</tg-spoiler>", text)
 
-    def test(self, text):
+    def test(self, text: str):
         return '||' in text
 
 
@@ -3646,10 +4202,10 @@ class Underline(Extra):
 
     _underline_re = re.compile(r"(?<!<!)--(?!>)(?=\S)(.+?)(?<=\S)(?<!<!)--(?!>)", re.S)
 
-    def run(self, text):
+    def run(self, text: str):
         return self._underline_re.sub(r"<u>\1</u>", text)
 
-    def test(self, text):
+    def test(self, text: str):
         return '--' in text
 
 
@@ -3672,11 +4228,11 @@ class Wavedrom(Extra):
     order = (Stage.CODE_BLOCKS, FencedCodeBlocks), ()
     options: _WavedromExtraOpts
 
-    def test(self, text):
+    def test(self, text: str):
         match = FencedCodeBlocks.fenced_code_block_re.search(text)
         return match is None or match.group(2) == 'wavedrom'
 
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         # dedent the block for processing
         lead_indent, waves = self.md._uniform_outdent(match.group(3))
         # default tags to wrap the wavedrom block in
@@ -3701,7 +4257,7 @@ class Wavedrom(Extra):
             lead_indent, include_empty_lines=True
         )
 
-    def run(self, text):
+    def run(self, text: str):
         return FencedCodeBlocks.fenced_code_block_re.sub(self.sub, text)
 
 
@@ -3713,7 +4269,7 @@ class WikiTables(Extra):
     name = 'wiki-tables'
     order = (Tables,), ()
 
-    def run(self, text):
+    def run(self, text: str):
         less_than_tab = self.md.tab_width - 1
         wiki_table_re = re.compile(r'''
             (?:(?<=\n\n)|\A\n?)            # leading blank line
@@ -3722,7 +4278,7 @@ class WikiTables(Extra):
             ''' % less_than_tab, re.M | re.X)
         return wiki_table_re.sub(self.sub, text)
 
-    def sub(self, match: re.Match) -> str:
+    def sub(self, match: re.Match[str]) -> str:
         ttext = match.group(0).strip()
         rows = []
         for line in ttext.splitlines(0):
@@ -3863,7 +4419,7 @@ def _curry(function: Callable, *args, **kwargs) -> Callable:
 
 
 # Recipe: regex_from_encoded_pattern (1.0)
-def _regex_from_encoded_pattern(s: str) -> re.Pattern:
+def _regex_from_encoded_pattern(s: str) -> re.Pattern[str]:
     """'foo'    -> re.compile(re.escape('foo'))
        '/foo/'  -> re.compile('foo')
        '/foo/i' -> re.compile('foo', re.I)
@@ -4011,7 +4567,7 @@ class _memoized:
         return self.func.__doc__
 
 
-def _xml_oneliner_re_from_tab_width(tab_width: int) -> re.Pattern:
+def _xml_oneliner_re_from_tab_width(tab_width: int) -> re.Pattern[str]:
     """Standalone XML processing instruction regex."""
     return re.compile(r"""
         (?:
@@ -4033,7 +4589,7 @@ def _xml_oneliner_re_from_tab_width(tab_width: int) -> re.Pattern:
 _xml_oneliner_re_from_tab_width = _memoized(_xml_oneliner_re_from_tab_width)
 
 
-def _hr_tag_re_from_tab_width(tab_width: int) -> re.Pattern:
+def _hr_tag_re_from_tab_width(tab_width: int) -> re.Pattern[str]:
     return re.compile(r"""
         (?:
             (?<=\n\n)       # Starting after a blank line

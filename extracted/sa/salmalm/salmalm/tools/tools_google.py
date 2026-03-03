@@ -38,7 +38,7 @@ def _google_oauth_headers() -> dict:
         )
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                result = json.loads(resp.read(4 * 1024 * 1024))
+                result = json.loads(resp.read())
                 new_token = result.get("access_token", "")
                 if new_token:
                     vault.set("google_access_token", new_token)
@@ -69,7 +69,7 @@ def handle_google_calendar(args: dict) -> str:
         req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read(4 * 1024 * 1024))
+                data = json.loads(resp.read())
         except _ue.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")[:300]
             if e.code == 403:
@@ -113,7 +113,7 @@ def handle_google_calendar(args: dict) -> str:
             f"{base_url}/events", data=body, headers={**headers, "Content-Type": "application/json"}, method="POST"
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read(4 * 1024 * 1024))
+            result = json.loads(resp.read())
         return f"📅 Event created: **{result.get('summary')}** ({result.get('htmlLink', '')})"
 
     elif action == "delete":
@@ -139,7 +139,7 @@ def _gmail_list(args: dict, base_url: str, headers: dict) -> str:
         params += f"&labelIds={label}"
     req = urllib.request.Request(f"{base_url}/messages?{params}", headers=headers)
     with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read(4 * 1024 * 1024))
+        data = json.loads(resp.read())
     messages = data.get("messages", [])
     if not messages:
         return "📧 No messages found."
@@ -148,7 +148,7 @@ def _gmail_list(args: dict, base_url: str, headers: dict) -> str:
         msg_url = f"{base_url}/messages/{msg_ref['id']}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date"
         try:
             with urllib.request.urlopen(urllib.request.Request(msg_url, headers=headers), timeout=10) as resp:
-                msg = json.loads(resp.read(4 * 1024 * 1024))
+                msg = json.loads(resp.read())
             hdrs = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
             lines.append(f"  📩 **{hdrs.get('Subject', '(no subject)')}** — {hdrs.get('From', '?')[:30]}")
             lines.append(f"     {hdrs.get('Date', '')[:22]} | {msg.get('snippet', '')[:80]}")
@@ -175,7 +175,7 @@ def handle_gmail(args: dict) -> str:
         url = f"{base_url}/messages/{msg_id}?format=full"
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
-            msg = json.loads(resp.read(4 * 1024 * 1024))
+            msg = json.loads(resp.read())
         hdrs = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
         subj = hdrs.get("Subject", "(no subject)")
         frm = hdrs.get("From", "?")
@@ -220,7 +220,7 @@ def handle_gmail(args: dict) -> str:
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read(4 * 1024 * 1024))
+            result = json.loads(resp.read())
         return f"📧 Email sent to {to} (ID: {result.get('id', '?')})"
 
     return f"❌ Unknown gmail action: {action}"

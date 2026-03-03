@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import NamedTuple, Callable
 from functools import partial
 
 from jax._src import api
@@ -81,7 +81,10 @@ class _ZoomState(NamedTuple):
   ngev: int | Array
 
 
-def _zoom(restricted_func_and_grad, wolfe_one, wolfe_two, a_lo, phi_lo,
+ConditionFn = Callable[..., Array]
+
+
+def _zoom(restricted_func_and_grad, wolfe_one: ConditionFn, wolfe_two: ConditionFn, a_lo, phi_lo,
           dphi_lo, a_hi, phi_hi, dphi_hi, g_0, pass_through):
   """
   Implementation of zoom. Algorithm 3.6 from Wright and Nocedal, 'Numerical
@@ -226,8 +229,8 @@ def _zoom(restricted_func_and_grad, wolfe_one, wolfe_two, a_lo, phi_lo,
 
 
 class _LineSearchState(NamedTuple):
-  done: bool | Array
-  failed: bool | Array
+  done: Array
+  failed: Array
   i: int | Array
   a_i1: float | Array
   phi_i1: float | Array
@@ -235,8 +238,8 @@ class _LineSearchState(NamedTuple):
   nfev: int | Array
   ngev: int | Array
   a_star: float | Array
-  phi_star: float | Array
-  dphi_star: float | Array
+  phi_star: Array
+  dphi_star: Array
   g_star: Array
 
 
@@ -301,16 +304,16 @@ def line_search(f, xk, pk, old_fval=None, old_old_fval=None, gfk=None, c1=1e-4,
   else:
     start_value = 1
 
-  def wolfe_one(a_i, phi_i):
+  def wolfe_one(a_i, phi_i) -> Array:
     # actually negation of W1
     return phi_i > phi_0 + c1 * a_i * dphi_0
 
-  def wolfe_two(dphi_i):
+  def wolfe_two(dphi_i) -> Array:
     return jnp.abs(dphi_i) <= -c2 * dphi_0
 
   state = _LineSearchState(
-      done=False,
-      failed=False,
+      done=jnp.array(False, dtype=bool),
+      failed=jnp.array(False, dtype=bool),
       # algorithm begins at 1 as per Wright and Nocedal, however Scipy has a
       # bug and starts at 0. See https://github.com/scipy/scipy/issues/12157
       i=1,
@@ -325,7 +328,7 @@ def line_search(f, xk, pk, old_fval=None, old_old_fval=None, gfk=None, c1=1e-4,
       g_star=gfk,
   )
 
-  def body(state):
+  def body(state) -> _LineSearchState:
     # no amax in this version, we just double as in scipy.
     # unlike original algorithm we do our next choice at the start of this loop
     a_i = jnp.where(state.i == 1, start_value, state.a_i1 * 2.)
@@ -404,9 +407,10 @@ def line_search(f, xk, pk, old_fval=None, old_old_fval=None, gfk=None, c1=1e-4,
     state = state._replace(i=state.i + 1, a_i1=a_i, phi_i1=phi_i, dphi_i1=dphi_i)
     return state
 
-  state = lax.while_loop(lambda state: (~state.done) & (state.i <= maxiter) & (~state.failed),
-                         body,
-                         state)
+  state: _LineSearchState = lax.while_loop(
+    lambda state: (~state.done) & (state.i <= maxiter) & (~state.failed),
+    body,
+    state)
 
   status = jnp.where(
       state.failed,

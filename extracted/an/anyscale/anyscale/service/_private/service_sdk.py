@@ -284,6 +284,7 @@ class PrivateServiceSDK(WorkloadSDK):
         project_id = self.client.get_project_id(
             parent_cloud_id=cloud_id, name=config.project
         )
+        connection_ids = self.resolve_connection_ids(config.connections)
         return ApplyProductionServiceV2Model(
             name=name,
             version=config.version_name,
@@ -300,6 +301,7 @@ class PrivateServiceSDK(WorkloadSDK):
             ray_gcs_external_storage_config=existing_config.ray_gcs_external_storage_config,
             tracing_config=existing_config.tracing_config,
             tags=config.tags,
+            connection_ids=connection_ids,
         )
 
     def _build_apply_service_model_for_rollout(  # noqa: PLR0912
@@ -320,6 +322,7 @@ class PrivateServiceSDK(WorkloadSDK):
             build_id = self._image_sdk.build_image_from_containerfile(
                 name=f"image-for-service-{name}",
                 containerfile=self.get_containerfile_contents(config.containerfile),
+                containerfile_path=config.containerfile,
                 anonymous=True,
                 ray_version=config.ray_version,
             )
@@ -417,6 +420,7 @@ class PrivateServiceSDK(WorkloadSDK):
             if config.tracing_config.sampling_ratio is not None:
                 tracing_config.sampling_ratio = config.tracing_config.sampling_ratio
 
+        connection_ids = self.resolve_connection_ids(config.connections)
         return ApplyProductionServiceV2Model(
             name=name,
             version=config.version_name,
@@ -436,6 +440,7 @@ class PrivateServiceSDK(WorkloadSDK):
             tracing_config=tracing_config,
             traffic_percent=traffic_percent,
             tags=config.tags,
+            connection_ids=connection_ids,
         )
 
     def _build_apply_service_model_for_multi_version(
@@ -955,6 +960,8 @@ class PrivateServiceSDK(WorkloadSDK):
 
         version_name = model.version or self._get_user_facing_service_version_id(model)
 
+        connections = self.resolve_connection_ids_to_configs(model.connection_ids)
+
         return ServiceVersionStatus(
             id=self._get_user_facing_service_version_id(model),
             name=version_name,
@@ -981,6 +988,7 @@ class PrivateServiceSDK(WorkloadSDK):
                 if project is not None and project.name != "default"
                 else None,
                 tracing_config=tracing_config,
+                connections=connections,
             ),
         )
 

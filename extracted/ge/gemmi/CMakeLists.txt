@@ -212,8 +212,8 @@ target_compile_features(gemmi_headers INTERFACE cxx_std_14)
 set_target_properties(gemmi_headers PROPERTIES EXPORT_NAME headers)
 
 add_library(gemmi_cpp
-            src/align.cpp src/assembly.cpp src/calculate.cpp src/ccp4.cpp
-            src/crd.cpp src/ddl.cpp src/eig3.cpp src/fprime.cpp src/gz.cpp
+            src/ace_cc.cpp src/ace_graph.cpp src/acedrg_tables.cpp src/align.cpp src/assembly.cpp src/calculate.cpp src/ccp4.cpp
+            src/crd.cpp src/ddl.cpp src/eig3.cpp src/flat.cpp src/fprime.cpp src/gz.cpp
             src/intensit.cpp src/json.cpp src/mmcif.cpp src/mmread_gz.cpp
             src/monlib.cpp src/mtz.cpp src/mtz2cif.cpp
             src/pdb.cpp src/polyheur.cpp src/read_cif.cpp
@@ -326,7 +326,7 @@ add_executable(gemmi_prog
                prog/align.cpp prog/blobs.cpp
                prog/cif2mtz.cpp prog/cif2json.cpp prog/cifdiff.cpp
                prog/contact.cpp prog/contents.cpp prog/convert.cpp prog/crd.cpp
-               prog/ecalc.cpp prog/fprime.cpp
+               prog/drg.cpp prog/ecalc.cpp prog/fprime.cpp
                prog/grep.cpp prog/h.cpp prog/json2cif.cpp
                prog/main.cpp prog/map.cpp prog/map2sf.cpp
                prog/mapcoef.cpp prog/mask.cpp prog/merge.cpp
@@ -451,6 +451,10 @@ endif()
 ### Python bindings ###
 if (USE_PYTHON)
   message(STATUS "The python module will be built.")
+
+  # workaround for https://github.com/wjakob/nanobind/issues/1237
+  set(NB_USE_SUBMODULE_DEPS ON)
+
   # CMake >=3.18 has subcomponent Development.Module, scikit-build-core also has it
   if (${CMAKE_VERSION} VERSION_LESS 3.18 AND NOT SKBUILD)
     find_package(Python ${PYTHON_VERSION} REQUIRED COMPONENTS Interpreter Development)

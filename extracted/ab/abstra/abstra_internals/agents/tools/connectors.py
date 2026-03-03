@@ -1,0 +1,58 @@
+from collections.abc import Iterable
+from typing import Any, Dict, List, Optional, Set, Union
+
+from .base import AgentTools
+
+
+def to_connections(c: Optional[Union[str, Iterable[str]]]) -> Optional[Set[str]]:
+    if c is None:
+        return None
+    elif isinstance(c, list):
+        return set(c)
+    elif isinstance(c, str):
+        return set([c])
+    raise ValueError(f"Invalid connection: {c}")
+
+
+def to_actions(a: Optional[Union[str, Iterable[str]]]) -> Optional[Set[str]]:
+    if a is None:
+        return None
+    elif isinstance(a, list):
+        return set(a)
+    elif isinstance(a, str):
+        return set([a])
+    raise ValueError(f"Invalid action: {a}")
+
+
+def to_params(p: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    return p or {}
+
+
+class ConnectorsTools(AgentTools):
+    connections: Optional[Set[str]]
+    actions: Optional[Set[str]]
+    params: Dict[str, Any]
+
+    def __init__(
+        self,
+        action: Optional[Union[str, Iterable[str]]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ):
+        self.actions = to_actions(action)
+        self.params = to_params(params)
+
+    def call(self, connection: str, action: str, params: Dict[str, Any] = {}) -> Any:
+        from abstra.connectors import run_connection_action
+
+        if self.connections is not None and connection not in self.connections:
+            raise ValueError(f"Connection '{connection}' is not allowed.")
+
+        if self.actions is not None and action not in self.actions:
+            raise ValueError(f"Action '{action}' is not allowed.")
+        params = {**params, **self.params}
+        return run_connection_action(connection, action, params)
+
+    def __tools__(self) -> List[str]:
+        return [
+            self.call.__name__,
+        ]

@@ -2755,14 +2755,6 @@ class CfnDeploymentGroup(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -7751,6 +7743,12 @@ class LambdaDeploymentGroup(
         return typing.cast("ILambdaApplication", jsii.get(self, "application"))
 
     @builtins.property
+    @jsii.member(jsii_name="applicationName")
+    def application_name(self) -> builtins.str:
+        '''The name of the Application.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationName"))
+
+    @builtins.property
     @jsii.member(jsii_name="deploymentConfig")
     def deployment_config(self) -> "ILambdaDeploymentConfig":
         '''The Deployment Configuration this Group uses.'''
@@ -8746,6 +8744,12 @@ class ServerDeploymentGroup(
     @jsii.member(jsii_name="application")
     def application(self) -> "IServerApplication":
         return typing.cast("IServerApplication", jsii.get(self, "application"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationName")
+    def application_name(self) -> builtins.str:
+        '''The name of the Application.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationName"))
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfig")
@@ -10228,6 +10232,12 @@ class EcsDeploymentGroup(
     def application(self) -> "IEcsApplication":
         '''The reference to the CodeDeploy ECS Application that this Deployment Group belongs to.'''
         return typing.cast("IEcsApplication", jsii.get(self, "application"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationName")
+    def application_name(self) -> builtins.str:
+        '''The name of the Application.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationName"))
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfig")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rusket
-Version: 0.1.71
+Version: 0.1.85
 Requires-Dist: zensical>=0.0.23 ; extra == 'docs'
 Requires-Dist: tabulate>=0.9.0 ; extra == 'docs'
 Requires-Dist: mlflow>=2.0 ; extra == 'mlflow'
@@ -48,7 +48,7 @@ Project-URL: Repository, https://github.com/bmsuisse/rusket.git
 
 | Goal | Details |
 |---|---|
-| ⚡ **Blazing fast** | All algorithms run in compiled Rust (via PyO3) with multi-threaded Rayon parallelism and SIMD-accelerated kernels. ALS is **3×**, BPR **20×** faster than Python alternatives. |
+| ⚡ **Blazing fast** | All algorithms run in compiled Rust (via PyO3) with multi-threaded Rayon parallelism and SIMD-accelerated kernels. ALS is **11×**, and FP-Growth is **140×** faster than PySpark. |
 | 📦 **Zero dependencies** | No TensorFlow, no PyTorch, no JVM. A single ~3 MB wheel is all you need — `pip install rusket` and go. |
 | 🧑‍💻 **Easy to use** | Common cases are one-liners: `model.recommend_items(user_id)`, `model.recommend_users(item_id)`, `model.export_item_factors()` for vector/embedding export. No boilerplate. |
 | 🏗️ **Modern data stack** | Native Pandas, Polars, and Apache Spark support with zero-copy Arrow transfers. Works seamlessly with Delta Lake, Databricks, Snowflake, and any dbt/Parquet pipeline. |
@@ -61,7 +61,7 @@ Project-URL: Repository, https://github.com/bmsuisse/rusket.git
 
 **Zero runtime dependencies.** No TensorFlow, no PyTorch, no JVM — just `pip install rusket` and go. The entire engine is compiled Rust, distributed as a single ~3 MB wheel.
 
-It features Collaborative Filtering (ALS, BPR, SVD, LightGCN, ItemKNN, EASE), Sequential Recommendation (FPMC, SASRec), Context-aware Prediction (FM), Pattern Mining (FP-Growth, Eclat, FIN, LCM, HUPM, PrefixSpan), and built-in Hyperparameter Tuning (Optuna + MLflow tracking) with high performance and low memory footprints. Both functional and OOP APIs are available for seamless integration.
+It features Collaborative Filtering (ALS, BPR, SVD, LightGCN, ItemKNN, UserKNN, EASE), Sequential Recommendation (FPMC, SASRec), Context-aware Prediction (FM), Pattern Mining (FP-Growth, Eclat, FIN, LCM, HUPM, PrefixSpan), and built-in Hyperparameter Tuning (Optuna + MLflow tracking) with high performance and low memory footprints. Both functional and OOP APIs are available for seamless integration.
 
 ---
 
@@ -72,7 +72,7 @@ It features Collaborative Filtering (ALS, BPR, SVD, LightGCN, ItemKNN, EASE), Se
 | **Core language** | Rust (PyO3) | TF + PyTorch + Cython | Cython / C++ | Scala / Java (JVM) |
 | **Runtime deps** | **0** | TF + PyTorch + gensim (~2 GB) | OpenBLAS / MKL | JVM + Spark |
 | **Install size** | ~3 MB | ~2 GB | ~50 MB | ~300 MB |
-| **Algorithms** | ALS, BPR, SVD, LightGCN, ItemKNN, EASE, FM, FPMC, SASRec, FP-Growth, Eclat, FIN, LCM, HUPM, PrefixSpan | ALS, BPR, SVD, LightGCN, ItemCF, FM, DeepFM, ... | ALS, BPR | ALS, FP-Growth, PrefixSpan |
+| **Algorithms** | ALS, BPR, SVD, LightGCN, ItemKNN, UserKNN, EASE, FM, FPMC, SASRec, FP-Growth, Eclat, FIN, LCM, HUPM, PrefixSpan | ALS, BPR, SVD, LightGCN, ItemCF, FM, DeepFM, ... | ALS, BPR | ALS, FP-Growth, PrefixSpan |
 | **Recommender API** | ✅ Hybrid Engine + i2i Similarity | ✅ | ✅ | ✅ (ALS only) |
 | **Graph & Embeddings** | ✅ NetworkX Export, Vector DB Export | ❌ | ❌ | ❌ |
 | **OOP class API** | ✅ `ALS.from_transactions(df).fit()` | ✅ | ✅ | ✅ |
@@ -181,40 +181,6 @@ ohe = FPGrowth.from_transactions([["HDPHONES", "USB_DAC"], ["HDPHONES", "CARRY_C
 ```
 
 > **Spark** is also supported: `FPGrowth.from_spark(spark_df)` calls `.toPandas()` internally.
-
----
-
-### ⚡ Eclat — Large SKU Catalogues
-
-`eclat` uses vertical bitset representation + hardware `popcnt` for fast support counting. Ideal for **large SKU catalogues** where baskets contain only a handful of items out of thousands (low density, typically < 0.15).
-
-```python
-import pandas as pd
-from rusket import Eclat
-
-# Fashion e-tailer: 5 receipts, basket contains only a subset of the catalogue
-baskets = pd.DataFrame({
-    "jeans":    [True, True, False, True, True],
-    "t_shirt":  [True, False, True,  True, False],
-    "sneakers": [True, True, True,  False, True],
-    "belt":     [False, True, True,  False, True],
-})
-
-# Eclat — same API as FPGrowth, typically faster on sparse catalogues
-model = Eclat(baskets, min_support=0.4)
-freq  = model.mine(use_colnames=True)
-rules = model.association_rules(min_threshold=0.6)
-print(rules)
-```
-
-#### When to use which?
-
-You almost always want to use `FPGrowth`. This evaluates the density of your dataset `nnz / (rows * cols)` using the [Borgelt heuristic (2003)](https://borgelt.net/doc/eclat/eclat.html) to pick the best algorithm under the hood:
-
-| Scenario | Algorithm chosen by `FPGrowth` |
-|---|---|
-| Large SKU catalogue, small basket size (density < 0.15) | `Eclat` (bitset/SIMD intersections) |
-| Smaller catalogue, dense baskets (density > 0.15) | `FPGrowth` (FP-tree traversals) |
 
 ---
 
@@ -496,6 +462,7 @@ Every algorithm in `rusket` exposes a **class-based API** in addition to the fun
 | `SVD` | `ImplicitRecommender` | Funk SVD (biased SGD) |
 | `LightGCN` | `ImplicitRecommender` | Graph Convolutional CF |
 | `ItemKNN` | `ImplicitRecommender` | Item-based k-NN CF |
+| `UserKNN` | `ImplicitRecommender` | User-based k-NN CF |
 | `EASE` | `ImplicitRecommender` | Embarrassingly Shallow Autoencoders |
 | `FM` | `BaseModel` | Factorization Machines (CTR prediction) |
 | `FPMC` | `SequentialRecommender` | Factorizing Personalized Markov Chains |
@@ -522,7 +489,7 @@ rules  = model.association_rules(metric="lift")    # pd.DataFrame [antecedents, 
 recs   = model.recommend_items(["bread", "milk"])  # list of suggested items
 ```
 
-`ImplicitRecommender` subclasses (`ALS`, `BPR`, `SVD`, `LightGCN`, `ItemKNN`, `EASE`) follow the **scikit-learn** `fit()`/`predict()` pattern.
+`ImplicitRecommender` subclasses (`ALS`, `BPR`, `SVD`, `LightGCN`, `ItemKNN`, `UserKNN`, `EASE`) follow the **scikit-learn** `fit()`/`predict()` pattern.
 `SequentialRecommender` subclasses (`FPMC`, `SASRec`) use `from_transactions(..., time_col=...).fit()` for sequential next-item prediction:
 
 ```python
@@ -548,6 +515,35 @@ users, scores = model.recommend_users(item_id=99, n=5)
 ## 🧠 Advanced Pattern & Recommendation Algorithms
 
 `rusket` provides more than just basic market basket analysis. It includes an entire suite of modern algorithms and a high-level Business Recommender API.
+
+### 🎯 ItemKNN & UserKNN — Nearest-Neighbor Collaborative Filtering
+
+Two complementary memory-based methods that consistently rank among the **top performers** in academic benchmarks (see [Anelli et al. 2022](https://arxiv.org/abs/2203.01155)).
+
+- **ItemKNN** — Finds items similar to what the user already liked. Fast, stable, and scales well with pre-computed item-item similarity.
+- **UserKNN** — Finds users similar to the target user and recommends what they liked. Often more serendipitous and performs particularly well on dense datasets.
+
+Both support **BM25**, **TF-IDF**, **Cosine**, and raw **Count** weighting, with the top-K neighbor pruning running in parallel Rust.
+
+```python
+from rusket import ItemKNN, UserKNN
+
+# ── Item-based: "Customers who bought X also bought Y" ────────────
+item_knn = ItemKNN.from_transactions(
+    purchases, user_col="user_id", item_col="item_id",
+    method="bm25", k=100,
+).fit()
+items, scores = item_knn.recommend_items(user_id=42, n=10)
+
+# ── User-based: "Users similar to you enjoyed these items" ────────
+user_knn = UserKNN.from_transactions(
+    purchases, user_col="user_id", item_col="item_id",
+    method="cosine", k=50,
+).fit()
+items, scores = user_knn.recommend_items(user_id=42, n=10)
+```
+
+> **Which one to choose?** Start with `ItemKNN(method="bm25")` — it's the fastest and most stable. Switch to `UserKNN` if you have a dense dataset or want more diverse recommendations. In production, try both and evaluate with `rusket.evaluate()`.
 
 ### 🎯 ALS & BPR Collaborative Filtering
 
@@ -620,17 +616,31 @@ It chains multiple models together:
 3. **Filter:** Apply business rules (e.g. exclude out-of-stock items, diversify)
 
 ```python
-from rusket import ALS, BPR, Pipeline
+from rusket import ALS, BPR, Pipeline, RuleBasedRecommender
+import pandas as pd
 
 # 1. Train multiple base models
 als = ALS(factors=64).fit(interactions)
 bpr = BPR(factors=128).fit(interactions)
 
-# 2. Compose the Pipeline (Retrieve from ALS, rerank with deeper BPR vectors)
+# 2. Define explicit business rules (e.g. promoting warranties with laptops)
+rules_df = pd.DataFrame({
+    "antecedent": ["102"],   # Laptop SKU
+    "consequent": ["999"],   # Warranty SKU
+    "score": [2.0]
+})
+rules = RuleBasedRecommender.from_transactions(
+    interactions, rules=rules_df, user_col="user", item_col="item"
+).fit()
+
+# 3. Compose the Pipeline (Retrieve from ALS, rerank with deeper BPR vectors)
+# Items from the `rules` model receive an artificial +1,000,000 score 
+# ensuring they rank at the top *after* the algorithmic reranking.
 pipeline = Pipeline(
     retrieve=[als, bpr],
     merge_strategy="max",  # how to combine candidate scores
     rerank=bpr,
+    rules=rules, 
 )
 
 # Recommend for a user
@@ -733,15 +743,29 @@ Integrate natively with the modern GenAI/LLM stack:
 
 ---
 
-### 🔬 Hyperparameter Tuning (Optuna + MLflow)
+### 🔬 MLOps: MLflow Tracking & Hyperparameter Tuning
 
-Built-in Bayesian hyperparameter optimisation using [Optuna](https://optuna.org)'s TPE sampler. For **ALS/eALS** models, each trial runs the Rust-native cross-validation backend — making the entire search blazingly fast.
+`rusket` has built-in support for [MLflow](https://mlflow.org/) experiment tracking, `mlflow.pyfunc` packaging, and Bayesian hyperparameter optimisation using [Optuna](https://optuna.org/)'s TPE sampler. For **ALS/eALS** models, each Optuna trial runs the Rust-native cross-validation backend — making the entire search blazingly fast.
 
 ```python
 import rusket
+import rusket.mlflow
 from rusket import OptunaSearchSpace
 
-# ── Quick search with sensible defaults ──────────────────────────────
+# ── 1. Enable MLflow Autologging ─────────────────────────────────────
+rusket.mlflow.autolog()
+
+# ── 2. Train a single model with automatic tracking ──────────────────
+# Hyperparameters (factors, iterations) and training_duration_seconds are logged!
+import mlflow
+with mlflow.start_run():
+    model = rusket.ALS(factors=64, iterations=15).fit(df)
+
+# Save/Load models as native MLflow pyfunc artifacts for easy deployment
+rusket.mlflow.save_model(model, "my_als_model")
+loaded_model = mlflow.pyfunc.load_model("my_als_model")  # Has a .predict(df) method
+
+# ── 3. Quick hyperparameter search with sensible defaults ───────────
 result = rusket.optuna_optimize(
     rusket.ALS,
     df,

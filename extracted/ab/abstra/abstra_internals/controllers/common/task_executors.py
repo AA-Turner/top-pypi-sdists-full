@@ -5,7 +5,6 @@ from abstra_internals.entities.execution import Execution
 from abstra_internals.entities.execution_context import ScriptContext
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import (
-    AgentStage,
     ComponentStage,
     FormStage,
     ScriptStage,
@@ -150,7 +149,7 @@ class TaskExecutor:
             self._send_waiting_thread_notification(task)
             if execution:
                 execution.context.sent_tasks.append(task.id)
-            if isinstance(stage, (ScriptStage, AgentStage)):
+            if isinstance(stage, ScriptStage):
                 self.repos.producer.enqueue_fire_and_forget(
                     context=ScriptContext(task_id=task.id),
                     stage_id=stage.id,

@@ -66,9 +66,7 @@ def fractal_hurst(signal, scale="default", corrected=True, show=False):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     n = len(signal)
     scale = _fractal_dfa_findscales(n, scale)
@@ -83,9 +81,7 @@ def fractal_hurst(signal, scale="default", corrected=True, show=False):
 
     # it may happen that no rs vals are left (if all values of data are the same)
     if len(rs_vals) == 0:
-        raise ValueError(
-            "All (R/S) values are NaN. Check your data, or try a different window length."
-        )
+        raise ValueError("All (R/S) values are NaN. Check your data, or try a different window length.")
 
     # Transform RS values
     rs_vals = np.log10(rs_vals)
@@ -162,7 +158,6 @@ def _fractal_hurst_rs(signal, window):
 
 
 def _fractal_hurst_plot(poly, n_vals, rs_vals, corrected=False, ax=None):
-
     if ax is None:  # ax option in case more plots need to be added later
         fig, ax = plt.subplots()
         fig.suptitle("Hurst Exponent via Rescaled Range (R/S) Analysis")
@@ -183,9 +178,9 @@ def _fractal_hurst_plot(poly, n_vals, rs_vals, corrected=False, ax=None):
 
     fit_values = [poly[0] * i + poly[1] for i in n_vals]
     if corrected:
-        label = "corrected h = {}".format(round(poly[0] + 0.5, 2))
+        label = f"corrected h = {round(poly[0] + 0.5, 2)}"
     else:
-        label = "h = {}".format(round(poly[0], 2))
+        label = f"h = {round(poly[0], 2)}"
     ax.plot(n_vals, fit_values, color="#E91E63", zorder=2, linewidth=3, label=label)
     ax.legend(loc="lower right")
 
@@ -212,7 +207,6 @@ def _fractal_hurst_generalized(signal, q=2):
     k = 0
 
     for Tmax in range(5, 20):
-
         x = np.arange(1, Tmax + 1, 1)
         mcord = np.zeros((Tmax, 1))
 
@@ -224,7 +218,7 @@ def _fractal_hurst_generalized(signal, q=2):
             Y = VV
 
             mx = np.sum(X) / N
-            SSxx = np.sum(X ** 2) - N * mx ** 2
+            SSxx = np.sum(X**2) - N * mx**2
             my = np.sum(Y) / N
             SSxy = np.sum(np.multiply(X, Y)) - N * mx * my
             cc1 = SSxy / SSxx
@@ -234,7 +228,7 @@ def _fractal_hurst_generalized(signal, q=2):
             mcord[tt - 1] = np.mean(np.abs(ddVd) ** q) / np.mean(np.abs(VVVd) ** q)
 
         mx = np.mean(np.log10(x))
-        SSxx = np.sum(np.log10(x) ** 2) - Tmax * mx ** 2
+        SSxx = np.sum(np.log10(x) ** 2) - Tmax * mx**2
         my = np.mean(np.log10(mcord))
         SSxy = np.sum(np.multiply(np.log10(x), np.transpose(np.log10(mcord)))) - Tmax * mx * my
         H[k] = SSxy / SSxx

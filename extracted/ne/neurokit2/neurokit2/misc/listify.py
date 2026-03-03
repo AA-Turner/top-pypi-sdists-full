@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-
 def listify(**kwargs):
     """**Transforms arguments into lists of the same length**
 
@@ -20,8 +17,7 @@ def listify(**kwargs):
     for key, value in args.items():
         if isinstance(value, str) is False:
             try:
-                if len(value) > maxi:
-                    maxi = len(value)
+                maxi = max(maxi, len(value))
             except TypeError:
                 pass
 

@@ -14,8 +14,8 @@ from plato.cli.agent import agent_app
 from plato.cli.chronos import chronos_app
 from plato.cli.compose import app as compose_app
 from plato.cli.pm import pm_app
-from plato.cli.sam3 import sam3_app
 from plato.cli.sandbox import sandbox_app
+from plato.cli.segmentation import segmentation_app
 from plato.cli.session import app as session_app
 from plato.cli.utils import console, get_http_client, require_api_key
 from plato.cli.world import world_app
@@ -80,7 +80,7 @@ app.add_typer(pm_app, name="pm")
 app.add_typer(agent_app, name="agent")
 app.add_typer(world_app, name="world")
 app.add_typer(chronos_app, name="chronos")
-app.add_typer(sam3_app, name="sam3")
+app.add_typer(segmentation_app, name="segmentation")
 
 
 # =============================================================================

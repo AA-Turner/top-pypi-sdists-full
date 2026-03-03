@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +13,7 @@ from plato._generated.models import (
     EnvFromResource,
     EnvFromSimulator,
 )
-from plato.markers import FieldMarker
+from plato.markers import FieldMarker, WorkspaceMarker
 from plato.runtime import (
     DockerRuntimeConfig,
     RuntimeConfig,
@@ -35,8 +34,6 @@ __all__ = [
     "SessionConfig",
     "VMResources",
     "VMRuntimeConfig",
-    "WorkspaceConfig",
-    "WorkspaceMode",
 ]
 
 
@@ -48,12 +45,16 @@ class LLMConfig(BaseModel):
         api_key: API key passed directly to litellm (works for any provider)
         max_tokens: Default max output tokens
         temperature: Default sampling temperature (None = provider default)
+        concurrency: Max concurrent requests for this model (0 = unlimited).
+            The limit is enforced per (model, api_base) pair globally in acompletion.
     """
 
     model: str
+    api_base: str = ""
     api_key: str = ""
     max_tokens: int = 4096
     temperature: float | None = None
+    concurrency: int = 0
 
 
 class DevConfig(BaseModel):
@@ -123,44 +124,44 @@ class AgentConfig(BaseModel):
 class StateConfig(BaseModel):
     """Configuration for world state persistence.
 
-    State is persisted as a JSON file uploaded to S3 via Chronos presigned URLs.
-    At each checkpoint, state is uploaded. On restore, state is downloaded from
-    the specified resume session.
+    State is persisted to the Chronos DB after each step. Worlds can call
+    ``load_state()`` to fetch the latest state for the current session
+    or a different session (cross-session resume).
 
     Attributes:
         enabled: Whether to enable state persistence (default: True).
-        path: Path to the local state directory (default: /state).
-        resume: Whether to load saved state on startup (default: True).
-        resume_session: Session ID to resume from. State will be downloaded
-            from that session before the world starts.
+        path: Path to the local state/workspace directory (default: /state).
     """
 
     enabled: bool = True
     path: str = "/state"
-    resume: bool = True
-    resume_session: str = ""
-    resume_step: int | None = None
+    resume_from: str = ""  # session_id to load pipeline state from (cross-session resume)
+    resume_workspaces: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map workspace name → repo name for cross-session resume, "
+        "e.g. {'recordings': 'webclone/recordings'}",
+    )
+    checkpoint_interval_s: int = 300  # background checkpoint interval in seconds (0 = disabled)
 
 
-class WorkspaceMode(str, Enum):
-    """How the workspace is shared with agent VMs."""
+class WorkspaceInitConfig(BaseModel):
+    """Per-workspace initial state config.
 
-    rsync = "rsync"
-    nfs = "nfs"
+    Tells the world which Chronos workspace repo / commit to restore from
+    before execution starts.
 
+    Usage in run config YAML:
+        workspaces:
+          output:
+            commit: "webclone/output:abc123def"  # repo:hash
+          cache:
+            commit: "abc123def"  # hash only → repo auto-generated as {world_name}/{field_name}
 
-class WorkspaceConfig(BaseModel):
-    """Configuration for the workspace shared across VMs in a session.
-
-    Attributes:
-        path: Path to the workspace directory on the world VM (default: /workspace).
-        mode: How the workspace is shared with agent VMs.
-              'rsync': rsync to/from agent VMs before/after each agent run.
-              'nfs' (default): agent VMs mount workspace via NFSv4; writes are immediate.
+    If commit is omitted entirely, repo auto-generates as {world_name}/{field_name}
+    and starts empty.
     """
 
-    path: str = "/workspace"
-    mode: WorkspaceMode = WorkspaceMode.nfs
+    commit: str = ""  # "reponame:hash" or just "hash" or empty
 
 
 class CheckpointConfig(BaseModel):
@@ -175,6 +176,27 @@ class CheckpointConfig(BaseModel):
     enabled: bool = False
     interval: int = 1
     exclude_envs: list[str] = Field(default_factory=lambda: ["runtime"])
+
+
+class TailscaleConfig(BaseModel):
+    """Optional Tailscale VPN configuration.
+
+    When ``enabled`` is True, the world VM joins the specified tailnet before
+    ``reset()`` runs.  This allows worlds to reach machines on the tailnet
+    (e.g. GPU servers) by hostname.
+
+    Uses ``api_key`` (a Tailscale API key) to generate a short-lived auth key
+    automatically via the Tailscale API.
+
+    Example YAML::
+
+        tailscale:
+          enabled: true
+          api_key: "tskey-api-..."
+    """
+
+    enabled: bool = False
+    api_key: str = ""
 
 
 class RunConfig(BaseModel):
@@ -208,13 +230,16 @@ class RunConfig(BaseModel):
     # State persistence configuration
     state: StateConfig = Field(default_factory=StateConfig)
 
-    # Workspace configuration
-    workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
+    # Per-workspace init config (workspace name → init config)
+    workspaces: dict[str, WorkspaceInitConfig] = Field(default_factory=dict)
+
+    # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set
+    tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)
 
     model_config = {"extra": "allow"}
 
     @classmethod
-    def get_field_annotations(cls) -> dict[str, FieldMarker | None]:
+    def get_field_annotations(cls) -> dict[str, FieldMarker | WorkspaceMarker | None]:
         """Get FieldMarker annotations for each field."""
         return get_field_annotations(cls)
 

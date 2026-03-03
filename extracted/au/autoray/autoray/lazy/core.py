@@ -1245,6 +1245,16 @@ def find_broadcast_shape(xshape, yshape):
 # -------------------------------- interface -------------------------------- #
 
 
+# TODO: notable still missing
+# dot
+# vdot
+# inner
+# outer
+# pad
+# squeeze
+# to_numpy
+
+
 def Variable(shape, backend=None):
     """Create a ``LazyArray`` from a shape only, representing a leaf node
     in the computational graph. It can only act as a placeholder for data.
@@ -1940,12 +1950,23 @@ prod = make_reduction_func("prod", var_name="prod")
 min_ = make_reduction_func("min", var_name="min_")
 max_ = make_reduction_func("max", var_name="max_")
 
-# # XXX: still missing
-# allclose
-# dot, vdot, inner, outer
-# pad, eye
-# squeeze, expand_dims
-# to_numpy
+
+@lazy_cache("allclose")
+def allclose(a, b, rtol=1e-05, atol=1e-08, equal_nan=False):
+    a = ensure_lazy(a)
+    b = ensure_lazy(b)
+
+    backend = find_common_backend(a, b)
+    fn_allclose = get_lib_fn(backend, "allclose")
+
+    return LazyArray(
+        backend=backend,
+        fn=fn_allclose,
+        args=(a, b),
+        kwargs={"rtol": rtol, "atol": atol, "equal_nan": equal_nan},
+        shape=(),
+        deps=tuple(x for x in (a, b) if isinstance(x, LazyArray)),
+    )
 
 
 # ----------------------------- array creation ------------------------------ #

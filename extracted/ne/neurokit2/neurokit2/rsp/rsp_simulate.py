@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from ..misc import check_random_state, check_random_state_children
@@ -85,9 +84,7 @@ def rsp_simulate(
         length = duration * sampling_rate
 
     if method.lower() in ["sinusoidal", "sinus", "simple"]:
-        rsp = _rsp_simulate_sinusoidal(
-            duration=duration, sampling_rate=sampling_rate, respiratory_rate=respiratory_rate
-        )
+        rsp = _rsp_simulate_sinusoidal(duration=duration, sampling_rate=sampling_rate, respiratory_rate=respiratory_rate)
     else:
         rsp = _rsp_simulate_breathmetrics(
             duration=duration,
@@ -277,9 +274,7 @@ def _rsp_simulate_breathmetrics_original(
             this_inhale_pause = []
             this_exhale_pauseLength = 0
             this_exhale_pause = []
-            cycle_length = phases_with_noise[c] - (
-                this_inhale_pauseLength + this_exhale_pauseLength
-            )
+            cycle_length = phases_with_noise[c] - (this_inhale_pauseLength + this_exhale_pauseLength)
 
         # Compute inhale and exhale for this cycle
         this_cycle = np.sin(np.linspace(0, 2 * np.pi, cycle_length)) * amplitudes_with_noise[c]
@@ -303,9 +298,7 @@ def _rsp_simulate_breathmetrics_original(
             inhale_pause_onsets[c] = np.nan
 
         if len(this_exhale_pause) > 0:
-            exhale_pause_onsets[c] = (
-                i + this_inhale_length + this_inhale_pauseLength + this_exhale_length
-            )
+            exhale_pause_onsets[c] = i + this_inhale_length + this_inhale_pauseLength + this_exhale_length
         else:
             exhale_pause_onsets[c] = np.nan
 
@@ -323,9 +316,7 @@ def _rsp_simulate_breathmetrics_original(
         i = i + len(this_breath) - 1
 
     # Smooth signal
-    simulated_respiration = signal_smooth(
-        simulated_respiration, kernel="boxzen", size=sampling_rate / 2
-    )
+    simulated_respiration = signal_smooth(simulated_respiration, kernel="boxzen", size=sampling_rate / 2)
 
     if signal_noise == 0:
         signal_noise = 0.0001
@@ -367,7 +358,6 @@ def _rsp_simulate_breathmetrics_original(
 
 
 def _rsp_simulate_breathmetrics(duration=10, sampling_rate=1000, respiratory_rate=15, rng=None):
-
     n_cycles = int(respiratory_rate / 60 * duration)
 
     # Loop until it doesn't fail

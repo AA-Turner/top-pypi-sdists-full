@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib.pyplot as plt
@@ -39,12 +38,12 @@ def signal_filter(
     highcut : float
         Upper cutoff frequency in Hz. The default is ``None``.
     method : str
-        Can be one of ``"butterworth"``, ``"fir"``, ``"bessel"`` or ``"savgol"``. Note that for
-        Butterworth, the function uses the SOS method from :func:`.scipy.signal.sosfiltfilt`,
+        Can be one of ``"butterworth"``, ``"fir"``, ``"bessel"``, ``"chebyshevii"`` or ``"savgol"``. Note that for
+        Butterworth and Chebyshev, the function uses the SOS method from :func:`.scipy.signal.sosfiltfilt`,
         recommended for general purpose filtering. One can also specify ``"butterworth_ba"`` for a
         more traditional and legacy method (often implemented in other software).
     order : int
-        Only used if ``method`` is ``"butterworth"`` or ``"savgol"``. Order of the filter (default
+        Only used if ``method`` is ``"butterworth"``, ``"chebyshevii"`` or ``"savgol"``. Order of the filter (default
         is 2).
     window_size : int
         Only used if ``method`` is ``"savgol"``. The length of the filter window (i.e. the number of
@@ -150,8 +149,9 @@ def signal_filter(
         filtered = _signal_filter_savgol(signal_sanitized, sampling_rate, order, window_size=window_size)
     elif method in ["powerline"]:
         filtered = _signal_filter_powerline(signal_sanitized, sampling_rate, powerline)
+    elif method in ["iirnotch"]:
+        filtered = _signal_filter_iirnotch(signal_sanitized, sampling_rate)
     else:
-
         # Sanity checks
         if lowcut is None and highcut is None:
             raise ValueError("NeuroKit error: signal_filter(): you need to specify a 'lowcut' or a 'highcut'.")
@@ -165,12 +165,20 @@ def signal_filter(
         elif method in ["bessel"]:
             filtered = _signal_filter_bessel(signal_sanitized, sampling_rate, lowcut, highcut, order)
         elif method in ["fir"]:
-            filtered = _signal_filter_fir(signal_sanitized, sampling_rate, lowcut, highcut, window_size=window_size)
+            filtered = _signal_filter_fir(
+                signal_sanitized,
+                sampling_rate,
+                lowcut,
+                highcut,
+                window_size=window_size,
+            )
+        elif method in ["chebyshevii"]:
+            filtered = _signal_filter_chebyshevii(signal_sanitized, sampling_rate, lowcut, highcut, order)
         else:
             raise ValueError(
                 "NeuroKit error: signal_filter(): 'method' should be",
-                " one of 'butterworth', 'butterworth_ba', 'butterworth_zi', 'bessel',",
-                " 'savgol' or 'fir'.",
+                " one of 'butterworth', 'butterworth_ba', 'butterworth_zi', 'bessel', 'chebyshevii',",
+                " 'iirnotch', 'savgol' or 'fir'.",
             )
 
     filtered[missing] = np.nan
@@ -309,10 +317,23 @@ def _signal_filter_powerline(signal, sampling_rate, powerline=50):
 
 
 # =============================================================================
+# IIR Notch
+# =============================================================================
+
+
+def _signal_filter_iirnotch(signal, sampling_rate, cutoff=0.05, Q=0.005):
+    """Apply infinite impulse response notch filter"""
+
+    b, a = scipy.signal.iirnotch(w0=cutoff, Q=Q, fs=sampling_rate)
+    y = scipy.signal.filtfilt(b, a, signal)
+
+    return y
+
+
+# =============================================================================
 # Utility
 # =============================================================================
 def _signal_filter_sanitize(lowcut=None, highcut=None, sampling_rate=1000, normalize=False):
-
     # Sanity checks
     if lowcut is not None or highcut is not None:
         if sampling_rate <= 2 * np.nanmax(np.array([lowcut, highcut], dtype=np.float64)):
@@ -367,3 +388,17 @@ def _signal_filter_missing(signal):
         return signal_interpolate(signal, method="linear"), missing
     else:
         return signal, missing
+
+
+# =============================================================================
+# Chebyshev
+# =============================================================================
+
+
+def _signal_filter_chebyshevii(signal, sampling_rate=1000, lowcut=None, highcut=None, order=5):
+    """Filter a signal using IIR Chebyshev Type II SOS method."""
+    freqs, filter_type = _signal_filter_sanitize(lowcut=lowcut, highcut=highcut, sampling_rate=sampling_rate)
+    # rs value of 20 was used in pyPPG:
+    sos = scipy.signal.cheby2(order, 20, freqs, btype=filter_type, output="sos", fs=sampling_rate)
+    filtered = scipy.signal.sosfiltfilt(sos, signal)
+    return filtered

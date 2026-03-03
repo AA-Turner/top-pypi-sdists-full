@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 import dataclasses
 from functools import partial
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 
@@ -26,16 +26,15 @@ from jax._src.core import typeof
 from jax._src import source_info_util
 from jax._src import linear_util as lu
 from jax._src.partition_spec import PartitionSpec as P
-from jax._src.sharding_impls import NamedSharding
 from jax._src import mesh as mesh_lib
 from jax._src.ad_util import Zero, SymbolicZero, add_jaxvals, add_jaxvals_p
-from jax._src.core import Trace, Tracer, TraceTag, AxisName
+from jax._src.core import Trace, Tracer, TraceTag
 from jax._src.interpreters import partial_eval as pe
 from jax._src.tree_util import (tree_unflatten, tree_flatten, PyTreeDef)
 from jax._src.typing import Array
 from jax._src.util import (unzip2, safe_map, safe_zip, split_list,
                            canonicalize_axis, moveaxis, as_hashable_function,
-                           curry, memoize, weakref_lru_cache, tuple_insert)
+                           memoize, weakref_lru_cache, tuple_insert)
 
 map, unsafe_map = safe_map, map
 zip, unsafe_zip = safe_zip, zip
@@ -52,7 +51,8 @@ ToEltHandler = Callable[[Callable, GetIdx, Vmappable, MapSpec], Elt]
 FromEltHandler = Callable[[Callable, AxisSize, Elt, MapSpec], Vmappable]
 MakeIotaHandler = Callable[[AxisSize], Array]
 
-def to_elt(trace: Trace, get_idx: GetIdx, x: Vmappable, spec: MapSpec) -> Elt:
+def to_elt(trace: BatchTrace, get_idx: GetIdx, x: Vmappable, spec: MapSpec) -> Elt:
+  from jax._src import hijax  # type: ignore
   handler = to_elt_handlers.get(type(x))
   if handler:
     return handler(partial(to_elt, trace, get_idx), get_idx, x, spec)
@@ -60,9 +60,10 @@ def to_elt(trace: Trace, get_idx: GetIdx, x: Vmappable, spec: MapSpec) -> Elt:
     spec = spec and canonicalize_axis(spec, len(np.shape(x)))
     return (BatchTracer(trace, x, spec, source_info_util.current())
             if spec is not None else x)
+  elif isinstance(typeof(x), hijax.HiType):
+    # TODO check possible errors
+    return BatchTracer(trace, x, spec, source_info_util.current())
   else:
-    # TODO(mvoz): This is a terrible place to fall into if you pass
-    # a non jumble type in, make it clearer what went wrong.
     assert False, f'Unexpected type in ELT? {type(x)}'
 
 
@@ -78,8 +79,8 @@ def from_elt(trace: BatchTrace, axis_size: AxisSize, mesh_axis: MeshAxis,
   val, bdim = trace.to_batch_info(x)
   bdim_inferred = bdim if spec is infer else spec
   try:
-    return matchaxis(trace.axis_data.name, axis_size, mesh_axis,
-                     bdim, spec, val, sum_match=sum_match), bdim_inferred
+    return matchaxis2(trace.axis_data, bdim, spec, val,
+                      sum_match=sum_match), bdim_inferred
   except SpecMatchError:
     raise SpecMatchError(i, x.batch_dim, spec) from None
 from_elt_handlers: dict[type, FromEltHandler] = {}
@@ -107,15 +108,7 @@ vmappables: dict[type, tuple[type, type]] = {}
 spec_types: set[type] = set()
 
 def unregister_vmappable(data_type: type) -> None:
-  _, axis_size_type = vmappables.pop(data_type)
-  del to_elt_handlers[data_type]
-  del from_elt_handlers[data_type]
-  if axis_size_type in make_iota_handlers:
-    del make_iota_handlers[axis_size_type]
-  global spec_types
-  spec_types = (
-      set() | {spec_type for spec_type, _ in vmappables.values()}
-  )
+  pass  # this used to do cleanup, but it was dumb
 
 def is_vmappable(x: Any) -> bool:
   return type(x) in vmappables
@@ -140,10 +133,12 @@ not_mapped = None
 class BatchTracer(Tracer):
   __slots__ = ['val', 'batch_dim', 'source_info']
 
-  def __init__(self, trace, val, batch_dim: NotMapped | int,
+  _trace: BatchTrace  # pyrefly: ignore[bad-override]
+
+  def __init__(self, trace: BatchTrace, val, batch_dim: NotMapped | int,
                source_info: source_info_util.SourceInfo | None = None):
     if config.enable_checks.value:
-      assert type(batch_dim) in (NotMapped, int)
+      # assert type(batch_dim) in (NotMapped, int)
       if type(batch_dim) is int:
         aval = core.get_aval(val)
         assert 0 <= batch_dim < len(aval.shape)
@@ -157,6 +152,7 @@ class BatchTracer(Tracer):
 
   @property
   def aval(self):
+    from jax._src import hijax  # type: ignore
     aval = core.get_aval(self.val)
     if self._trace.axis_data.spmd_name is not None:
       if config._check_vma.value:
@@ -166,6 +162,9 @@ class BatchTracer(Tracer):
       return aval
     elif type(self.batch_dim) is int:
       return core.mapped_aval(aval.shape[self.batch_dim], self.batch_dim, aval)
+    elif isinstance(aval, hijax.HiType):
+      # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
+      return aval.dec_rank(self._trace.axis_data.size, self.batch_dim)
     else:
       raise Exception("batch dim should be int or `not_mapped`")
 
@@ -224,10 +223,9 @@ class AxisData:
 
 def get_sharding_for_vmap(axis_data, orig_sharding, axis):
   val = axis_data.explicit_mesh_axis
-  # TODO(yashkatariya): Preserve unreduced here using
-  # `orig_sharding.spec.update`
-  new_spec = P(*tuple_insert(orig_sharding.spec, axis, val))
-  return NamedSharding(orig_sharding.mesh, new_spec)
+  new_spec = orig_sharding.spec.update(
+      partitions=tuple_insert(orig_sharding.spec, axis, val))
+  return orig_sharding.update(spec=new_spec)
 
 
 class BatchTrace(Trace):
@@ -246,31 +244,32 @@ class BatchTrace(Trace):
     else:
       return val, not_mapped
 
-  def process_primitive(self, p, tracers, params):
+  def cur_qdd(self, x):
+    val, _ = self.to_batch_info(x)
+    with core.set_current_trace(self.parent_trace):
+      return core.cur_qdd(val)
+
+  def process_primitive(self, p, tracers, params):  # pyrefly: ignore[bad-param-name-override]
     vals_in, dims_in = unzip2(map(self.to_batch_info, tracers))
     args_not_mapped = all(bdim is not_mapped for bdim in dims_in)
     if p in fancy_primitive_batchers:
-      if (args_not_mapped
-          and p in skippable_batchers
-          and not any(self.axis_data.name == axis_name
-                      for axis_name in skippable_batchers[p](params))):
-        return p.bind_with_trace(self.parent_trace, vals_in, params)
-      else:
-        with core.set_current_trace(self.parent_trace):
-          val_out, dim_out = fancy_primitive_batchers[p](
-              self.axis_data, vals_in, dims_in, **params)
-    elif args_not_mapped:
+      # TODO(yashkatariya): Remove remove_explicit_mesh_axis_names when vmap
+      # mesh ctx is correctly set.
+      with (core.set_current_trace(self.parent_trace),
+            core.remove_explicit_mesh_axis_names(self.axis_data.explicit_mesh_axis)):
+        val_out, dim_out = fancy_primitive_batchers[p](
+            self.axis_data, vals_in, dims_in, **params)
+        src = source_info_util.current()
+        if p.multiple_results:
+          return [BatchTracer(self, x, d, src) if d is not not_mapped else x
+                  for x, d in zip(val_out, dim_out)]
+        else:
+          return (BatchTracer(self, val_out, dim_out, src)
+                  if dim_out is not not_mapped else val_out)
+    elif args_not_mapped:  # Not all primitives have batching rules defined
       return p.bind_with_trace(self.parent_trace, vals_in, params)
     else:
       raise NotImplementedError(f"Batching rule for '{p}' not implemented")
-    src = source_info_util.current()
-    if p.multiple_results:
-      with core.set_current_trace(self.parent_trace):  # val_out may be lazy map
-        return [BatchTracer(self, x, d, src) if d is not not_mapped else x
-                for x, d in zip(val_out, dim_out)]
-    else:
-      return (BatchTracer(self, val_out, dim_out, src)
-              if dim_out is not not_mapped else val_out)
 
   def process_call(self, call_primitive, f, tracers, params):
     assert call_primitive.multiple_results
@@ -321,7 +320,7 @@ class BatchTrace(Trace):
     src = source_info_util.current()
     return [BatchTracer(self, v, d, src) for v, d in zip(vals_out, dims_out_)]
 
-  def process_custom_jvp_call(self, prim, fun, jvp, tracers, *, symbolic_zeros):
+  def process_custom_jvp_call(self, prim, fun, jvp, tracers, *, symbolic_zeros):  # pyrefly: ignore[bad-param-name-override]
     in_vals, in_dims = unzip2(map(self.to_batch_info, tracers))
     fun, out_dims1 = batch_subtrace(fun, self.tag, self.axis_data, in_dims)
     jvp, out_dims2 = batch_custom_jvp_subtrace(jvp, self.tag, self.axis_data, in_dims)
@@ -331,7 +330,7 @@ class BatchTrace(Trace):
     src = source_info_util.current()
     return [BatchTracer(self, v, d, src) for v, d in zip(out_vals, out_dims)]
 
-  def process_custom_vjp_call(self, prim, fun, fwd, bwd, tracers, *, out_trees,
+  def process_custom_vjp_call(self, prim, fun, fwd, bwd, tracers, *, out_trees,  # pyrefly: ignore[bad-override]
                               symbolic_zeros):  # pytype: disable=signature-mismatch
     in_vals, in_dims = unzip2(map(self.to_batch_info, tracers))
     fwd_in_dims = [d for in_dim in in_dims for d in [in_dim, not_mapped]]
@@ -381,7 +380,7 @@ def _batch_inner(f: Callable, axis_data, out_dim_dests, sum_match, tag, in_dims,
     idx = memoize(lambda: BatchTracer(trace, make_iota(axis_data.size), 0,
                                       source_info_util.current()))
     with core.set_current_trace(parent_trace):
-      in_tracers = map(partial(to_elt, trace, idx), in_vals, in_dims)
+      in_tracers = map(partial(to_elt, trace, idx), in_vals, in_dims)  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
     # TODO(yashkatariya): Instead of `add_explicit_mesh_axis_names`, we should
     # create a new mesh by removing the axis_data.explicit_mesh_axis from it.
     with (core.set_current_trace(trace),
@@ -391,41 +390,9 @@ def _batch_inner(f: Callable, axis_data, out_dim_dests, sum_match, tag, in_dims,
       outs = f(*in_tracers)
       out_dim_dests = out_dim_dests() if callable(out_dim_dests) else out_dim_dests
       out_vals, out_dim_srcs = unzip2(
-          map(partial(from_elt, trace, axis_data.size, axis_data.explicit_mesh_axis, sum_match),
+          map(partial(from_elt, trace, axis_data.size, axis_data.explicit_mesh_axis, sum_match),  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
               range(len(outs)), outs, out_dim_dests))
   return out_vals, out_dim_srcs, trace
-
-# NOTE: This divides the in_axes by the tile_size and multiplies the out_axes by it.
-def vtile(f_flat: lu.WrappedFun,
-          in_axes_flat: tuple[int | None, ...],
-          out_axes_flat: tuple[int | None, ...],
-          tile_size: int | None,
-          axis_name: AxisName):
-  @curry
-  def tile_axis(arg, axis: int | None, tile_size):
-    if axis is None:
-      return arg
-    shape = list(arg.shape)
-    shape[axis:axis+1] = [tile_size, shape[axis] // tile_size]
-    return arg.reshape(shape)
-
-  def untile_axis(out, axis: int | None):
-    if axis is None:
-      return out
-    shape = list(out.shape)
-    shape[axis:axis+2] = [shape[axis] * shape[axis+1]]
-    return out.reshape(shape)
-
-  @lu.transformation2
-  def _map_to_tile(f, *args_flat):
-    sizes = (x.shape[i] for x, i in safe_zip(args_flat, in_axes_flat) if i is not None)
-    tile_size_ = tile_size or next(sizes, None)
-    assert tile_size_ is not None, "No mapped arguments?"
-    outputs_flat = f(*map(tile_axis(tile_size=tile_size_), args_flat, in_axes_flat))
-    return map(untile_axis, outputs_flat, out_axes_flat)
-
-  axis_data = AxisData(axis_name, tile_size, None, None)
-  return _map_to_tile(batch(f_flat, axis_data, in_axes_flat, out_axes_flat))
 
 ### API for batching functions with jaxpr type inputs and outputs
 
@@ -436,7 +403,7 @@ def batch_subtrace(f, store, tag, axis_data, in_dims, *in_vals):
     with core.set_current_trace(trace):
       in_dims = in_dims() if callable(in_dims) else in_dims
       in_tracers = [BatchTracer(trace, x, dim, source_info_util.current())
-                    if dim is not None else x for x, dim in zip(in_vals, in_dims)]
+                    if dim is not None else x for x, dim in zip(in_vals, in_dims)]  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
       outs = f(*in_tracers)
     out_vals, out_dims = unzip2(map(trace.to_batch_info, outs))
   store.store(out_dims)
@@ -547,7 +514,7 @@ def _match_axes_jaxpr(f, store, axis_data, out_axes_dest, out_axes, trace, in_ax
 def _batch_jaxpr_outer(f, axis_data, in_dims, *in_vals):
   in_dims = in_dims() if callable(in_dims) else in_dims
   in_dims = [canonicalize_axis(ax, np.ndim(x)) if isinstance(ax, int)
-             else ax for x, ax in unsafe_zip(in_vals, in_dims)]
+             else ax for x, ax in unsafe_zip(in_vals, in_dims)]  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
   tag = TraceTag()
   return f(tag, in_dims, *in_vals)
 
@@ -587,7 +554,7 @@ def batch_custom_jvp_subtrace(f, store, tag, axis_data, in_dims, *in_vals):
   out_tangents = map(partial(_matchaxis_symzeros, trace.axis_data.name, size, mesh_axis),
                      out_tangent_bds, out_dims, out_tangents)
   store.store(out_dims)
-  return out_primals + out_tangents
+  return out_primals + out_tangents  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
 
 def batch_custom_vjp_bwd(bwd: lu.WrappedFun, tag: core.TraceTag,
                          axis_data: AxisData,
@@ -639,10 +606,6 @@ def _matchaxis_symzeros(axis_name, sz, mesh_axis, src, dst, x, sum_match=False):
 
 ### utilities for defining primitives' batching rules
 
-BatchingRule = Callable[
-    ...,
-    tuple[Any, Union[int, None, tuple[Union[int, None], ...]]]
-]
 fancy_primitive_batchers: dict[core.Primitive, Callable] = {}
 
 # backwards compat shim. TODO: delete
@@ -667,12 +630,6 @@ class PrimitiveBatchersProxy:
   def __delitem__(self, prim):
     del fancy_primitive_batchers[prim]
 primitive_batchers = PrimitiveBatchersProxy()
-
-
-# Presence in this table allows fancy batchers to be skipped by batch traces for
-# irrelevant axes. The Callable takes params and returns a list of relevant axes
-# TODO(yashkatariya): remove this
-skippable_batchers : dict[core.Primitive, Callable] = {}
 
 def defvectorized(prim):
   fancy_primitive_batchers[prim] = partial(vectorized_batcher, prim)
@@ -719,10 +676,10 @@ def _handle_scalar_broadcasting(nd, x, d):
   else:
     return lax.expand_dims(x, tuple(range(np.ndim(x), nd)))
 
-def defreducer(prim, ident):
-  fancy_primitive_batchers[prim] = partial(reducer_batcher, prim, ident)
+def defreducer(prim):
+  fancy_primitive_batchers[prim] = partial(reducer_batcher, prim)
 
-def reducer_batcher(prim, ident, axis_data, batched_args, batch_dims, axes,
+def reducer_batcher(prim, axis_data, batched_args, batch_dims, axes,
                     **params):
   if all(d is None for d in batch_dims):
     return prim.bind(*batched_args, axes=axes, **params), None
@@ -735,6 +692,11 @@ def reducer_batcher(prim, ident, axis_data, batched_args, batch_dims, axes,
     bdim_out = out_axis(axes, bdim)
     if 'input_shape' in params:
       params = dict(params, input_shape=operand.shape)
+    if 'out_sharding' in params:
+      out_s = params['out_sharding']
+      if out_s is not None:
+        params = dict(params,
+                      out_sharding=get_sharding_for_vmap(axis_data, out_s, bdim_out))
     return prim.bind(operand, axes=axes, **params), bdim_out
   else:
     assert False
@@ -778,6 +740,7 @@ def matchaxis2(axis_data, src, dst, x, sum_match=False):
   return matchaxis(axis_data.name, axis_data.size, axis_data.explicit_mesh_axis,
                    src, dst, x, sum_match)
 
+# TODO(yashkatariya): remove this, inline into matchaxis2
 def matchaxis(axis_name, sz, mesh_axis, src, dst, x, sum_match=False):
   try:
     _ = core.get_aval(x)
@@ -817,6 +780,8 @@ def bdim_at_front(x, bdim, size, mesh_axis=None):
 def add_batched(axis_data, batched_args, batch_dims):
   bdx, bdy = batch_dims
   x, y = batched_args
+  if bdx is None and bdy is None:
+    return add_jaxvals(x, y), None
   mesh_axis = axis_data.explicit_mesh_axis
   if bdx == bdy:
     return add_jaxvals(x, y), bdx
@@ -831,7 +796,6 @@ def add_batched(axis_data, batched_args, batch_dims):
     return add_jaxvals(x, y), bdy
 
 fancy_primitive_batchers[add_jaxvals_p] = add_batched
-skippable_batchers[add_jaxvals_p] = lambda _: ()
 
 ### mutable arrays
 

@@ -2,7 +2,7 @@ name: Build and test
 
 # This file tests the claimed support range of NiBabel including
 #
-# * Operating systems: Linux, Windows (x64 & x86), OSX
+# * Operating systems: Linux, Windows (x64 & x86), macOS
 # * Dependencies: minimum requirements, optional requirements
 # * Installation methods: setup.py, sdist, wheel, archive
 
@@ -41,10 +41,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3
       - run: pip install --upgrade build twine
@@ -54,12 +54,12 @@ jobs:
       - name: Build git archive
         run: mkdir archive && git archive -v -o archive/nibabel-archive.tgz HEAD
       - name: Upload sdist and wheel artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
       - name: Upload git archive artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: archive
           path: archive/
@@ -73,17 +73,17 @@ jobs:
     steps:
       - name: Download sdist and wheel artifacts
         if: matrix.package != 'archive'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: dist
           path: dist/
       - name: Download git archive artifact
         if: matrix.package == 'archive'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: archive
           path: archive/
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Display Python version
@@ -108,95 +108,120 @@ jobs:
   test:
     # Check each OS, all supported Python, minimum versions and latest releases
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.dependencies == 'pre' }}
     strategy:
       fail-fast: false
       matrix:
-        os: ['ubuntu-latest', 'windows-latest', 'macos-13', 'macos-latest']
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-        architecture: ['x64', 'x86', 'arm64']
-        dependencies: ['full', 'pre']
+        os: ['ubuntu-latest', 'windows-latest', 'macos-latest', 'macos-15-intel']
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.13t"
+          - "3.14"
+          - "3.14t"
+        architecture: ['x86', 'x64', 'arm64']
+        dependencies: ['full']
         include:
           # Basic dependencies only
           - os: ubuntu-latest
-            python-version: 3.9
+            python-version: "3.10"
+            architecture: 'x64'
             dependencies: 'none'
           # Absolute minimum dependencies
           - os: ubuntu-latest
-            python-version: 3.9
+            python-version: "3.10"
+            architecture: 'x64'
             dependencies: 'min'
-          # NoGIL
+          # Absolute minimum dependencies
           - os: ubuntu-latest
-            python-version: '3.13-dev'
-            dependencies: 'dev'
+            python-version: "3.11"
+            architecture: 'x64'
+            dependencies: 'min'
         exclude:
-          # x86 for Windows + Python<3.12
+          # Use ubuntu-latest to cover the whole range of Python. For Windows
+          # and macOS, checking oldest and newest should be sufficient.
+          - os: windows-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.13"
+          - os: windows-latest
+            python-version: "3.13t"
+          - os: macos-latest
+            python-version: "3.11"
+          - os: macos-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.13"
+          - os: macos-latest
+            python-version: "3.13t"
+          - os: macos-15-intel
+            python-version: "3.11"
+          - os: macos-15-intel
+            python-version: "3.12"
+          - os: macos-15-intel
+            python-version: "3.13"
+          - os: macos-15-intel
+            python-version: "3.13t"
+
+          ## Unavailable architectures
+          # x86 is available for Windows and Mac
           - os: ubuntu-latest
-            architecture: x86
-          - os: macos-13
             architecture: x86
           - os: macos-latest
             architecture: x86
-          - python-version: '3.12'
+          - os: macos-15-intel
             architecture: x86
           # arm64 is available for macos-14+
           - os: ubuntu-latest
             architecture: arm64
           - os: windows-latest
             architecture: arm64
-          - os: macos-13
+          - os: macos-15-intel
             architecture: arm64
-          # x64 is not available for macos-14+
+          # x64 is not available for macos-15
           - os: macos-latest
             architecture: x64
-          # Drop pre tests for macos-13
-          - os: macos-13
-            dependencies: pre
-          # Drop pre tests for SPEC-0-unsupported Python versions
-          - python-version: '3.9'
-            dependencies: pre
-          - python-version: '3.10'
-            dependencies: pre
 
     env:
       DEPENDS: ${{ matrix.dependencies }}
       ARCH: ${{ !contains(fromJSON('["none", "min"]'), matrix.dependencies) && matrix.architecture }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: Set up Python ${{ matrix.python-version }}
-        if: "!endsWith(matrix.python-version, '-dev')"
-        uses: actions/setup-python@v5
+      - name: Setup uv and Python ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          activate-environment: ${{ matrix.architecture != 'x86' }}
+      - name: Setup 32-bit Python ${{ matrix.python-version }}
+        if: matrix.architecture == 'x86'
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.architecture }}
-          allow-prereleases: true
-      - name: Set up Python ${{ matrix.python-version }}
-        if: endsWith(matrix.python-version, '-dev')
-        uses: deadsnakes/action@v3.2.0
-        with:
-          python-version: ${{ matrix.python-version }}
-          nogil: true
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
       - name: Install tox
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install tox tox-gh-actions
+        run: uv tool install -v tox --with=tox-uv --with=tox-gh-actions
       - name: Show tox config
         run: tox c
-      - name: Run tox
-        run: tox -vv --exit-and-dump-after 1200
-      - uses: codecov/codecov-action@v4
+      - name: Setup test suite
+        run: tox run -vv --notest
+      - name: Run test suite
+        run: tox -v --skip-pkg-install --exit-and-dump-after 1200
+      - uses: codecov/codecov-action@v5
         if: ${{ always() }}
         with:
           files: cov.xml
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload pytest test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pytest-results-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.dependencies }}-${{ matrix.architecture }}
           path: test-results.xml
@@ -210,9 +235,9 @@ jobs:
         check: ['style', 'doctest', 'typecheck', 'spellcheck']
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Display Python version
@@ -233,7 +258,7 @@ jobs:
       id-token: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: dist
           path: dist/

@@ -354,7 +354,8 @@ class CfnConnector(
             ),
             tags={
                 "tags_key": "tags"
-            }
+            },
+            vpc_endpoint_id="vpcEndpointId"
         )
     '''
 
@@ -366,6 +367,7 @@ class CfnConnector(
         certificate_authority_arn: builtins.str,
         mobile_device_management: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.MobileDeviceManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        vpc_endpoint_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::PCAConnectorSCEP::Connector``.
 
@@ -374,6 +376,7 @@ class CfnConnector(
         :param certificate_authority_arn: The Amazon Resource Name (ARN) of the certificate authority associated with the connector.
         :param mobile_device_management: Contains settings relevant to the mobile device management system that you chose for the connector. If you didn't configure ``MobileDeviceManagement`` , then the connector is for general-purpose use and this object is empty.
         :param tags: 
+        :param vpc_endpoint_id: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5efd0f2c3577f33ffa31fd98d59e33eaca0d3cabdfa1d7d8ade08be89356b0d0)
@@ -383,6 +386,7 @@ class CfnConnector(
             certificate_authority_arn=certificate_authority_arn,
             mobile_device_management=mobile_device_management,
             tags=tags,
+            vpc_endpoint_id=vpc_endpoint_id,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -537,6 +541,18 @@ class CfnConnector(
             type_hints = typing.get_type_hints(_typecheckingstub__d236715afe6b31af4cde4435b078b9b7c3146267ef69426b668c4592a3fd9ddc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcEndpointId")
+    def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpcEndpointId"))
+
+    @vpc_endpoint_id.setter
+    def vpc_endpoint_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba15bf38151925c8733bfce1278457d514387a234b42f012b04afe70b8fdfdc0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcEndpointId", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_pcaconnectorscep.CfnConnector.IntuneConfigurationProperty",
@@ -782,6 +798,7 @@ class CfnConnector(
         "certificate_authority_arn": "certificateAuthorityArn",
         "mobile_device_management": "mobileDeviceManagement",
         "tags": "tags",
+        "vpc_endpoint_id": "vpcEndpointId",
     },
 )
 class CfnConnectorProps:
@@ -791,12 +808,14 @@ class CfnConnectorProps:
         certificate_authority_arn: builtins.str,
         mobile_device_management: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnector.MobileDeviceManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        vpc_endpoint_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnConnector``.
 
         :param certificate_authority_arn: The Amazon Resource Name (ARN) of the certificate authority associated with the connector.
         :param mobile_device_management: Contains settings relevant to the mobile device management system that you chose for the connector. If you didn't configure ``MobileDeviceManagement`` , then the connector is for general-purpose use and this object is empty.
         :param tags: 
+        :param vpc_endpoint_id: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorscep-connector.html
         :exampleMetadata: fixture=_generated
@@ -819,7 +838,8 @@ class CfnConnectorProps:
                 ),
                 tags={
                     "tags_key": "tags"
-                }
+                },
+                vpc_endpoint_id="vpcEndpointId"
             )
         '''
         if __debug__:
@@ -827,6 +847,7 @@ class CfnConnectorProps:
             check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
             check_type(argname="argument mobile_device_management", value=mobile_device_management, expected_type=type_hints["mobile_device_management"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "certificate_authority_arn": certificate_authority_arn,
         }
@@ -834,6 +855,8 @@ class CfnConnectorProps:
             self._values["mobile_device_management"] = mobile_device_management
         if tags is not None:
             self._values["tags"] = tags
+        if vpc_endpoint_id is not None:
+            self._values["vpc_endpoint_id"] = vpc_endpoint_id
 
     @builtins.property
     def certificate_authority_arn(self) -> builtins.str:
@@ -865,6 +888,14 @@ class CfnConnectorProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcaconnectorscep-connector.html#cfn-pcaconnectorscep-connector-vpcendpointid
+        '''
+        result = self._values.get("vpc_endpoint_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -948,6 +979,7 @@ def _typecheckingstub__5efd0f2c3577f33ffa31fd98d59e33eaca0d3cabdfa1d7d8ade08be89
     certificate_authority_arn: builtins.str,
     mobile_device_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.MobileDeviceManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    vpc_endpoint_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -994,6 +1026,12 @@ def _typecheckingstub__d236715afe6b31af4cde4435b078b9b7c3146267ef69426b668c4592a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ba15bf38151925c8733bfce1278457d514387a234b42f012b04afe70b8fdfdc0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fa2975290c35d1208654a35b712842396cf4971f0e927191534541fb868fd148(
     *,
     azure_application_id: builtins.str,
@@ -1023,6 +1061,7 @@ def _typecheckingstub__c22911c5ba9019291e6d26ad4968076543da6a84dd36e0fdf942f0f31
     certificate_authority_arn: builtins.str,
     mobile_device_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnector.MobileDeviceManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    vpc_endpoint_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

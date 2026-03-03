@@ -6,7 +6,7 @@ import logging
 import os
 from pathlib import Path
 
-from plato.agents.runtime.workspace import rsync_to
+from plato.agents.runtime.transport import rsync_to
 from plato.utils.subprocess import run_ssh
 
 logger = logging.getLogger(__name__)

@@ -180,8 +180,11 @@ export class CardView extends ColumnView {
         }
     }
     _toggle_button(e) {
-        for (const path of e.composedPath()) {
-            if (path instanceof HTMLInputElement) {
+        const is_panel_widget = (el) => el instanceof HTMLInputElement || (el instanceof HTMLElement &&
+            Array.from(el.classList).some((c) => c.startsWith("bk-panel-models-widgets-")));
+        for (const el of e.composedPath()) {
+            // If the click came from any Panel widget in the header, don't toggle.
+            if (is_panel_widget(el)) {
                 return;
             }
         }

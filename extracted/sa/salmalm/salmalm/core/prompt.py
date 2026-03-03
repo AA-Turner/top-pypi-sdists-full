@@ -58,20 +58,10 @@ def list_personas() -> list:
     return personas
 
 
-def _safe_persona_name(name: str) -> str:
-    """BUG-DK fix: sanitize persona name — alphanumeric + hyphen/underscore only."""
-    return "".join(c for c in name if c.isalnum() or c in "-_").lower()[:64]
-
-
 def get_persona(name: str) -> Optional[str]:
     """Get persona content by name."""
     ensure_personas_dir()
-    safe = _safe_persona_name(name)
-    if not safe:
-        return None
-    path = PERSONAS_DIR / f"{safe}.md"
-    if not path.is_relative_to(PERSONAS_DIR):
-        return None
+    path = PERSONAS_DIR / f"{name}.md"
     if path.exists():
         return path.read_text(encoding="utf-8")
     return None
@@ -90,13 +80,9 @@ def create_persona(name: str, content: str) -> bool:
 
 def delete_persona(name: str) -> bool:
     """Delete a custom persona (cannot delete built-in ones)."""
-    # BUG-DK fix: sanitize name before constructing path
-    safe = _safe_persona_name(name)
-    if not safe or safe in _BUILTIN_PERSONAS:
+    if name in _BUILTIN_PERSONAS:
         return False
-    path = PERSONAS_DIR / f"{safe}.md"
-    if not path.is_relative_to(PERSONAS_DIR):
-        return False
+    path = PERSONAS_DIR / f"{name}.md"
     if path.exists():
         path.unlink()
         return True

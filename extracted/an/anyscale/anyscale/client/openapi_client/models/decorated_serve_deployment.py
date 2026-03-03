@@ -52,6 +52,7 @@ class DecoratedServeDeployment(object):
         'replica_details': 'list[ReplicaDetails]',
         'required_resources': 'dict(str, float)',
         'deployment_config': 'object',
+        'deployment_topology': 'DeploymentTopology',
         'cluster': 'MiniCluster',
         'creator': 'MiniUser',
         'namespace': 'MiniNamespace',
@@ -79,6 +80,7 @@ class DecoratedServeDeployment(object):
         'replica_details': 'replica_details',
         'required_resources': 'required_resources',
         'deployment_config': 'deployment_config',
+        'deployment_topology': 'deployment_topology',
         'cluster': 'cluster',
         'creator': 'creator',
         'namespace': 'namespace',
@@ -86,7 +88,7 @@ class DecoratedServeDeployment(object):
         'fast_api_docs_url': 'fast_api_docs_url'
     }
 
-    def __init__(self, id=None, status=None, name=None, application_name=None, cluster_id=None, job_id=None, creator_id=None, namespace_id='DEPRECATED_NAMESPACE_ID', created_at=None, finished_at=None, http_route=None, grafana_dashboard_url=None, class_name=None, grafana_dashboard_state=None, version=None, message=None, replica_details=None, required_resources=None, deployment_config=None, cluster=None, creator=None, namespace=None, num_actors=0, fast_api_docs_url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, status=None, name=None, application_name=None, cluster_id=None, job_id=None, creator_id=None, namespace_id='DEPRECATED_NAMESPACE_ID', created_at=None, finished_at=None, http_route=None, grafana_dashboard_url=None, class_name=None, grafana_dashboard_state=None, version=None, message=None, replica_details=None, required_resources=None, deployment_config=None, deployment_topology=None, cluster=None, creator=None, namespace=None, num_actors=0, fast_api_docs_url=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedServeDeployment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -111,6 +113,7 @@ class DecoratedServeDeployment(object):
         self._replica_details = None
         self._required_resources = None
         self._deployment_config = None
+        self._deployment_topology = None
         self._cluster = None
         self._creator = None
         self._namespace = None
@@ -150,6 +153,8 @@ class DecoratedServeDeployment(object):
             self.required_resources = required_resources
         if deployment_config is not None:
             self.deployment_config = deployment_config
+        if deployment_topology is not None:
+            self.deployment_topology = deployment_topology
         self.cluster = cluster
         if creator is not None:
             self.creator = creator
@@ -606,6 +611,29 @@ class DecoratedServeDeployment(object):
         """
 
         self._deployment_config = deployment_config
+
+    @property
+    def deployment_topology(self):
+        """Gets the deployment_topology of this DecoratedServeDeployment.  # noqa: E501
+
+        Deployment topology graph for the application this deployment belongs to.  # noqa: E501
+
+        :return: The deployment_topology of this DecoratedServeDeployment.  # noqa: E501
+        :rtype: DeploymentTopology
+        """
+        return self._deployment_topology
+
+    @deployment_topology.setter
+    def deployment_topology(self, deployment_topology):
+        """Sets the deployment_topology of this DecoratedServeDeployment.
+
+        Deployment topology graph for the application this deployment belongs to.  # noqa: E501
+
+        :param deployment_topology: The deployment_topology of this DecoratedServeDeployment.  # noqa: E501
+        :type: DeploymentTopology
+        """
+
+        self._deployment_topology = deployment_topology
 
     @property
     def cluster(self):

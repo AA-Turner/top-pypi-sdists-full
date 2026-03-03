@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from mindroom.tools_metadata import SetupType, ToolCategory, ToolStatus, register_tool_with_metadata
+from mindroom.tool_system.metadata import SetupType, ToolCategory, ToolStatus, register_tool_with_metadata
 
 if TYPE_CHECKING:
     from mindroom.custom_tools.matrix_message import MatrixMessageTools
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 @register_tool_with_metadata(
     name="matrix_message",
     display_name="Matrix Message",
-    description="Send, reply, react, and read Matrix messages with room/thread context defaults",
+    description=("Send, reply, react, read, thread-list, and edit Matrix messages with room/thread context defaults"),
     category=ToolCategory.COMMUNICATION,
     status=ToolStatus.AVAILABLE,
     setup_type=SetupType.NONE,

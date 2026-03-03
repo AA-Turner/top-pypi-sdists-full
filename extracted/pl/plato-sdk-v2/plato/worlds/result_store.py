@@ -43,3 +43,9 @@ class ResultStore:
 
     def close(self) -> None:
         self._conn.close()
+
+    def __enter__(self) -> ResultStore:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()

@@ -36,7 +36,6 @@ class ConfigManager:
 
     @classmethod
     def load(cls, name: str, defaults: dict = None) -> dict:
-        cls._validate_config_name(name)  # BUG-DG fix
         """설정 파일 로드. name='mood' → ~/.salmalm/mood.json"""
         path = cls.BASE_DIR / f"{name}.json"
         if path.exists():
@@ -54,23 +53,11 @@ class ConfigManager:
         return dict(defaults) if defaults else {}
 
     @classmethod
-    @staticmethod
-    def _validate_config_name(name: str) -> None:
-        """Guard against path traversal in config file names.
-
-        BUG-DG fix: 'name' must be a safe filename token — no slashes, dots,
-        or other path components that could escape BASE_DIR.
-        """
-        import re as _re
-        if not name or not _re.match(r'^[a-zA-Z0-9_\-]{1,64}$', name):
-            raise ValueError(f"Invalid config name: {name!r}. Use only [a-zA-Z0-9_-] (max 64 chars).")
-
     def save(cls, name: str, config: dict) -> None:
         """설정 파일 저장 (원자적 write — tempfile + fsync + rename).
 
         Prevents config file corruption if the process is killed during write.
         """
-        cls._validate_config_name(name)
         cls.BASE_DIR.mkdir(parents=True, exist_ok=True)
         path = cls.BASE_DIR / f"{name}.json"
         tmp_fd, tmp_path = tempfile.mkstemp(dir=cls.BASE_DIR, suffix=".tmp")
@@ -139,7 +126,6 @@ class ConfigManager:
 
     @classmethod
     def delete(cls, name: str) -> bool:
-        cls._validate_config_name(name)  # BUG-DG fix
         """Delete."""
         path = cls.BASE_DIR / f"{name}.json"
         if path.exists():

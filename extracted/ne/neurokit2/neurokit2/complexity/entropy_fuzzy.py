@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from .entropy_approximate import entropy_approximate
 from .entropy_sample import entropy_sample
 

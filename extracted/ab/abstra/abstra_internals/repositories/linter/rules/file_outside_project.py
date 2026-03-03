@@ -91,8 +91,4 @@ class FileOutsideProjectRoot(LinterRule):
             if not is_path_inside_root(script.file_path, root_path):
                 issues.append(FileOutsideProject(script, project, project_repository))
 
-        for agent in project.agents:
-            if not is_path_inside_root(agent.file_path, root_path):
-                issues.append(FileOutsideProject(agent, project, project_repository))
-
         return issues

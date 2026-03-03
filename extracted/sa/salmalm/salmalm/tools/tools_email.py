@@ -19,7 +19,7 @@ def _fetch_message_summary(msg_id: str, headers: dict) -> str:
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            msg = json.loads(resp.read(4 * 1024 * 1024))
+            msg = json.loads(resp.read())
         hdrs = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
         subj = hdrs.get("Subject", "(no subject)")
         frm = hdrs.get("From", "?")
@@ -42,7 +42,7 @@ def handle_email_inbox(args: dict) -> str:
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read(4 * 1024 * 1024))
+            data = json.loads(resp.read())
     except _ue.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")[:300]
         return f"❌ Gmail API {e.code} {e.reason}: {body}"
@@ -68,7 +68,7 @@ def handle_email_read(args: dict) -> str:
     url = f"{_BASE_URL}/messages/{msg_id}?format=full"
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=15) as resp:
-        msg = json.loads(resp.read(4 * 1024 * 1024))
+        msg = json.loads(resp.read())
 
     hdrs = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
     subj = hdrs.get("Subject", "(no subject)")
@@ -120,7 +120,7 @@ def handle_email_send(args: dict) -> str:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
-        result = json.loads(resp.read(4 * 1024 * 1024))
+        result = json.loads(resp.read())
 
     return f"📧 Email sent to {to} (ID: {result.get('id', '?')})"
 
@@ -140,7 +140,7 @@ def handle_email_search(args: dict) -> str:
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read(4 * 1024 * 1024))
+            data = json.loads(resp.read())
     except _ue.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")[:300]
         return f"❌ Gmail API {e.code} {e.reason}: {body}"

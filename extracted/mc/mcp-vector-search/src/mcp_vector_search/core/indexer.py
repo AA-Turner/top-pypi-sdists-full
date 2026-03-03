@@ -13,6 +13,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -176,12 +177,14 @@ def _detect_filesystem_type(db_path: Path) -> str:
             db_str = str(db_path.resolve())
             best_mount = ""
             best_fstype = "default"
+            best_source = ""
 
             with open("/proc/mounts") as f:
                 for line in f:
                     parts = line.split()
                     if len(parts) < 3:
                         continue
+                    source = parts[0]
                     mount_point = parts[1]
                     fstype = parts[2].lower()
                     # Find longest matching mount point for db_path
@@ -190,9 +193,15 @@ def _detect_filesystem_type(db_path: Path) -> str:
                     ):
                         best_mount = mount_point
                         best_fstype = fstype
+                        best_source = source
 
             if best_fstype in ("nfs", "nfs4", "cifs", "smbfs", "efs"):
                 return "nfs"
+
+            # Check for NVMe: source device name contains "nvme" (e.g. /dev/nvme0n1p1)
+            # OR mount point path suggests a dedicated NVMe mount (e.g. /mnt/nvme)
+            if "nvme" in best_source.lower() or "/nvme" in best_mount.lower():
+                return "nvme"
 
         # macOS / fallback: use stat -f to detect network filesystems
         import subprocess
@@ -219,6 +228,136 @@ def _detect_filesystem_type(db_path: Path) -> str:
 from .models import HealthStatus  # noqa: F401, E402
 
 
+@dataclass
+class SemanticIndexerConfig:
+    """Resolved configuration for SemanticIndexer.
+
+    All environment variable reads happen in from_env() at the process
+    boundary, not scattered through business logic.
+    """
+
+    index_path: Path | None = None
+    file_batch_size: int = 512
+    embed_batch_size: int = 0  # 0 = auto-detect via _detect_optimal_batch_size()
+    max_workers: int | None = None  # None = auto via calculate_optimal_workers()
+    num_producers: int = 4
+    queue_depth: int | None = None  # None = num_producers * 4
+    write_batch_size: int | None = None  # None = filesystem-auto
+    max_memory_gb: float | None = None  # None = cgroup/system auto
+    enable_background_kg: bool = False
+    auto_optimize: bool = True
+    two_pass: bool = (
+        False  # If True, use sequential chunk-all-then-embed-all instead of pipeline
+    )
+
+    @classmethod
+    def from_env(cls) -> "SemanticIndexerConfig":
+        """Build a resolved config by reading all MCP_VECTOR_SEARCH_* env vars once."""
+        import os as _os
+
+        def _int_env(key: str, default: int) -> int:
+            val = _os.environ.get(key)
+            if val:
+                try:
+                    return int(val)
+                except ValueError:
+                    pass
+            return default
+
+        def _float_env(key: str) -> float | None:
+            val = _os.environ.get(key)
+            if val:
+                try:
+                    return float(val)
+                except ValueError:
+                    pass
+            return None
+
+        # FILE_BATCH_SIZE: MCP_VECTOR_SEARCH_FILE_BATCH_SIZE (also accept legacy MCP_VECTOR_SEARCH_BATCH_SIZE)
+        file_batch_size = 512
+        for key in (
+            "MCP_VECTOR_SEARCH_FILE_BATCH_SIZE",
+            "MCP_VECTOR_SEARCH_BATCH_SIZE",
+        ):
+            val = _os.environ.get(key)
+            if val:
+                try:
+                    file_batch_size = int(val)
+                    break
+                except ValueError:
+                    pass
+
+        # embed_batch_size
+        embed_bs = 0
+        val = _os.environ.get("MCP_VECTOR_SEARCH_EMBED_BATCH_SIZE")
+        if val:
+            try:
+                embed_bs = int(val)
+            except ValueError:
+                pass
+
+        # index_path
+        raw_index_path = _os.environ.get("INDEX_PATH")
+        index_path = Path(raw_index_path) if raw_index_path else None
+
+        # num_producers
+        num_producers = _int_env("MCP_VECTOR_SEARCH_NUM_PRODUCERS", 4)
+
+        # queue_depth — None means auto (num_producers * 4)
+        queue_depth_val = _os.environ.get("MCP_VECTOR_SEARCH_QUEUE_DEPTH")
+        queue_depth: int | None = None
+        if queue_depth_val:
+            try:
+                queue_depth = int(queue_depth_val)
+            except ValueError:
+                pass
+
+        # write_batch_size — None means filesystem-auto
+        write_bs_val = _os.environ.get("MCP_VECTOR_SEARCH_WRITE_BATCH_SIZE")
+        write_batch_size: int | None = None
+        if write_bs_val:
+            try:
+                write_batch_size = int(write_bs_val)
+            except ValueError:
+                pass
+
+        # max_memory_gb
+        max_memory_gb = _float_env("MCP_VECTOR_SEARCH_MAX_MEMORY_GB")
+
+        # max_workers
+        max_workers_val = _os.environ.get("MCP_VECTOR_SEARCH_WORKERS")
+        max_workers: int | None = None
+        if max_workers_val:
+            try:
+                max_workers = int(max_workers_val)
+            except ValueError:
+                pass
+
+        # enable_background_kg
+        auto_kg_val = _os.environ.get("MCP_VECTOR_SEARCH_AUTO_KG", "false").lower()
+        enable_background_kg = auto_kg_val in ("1", "true", "yes")
+
+        # two_pass: sequential chunk-all then embed-all (avoids GPU starvation on slow EFS)
+        two_pass = _os.environ.get("MCP_VECTOR_SEARCH_TWO_PASS", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
+        return cls(
+            index_path=index_path,
+            file_batch_size=file_batch_size,
+            embed_batch_size=embed_bs,
+            max_workers=max_workers,
+            num_producers=num_producers,
+            queue_depth=queue_depth,
+            write_batch_size=write_batch_size,
+            max_memory_gb=max_memory_gb,
+            enable_background_kg=enable_background_kg,
+            two_pass=two_pass,
+        )
+
+
 class SemanticIndexer:
     """Semantic indexer for parsing and indexing code files."""
 
@@ -239,6 +378,10 @@ class SemanticIndexer:
         skip_blame: bool = True,
         progress_tracker: Any = None,
         index_path: str | None = None,
+        indexer_config: "SemanticIndexerConfig | None" = None,
+        chunks_backend: "ChunksBackend | None" = None,
+        vectors_backend: "VectorsBackend | None" = None,
+        memory_monitor: "MemoryMonitor | None" = None,
     ) -> None:
         """Initialize semantic indexer.
 
@@ -260,6 +403,11 @@ class SemanticIndexer:
             progress_tracker: Optional ProgressTracker instance for displaying progress bars
             index_path: Optional separate directory for .mcp-vector-search/ index data.
                 Falls back to INDEX_PATH env var, then project_root.
+            indexer_config: Optional resolved config (from SemanticIndexerConfig.from_env()).
+                When provided, env var reads in __init__ are skipped in favour of config values.
+            chunks_backend: Injectable ChunksBackend (for testing / custom storage).
+            vectors_backend: Injectable VectorsBackend (for testing / custom storage).
+            memory_monitor: Injectable MemoryMonitor (for testing / custom limits).
 
         Environment Variables:
             MCP_VECTOR_SEARCH_FILE_BATCH_SIZE: Override file batch size (default: 512)
@@ -268,14 +416,21 @@ class SemanticIndexer:
             MCP_VECTOR_SEARCH_SKIP_BLAME: Skip git blame tracking (true/1/yes)
             INDEX_PATH: Separate directory for .mcp-vector-search/ index data
         """
+        # Resolve config: use provided config or build from env vars (backward compat)
+        _cfg = (
+            indexer_config
+            if indexer_config is not None
+            else SemanticIndexerConfig.from_env()
+        )
+
         self.database = database
         self.project_root = project_root
 
-        # Resolve index_path: explicit parameter > INDEX_PATH env var > project_root
+        # Resolve index_path: explicit parameter > config > INDEX_PATH env var > project_root
         if index_path:
             self.index_path = Path(index_path)
-        elif os.environ.get("INDEX_PATH"):
-            self.index_path = Path(os.environ["INDEX_PATH"])
+        elif _cfg.index_path is not None:
+            self.index_path = _cfg.index_path
         else:
             self.index_path = self.project_root
 
@@ -296,60 +451,25 @@ class SemanticIndexer:
         )
         self.progress_tracker = progress_tracker  # Optional progress bar display
 
-        # Set batch size with environment variable override
-        if batch_size is None:
-            # Check for FILE_BATCH_SIZE first (new name for clarity)
-            env_batch_size = os.environ.get(
-                "MCP_VECTOR_SEARCH_FILE_BATCH_SIZE"
-            ) or os.environ.get("MCP_VECTOR_SEARCH_BATCH_SIZE")
-            if env_batch_size:
-                try:
-                    self.batch_size = int(env_batch_size)
-                    logger.info(
-                        f"Using file batch size from environment: {self.batch_size}"
-                    )
-                except ValueError:
-                    logger.warning(
-                        f"Invalid batch size value: {env_batch_size}, using default 512"
-                    )
-                    self.batch_size = 512
-            else:
-                # Increased default from 256 to 512 for better throughput
-                # PERFORMANCE: Larger batches reduce per-batch overhead
-                # 32K files @ 256/batch = 125 batches, @ 512/batch = 62 batches (50% reduction)
-                # 512 files per batch is optimal for GPU utilization
-                self.batch_size = 512
+        # Set batch size: explicit kwarg > config (from env) > default 512
+        # PERFORMANCE: Larger batches reduce per-batch overhead.
+        # 32K files @ 256/batch = 125 batches, @ 512/batch = 62 batches (50% reduction).
+        self.batch_size = batch_size if batch_size is not None else _cfg.file_batch_size
+
+        # Set embed_batch_size: explicit param (non-zero) > config (from env) > GPU auto-detect
+        # _cfg.embed_batch_size == 0 means "not set via env var", so auto-detect applies.
+        _resolved_embed = (
+            embed_batch_size if embed_batch_size != 0 else _cfg.embed_batch_size
+        )
+        if _resolved_embed != 0:
+            self.embed_batch_size = _resolved_embed
+            logger.info(f"Using embed batch size: {self.embed_batch_size}")
         else:
-            self.batch_size = batch_size
+            # Auto-detect from GPU/CPU capabilities
+            from .embeddings import _detect_optimal_batch_size
 
-        # Set embed_batch_size: explicit param > env var > GPU auto-detect
-        if embed_batch_size != 0:
-            self.embed_batch_size = embed_batch_size
-            logger.info(
-                f"Using embed batch size from parameter: {self.embed_batch_size}"
-            )
-        else:
-            env_embed_batch_size = os.environ.get("MCP_VECTOR_SEARCH_EMBED_BATCH_SIZE")
-            if env_embed_batch_size:
-                try:
-                    self.embed_batch_size = int(env_embed_batch_size)
-                    logger.info(
-                        f"Using embed batch size from environment: {self.embed_batch_size}"
-                    )
-                except ValueError:
-                    logger.warning(
-                        f"Invalid MCP_VECTOR_SEARCH_EMBED_BATCH_SIZE value: {env_embed_batch_size}, "
-                        "using GPU auto-detection"
-                    )
-                    from .embeddings import _detect_optimal_batch_size
-
-                    self.embed_batch_size = _detect_optimal_batch_size()
-            else:
-                # Auto-detect from GPU/CPU capabilities
-                from .embeddings import _detect_optimal_batch_size
-
-                self.embed_batch_size = _detect_optimal_batch_size()
-                logger.info(f"Auto-detected embed batch size: {self.embed_batch_size}")
+            self.embed_batch_size = _detect_optimal_batch_size()
+            logger.info(f"Auto-detected embed batch size: {self.embed_batch_size}")
 
         # Handle backward compatibility: use config.file_extensions or fallback to parameter
         if config is not None:
@@ -382,32 +502,19 @@ class SemanticIndexer:
         # Initialize parser registry
         self.parser_registry = get_parser_registry()
 
-        # Auto-configure workers if not provided
+        # Auto-configure workers: explicit kwarg > config (from env) > auto-detect
         if max_workers is None:
-            # Check environment variable first for explicit override
-            env_workers = os.environ.get("MCP_VECTOR_SEARCH_WORKERS")
-            if env_workers:
-                try:
-                    max_workers = int(env_workers)
-                    logger.info(f"Using worker count from environment: {max_workers}")
-                except ValueError:
-                    logger.warning(
-                        f"Invalid MCP_VECTOR_SEARCH_WORKERS value: {env_workers}, using auto-detection"
-                    )
-                    max_workers = None
+            max_workers = _cfg.max_workers
 
-            # Auto-detect based on CPU cores and memory if not overridden
-            if max_workers is None:
-                # Use memory-aware worker calculation
-                # Remove hard-coded max_workers=4 limit - let calculate_optimal_workers decide
-                limits = calculate_optimal_workers(
-                    memory_per_worker_mb=800,  # Embedding models use more memory
-                    # max_workers defaults to 8 in calculate_optimal_workers, but CPU count is also considered
-                )
-                max_workers = limits.max_workers
-                logger.info(
-                    f"Auto-configured {max_workers} workers based on available memory and CPU cores"
-                )
+        if max_workers is None:
+            # Auto-detect based on CPU cores and memory
+            limits = calculate_optimal_workers(
+                memory_per_worker_mb=800,  # Embedding models use more memory
+            )
+            max_workers = limits.max_workers
+            logger.info(
+                f"Auto-configured {max_workers} workers based on available memory and CPU cores"
+            )
 
         # Conditionally enable git blame based on skip_blame flag
         # When skip_blame=True, pass repo_root=None to disable GitBlameCache
@@ -436,24 +543,27 @@ class SemanticIndexer:
         # Initialize trend tracker for historical metrics
         self.trend_tracker = TrendTracker(self.index_path)
 
-        # Initialize two-phase backends
+        # Initialize two-phase backends (injectable for testing / custom storage)
         # Both use same db_path directory for LanceDB
         lance_path = self._mcp_dir / "lance"
-        self.chunks_backend = ChunksBackend(lance_path)
-        self.vectors_backend = VectorsBackend(lance_path)
+        self.chunks_backend = chunks_backend or ChunksBackend(lance_path)
+        self.vectors_backend = vectors_backend or VectorsBackend(lance_path)
 
         # Background KG build tracking
         self._kg_build_task: asyncio.Task | None = None
         self._kg_build_status: str = "not_started"
-        self._enable_background_kg: bool = os.environ.get(
-            "MCP_VECTOR_SEARCH_AUTO_KG", "false"
-        ).lower() in ("true", "1", "yes")
+        self._enable_background_kg: bool = _cfg.enable_background_kg
 
         # Track atomic rebuild state (fresh database doesn't need deletes)
         self._atomic_rebuild_active: bool = False
 
-        # Initialize memory monitor
-        self.memory_monitor = MemoryMonitor()
+        # Store resolved config for use in runtime methods
+        self._indexer_config = _cfg
+
+        # Initialize memory monitor (injectable for testing / custom limits)
+        self.memory_monitor = memory_monitor or MemoryMonitor(
+            max_memory_gb=_cfg.max_memory_gb
+        )
 
     async def _build_kg_background(self) -> None:
         """Build knowledge graph in background (non-blocking).
@@ -550,8 +660,9 @@ class SemanticIndexer:
             # Store previous batch size for comparison
             previous_batch_size = self.batch_size
 
-            # Apply optimizations (only if not already overridden)
-            if os.environ.get("MCP_VECTOR_SEARCH_BATCH_SIZE") is None:
+            # Apply optimizations (only if batch size was not explicitly set via env/kwarg)
+            # _indexer_config.file_batch_size == 512 means "default / not overridden"
+            if self._indexer_config.file_batch_size == 512 and self.batch_size == 512:
                 self.batch_size = preset.batch_size
 
             # Apply file extension filtering (only for large/enterprise)
@@ -774,7 +885,7 @@ class SemanticIndexer:
         file_batch_size = self.batch_size
 
         # Number of concurrent producer tasks (each handles a slice of files_to_process)
-        num_producers = int(os.environ.get("MCP_VECTOR_SEARCH_NUM_PRODUCERS", "4"))
+        num_producers = self._indexer_config.num_producers
 
         # --- Prepare files_to_process and batch-delete old chunks BEFORE launching producers ---
         # This is done once in the main scope so all producers share the same list.
@@ -828,11 +939,8 @@ class SemanticIndexer:
         # FIX 3 (HIGH): Auto-scale queue depth to num_producers * 4.
         # With depth=4 and 4 producers each producer gets ~1 slot, eliminating
         # pipelining benefit.  N*4 gives each producer 4 batches of lookahead.
-        queue_maxsize = int(
-            os.environ.get(
-                "MCP_VECTOR_SEARCH_QUEUE_DEPTH",
-                str(effective_num_producers * 4),
-            )
+        queue_maxsize = self._indexer_config.queue_depth or (
+            effective_num_producers * 4
         )
         chunk_queue: asyncio.Queue = asyncio.Queue(maxsize=queue_maxsize)
 
@@ -982,20 +1090,33 @@ class SemanticIndexer:
                                 }
                                 chunk_dicts.append(chunk_dict)
 
-                            # Store chunks to chunks.lance
+                            # Accumulate chunks for a single batched write after the
+                            # full batch is parsed.  file_hash is injected here so
+                            # add_chunks_batch() can deduplicate per-file.  This mirrors
+                            # the two-pass path (see _flush_pending_chunks / add_chunks_batch).
+                            # NOTE: the old per-file add_chunks() call was the primary cause
+                            # of GPU starvation: 512 sequential EFS writes (25-100s) per
+                            # batch while the GPU sat idle.
                             if chunk_dicts:
-                                count = await self.chunks_backend.add_chunks(
-                                    chunk_dicts, file_hash
-                                )
+                                for cd in chunk_dicts:
+                                    cd["file_hash"] = file_hash
                                 batch_chunks.extend(chunk_dicts)
-                                chunks_created += count
                                 batch_files_processed += 1
-                                # Use TRACE to avoid cluttering progress displays
-                                logger.trace(f"Chunked {count} chunks from {rel_path}")
+                                logger.trace(
+                                    f"Chunked {len(chunk_dicts)} chunks from {rel_path}"
+                                )
 
                         except Exception as e:
                             logger.error(f"Failed to chunk file {file_path}: {e}")
                             continue
+
+                    # Write all accumulated batch chunks to chunks.lance in ONE call.
+                    # This replaces N per-file add_chunks() calls with a single
+                    # add_chunks_batch() call per batch, eliminating the primary source
+                    # of GPU starvation (N×EFS writes → 1×EFS write per batch).
+                    if batch_chunks:
+                        count = await self.chunks_backend.add_chunks_batch(batch_chunks)
+                        chunks_created += count
 
                     files_indexed += batch_files_processed
 
@@ -1076,8 +1197,10 @@ class SemanticIndexer:
             embed_start_time = time.time()
 
             # Batched LanceDB writes: buffer chunks to reduce fragment count
-            # Auto-detect optimal batch size from filesystem type unless overridden
-            if not os.environ.get("MCP_VECTOR_SEARCH_WRITE_BATCH_SIZE"):
+            # Use configured write_batch_size if set; otherwise auto-detect from filesystem type.
+            if self._indexer_config.write_batch_size is not None:
+                write_batch_size = self._indexer_config.write_batch_size
+            else:
                 _fs_type = _detect_filesystem_type(self._mcp_dir / "lance")
                 _fs_batch_defaults: dict[str, int] = {
                     "nfs": 16384,
@@ -1091,10 +1214,6 @@ class SemanticIndexer:
                         _fs_type.upper(),
                         write_batch_size,
                     )
-            else:
-                write_batch_size = int(
-                    os.environ.get("MCP_VECTOR_SEARCH_WRITE_BATCH_SIZE", "4096")
-                )
             write_buffer: list[dict] = []
 
             # Count sentinels: one per producer — consumer stops after all producers finish
@@ -3018,8 +3137,9 @@ class SemanticIndexer:
         chunks_embedded = 0
         files_to_index = []  # Initialize to empty list for directory index updates
 
-        # Decide whether to use pipeline or sequential execution
-        use_pipeline = pipeline and phase == "all"
+        # Decide whether to use pipeline or sequential execution.
+        # two_pass forces sequential mode even when the caller requests pipeline.
+        use_pipeline = pipeline and phase == "all" and not self._indexer_config.two_pass
 
         if use_pipeline:
             # PIPELINE MODE: Overlap Phase 1 (chunking) and Phase 2 (embedding)

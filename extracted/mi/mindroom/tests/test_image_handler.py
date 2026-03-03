@@ -9,6 +9,7 @@ import pytest
 from agno.media import Image
 
 from mindroom.matrix import image_handler
+from mindroom.matrix.media import _sniff_image_mime_type, extract_media_caption, resolve_image_mime_type
 
 
 class TestExtractCaption:
@@ -16,6 +17,7 @@ class TestExtractCaption:
 
     def _make_event(self, body: str, filename: str | None = None) -> MagicMock:
         event = MagicMock(spec=nio.RoomMessageImage)
+        event.event_id = "$test_event"
         event.body = body
         content: dict = {"body": body}
         if filename is not None:
@@ -26,32 +28,32 @@ class TestExtractCaption:
     def test_caption_when_filename_differs_from_body(self) -> None:
         """When filename is present and differs from body, body is a caption."""
         event = self._make_event(body="What is in this chart?", filename="chart.png")
-        assert image_handler.extract_caption(event) == "What is in this chart?"
+        assert extract_media_caption(event, default="[Attached image]") == "What is in this chart?"
 
     def test_no_caption_when_filename_matches_body(self) -> None:
         """When filename equals body, there is no caption."""
         event = self._make_event(body="photo.jpg", filename="photo.jpg")
-        assert image_handler.extract_caption(event) == "[Attached image]"
+        assert extract_media_caption(event, default="[Attached image]") == "[Attached image]"
 
     def test_no_caption_when_filename_absent(self) -> None:
         """When filename field is absent, body is the filename."""
         event = self._make_event(body="IMG_1234.jpg")
-        assert image_handler.extract_caption(event) == "[Attached image]"
+        assert extract_media_caption(event, default="[Attached image]") == "[Attached image]"
 
     def test_no_caption_when_body_empty(self) -> None:
         """When body is empty, return default prompt."""
         event = self._make_event(body="", filename="photo.jpg")
-        assert image_handler.extract_caption(event) == "[Attached image]"
+        assert extract_media_caption(event, default="[Attached image]") == "[Attached image]"
 
     def test_caption_ending_with_image_extension(self) -> None:
         """Captions that end with image extensions are preserved."""
         event = self._make_event(body="analyze report.png", filename="report.png")
-        assert image_handler.extract_caption(event) == "analyze report.png"
+        assert extract_media_caption(event, default="[Attached image]") == "analyze report.png"
 
     def test_no_filename_no_body(self) -> None:
         """Both body and filename absent/empty."""
         event = self._make_event(body="")
-        assert image_handler.extract_caption(event) == "[Attached image]"
+        assert extract_media_caption(event, default="[Attached image]") == "[Attached image]"
 
 
 class TestDownloadImage:
@@ -62,6 +64,7 @@ class TestDownloadImage:
         """Test downloading an unencrypted image from Matrix."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomMessageImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/abc123"
         event.source = {"content": {"info": {"mimetype": "image/png"}}}
 
@@ -80,6 +83,7 @@ class TestDownloadImage:
         """Test downloading and decrypting an encrypted image."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomEncryptedImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/encrypted123"
         event.mimetype = "image/jpeg"
         event.source = {
@@ -97,7 +101,7 @@ class TestDownloadImage:
         response.body = b"encrypted_image_data"
         client.download.return_value = response
 
-        with patch("mindroom.matrix.image_handler.crypto.attachments.decrypt_attachment") as mock_decrypt:
+        with patch("mindroom.matrix.media.crypto.attachments.decrypt_attachment") as mock_decrypt:
             mock_decrypt.return_value = b"decrypted_image_data"
 
             result = await image_handler.download_image(client, event)
@@ -112,10 +116,28 @@ class TestDownloadImage:
             )
 
     @pytest.mark.asyncio
+    async def test_download_prefers_detected_mime_when_metadata_mismatches(self) -> None:
+        """Payload signature should win when Matrix metadata MIME is incorrect."""
+        client = AsyncMock()
+        event = MagicMock(spec=nio.RoomMessageImage)
+        event.event_id = "$test_event"
+        event.url = "mxc://example.org/mismatch"
+        event.source = {"content": {"info": {"mimetype": "image/jpeg"}}}
+
+        response = MagicMock()
+        response.body = b"\x89PNG\r\n\x1a\nrest"
+        client.download.return_value = response
+
+        result = await image_handler.download_image(client, event)
+        assert isinstance(result, Image)
+        assert result.mime_type == "image/png"
+
+    @pytest.mark.asyncio
     async def test_download_returns_none_on_error(self) -> None:
         """Test that download returns None on DownloadError."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomMessageImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/fail"
 
         error_response = MagicMock(spec=nio.DownloadError)
@@ -129,6 +151,7 @@ class TestDownloadImage:
         """Test that exceptions from client.download() return None."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomMessageImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/timeout"
 
         client.download.side_effect = TimeoutError("connection timed out")
@@ -141,6 +164,7 @@ class TestDownloadImage:
         """Test encrypted payloads missing key material fail gracefully."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomEncryptedImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/encrypted_missing_keys"
         event.source = {
             "content": {
@@ -164,6 +188,7 @@ class TestDownloadImage:
         """Test decryption failures are handled without raising."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomEncryptedImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/encrypted_bad"
         event.source = {
             "content": {
@@ -179,7 +204,7 @@ class TestDownloadImage:
         response.body = b"encrypted_image_data"
         client.download.return_value = response
 
-        with patch("mindroom.matrix.image_handler.crypto.attachments.decrypt_attachment") as mock_decrypt:
+        with patch("mindroom.matrix.media.crypto.attachments.decrypt_attachment") as mock_decrypt:
             mock_decrypt.side_effect = ValueError("bad ciphertext")
             result = await image_handler.download_image(client, event)
 
@@ -190,6 +215,7 @@ class TestDownloadImage:
         """Test that missing unencrypted mimetype remains unset."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomMessageImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/notype"
         event.source = {"content": {}}
 
@@ -206,6 +232,7 @@ class TestDownloadImage:
         """Test that encrypted images use event.mimetype (nio-parsed)."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomEncryptedImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/enc_webp"
         event.mimetype = "image/webp"
         event.source = {
@@ -222,7 +249,7 @@ class TestDownloadImage:
         response.body = b"encrypted_data"
         client.download.return_value = response
 
-        with patch("mindroom.matrix.image_handler.crypto.attachments.decrypt_attachment") as mock_decrypt:
+        with patch("mindroom.matrix.media.crypto.attachments.decrypt_attachment") as mock_decrypt:
             mock_decrypt.return_value = b"decrypted_data"
             result = await image_handler.download_image(client, event)
 
@@ -234,6 +261,7 @@ class TestDownloadImage:
         """Test that encrypted images keep mimetype unset when absent."""
         client = AsyncMock()
         event = MagicMock(spec=nio.RoomEncryptedImage)
+        event.event_id = "$test_event"
         event.url = "mxc://example.org/enc_notype"
         event.mimetype = None
         event.source = {
@@ -250,9 +278,44 @@ class TestDownloadImage:
         response.body = b"encrypted_data"
         client.download.return_value = response
 
-        with patch("mindroom.matrix.image_handler.crypto.attachments.decrypt_attachment") as mock_decrypt:
+        with patch("mindroom.matrix.media.crypto.attachments.decrypt_attachment") as mock_decrypt:
             mock_decrypt.return_value = b"decrypted_data"
             result = await image_handler.download_image(client, event)
 
         assert isinstance(result, Image)
         assert result.mime_type is None
+
+
+class TestSniffImageMimeType:
+    """Test lightweight image signature detection."""
+
+    def test_sniff_known_formats(self) -> None:
+        """Known image signatures should map to expected MIME types."""
+        assert _sniff_image_mime_type(b"\x89PNG\r\n\x1a\nrest") == "image/png"
+        assert _sniff_image_mime_type(b"\xff\xd8\xff\xe0rest") == "image/jpeg"
+        assert _sniff_image_mime_type(b"GIF89arest") == "image/gif"
+        assert _sniff_image_mime_type(b"RIFF\x00\x00\x00\x00WEBPrest") == "image/webp"
+
+    def test_sniff_unknown_returns_none(self) -> None:
+        """Unknown byte prefixes should not be misclassified as images."""
+        assert _sniff_image_mime_type(b"not-an-image") is None
+
+
+class TestResolveImageMimeType:
+    """Test effective image MIME resolution semantics."""
+
+    def test_detected_type_takes_precedence_on_mismatch(self) -> None:
+        """Signature-detected MIME should win when declared metadata is wrong."""
+        result = resolve_image_mime_type(b"\x89PNG\r\n\x1a\npayload", "image/jpeg")
+        assert result.effective_mime_type == "image/png"
+        assert result.declared_mime_type == "image/jpeg"
+        assert result.detected_mime_type == "image/png"
+        assert result.is_mismatch is True
+
+    def test_declared_type_used_when_detection_unavailable(self) -> None:
+        """Declared MIME should be used when bytes do not match known signatures."""
+        result = resolve_image_mime_type(b"unknown", "image/webp")
+        assert result.effective_mime_type == "image/webp"
+        assert result.declared_mime_type == "image/webp"
+        assert result.detected_mime_type is None
+        assert result.is_mismatch is False

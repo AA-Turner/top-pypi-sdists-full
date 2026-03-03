@@ -14,7 +14,6 @@ NIfTI1 format defined at http://nifti.nimh.nih.gov/nifti-1/
 from __future__ import annotations
 
 import json
-import sys
 import typing as ty
 import warnings
 from io import BytesIO
@@ -22,12 +21,8 @@ from io import BytesIO
 import numpy as np
 import numpy.linalg as npl
 
-if sys.version_info < (3, 13):
-    from typing_extensions import Self, TypeVar  # PY312
-else:
-    from typing import Self, TypeVar
-
 from . import analyze  # module import
+from ._typing import Self, TypeVar
 from .arrayproxy import get_obj_dtype
 from .batteryrunners import Report
 from .casting import have_binary128
@@ -843,7 +838,7 @@ class Nifti1Header(SpmAnalyzeHeader):
     single_magic = b'n+1'
 
     # Quaternion threshold near 0, based on float32 precision
-    quaternion_threshold = np.finfo(np.float32).eps * 3
+    quaternion_threshold: np.floating = np.finfo(np.float32).eps * 3
 
     def __init__(self, binaryblock=None, endianness=None, check=True, extensions=()):
         """Initialize header from binary data block and extensions"""
@@ -1804,7 +1799,7 @@ class Nifti1Header(SpmAnalyzeHeader):
             raise HeaderDataError(f'slice ordering of {st_order} fits with no known scheme')
         if len(matching_labels) > 1:
             warnings.warn(
-                f"Multiple slice orders satisfy: {', '.join(matching_labels)}. "
+                f'Multiple slice orders satisfy: {", ".join(matching_labels)}. '
                 'Choosing the first one'
             )
         label = matching_labels[0]

@@ -71,7 +71,9 @@ from .. import (
 from ..interfaces.aws_connect import (
     AgentStatusReference as _AgentStatusReference_636e6fb6,
     ApprovedOriginReference as _ApprovedOriginReference_ecd046e5,
+    ContactFlowModuleAliasReference as _ContactFlowModuleAliasReference_0bc4ee12,
     ContactFlowModuleReference as _ContactFlowModuleReference_4bd789b3,
+    ContactFlowModuleVersionReference as _ContactFlowModuleVersionReference_4c382259,
     ContactFlowReference as _ContactFlowReference_b6f7570e,
     ContactFlowVersionReference as _ContactFlowVersionReference_45d9e9fb,
     DataTableAttributeReference as _DataTableAttributeReference_3943fce4,
@@ -82,7 +84,9 @@ from ..interfaces.aws_connect import (
     HoursOfOperationReference as _HoursOfOperationReference_aa60f7ee,
     IAgentStatusRef as _IAgentStatusRef_67596e12,
     IApprovedOriginRef as _IApprovedOriginRef_afddd2e6,
+    IContactFlowModuleAliasRef as _IContactFlowModuleAliasRef_0818bfc2,
     IContactFlowModuleRef as _IContactFlowModuleRef_7a0e807b,
+    IContactFlowModuleVersionRef as _IContactFlowModuleVersionRef_b526d27e,
     IContactFlowRef as _IContactFlowRef_747dc709,
     IContactFlowVersionRef as _IContactFlowVersionRef_0646c7f7,
     IDataTableAttributeRef as _IDataTableAttributeRef_a8e0802d,
@@ -94,6 +98,7 @@ from ..interfaces.aws_connect import (
     IInstanceRef as _IInstanceRef_b6835093,
     IInstanceStorageConfigRef as _IInstanceStorageConfigRef_5fef5417,
     IIntegrationAssociationRef as _IIntegrationAssociationRef_c3543e75,
+    INotificationRef as _INotificationRef_1b478303,
     IPhoneNumberRef as _IPhoneNumberRef_62bb2b03,
     IPredefinedAttributeRef as _IPredefinedAttributeRef_9e6089ad,
     IPromptRef as _IPromptRef_5f2c955a,
@@ -114,6 +119,7 @@ from ..interfaces.aws_connect import (
     InstanceReference as _InstanceReference_345aa0a1,
     InstanceStorageConfigReference as _InstanceStorageConfigReference_973a35d6,
     IntegrationAssociationReference as _IntegrationAssociationReference_cff2fa85,
+    NotificationReference as _NotificationReference_d0c77806,
     PhoneNumberReference as _PhoneNumberReference_b9735bb2,
     PredefinedAttributeReference as _PredefinedAttributeReference_14f5aba3,
     PromptReference as _PromptReference_0538adaf,
@@ -1399,6 +1405,317 @@ class CfnContactFlowModule(
             )
 
 
+@jsii.implements(_IInspectable_c2943556, _IContactFlowModuleAliasRef_0818bfc2)
+class CfnContactFlowModuleAlias(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModuleAlias",
+):
+    '''Resource Type definition for ContactFlowModuleAlias.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodulealias.html
+    :cloudformationResource: AWS::Connect::ContactFlowModuleAlias
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_contact_flow_module_alias = connect.CfnContactFlowModuleAlias(self, "MyCfnContactFlowModuleAlias",
+            contact_flow_module_id="contactFlowModuleId",
+            contact_flow_module_version=123,
+            name="name",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        contact_flow_module_id: builtins.str,
+        contact_flow_module_version: jsii.Number,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Connect::ContactFlowModuleAlias``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param contact_flow_module_id: The identifier of the contact flow module (ARN) this alias is tied to.
+        :param contact_flow_module_version: The version number of the contact flow module this alias points to.
+        :param name: The name of the alias.
+        :param description: The description of the alias.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d16e4a2112f6f149642361138749a514fe2f4d67aa659fb07de3905db2ba618f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContactFlowModuleAliasProps(
+            contact_flow_module_id=contact_flow_module_id,
+            contact_flow_module_version=contact_flow_module_version,
+            name=name,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForContactFlowModuleAlias")
+    @builtins.classmethod
+    def arn_for_contact_flow_module_alias(
+        cls,
+        resource: "_IContactFlowModuleAliasRef_0818bfc2",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a6319b1af174534e37c5681a6510685dc8b6eb4904d79df6fd0aaed9aeb303d3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContactFlowModuleAlias", [resource]))
+
+    @jsii.member(jsii_name="isCfnContactFlowModuleAlias")
+    @builtins.classmethod
+    def is_cfn_contact_flow_module_alias(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContactFlowModuleAlias.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ae2ca75c40d4beee9aceb537dfc4ba984df73e97f0cf6aa9cc41f124dcaf611)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContactFlowModuleAlias", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4b17f04b10a702bf8be3962c0ddd763f1972dd9cc068cf96ffdf4143da787c3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97a7069bf931234814a8099e5eb4e7fb42385814a12e707119045cd94fdb68f5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAliasId")
+    def attr_alias_id(self) -> builtins.str:
+        '''The unique identifier of the alias.
+
+        :cloudformationAttribute: AliasId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAliasId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContactFlowModuleAliasArn")
+    def attr_contact_flow_module_alias_arn(self) -> builtins.str:
+        '''The identifier of the contact flow module alias (ARN).
+
+        This is constructed from the ContactFlowModuleArn and AliasId.
+
+        :cloudformationAttribute: ContactFlowModuleAliasARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowModuleAliasArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleAliasRef")
+    def contact_flow_module_alias_ref(
+        self,
+    ) -> "_ContactFlowModuleAliasReference_0bc4ee12":
+        '''A reference to a ContactFlowModuleAlias resource.'''
+        return typing.cast("_ContactFlowModuleAliasReference_0bc4ee12", jsii.get(self, "contactFlowModuleAliasRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleId")
+    def contact_flow_module_id(self) -> builtins.str:
+        '''The identifier of the contact flow module (ARN) this alias is tied to.'''
+        return typing.cast(builtins.str, jsii.get(self, "contactFlowModuleId"))
+
+    @contact_flow_module_id.setter
+    def contact_flow_module_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63f8036031b0306740cf0ffb973979168530cdf7ec737b6171782eda0ac2e4fd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contactFlowModuleId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleVersion")
+    def contact_flow_module_version(self) -> jsii.Number:
+        '''The version number of the contact flow module this alias points to.'''
+        return typing.cast(jsii.Number, jsii.get(self, "contactFlowModuleVersion"))
+
+    @contact_flow_module_version.setter
+    def contact_flow_module_version(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d445d34acbc7d357dcc217796a4c7f2bd2cc8e29e719e2329bc182b9013b40e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contactFlowModuleVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the alias.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8f49872811414b8cf3774350b862b86fe18ad8575b90258bc9ab92ce556abd5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the alias.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4dd8d6b6cb7e61e73052eee2c9c842bcfe05f5288960db99218db3c7f82e8e28)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModuleAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "contact_flow_module_id": "contactFlowModuleId",
+        "contact_flow_module_version": "contactFlowModuleVersion",
+        "name": "name",
+        "description": "description",
+    },
+)
+class CfnContactFlowModuleAliasProps:
+    def __init__(
+        self,
+        *,
+        contact_flow_module_id: builtins.str,
+        contact_flow_module_version: jsii.Number,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContactFlowModuleAlias``.
+
+        :param contact_flow_module_id: The identifier of the contact flow module (ARN) this alias is tied to.
+        :param contact_flow_module_version: The version number of the contact flow module this alias points to.
+        :param name: The name of the alias.
+        :param description: The description of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodulealias.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_contact_flow_module_alias_props = connect.CfnContactFlowModuleAliasProps(
+                contact_flow_module_id="contactFlowModuleId",
+                contact_flow_module_version=123,
+                name="name",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8188372303bbd8ba5dac24ad61892a57a97e9b8e36118ac1bd72a03fa13e9c6f)
+            check_type(argname="argument contact_flow_module_id", value=contact_flow_module_id, expected_type=type_hints["contact_flow_module_id"])
+            check_type(argname="argument contact_flow_module_version", value=contact_flow_module_version, expected_type=type_hints["contact_flow_module_version"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_flow_module_id": contact_flow_module_id,
+            "contact_flow_module_version": contact_flow_module_version,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def contact_flow_module_id(self) -> builtins.str:
+        '''The identifier of the contact flow module (ARN) this alias is tied to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodulealias.html#cfn-connect-contactflowmodulealias-contactflowmoduleid
+        '''
+        result = self._values.get("contact_flow_module_id")
+        assert result is not None, "Required property 'contact_flow_module_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def contact_flow_module_version(self) -> jsii.Number:
+        '''The version number of the contact flow module this alias points to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodulealias.html#cfn-connect-contactflowmodulealias-contactflowmoduleversion
+        '''
+        result = self._values.get("contact_flow_module_version")
+        assert result is not None, "Required property 'contact_flow_module_version' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodulealias.html#cfn-connect-contactflowmodulealias-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the alias.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmodulealias.html#cfn-connect-contactflowmodulealias-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContactFlowModuleAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModuleProps",
     jsii_struct_bases=[],
@@ -1578,6 +1895,257 @@ class CfnContactFlowModuleProps:
 
     def __repr__(self) -> str:
         return "CfnContactFlowModuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IContactFlowModuleVersionRef_b526d27e)
+class CfnContactFlowModuleVersion(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModuleVersion",
+):
+    '''Resource Type definition for ContactFlowModuleVersion.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmoduleversion.html
+    :cloudformationResource: AWS::Connect::ContactFlowModuleVersion
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_contact_flow_module_version = connect.CfnContactFlowModuleVersion(self, "MyCfnContactFlowModuleVersion",
+            contact_flow_module_id="contactFlowModuleId",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        contact_flow_module_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Connect::ContactFlowModuleVersion``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param contact_flow_module_id: The identifier of the contact flow module (ARN) this version is tied to.
+        :param description: The description of the version.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1faa5a87d2d09a44ff2a6d0a69e511ac5cf51ebd32d80dfec75eadeef0b74c1d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnContactFlowModuleVersionProps(
+            contact_flow_module_id=contact_flow_module_id, description=description
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForContactFlowModuleVersion")
+    @builtins.classmethod
+    def arn_for_contact_flow_module_version(
+        cls,
+        resource: "_IContactFlowModuleVersionRef_b526d27e",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__598b6b2ca4e1dbb32a9fdb097e822368ae64c32ab226646586c6db36101ae904)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForContactFlowModuleVersion", [resource]))
+
+    @jsii.member(jsii_name="isCfnContactFlowModuleVersion")
+    @builtins.classmethod
+    def is_cfn_contact_flow_module_version(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnContactFlowModuleVersion.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc7e0c01125c6c1dbd42d4e5eef2b89d8302fd5fbccd7d1fb301574d8a986d97)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnContactFlowModuleVersion", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__631c93906ae60803bf8879ca311a3ee9f4f86f648324af7e00fcfb8aa4a60be2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52eea426ef2e5262fef0422235f9399f6dcbc1a1278e9f6e8d418b230d18701b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrContactFlowModuleVersionArn")
+    def attr_contact_flow_module_version_arn(self) -> builtins.str:
+        '''The identifier of the contact flow module version (ARN).
+
+        :cloudformationAttribute: ContactFlowModuleVersionARN
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrContactFlowModuleVersionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFlowModuleContentSha256")
+    def attr_flow_module_content_sha256(self) -> builtins.str:
+        '''Indicates the checksum value of the latest published flow module content.
+
+        :cloudformationAttribute: FlowModuleContentSha256
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFlowModuleContentSha256"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> jsii.Number:
+        '''The version number of this revision.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleVersionRef")
+    def contact_flow_module_version_ref(
+        self,
+    ) -> "_ContactFlowModuleVersionReference_4c382259":
+        '''A reference to a ContactFlowModuleVersion resource.'''
+        return typing.cast("_ContactFlowModuleVersionReference_4c382259", jsii.get(self, "contactFlowModuleVersionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleId")
+    def contact_flow_module_id(self) -> builtins.str:
+        '''The identifier of the contact flow module (ARN) this version is tied to.'''
+        return typing.cast(builtins.str, jsii.get(self, "contactFlowModuleId"))
+
+    @contact_flow_module_id.setter
+    def contact_flow_module_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98b4ab25c0665db0272933e31b70af2cec008d40f73209b82bc335f5a34d36a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contactFlowModuleId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c5080ccf473c96edcffe734bd8a8d3cde171bb4126be9da4f3b9ed6d499cdd0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnContactFlowModuleVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "contact_flow_module_id": "contactFlowModuleId",
+        "description": "description",
+    },
+)
+class CfnContactFlowModuleVersionProps:
+    def __init__(
+        self,
+        *,
+        contact_flow_module_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnContactFlowModuleVersion``.
+
+        :param contact_flow_module_id: The identifier of the contact flow module (ARN) this version is tied to.
+        :param description: The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmoduleversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_contact_flow_module_version_props = connect.CfnContactFlowModuleVersionProps(
+                contact_flow_module_id="contactFlowModuleId",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f4c1ad40d9df8bc58537544d30665717bfee65cef5c7584cf712ee862d99f85)
+            check_type(argname="argument contact_flow_module_id", value=contact_flow_module_id, expected_type=type_hints["contact_flow_module_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_flow_module_id": contact_flow_module_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def contact_flow_module_id(self) -> builtins.str:
+        '''The identifier of the contact flow module (ARN) this version is tied to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmoduleversion.html#cfn-connect-contactflowmoduleversion-contactflowmoduleid
+        '''
+        result = self._values.get("contact_flow_module_id")
+        assert result is not None, "Required property 'contact_flow_module_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-contactflowmoduleversion.html#cfn-connect-contactflowmoduleversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnContactFlowModuleVersionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -12007,6 +12575,652 @@ class CfnIntegrationAssociationProps:
 
     def __repr__(self) -> str:
         return "CfnIntegrationAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _INotificationRef_1b478303, _ITaggableV2_4e6798f8)
+class CfnNotification(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_connect.CfnNotification",
+):
+    '''Resource Type definition for AWS::Connect::Notification.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html
+    :cloudformationResource: AWS::Connect::Notification
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_connect as connect
+        
+        cfn_notification = connect.CfnNotification(self, "MyCfnNotification",
+            content=connect.CfnNotification.NotificationContentProperty(
+                de_de="deDe",
+                en_us="enUs",
+                es_es="esEs",
+                fr_fr="frFr",
+                id_id="idId",
+                it_it="itIt",
+                ja_jp="jaJp",
+                ko_kr="koKr",
+                pt_br="ptBr",
+                zh_cn="zhCn",
+                zh_tw="zhTw"
+            ),
+            instance_arn="instanceArn",
+        
+            # the properties below are optional
+            expires_at="expiresAt",
+            priority="priority",
+            recipients=["recipients"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        content: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotification.NotificationContentProperty", typing.Dict[builtins.str, typing.Any]]],
+        instance_arn: builtins.str,
+        expires_at: typing.Optional[builtins.str] = None,
+        priority: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Connect::Notification``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param content: The content of a notification.
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param expires_at: The time a notification will expire.
+        :param priority: The priority of notification. In the Amazon Connect console, when you create a notification, you are prompted to assign one of the following priorities: High (HIGH) or LOW (LOW)
+        :param recipients: The recipients of the notification.
+        :param tags: One or more tags.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93b87ee6f87ed749fc9d7de0fd0014feccadd4a0a76d05a3e4003875f6e9f4c4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnNotificationProps(
+            content=content,
+            instance_arn=instance_arn,
+            expires_at=expires_at,
+            priority=priority,
+            recipients=recipients,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForNotification")
+    @builtins.classmethod
+    def arn_for_notification(
+        cls,
+        resource: "_INotificationRef_1b478303",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf467e831a3fc2900cd28f14a3cf994abd73332615e656e4b12243d80e30da9a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNotification", [resource]))
+
+    @jsii.member(jsii_name="isCfnNotification")
+    @builtins.classmethod
+    def is_cfn_notification(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNotification.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f0acee442d90eebc00b65745f484fbd6e12d01ac43ebdc3fc97aba1b0b4f9139)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotification", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ceff9a1160a7ab5b5f4070ce51940c2431eb3ca3fe982dadebd49dad19f72e69)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eea320ef2afa9c8881f2acc1bafcd443bd9d360d7915a7a6d530b36af374938e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the notification.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time a notification was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The identifier of the notification.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationRef")
+    def notification_ref(self) -> "_NotificationReference_d0c77806":
+        '''A reference to a Notification resource.'''
+        return typing.cast("_NotificationReference_d0c77806", jsii.get(self, "notificationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="content")
+    def content(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnNotification.NotificationContentProperty"]:
+        '''The content of a notification.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNotification.NotificationContentProperty"], jsii.get(self, "content"))
+
+    @content.setter
+    def content(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnNotification.NotificationContentProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7e2992cab33bd587567b4096a222086178c2b8c19027f19f0417a6b8118b488)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "content", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceArn")
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceArn"))
+
+    @instance_arn.setter
+    def instance_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aeb2e31ef2a48273dede0c5d3803f7e3044486dcac93ab475950d663ff081530)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expiresAt")
+    def expires_at(self) -> typing.Optional[builtins.str]:
+        '''The time a notification will expire.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expiresAt"))
+
+    @expires_at.setter
+    def expires_at(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09d75c8d135d0cdc8a6d0ae1ba0d19b946163a9eb02022d236dbe245c227e195)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expiresAt", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="priority")
+    def priority(self) -> typing.Optional[builtins.str]:
+        '''The priority of notification.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "priority"))
+
+    @priority.setter
+    def priority(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__72ec44fec3691ae09c1023c9b292a3f6b21f5606b848d5492ac1d0561f58e84e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recipients")
+    def recipients(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The recipients of the notification.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "recipients"))
+
+    @recipients.setter
+    def recipients(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__152add63d91bb2b9187b4ec81f99cc3297a4a07a1b22fc31aacf046ee3aacec8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recipients", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more tags.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa11a415b44bc36d0e01dde12ffbf8a3786038c0ad055f4dc1c244795997fb45)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnNotification.NotificationContentProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "de_de": "deDe",
+            "en_us": "enUs",
+            "es_es": "esEs",
+            "fr_fr": "frFr",
+            "id_id": "idId",
+            "it_it": "itIt",
+            "ja_jp": "jaJp",
+            "ko_kr": "koKr",
+            "pt_br": "ptBr",
+            "zh_cn": "zhCn",
+            "zh_tw": "zhTw",
+        },
+    )
+    class NotificationContentProperty:
+        def __init__(
+            self,
+            *,
+            de_de: typing.Optional[builtins.str] = None,
+            en_us: typing.Optional[builtins.str] = None,
+            es_es: typing.Optional[builtins.str] = None,
+            fr_fr: typing.Optional[builtins.str] = None,
+            id_id: typing.Optional[builtins.str] = None,
+            it_it: typing.Optional[builtins.str] = None,
+            ja_jp: typing.Optional[builtins.str] = None,
+            ko_kr: typing.Optional[builtins.str] = None,
+            pt_br: typing.Optional[builtins.str] = None,
+            zh_cn: typing.Optional[builtins.str] = None,
+            zh_tw: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The content of a notification.
+
+            :param de_de: Localized notification content.
+            :param en_us: Localized notification content.
+            :param es_es: Localized notification content.
+            :param fr_fr: Localized notification content.
+            :param id_id: Localized notification content.
+            :param it_it: Localized notification content.
+            :param ja_jp: Localized notification content.
+            :param ko_kr: Localized notification content.
+            :param pt_br: Localized notification content.
+            :param zh_cn: Localized notification content.
+            :param zh_tw: Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                notification_content_property = connect.CfnNotification.NotificationContentProperty(
+                    de_de="deDe",
+                    en_us="enUs",
+                    es_es="esEs",
+                    fr_fr="frFr",
+                    id_id="idId",
+                    it_it="itIt",
+                    ja_jp="jaJp",
+                    ko_kr="koKr",
+                    pt_br="ptBr",
+                    zh_cn="zhCn",
+                    zh_tw="zhTw"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3b0beba796e41277c23f0a12e5ac7514ca5f7cda868a83502dcf3cecd7999437)
+                check_type(argname="argument de_de", value=de_de, expected_type=type_hints["de_de"])
+                check_type(argname="argument en_us", value=en_us, expected_type=type_hints["en_us"])
+                check_type(argname="argument es_es", value=es_es, expected_type=type_hints["es_es"])
+                check_type(argname="argument fr_fr", value=fr_fr, expected_type=type_hints["fr_fr"])
+                check_type(argname="argument id_id", value=id_id, expected_type=type_hints["id_id"])
+                check_type(argname="argument it_it", value=it_it, expected_type=type_hints["it_it"])
+                check_type(argname="argument ja_jp", value=ja_jp, expected_type=type_hints["ja_jp"])
+                check_type(argname="argument ko_kr", value=ko_kr, expected_type=type_hints["ko_kr"])
+                check_type(argname="argument pt_br", value=pt_br, expected_type=type_hints["pt_br"])
+                check_type(argname="argument zh_cn", value=zh_cn, expected_type=type_hints["zh_cn"])
+                check_type(argname="argument zh_tw", value=zh_tw, expected_type=type_hints["zh_tw"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if de_de is not None:
+                self._values["de_de"] = de_de
+            if en_us is not None:
+                self._values["en_us"] = en_us
+            if es_es is not None:
+                self._values["es_es"] = es_es
+            if fr_fr is not None:
+                self._values["fr_fr"] = fr_fr
+            if id_id is not None:
+                self._values["id_id"] = id_id
+            if it_it is not None:
+                self._values["it_it"] = it_it
+            if ja_jp is not None:
+                self._values["ja_jp"] = ja_jp
+            if ko_kr is not None:
+                self._values["ko_kr"] = ko_kr
+            if pt_br is not None:
+                self._values["pt_br"] = pt_br
+            if zh_cn is not None:
+                self._values["zh_cn"] = zh_cn
+            if zh_tw is not None:
+                self._values["zh_tw"] = zh_tw
+
+        @builtins.property
+        def de_de(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-dede
+            '''
+            result = self._values.get("de_de")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def en_us(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-enus
+            '''
+            result = self._values.get("en_us")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def es_es(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-eses
+            '''
+            result = self._values.get("es_es")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def fr_fr(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-frfr
+            '''
+            result = self._values.get("fr_fr")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def id_id(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-idid
+            '''
+            result = self._values.get("id_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def it_it(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-itit
+            '''
+            result = self._values.get("it_it")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ja_jp(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-jajp
+            '''
+            result = self._values.get("ja_jp")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def ko_kr(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-kokr
+            '''
+            result = self._values.get("ko_kr")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pt_br(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-ptbr
+            '''
+            result = self._values.get("pt_br")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def zh_cn(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-zhcn
+            '''
+            result = self._values.get("zh_cn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def zh_tw(self) -> typing.Optional[builtins.str]:
+            '''Localized notification content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html#cfn-connect-notification-notificationcontent-zhtw
+            '''
+            result = self._values.get("zh_tw")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NotificationContentProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_connect.CfnNotificationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content": "content",
+        "instance_arn": "instanceArn",
+        "expires_at": "expiresAt",
+        "priority": "priority",
+        "recipients": "recipients",
+        "tags": "tags",
+    },
+)
+class CfnNotificationProps:
+    def __init__(
+        self,
+        *,
+        content: typing.Union["_IResolvable_da3f097b", typing.Union["CfnNotification.NotificationContentProperty", typing.Dict[builtins.str, typing.Any]]],
+        instance_arn: builtins.str,
+        expires_at: typing.Optional[builtins.str] = None,
+        priority: typing.Optional[builtins.str] = None,
+        recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNotification``.
+
+        :param content: The content of a notification.
+        :param instance_arn: The identifier of the Amazon Connect instance.
+        :param expires_at: The time a notification will expire.
+        :param priority: The priority of notification. In the Amazon Connect console, when you create a notification, you are prompted to assign one of the following priorities: High (HIGH) or LOW (LOW)
+        :param recipients: The recipients of the notification.
+        :param tags: One or more tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_connect as connect
+            
+            cfn_notification_props = connect.CfnNotificationProps(
+                content=connect.CfnNotification.NotificationContentProperty(
+                    de_de="deDe",
+                    en_us="enUs",
+                    es_es="esEs",
+                    fr_fr="frFr",
+                    id_id="idId",
+                    it_it="itIt",
+                    ja_jp="jaJp",
+                    ko_kr="koKr",
+                    pt_br="ptBr",
+                    zh_cn="zhCn",
+                    zh_tw="zhTw"
+                ),
+                instance_arn="instanceArn",
+            
+                # the properties below are optional
+                expires_at="expiresAt",
+                priority="priority",
+                recipients=["recipients"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e22111a9d92f617967313e0ba5f81ba0dd9524697421aa15331bf87c86dc88c2)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            check_type(argname="argument expires_at", value=expires_at, expected_type=type_hints["expires_at"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument recipients", value=recipients, expected_type=type_hints["recipients"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+            "instance_arn": instance_arn,
+        }
+        if expires_at is not None:
+            self._values["expires_at"] = expires_at
+        if priority is not None:
+            self._values["priority"] = priority
+        if recipients is not None:
+            self._values["recipients"] = recipients
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def content(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnNotification.NotificationContentProperty"]:
+        '''The content of a notification.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html#cfn-connect-notification-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnNotification.NotificationContentProperty"], result)
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The identifier of the Amazon Connect instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html#cfn-connect-notification-instancearn
+        '''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def expires_at(self) -> typing.Optional[builtins.str]:
+        '''The time a notification will expire.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html#cfn-connect-notification-expiresat
+        '''
+        result = self._values.get("expires_at")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[builtins.str]:
+        '''The priority of notification.
+
+        In the Amazon Connect console, when you create a notification, you are prompted to assign one of the following priorities: High (HIGH) or LOW (LOW)
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html#cfn-connect-notification-priority
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recipients(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The recipients of the notification.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html#cfn-connect-notification-recipients
+        '''
+        result = self._values.get("recipients")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-notification.html#cfn-connect-notification-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNotificationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -25476,7 +26690,11 @@ __all__ = [
     "CfnApprovedOriginProps",
     "CfnContactFlow",
     "CfnContactFlowModule",
+    "CfnContactFlowModuleAlias",
+    "CfnContactFlowModuleAliasProps",
     "CfnContactFlowModuleProps",
+    "CfnContactFlowModuleVersion",
+    "CfnContactFlowModuleVersionProps",
     "CfnContactFlowProps",
     "CfnContactFlowVersion",
     "CfnContactFlowVersionProps",
@@ -25498,6 +26716,8 @@ __all__ = [
     "CfnInstanceStorageConfigProps",
     "CfnIntegrationAssociation",
     "CfnIntegrationAssociationProps",
+    "CfnNotification",
+    "CfnNotificationProps",
     "CfnPhoneNumber",
     "CfnPhoneNumberProps",
     "CfnPredefinedAttribute",
@@ -25862,6 +27082,76 @@ def _typecheckingstub__2f8efe241abc51b530409c9debc12d730a45ae666ff0ec6e19d2013f0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d16e4a2112f6f149642361138749a514fe2f4d67aa659fb07de3905db2ba618f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    contact_flow_module_id: builtins.str,
+    contact_flow_module_version: jsii.Number,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a6319b1af174534e37c5681a6510685dc8b6eb4904d79df6fd0aaed9aeb303d3(
+    resource: _IContactFlowModuleAliasRef_0818bfc2,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ae2ca75c40d4beee9aceb537dfc4ba984df73e97f0cf6aa9cc41f124dcaf611(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4b17f04b10a702bf8be3962c0ddd763f1972dd9cc068cf96ffdf4143da787c3(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97a7069bf931234814a8099e5eb4e7fb42385814a12e707119045cd94fdb68f5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63f8036031b0306740cf0ffb973979168530cdf7ec737b6171782eda0ac2e4fd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d445d34acbc7d357dcc217796a4c7f2bd2cc8e29e719e2329bc182b9013b40e(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8f49872811414b8cf3774350b862b86fe18ad8575b90258bc9ab92ce556abd5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4dd8d6b6cb7e61e73052eee2c9c842bcfe05f5288960db99218db3c7f82e8e28(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8188372303bbd8ba5dac24ad61892a57a97e9b8e36118ac1bd72a03fa13e9c6f(
+    *,
+    contact_flow_module_id: builtins.str,
+    contact_flow_module_version: jsii.Number,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__84f0f2ba3fd7010e7e0bb6aaa71b591e31e6d4c4ad736e9c4e08be6f11de0102(
     *,
     content: builtins.str,
@@ -25872,6 +27162,60 @@ def _typecheckingstub__84f0f2ba3fd7010e7e0bb6aaa71b591e31e6d4c4ad736e9c4e08be6f1
     settings: typing.Optional[builtins.str] = None,
     state: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1faa5a87d2d09a44ff2a6d0a69e511ac5cf51ebd32d80dfec75eadeef0b74c1d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    contact_flow_module_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__598b6b2ca4e1dbb32a9fdb097e822368ae64c32ab226646586c6db36101ae904(
+    resource: _IContactFlowModuleVersionRef_b526d27e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc7e0c01125c6c1dbd42d4e5eef2b89d8302fd5fbccd7d1fb301574d8a986d97(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__631c93906ae60803bf8879ca311a3ee9f4f86f648324af7e00fcfb8aa4a60be2(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52eea426ef2e5262fef0422235f9399f6dcbc1a1278e9f6e8d418b230d18701b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98b4ab25c0665db0272933e31b70af2cec008d40f73209b82bc335f5a34d36a7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c5080ccf473c96edcffe734bd8a8d3cde171bb4126be9da4f3b9ed6d499cdd0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f4c1ad40d9df8bc58537544d30665717bfee65cef5c7584cf712ee862d99f85(
+    *,
+    contact_flow_module_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27218,6 +28562,109 @@ def _typecheckingstub__fe194aedf3230ea702915cbc89ea1228fbcd7507b4352cd6ca6f2c8b3
     instance_id: typing.Union[builtins.str, _IInstanceRef_b6835093],
     integration_arn: builtins.str,
     integration_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93b87ee6f87ed749fc9d7de0fd0014feccadd4a0a76d05a3e4003875f6e9f4c4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotification.NotificationContentProperty, typing.Dict[builtins.str, typing.Any]]],
+    instance_arn: builtins.str,
+    expires_at: typing.Optional[builtins.str] = None,
+    priority: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf467e831a3fc2900cd28f14a3cf994abd73332615e656e4b12243d80e30da9a(
+    resource: _INotificationRef_1b478303,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f0acee442d90eebc00b65745f484fbd6e12d01ac43ebdc3fc97aba1b0b4f9139(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ceff9a1160a7ab5b5f4070ce51940c2431eb3ca3fe982dadebd49dad19f72e69(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eea320ef2afa9c8881f2acc1bafcd443bd9d360d7915a7a6d530b36af374938e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7e2992cab33bd587567b4096a222086178c2b8c19027f19f0417a6b8118b488(
+    value: typing.Union[_IResolvable_da3f097b, CfnNotification.NotificationContentProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aeb2e31ef2a48273dede0c5d3803f7e3044486dcac93ab475950d663ff081530(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09d75c8d135d0cdc8a6d0ae1ba0d19b946163a9eb02022d236dbe245c227e195(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72ec44fec3691ae09c1023c9b292a3f6b21f5606b848d5492ac1d0561f58e84e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__152add63d91bb2b9187b4ec81f99cc3297a4a07a1b22fc31aacf046ee3aacec8(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa11a415b44bc36d0e01dde12ffbf8a3786038c0ad055f4dc1c244795997fb45(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b0beba796e41277c23f0a12e5ac7514ca5f7cda868a83502dcf3cecd7999437(
+    *,
+    de_de: typing.Optional[builtins.str] = None,
+    en_us: typing.Optional[builtins.str] = None,
+    es_es: typing.Optional[builtins.str] = None,
+    fr_fr: typing.Optional[builtins.str] = None,
+    id_id: typing.Optional[builtins.str] = None,
+    it_it: typing.Optional[builtins.str] = None,
+    ja_jp: typing.Optional[builtins.str] = None,
+    ko_kr: typing.Optional[builtins.str] = None,
+    pt_br: typing.Optional[builtins.str] = None,
+    zh_cn: typing.Optional[builtins.str] = None,
+    zh_tw: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e22111a9d92f617967313e0ba5f81ba0dd9524697421aa15331bf87c86dc88c2(
+    *,
+    content: typing.Union[_IResolvable_da3f097b, typing.Union[CfnNotification.NotificationContentProperty, typing.Dict[builtins.str, typing.Any]]],
+    instance_arn: builtins.str,
+    expires_at: typing.Optional[builtins.str] = None,
+    priority: typing.Optional[builtins.str] = None,
+    recipients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -12,6 +12,7 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    get_type_hints,
 )
 
 from pydantic import BaseModel
@@ -39,12 +40,20 @@ def get_function_json_schema(func: Callable) -> Dict[str, Any]:
     func_signature = signature(func)
     parameters = list(func_signature.parameters.values())
 
+    # Resolve string annotations from `from __future__ import annotations`
+    try:
+        resolved_hints = get_type_hints(func)
+    except Exception:
+        resolved_hints = {}
+
     properties = {}
     required = []
 
     for param in parameters:
         param_name = param.name
-        properties[param_name] = get_param_json_schema(param)
+        resolved_type = resolved_hints.get(param_name, param.annotation)
+        resolved_param = param.replace(annotation=resolved_type)
+        properties[param_name] = get_param_json_schema(resolved_param)
 
         if param.default == Parameter.empty:
             required.append(param_name)

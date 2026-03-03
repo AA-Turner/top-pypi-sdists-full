@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-check
-Version: 2.7.2
+Version: 2.7.3
 Summary: A pytest plugin that allows multiple failures per test.
 Project-URL: Home, https://github.com/okken/pytest-check
 Author: Brian Okken

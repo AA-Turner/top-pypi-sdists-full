@@ -37,7 +37,8 @@ class CreateClusterEnvironment(object):
         'project_id': 'str',
         'config_json': 'CreateClusterEnvironmentConfigurationSchema',
         'containerfile': 'str',
-        'anonymous': 'bool'
+        'anonymous': 'bool',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class CreateClusterEnvironment(object):
         'project_id': 'project_id',
         'config_json': 'config_json',
         'containerfile': 'containerfile',
-        'anonymous': 'anonymous'
+        'anonymous': 'anonymous',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, name=None, project_id=None, config_json=None, containerfile=None, anonymous=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, project_id=None, config_json=None, containerfile=None, anonymous=False, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """CreateClusterEnvironment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +61,7 @@ class CreateClusterEnvironment(object):
         self._config_json = None
         self._containerfile = None
         self._anonymous = None
+        self._cloud_id = None
         self.discriminator = None
 
         self.name = name
@@ -70,6 +73,8 @@ class CreateClusterEnvironment(object):
             self.containerfile = containerfile
         if anonymous is not None:
             self.anonymous = anonymous
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def name(self):
@@ -187,6 +192,29 @@ class CreateClusterEnvironment(object):
         """
 
         self._anonymous = anonymous
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this CreateClusterEnvironment.  # noqa: E501
+
+        ID of the Cloud this Cluster Environment is associated with. Required for Azure deployments.  # noqa: E501
+
+        :return: The cloud_id of this CreateClusterEnvironment.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this CreateClusterEnvironment.
+
+        ID of the Cloud this Cluster Environment is associated with. Required for Azure deployments.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this CreateClusterEnvironment.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

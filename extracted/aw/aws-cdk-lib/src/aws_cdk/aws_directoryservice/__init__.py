@@ -60,8 +60,11 @@ from .._jsii import *
 import constructs as _constructs_77d1e7e8
 from .. import (
     CfnResource as _CfnResource_9df397a6,
+    CfnTag as _CfnTag_f6864754,
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
+    TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..interfaces.aws_directoryservice import (
@@ -592,7 +595,7 @@ class CfnMicrosoftADProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ISimpleADRef_73ed9e5f)
+@jsii.implements(_IInspectable_c2943556, _ISimpleADRef_73ed9e5f, _ITaggableV2_4e6798f8)
 class CfnSimpleAD(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -608,6 +611,7 @@ class CfnSimpleAD(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_directoryservice as directoryservice
@@ -625,7 +629,11 @@ class CfnSimpleAD(
             description="description",
             enable_sso=False,
             password="password",
-            short_name="shortName"
+            short_name="shortName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -642,6 +650,7 @@ class CfnSimpleAD(
         enable_sso: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         password: typing.Optional[builtins.str] = None,
         short_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DirectoryService::SimpleAD``.
 
@@ -655,6 +664,7 @@ class CfnSimpleAD(
         :param enable_sso: Whether to enable single sign-on for a directory. If you don't specify a value, CloudFormation disables single sign-on by default.
         :param password: The password for the directory administrator. The directory creation process creates a directory administrator account with the user name ``Administrator`` and this password. If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *Directory Service API Reference* .
         :param short_name: The NetBIOS name of the directory, such as ``CORP`` .
+        :param tags: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40820ee1ed03f2cd4befa65e6404c1024999677e0624ca5450f4b1f9220b604a)
@@ -669,6 +679,7 @@ class CfnSimpleAD(
             enable_sso=enable_sso,
             password=password,
             short_name=short_name,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -785,6 +796,12 @@ class CfnSimpleAD(
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -916,6 +933,18 @@ class CfnSimpleAD(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shortName", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8608a48530e4652b220da217be24d24054a2262d8b47292ff51a7225a5d3754c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_directoryservice.CfnSimpleAD.VpcSettingsProperty",
         jsii_struct_bases=[],
@@ -1002,6 +1031,7 @@ class CfnSimpleAD(
         "enable_sso": "enableSso",
         "password": "password",
         "short_name": "shortName",
+        "tags": "tags",
     },
 )
 class CfnSimpleADProps:
@@ -1016,6 +1046,7 @@ class CfnSimpleADProps:
         enable_sso: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         password: typing.Optional[builtins.str] = None,
         short_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSimpleAD``.
 
@@ -1027,12 +1058,14 @@ class CfnSimpleADProps:
         :param enable_sso: Whether to enable single sign-on for a directory. If you don't specify a value, CloudFormation disables single sign-on by default.
         :param password: The password for the directory administrator. The directory creation process creates a directory administrator account with the user name ``Administrator`` and this password. If you need to change the password for the administrator account, see the `ResetUserPassword <https://docs.aws.amazon.com/directoryservice/latest/devguide/API_ResetUserPassword.html>`_ API call in the *Directory Service API Reference* .
         :param short_name: The NetBIOS name of the directory, such as ``CORP`` .
+        :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_directoryservice as directoryservice
@@ -1050,7 +1083,11 @@ class CfnSimpleADProps:
                 description="description",
                 enable_sso=False,
                 password="password",
-                short_name="shortName"
+                short_name="shortName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
@@ -1063,6 +1100,7 @@ class CfnSimpleADProps:
             check_type(argname="argument enable_sso", value=enable_sso, expected_type=type_hints["enable_sso"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
             check_type(argname="argument short_name", value=short_name, expected_type=type_hints["short_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "size": size,
@@ -1078,6 +1116,8 @@ class CfnSimpleADProps:
             self._values["password"] = password
         if short_name is not None:
             self._values["short_name"] = short_name
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1172,6 +1212,14 @@ class CfnSimpleADProps:
         '''
         result = self._values.get("short_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-directoryservice-simplead.html#cfn-directoryservice-simplead-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1302,6 +1350,7 @@ def _typecheckingstub__40820ee1ed03f2cd4befa65e6404c1024999677e0624ca5450f4b1f92
     enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     password: typing.Optional[builtins.str] = None,
     short_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1386,6 +1435,12 @@ def _typecheckingstub__c28a5ea3ad534ce7feaf34230d92ea3e87c2179d359d490a286a8b193
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8608a48530e4652b220da217be24d24054a2262d8b47292ff51a7225a5d3754c(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c8735fadd5f261261242f08594a8935a9e3119659f4d14301a33cd4a4858ea92(
     *,
     subnet_ids: typing.Sequence[builtins.str],
@@ -1404,6 +1459,7 @@ def _typecheckingstub__9d5efbbc1a7e54cd5f61f8ab3a76dddee5c6468a07c2da3178587e1a0
     enable_sso: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     password: typing.Optional[builtins.str] = None,
     short_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

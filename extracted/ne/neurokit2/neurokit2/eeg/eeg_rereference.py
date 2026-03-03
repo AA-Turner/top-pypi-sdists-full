@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -100,7 +99,6 @@ def eeg_rereference(eeg, reference="average", robust=False, **kwargs):
 # Methods
 # =============================================================================
 def eeg_rereference_array(eeg, reference="average", robust=False):
-
     # Average reference
     if reference == "average":
         if robust is False:
@@ -117,7 +115,6 @@ def eeg_rereference_array(eeg, reference="average", robust=False):
 
 
 def eeg_rereference_mne(eeg, reference="average", robust=False, **kwargs):
-
     eeg = eeg.copy()
     if reference == "average" and robust is True:
         # Assigning "custom_ref_applied" to True throws an error with the

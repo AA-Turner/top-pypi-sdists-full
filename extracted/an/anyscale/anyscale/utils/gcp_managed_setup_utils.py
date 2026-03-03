@@ -21,6 +21,7 @@ from anyscale.anyscale_pydantic import BaseModel
 from anyscale.cli_logger import CloudSetupLogger
 from anyscale.client.openapi_client.models import CloudAnalyticsEventCloudResource
 import anyscale.conf
+from anyscale.feature_flags import FLAG_USE_INFRASTRUCTURE_MANAGER
 import anyscale.shared_anyscale_utils.conf as shared_anyscale_conf
 from anyscale.util import (
     confirm,
@@ -849,6 +850,135 @@ def get_or_create_memorystore_gcp(
         )
 
 
+def _get_im_deployment_outputs(
+    infra_manager: Any, project_id: str, region: str, infrastructure_manager_id: str,
+) -> Dict[str, Any]:
+    name = f"projects/{project_id}/locations/{region}/deployments/{infrastructure_manager_id}"
+    deployment = (
+        infra_manager.projects().locations().deployments().get(name=name).execute()
+    )
+    outputs = {}
+    latest_revision = deployment.get("latestRevision")
+    if latest_revision:
+        revision = (
+            infra_manager.projects()
+            .locations()
+            .deployments()
+            .revisions()
+            .get(name=latest_revision)
+            .execute()
+        )
+        tf_outputs = revision.get("applyResults", {}).get("outputs", {})
+        for k, v in tf_outputs.items():
+            outputs[k] = v.get("value") if isinstance(v, dict) else v
+    return outputs
+
+
+def get_or_create_memorystore_gcp_im(
+    factory: GoogleCloudClientFactory,
+    infrastructure_manager_id: str,
+    project_id: str,
+    region: str,
+    logger: CloudSetupLogger,
+    yes: bool = False,
+) -> str:
+    """Get or create Memorystore for an Infrastructure Manager deployment. Returns instance name."""
+    infra_manager = factory.build("config", "v1")
+    name = f"projects/{project_id}/locations/{region}/deployments/{infrastructure_manager_id}"
+
+    deployment = (
+        infra_manager.projects().locations().deployments().get(name=name).execute()
+    )
+    if deployment.get("state") != "ACTIVE":
+        raise ClickException(
+            f"Deployment {infrastructure_manager_id} is not ACTIVE (state={deployment.get('state')})."
+        )
+
+    outputs = _get_im_deployment_outputs(
+        infra_manager, project_id, region, infrastructure_manager_id
+    )
+    redis_name = outputs.get("redis_instance_name")
+    if redis_name:
+        return redis_name
+
+    latest_revision = deployment.get("latestRevision")
+    revision = (
+        infra_manager.projects()
+        .locations()
+        .deployments()
+        .revisions()
+        .get(name=latest_revision)
+        .execute()
+    )
+    blueprint = (
+        revision.get("terraformBlueprint") or revision.get("terraform_blueprint") or {}
+    )
+    input_values = blueprint.get("inputValues") or blueprint.get("input_values") or {}
+    if not input_values:
+        raise ClickException(
+            "Cannot read current deployment inputs; Infrastructure Manager revision does not expose inputValues."
+        )
+    input_values = copy.deepcopy(input_values)
+    input_values["enable_head_node_fault_tolerance"] = {"inputValue": "true"}
+
+    gcs_source = blueprint.get("gcsSource") or blueprint.get("gcs_source")
+    if not gcs_source:
+        raise ClickException("Cannot read blueprint gcsSource from revision.")
+    service_account = _get_or_create_infra_manager_service_account(factory, project_id)
+
+    if not yes:
+        deployment_url = f"https://console.cloud.google.com/infra-manager/deployments/details/{region}/{infrastructure_manager_id}?project={project_id}"
+        logger.info(f"Review deployment at {deployment_url}")
+        confirm("Apply revision to add Memorystore?", yes)
+
+    with logger.spinner("Updating deployment..."):
+        operation = (
+            infra_manager.projects()
+            .locations()
+            .deployments()
+            .patch(
+                name=name,
+                body={
+                    "serviceAccount": f"projects/{project_id}/serviceAccounts/{service_account}",
+                    "terraformBlueprint": {
+                        "gcsSource": gcs_source,
+                        "inputValues": input_values,
+                    },
+                },
+            )
+            .execute()
+        )
+        start_time = time.time()
+        timeout = INFRA_MANAGER_TIMEOUT_SECONDS
+        while time.time() - start_time < timeout:
+            op = (
+                infra_manager.projects()
+                .locations()
+                .operations()
+                .get(name=operation["name"])
+                .execute()
+            )
+            if op.get("done"):
+                if "error" in op:
+                    raise ClickException(
+                        f"Infrastructure Manager failed: {op['error']}"
+                    )
+                break
+            time.sleep(10)
+        else:
+            raise ClickException(f"Infrastructure Manager timed out after {timeout}s")
+
+    outputs = _get_im_deployment_outputs(
+        infra_manager, project_id, region, infrastructure_manager_id
+    )
+    redis_name = outputs.get("redis_instance_name")
+    if redis_name:
+        return redis_name
+    raise ClickException(
+        f"Memorystore was not created in deployment {infrastructure_manager_id}. Please contact Anyscale support."
+    )
+
+
 def update_deployment(
     factory: GoogleCloudClientFactory,
     project_id: str,
@@ -956,9 +1086,72 @@ def get_deployment_config(
     )
 
 
-USE_INFRASTRUCTURE_MANAGER = False
+def use_infrastructure_manager(api_client) -> bool:
+    return api_client.check_is_feature_flag_on_api_v2_userinfo_check_is_feature_flag_on_get(
+        FLAG_USE_INFRASTRUCTURE_MANAGER
+    ).result.is_on
+
 
 INFRA_MANAGER_TIMEOUT_SECONDS = 1800  # 30 minutes
+
+
+def _get_or_create_infra_manager_service_account(
+    factory: GoogleCloudClientFactory, project_id: str,
+) -> str:
+    """Get or create a dedicated service account for Infrastructure Manager with required roles. Returns the SA email."""
+    sa_id = "anyscale-infra-manager"
+    sa_email = f"{sa_id}@{project_id}.iam.gserviceaccount.com"
+    iam_service = factory.build("iam", "v1")
+    try:
+        iam_service.projects().serviceAccounts().get(
+            name=f"projects/{project_id}/serviceAccounts/{sa_email}"
+        ).execute()
+    except HttpError as e:
+        if e.status_code == 404:
+            iam_service.projects().serviceAccounts().create(
+                name=f"projects/{project_id}",
+                body={
+                    "accountId": sa_id,
+                    "serviceAccount": {
+                        "displayName": "Anyscale Infrastructure Manager SA"
+                    },
+                },
+            ).execute()
+            # Wait for the SA to propagate before granting roles
+            for _ in range(10):
+                time.sleep(3)
+                try:
+                    iam_service.projects().serviceAccounts().get(
+                        name=f"projects/{project_id}/serviceAccounts/{sa_email}"
+                    ).execute()
+                    break
+                except HttpError:
+                    continue
+            else:
+                raise ClickException(
+                    f"Timed out waiting for service account {sa_email} to propagate."
+                )
+        else:
+            raise ClickException(
+                f"Failed to get/create infrastructure manager service account: {e}"
+            )
+    _grant_iam_roles(
+        factory,
+        project_id,
+        f"serviceAccount:{sa_email}",
+        [
+            "roles/config.agent",
+            "roles/resourcemanager.projectIamAdmin",
+            "roles/iam.serviceAccountAdmin",
+            "roles/iam.serviceAccountUser",
+            "roles/compute.networkAdmin",
+            "roles/compute.securityAdmin",
+            "roles/storage.admin",
+            "roles/redis.admin",
+            "roles/file.editor",
+        ],
+    )
+    return sa_email
 
 
 def _grant_iam_roles(
@@ -1007,26 +1200,7 @@ def run_infra_manager_deployment(  # noqa: PLR0913
     with open(tf_path) as f:
         bucket.blob(f"{gcs_prefix}/main.tf").upload_from_string(f.read())
 
-    # Infra manager uses Cloud Build to run Terraform, which by default
-    # runs as the Compute Engine default service account: project_number-compute@developer.gserviceaccount.com.
-    # We grant it the roles needed to create the resources defined in our tf config.
-    project_number = get_project_number(factory, project_id).split("/")[-1]
-    service_account = f"{project_number}-compute@developer.gserviceaccount.com"
-    _grant_iam_roles(
-        factory,
-        project_id,
-        f"serviceAccount:{service_account}",
-        [
-            "roles/config.agent",  # Required for Infrastructure Manager operations
-            "roles/resourcemanager.projectIamAdmin",  # Set IAM policies on project
-            "roles/iam.serviceAccountAdmin",  # Create service accounts
-            "roles/iam.serviceAccountUser",  # Act as service accounts
-            "roles/compute.networkAdmin",  # Create VPC, subnets, firewall policies
-            "roles/storage.admin",  # Create GCS buckets
-            "roles/redis.admin",  # Create Memorystore Redis (for HNFT)
-            "roles/file.editor",  # Create Filestore (for NFS shared storage)
-        ],
-    )
+    service_account = _get_or_create_infra_manager_service_account(factory, project_id)
 
     # Create Infrastructure Manager deployment
     infra_manager = factory.build("config", "v1")

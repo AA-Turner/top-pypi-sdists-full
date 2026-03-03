@@ -85,14 +85,20 @@ __all__ = ["ContractsResource", "AsyncContractsResource"]
 class ContractsResource(SyncAPIResource):
     @cached_property
     def products(self) -> ProductsResource:
+        """Products are the items that customers purchase."""
         return ProductsResource(self._client)
 
     @cached_property
     def rate_cards(self) -> RateCardsResource:
+        """Rate cards are used to define default pricing for products."""
         return RateCardsResource(self._client)
 
     @cached_property
     def named_schedules(self) -> NamedSchedulesResource:
+        """Named schedules are used for storing custom data that can change over time.
+
+        Named schedules are often used in custom pricing logic.
+        """
         return NamedSchedulesResource(self._client)
 
     @cached_property
@@ -134,7 +140,6 @@ class ContractsResource(SyncAPIResource):
         package_alias: str | Omit = omit,
         package_id: str | Omit = omit,
         prepaid_balance_threshold_configuration: PrepaidBalanceThresholdConfiguration | Omit = omit,
-        priority: float | Omit = omit,
         professional_services: Iterable[contract_create_params.ProfessionalService] | Omit = omit,
         rate_card_alias: str | Omit = omit,
         rate_card_id: str | Omit = omit,
@@ -310,8 +315,6 @@ class ContractsResource(SyncAPIResource):
               traditional contract. When specified, only customer_id, starting_at, package_id,
               and uniqueness_key are allowed.
 
-          priority: Priority of the contract.
-
           professional_services: This field's availability is dependent on your client's configuration.
 
           rate_card_alias: Selects the rate card linked to the specified alias as of the contract's start
@@ -369,7 +372,6 @@ class ContractsResource(SyncAPIResource):
                     "package_alias": package_alias,
                     "package_id": package_id,
                     "prepaid_balance_threshold_configuration": prepaid_balance_threshold_configuration,
-                    "priority": priority,
                     "professional_services": professional_services,
                     "rate_card_alias": rate_card_alias,
                     "rate_card_id": rate_card_id,
@@ -1330,14 +1332,20 @@ class ContractsResource(SyncAPIResource):
 class AsyncContractsResource(AsyncAPIResource):
     @cached_property
     def products(self) -> AsyncProductsResource:
+        """Products are the items that customers purchase."""
         return AsyncProductsResource(self._client)
 
     @cached_property
     def rate_cards(self) -> AsyncRateCardsResource:
+        """Rate cards are used to define default pricing for products."""
         return AsyncRateCardsResource(self._client)
 
     @cached_property
     def named_schedules(self) -> AsyncNamedSchedulesResource:
+        """Named schedules are used for storing custom data that can change over time.
+
+        Named schedules are often used in custom pricing logic.
+        """
         return AsyncNamedSchedulesResource(self._client)
 
     @cached_property
@@ -1379,7 +1387,6 @@ class AsyncContractsResource(AsyncAPIResource):
         package_alias: str | Omit = omit,
         package_id: str | Omit = omit,
         prepaid_balance_threshold_configuration: PrepaidBalanceThresholdConfiguration | Omit = omit,
-        priority: float | Omit = omit,
         professional_services: Iterable[contract_create_params.ProfessionalService] | Omit = omit,
         rate_card_alias: str | Omit = omit,
         rate_card_id: str | Omit = omit,
@@ -1555,8 +1562,6 @@ class AsyncContractsResource(AsyncAPIResource):
               traditional contract. When specified, only customer_id, starting_at, package_id,
               and uniqueness_key are allowed.
 
-          priority: Priority of the contract.
-
           professional_services: This field's availability is dependent on your client's configuration.
 
           rate_card_alias: Selects the rate card linked to the specified alias as of the contract's start
@@ -1614,7 +1619,6 @@ class AsyncContractsResource(AsyncAPIResource):
                     "package_alias": package_alias,
                     "package_id": package_id,
                     "prepaid_balance_threshold_configuration": prepaid_balance_threshold_configuration,
-                    "priority": priority,
                     "professional_services": professional_services,
                     "rate_card_alias": rate_card_alias,
                     "rate_card_id": rate_card_id,
@@ -2621,14 +2625,20 @@ class ContractsResourceWithRawResponse:
 
     @cached_property
     def products(self) -> ProductsResourceWithRawResponse:
+        """Products are the items that customers purchase."""
         return ProductsResourceWithRawResponse(self._contracts.products)
 
     @cached_property
     def rate_cards(self) -> RateCardsResourceWithRawResponse:
+        """Rate cards are used to define default pricing for products."""
         return RateCardsResourceWithRawResponse(self._contracts.rate_cards)
 
     @cached_property
     def named_schedules(self) -> NamedSchedulesResourceWithRawResponse:
+        """Named schedules are used for storing custom data that can change over time.
+
+        Named schedules are often used in custom pricing logic.
+        """
         return NamedSchedulesResourceWithRawResponse(self._contracts.named_schedules)
 
 
@@ -2681,14 +2691,20 @@ class AsyncContractsResourceWithRawResponse:
 
     @cached_property
     def products(self) -> AsyncProductsResourceWithRawResponse:
+        """Products are the items that customers purchase."""
         return AsyncProductsResourceWithRawResponse(self._contracts.products)
 
     @cached_property
     def rate_cards(self) -> AsyncRateCardsResourceWithRawResponse:
+        """Rate cards are used to define default pricing for products."""
         return AsyncRateCardsResourceWithRawResponse(self._contracts.rate_cards)
 
     @cached_property
     def named_schedules(self) -> AsyncNamedSchedulesResourceWithRawResponse:
+        """Named schedules are used for storing custom data that can change over time.
+
+        Named schedules are often used in custom pricing logic.
+        """
         return AsyncNamedSchedulesResourceWithRawResponse(self._contracts.named_schedules)
 
 
@@ -2741,14 +2757,20 @@ class ContractsResourceWithStreamingResponse:
 
     @cached_property
     def products(self) -> ProductsResourceWithStreamingResponse:
+        """Products are the items that customers purchase."""
         return ProductsResourceWithStreamingResponse(self._contracts.products)
 
     @cached_property
     def rate_cards(self) -> RateCardsResourceWithStreamingResponse:
+        """Rate cards are used to define default pricing for products."""
         return RateCardsResourceWithStreamingResponse(self._contracts.rate_cards)
 
     @cached_property
     def named_schedules(self) -> NamedSchedulesResourceWithStreamingResponse:
+        """Named schedules are used for storing custom data that can change over time.
+
+        Named schedules are often used in custom pricing logic.
+        """
         return NamedSchedulesResourceWithStreamingResponse(self._contracts.named_schedules)
 
 
@@ -2801,12 +2823,18 @@ class AsyncContractsResourceWithStreamingResponse:
 
     @cached_property
     def products(self) -> AsyncProductsResourceWithStreamingResponse:
+        """Products are the items that customers purchase."""
         return AsyncProductsResourceWithStreamingResponse(self._contracts.products)
 
     @cached_property
     def rate_cards(self) -> AsyncRateCardsResourceWithStreamingResponse:
+        """Rate cards are used to define default pricing for products."""
         return AsyncRateCardsResourceWithStreamingResponse(self._contracts.rate_cards)
 
     @cached_property
     def named_schedules(self) -> AsyncNamedSchedulesResourceWithStreamingResponse:
+        """Named schedules are used for storing custom data that can change over time.
+
+        Named schedules are often used in custom pricing logic.
+        """
         return AsyncNamedSchedulesResourceWithStreamingResponse(self._contracts.named_schedules)

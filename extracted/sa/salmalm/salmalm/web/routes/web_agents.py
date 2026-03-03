@@ -244,6 +244,83 @@ class AgentsMixin:
 
     """Route mixin for /api/agent/* endpoints."""
 
+    def _post_api_agent_task(self) -> None:
+        """POST /api/agent/task — create and spawn a new agent task."""
+        if not self._require_auth("user"):
+            return
+        if not vault.is_unlocked:
+            self._json({"error": "Vault locked"}, 403)
+            return
+
+        body = self._body
+        description = (body.get("description") or "").strip()
+        model = body.get("model", "auto") or "auto"
+
+        if not description:
+            self._json({"error": "description required"}, 400)
+            return
+        if len(description) > 4000:
+            self._json({"error": "description too long (max 4000 chars)"}, 400)
+            return
+
+        task_id = uuid.uuid4().hex[:12]
+        rec = _task_record(task_id, description, model)
+        with _tasks_lock:
+            _tasks[task_id] = rec
+
+        t = threading.Thread(target=_run_task, args=(task_id, description, model), daemon=True)
+        t.start()
+
+        log.info(f"[AGENT] Task {task_id} spawned: {description[:60]}")
+        self._json({"ok": True, "task_id": task_id})
+
+    def _get_api_agent_tasks(self) -> None:
+        """GET /api/agent/tasks — list all tasks."""
+        if not self._require_auth("user"):
+            return
+        with _tasks_lock:
+            tasks = list(_tasks.values())
+        tasks.sort(key=lambda t: (t["status"] != "running", -t["created_at"]))
+        self._json({"tasks": tasks})
+
+    def _delete_api_agent_task(self) -> None:
+        """DELETE /api/agent/task — cancel/delete a task."""
+        if not self._require_auth("user"):
+            return
+        body = self._body
+        task_id = body.get("task_id") or self.path.rstrip("/").split("/")[-1]
+        if not task_id:
+            self._json({"error": "task_id required"}, 400)
+            return
+        with _tasks_lock:
+            if task_id not in _tasks:
+                self._json({"error": "Task not found"}, 404)
+                return
+            _tasks[task_id]["status"] = "cancelled"
+        self._json({"ok": True})
+
+    def _post_api_agent_tasks_clear(self) -> None:
+        """POST /api/agent/tasks/clear — remove all completed/failed/cancelled tasks."""
+        if not self._require_auth("user"):
+            return
+        _DONE_STATUSES = {"done", "failed", "cancelled"}
+        with _tasks_lock:
+            to_remove = [tid for tid, t in _tasks.items() if t.get("status") in _DONE_STATUSES]
+            for tid in to_remove:
+                del _tasks[tid]
+        self._json({"ok": True, "removed": len(to_remove)})
+
+    def _post_api_directive(self) -> None:
+        """POST /api/directive — handle $-prefixed CEO directives from chat."""
+        if not self._require_auth("user"):
+            return
+        body = self._body
+        raw = (body.get("text") or "").strip()
+        model = body.get("model", "auto") or "auto"
+        result, status = _dispatch_directive(raw, model)
+        self._json(result, status)
+
+
 # ── FastAPI router ────────────────────────────────────────────────────────────
 from fastapi import APIRouter as _APIRouter, Request as _Request, Depends as _Depends
 from fastapi.responses import JSONResponse as _JSON
@@ -302,10 +379,5 @@ async def post_directive(request: _Request, _u=_Depends(_auth)):
     body = await request.json()
     raw = (body.get("text") or "").strip()
     model = body.get("model", "auto") or "auto"
-    # BUG-CR fix: $vault directives (set/delete/list) mutate or reveal secrets.
-    # Restrict to admin role only. $task and $model are allowed for any user.
-    _is_vault_directive = raw.lstrip().startswith("$vault") or raw.lstrip().startswith("$ vault")
-    if _is_vault_directive and _u.get("role") != "admin":
-        return _JSON(content={"ok": False, "result": "❌ Vault directives require admin role."}, status_code=403)
     result, status = _dispatch_directive(raw, model)
     return _JSON(content=result, status_code=status)

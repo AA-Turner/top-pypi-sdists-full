@@ -50,7 +50,6 @@ def video_face(video, verbose=True):
 # Internals
 # ==============================================================================
 def _video_face_crop(frame, face):
-
     # Try loading cv2
     try:
         import cv2
@@ -71,7 +70,6 @@ def _video_face_crop(frame, face):
 
 
 def _video_face_landmarks(frame):
-
     # Try loading menpo
     try:
         import menpo.io

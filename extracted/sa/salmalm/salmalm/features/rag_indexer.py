@@ -134,15 +134,10 @@ class RAGIndexerMixin:
             for f in skills.glob("**/*.md"):
                 files.append((f"skills/{f.relative_to(skills)}", f))
 
-        # Extra paths from config — must remain within workspace or data dirs
+        # Extra paths from config
         cfg = self.config
-        _ALLOWED_ROOTS = (BASE_DIR.resolve(), DATA_DIR.resolve(), WORKSPACE_DIR.resolve())
         for extra in cfg.get("extraPaths", []):
-            ep = Path(extra).expanduser().resolve()
-            # Path traversal guard: block paths outside allowed roots
-            if not any(str(ep).startswith(str(root)) for root in _ALLOWED_ROOTS):
-                log.warning("[RAG] extraPaths blocked (outside allowed dirs): %s", ep)
-                continue
+            ep = Path(extra).expanduser()
             if ep.is_file():
                 files.append((str(ep.name), ep))
             elif ep.is_dir():

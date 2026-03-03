@@ -74,10 +74,6 @@ class Session:
     def add_system(self, content: str) -> None:
         # Replace existing system message
         """Add a system message to the session."""
-        _MAX_SYSTEM_CHARS = 200_000  # 200KB hard cap — generous for complex system prompts
-        if len(content) > _MAX_SYSTEM_CHARS:
-            content = content[:_MAX_SYSTEM_CHARS]
-            log.warning("[SESSION] System prompt truncated to %d chars for %s", _MAX_SYSTEM_CHARS, self.id)
         self.messages = [m for m in self.messages if m["role"] != "system"]
         self.messages.insert(0, {"role": "system", "content": content})
 

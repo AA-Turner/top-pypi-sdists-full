@@ -35,25 +35,9 @@ def _get_keyring():
     return sys.modules.get("keyring", _keyring)
 
 
-def _keychain_available() -> bool:
-    """Return True when OS keychain access is likely available.
-
-    In headless/test Linux environments without a DBus session, keyring lookups
-    can block for a long time. Skip keychain access in those contexts.
-    """
-    if os.environ.get("SALMALM_DISABLE_KEYCHAIN", "0") == "1":
-        return False
-    if os.name == "posix" and "darwin" not in os.sys.platform:
-        if not os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
-            return False
-    return True
-
-
 def _keychain_get() -> Optional[str]:
     """Retrieve vault password from OS keychain. Returns None if unavailable."""
     try:
-        if not _keychain_available():
-            return None
         kr = _get_keyring()
         if kr is None:
             return None
@@ -67,8 +51,6 @@ def _keychain_get() -> Optional[str]:
 def _keychain_set(password: str) -> bool:
     """Store vault password in OS keychain. Returns True on success."""
     try:
-        if not _keychain_available():
-            return False
         kr = _get_keyring()
         if kr is None:
             return False
@@ -83,8 +65,6 @@ def _keychain_set(password: str) -> bool:
 def _keychain_delete() -> bool:
     """Remove vault password from OS keychain."""
     try:
-        if not _keychain_available():
-            return False
         kr = _get_keyring()
         if kr is None:
             return False

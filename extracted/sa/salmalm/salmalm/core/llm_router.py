@@ -163,7 +163,7 @@ def _fetch_provider_models(provider: str) -> List[str]:
                 headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
             )
             with urllib.request.urlopen(req, timeout=8) as r:
-                data = json.loads(r.read(4 * 1024 * 1024))
+                data = json.loads(r.read())
             import re
             _date_pat = re.compile(r"-(\d{8}|\d{4}-\d{2}-\d{2})$")
 
@@ -191,11 +191,9 @@ def _fetch_provider_models(provider: str) -> List[str]:
             return sorted(canonical_set) + sorted(dated_by_family.values())
 
         elif provider == "google":
-            # Use header instead of URL query param to avoid key in server logs
-            url = f"{base}/models?pageSize=100"
-            _req_g = urllib.request.Request(url, headers={"x-goog-api-key": key})
-            with urllib.request.urlopen(_req_g, timeout=8) as r:
-                data = json.loads(r.read(4 * 1024 * 1024))
+            url = f"{base}/models?key={key}&pageSize=100"
+            with urllib.request.urlopen(url, timeout=8) as r:
+                data = json.loads(r.read())
             return [
                 m["name"].replace("models/", "")
                 for m in data.get("models", [])
@@ -208,7 +206,7 @@ def _fetch_provider_models(provider: str) -> List[str]:
                 headers={"Authorization": f"Bearer {key}"},
             )
             with urllib.request.urlopen(req, timeout=8) as r:
-                data = json.loads(r.read(4 * 1024 * 1024))
+                data = json.loads(r.read())
             ids = [m["id"] for m in data.get("data", [])]
             if provider == "openai":
                 ids = [m for m in ids if _is_chat_model_openai(m)]
@@ -237,7 +235,7 @@ def _fetch_provider_models(provider: str) -> List[str]:
                 headers={"Authorization": f"Bearer {key}"},
             )
             with urllib.request.urlopen(req, timeout=10) as r:
-                data = json.loads(r.read(4 * 1024 * 1024))
+                data = json.loads(r.read())
             _OR_EXCLUDE = (
                 "embed", "instruct-fp8",  # embedding / quantized non-chat
                 "vision:free",            # vision-only free tier
@@ -361,25 +359,11 @@ def get_api_key(provider: str) -> Optional[str]:
 def detect_ollama(base_url: str = "") -> dict:
     """Auto-detect Ollama and list installed models."""
     import urllib.request
-    from urllib.parse import urlparse as _urlparse
     url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-    # SSRF guard: block non-loopback URLs that resolve to private/internal ranges.
-    # Localhost Ollama (default) is always allowed.
-    _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
-    _parsed_host = _urlparse(url).hostname or ""
-    if _parsed_host not in _LOOPBACK_HOSTS:
-        try:
-            from salmalm.tools.tools_common import _is_private_url_follow_redirects
-            blocked, reason, _ = _is_private_url_follow_redirects(url)
-            if blocked:
-                log.warning("[OLLAMA] SSRF blocked — OLLAMA_BASE_URL=%s: %s", url, reason)
-                return {"available": False, "models": [], "url": url}
-        except Exception:
-            pass
     try:
         req = urllib.request.Request(f"{url}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=3) as resp:
-            data = json.loads(resp.read(2 * 1024 * 1024))  # BUG-DM: 2MB cap
+            data = json.loads(resp.read())
             models = [m["name"] for m in data.get("models", [])]
             return {"available": True, "models": models, "url": url}
     except Exception:
@@ -758,7 +742,7 @@ class LLMRouter:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                result = json.loads(resp.read(4 * 1024 * 1024).decode())  # BUG-DM: 4MB cap
+                result = json.loads(resp.read().decode())
         except Exception as _e:
             # Mask API keys in exception context — tracebacks must not leak secrets
             _safe_hdrs = {

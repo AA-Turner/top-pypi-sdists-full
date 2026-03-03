@@ -25,5 +25,9 @@ for algo in (
     hybrid_algo(0, tilted_algo, 2, steady_algo, 3),
     hybrid_algo(0, tilted_algo, 2, circular_algo, 3),
     hybrid_algo(0, steady_algo, 1, tilted_algo, 2, circular_algo, 3),
+    hybrid_algo(0, circular_algo, 3, steady_algo, 4),
+    hybrid_algo(0, circular_algo, 5, steady_algo, 6),
+    hybrid_algo(0, circular_algo, 7, steady_algo, 8),
+    hybrid_algo(0, circular_algo, 11, steady_algo, 12),
 ):
     locals()[algo.__name__] = algo

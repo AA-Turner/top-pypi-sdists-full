@@ -4573,7 +4573,7 @@ class CfnCapacityProvider(
         :param id: Construct identifier for this resource (unique in its scope).
         :param permissions_config: The permissions configuration for the capacity provider.
         :param vpc_config: The VPC configuration for the capacity provider.
-        :param capacity_provider_name: The name of the capacity provider. The name must be unique within your AWS account and region. If you don't specify a name, CloudFormation generates one.
+        :param capacity_provider_name: 
         :param capacity_provider_scaling_config: The scaling configuration for the capacity provider.
         :param instance_requirements: The instance requirements for compute resources managed by the capacity provider.
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
@@ -4696,10 +4696,7 @@ class CfnCapacityProvider(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the capacity provider.
-
-        This is a read-only property that is automatically generated when the capacity provider is created.
-
+        '''
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
@@ -4769,7 +4766,6 @@ class CfnCapacityProvider(
     @builtins.property
     @jsii.member(jsii_name="capacityProviderName")
     def capacity_provider_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the capacity provider.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "capacityProviderName"))
 
     @capacity_provider_name.setter
@@ -5264,7 +5260,7 @@ class CfnCapacityProviderProps:
 
         :param permissions_config: The permissions configuration for the capacity provider.
         :param vpc_config: The VPC configuration for the capacity provider.
-        :param capacity_provider_name: The name of the capacity provider. The name must be unique within your AWS account and region. If you don't specify a name, CloudFormation generates one.
+        :param capacity_provider_name: 
         :param capacity_provider_scaling_config: The scaling configuration for the capacity provider.
         :param instance_requirements: The instance requirements for compute resources managed by the capacity provider.
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
@@ -5361,10 +5357,7 @@ class CfnCapacityProviderProps:
 
     @builtins.property
     def capacity_provider_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the capacity provider.
-
-        The name must be unique within your AWS account and region. If you don't specify a name, CloudFormation generates one.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html#cfn-lambda-capacityprovider-capacityprovidername
         '''
         result = self._values.get("capacity_provider_name")
@@ -14507,30 +14500,24 @@ class CfnVersionProps:
 class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.Code"):
     '''Represents the Lambda Handler Code.
 
-    :exampleMetadata: fixture=default infused
+    :exampleMetadata: infused
 
     Example::
 
-        # Create or reference an existing L1 CfnApplicationInferenceProfile
-        cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
-            inference_profile_name="my-cfn-profile",
-            model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
-                copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
-            ),
-            description="Profile created via L1 construct"
+        my_function_handler = lambda_.Function(self, "MyFunction",
+            code=lambda_.Code.from_asset("resource/myfunction"),
+            runtime=lambda_.Runtime.NODEJS_LATEST,
+            handler="index.handler"
         )
         
-        # Import the L1 construct as an L2 ApplicationInferenceProfile
-        imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
-        
-        # Grant permissions to use the imported profile
-        lambda_function = lambda_.Function(self, "MyFunction",
-            runtime=lambda_.Runtime.PYTHON_3_11,
-            handler="index.handler",
-            code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
+        event_rule = cloudtrail.Trail.on_event(self, "MyCloudWatchEvent",
+            target=targets.LambdaFunction(my_function_handler)
         )
         
-        imported_from_cfn.grant_profile_usage(lambda_function)
+        event_rule.add_event_pattern(
+            account=["123456789012"],
+            source=["aws.s3"]
+        )
     '''
 
     def __init__(self) -> None:

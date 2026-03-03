@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import numpy as np
 import pandas as pd
 
@@ -17,7 +15,6 @@ def _hrv_get_rri(peaks=None, sampling_rate=1000):
 
 
 def _hrv_format_input(peaks=None, sampling_rate=1000, output_format="intervals"):
-
     if isinstance(peaks, tuple):
         rri, rri_time, rri_missing, sampling_rate = _hrv_sanitize_tuple(peaks, sampling_rate=sampling_rate)
     elif isinstance(peaks, (dict, pd.DataFrame)):
@@ -38,7 +35,6 @@ def _hrv_format_input(peaks=None, sampling_rate=1000, output_format="intervals")
 # Internals
 # =============================================================================
 def _hrv_sanitize_tuple(peaks, sampling_rate=1000):
-
     # Get sampling rate
     info = [i for i in peaks if isinstance(i, dict)]
     sampling_rate = info[0]["sampling_rate"]
@@ -66,7 +62,6 @@ def _hrv_sanitize_tuple(peaks, sampling_rate=1000):
 
 
 def _hrv_sanitize_dict_or_df(peaks, sampling_rate=None):
-
     # Get columns
     if isinstance(peaks, dict):
         cols = np.array(list(peaks.keys()))
@@ -107,7 +102,6 @@ def _hrv_sanitize_dict_or_df(peaks, sampling_rate=None):
 
 
 def _hrv_sanitize_peaks(peaks):
-
     if isinstance(peaks, pd.Series):
         peaks = peaks.values
 
@@ -127,13 +121,12 @@ def _hrv_sanitize_peaks(peaks):
                     + "intervals instead of peaks. If so, convert RRIs into peaks using "
                     + "nk.intervals_to_peaks()."
                 )
-        else:
-            if any(np.diff(peaks) < 0):
-                raise ValueError(
-                    "NeuroKit error: _hrv_sanitize_input(): "
-                    + "The peak indices passed were detected as non-consecutive. You might have passed RR "
-                    + "intervals instead of peaks. If so, convert RRIs into peaks using "
-                    + "nk.intervals_to_peaks()."
-                )
+        elif any(np.diff(peaks) < 0):
+            raise ValueError(
+                "NeuroKit error: _hrv_sanitize_input(): "
+                + "The peak indices passed were detected as non-consecutive. You might have passed RR "
+                + "intervals instead of peaks. If so, convert RRIs into peaks using "
+                + "nk.intervals_to_peaks()."
+            )
 
     return peaks

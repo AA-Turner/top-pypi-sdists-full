@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import inspect
 
 import matplotlib
@@ -84,11 +83,10 @@ def summarize_table(signals):
         summary[rate_col + "_SD"] = np.std(signals[rate_col])
         summary_table = pd.DataFrame(summary, index=[0])
         # Make HTML and Markdown versions
-        html = '<h2 style="background-color: #D60574">Summary table</h1>' + summary_table.to_html(
-            index=None
-        )
+        html = '<h2 style="background-color: #D60574">Summary table</h1>' + summary_table.to_html(index=None)
 
         try:
+            # Requires tabulate
             md = summary_table.to_markdown(index=None)
         except ImportError:
             md = summary_table  # in case printing markdown export fails
@@ -124,7 +122,7 @@ def fig_to_html(fig):
         temp_file = BytesIO()
         fig.savefig(temp_file, format="png")
         encoded = base64.b64encode(temp_file.getvalue()).decode("utf-8")
-        return "<img src='data:image/png;base64,{}'>".format(encoded)
+        return f"<img src='data:image/png;base64,{encoded}'>"
     else:
         try:
             import plotly
@@ -187,11 +185,7 @@ def get_default_args(func):
     """Get the default values of a function's arguments."""
     # https://stackoverflow.com/questions/12627118/get-a-function-arguments-default-value
     signature = inspect.signature(func)
-    return {
-        k: v.default
-        for k, v in signature.parameters.items()
-        if v.default is not inspect.Parameter.empty
-    }
+    return {k: v.default for k, v in signature.parameters.items() if v.default is not inspect.Parameter.empty}
 
 
 def get_kwargs(report_info, func):

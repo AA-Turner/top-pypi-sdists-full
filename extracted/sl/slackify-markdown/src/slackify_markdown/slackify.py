@@ -52,6 +52,7 @@ class SlackifyMarkdown(RendererHTML):
     def __init__(self, markdown_text: str):
         super().__init__()
         self.markdown_text = markdown_text
+        self._in_heading = False
 
     # this is not correctly done, we need to check in an deopth for children,
     # the library offers allowed tokens/tags. Move to that instead of this :), todo.
@@ -112,6 +113,7 @@ class SlackifyMarkdown(RendererHTML):
         options: Dict[str, Any],
         env: Dict[str, Any],
     ) -> str:
+        self._in_heading = True
         return "*"
 
     def heading_close(
@@ -121,6 +123,7 @@ class SlackifyMarkdown(RendererHTML):
         options: Dict[str, Any],
         env: Dict[str, Any],
     ) -> str:
+        self._in_heading = False
         return "*\n\n"
 
     def strong_open(
@@ -130,6 +133,8 @@ class SlackifyMarkdown(RendererHTML):
         options: Dict[str, Any],
         env: Dict[str, Any],
     ) -> str:
+        if self._in_heading:
+            return ""
         return "*"
 
     def strong_close(
@@ -139,6 +144,8 @@ class SlackifyMarkdown(RendererHTML):
         options: Dict[str, Any],
         env: Dict[str, Any],
     ) -> str:
+        if self._in_heading:
+            return ""
         return "*"
 
     def em_open(

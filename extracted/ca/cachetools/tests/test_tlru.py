@@ -299,3 +299,31 @@ class TLRUCacheTest(unittest.TestCase, CacheTestMixin):
         expired = cache.expire()
         self.assertEqual(4, len(expired))
         self.assertEqual(0, len(cache))
+
+    def test_tlru_clear(self):
+        cache = TLRUCache(maxsize=2, ttu=lambda k, v, t: t + 2, timer=Timer())
+
+        cache[1] = 1
+        cache[2] = 2
+        cache.clear()
+
+        self.assertEqual(0, len(cache))
+        self.assertEqual(0, cache.currsize)
+
+        # verify LRU eviction order is reset after clear
+        cache[3] = 3
+        cache[4] = 4
+        cache[3]  # access 3 to make it most recently used
+        cache[5] = 5  # should evict 4 (least recently used)
+
+        self.assertEqual(2, len(cache))
+        self.assertIn(3, cache)
+        self.assertIn(5, cache)
+        self.assertNotIn(4, cache)
+
+        # verify TLRU expiry still works after clear
+        cache[42] = 42
+        cache.timer.tick()
+        cache.timer.tick()
+        cache.timer.tick()  # past TTL
+        self.assertNotIn(42, cache)

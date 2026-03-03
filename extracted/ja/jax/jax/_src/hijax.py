@@ -30,7 +30,8 @@ from jax._src.core import typeof
 from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import partial_eval as pe
-from jax._src.custom_derivatives import CustomVJPPrimal
+from jax._src.interpreters import remat
+from jax._src.custom_derivatives import CustomVJPPrimal, _temporary_dtype_exception
 from jax._src.errors import UnexpectedTracerError
 from jax._src.state.types import AbstractRef
 from jax._src import ad_util
@@ -72,7 +73,7 @@ class HiPrimitive(core.Primitive):
     assert False, "must override"
 
   # lowering implements the primitive in terms of lojax inputs/outputs/ops
-  def to_lojax(self, *lotypes_wrapped_in_hitypes, **params):
+  def to_lojax(self, *lotypes_wrapped_in_hitypes, **params):  # pyrefly: ignore[bad-override]
     assert False, f"must override for {self}"
 
   # autodiff interface
@@ -104,17 +105,25 @@ class HiType(core.AbstractValue):
   # autodiff interface
   def to_tangent_aval(self) -> HiType:
     assert False, "must override"
-
-  # Subclasses should override if the cotangent type is a function of primal
-  # type. For example, CT unreduced = reduced and vice-versa.
   def to_cotangent_aval(self) -> HiType:
     return self.to_tangent_aval()
-
   # the next two are required if this type is itself a tangent type
   def vspace_zero(self) -> HiVal:
     assert False, "must override"
-
   def vspace_add(self, x: HiVal, y: HiVal) -> HiVal:
+    assert False, "must override"
+
+  # vmap/scan interface
+  def dec_rank(self, size: int | None, spec: MappingSpec) -> HiType:
+    assert False, "must override"
+  def inc_rank(self, size: int | None, spec: MappingSpec) -> HiType:
+    assert False, "must override"
+
+  # shard_map interface
+  def shard(self, mesh, manual_axes: frozenset, check_vma: bool, spec: HipSpec
+            ) -> HiType:
+    assert False, "must override"
+  def unshard(self, mesh, check_vma: bool, spec: HipSpec) -> HiType:
     assert False, "must override"
 
 class MutableHiType(core.AbstractValue):
@@ -127,7 +136,7 @@ class MutableHiType(core.AbstractValue):
   def __eq__(self, other): assert False, "must override"
 
   # define lowering from (mutable) hijax type to (immutable) lojax types
-  def lo_ty_qdd(self, state: QDD) -> list[core.AbstractValue]:
+  def lo_ty_qdd(self, state: QDD, /) -> list[core.AbstractValue]:  # pytype: disable=signature-mismatch  # pyrefly: ignore[bad-override]
     assert False, "must override"
   def lo_ty(self):
     assert False, "mutable hitypes should use lo_ty_qdd instead"
@@ -284,18 +293,18 @@ effects.custom_derivatives_allowed_effects.add_type(BoxEffect)
 class NewBox(HiPrimitive):
   def is_high(self, *, treedef) -> bool: return True  # type: ignore
 
-  def abstract_eval(self, *, treedef):
+  def abstract_eval(self, *, treedef):  # pyrefly: ignore[bad-override]
     leaves, treedef = tree_flatten(None)
     qdd = BoxTypeState(tuple(leaves), treedef)
     return core.AvalQDD(BoxTy(), qdd), {box_effect}
 
-  def to_lojax(_, *, treedef):
+  def to_lojax(_, *, treedef):  # pyrefly: ignore[bad-override]
     return Box._new(None)
 
-  def jvp(_, primals, tangents, *, treedef):
+  def jvp(_, primals, tangents, *, treedef):  # pyrefly: ignore[bad-override]
     assert False  # TODO
 
-  def transpose(_, *args, treedef):
+  def transpose(_, *args, treedef):  # pyrefly: ignore[bad-override]
     assert False  # TODO
 new_box_p = NewBox('new_box')
 
@@ -304,15 +313,15 @@ class BoxSet(HiPrimitive):
 
   def is_high(self, *leaf_avals, treedef) -> bool: return True  # type: ignore
 
-  def abstract_eval(self, box_ty, *leaf_avals, treedef):
+  def abstract_eval(self, box_ty, *leaf_avals, treedef):  # pyrefly: ignore[bad-override]
     box_ty.mutable_qdd.update(BoxTypeState(leaf_avals, treedef))
     return [], {box_effect}  # TODO better typechecking...
 
-  def to_lojax(_, box, *leaves, treedef):
+  def to_lojax(_, box, *leaves, treedef):  # pyrefly: ignore[bad-override]
     box._val = tree_unflatten(treedef, leaves)
     return []
 
-  def jvp(_, primals, tangents, *, treedef):
+  def jvp(_, primals, tangents, *, treedef):  # pyrefly: ignore[bad-override]
     box, *vals = primals
     box_dot, *val_dots = tangents
     if type(box_dot) is ad_util.Zero:
@@ -322,7 +331,7 @@ class BoxSet(HiPrimitive):
     box_set_p.bind(box_dot, *val_dots, treedef=treedef)
     return [], []
 
-  def transpose(_, *args, treedef):
+  def transpose(_, *args, treedef):  # pyrefly: ignore[bad-override]
     assert False  # TODO
 box_set_p = BoxSet('box_set')
 
@@ -330,20 +339,20 @@ box_set_p = BoxSet('box_set')
 class BoxGet(HiPrimitive):
   multiple_results = True
 
-  def abstract_eval(self, box_ty, *, avals):
+  def abstract_eval(self, box_ty, *, avals):  # pyrefly: ignore[bad-override]
     return avals, {box_effect}
 
-  def to_lojax(_, box, *, avals):
+  def to_lojax(_, box, *, avals):  # pyrefly: ignore[bad-override]
     return tree_leaves(box._val)
 
-  def jvp(_, primals, tangents, *, avals):
+  def jvp(_, primals, tangents, *, avals):  # pyrefly: ignore[bad-override]
     (box,), (box_dot,) = primals, tangents
     return (
       box_get_p.bind(box, avals=avals),
       box_get_p.bind(box_dot, avals=tuple(a.to_tangent_aval() for a in avals))
     )
 
-  def transpose(_, *args):
+  def transpose(_, *args):  # pyrefly: ignore[bad-override]
     assert False  # TODO
 box_get_p = BoxGet('box_get')
 
@@ -374,7 +383,8 @@ class VJPHiPrimitive:
   def expand(self, *args):
     raise NotImplementedError(f"subclass {type(self)} must implement `expand`")
 
-  def vjp_fwd(self, nzs_in, *args):
+  # reverse-mode AD interface
+  def vjp_fwd(self, nzs_in, /, *args):
     raise NotImplementedError(f"for grad support, subclass {type(self)} must "
                               "implement `vjp_fwd`")
 
@@ -382,26 +392,48 @@ class VJPHiPrimitive:
     args_grad = self.vjp_bwd_retval(res, outgrad)
     tree_map(lambda acc, leaf_grad: acc.accum(leaf_grad), arg_accums, args_grad)
 
-  def vjp_bwd_retval(self, res, outgrad):
+  def vjp_bwd_retval(self, res, outgrad, /):
     # Classic API: returns values instead of using accumulators
     raise NotImplementedError(f"for grad support, subclass {type(self)} must "
                               "implement `vjp_bwd` or `vjp_bwd_retval`")
 
-  def batch(self, axis_data, args, dims):
-    out_dim = self.batch_dim_rule(axis_data, dims)
-    return VmapOf(self, axis_data, dims, out_dim)(*args), out_dim
-
-  def batch_dim_rule(self, axis_data, dims):
-    raise NotImplementedError(f"for vmap support, subclass {type(self)} must "
-                              "implement `batch` or `batch_dim_rule`")
-
+  # optional forward-mode AD interfaces
   def jvp(self, primals, tangents):
     raise NotImplementedError(f"for jvp support, subclass {type(self)} must "
                               "implement `jvp`")
 
+  def lin(self, nzs_in, *primals):
+    raise NotImplementedError(f"for linearize support, subclass {type(self)} "
+                              "must implement `lin` and `linearized`")
+
+  def linearized(self, residuals, *tangents):
+    raise NotImplementedError(f"for linearize support, subclass {type(self)} "
+                              "must implement `lin` and `linearized`")
+
+  # vmap interface
+  def batch(self, axis_data, args, dims):
+    out_dim = self.batch_dim_rule(axis_data, dims)
+    return VmapOf(self, axis_data, dims, out_dim)(*args), out_dim
+
+  def batch_dim_rule(self, axis_data, dims, /):
+    raise NotImplementedError(f"for vmap support, subclass {type(self)} must "
+                              "implement `batch` or `batch_dim_rule`")
+
+  # optional dce control
+  def dce(self, used_outs):
+    used_outs_flat = tree_leaves_checked(self.out_tree, used_outs)
+    if not any(used_outs_flat):
+      return False, False, None
+    else:
+      return True, True, self
+
+  # optional remat control
+  def remat(self, _policy, *args):
+    return self(*args), self  # full remat by default
+
   def __call__(self, *args):
     args_flat = tree_leaves_checked(self.in_tree, args)
-    ans_flat = call_hi_primitive_p.bind(*args_flat, prim=self)
+    ans_flat = call_hi_primitive_p.bind(*args_flat, _prim=self)
     return tree_unflatten(self.out_tree, ans_flat)
 
   def check(self, *arg_tys):
@@ -410,7 +442,7 @@ class VJPHiPrimitive:
   def staging(self, trace, source_info, *args):
     args_flat = tree_leaves_checked(self.in_tree, args)
     ans_flat = trace.default_process_primitive(
-        call_hi_primitive_p, args_flat, dict(prim=self), source_info)
+        call_hi_primitive_p, args_flat, dict(_prim=self), source_info)
     return tree_unflatten(self.out_tree, ans_flat)
 
   def __repr__(self):
@@ -423,6 +455,11 @@ class VJPHiPrimitive:
     return type(self) is type(other) and self.params == other.params
 
 class VmapOf(VJPHiPrimitive):
+  prim: core.Primitive
+  axis_data: batching.AxisData
+  in_dims: Any
+  out_dim: Any
+
   def __init__(self, prim, axis_data, in_dims, out_dim):
     unmap = lambda a, d: core.unmapped_aval(axis_data.size, d, a,
                                             axis_data.explicit_mesh_axis)
@@ -451,7 +488,7 @@ class VmapOf(VJPHiPrimitive):
     store = lambda: None
     def fwd(*args):
       primal_out, res, *maybe_out_nzs = self.prim.vjp_fwd(in_nzs, *args)  # type: ignore
-      store.out_nzs = maybe_out_nzs
+      store.out_nzs = maybe_out_nzs  # pyrefly: ignore[missing-attribute]
       return primal_out, res
     (primal_out, res), (_, res_axes) = api.vmap(
         fwd, in_axes=self.in_dims, out_axes=(self.out_dim, batching.infer),  # type: ignore
@@ -469,7 +506,13 @@ class VmapOf(VJPHiPrimitive):
     return tree_map(partial(unmap_zero, self.axis_data), self.in_dims, out, is_leaf=lambda x: x is None)  # type: ignore
 
   def batch_dim_rule(self, axis_data, in_dims):
-    in_dims_ = tree_map(lambda d, d_: d - (d_ < d), in_dims, self.in_dims)  # type: ignore
+
+    def fix_dim(dim, prev_dim):
+      if dim is None:
+        return None
+      return dim if prev_dim is None else (dim - (prev_dim < dim))
+
+    in_dims_ = tree_map(fix_dim, in_dims, self.in_dims, is_leaf=lambda x: x is None)
     out_dim = self.prim.batch_dim_rule(axis_data, in_dims_)  # type: ignore
     return tree_map(lambda d, d_: d + (d_ < d), out_dim, self.out_dim)  # type: ignore
 
@@ -487,93 +530,128 @@ def unmap_zero(axis_data, d, ct):
 
 call_hi_primitive_p = core.Primitive("call_hi_primitive")
 call_hi_primitive_p.multiple_results = True
-call_hi_primitive_p.is_high = lambda *args, prim: True  # type: ignore
+call_hi_primitive_p.is_high = lambda *args, _prim: True  # type: ignore
 @call_hi_primitive_p.def_abstract_eval
-def _call_hi_primitive_abstract_eval(*_args, prim):
-  return prim.out_avals_flat
+def _call_hi_primitive_abstract_eval(*_args, _prim):
+  return _prim.out_avals_flat
 
-def _call_hi_primitive_staging(trace, source_info, *args_flat, prim):
+def _call_hi_primitive_staging(trace, source_info, *args_flat, _prim):
   trace.frame.is_high = True
-  args = tree_unflatten(prim.in_tree, args_flat)
-  ans = prim.staging(trace, source_info, *args)
-  return tree_leaves_checked(prim.out_tree, ans)
+  args = tree_unflatten(_prim.in_tree, args_flat)
+  ans = _prim.staging(trace, source_info, *args)
+  return tree_leaves_checked(_prim.out_tree, ans)
 pe.custom_staging_rules[call_hi_primitive_p] = _call_hi_primitive_staging
 
-def _call_hi_primitive_to_lojax(*args_flat, prim):
-  args = tree_unflatten(prim.in_tree, args_flat)
-  ans = prim.expand(*args)
-  return tree_leaves_checked(prim.out_tree, ans)
+def _call_hi_primitive_to_lojax(*args_flat, _prim):
+  args = tree_unflatten(_prim.in_tree, args_flat)
+  ans = _prim.expand(*args)
+  return tree_leaves_checked(_prim.out_tree, ans)
 call_hi_primitive_p.to_lojax = _call_hi_primitive_to_lojax
 
-def _call_hi_primitive_batcher(axis_data, args_flat, dims_flat, prim):
-  args = tree_unflatten(prim.in_tree, args_flat)
-  dims = tree_unflatten(prim.in_tree, dims_flat)
-  ans, dims = prim.batch(axis_data, args, dims)
-  ans_flat = tree_leaves_checked(prim.out_tree, ans)
-  dims_flat = prim.out_tree.flatten_up_to(dims)
+def _call_hi_primitive_batcher(axis_data, args_flat, dims_flat, _prim):
+  args = tree_unflatten(_prim.in_tree, args_flat)
+  dims = tree_unflatten(_prim.in_tree, dims_flat)
+  ans, dims = _prim.batch(axis_data, args, dims)
+  ans_flat = tree_leaves_checked(_prim.out_tree, ans)
+  dims_flat = _prim.out_tree.flatten_up_to(dims)
   return ans_flat, dims_flat
 batching.fancy_primitive_batchers[call_hi_primitive_p] = _call_hi_primitive_batcher
 
-def _call_hi_primitive_linearize(nz_in_flat, *args_flat, prim):
-  args = tree_unflatten(prim.in_tree, args_flat)
-  nzs_in = tree_unflatten(prim.in_tree, nz_in_flat)
-  ans, residuals, *maybe_nzs_out = prim.vjp_fwd(nzs_in, *args)
-  ans_flat = tree_leaves_checked(prim.out_tree, ans)
-  nzs_out = True if maybe_nzs_out == [] else maybe_nzs_out[0]
+def _call_hi_primitive_linearize(is_vjp, nz_in_flat, *args_flat, _prim):
+  args = tree_unflatten(_prim.in_tree, args_flat)
+  nzs_in = tree_unflatten(_prim.in_tree, nz_in_flat)
+  if is_vjp:
+    ans, residuals, *maybe_nzs_out = _prim.vjp_fwd(nzs_in, *args)
+    linearized = partial(fake_linear_op, _prim, nz_in_flat)
+  else:
+    ans, residuals, *maybe_nzs_out = _prim.lin(nzs_in, *args)
+    linearized = partial(flatten_user_linearized, _prim)
+  ans_flat = tree_leaves_checked(_prim.out_tree, ans)
+  nzs_out = maybe_nzs_out[0] if maybe_nzs_out else True
   nzs_out_flat = broadcast_prefix(nzs_out, ans)
-  linearized = partial(fake_linear_op, prim, nz_in_flat)
-  return (ans_flat, nzs_out_flat, residuals, linearized)
+  return ans_flat, nzs_out_flat, residuals, linearized
+ad.primitive_linearizations[call_hi_primitive_p] = _call_hi_primitive_linearize
 
 def fake_linear_op(prim, nz_in_flat, rs, *tangents):
   residuals_flat, residuals_tree = tree_flatten(rs)
   assert nz_in_flat == [not isinstance(t, ad_util.Zero) for t in tangents]
   nz_tangents = tree_leaves(tangents)
   return call_hi_primitive_linearized_p.bind(
-      *residuals_flat, *nz_tangents, residuals_tree=residuals_tree, prim=prim,
+      *residuals_flat, *nz_tangents, residuals_tree=residuals_tree, _prim=prim,
       nz_in_flat=tuple(nz_in_flat))
 
-ad.primitive_linearizations[call_hi_primitive_p] = _call_hi_primitive_linearize
+def flatten_user_linearized(prim, residuals, *tangents_flat):
+  tangents = tree_unflatten(prim.in_tree, tangents_flat)
+  tangents_out = prim.linearized(residuals, *tangents)
+  tangents_out_flat = tree_leaves_checked(prim.out_tree, tangents_out)
+  return tangents_out_flat
 
 call_hi_primitive_linearized_p = core.Primitive("call_hi_primitive_linearized")
 call_hi_primitive_linearized_p.multiple_results = True
-call_hi_primitive_linearized_p.is_high = lambda *args, prim, **_: True  # type: ignore
+call_hi_primitive_linearized_p.is_high = lambda *args, _prim, **_: True  # type: ignore
 @call_hi_primitive_linearized_p.def_abstract_eval
-def _call_hi_primitive_linearized_abstract_eval(*_args, prim, residuals_tree, nz_in_flat):
-  return [t.to_tangent_aval() for t in prim.out_avals_flat]  # TODO(dougalm): handle nonzeros
+def _call_hi_primitive_linearized_abstract_eval(*_args, _prim, residuals_tree, nz_in_flat):
+  return [t.to_tangent_aval() for t in _prim.out_avals_flat]  # TODO(dougalm): handle nonzeros
 
-def _call_hi_primitive_linearized_transpose(cts_flat, *args, prim, residuals_tree, nz_in_flat):
+def _call_hi_primitive_linearized_transpose(cts_flat, *args, _prim,
+                                            residuals_tree, nz_in_flat):
   residuals_flat, accums_flat = split_list(args, [residuals_tree.num_leaves])
   residuals = tree_unflatten(residuals_tree, residuals_flat)
   accums_flat_ = iter(accums_flat)
   accums_flat = [next(accums_flat_) if nz else ad.NullAccum() for nz in nz_in_flat]
   assert next(accums_flat_, None) is None
-  accums = tree_unflatten(prim.in_tree, accums_flat)
-  cts = tree_unflatten(prim.out_tree, cts_flat)
-  none = prim.vjp_bwd(residuals, cts, *accums)
+  accums = tree_unflatten(_prim.in_tree, accums_flat)
+  cts = tree_unflatten(_prim.out_tree, cts_flat)
+  none = _prim.vjp_bwd(residuals, cts, *accums)
   assert none is None
 ad.fancy_transposes[call_hi_primitive_linearized_p] = _call_hi_primitive_linearized_transpose
 
-def _call_hi_primitive_jvp(primals, tangents, *, prim):
-  primals = tree_unflatten(prim.in_tree, primals)
-  tangents = tree_unflatten(prim.in_tree, tangents)
-  out_primals, out_tangents = prim.jvp(primals, tangents)
-  out_primals_flat = tree_leaves_checked(prim.out_tree, out_primals)
-  out_tangents_flat = prim.out_tree.flatten_up_to(out_tangents)
+def _call_hi_primitive_jvp(primals, tangents, *, _prim):
+  primals = tree_unflatten(_prim.in_tree, primals)
+  tangents = tree_unflatten(_prim.in_tree, tangents)
+  out_primals, out_tangents = _prim.jvp(primals, tangents)
+  out_primals_flat = tree_leaves_checked(_prim.out_tree, out_primals)
+  out_tangents_flat = _prim.out_tree.flatten_up_to(out_tangents)
   return out_primals_flat, out_tangents_flat
 ad.primitive_jvps[call_hi_primitive_p] = _call_hi_primitive_jvp
 
 def _call_hi_primitive_dce(used_outs_flat, eqn):
-  if hasattr(prim := eqn.params['prim'], 'dce'):
-    return prim.dce(used_outs_flat, eqn)
-  else:
-    return pe._default_dce_rule(used_outs_flat, eqn)
+  _prim = eqn.params['_prim']
+  used_out = tree_unflatten(_prim.out_tree, used_outs_flat)
+  used_ins, produced_outs, new_prim = _prim.dce(used_out)
+  if new_prim is None:
+    return [False] * len(eqn.invars), None
+  used_ins_flat = broadcast_prefix(used_ins, _prim.in_avals)
+  produced_outs_flat = broadcast_prefix(produced_outs, _prim.out_aval)
+  new_invars = [x for x, u in zip(eqn.invars, used_ins_flat) if u]
+  new_outvars = [v for v, u in zip(eqn.outvars, produced_outs_flat) if u]
+  new_eqn = eqn.replace(invars=new_invars, outvars=new_outvars,
+                        params=dict(_prim=new_prim))
+  return used_ins_flat, new_eqn
 pe.dce_rules[call_hi_primitive_p] = _call_hi_primitive_dce
 
 call_hi_primitive_linearized_p.to_lojax = ad.raise_custom_vjp_error_on_jvp
 batching.fancy_primitive_batchers[call_hi_primitive_linearized_p] = ad.raise_custom_vjp_error_on_jvp
 
+def _call_hi_primitive_remat(policy, *args_flat, _prim):
+  args = tree_unflatten(_prim.in_tree, args_flat)
+  out, rem_ = _prim.remat(policy, *args)
+  def rem(*args_flat):
+    args = tree_unflatten(_prim.in_tree, args_flat)
+    out = rem_(*args)
+    return tree_leaves_checked(_prim.out_tree, out)
+  return tree_leaves_checked(_prim.out_tree, out), rem
+remat.rules[call_hi_primitive_p] = _call_hi_primitive_remat
+
 
 class CustomVJPTraced(VJPHiPrimitive):
+  traced: Any
+  fwd: Any
+  bwd: Any
+  symbolic_zeros: Any
+  static_argnums: Any
+  opt_remat: bool
+
   def __init__(self, traced, fwd, bwd, in_avals, sym_zeros, static_argnums, opt_remat):
     self.in_avals = in_avals
     self.out_aval = traced.out_avals
@@ -636,7 +714,7 @@ class CustomVJPTraced(VJPHiPrimitive):
     tangents = tree_map(ad_util.instantiate, tangents, is_leaf=zero)
     if self.opt_remat:  # type: ignore
       fwd_traced = api.jit(partial(self.vjp_fwd, (True,) * len(primals))).trace(*primals)
-      primals_out, residuals = OptRemat(self.traced, fwd_traced)(*primals)  # type: ignore
+      primals_out, residuals = OptRemat(self, fwd_traced)(*primals)  # type: ignore
     else:
       primals_out, residuals, *_ = self.vjp_fwd((True,) * len(primals), *primals)
     tangents_out_flat = fake_linear_op(self, [True] * len(tangents), residuals, *tangents)
@@ -668,16 +746,22 @@ def _vjp_fwd_aval_mismatch_err(path, primal_aval, fwd_val):
     raise TypeError(f"at {keystr(path)}, got fwd output type {ty.str_short()} "
                     f"which doesn't match primal output type {primal_aval.str_short()}")
 
-def _vjp_bwd_aval_mismatch_err(path, primal_aval, ct_val):
-  if config.disable_bwd_checks.value: return
-  if isinstance(ct_val, ad_util.Zero): return
-  if isinstance(primal_aval, AbstractRef): primal_aval = primal_aval.inner_aval
+def _vjp_bwd_aval_mismatch_err(path, primal_aval, ct):
+  if config.disable_bwd_checks.value:
+    return
+  if isinstance(ct, ad_util.Zero):
+    return
+  if isinstance(primal_aval, AbstractRef):
+    primal_aval = primal_aval.inner_aval
   expected = primal_aval.to_cotangent_aval()
-  ty = ct_val.aval if isinstance(ct_val, ad_util.SymbolicZero) else typeof(ct_val)
-  if not core.typematch(ty, expected) and getattr(expected, 'dtype', None) is not dtypes.float0:
+  ct_aval = ct.aval if isinstance(ct, ad_util.SymbolicZero) else typeof(ct)
+  if (not core.typematch(expected, ct_aval) and
+      not _temporary_dtype_exception(expected, ct_aval) and
+      getattr(expected, 'dtype', None) is not dtypes.float0):
     result = f"at output{keystr(path)} " if path else ""
-    raise ValueError(f"{result}the bwd rule produced an output of type {ty.str_short()} "
-                     f"which doesn't match expected type {expected.str_short()}")
+    raise ValueError(
+        f"{result}the bwd rule produced an output of type {ct_aval.str_short()}"
+        f" which doesn't match expected type {expected.str_short()}")
 
 def _replace_none(primal_in_aval, maybe_ct):
   if maybe_ct is None:
@@ -689,7 +773,7 @@ class custom_vjp3:
   fwd: Callable | None = None
   bwd: Callable | None = None
 
-  def __init__(self, f, *, nondiff_argnums=(), nondiff_argnames=()):
+  def __init__(self, f, nondiff_argnums=(), nondiff_argnames=()):
     self.f = f
     self.static_argnums = _set_up_nondiff(f, nondiff_argnums, nondiff_argnames)
 
@@ -711,6 +795,11 @@ class custom_vjp3:
                                   "must be static, not Tracers")
     traced = api.jit(self.f, static_argnums=(*self.static_argnums,)).trace(*args)
     if any(isinstance(x, core.Tracer) for x in traced._consts):
+      t = next(x for x in traced._consts if isinstance(x, core.Tracer))
+      raise UnexpectedTracerError(
+          f"custom_vjp-decorated function {self.f} closed over a {type(t).__name__} "
+          f"of type {t.aval.str_short()}, but custom_vjp functions can't close "
+          f"over Tracers. Rewrite {self.f} to take it as an explicit input.")
       raise Exception  # TODO(mattjj):error tracer type, value type, primal name
     args = tuple(Static(x) if i in self.static_argnums else x for i, x in enumerate(args))
     in_avals = tree_map(typeof, args)
@@ -719,30 +808,26 @@ class custom_vjp3:
     return prim(*args)
 
 class OptRemat(VJPHiPrimitive):
+  orig: CustomVJPTraced
   traced_fwd: Any
-  traced_primal: Any
 
-  def __init__(self, traced_primal, traced_fwd):
-    self.in_avals, _ = traced_primal.in_avals
+  def __init__(self, orig, traced_fwd):
+    self.in_avals = orig.in_avals
     self.out_aval = traced_fwd.out_avals
-    self.params = dict(traced_primal=traced_primal, traced_fwd=traced_fwd)
+    self.params = dict(orig=orig, traced_fwd=traced_fwd)
     super().__init__()
 
   def expand(self, *primals):
     return self.traced_fwd(*primals)
 
-  def dce(self, used_outs, eqn):
-    num_primals_in = len(self.traced_primal.jaxpr.in_avals)
-    num_primals_out = len(self.traced_primal.jaxpr.out_avals)
-    _, used_res = split_list(used_outs, [num_primals_out])
-    if any(used_res):
-      return [True] * num_primals_in, eqn
+  def dce(self, used_outs):
+    used_primals, used_res = used_outs
+    if any(tree_leaves(used_res)):
+      return True, (True, True), self  # if any res used, no dce at all
+    elif any(tree_leaves(used_primals)):
+      return True, (True, False), self.orig  # if only primals used, undo AD
     else:
-      outvars = [v for used, v in zip(used_outs, eqn.outvars) if used]
-      primal_eqn = pe.new_jaxpr_eqn(
-          eqn.invars, outvars, core.closed_call_p, dict(call_jaxpr=self.traced_primal.jaxpr),
-          self.traced_primal.jaxpr.effects, eqn.source_info, eqn.ctx)
-      return [True] * num_primals_in, primal_eqn
+      return False, (False, False), None
 
   # TODO(mattjj): jvp and transpose? does anyone rely on them?
 
@@ -758,3 +843,7 @@ def _set_up_nondiff(f, argnums_, argnames) -> frozenset[int]:
 @dataclass(frozen=True)
 class Static:
   val: Any
+
+class MappingSpec: pass
+class HipSpec:
+  def to_lo(self): assert False, "must override"

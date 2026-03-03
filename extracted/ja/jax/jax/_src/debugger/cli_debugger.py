@@ -47,10 +47,10 @@ class CliDebugger(cmd.Cmd):
     env.update(curr_frame.locals)
     return eval(expr, {}, env)
 
-  def default(self, arg):
+  def default(self, line):
     """Evaluates an expression."""
     try:
-      print(repr(self.evaluate(arg)), file=self.stdout)
+      print(repr(self.evaluate(line)), file=self.stdout)
     except:
       self._error_message()
 
@@ -103,10 +103,11 @@ class CliDebugger(cmd.Cmd):
     except:
       self._error_message()
 
-  def do_up(self, _):
+  def do_up(self, arg, /):
     """u(p)
     Move up a stack frame.
     """
+    del arg  # unused
     if self.frame_index == len(self.frames) - 1:
       print('At topmost frame.', file=self.stdout)
     else:
@@ -114,10 +115,11 @@ class CliDebugger(cmd.Cmd):
     self.print_context()
   do_u = do_up
 
-  def do_down(self, _):
+  def do_down(self, arg, /):
     """d(own)
     Move down a stack frame.
     """
+    del arg  # unused
     if self.frame_index == 0:
       print('At bottommost frame.', file=self.stdout)
     else:

@@ -132,6 +132,30 @@ def test_annotation_exclude_warnings(testdir: pytest.Testdir):
     assert not result.stderr.lines
 
 
+def test_annotation_warning_cwd(testdir: pytest.Testdir):
+    testdir.makepyfile(
+        """
+        import warnings
+        import pytest
+        pytest_plugins = 'pytest_github_actions_annotate_failures'
+
+        def test_warning():
+            warnings.warn('beware', Warning)
+            assert 1
+        """
+    )
+    testdir.monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    testdir.monkeypatch.setenv("GITHUB_WORKSPACE", os.path.dirname(str(testdir.tmpdir)))
+    testdir.mkdir("foo")
+    testdir.makefile(".ini", pytest="[pytest]\ntestpaths=..")
+    result = testdir.runpytest_subprocess("--rootdir=foo")
+    result.stderr.fnmatch_lines(
+        [
+            "::warning file=test_annotation_warning_cwd0/test_annotation_warning_cwd.py,line=6::beware",
+        ]
+    )
+
+
 def test_annotation_third_party_exception(testdir: pytest.Testdir):
     testdir.makepyfile(
         my_module="""
@@ -323,6 +347,32 @@ def test_annotation_param(testdir: pytest.Testdir):
     result.stderr.fnmatch_lines(
         [
             "::error file=test_annotation_param.py,line=11::test_param?other?1*assert 2 == 3*",
+        ]
+    )
+
+
+@pytest.mark.skipif(
+    version.parse("9.0.0") > PYTEST_VERSION,
+    reason="subtests are only supported in pytest 9+",
+)
+def test_annotation_subtest(testdir: pytest.Testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+        pytest_plugins = 'pytest_github_actions_annotate_failures'
+
+        def test(subtests):
+            for i in range(5):
+                with subtests.test(msg="custom message", i=i):
+                    assert i % 2 == 0
+        """
+    )
+    testdir.monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    result = testdir.runpytest_subprocess()
+    result.stderr.fnmatch_lines(
+        [
+            "::error file=test_annotation_subtest.py,line=7::test *custom message* *i=1*assert (1 %25 2) == 0*",
+            "::error file=test_annotation_subtest.py,line=7::test *custom message* *i=3*assert (3 %25 2) == 0*",
         ]
     )
 

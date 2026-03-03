@@ -80,28 +80,25 @@ def entropy_spectral(signal, bins=None, show=False, **kwargs):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Power-spectrum density (PSD) (actual sampling rate does not matter)
     psd = signal_psd(signal, sampling_rate=1000, **kwargs)
 
     # Cut into bins
     if isinstance(bins, int):
-        psd = psd.groupby(pd.cut(psd["Frequency"], bins=bins), observed=False).agg(
-            "sum"
-        )
-        idx = psd.index.values.astype(str)
+        psd = psd.groupby(pd.cut(psd["Frequency"], bins=bins), observed=False).agg("sum")
+        idx = np.array(psd.index, dtype=str)
     else:
         idx = psd["Frequency"].values
 
     # Area under normalized spectrum should sum to 1 (np.sum(psd["Power"]))
+    psd = psd.copy()
     psd["Power"] = psd["Power"] / psd["Power"].sum()
 
     if show is True:
         plt.bar(idx, psd["Power"])
-        if not np.issubdtype(idx.dtype, np.floating):
+        if not pd.api.types.is_float_dtype(idx):
             plt.xticks(rotation=90)
         plt.title("Normalized Power Spectrum")
         plt.xlabel("Frequency (Hz)")

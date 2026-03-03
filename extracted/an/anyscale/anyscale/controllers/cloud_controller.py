@@ -653,7 +653,7 @@ class CloudController(BaseController):
         """
         setup_utils = try_import_gcp_managed_setup_utils()
 
-        use_im = setup_utils.USE_INFRASTRUCTURE_MANAGER
+        use_im = setup_utils.use_infrastructure_manager(self.api_client)
         if use_im:
             im_outputs = self.run_infrastructure_manager(
                 factory,
@@ -1487,9 +1487,21 @@ class CloudController(BaseController):
             )
             return
 
-        if not gcp_config or not gcp_config.deployment_manager_id:
+        if (
+            gcp_config
+            and gcp_config.infrastructure_manager_id is not None
+            and gcp_config.deployment_manager_id is not None
+        ):
             raise ClickException(
-                f"This cloud {cloud.name}({cloud.id}) does not have an associated GCP deployment manager. Please contact Anyscale support."
+                "Updating head node fault tolerance is not supported on clouds migrated from Deployment Manager to Infrastructure Manager."
+            )
+
+        if not gcp_config or (
+            not gcp_config.deployment_manager_id
+            and not gcp_config.infrastructure_manager_id
+        ):
+            raise ClickException(
+                f"This cloud {cloud.name}({cloud.id}) does not have an associated GCP deployment manager or infrastructure manager. Please contact Anyscale support."
             )
 
         gcp_utils = try_import_gcp_utils()
@@ -1497,15 +1509,25 @@ class CloudController(BaseController):
         project_id = self._get_project_id(cloud, cloud.name, cloud.id)
         factory = gcp_utils.get_google_cloud_client_factory(self.log, project_id)
         try:
-            memorystore_instance_name = managed_setup_utils.get_or_create_memorystore_gcp(
-                factory,
-                cloud.id,
-                gcp_config.deployment_manager_id,
-                project_id,
-                cloud.region,
-                self.log,
-                yes,
-            )
+            if gcp_config.deployment_manager_id:
+                memorystore_instance_name = managed_setup_utils.get_or_create_memorystore_gcp(
+                    factory,
+                    cloud.id,
+                    gcp_config.deployment_manager_id,
+                    project_id,
+                    cloud.region,
+                    self.log,
+                    yes,
+                )
+            else:
+                memorystore_instance_name = managed_setup_utils.get_or_create_memorystore_gcp_im(
+                    factory,
+                    gcp_config.infrastructure_manager_id,
+                    project_id,
+                    cloud.region,
+                    self.log,
+                    yes,
+                )
             memorystore_instance_config = gcp_utils.get_gcp_memorystore_config(
                 factory, memorystore_instance_name
             )
@@ -1594,8 +1616,17 @@ class CloudController(BaseController):
                 self.log.info(
                     "No cloud resources file provided, skipping cloud resource update."
                 )
+        elif resources_file:
+            # File-based update (e.g. migration DM -> IM, or other resource changes).
+            self.update_cloud_resources(
+                cloud_name=cloud_name,
+                cloud_id=cloud_id,
+                resources_file=resources_file,
+                skip_verification=skip_verification,
+                yes=yes,
+            )
         else:
-            # Anyscale-managed resources (cloud setup), can only update head node fault tolerance & inline IAM policies.
+            # No file: only head node fault tolerance or inline IAM (AWS).
             self.update_managed_cloud(
                 cloud=cloud,
                 enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
@@ -1975,9 +2006,16 @@ class CloudController(BaseController):
             self._remove_empty_values(cloud_resource.to_dict())
             for cloud_resource in cloud_resources
         ]
-        # Remove the deprecated cloud_deployment_id field.
         for d in formatted_cloud_resources:
             d.pop("cloud_deployment_id", None)
+            # Hide deployment_manager_id from display when both DM and IM exist (migrated cloud).
+            gcp = d.get("gcp_config")
+            if (
+                isinstance(gcp, dict)
+                and gcp.get("deployment_manager_id")
+                and gcp.get("infrastructure_manager_id")
+            ):
+                gcp.pop("deployment_manager_id", None)
         return formatted_cloud_resources
 
     def _convert_decorated_cloud_resource_to_cloud_deployment(

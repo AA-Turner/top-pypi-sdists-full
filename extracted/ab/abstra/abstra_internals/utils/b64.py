@@ -10,16 +10,22 @@ PREFFIX_REGEX = re.compile(r"^data:image/(jpeg|png|gif|bmp|webp);base64,")
 
 
 def is_base_64(unknown_string: str) -> bool:
+    if not unknown_string:
+        return False
     if PREFFIX_REGEX.match(unknown_string):
         unknown_string = unknown_string.split(",")[1]
+    if not unknown_string:
+        return False
     try:
         base64_bytes = base64.b64decode(unknown_string, validate=True)
+        if not base64_bytes:
+            return False
         image_type = puremagic.what(None, h=base64_bytes)
         if image_type in ["jpeg", "png", "gif", "bmp", "webp"]:
             return True
         else:
             return False
-    except (binascii.Error, ValueError):
+    except (binascii.Error, ValueError, FileNotFoundError):
         return False
 
 

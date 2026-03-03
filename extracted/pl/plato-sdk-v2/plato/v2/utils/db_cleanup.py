@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import socket
 from typing import Any
+from urllib.parse import quote_plus
 
 import httpx
 from sqlalchemy import text
@@ -12,7 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from plato._generated.api.v1.simulator import get_db_config
 from plato._generated.models import DbConfigResponse
-from plato.v2.utils.gateway_tunnel import GatewayTunnel, find_free_port
+from plato.v2.sync.sandbox import Tunnel
 from plato.v2.utils.models import (
     ApiCleanupResult,
     DatabaseCleanupResult,
@@ -20,9 +22,24 @@ from plato.v2.utils.models import (
     EnvironmentInfo,
     SessionCleanupResult,
 )
-from plato.v2.utils.proxy_tunnel import make_db_url
 
 logger = logging.getLogger(__name__)
+
+
+def _make_db_url(config: DbConfigResponse, port: int) -> str:
+    """Create SQLAlchemy async connection URL via localhost tunnel."""
+    db = config.db_type.lower()
+    user = quote_plus(config.db_user)
+    password = quote_plus(config.db_password)
+    database = quote_plus(config.db_database)
+
+    if db == "postgresql":
+        return f"postgresql+asyncpg://{user}:{password}@127.0.0.1:{port}/{database}"
+    elif db == "mysql":
+        return f"mysql+aiomysql://{user}:{password}@127.0.0.1:{port}/{database}"
+    elif db == "sqlite":
+        return f"sqlite+aiosqlite:///{config.db_database}"
+    raise ValueError(f"Unsupported database type: {db}")
 
 
 class DatabaseCleaner:
@@ -34,20 +51,8 @@ class DatabaseCleaner:
         http_client: httpx.AsyncClient,
         api_key: str,
     ) -> SessionCleanupResult:
-        """Clean up all databases for all environments in a session.
-
-        Environments and databases are cleaned up in parallel for efficiency.
-        Ports are pre-allocated globally to avoid conflicts.
-
-        Args:
-            envs: List of EnvironmentInfo objects with cleanup callbacks.
-            http_client: HTTP client for API calls.
-            api_key: API key for authentication.
-
-        Returns:
-            SessionCleanupResult with results for each environment.
-        """
-        # Step 1: Fetch DB configs for all environments with artifacts, in parallel
+        """Clean up all databases for all environments in a session."""
+        # Step 1: Fetch DB configs
         env_db_configs: dict[str, list[DbConfigResponse]] = {}
 
         async def fetch_db_configs(env: EnvironmentInfo):
@@ -58,35 +63,27 @@ class DatabaseCleaner:
                         artifact_id=env.artifact_id,
                         x_api_key=api_key,
                     )
-                    # Parse dicts into DbConfigResponse models and filter to configs with db_database
                     configs = [DbConfigResponse(**c) if isinstance(c, dict) else c for c in (configs_raw or [])]
                     valid_configs = [c for c in configs if c.db_database]
                     if valid_configs:
+                        logger.info(
+                            f"[cleanup] {env.alias}: {len(valid_configs)} DB(s): {[c.db_database for c in valid_configs]}"
+                        )
                         return env.alias, valid_configs
+                    else:
+                        logger.warning(f"[cleanup] {env.alias}: no valid DB configs")
                 except Exception as e:
-                    logger.warning(f"Failed to get DB configs for {env.alias}: {e}")
+                    logger.warning(f"[cleanup] {env.alias}: failed to get DB configs: {e}")
             return None
 
-        fetch_tasks = [fetch_db_configs(env) for env in envs]
-        fetch_results = await asyncio.gather(*fetch_tasks)
+        fetch_results = await asyncio.gather(*[fetch_db_configs(env) for env in envs])
         for result in fetch_results:
             if result is not None:
                 alias, valid_configs = result
                 env_db_configs[alias] = valid_configs
 
-        # Step 2: Pre-allocate ports globally to avoid conflicts
-        port_allocations: dict[str, dict[str, int]] = {}  # env_alias -> {db_name -> port}
-        port_counter = 55432
-        for env_alias, configs in env_db_configs.items():
-            port_allocations[env_alias] = {}
-            for config in configs:
-                db_name = config.db_database
-                port_allocations[env_alias][db_name] = find_free_port(port_counter)
-                port_counter += 100  # Space out ports to avoid conflicts
-
-        # Step 3: Run all cleanups in parallel
+        # Step 2: Run cleanups
         async def cleanup_env(env: EnvironmentInfo) -> tuple[str, EnvironmentCleanupResult]:
-            # Call cleanup API (best effort) if available
             if env.cleanup_fn is not None:
                 try:
                     api_result = await env.cleanup_fn()
@@ -96,34 +93,32 @@ class DatabaseCleaner:
             else:
                 api_cleanup = ApiCleanupResult(skipped=True, reason="cleanup API not available")
 
-            # Clean databases if we have configs
             databases: dict[str, DatabaseCleanupResult] = {}
             if env.alias in env_db_configs:
                 configs = env_db_configs[env.alias]
-                ports = port_allocations[env.alias]
 
                 async def cleanup_db(config: DbConfigResponse) -> tuple[str, DatabaseCleanupResult]:
                     db_name = config.db_database
-                    port = ports[db_name]
                     try:
-                        result = await self._cleanup_single_database(env.job_id, config, port)
+                        result = await self._cleanup_single_database(env.job_id, config)
+                        logger.info(f"[cleanup] {env.alias}/{db_name}: truncated {result.tables_truncated}")
                         return db_name, result
                     except Exception as e:
-                        logger.warning(f"Failed to cleanup database {db_name}: {e}")
+                        logger.warning(f"[cleanup] {env.alias}/{db_name}: failed: {e}")
                         return db_name, DatabaseCleanupResult(success=False, error=str(e))
 
-                # Run DB cleanups in parallel for this environment
                 db_results = await asyncio.gather(*[cleanup_db(c) for c in configs])
                 databases = dict(db_results)
 
-            # Call get_state to clear in-memory mutation cache
             cache_cleared = False
             cache_clear_error = None
             try:
                 await env.get_state_fn()
                 cache_cleared = True
+                logger.info(f"[cleanup] {env.alias}: mutation cache cleared")
             except Exception as e:
                 cache_clear_error = str(e)
+                logger.warning(f"[cleanup] {env.alias}: cache clear failed: {e}")
 
             return env.alias, EnvironmentCleanupResult(
                 api_cleanup=api_cleanup,
@@ -132,75 +127,58 @@ class DatabaseCleaner:
                 cache_clear_error=cache_clear_error,
             )
 
-        # Run environment cleanups in parallel
         results_list = await asyncio.gather(*[cleanup_env(env) for env in envs])
-        results = dict(results_list)
-
-        return SessionCleanupResult(environments=results)
+        return SessionCleanupResult(environments=dict(results_list))
 
     async def _cleanup_single_database(
         self,
         job_id: str,
         config: DbConfigResponse,
-        local_port: int,
     ) -> DatabaseCleanupResult:
-        """Connect to a single DB via gateway tunnel and truncate audit_log tables."""
-        db_port = config.db_port
+        """Connect to DB via sandbox Tunnel and truncate audit_log."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            local_port = s.getsockname()[1]
 
-        tunnel = GatewayTunnel(
-            job_id=job_id,
-            remote_port=db_port,
-            local_port=local_port,
-        )
-
+        tunnel = Tunnel(job_id=job_id, remote_port=config.db_port, local_port=local_port)
         try:
-            await tunnel.start()
+            tunnel.start()
+            await asyncio.sleep(0.5)  # Let tunnel accept loop settle
+            logger.info(f"[cleanup] Tunnel: localhost:{local_port} -> {job_id}:{config.db_port}/{config.db_database}")
 
-            db_url = make_db_url(config, local_port)
-            engine = create_async_engine(db_url, pool_pre_ping=True, pool_recycle=30, pool_size=100, max_overflow=20)
-
-            async with engine.begin() as conn:
-                tables_truncated = await self._find_and_truncate_audit_logs(conn, config.db_type)
-
-            await engine.dispose()
-
-            return DatabaseCleanupResult(
-                success=True,
-                tables_truncated=tables_truncated,
-            )
+            db_url = _make_db_url(config, local_port)
+            engine = create_async_engine(db_url, pool_pre_ping=True, pool_size=2, max_overflow=2)
+            try:
+                async with engine.begin() as conn:
+                    return DatabaseCleanupResult(
+                        success=True,
+                        tables_truncated=await self._find_and_truncate_audit_logs(conn, config.db_type),
+                    )
+            finally:
+                await engine.dispose()
         finally:
-            await tunnel.stop()
+            tunnel.stop()
 
     async def _find_and_truncate_audit_logs(
         self,
         conn: Any,
         db_type: str,
     ) -> list[str]:
-        """Find audit_log tables and truncate them.
-
-        Args:
-            conn: SQLAlchemy async connection.
-            db_type: Database type (postgresql, mysql, sqlite).
-
-        Returns:
-            List of truncated table names.
-        """
+        """Find audit_log tables and truncate them."""
         db_type = db_type.lower()
         truncated: list[str] = []
 
         if db_type == "postgresql":
-            # Find audit_log tables in all schemas
             result = await conn.execute(
                 text("SELECT schemaname, tablename FROM pg_tables WHERE tablename = 'audit_log'")
             )
             tables = result.fetchall()
-
+            logger.info(f"[cleanup] PostgreSQL: found {len(tables)} audit_log table(s)")
             for schema, table in tables:
                 await conn.execute(text(f"TRUNCATE TABLE {schema}.{table} RESTART IDENTITY CASCADE"))
                 truncated.append(f"{schema}.{table}")
 
         elif db_type == "mysql":
-            # Find audit_log tables
             result = await conn.execute(
                 text(
                     "SELECT table_schema, table_name FROM information_schema.tables "
@@ -208,18 +186,20 @@ class DatabaseCleaner:
                 )
             )
             tables = result.fetchall()
-
+            logger.info(f"[cleanup] MySQL: found {len(tables)} audit_log table(s)")
             await conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
             for schema, table in tables:
-                await conn.execute(text(f"DELETE FROM `{table}`"))
+                await conn.execute(text(f"TRUNCATE TABLE `{table}`"))
                 truncated.append(table)
             await conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
 
         elif db_type == "sqlite":
-            # Check if audit_log exists
             result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_log'"))
             if result.fetchone():
                 await conn.execute(text("DELETE FROM audit_log"))
                 truncated.append("audit_log")
+
+        if not truncated:
+            logger.warning(f"[cleanup] No audit_log tables found ({db_type})")
 
         return truncated

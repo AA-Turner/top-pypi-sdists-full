@@ -1013,7 +1013,7 @@ def slice_in_dim(operand: Array | np.ndarray, start_index: int | None,
   limit_indices[axis] = limit_index_int
   strides[axis] = core._canonicalize_dimension(stride)
 
-  return slice(operand, start_indices, limit_indices, strides)
+  return slice(operand, start_indices, limit_indices, strides)  # pyrefly: ignore[bad-return, no-matching-overload]  # pyrefly#2385
 
 
 def index_in_dim(operand: Array | np.ndarray, index: int, axis: int = 0,
@@ -1415,40 +1415,38 @@ def _slice_sharding_rule(operand, *, start_indices, limit_indices, strides):
                                 limit_indices=limit_indices, strides=strides)
   return _get_sharding_for_varying_out_shape(out_shape, operand, 'slicing')
 
-def _slice_transpose_rule(t, operand, *, start_indices, limit_indices, strides):
-  operand_shape = operand.aval.shape
-  if strides is None or np.all(np.equal(strides, 1)):
-    pads = zip(start_indices, np.subtract(operand_shape, limit_indices),
-               (0,) * len(start_indices))
+def _slice_jvp_rule(primals, tangents, *, start_indices, limit_indices, strides):
+  (p,), (t,) = primals, tangents
+  primal_out = slice_p.bind(p, start_indices=start_indices,
+                            limit_indices=limit_indices, strides=strides)
+  if type(t) is ad.Zero:
+    return primal_out, ad.p2tz(primal_out)
   else:
-    real_limits = np.add(
-      start_indices,
-      np.where(np.array(t.shape) == 0, 0,
-               np.add(1, np.multiply(np.subtract(t.shape, 1), strides))))
-    pads = zip(start_indices, np.subtract(operand_shape, real_limits),
-               np.subtract(strides, 1))
-  result = lax.pad(t, lax._const(t, 0), pads)
-  assert result.shape == operand_shape, f"{result.shape=} {operand_shape=}"
-  return [result]
+    tangent_out = slice_p.bind(t, start_indices=start_indices,
+                               limit_indices=limit_indices, strides=strides)
+    return primal_out, tangent_out
 
 def _slice_transpose_fancy(out_ct, operand, *, start_indices, limit_indices, strides):
   assert isinstance(operand, ad.GradAccum)
-  if type(out_ct) is ad_util.Zero: return
+  if type(out_ct) is ad_util.Zero:
+    return
   if isinstance(operand, ad.RefAccum):
     slices = map(_slice, start_indices, limit_indices, strides)
+    assert operand.ref is not None
     operand.ref.addupdate(out_ct, tuple(slices))
   else:
+    operand_aval, = lax_utils.ensure_shaped(operand.aval)
     if strides is None or np.all(np.equal(strides, 1)):
-      pads = zip(start_indices, np.subtract(operand.aval.shape, limit_indices),
+      pads = zip(start_indices, np.subtract(operand_aval.shape, limit_indices),
                  (0,) * len(start_indices))
     else:
       real_limits = np.add(
         start_indices,
         np.where(np.array(out_ct.shape) == 0, 0,
                  np.add(1, np.multiply(np.subtract(out_ct.shape, 1), strides))))
-      pads = zip(start_indices, np.subtract(operand.aval.shape, real_limits),
+      pads = zip(start_indices, np.subtract(operand_aval.shape, real_limits),
                  np.subtract(strides, 1))
-    operand.accum(lax.pad(out_ct, lax._const(out_ct, 0), pads))
+    operand.accum(lax.pad(out_ct, lax._const(out_ct, 0), pads))  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
 
 
 def _slice_batching_rule(batched_args, batch_dims, *, start_indices,
@@ -1468,13 +1466,13 @@ def _slice_batching_rule(batched_args, batch_dims, *, start_indices,
     new_strides = list(strides)
     new_strides.insert(bdim, 1)
 
-  out = slice(operand, new_start_indices, new_limit_indices, new_strides)
+  out = slice(operand, new_start_indices, new_limit_indices, new_strides)  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
   return out, bdim
 
 slice_p = standard_primitive(_slice_shape_rule, input_dtype, 'slice',
                              sharding_rule=_slice_sharding_rule,
                              vma_rule=partial(core.standard_vma_rule, 'slice'))
-ad.deflinear2(slice_p, _slice_transpose_rule)
+ad.primitive_jvps[slice_p] = _slice_jvp_rule
 ad.fancy_transposes[slice_p] = _slice_transpose_fancy
 batching.primitive_batchers[slice_p] = _slice_batching_rule
 
@@ -1542,28 +1540,18 @@ def _dynamic_slice_jvp(primals, tangents, *, slice_sizes):
     tangent_out = dynamic_slice_p.bind(tangent_out, *primals[1:], slice_sizes=slice_sizes)
   return dynamic_slice_p.bind(primals[0], *primals[1:], slice_sizes=slice_sizes), tangent_out
 
-def _dynamic_slice_transpose_rule(t, operand, *start_indices, slice_sizes):
-  assert ad.is_undefined_primal(operand)
-  assert all(not ad.is_undefined_primal(s) for s in start_indices)
-  if type(t) is ad_util.Zero:
-    return [ad_util.Zero(operand.aval)] + [None] * len(start_indices)
-  else:
-    zeros = lax.full(operand.aval.shape, 0, operand.aval.dtype,
-                     sharding=operand.aval.sharding)
-    zeros = core.pvary(zeros, tuple(operand.aval.vma))
-    return ([dynamic_update_slice_p.bind(zeros, t, *start_indices)] +
-            [None] * len(start_indices))
-
 def _dynamic_slice_transpose_fancy(out_ct, operand, *start_indices, slice_sizes):
   assert isinstance(operand, ad.GradAccum)
   assert all(not isinstance(s, ad.GradAccum) for s in start_indices)
   if type(out_ct) is ad_util.Zero: return
   if isinstance(operand, ad.RefAccum):
+    assert operand.ref is not None
     operand.ref.addupdate(out_ct, tuple(map(ds, start_indices, slice_sizes)))
   else:
-    zeros = lax.full(operand.aval.shape, 0, operand.aval.dtype,
-                     sharding=operand.aval.sharding)
-    zeros = core.pvary(zeros, tuple(operand.aval.vma))
+    operand_aval, = lax_utils.ensure_shaped(operand.aval)
+    zeros = lax.full(operand_aval.shape, 0, operand_aval.dtype,
+                     sharding=operand_aval.sharding)
+    zeros = core.pvary(zeros, tuple(operand_aval.vma))
     operand.accum(dynamic_update_slice_p.bind(zeros, out_ct, *start_indices))
 
 def _batch_dynamic_slice_indices(indices, bdims):
@@ -1627,7 +1615,6 @@ dynamic_slice_p = standard_primitive(
     vma_rule=partial(core.standard_vma_rule, 'dynamic_slice'),
     reduced_rule=_dynamic_slice_reduced_rule)
 ad.primitive_jvps[dynamic_slice_p] = _dynamic_slice_jvp
-ad.primitive_transposes[dynamic_slice_p] = _dynamic_slice_transpose_rule
 ad.fancy_transposes[dynamic_slice_p] = _dynamic_slice_transpose_fancy
 batching.primitive_batchers[dynamic_slice_p] = _dynamic_slice_batching_rule
 pe.custom_staging_rules[dynamic_slice_p] = _dynamic_slice_staging_rule
@@ -1704,7 +1691,7 @@ def _dynamic_update_slice_jvp(primals, tangents):
   g_operand, g_update = tangents[:2]
   val_out = dynamic_update_slice_p.bind(operand, update, *start_indices)
   if type(g_operand) is ad_util.Zero and type(g_update) is ad_util.Zero:
-    tangent_out = ad_util.Zero.from_primal_value(val_out)
+    tangent_out = ad_util.p2tz(val_out)
   else:
     g_operand = ad.instantiate_zeros(g_operand)
     g_update = ad.instantiate_zeros(g_update)
@@ -1715,12 +1702,15 @@ def _dynamic_update_slice_transpose_rule(t, operand, update, *start_indices):
   assert all(not ad.is_undefined_primal(x) for x in start_indices)
   update_shape = (update.aval.shape if ad.is_undefined_primal(update) else
                   update.shape)
-  update_sharding = update.aval.sharding
+  operand_ct_aval = operand.aval.to_cotangent_aval()
+  update_ct_aval = update.aval.to_cotangent_aval()
   if type(t) is ad_util.Zero:
-    operand_t = ad_util.Zero(operand.aval) if ad.is_undefined_primal(operand) else None
-    update_t = ad_util.Zero(update.aval) if ad.is_undefined_primal(update) else None
+    operand_t = (ad_util.Zero(operand_ct_aval)
+                 if ad.is_undefined_primal(operand) else None)
+    update_t = (ad_util.Zero(update_ct_aval)
+                if ad.is_undefined_primal(update) else None)
   else:
-    zeros = lax._zeros(t, shape=update_shape, sharding=update_sharding)
+    zeros = lax._zeros(t, shape=update_shape, sharding=update_ct_aval.sharding)
     operand_t = (dynamic_update_slice_p.bind(t, zeros, *start_indices)
                  if ad.is_undefined_primal(operand) else None)
     update_t = (dynamic_slice_p.bind(t, *start_indices, slice_sizes=update_shape)
@@ -2036,7 +2026,6 @@ def _gather_spec_computation(operand, indices, dimension_numbers, slice_sizes):
   operand_batching_dims = dimension_numbers.operand_batching_dims
   start_indices_batching_dims = dimension_numbers.start_indices_batching_dims
   output_shape_rank = len(offset_dims) + indices.ndim - 1
-  index_vector_dim = indices.ndim - 1
 
   operand_spec = operand.sharding.spec
   indices_spec = list(indices.sharding.spec)
@@ -2155,7 +2144,7 @@ def _gather_fill(operand, indices, *, dimension_numbers, slice_sizes,
   # output
   output_ndims = num_batch_dims + len(dnums.offset_dims)
   batch_dims_in_output = np.delete(np.arange(output_ndims),
-                                   dnums.offset_dims)
+                                   dnums.offset_dims).tolist()
 
   # We don't consume unique_indices directly in gather(), only in its transpose
   # (scatter).
@@ -2199,8 +2188,8 @@ def _gather_transpose_rule(t, operand, indices, *, dimension_numbers,
                       mode=mode)
   return [out, None]
 
-def _gather_batching_rule(batched_args, batch_dims, *, dimension_numbers,
-                          slice_sizes, unique_indices, indices_are_sorted,
+def _gather_batching_rule(batched_args: Sequence[Array], batch_dims: Sequence[int | None], *,
+                          dimension_numbers, slice_sizes, unique_indices, indices_are_sorted,
                           mode, fill_value):
   operand, indices = batched_args
   operand_bdim, indices_bdim = batch_dims
@@ -2250,6 +2239,9 @@ def _gather_batching_rule(batched_args, batch_dims, *, dimension_numbers,
                   indices_are_sorted=False, mode=mode, fill_value=fill_value), 0
 
   else:
+    assert operand_bdim is not None
+    assert indices_bdim is not None
+
     # move batch dimensions to the front to simplify logic
     operand = batching.moveaxis(operand, operand_bdim, 0)
     indices = batching.moveaxis(indices, indices_bdim, 0)
@@ -2758,7 +2750,7 @@ def _scatter_addsub_jvp(
       indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
       mode=mode)
   if type(g_operand) is ad_util.Zero and type(g_updates) is ad_util.Zero:
-    tangent_out = ad_util.Zero.from_primal_value(val_out)
+    tangent_out = ad_util.p2tz(val_out)
   else:
     g_operand = ad.instantiate_zeros(g_operand)
     g_updates = ad.instantiate_zeros(g_updates)
@@ -2862,6 +2854,13 @@ def _scatter_batching_rule(scatter_op, axis_data, batched_args, batch_dims, *,
                            indices_are_sorted, unique_indices, mode):
   operand, indices, updates = batched_args
   operand_bdim, indices_bdim, updates_bdim = batch_dims
+  if all(bdim is None for bdim in batch_dims):
+    out = scatter_op.bind(
+        operand, indices, updates, update_jaxpr=update_jaxpr,
+        update_consts=update_consts, dimension_numbers=dimension_numbers,
+        indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
+        mode=mode)
+    return out, None
 
   # move the operand batch dim to the front if it is not None, otherwise create
   # it at the front (so that we can scatter into it)
@@ -2922,7 +2921,6 @@ scatter_add_p = standard_primitive(
 ad.primitive_jvps[scatter_add_p] = partial(_scatter_addsub_jvp, scatter_add_p)
 ad.primitive_transposes[scatter_add_p] = partial(_scatter_addsub_transpose_rule, scatter_add_p)
 batching.fancy_primitive_batchers[scatter_add_p] = partial(_scatter_batching_rule, scatter_add_p)
-batching.skippable_batchers[scatter_add_p] = lambda _: ()
 
 scatter_sub_p = standard_primitive(
     _scatter_shape_rule, _scatter_dtype_rule, 'scatter-sub',
@@ -2934,7 +2932,6 @@ ad.primitive_jvps[scatter_sub_p] = partial(_scatter_addsub_jvp, scatter_sub_p)
 ad.primitive_transposes[scatter_sub_p] = partial(_scatter_addsub_transpose_rule, scatter_sub_p)
 batching.fancy_primitive_batchers[scatter_sub_p] = partial(
     _scatter_batching_rule, scatter_sub_p)
-batching.skippable_batchers[scatter_sub_p] = lambda _: ()
 
 scatter_mul_p = standard_primitive(
     _scatter_shape_rule, _scatter_dtype_rule, 'scatter-mul',
@@ -2959,7 +2956,6 @@ ad.defjvp(scatter_mul_p,
 ad.primitive_transposes[scatter_mul_p] = _scatter_mul_transpose_rule
 batching.fancy_primitive_batchers[scatter_mul_p] = (
   partial(_scatter_batching_rule, scatter_mul_p))
-batching.skippable_batchers[scatter_mul_p] = lambda _: ()
 
 def _scatter_extremal_jvp(scatter_op, primals, tangents, update_jaxpr,
                           update_consts, dimension_numbers,
@@ -2977,7 +2973,7 @@ def _scatter_extremal_jvp(scatter_op, primals, tangents, update_jaxpr,
       unique_indices=unique_indices, mode=mode)
 
   if type(g_operand) is ad_util.Zero and type(g_updates) is ad_util.Zero:
-    tangent_out = ad_util.Zero.from_primal_value(val_out)
+    tangent_out = ad_util.p2tz(val_out)
   else:
     g_operand = ad.instantiate_zeros(g_operand)
     g_updates = ad.instantiate_zeros(g_updates)
@@ -3010,10 +3006,10 @@ def _scatter_extremal_jvp(scatter_op, primals, tangents, update_jaxpr,
     # tangents for the values in updates.
 
     initial_vals = gather(
-        operand, indices, gather_dnums, np.array(slice_sizes))
+        operand, indices, gather_dnums, slice_sizes)
 
     target_vals = gather(
-        val_out, indices, gather_dnums, np.array(slice_sizes))
+        val_out, indices, gather_dnums, slice_sizes)
 
     successful_updates = (updates == target_vals)
     retained_values = (initial_vals == target_vals)
@@ -3026,7 +3022,7 @@ def _scatter_extremal_jvp(scatter_op, primals, tangents, update_jaxpr,
             scatter_dnums),
         indices,
         gather_dnums,
-        np.array(slice_sizes))
+        slice_sizes)
 
     num_refs = gather(
         scatter_add(lax._zeros(operand),
@@ -3035,7 +3031,7 @@ def _scatter_extremal_jvp(scatter_op, primals, tangents, update_jaxpr,
                     scatter_dnums),
         indices,
         gather_dnums,
-        np.array(slice_sizes))
+        slice_sizes)
 
     updates_normalizer = lax.select(retained_values,
                                     1.0 / (num_updates + 1),
@@ -3053,7 +3049,7 @@ def _scatter_extremal_jvp(scatter_op, primals, tangents, update_jaxpr,
 
     # This can be simplified once scatter has transpose implemented
     target_tangents = gather(
-        g_operand, indices, gather_dnums, np.array(slice_sizes))
+        g_operand, indices, gather_dnums, slice_sizes)
 
     tangent_updates = (target_tangents * operand_coef +
                        g_updates * updates_coef)
@@ -3075,7 +3071,6 @@ scatter_min_p = standard_primitive(
     memory_space_rule=_scatter_memory_space_rule)
 batching.fancy_primitive_batchers[scatter_min_p] = (
   partial(_scatter_batching_rule, scatter_min_p))
-batching.skippable_batchers[scatter_min_p] = lambda _: ()
 ad.primitive_jvps[scatter_min_p] = partial(_scatter_extremal_jvp, scatter_min_p)
 
 scatter_max_p = standard_primitive(
@@ -3085,7 +3080,6 @@ scatter_max_p = standard_primitive(
     memory_space_rule=_scatter_memory_space_rule)
 batching.fancy_primitive_batchers[scatter_max_p] = (
   partial(_scatter_batching_rule, scatter_max_p))
-batching.skippable_batchers[scatter_max_p] = lambda _: ()
 ad.primitive_jvps[scatter_max_p] = partial(_scatter_extremal_jvp, scatter_max_p)
 
 def _scatter_jvp(primals, tangents, *, update_jaxpr, update_consts,
@@ -3103,7 +3097,7 @@ def _scatter_jvp(primals, tangents, *, update_jaxpr, update_consts,
       update_consts=update_consts, dimension_numbers=dnums,
       indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
       mode=mode)
-    return val_out, ad_util.Zero.from_primal_value(val_out)
+    return val_out, ad_util.p2tz(val_out)
 
   g_operand = ad.instantiate_zeros(g_operand)
   g_updates = ad.instantiate_zeros(g_updates)
@@ -3248,7 +3242,6 @@ ad.primitive_jvps[scatter_p] = _scatter_jvp
 ad.primitive_transposes[scatter_p] = _scatter_transpose_rule
 batching.fancy_primitive_batchers[scatter_p] = (
   partial(_scatter_batching_rule, scatter_p))
-batching.skippable_batchers[scatter_p] = lambda _: ()
 
 
 def _scatter_lower_opaque(ctx, operand, indices, updates, *,
@@ -3276,13 +3269,14 @@ def _scatter_lower_opaque(ctx, operand, indices, updates, *,
 def _scatter_lower(ctx: mlir.LoweringRuleContext, operand, indices, updates, *,
                    update_jaxpr: core.Jaxpr, update_consts, dimension_numbers,
                    indices_are_sorted, unique_indices, mode):
+  avals_in = lax_utils.ensure_shaped(*ctx.avals_in)
+  aval_out, = lax_utils.ensure_shaped(*ctx.avals_out)
   if update_jaxpr is None:
     assert not update_consts
-    operand_dtype = ctx.avals_in[0].dtype
+    operand_dtype = avals_in[0].dtype
     update_jaxpr, update_consts = lax._reduction_jaxpr(
         _scatter_reduction_computation, core.ShapedArray((), operand_dtype))
 
-  aval_out, = ctx.avals_out
   if dtypes.issubdtype(aval_out.dtype, dtypes.extended):
     return [_scatter_lower_opaque(
         ctx, operand, indices, updates,
@@ -3302,7 +3296,7 @@ def _scatter_lower(ctx: mlir.LoweringRuleContext, operand, indices, updates, *,
       input_batching_dims=list(dnums.operand_batching_dims),
       scatter_indices_batching_dims=list(dnums.scatter_indices_batching_dims),
       scattered_dims_to_operand_dims=list(dnums.scatter_dims_to_operand_dims),
-      index_vector_dim=len(ctx.avals_in[1].shape) - 1,
+      index_vector_dim=len(avals_in[1].shape) - 1,
   )
   result = mlir.aval_to_ir_type(aval_out)
   operand = [operand]
@@ -3319,7 +3313,8 @@ def _scatter_lower(ctx: mlir.LoweringRuleContext, operand, indices, updates, *,
     out_nodes, _ = mlir.jaxpr_subcomp(
         ctx.module_context, update_jaxpr, name_stack, mlir.TokenSet(),
         update_consts, update.arguments[0], update.arguments[1],
-        dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering)
+        dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering,
+        outer_traceback=ctx.traceback)
     hlo.return_(mlir.flatten_ir_values(out_nodes))
   return [mlir.lower_with_sharding_in_types(ctx, r, aval)
           for r, aval in safe_zip(op.results, ctx.avals_out)]

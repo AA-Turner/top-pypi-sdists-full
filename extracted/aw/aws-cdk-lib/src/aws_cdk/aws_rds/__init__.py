@@ -684,161 +684,7 @@ Automatic backups of read replica instances are only supported for MySQL and Mar
 automatic backups are disabled for read replicas and can only be enabled (using `backupRetention`)
 if also enabled on the source instance.
 
-Creating a "production" Oracle database instance with option and parameter groups:
-
-```python
-# Set open cursors with parameter group
-parameter_group = rds.ParameterGroup(self, "ParameterGroup",
-    engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-    parameters={
-        "open_cursors": "2500"
-    }
-)
-
-option_group = rds.OptionGroup(self, "OptionGroup",
-    engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-    configurations=[cdk.aws_rds.OptionConfiguration(
-        name="LOCATOR"
-    ), cdk.aws_rds.OptionConfiguration(
-        name="OEM",
-        port=1158,
-        vpc=vpc
-    )
-    ]
-)
-
-# Allow connections to OEM
-option_group.option_connections.OEM.connections.allow_default_port_from_any_ipv4()
-
-# Database instance with production values
-instance = rds.DatabaseInstance(self, "Instance",
-    engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-    license_model=rds.LicenseModel.BRING_YOUR_OWN_LICENSE,
-    instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
-    multi_az=True,
-    storage_type=rds.StorageType.IO1,
-    credentials=rds.Credentials.from_username("syscdk"),
-    vpc=vpc,
-    database_name="ORCL",
-    storage_encrypted=True,
-    backup_retention=cdk.Duration.days(7),
-    monitoring_interval=cdk.Duration.seconds(60),
-    enable_performance_insights=True,
-    cloudwatch_logs_exports=["trace", "audit", "alert", "listener"
-    ],
-    cloudwatch_logs_retention=logs.RetentionDays.ONE_MONTH,
-    auto_minor_version_upgrade=True,  # required to be true if LOCATOR is used in the option group
-    option_group=option_group,
-    parameter_group=parameter_group,
-    removal_policy=RemovalPolicy.DESTROY
-)
-
-# Allow connections on default port from any IPV4
-instance.connections.allow_default_port_from_any_ipv4()
-
-# Rotate the master user password every 30 days
-instance.add_rotation_single_user()
-
-# Add alarm for high CPU
-cloudwatch.Alarm(self, "HighCPU",
-    metric=instance.metric_cPUUtilization(),
-    threshold=90,
-    evaluation_periods=1
-)
-
-# Trigger Lambda function on instance availability events
-fn = lambda_.Function(self, "Function",
-    code=lambda_.Code.from_inline("exports.handler = (event) => console.log(event);"),
-    handler="index.handler",
-    runtime=lambda_.Runtime.NODEJS_20_X
-)
-
-availability_rule = instance.on_event("Availability", target=targets.LambdaFunction(fn))
-availability_rule.add_event_pattern(
-    detail={
-        "EventCategories": ["availability"
-        ]
-    }
-)
-```
-
-Add XMLDB and OEM with option group
-
-```python
-# Set open cursors with parameter group
-parameter_group = rds.ParameterGroup(self, "ParameterGroup",
-    engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-    parameters={
-        "open_cursors": "2500"
-    }
-)
-
-option_group = rds.OptionGroup(self, "OptionGroup",
-    engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-    configurations=[cdk.aws_rds.OptionConfiguration(
-        name="LOCATOR"
-    ), cdk.aws_rds.OptionConfiguration(
-        name="OEM",
-        port=1158,
-        vpc=vpc
-    )
-    ]
-)
-
-# Allow connections to OEM
-option_group.option_connections.OEM.connections.allow_default_port_from_any_ipv4()
-
-# Database instance with production values
-instance = rds.DatabaseInstance(self, "Instance",
-    engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-    license_model=rds.LicenseModel.BRING_YOUR_OWN_LICENSE,
-    instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
-    multi_az=True,
-    storage_type=rds.StorageType.IO1,
-    credentials=rds.Credentials.from_username("syscdk"),
-    vpc=vpc,
-    database_name="ORCL",
-    storage_encrypted=True,
-    backup_retention=cdk.Duration.days(7),
-    monitoring_interval=cdk.Duration.seconds(60),
-    enable_performance_insights=True,
-    cloudwatch_logs_exports=["trace", "audit", "alert", "listener"
-    ],
-    cloudwatch_logs_retention=logs.RetentionDays.ONE_MONTH,
-    auto_minor_version_upgrade=True,  # required to be true if LOCATOR is used in the option group
-    option_group=option_group,
-    parameter_group=parameter_group,
-    removal_policy=RemovalPolicy.DESTROY
-)
-
-# Allow connections on default port from any IPV4
-instance.connections.allow_default_port_from_any_ipv4()
-
-# Rotate the master user password every 30 days
-instance.add_rotation_single_user()
-
-# Add alarm for high CPU
-cloudwatch.Alarm(self, "HighCPU",
-    metric=instance.metric_cPUUtilization(),
-    threshold=90,
-    evaluation_periods=1
-)
-
-# Trigger Lambda function on instance availability events
-fn = lambda_.Function(self, "Function",
-    code=lambda_.Code.from_inline("exports.handler = (event) => console.log(event);"),
-    handler="index.handler",
-    runtime=lambda_.Runtime.NODEJS_20_X
-)
-
-availability_rule = instance.on_event("Availability", target=targets.LambdaFunction(fn))
-availability_rule.add_event_pattern(
-    detail={
-        "EventCategories": ["availability"
-        ]
-    }
-)
-```
+For more information on configuring Oracle database instances, see [option groups](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithOptionGroups.html) and [parameter groups](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/parameter-groups-overview.html).
 
 Use the `storageType` property to specify the [type of storage](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Storage.html)
 to use for the instance:
@@ -1105,32 +951,7 @@ instance.add_rotation_single_user(
 )
 ```
 
-```python
-cluster = rds.DatabaseCluster(stack, "Database",
-    engine=rds.DatabaseClusterEngine.AURORA,
-    instance_props=cdk.aws_rds.InstanceProps(
-        instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
-        vpc=vpc
-    )
-)
-
-cluster.add_rotation_single_user()
-
-cluster_with_custom_rotation_options = rds.DatabaseCluster(stack, "CustomRotationOptions",
-    engine=rds.DatabaseClusterEngine.AURORA,
-    instance_props=cdk.aws_rds.InstanceProps(
-        instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
-        vpc=vpc
-    )
-)
-cluster_with_custom_rotation_options.add_rotation_single_user(
-    automatically_after=cdk.Duration.days(7),
-    exclude_characters="!@#$%^&*",
-    security_group=security_group,
-    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
-    endpoint=endpoint
-)
-```
+For more information on setting up master password rotation for a cluster, see [Set up automatic rotation for Amazon RDS secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_turn-on-for-db.html).
 
 The multi user rotation scheme is also available:
 
@@ -3306,12 +3127,7 @@ class AuroraMysqlEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_04_6")
     def VER_3_04_6(cls) -> "AuroraMysqlEngineVersion":
-        '''(deprecated) Version "8.0.mysql_aurora.3.04.6".
-
-        :deprecated: Aurora MySQL 8.0.mysql_aurora.3.04.6 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "8.0.mysql_aurora.3.04.6".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_6"))
 
     @jsii.python.classproperty
@@ -3436,12 +3252,7 @@ class AuroraMysqlEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_10_3")
     def VER_3_10_3(cls) -> "AuroraMysqlEngineVersion":
-        '''(deprecated) Version "8.0.mysql_aurora.3.10.3".
-
-        :deprecated: Aurora MySQL 8.0.mysql_aurora.3.10.3 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "8.0.mysql_aurora.3.10.3".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_3"))
 
     @jsii.python.classproperty
@@ -3455,6 +3266,12 @@ class AuroraMysqlEngineVersion(
     def VER_3_11_1(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.11.1".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_11_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_3_12_0")
+    def VER_3_12_0(cls) -> "AuroraMysqlEngineVersion":
+        '''Version "8.0.mysql_aurora.3.12.0".'''
+        return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_12_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_12")
@@ -4274,12 +4091,7 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_16")
     def VER_13_16(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "13.16".
-
-        :deprecated: Version 13.16 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.16".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_16"))
 
     @jsii.python.classproperty
@@ -4296,45 +4108,25 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_18")
     def VER_13_18(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "13.18".
-
-        :deprecated: Version 13.18 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.18".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_20")
     def VER_13_20(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "13.20".
-
-        :deprecated: Version 13.20 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.20".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_21")
     def VER_13_21(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "13.21".
-
-        :deprecated: Version 13.21 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.21".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_22")
     def VER_13_22(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "13.22".
-
-        :deprecated: Version 13.22 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.22".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_22"))
 
     @jsii.python.classproperty
@@ -4451,12 +4243,7 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_13")
     def VER_14_13(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "14.13".
-
-        :deprecated: Version 14.13 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.13".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_13"))
 
     @jsii.python.classproperty
@@ -4473,56 +4260,31 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_15")
     def VER_14_15(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "14.15".
-
-        :deprecated: Version 14.15 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.15".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_17")
     def VER_14_17(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "14.17".
-
-        :deprecated: Version 14.17 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.17".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_18")
     def VER_14_18(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "14.18".
-
-        :deprecated: Version 14.18 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.18".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_19")
     def VER_14_19(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "14.19".
-
-        :deprecated: Version 14.19 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.19".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_19"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_20")
     def VER_14_20(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "14.20".
-
-        :deprecated: Version 14.20 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.20".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_20"))
 
     @jsii.python.classproperty
@@ -4600,45 +4362,25 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_10")
     def VER_15_10(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "15.10".
-
-        :deprecated: Version 15.10 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.10".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_12")
     def VER_15_12(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "15.12".
-
-        :deprecated: Version 15.12 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.12".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_13")
     def VER_15_13(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "15.13".
-
-        :deprecated: Version 15.13 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.13".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_14")
     def VER_15_14(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "15.14".
-
-        :deprecated: Version 15.14 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.14".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_14"))
 
     @jsii.python.classproperty
@@ -4716,12 +4458,7 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_8")
     def VER_15_8(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "15.8".
-
-        :deprecated: Version 15.8 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.8".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_8"))
 
     @jsii.python.classproperty
@@ -4760,24 +4497,26 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_10")
     def VER_16_10(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.10".
-
-        :deprecated: Version 16.10 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.10".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_10"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_10_LIMITLESS")
+    def VER_16_10_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "16.10 limitless".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_10_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_11")
     def VER_16_11(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.11".
-
-        :deprecated: Version 16.11 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.11".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_11"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_11_LIMITLESS")
+    def VER_16_11_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "16.11 limitless".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_11_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
@@ -4804,23 +4543,13 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4")
     def VER_16_4(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.4".
-
-        :deprecated: Version 16.4 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.4".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4_LIMITLESS")
     def VER_16_4_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.4 limitless".
-
-        :deprecated: Version 16.4 limitless is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.4 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_4_LIMITLESS"))
 
     @jsii.python.classproperty
@@ -4837,67 +4566,37 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6")
     def VER_16_6(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.6".
-
-        :deprecated: Version 16.6 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.6".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6_LIMITLESS")
     def VER_16_6_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.6 limitless".
-
-        :deprecated: Version 16.6 limitless is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.6 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_6_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8")
     def VER_16_8(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.8".
-
-        :deprecated: Version 16.8 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.8".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8_LIMITLESS")
     def VER_16_8_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.8 limitless".
-
-        :deprecated: Version 16.8 limitless is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.8 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_8_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9")
     def VER_16_9(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.9".
-
-        :deprecated: Version 16.9 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.9".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9_LIMITLESS")
     def VER_16_9_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "16.9 limitless".
-
-        :deprecated: Version 16.9 limitless is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.9 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_9_LIMITLESS"))
 
     @jsii.python.classproperty
@@ -4925,34 +4624,19 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_4")
     def VER_17_4(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "17.4".
-
-        :deprecated: Version 17.4 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "17.4".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_5")
     def VER_17_5(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "17.5".
-
-        :deprecated: Version 17.5 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "17.5".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_6")
     def VER_17_6(cls) -> "AuroraPostgresEngineVersion":
-        '''(deprecated) Version "17.6".
-
-        :deprecated: Version 17.6 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "17.6".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_6"))
 
     @jsii.python.classproperty
@@ -22269,67 +21953,31 @@ class Credentials(
 
     Example::
 
-        # Build a data source for AppSync to access the database.
-        # api: appsync.GraphqlApi
-        # Create username and password secret for DB Cluster
-        secret = rds.DatabaseSecret(self, "AuroraSecret",
-            username="clusteradmin"
+        # vpc: ec2.IVpc
+        
+        
+        instance1 = rds.DatabaseInstance(self, "PostgresInstance1",
+            engine=rds.DatabaseInstanceEngine.POSTGRES,
+            # Generate the secret with admin username `postgres` and random password
+            credentials=rds.Credentials.from_generated_secret("postgres"),
+            vpc=vpc
         )
-        
-        # The VPC to place the cluster in
-        vpc = ec2.Vpc(self, "AuroraVpc")
-        
-        # Create the serverless cluster, provide all values needed to customise the database.
-        cluster = rds.DatabaseCluster(self, "AuroraClusterV2",
-            engine=rds.DatabaseClusterEngine.aurora_postgres(version=rds.AuroraPostgresEngineVersion.VER_15_5),
-            credentials={"username": "clusteradmin"},
-            cluster_identifier="db-endpoint-test",
-            writer=rds.ClusterInstance.serverless_v2("writer"),
-            serverless_v2_min_capacity=2,
-            serverless_v2_max_capacity=10,
-            vpc=vpc,
-            default_database_name="demos",
-            enable_data_api=True
+        # Templated secret with username and password fields
+        templated_secret = secretsmanager.Secret(self, "TemplatedSecret",
+            generate_secret_string=secretsmanager.SecretStringGenerator(
+                secret_string_template=JSON.stringify({"username": "postgres"}),
+                generate_string_key="password",
+                exclude_characters="/@\""
+            )
         )
-        rds_dS = api.add_rds_data_source_v2("rds", cluster, secret, "demos")
-        
-        # Set up a resolver for an RDS query.
-        rds_dS.create_resolver("QueryGetDemosRdsResolver",
-            type_name="Query",
-            field_name="getDemosRds",
-            request_mapping_template=appsync.MappingTemplate.from_string("""
-                  {
-                    "version": "2018-05-29",
-                    "statements": [
-                      "SELECT * FROM demos"
-                    ]
-                  }
-                  """),
-            response_mapping_template=appsync.MappingTemplate.from_string("""
-                    $utils.toJson($utils.rds.toJsonObject($ctx.result)[0])
-                  """)
-        )
-        
-        # Set up a resolver for an RDS mutation.
-        rds_dS.create_resolver("MutationAddDemoRdsResolver",
-            type_name="Mutation",
-            field_name="addDemoRds",
-            request_mapping_template=appsync.MappingTemplate.from_string("""
-                  {
-                    "version": "2018-05-29",
-                    "statements": [
-                      "INSERT INTO demos VALUES (:id, :version)",
-                      "SELECT * WHERE id = :id"
-                    ],
-                    "variableMap": {
-                      ":id": $util.toJson($util.autoId()),
-                      ":version": $util.toJson($ctx.args.version)
-                    }
-                  }
-                  """),
-            response_mapping_template=appsync.MappingTemplate.from_string("""
-                    $utils.toJson($utils.rds.toJsonObject($ctx.result)[1][0])
-                  """)
+        # Using the templated secret as credentials
+        instance2 = rds.DatabaseInstance(self, "PostgresInstance2",
+            engine=rds.DatabaseInstanceEngine.POSTGRES,
+            credentials={
+                "username": templated_secret.secret_value_from_json("username").to_string(),
+                "password": templated_secret.secret_value_from_json("password")
+            },
+            vpc=vpc
         )
     '''
 
@@ -25518,20 +25166,15 @@ class DatabaseInstanceEngine(
 
         # vpc: ec2.Vpc
         
-        
-        iops_instance = rds.DatabaseInstance(self, "IopsInstance",
-            engine=rds.DatabaseInstanceEngine.mysql(version=rds.MysqlEngineVersion.VER_8_0_39),
+        instance = rds.DatabaseInstance(self, "Instance",
+            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
+            # optional, defaults to m5.large
+            instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
+            credentials=rds.Credentials.from_generated_secret("syscdk"),  # Optional - will default to 'admin' username and generated password
             vpc=vpc,
-            storage_type=rds.StorageType.IO1,
-            iops=5000
-        )
-        
-        gp3_instance = rds.DatabaseInstance(self, "Gp3Instance",
-            engine=rds.DatabaseInstanceEngine.mysql(version=rds.MysqlEngineVersion.VER_8_0_39),
-            vpc=vpc,
-            allocated_storage=500,
-            storage_type=rds.StorageType.GP3,
-            storage_throughput=500
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+            )
         )
     '''
 
@@ -34266,33 +33909,22 @@ class InstanceProps:
         :param security_groups: Security group. Default: a new security group is created.
         :param vpc_subnets: Where to place the instances within the VPC. Default: - the Vpc default strategy if not specified.
 
-        :exampleMetadata: lit=aws-rds/test/integ.cluster-rotation.lit.ts infused
+        :exampleMetadata: infused
 
         Example::
 
-            cluster = rds.DatabaseCluster(stack, "Database",
-                engine=rds.DatabaseClusterEngine.AURORA,
-                instance_props=cdk.aws_rds.InstanceProps(
+            # vpc: ec2.Vpc
+            
+            cluster = rds.DatabaseCluster(self, "Database",
+                engine=rds.DatabaseClusterEngine.aurora_mysql(
+                    version=rds.AuroraMysqlEngineVersion.VER_3_03_0
+                ),
+                instances=2,
+                instance_props=rds.InstanceProps(
                     instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
+                    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
                     vpc=vpc
                 )
-            )
-            
-            cluster.add_rotation_single_user()
-            
-            cluster_with_custom_rotation_options = rds.DatabaseCluster(stack, "CustomRotationOptions",
-                engine=rds.DatabaseClusterEngine.AURORA,
-                instance_props=cdk.aws_rds.InstanceProps(
-                    instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
-                    vpc=vpc
-                )
-            )
-            cluster_with_custom_rotation_options.add_rotation_single_user(
-                automatically_after=cdk.Duration.days(7),
-                exclude_characters="!@#$%^&*",
-                security_group=security_group,
-                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
-                endpoint=endpoint
             )
         '''
         if isinstance(vpc_subnets, dict):
@@ -34539,86 +34171,7 @@ class InstanceUpdateBehaviour(enum.Enum):
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_rds.LicenseModel")
 class LicenseModel(enum.Enum):
-    '''The license model.
-
-    :exampleMetadata: lit=aws-rds/test/integ.instance.lit.ts infused
-
-    Example::
-
-        # Set open cursors with parameter group
-        parameter_group = rds.ParameterGroup(self, "ParameterGroup",
-            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-            parameters={
-                "open_cursors": "2500"
-            }
-        )
-        
-        option_group = rds.OptionGroup(self, "OptionGroup",
-            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-            configurations=[cdk.aws_rds.OptionConfiguration(
-                name="LOCATOR"
-            ), cdk.aws_rds.OptionConfiguration(
-                name="OEM",
-                port=1158,
-                vpc=vpc
-            )
-            ]
-        )
-        
-        # Allow connections to OEM
-        option_group.option_connections.OEM.connections.allow_default_port_from_any_ipv4()
-        
-        # Database instance with production values
-        instance = rds.DatabaseInstance(self, "Instance",
-            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-            license_model=rds.LicenseModel.BRING_YOUR_OWN_LICENSE,
-            instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
-            multi_az=True,
-            storage_type=rds.StorageType.IO1,
-            credentials=rds.Credentials.from_username("syscdk"),
-            vpc=vpc,
-            database_name="ORCL",
-            storage_encrypted=True,
-            backup_retention=cdk.Duration.days(7),
-            monitoring_interval=cdk.Duration.seconds(60),
-            enable_performance_insights=True,
-            cloudwatch_logs_exports=["trace", "audit", "alert", "listener"
-            ],
-            cloudwatch_logs_retention=logs.RetentionDays.ONE_MONTH,
-            auto_minor_version_upgrade=True,  # required to be true if LOCATOR is used in the option group
-            option_group=option_group,
-            parameter_group=parameter_group,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        # Allow connections on default port from any IPV4
-        instance.connections.allow_default_port_from_any_ipv4()
-        
-        # Rotate the master user password every 30 days
-        instance.add_rotation_single_user()
-        
-        # Add alarm for high CPU
-        cloudwatch.Alarm(self, "HighCPU",
-            metric=instance.metric_cPUUtilization(),
-            threshold=90,
-            evaluation_periods=1
-        )
-        
-        # Trigger Lambda function on instance availability events
-        fn = lambda_.Function(self, "Function",
-            code=lambda_.Code.from_inline("exports.handler = (event) => console.log(event);"),
-            handler="index.handler",
-            runtime=lambda_.Runtime.NODEJS_20_X
-        )
-        
-        availability_rule = instance.on_event("Availability", target=targets.LambdaFunction(fn))
-        availability_rule.add_event_pattern(
-            detail={
-                "EventCategories": ["availability"
-                ]
-            }
-        )
-    '''
+    '''The license model.'''
 
     LICENSE_INCLUDED = "LICENSE_INCLUDED"
     '''License included.'''
@@ -34700,6 +34253,12 @@ class MariaDbEngineVersion(
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_15"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_10_11_16")
+    def VER_10_11_16(cls) -> "MariaDbEngineVersion":
+        '''Version "10.11.16".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_16"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_4")
     def VER_10_11_4(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.11.4".
@@ -34737,7 +34296,7 @@ class MariaDbEngineVersion(
     def VER_10_11_7(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.11.7".
 
-        :deprecated: MariaDB 10.11.8 is no longer supported by Amazon RDS.
+        :deprecated: MariaDB 10.11.7 is no longer supported by Amazon RDS.
 
         :stability: deprecated
         '''
@@ -34746,7 +34305,12 @@ class MariaDbEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_8")
     def VER_10_11_8(cls) -> "MariaDbEngineVersion":
-        '''Version "10.11.8".'''
+        '''(deprecated) Version "10.11.8".
+
+        :deprecated: MariaDB 10.11.8 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_8"))
 
     @jsii.python.classproperty
@@ -35369,13 +34933,23 @@ class MariaDbEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_25")
     def VER_10_5_25(cls) -> "MariaDbEngineVersion":
-        '''Version "10.5.25".'''
+        '''(deprecated) Version "10.5.25".
+
+        :deprecated: MariaDB 10.5.25 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5_25"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_26")
     def VER_10_5_26(cls) -> "MariaDbEngineVersion":
-        '''Version "10.5.26".'''
+        '''(deprecated) Version "10.5.26".
+
+        :deprecated: MariaDB 10.5.26 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5_26"))
 
     @jsii.python.classproperty
@@ -35515,7 +35089,12 @@ class MariaDbEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_18")
     def VER_10_6_18(cls) -> "MariaDbEngineVersion":
-        '''Version "10.6.18".'''
+        '''(deprecated) Version "10.6.18".
+
+        :deprecated: MariaDB 10.6.18 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_18"))
 
     @jsii.python.classproperty
@@ -35555,6 +35134,12 @@ class MariaDbEngineVersion(
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_24"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_10_6_25")
+    def VER_10_6_25(cls) -> "MariaDbEngineVersion":
+        '''Version "10.6.25".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_25"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_5")
     def VER_10_6_5(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.5".
@@ -35586,6 +35171,12 @@ class MariaDbEngineVersion(
         :stability: deprecated
         '''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_8"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_11_4_10")
+    def VER_11_4_10(cls) -> "MariaDbEngineVersion":
+        '''Version "11.4.10".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_3")
@@ -35634,6 +35225,12 @@ class MariaDbEngineVersion(
     def VER_11_8_5(cls) -> "MariaDbEngineVersion":
         '''Version "11.8.5".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_8_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_11_8_6")
+    def VER_11_8_6(cls) -> "MariaDbEngineVersion":
+        '''Version "11.8.6".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_8_6"))
 
     @builtins.property
     @jsii.member(jsii_name="mariaDbFullVersion")
@@ -36659,82 +36256,26 @@ class OptionGroup(
 ):
     '''An option group.
 
-    :exampleMetadata: lit=aws-rds/test/integ.instance.lit.ts infused
+    :exampleMetadata: infused
 
     Example::
 
-        # Set open cursors with parameter group
-        parameter_group = rds.ParameterGroup(self, "ParameterGroup",
-            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-            parameters={
-                "open_cursors": "2500"
-            }
-        )
+        # vpc: ec2.Vpc
+        # security_group: ec2.SecurityGroup
         
-        option_group = rds.OptionGroup(self, "OptionGroup",
-            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-            configurations=[cdk.aws_rds.OptionConfiguration(
-                name="LOCATOR"
-            ), cdk.aws_rds.OptionConfiguration(
+        
+        rds.OptionGroup(self, "Options",
+            engine=rds.DatabaseInstanceEngine.oracle_se2(
+                version=rds.OracleEngineVersion.VER_19
+            ),
+            configurations=[rds.OptionConfiguration(
                 name="OEM",
-                port=1158,
-                vpc=vpc
+                port=5500,
+                vpc=vpc,
+                security_groups=[security_group]
             )
-            ]
-        )
-        
-        # Allow connections to OEM
-        option_group.option_connections.OEM.connections.allow_default_port_from_any_ipv4()
-        
-        # Database instance with production values
-        instance = rds.DatabaseInstance(self, "Instance",
-            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-            license_model=rds.LicenseModel.BRING_YOUR_OWN_LICENSE,
-            instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
-            multi_az=True,
-            storage_type=rds.StorageType.IO1,
-            credentials=rds.Credentials.from_username("syscdk"),
-            vpc=vpc,
-            database_name="ORCL",
-            storage_encrypted=True,
-            backup_retention=cdk.Duration.days(7),
-            monitoring_interval=cdk.Duration.seconds(60),
-            enable_performance_insights=True,
-            cloudwatch_logs_exports=["trace", "audit", "alert", "listener"
             ],
-            cloudwatch_logs_retention=logs.RetentionDays.ONE_MONTH,
-            auto_minor_version_upgrade=True,  # required to be true if LOCATOR is used in the option group
-            option_group=option_group,
-            parameter_group=parameter_group,
-            removal_policy=RemovalPolicy.DESTROY
-        )
-        
-        # Allow connections on default port from any IPV4
-        instance.connections.allow_default_port_from_any_ipv4()
-        
-        # Rotate the master user password every 30 days
-        instance.add_rotation_single_user()
-        
-        # Add alarm for high CPU
-        cloudwatch.Alarm(self, "HighCPU",
-            metric=instance.metric_cPUUtilization(),
-            threshold=90,
-            evaluation_periods=1
-        )
-        
-        # Trigger Lambda function on instance availability events
-        fn = lambda_.Function(self, "Function",
-            code=lambda_.Code.from_inline("exports.handler = (event) => console.log(event);"),
-            handler="index.handler",
-            runtime=lambda_.Runtime.NODEJS_20_X
-        )
-        
-        availability_rule = instance.on_event("Availability", target=targets.LambdaFunction(fn))
-        availability_rule.add_event_pattern(
-            detail={
-                "EventCategories": ["availability"
-                ]
-            }
+            option_group_name="MyOptionGroup"
         )
     '''
 
@@ -36876,82 +36417,26 @@ class OptionGroupProps:
         :param description: A description of the option group. Default: a CDK generated description
         :param option_group_name: The name of the option group. Default: - a CDK generated name
 
-        :exampleMetadata: lit=aws-rds/test/integ.instance.lit.ts infused
+        :exampleMetadata: infused
 
         Example::
 
-            # Set open cursors with parameter group
-            parameter_group = rds.ParameterGroup(self, "ParameterGroup",
-                engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-                parameters={
-                    "open_cursors": "2500"
-                }
-            )
+            # vpc: ec2.Vpc
+            # security_group: ec2.SecurityGroup
             
-            option_group = rds.OptionGroup(self, "OptionGroup",
-                engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-                configurations=[cdk.aws_rds.OptionConfiguration(
-                    name="LOCATOR"
-                ), cdk.aws_rds.OptionConfiguration(
+            
+            rds.OptionGroup(self, "Options",
+                engine=rds.DatabaseInstanceEngine.oracle_se2(
+                    version=rds.OracleEngineVersion.VER_19
+                ),
+                configurations=[rds.OptionConfiguration(
                     name="OEM",
-                    port=1158,
-                    vpc=vpc
+                    port=5500,
+                    vpc=vpc,
+                    security_groups=[security_group]
                 )
-                ]
-            )
-            
-            # Allow connections to OEM
-            option_group.option_connections.OEM.connections.allow_default_port_from_any_ipv4()
-            
-            # Database instance with production values
-            instance = rds.DatabaseInstance(self, "Instance",
-                engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-                license_model=rds.LicenseModel.BRING_YOUR_OWN_LICENSE,
-                instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
-                multi_az=True,
-                storage_type=rds.StorageType.IO1,
-                credentials=rds.Credentials.from_username("syscdk"),
-                vpc=vpc,
-                database_name="ORCL",
-                storage_encrypted=True,
-                backup_retention=cdk.Duration.days(7),
-                monitoring_interval=cdk.Duration.seconds(60),
-                enable_performance_insights=True,
-                cloudwatch_logs_exports=["trace", "audit", "alert", "listener"
                 ],
-                cloudwatch_logs_retention=logs.RetentionDays.ONE_MONTH,
-                auto_minor_version_upgrade=True,  # required to be true if LOCATOR is used in the option group
-                option_group=option_group,
-                parameter_group=parameter_group,
-                removal_policy=RemovalPolicy.DESTROY
-            )
-            
-            # Allow connections on default port from any IPV4
-            instance.connections.allow_default_port_from_any_ipv4()
-            
-            # Rotate the master user password every 30 days
-            instance.add_rotation_single_user()
-            
-            # Add alarm for high CPU
-            cloudwatch.Alarm(self, "HighCPU",
-                metric=instance.metric_cPUUtilization(),
-                threshold=90,
-                evaluation_periods=1
-            )
-            
-            # Trigger Lambda function on instance availability events
-            fn = lambda_.Function(self, "Function",
-                code=lambda_.Code.from_inline("exports.handler = (event) => console.log(event);"),
-                handler="index.handler",
-                runtime=lambda_.Runtime.NODEJS_20_X
-            )
-            
-            availability_rule = instance.on_event("Availability", target=targets.LambdaFunction(fn))
-            availability_rule.add_event_pattern(
-                detail={
-                    "EventCategories": ["availability"
-                    ]
-                }
+                option_group_name="MyOptionGroup"
             )
         '''
         if __debug__:
@@ -37137,16 +36622,21 @@ class OracleEngineVersion(
     Example::
 
         # vpc: ec2.Vpc
+        # security_group: ec2.SecurityGroup
         
-        instance = rds.DatabaseInstance(self, "Instance",
-            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-            # optional, defaults to m5.large
-            instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
-            credentials=rds.Credentials.from_generated_secret("syscdk"),  # Optional - will default to 'admin' username and generated password
-            vpc=vpc,
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+        
+        rds.OptionGroup(self, "Options",
+            engine=rds.DatabaseInstanceEngine.oracle_se2(
+                version=rds.OracleEngineVersion.VER_19
+            ),
+            configurations=[rds.OptionConfiguration(
+                name="OEM",
+                port=5500,
+                vpc=vpc,
+                security_groups=[security_group]
             )
+            ],
+            option_group_name="MyOptionGroup"
         )
     '''
 
@@ -38158,37 +37648,21 @@ class ParameterGroup(
 
     Example::
 
-        # plan: backup.BackupPlan
         # vpc: ec2.Vpc
         
-        my_table = dynamodb.Table.from_table_name(self, "Table", "myTableName")
-        my_database_instance = rds.DatabaseInstance(self, "DatabaseInstance",
-            engine=rds.DatabaseInstanceEngine.mysql(version=rds.MysqlEngineVersion.VER_8_0_26),
-            vpc=vpc
-        )
-        my_database_cluster = rds.DatabaseCluster(self, "DatabaseCluster",
-            engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_2_08_1),
-            credentials=rds.Credentials.from_generated_secret("clusteradmin"),
-            instance_props=rds.InstanceProps(
-                vpc=vpc
-            )
-        )
-        my_serverless_cluster = rds.ServerlessCluster(self, "ServerlessCluster",
-            engine=rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
-            parameter_group=rds.ParameterGroup.from_parameter_group_name(self, "ParameterGroup", "default.aurora-postgresql11"),
-            vpc=vpc
-        )
-        my_cool_construct = Construct(self, "MyCoolConstruct")
         
-        plan.add_selection("Selection",
-            resources=[
-                backup.BackupResource.from_dynamo_db_table(my_table),  # A DynamoDB table
-                backup.BackupResource.from_rds_database_instance(my_database_instance),  # A RDS instance
-                backup.BackupResource.from_rds_database_cluster(my_database_cluster),  # A RDS database cluster
-                backup.BackupResource.from_rds_serverless_cluster(my_serverless_cluster),  # An Aurora Serverless cluster
-                backup.BackupResource.from_tag("stage", "prod"),  # All resources that are tagged stage=prod in the region/account
-                backup.BackupResource.from_construct(my_cool_construct)
-            ]
+        cluster = rds.ServerlessCluster(self, "AnotherCluster",
+            engine=rds.DatabaseClusterEngine.AURORA_POSTGRESQL,
+            copy_tags_to_snapshot=True,  # whether to save the cluster tags when creating the snapshot. Default is 'true'
+            parameter_group=rds.ParameterGroup.from_parameter_group_name(self, "ParameterGroup", "default.aurora-postgresql11"),
+            vpc=vpc,
+            scaling=rds.ServerlessScalingOptions(
+                auto_pause=Duration.minutes(10),  # default is to pause after 5 minutes of idle time
+                min_capacity=rds.AuroraCapacityUnit.ACU_8,  # default is 2 Aurora capacity units (ACUs)
+                max_capacity=rds.AuroraCapacityUnit.ACU_32,  # default is 16 Aurora capacity units (ACUs)
+                timeout=Duration.seconds(100),  # default is 5 minutes
+                timeout_action=rds.TimeoutAction.FORCE_APPLY_CAPACITY_CHANGE
+            )
         )
     '''
 
@@ -38488,82 +37962,27 @@ class ParameterGroupProps:
         :param parameters: The parameters in this parameter group. Default: - None
         :param removal_policy: The CloudFormation policy to apply when the instance is removed from the stack or replaced during an update. Default: - RemovalPolicy.DESTROY
 
-        :exampleMetadata: lit=aws-rds/test/integ.instance.lit.ts infused
+        :exampleMetadata: infused
 
         Example::
 
-            # Set open cursors with parameter group
+            # vpc: ec2.Vpc
+            
+            
             parameter_group = rds.ParameterGroup(self, "ParameterGroup",
-                engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
+                engine=rds.DatabaseInstanceEngine.sql_server_ee(
+                    version=rds.SqlServerEngineVersion.VER_11
+                ),
+                name="my-parameter-group",
                 parameters={
-                    "open_cursors": "2500"
+                    "locks": "100"
                 }
             )
             
-            option_group = rds.OptionGroup(self, "OptionGroup",
-                engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-                configurations=[cdk.aws_rds.OptionConfiguration(
-                    name="LOCATOR"
-                ), cdk.aws_rds.OptionConfiguration(
-                    name="OEM",
-                    port=1158,
-                    vpc=vpc
-                )
-                ]
-            )
-            
-            # Allow connections to OEM
-            option_group.option_connections.OEM.connections.allow_default_port_from_any_ipv4()
-            
-            # Database instance with production values
-            instance = rds.DatabaseInstance(self, "Instance",
-                engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
-                license_model=rds.LicenseModel.BRING_YOUR_OWN_LICENSE,
-                instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
-                multi_az=True,
-                storage_type=rds.StorageType.IO1,
-                credentials=rds.Credentials.from_username("syscdk"),
+            rds.DatabaseInstance(self, "Database",
+                engine=rds.DatabaseInstanceEngine.SQL_SERVER_EE,
                 vpc=vpc,
-                database_name="ORCL",
-                storage_encrypted=True,
-                backup_retention=cdk.Duration.days(7),
-                monitoring_interval=cdk.Duration.seconds(60),
-                enable_performance_insights=True,
-                cloudwatch_logs_exports=["trace", "audit", "alert", "listener"
-                ],
-                cloudwatch_logs_retention=logs.RetentionDays.ONE_MONTH,
-                auto_minor_version_upgrade=True,  # required to be true if LOCATOR is used in the option group
-                option_group=option_group,
-                parameter_group=parameter_group,
-                removal_policy=RemovalPolicy.DESTROY
-            )
-            
-            # Allow connections on default port from any IPV4
-            instance.connections.allow_default_port_from_any_ipv4()
-            
-            # Rotate the master user password every 30 days
-            instance.add_rotation_single_user()
-            
-            # Add alarm for high CPU
-            cloudwatch.Alarm(self, "HighCPU",
-                metric=instance.metric_cPUUtilization(),
-                threshold=90,
-                evaluation_periods=1
-            )
-            
-            # Trigger Lambda function on instance availability events
-            fn = lambda_.Function(self, "Function",
-                code=lambda_.Code.from_inline("exports.handler = (event) => console.log(event);"),
-                handler="index.handler",
-                runtime=lambda_.Runtime.NODEJS_20_X
-            )
-            
-            availability_rule = instance.on_event("Availability", target=targets.LambdaFunction(fn))
-            availability_rule.add_event_pattern(
-                detail={
-                    "EventCategories": ["availability"
-                    ]
-                }
+                parameter_group=parameter_group
             )
         '''
         if __debug__:
@@ -39725,23 +39144,13 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_15")
     def VER_13_15(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "13.15".
-
-        :deprecated: PostgreSQL 13.15 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.15".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_16")
     def VER_13_16(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "13.16".
-
-        :deprecated: PostgreSQL 13.16 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.16".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_16"))
 
     @jsii.python.classproperty
@@ -39758,12 +39167,7 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_18")
     def VER_13_18(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "13.18".
-
-        :deprecated: PostgreSQL 13.18 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.18".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_18"))
 
     @jsii.python.classproperty
@@ -39791,34 +39195,19 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_20")
     def VER_13_20(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "13.20".
-
-        :deprecated: PostgreSQL 13.20 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.20".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_21")
     def VER_13_21(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "13.21".
-
-        :deprecated: PostgreSQL 13.21 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.21".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_22")
     def VER_13_22(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "13.22".
-
-        :deprecated: PostgreSQL 13.22 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "13.22".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_22"))
 
     @jsii.python.classproperty
@@ -39946,23 +39335,13 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_12")
     def VER_14_12(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "14.12".
-
-        :deprecated: PostgreSQL 14.12 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.12".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_13")
     def VER_14_13(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "14.13".
-
-        :deprecated: PostgreSQL 14.13 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.13".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_13"))
 
     @jsii.python.classproperty
@@ -39979,12 +39358,7 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_15")
     def VER_14_15(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "14.15".
-
-        :deprecated: PostgreSQL 14.15 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.15".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_15"))
 
     @jsii.python.classproperty
@@ -40001,34 +39375,19 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_17")
     def VER_14_17(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "14.17".
-
-        :deprecated: PostgreSQL 14.17 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.17".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_18")
     def VER_14_18(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "14.18".
-
-        :deprecated: PostgreSQL 14.18 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.18".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_19")
     def VER_14_19(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "14.19".
-
-        :deprecated: PostgreSQL 14.19 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.19".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_19"))
 
     @jsii.python.classproperty
@@ -40045,13 +39404,14 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_20")
     def VER_14_20(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "14.20".
-
-        :deprecated: PostgreSQL 14.20 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "14.20".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_20"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_14_21")
+    def VER_14_21(cls) -> "PostgresEngineVersion":
+        '''Version "14.21".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_3")
@@ -40139,12 +39499,7 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_10")
     def VER_15_10(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "15.10".
-
-        :deprecated: PostgreSQL 15.10 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.10".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_10"))
 
     @jsii.python.classproperty
@@ -40161,34 +39516,19 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_12")
     def VER_15_12(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "15.12".
-
-        :deprecated: PostgreSQL 15.12 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.12".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_13")
     def VER_15_13(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "15.13".
-
-        :deprecated: PostgreSQL 15.13 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.13".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_14")
     def VER_15_14(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "15.14".
-
-        :deprecated: PostgreSQL 15.14 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.14".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_14"))
 
     @jsii.python.classproperty
@@ -40196,6 +39536,12 @@ class PostgresEngineVersion(
     def VER_15_15(cls) -> "PostgresEngineVersion":
         '''Version "15.15".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_15"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_15_16")
+    def VER_15_16(cls) -> "PostgresEngineVersion":
+        '''Version "15.16".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_16"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_2")
@@ -40255,23 +39601,13 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_7")
     def VER_15_7(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "15.7".
-
-        :deprecated: PostgreSQL 15.7 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.7".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_8")
     def VER_15_8(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "15.8".
-
-        :deprecated: PostgreSQL 15.8 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "15.8".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_8"))
 
     @jsii.python.classproperty
@@ -40305,24 +39641,20 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_10")
     def VER_16_10(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "16.10".
-
-        :deprecated: PostgreSQL 16.10 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.10".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_11")
     def VER_16_11(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "16.11".
-
-        :deprecated: PostgreSQL 16.11 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.11".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_11"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_12")
+    def VER_16_12(cls) -> "PostgresEngineVersion":
+        '''Version "16.12".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
@@ -40338,23 +39670,13 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_3")
     def VER_16_3(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "16.3".
-
-        :deprecated: PostgreSQL 16.3 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.3".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4")
     def VER_16_4(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "16.4".
-
-        :deprecated: PostgreSQL 16.4 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.4".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_4"))
 
     @jsii.python.classproperty
@@ -40371,12 +39693,7 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6")
     def VER_16_6(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "16.6".
-
-        :deprecated: PostgreSQL 16.6 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.6".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_6"))
 
     @jsii.python.classproperty
@@ -40393,23 +39710,13 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8")
     def VER_16_8(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "16.8".
-
-        :deprecated: PostgreSQL 16.8 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.8".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9")
     def VER_16_9(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "16.9".
-
-        :deprecated: PostgreSQL 16.9 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "16.9".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_9"))
 
     @jsii.python.classproperty
@@ -40432,12 +39739,7 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_2")
     def VER_17_2(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "17.2".
-
-        :deprecated: PostgreSQL 17.2 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "17.2".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_2"))
 
     @jsii.python.classproperty
@@ -40454,34 +39756,19 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_4")
     def VER_17_4(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "17.4".
-
-        :deprecated: PostgreSQL 17.4 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "17.4".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_5")
     def VER_17_5(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "17.5".
-
-        :deprecated: PostgreSQL 17.5 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "17.5".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_6")
     def VER_17_6(cls) -> "PostgresEngineVersion":
-        '''(deprecated) Version "17.6".
-
-        :deprecated: PostgreSQL 17.6 is no longer supported by Amazon RDS.
-
-        :stability: deprecated
-        '''
+        '''Version "17.6".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_6"))
 
     @jsii.python.classproperty
@@ -40489,6 +39776,12 @@ class PostgresEngineVersion(
     def VER_17_7(cls) -> "PostgresEngineVersion":
         '''Version "17.7".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_17_8")
+    def VER_17_8(cls) -> "PostgresEngineVersion":
+        '''Version "17.8".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18")
@@ -40501,6 +39794,12 @@ class PostgresEngineVersion(
     def VER_18_1(cls) -> "PostgresEngineVersion":
         '''Version "18.1".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_18_2")
+    def VER_18_2(cls) -> "PostgresEngineVersion":
+        '''Version "18.2".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_24")
@@ -41433,8 +40732,7 @@ class RotationSingleUserOptions(CommonRotationUserOptions):
             instance.add_rotation_single_user(
                 automatically_after=Duration.days(7),  # defaults to 30 days
                 exclude_characters="!@#$%^&*",  # defaults to the set " %+~`#/// here*()|[]{}:;<>?!'/@\"\\"
-                security_group=my_security_group,  # defaults to an auto-created security group
-                rotate_immediately_on_update=False
+                security_group=my_security_group
             )
         '''
         if isinstance(vpc_subnets, dict):
@@ -44633,6 +43931,12 @@ class SqlServerEngineVersion(
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4445_1_V1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_15_00_4455_2_V1")
+    def VER_15_00_4455_2_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "15.00.4455.2.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4455_2_V1"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16")
     def VER_16(cls) -> "SqlServerEngineVersion":
         '''Version "16.00" (only a major version, without a specific minor version).'''
@@ -44739,6 +44043,24 @@ class SqlServerEngineVersion(
     def VER_16_00_4215_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4215.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4215_2_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_00_4225_2_V1")
+    def VER_16_00_4225_2_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "16.00.4225.2.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4225_2_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_00_4230_2_V1")
+    def VER_16_00_4230_2_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "16.00.4230.2.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4230_2_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_00_4236_2_V1")
+    def VER_16_00_4236_2_V1(cls) -> "SqlServerEngineVersion":
+        '''Version "16.00.4236.2.v1".'''
+        return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4236_2_V1"))
 
     @builtins.property
     @jsii.member(jsii_name="sqlServerFullVersion")
@@ -52068,20 +51390,15 @@ class DatabaseInstance(
 
         # vpc: ec2.Vpc
         
-        
-        iops_instance = rds.DatabaseInstance(self, "IopsInstance",
-            engine=rds.DatabaseInstanceEngine.mysql(version=rds.MysqlEngineVersion.VER_8_0_39),
+        instance = rds.DatabaseInstance(self, "Instance",
+            engine=rds.DatabaseInstanceEngine.oracle_se2(version=rds.OracleEngineVersion.VER_19_0_0_0_2020_04_R1),
+            # optional, defaults to m5.large
+            instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.SMALL),
+            credentials=rds.Credentials.from_generated_secret("syscdk"),  # Optional - will default to 'admin' username and generated password
             vpc=vpc,
-            storage_type=rds.StorageType.IO1,
-            iops=5000
-        )
-        
-        gp3_instance = rds.DatabaseInstance(self, "Gp3Instance",
-            engine=rds.DatabaseInstanceEngine.mysql(version=rds.MysqlEngineVersion.VER_8_0_39),
-            vpc=vpc,
-            allocated_storage=500,
-            storage_type=rds.StorageType.GP3,
-            storage_throughput=500
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
+            )
         )
     '''
 

@@ -57,7 +57,7 @@ def main_models(logger, parser, models):
     originals = {c: parser.get(c, "models") for c in countries}
 
     for model in models:
-        parser.set("DEFAULT", "experiment_name", f"models_models_{model}")
+        parser.set("DEFAULT", "experiment_name", f"exp0_{model}")
         # Override every country's models list to just this one model
         for country in countries:
             parser.set(country, "models", f'["{model}"]')
@@ -111,6 +111,10 @@ def _extract_trial_mape(parser, experiment_name):
 
 def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
     """Use Optuna TPE to find the best ML hyperparameter combination."""
+    # Build model tag from unique models in the inputs list
+    model_names = sorted(set(inp[4] for inp in inputs))
+    model_tag = "_".join(model_names)
+
     ml_keys = [
         "feature_selection", "lag_years", "lag_yield_as_feature",
         "median_years", "median_yield_as_feature",
@@ -122,7 +126,7 @@ def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
         params = {
             "feature_selection": trial.suggest_categorical(
                 "feature_selection",
-                ["SelectKBest", "BorutaPy", "Leshy", "RFECV", "RFE", "gOMP", "none"],
+                ["SelectKBest", "BorutaPy", "gOMP", "none"],
             ),
             "lag_years": trial.suggest_int("lag_years", 1, 5),
             "lag_yield_as_feature": trial.suggest_categorical(
@@ -140,7 +144,7 @@ def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
             ),
         }
 
-        experiment_name = f"optuna_trial_{trial.number}"
+        experiment_name = f"exp0_{model_tag}_trial{trial.number + 1}"
         parser.set("DEFAULT", "experiment_name", experiment_name)
         for key, value in params.items():
             parser.set("ML", key, str(value))

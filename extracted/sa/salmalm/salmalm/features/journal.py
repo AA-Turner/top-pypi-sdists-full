@@ -6,6 +6,7 @@ stdlib-only. SQLite 저장, mood.py 연동.
 from __future__ import annotations
 
 import logging
+import sqlite3
 from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -30,7 +31,7 @@ _MOOD_KEYWORDS = {
 }
 
 
-def _get_db(db_path: Optional[Path] = None):
+def _get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
     """Get db."""
     conn = _connect_db(db_path or JOURNAL_DB, wal=True)
     conn.execute("""CREATE TABLE IF NOT EXISTS journal_entries (
@@ -80,10 +81,10 @@ class JournalManager:
     def __init__(self, db_path: Optional[Path] = None) -> None:
         """Init  ."""
         self._db_path = db_path
-        self._conn = None
+        self._conn: Optional[sqlite3.Connection] = None
 
     @property
-    def conn(self):
+    def conn(self) -> sqlite3.Connection:
         """Conn."""
         if self._conn is None:
             self._conn = _get_db(self._db_path)

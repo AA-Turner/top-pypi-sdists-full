@@ -133,9 +133,15 @@ def from_transactions(
     _is_arrow = _type_name == "Table" and _mod.startswith("pyarrow")
 
     if _is_arrow:
-        import pandas as _pd
-        import polars as _pl
-        import pyarrow as _pa
+        from rusket._dependencies import import_optional_dependency
+
+        _pd = import_optional_dependency("pandas")
+        from rusket._dependencies import import_optional_dependency
+
+        _pl = import_optional_dependency("polars")
+        from rusket._dependencies import import_optional_dependency
+
+        _pa = import_optional_dependency("pyarrow")
 
         pl_df = _pl.from_arrow(typing.cast("_pa.Table", data))
         pandas_df = typing.cast("_pd.DataFrame", pl_df.to_pandas())
@@ -151,7 +157,9 @@ def from_transactions(
         if min_item_count > 1:
             if verbose:
                 print(f"[{time.strftime('%X')}] Spark: Filtering items with < {min_item_count} occurrences...")
-            import pyspark.sql.functions as F
+            from rusket._dependencies import import_optional_dependency
+
+            F = import_optional_dependency("pyspark.sql.functions", "pyspark")
 
             spark_df = typing.cast("SparkDataFrame", data)
             _itm_c = item_col or spark_df.columns[1]
@@ -160,7 +168,9 @@ def from_transactions(
             data = spark_df.join(valid_items, on=_itm_c, how="inner").select(*spark_df.columns)
 
         if hasattr(data, "toArrow"):
-            import pandas as pd
+            from rusket._dependencies import import_optional_dependency
+
+            pd = import_optional_dependency("pandas")
 
             pandas_df = data.toArrow().to_pandas(types_mapper=pd.ArrowDtype)  # type: ignore[union-attr]
         else:
@@ -168,7 +178,9 @@ def from_transactions(
 
         result_pd = _from_dataframe(pandas_df, transaction_col, item_col, min_item_count=1, verbose=verbose)
         # Convert back via Arrow for efficiency
-        import pyarrow as _pa
+        from rusket._dependencies import import_optional_dependency
+
+        _pa = import_optional_dependency("pyarrow")
 
         spark = data.sparkSession  # type: ignore[union-attr]
         arrow_table = _pa.Table.from_pandas(result_pd.astype(bool))
@@ -180,8 +192,12 @@ def from_transactions(
     if isinstance(data, (list, tuple)):
         return _from_list(data, min_item_count=min_item_count, verbose=verbose)
 
-    import pandas as _pd
-    import polars as _pl
+    from rusket._dependencies import import_optional_dependency
+
+    _pd = import_optional_dependency("pandas")
+    from rusket._dependencies import import_optional_dependency
+
+    _pl = import_optional_dependency("polars")
 
     # --- Polars ---
     if isinstance(data, _pl.DataFrame):
@@ -196,6 +212,79 @@ def from_transactions(
         return _from_dataframe(data, transaction_col, item_col, min_item_count=min_item_count, verbose=verbose)
 
     raise TypeError(f"Expected a Pandas/Polars/Spark/PyArrow DataFrame or list of lists, got {type(data)}")
+
+
+@overload
+def from_ratings(
+    data: pd.DataFrame,
+    user_col: str | None = None,
+    item_col: str | None = None,
+    rating_col: str | None = None,
+    min_item_count: int = 1,
+    verbose: int = 0,
+) -> pd.DataFrame: ...
+
+
+@overload
+def from_ratings(
+    data: pl.DataFrame,
+    user_col: str | None = None,
+    item_col: str | None = None,
+    rating_col: str | None = None,
+    min_item_count: int = 1,
+    verbose: int = 0,
+) -> pl.DataFrame: ...
+
+
+@overload
+def from_ratings(
+    data: SparkDataFrame,
+    user_col: str | None = None,
+    item_col: str | None = None,
+    rating_col: str | None = None,
+    min_item_count: int = 1,
+    verbose: int = 0,
+) -> SparkDataFrame: ...
+
+
+@overload
+def from_ratings(
+    data: pa.Table,
+    user_col: str | None = None,
+    item_col: str | None = None,
+    rating_col: str | None = None,
+    min_item_count: int = 1,
+    verbose: int = 0,
+) -> pa.Table: ...
+
+
+@overload
+def from_ratings(
+    data: Sequence[Sequence[str | int]],
+    user_col: str | None = None,
+    item_col: str | None = None,
+    rating_col: str | None = None,
+    min_item_count: int = 1,
+    verbose: int = 0,
+) -> pd.DataFrame: ...
+
+
+def from_ratings(
+    data: DataFrame | Sequence[Sequence[str | int]] | Any,
+    user_col: str | None = None,
+    item_col: str | None = None,
+    rating_col: str | None = None,
+    min_item_count: int = 1,
+    verbose: int = 0,
+) -> Any:
+    """Alias for :func:`from_transactions`. Conveinent for implicit/explicit models."""
+    return from_transactions(
+        data=data,
+        transaction_col=user_col,
+        item_col=item_col,
+        min_item_count=min_item_count,
+        verbose=verbose,
+    )
 
 
 def from_pandas(
@@ -281,7 +370,10 @@ def _from_list(
     verbose: int = 0,
 ) -> pd.DataFrame:
     import numpy as np
-    import pandas as pd
+
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
     from scipy import sparse as sp
 
     t0 = 0.0
@@ -353,7 +445,10 @@ def _from_dataframe(
     verbose: int = 0,
 ) -> pd.DataFrame:
     import numpy as np
-    import pandas as pd
+
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
     from scipy import sparse as sp
 
     t0 = 0.0
@@ -460,7 +555,10 @@ def from_transactions_csr(
     from pathlib import Path
 
     import numpy as np
-    import pandas as pd
+
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
     from scipy import sparse as sp
 
     data = to_dataframe(data)
@@ -513,8 +611,13 @@ def _from_parquet_csr(
     chunk_size: int,
 ) -> tuple[Any, list[str]]:
     import numpy as np
-    import pandas as pd
-    import pyarrow.parquet as pq
+
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
+    from rusket._dependencies import import_optional_dependency
+
+    pq = import_optional_dependency("pyarrow.parquet", "pyarrow")
     from scipy import sparse as sp
 
     table = pq.read_table(path)

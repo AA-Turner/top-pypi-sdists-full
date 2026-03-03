@@ -14,7 +14,7 @@ from mindroom.constants import ORIGINAL_SENDER_KEY
 from mindroom.matrix.client import send_message
 from mindroom.matrix.mentions import format_message_with_mentions
 from mindroom.thread_utils import create_session_id
-from mindroom.tool_runtime_context import ToolRuntimeContext, get_tool_runtime_context
+from mindroom.tool_system.runtime_context import ToolRuntimeContext, get_tool_runtime_context
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -143,11 +143,7 @@ def _session_key_to_room_thread(session_key: str) -> tuple[str, str | None]:
 
 
 def _agent_thread_mode(context: ToolRuntimeContext, agent_name: str) -> str:
-    resolver = getattr(context.config, "get_entity_thread_mode", None)
-    if not callable(resolver):
-        return "thread"
-
-    mode = resolver(agent_name)
+    mode = context.config.get_entity_thread_mode(agent_name)
     return "room" if mode == "room" else "thread"
 
 

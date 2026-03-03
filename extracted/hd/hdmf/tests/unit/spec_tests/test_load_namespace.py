@@ -96,32 +96,6 @@ class TestSpecLoad(TestCase):
         if os.path.exists(self.specs_path):
             os.remove(self.specs_path)
 
-    def test_inherited_attributes(self):
-        self.ns_catalog.load_namespaces(self.namespace_path, resolve=True)
-        ts_spec = self.ns_catalog.get_spec(self.NS_NAME, 'EphysData')
-        es_spec = self.ns_catalog.get_spec(self.NS_NAME, 'SpikeData')
-        ts_attrs = {s.name for s in ts_spec.attributes}
-        es_attrs = {s.name for s in es_spec.attributes}
-        for attr in ts_attrs:
-            with self.subTest(attr=attr):
-                self.assertIn(attr, es_attrs)
-        # self.assertSetEqual(ts_attrs, es_attrs)
-        ts_dsets = {s.name for s in ts_spec.datasets}
-        es_dsets = {s.name for s in es_spec.datasets}
-        for dset in ts_dsets:
-            with self.subTest(dset=dset):
-                self.assertIn(dset, es_dsets)
-        # self.assertSetEqual(ts_dsets, es_dsets)
-
-    def test_inherited_attributes_not_resolved(self):
-        self.ns_catalog.load_namespaces(self.namespace_path, resolve=False)
-        es_spec = self.ns_catalog.get_spec(self.NS_NAME, 'SpikeData')
-        src_attrs = {s.name for s in self.ext_attributes}
-        ext_attrs = {s.name for s in es_spec.attributes}
-        self.assertSetEqual(src_attrs, ext_attrs)
-        src_dsets = {s.name for s in self.ext_datasets}
-        ext_dsets = {s.name for s in es_spec.datasets}
-        self.assertSetEqual(src_dsets, ext_dsets)
 
 
 class TestSpecLoadEdgeCase(TestCase):
@@ -355,6 +329,43 @@ class TestCatchDupNS(TestCase):
             self.assertTrue(str(w.message) != msg)
             warnings.warn(str(w.message), w.category)
 
+class TestMergeNoDuplicateSpecs(TestCase):
+    """Test that merging namespace catalogs does not create duplicate entries in the unresolved spec cache."""
+
+    def test_merge_no_duplicate_unresolved_specs(self):
+        """After merging, get_spec_source_dict should not return duplicate specs for shared source files."""
+        hdmf_typemap = get_type_map()
+
+        # Create a new catalog and merge the hdmf type map into it
+        ns_catalog = NamespaceCatalog()
+        ns_catalog.merge(hdmf_typemap.namespace_catalog)
+
+        # hdmf-common's base.yaml defines: Data (dataset), Container (group), SimpleMultiContainer (group).
+        # hdmf-experimental imports these types but should NOT cause duplicates in the unresolved cache.
+        spec_dict = ns_catalog.get_spec_source_dict('base.yaml')
+        self.assertIsNotNone(spec_dict)
+        dataset_defs = [s.data_type_def for s in spec_dict.get('datasets', [])]
+        group_defs = [s.data_type_def for s in spec_dict.get('groups', [])]
+        self.assertEqual(dataset_defs, ['Data'])
+        self.assertEqual(group_defs, ['Container', 'SimpleMultiContainer'])
+
+    def test_convert_namespace_no_warnings_after_merge(self):
+        """convert_namespace should not produce warnings about different specifications after merge."""
+        from hdmf.backends.utils import NamespaceToBuilderHelper
+
+        hdmf_typemap = get_type_map()
+        ns_catalog = NamespaceCatalog()
+        ns_catalog.merge(hdmf_typemap.namespace_catalog)
+
+        with warnings.catch_warnings(record=True) as ws:
+            warnings.simplefilter('always')
+            for ns_name in ns_catalog.namespaces:
+                NamespaceToBuilderHelper.convert_namespace(ns_catalog, ns_name)
+
+        spec_warnings = [w for w in ws if 'different specification' in str(w.message)]
+        self.assertEqual(spec_warnings, [], f"Unexpected spec warnings: {[str(w.message) for w in spec_warnings]}")
+
+
 class TestCustomSpecClasses(TestCase):
 
     def setUp(self):  # noqa: C901
@@ -369,11 +380,14 @@ class TestCustomSpecClasses(TestCase):
 
     def test_load_namespaces(self):
         namespace_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test.namespace.yaml')
-        namespace_deps = self.ns_catalog.load_namespaces(namespace_path)
+        loaded_types = self.ns_catalog.load_namespaces(namespace_path)
 
+        # test that the source types are correct for test ns
+        expected_source_types = ('TestData', 'TestContainer', 'TestTable')
+        self.assertTupleEqual(self.ns_catalog.get_source_types('test'), expected_source_types)
         # test that the dependencies are correct, including dependencies of the dependencies
-        expected = set(['Data', 'Container', 'DynamicTable', 'ElementIdentifiers', 'VectorData'])
-        self.assertSetEqual(set(namespace_deps['test']['hdmf-common']), expected)
+        expected = set(['Data', 'Container', 'DynamicTable', 'ElementIdentifiers', 'VectorData', 'MeaningsTable'])
+        self.assertSetEqual(set(loaded_types['test']['hdmf-common']), expected)
 
         # test that the types are loaded
         types = self.ns_catalog.get_types('test.base.yaml')
@@ -409,12 +423,16 @@ class TestCustomSpecClasses(TestCase):
         self.ns_catalog.load_namespaces(namespace_path)
 
         ext_namespace_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test-ext.namespace.yaml')
-        ext_namespace_deps = self.ns_catalog.load_namespaces(ext_namespace_path)
+        loaded_ext_types = self.ns_catalog.load_namespaces(ext_namespace_path)
+
+        # test that the source types are correct for test-ext ns
+        expected_source_types = ('TestExtData', 'TestExtContainer', 'TestExtTable')
+        self.assertTupleEqual(self.ns_catalog.get_source_types('test-ext'), expected_source_types)
 
         # test that the dependencies are correct, including dependencies of the dependencies
         expected_deps = set(['TestData', 'TestContainer', 'TestTable', 'Container', 'Data', 'DynamicTable',
-                             'ElementIdentifiers', 'VectorData'])
-        self.assertSetEqual(set(ext_namespace_deps['test-ext']['test']), expected_deps)
+                             'ElementIdentifiers', 'VectorData', 'MeaningsTable'])
+        self.assertSetEqual(set(loaded_ext_types['test-ext']['test']), expected_deps)
 
     def test_load_namespaces_bad_path(self):
         namespace_path = 'test.namespace.yaml'

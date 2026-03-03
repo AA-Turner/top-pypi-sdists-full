@@ -135,7 +135,10 @@ class UiPathResumeTriggerReader:
                     pending_status = TaskStatus.PENDING.value
                     unassigned_status = TaskStatus.UNASSIGNED.value
 
-                    if task.status in (pending_status, unassigned_status):
+                    if (
+                        task.status in (pending_status, unassigned_status)
+                        and not task.is_deleted
+                    ):
                         # 2.3.0 remove (task.status will already be the enum)
                         current_status = (
                             TaskStatus(task.status).name
@@ -149,6 +152,14 @@ class UiPathResumeTriggerReader:
 
                     if trigger.trigger_name == UiPathResumeTriggerName.ESCALATION:
                         return task
+
+                    # if task is deleted, raise error only for Task models
+                    # for escalations we return the task object to allow graceful handling down the stream
+                    if task.is_deleted:
+                        raise UiPathFaultedTriggerError(
+                            ErrorCategory.USER,
+                            f"The {task.title} task was deleted",
+                        )
 
                     trigger_response = task.data
                     if not bool(trigger_response):

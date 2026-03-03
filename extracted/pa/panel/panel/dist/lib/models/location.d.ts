@@ -4,9 +4,14 @@ import { Model } from "@bokehjs/model";
 export declare class LocationView extends View {
     model: Location;
     _hash_listener: any;
+    private _idle_ready;
+    private _pending_url;
+    private _idle_connected;
     initialize(): void;
     connect_signals(): void;
     remove(): void;
+    private _ensure_idle_gate;
+    private _set_url_gated;
     update(change: string): void;
 }
 export declare namespace Location {

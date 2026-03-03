@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -159,8 +157,7 @@ def ppg_simulate(
     # Add baseline drift.
     if drift > 0:
         drift_freq = 0.05
-        if drift_freq < (1 / duration) * 2:
-            drift_freq = (1 / duration) * 2
+        drift_freq = max(drift_freq, (1 / duration) * 2)
         ppg = signal_distort(
             ppg,
             sampling_rate=sampling_rate,
@@ -216,9 +213,7 @@ def _frequency_modulation(periods, seconds, modulation_frequency, modulation_str
     """
     modulation_mean = 1
     # Enforce minimum inter-beat-interval of 300 milliseconds.
-    if (modulation_mean - modulation_strength) * periods[
-        0
-    ] < 0.3:  # elements in periods all have the same value at this point
+    if (modulation_mean - modulation_strength) * periods[0] < 0.3:  # elements in periods all have the same value at this point
         print(
             "Skipping frequency modulation, since the modulation_strength"
             f" {modulation_strength} leads to physiologically implausible"
@@ -237,10 +232,7 @@ def _frequency_modulation(periods, seconds, modulation_frequency, modulation_str
     # For example, at a heart rate of 100 and modulation_strenght=1, the heart rate will
     # fluctuate between 150 and 50. At the default modulatiom_strenght=.2, it will
     # fluctuate between 110 and 90.
-    modulator = (
-        0.5 * modulation_strength * np.sin(2 * np.pi * modulation_frequency * seconds)
-        + modulation_mean
-    )
+    modulator = 0.5 * modulation_strength * np.sin(2 * np.pi * modulation_frequency * seconds) + modulation_mean
     periods_modulated = periods * modulator
     seconds_modulated = np.cumsum(periods_modulated)
     seconds_modulated -= seconds_modulated[0]  # make sure seconds start at zero

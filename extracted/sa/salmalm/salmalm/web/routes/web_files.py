@@ -92,6 +92,372 @@ class WebFilesMixin:
 
     """Mixin for web_files routes."""
 
+    def _post_api_agent_import_preview(self):
+        """Post api agent import preview."""
+        if not self._require_auth("user"):
+            return
+        # Read multipart file
+        import zipfile
+        import io
+        import json as _json
+
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart" not in content_type:
+            self._json({"ok": False, "error": "Expected multipart upload"}, 400)
+            return
+        content_length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(content_length)
+        # Find ZIP in multipart
+        boundary = content_type.split("boundary=")[1].encode() if "boundary=" in content_type else b""
+        parts = raw.split(b"--" + boundary)
+        zip_data = None
+        for part in parts:
+            if b"filename=" in part:
+                body_start = part.find(b"\r\n\r\n")
+                if body_start > 0:
+                    zip_data = part[body_start + 4 :]
+                    if zip_data.endswith(b"\r\n"):
+                        zip_data = zip_data[:-2]
+                    break
+        if not zip_data:
+            self._json({"ok": False, "error": "No ZIP file found"}, 400)
+            return
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(zip_data))
+            manifest = _json.loads(zf.read("manifest.json")) if "manifest.json" in zf.namelist() else {}
+            preview = {
+                "files": zf.namelist(),
+                "manifest": manifest,
+                "size": len(zip_data),
+            }
+            self._json({"ok": True, "preview": preview})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)}, 400)
+
+    def _post_api_upload(self):
+        """Post api upload."""
+        if not self._require_auth("user"):
+            return
+        length = self._content_length
+        if not vault.is_unlocked:
+            self._json({"error": "Vault locked"}, 403)
+            return
+        # Parse multipart form data
+        content_type = self.headers.get("Content-Type", "")
+        if "multipart/form-data" not in content_type:
+            self._json({"error": "multipart required"}, 400)
+            return
+        try:
+            raw = self.rfile.read(length)
+            # Parse multipart using stdlib email.parser (robust edge-case handling)
+            import email.parser
+            import email.policy
+
+            header_bytes = f"Content-Type: {content_type}\r\n\r\n".encode()
+            msg = email.parser.BytesParser(policy=email.policy.compat32).parsebytes(header_bytes + raw)
+            for part in msg.walk():
+                fname_raw = part.get_filename()
+                if not fname_raw:
+                    continue
+                fname = Path(fname_raw).name  # basename only (prevent path traversal)
+                # Reject suspicious filenames
+                if not fname or ".." in fname or "/" in fname or "\\" in fname or "\x00" in fname or "\r" in fname or "\n" in fname:
+                    self._json({"error": "Invalid filename"}, 400)
+                    return
+                # Validate file type (Open WebUI style)
+                from salmalm.features.edge_cases import validate_upload
+
+                ok, err = validate_upload(fname, len(part.get_payload(decode=True) or b""))
+                if not ok:
+                    self._json({"error": err}, 400)
+                    return
+                file_data = part.get_payload(decode=True)
+                if not file_data:
+                    continue
+                # Size limit: 50MB
+                if len(file_data) > 50 * 1024 * 1024:
+                    self._json({"error": "File too large (max 50MB)"}, 413)
+                    return
+                # Save
+                save_dir = WORKSPACE_DIR / "uploads"  # noqa: F405
+                save_dir.mkdir(exist_ok=True)
+                save_path = save_dir / fname
+                save_path.write_bytes(file_data)  # type: ignore[arg-type]
+                size_kb = len(file_data) / 1024
+                is_image = any(
+                    fname.lower().endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
+                )
+                is_text = any(
+                    fname.lower().endswith(ext)
+                    for ext in (
+                        ".txt",
+                        ".md",
+                        ".py",
+                        ".js",
+                        ".json",
+                        ".csv",
+                        ".log",
+                        ".html",
+                        ".css",
+                        ".sh",
+                        ".bat",
+                        ".yaml",
+                        ".yml",
+                        ".xml",
+                        ".sql",
+                    )
+                )
+                is_pdf = fname.lower().endswith(".pdf")
+                info = f"[{'🖼️ Image' if is_image else '📎 File'} uploaded: uploads/{fname} ({size_kb:.1f}KB)]"
+                if is_pdf:
+                    # PDF text extraction (Open WebUI style)
+                    try:
+                        from salmalm.features.edge_cases import process_uploaded_file
+
+                        info = process_uploaded_file(fname, file_data)
+                    except Exception as e:  # noqa: broad-except
+                        info += "\n[PDF text extraction failed]"
+                elif is_text:
+                    try:
+                        from salmalm.features.edge_cases import process_uploaded_file
+
+                        info = process_uploaded_file(fname, file_data)
+                    except Exception as e:  # noqa: broad-except
+                        preview = file_data.decode("utf-8", errors="replace")[:3000]  # type: ignore[union-attr]
+                        info += f"\n[File content]\n{preview}"
+                log.info(f"[SEND] Web upload: {fname} ({size_kb:.1f}KB)")
+                audit_log("web_upload", fname)
+                resp = {
+                    "ok": True,
+                    "filename": fname,
+                    "size": len(file_data),
+                    "info": info,
+                    "is_image": is_image,
+                }
+                if is_image:
+                    import base64
+
+                    ext = fname.rsplit(".", 1)[-1].lower()
+                    mime = {
+                        "png": "image/png",
+                        "jpg": "image/jpeg",
+                        "jpeg": "image/jpeg",
+                        "gif": "image/gif",
+                        "webp": "image/webp",
+                        "bmp": "image/bmp",
+                    }.get(ext, "image/png")
+                    resp["image_base64"] = base64.b64encode(file_data).decode()  # type: ignore[arg-type]
+                    resp["image_mime"] = mime
+                self._json(resp)
+                return
+            self._json({"error": "No file found"}, 400)
+        except Exception as e:
+            log.error(f"Upload error: {e}")
+            self._json({"error": "Internal server error"}, 500)
+            return
+
+    def _get_api_sessions_export(self) -> None:
+        """Handle GET /api/sessions/ routes."""
+        if not self._require_auth("user"):
+            return
+        import urllib.parse
+
+        m = _RE_SESSION_EXPORT.match(self.path)
+        if not m:
+            self._json({"error": "Invalid path"}, 400)
+            return
+        sid = m.group(1)
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        fmt = params.get("format", ["json"])[0]
+        from salmalm.core import _get_db
+
+        conn = _get_db()
+        row = conn.execute(
+            "SELECT messages, updated_at FROM session_store WHERE session_id=?",
+            (sid,),
+        ).fetchone()
+        if not row:
+            self._json({"error": "Session not found"}, 404)
+            return
+        msgs = json.loads(row[0])
+        updated_at = row[1]
+        if fmt == "md":
+            lines = [
+                "# SalmAlm Chat Export",
+                "Session: {sid}",
+                "Date: {updated_at}",
+                "",
+            ]
+            for msg in msgs:
+                role = msg.get("role", "")
+                if role == "system":
+                    continue
+                content = msg.get("content", "")
+                if isinstance(content, list):
+                    content = " ".join(
+                        b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+                    )
+                icon = "## 👤 User" if role == "user" else "## 😈 Assistant"
+                lines.append(icon)
+                lines.append(str(content))
+                lines.append("")
+                lines.append("---")
+                lines.append("")
+            body = "\n".join(lines).encode("utf-8")
+            fname = f"salmalm_{sid}_{updated_at[:10]}.md"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/markdown; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+            self.send_header("Content-Length", str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            export_data = {
+                "session_id": sid,
+                "updated_at": updated_at,
+                "messages": msgs,
+            }
+            body = json.dumps(export_data, ensure_ascii=False, indent=2).encode("utf-8")
+            fname = f"salmalm_{sid}_{updated_at[:10]}.json"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{fname}"')
+            self.send_header("Content-Length", str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+        return
+
+    def _get_api_google_callback(self) -> None:
+        """Handle GET /api/google/callback routes."""
+        import urllib.parse
+        from salmalm.web.web import _google_oauth_pending_states
+
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        code = params.get("code", [""])[0]
+        state = params.get("state", [""])[0]
+        error = params.get("error", [""])[0]
+        # CSRF: validate state token
+        if not state or state not in _google_oauth_pending_states:
+            self._html(
+                "<html><body><h2>Invalid OAuth State</h2>"
+                "<p>CSRF protection: state token missing or invalid.</p>"
+                '<p><a href="/">Back</a></p></body></html>'
+            )
+            return
+        issued_at = _google_oauth_pending_states.pop(state)
+        # Expire states older than 10 minutes
+        if time.time() - issued_at > 600:
+            self._html(
+                "<html><body><h2>OAuth State Expired</h2>"
+                '<p>Please try again.</p><p><a href="/">Back</a></p></body></html>'
+            )
+            return
+        # Cleanup stale states (older than 15 min)
+        cutoff = time.time() - 900
+        stale = [k for k, v in _google_oauth_pending_states.items() if v < cutoff]
+        for k in stale:
+            _google_oauth_pending_states.pop(k, None)
+        if error:
+            import html as _html_mod
+            self._html(
+                f'<html><body><h2>Google OAuth Error</h2><p>{_html_mod.escape(error)}</p><p><a href="/">Back</a></p></body></html>'
+            )
+            return
+        if not code:
+            self._html('<html><body><h2>No code received</h2><p><a href="/">Back</a></p></body></html>')
+            return
+        client_id = vault.get("google_client_id") or ""
+        client_secret = vault.get("google_client_secret") or ""
+        import os as _os
+        port = getattr(getattr(self, "server", None), "server_address", [None, None])[1] or int(_os.environ.get("SALMALM_PORT", 18800))
+        redirect_uri = f"http://localhost:{port}/api/google/callback"
+        try:
+            import urllib.parse as _urlparse
+            data = _urlparse.urlencode(
+                {
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code",
+                }
+            ).encode()
+            req = urllib.request.Request(
+                "https://oauth2.googleapis.com/token",
+                data=data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    result = json.loads(resp.read())
+            except urllib.error.HTTPError as http_err:
+                err_body = http_err.read().decode("utf-8", errors="replace")
+                raise Exception(f"HTTP {http_err.code}: {err_body[:300]}")
+            access_token = result.get("access_token", "")
+            refresh_token = result.get("refresh_token", "")
+            if refresh_token:
+                vault.set("google_refresh_token", refresh_token)
+            if access_token:
+                vault.set("google_access_token", access_token)
+            scopes = result.get("scope", "")
+            self._html(f"""<html><body style="font-family:sans-serif;max-width:600px;margin:40px auto;text-align:center">
+                <h2 style="color:#22c55e">✅ Google 연동 완료!</h2>
+                <p>Refresh token이 vault에 저장되었습니다.</p>
+                <p style="font-size:0.85em;color:#666">Scopes: {scopes}</p>
+                <p><a href="/" style="color:#6366f1">← SalmAlm으로 돌아가기</a></p>
+                <script>
+                  if(window.opener&&!window.opener.closed){{
+                    try{{window.opener.checkGoogleStatus&&window.opener.checkGoogleStatus()}}catch(e){{}}
+                    setTimeout(function(){{window.close()}},1500);
+                  }}
+                </script>
+                </body></html>""")
+            log.info(f"[OK] Google OAuth2 connected (scopes: {scopes})")
+        except Exception as e:
+            log.error(f"Google OAuth2 token exchange failed: {e}")
+            self._html(f"""<html><body style="font-family:sans-serif;max-width:600px;margin:40px auto;text-align:center">
+                <h2 style="color:#ef4444">❌ 토큰 교환 실패</h2>
+                <p>{str(e)[:200]}</p>
+                <p><a href="/" style="color:#6366f1">← SalmAlm으로 돌아가기</a></p>
+                </body></html>""")
+
+    def _get_api_agent_export(self) -> None:
+        """Handle GET /api/agent/export routes."""
+        # Vault export requires admin role
+        from urllib.parse import parse_qs, urlparse
+
+        qs = parse_qs(urlparse(self.path).query)
+        inc_vault = qs.get("vault", ["0"])[0] == "1"
+        _min_role = "admin" if inc_vault else "user"
+        _export_user = self._require_auth(_min_role)
+        if not _export_user:
+            return
+        inc_sessions = qs.get("sessions", ["1"])[0] == "1"
+        inc_data = qs.get("data", ["1"])[0] == "1"
+        import zipfile
+        import io
+        import json as _json
+        import datetime
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            _populate_export_zip(zf, inc_sessions, inc_data, inc_vault, _export_user, _json, datetime)
+        buf.seek(0)
+        data = buf.getvalue()
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", f'attachment; filename="salmalm-export-{ts}.zip"')
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def _get_uploads(self) -> None:
         """Handle GET /uploads/ routes."""
         # Serve uploaded files (images, audio) — basename-only to prevent traversal
@@ -145,14 +511,7 @@ async def get_session_export(request: _Request, session_id: str, format: str = _
     import json as _json
     from salmalm.core import _get_db
     conn = _get_db()
-    _uid_e = _u.get("id") if _u.get("role") != "admin" else None
-    if _uid_e is not None:
-        row = conn.execute(
-            "SELECT messages, updated_at FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
-            (session_id, _uid_e),
-        ).fetchone()
-    else:
-        row = conn.execute("SELECT messages, updated_at FROM session_store WHERE session_id=?", (session_id,)).fetchone()
+    row = conn.execute("SELECT messages, updated_at FROM session_store WHERE session_id=?", (session_id,)).fetchone()
     if not row:
         return _JSON(content={"error": "Session not found"}, status_code=404)
     msgs = _json.loads(row[0])
@@ -210,7 +569,7 @@ async def get_google_callback(request: _Request):
         import asyncio as _aio_oauth
         def _do_token_req():
             with urllib.request.urlopen(req, timeout=15) as resp:
-                return _json.loads(resp.read(4 * 1024 * 1024))
+                return _json.loads(resp.read())
         result = await _aio_oauth.to_thread(_do_token_req)
         access_token = result.get("access_token", "")
         refresh_token = result.get("refresh_token", "")
@@ -293,23 +652,13 @@ async def post_agent_import_preview(request: _Request, _u=_Depends(_auth)):
                 break
     if not zip_data:
         return _JSON(content={"ok": False, "error": "No ZIP file found"}, status_code=400)
-    _MAX_ZIP_ENTRIES = 1000
-    _MAX_MANIFEST_BYTES = 512 * 1024
     try:
         zf = zipfile.ZipFile(io.BytesIO(zip_data))
-        names = zf.namelist()
-        if len(names) > _MAX_ZIP_ENTRIES:
-            return _JSON(content={"ok": False, "error": "ZIP contains too many entries"}, status_code=400)
-        manifest = {}
-        if "manifest.json" in names:
-            info = zf.getinfo("manifest.json")
-            if info.file_size > _MAX_MANIFEST_BYTES:
-                return _JSON(content={"ok": False, "error": "manifest.json too large"}, status_code=400)
-            manifest = _json.loads(zf.read("manifest.json"))
-        preview = {"files": names, "manifest": manifest, "size": len(zip_data)}
+        manifest = _json.loads(zf.read("manifest.json")) if "manifest.json" in zf.namelist() else {}
+        preview = {"files": zf.namelist(), "manifest": manifest, "size": len(zip_data)}
         return _JSON(content={"ok": True, "preview": preview})
-    except Exception:
-        return _JSON(content={"ok": False, "error": "Invalid ZIP file"}, status_code=400)
+    except Exception as e:
+        return _JSON(content={"ok": False, "error": str(e)}, status_code=400)
 
 @router.post("/api/upload")
 async def post_upload(request: _Request, _u=_Depends(_auth)):

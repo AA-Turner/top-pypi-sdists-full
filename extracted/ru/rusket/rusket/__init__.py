@@ -1,13 +1,16 @@
-from . import viz
+from typing import Any
+
+from . import mlflow, viz
 from .als import ALS, eALS
 from .analytics import customer_saturation, find_substitutes
 from .ann import ApproximateNearestNeighbors
 from .association_rules import association_rules
+from .bert4rec import BERT4Rec
 from .bpr import BPR
 from .content_based import ContentBased
 from .ease import EASE
 from .eclat import Eclat, eclat
-from .evaluation import evaluate
+from .evaluation import coverage_at_k, evaluate, novelty_at_k
 from .export import export_item_factors
 from .fin import FIN
 from .fm import FM
@@ -23,10 +26,12 @@ from .model import BaseModel, load_model
 from .model_selection import (
     CrossValidationResult,
     OptunaSearchSpace,
+    chronological_split,
     cross_validate,
     leave_one_out_split,
     optuna_optimize,
     train_test_split,
+    user_stratified_split,
 )
 from .negfin import NegFIN
 from .nmf import NMF
@@ -36,6 +41,7 @@ from .pipeline import Pipeline
 from .popularity import PopularityRecommender
 from .prefixspan import PrefixSpan, prefixspan, sequences_from_event_log
 from .recommend import NextBestAction, Recommender, score_potential
+from .rules import RuleBasedRecommender
 from .sasrec import SASRec
 from .similarity import similar_items
 from .streaming import FPMiner, mine_duckdb, mine_spark
@@ -44,10 +50,12 @@ from .transactions import (
     from_arrow,
     from_pandas,
     from_polars,
+    from_ratings,
     from_spark,
     from_transactions,
     from_transactions_csr,
 )
+from .user_knn import UserKNN
 from .viz import to_networkx, to_networkxr
 
 __all__ = [
@@ -62,6 +70,7 @@ __all__ = [
     "mine_duckdb",
     "mine_spark",
     "association_rules",
+    "from_ratings",
     "from_transactions",
     "from_transactions_csr",
     "from_pandas",
@@ -76,11 +85,13 @@ __all__ = [
     "BPR",
     "EASE",
     "ItemKNN",
+    "UserKNN",
     "FPMC",
     "FM",
     "SVD",
     "LightGCN",
     "SASRec",
+    "BERT4Rec",
     "prefixspan",
     "PrefixSpan",
     "sequences_from_event_log",
@@ -96,8 +107,12 @@ __all__ = [
     "export_item_factors",
     "viz",
     "evaluate",
+    "coverage_at_k",
+    "novelty_at_k",
     "train_test_split",
     "leave_one_out_split",
+    "chronological_split",
+    "user_stratified_split",
     "cross_validate",
     "optuna_optimize",
     "CrossValidationResult",
@@ -118,4 +133,29 @@ __all__ = [
     "pacmap",
     "pacmap2",
     "pacmap3",
+    "mlflow",
+    "RuleBasedRecommender",
+    "FAISSIndex",
+    "build_faiss_index",
+    "export_vectors",
+    "check_gpu_available",
 ]
+
+
+_LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    "FAISSIndex": (".faiss_ann", "FAISSIndex"),
+    "build_faiss_index": (".faiss_ann", "build_faiss_index"),
+    "export_vectors": (".vector_export", "export_vectors"),
+    "check_gpu_available": (".gpu", "check_gpu_available"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy imports for optional dependency modules."""
+    if name in _LAZY_IMPORTS:
+        mod_path, attr = _LAZY_IMPORTS[name]
+        import importlib
+
+        mod = importlib.import_module(mod_path, package=__name__)
+        return getattr(mod, attr)
+    raise AttributeError(f"module 'rusket' has no attribute {name!r}")

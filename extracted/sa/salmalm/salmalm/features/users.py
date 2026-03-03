@@ -17,6 +17,7 @@ Usage:
 """
 
 import json
+import sqlite3
 from salmalm.db import get_connection
 import threading
 from datetime import datetime
@@ -56,6 +57,8 @@ class UserManager:
         if self._initialized:
             return
         conn = get_connection(USERS_DB)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
 
         # users table (created by auth.py, but ensure it exists here too)
         conn.execute("""CREATE TABLE IF NOT EXISTS users (
@@ -246,17 +249,9 @@ class UserManager:
         self.ensure_quota(user_id)
         conn = get_connection(USERS_DB)
         if daily_limit is not None:
-            if float(daily_limit) < 0:
-                raise ValueError("daily_limit must be >= 0")
-            if float(daily_limit) > 10000:
-                raise ValueError("daily_limit must be <= 10000")
-            conn.execute("UPDATE user_quotas SET daily_limit=? WHERE user_id=?", (float(daily_limit), user_id))
+            conn.execute("UPDATE user_quotas SET daily_limit=? WHERE user_id=?", (daily_limit, user_id))
         if monthly_limit is not None:
-            if float(monthly_limit) < 0:
-                raise ValueError("monthly_limit must be >= 0")
-            if float(monthly_limit) > 100000:
-                raise ValueError("monthly_limit must be <= 100000")
-            conn.execute("UPDATE user_quotas SET monthly_limit=? WHERE user_id=?", (float(monthly_limit), user_id))
+            conn.execute("UPDATE user_quotas SET monthly_limit=? WHERE user_id=?", (monthly_limit, user_id))
         conn.commit()
         conn.close()
 
@@ -396,7 +391,6 @@ class UserManager:
         conn = get_connection(USERS_DB)
         # Ensure row exists
         conn.execute("INSERT OR IGNORE INTO user_settings (user_id) VALUES (?)", (user_id,))
-        _STR_MAX = 1024  # max string length for text settings
         for key, value in kwargs.items():
             if key == "routing_config":
                 value = json.dumps(value, ensure_ascii=False)
@@ -405,8 +399,6 @@ class UserManager:
                 key = "settings_json"
             elif key == "tts_enabled":
                 value = 1 if value else 0
-            elif isinstance(value, str) and len(value) > _STR_MAX:
-                continue  # silently drop oversized string values
             # Column name is validated against an explicit whitelist — not user-controlled
             _SETTINGS_COLS = frozenset({"model_preference", "persona", "routing_config", "tts_enabled", "tts_voice", "settings_json"})
             if key in _SETTINGS_COLS:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from enum import Enum, auto
@@ -121,19 +122,36 @@ def build__call__patch(orig_func, patch_policy, app_interface: AppInterfaceType)
     """
     del patch_policy
 
+    call_without_init_logged = threading.Event()
+
+    def devwarn_call_without_init():
+        if not call_without_init_logged.is_set():
+            # This could race with concurrent requests, but we'll still only write a few log messages
+            # rather than logging a message for every request handled by the application.
+            call_without_init_logged.set()
+            logger.debug(
+                "WARNING: Application called without middleware initialized. The agent will not monitor calls to this application."
+            )
+
     async def __call__patch_asgi(self, scope, receive, send):
+        if (agent_middleware := module.middlewares.get(id(self))) is None:
+            devwarn_call_without_init()
+            return await orig_func(self, scope, receive, send)
         if module.called_with_middleware.get():
             return await orig_func(self, scope, receive, send)
 
         with called_with_middleware():
-            return await module.middlewares[id(self)](scope, receive, send)
+            return await agent_middleware(scope, receive, send)
 
     def __call__patch_wsgi(self, environ, start_response):
+        if (agent_middleware := module.middlewares.get(id(self))) is None:
+            devwarn_call_without_init()
+            return orig_func(self, environ, start_response)
         if module.called_with_middleware.get():
             return orig_func(self, environ, start_response)
 
         with called_with_middleware():
-            return module.middlewares[id(self)](environ, start_response)
+            return agent_middleware(environ, start_response)
 
     patch = (
         __call__patch_asgi if _is_asgi(app_interface, orig_func) else __call__patch_wsgi
@@ -173,6 +191,23 @@ class CommonMiddlewarePatch:
     def __name__(self):
         return f"{__name__.rpartition('.')[0]}.{self.module_name}"
 
+    def build_and_apply_patches(self, app_class: object) -> None:
+        build_and_apply_patch(
+            app_class,
+            "__init__",
+            build__init__patch,
+            builder_args=(
+                self.framework_name,
+                self.app_interface,
+            ),
+        )
+        build_and_apply_patch(
+            app_class,
+            "__call__",
+            build__call__patch,
+            builder_args=(self.app_interface,),
+        )
+
     def register_patches(self):
         """
         Registers post-import hook for the __init__ method of the application class
@@ -180,21 +215,7 @@ class CommonMiddlewarePatch:
 
         def patch_application(module):
             app_class = getattr(module, self.application_class_name)
-            build_and_apply_patch(
-                app_class,
-                "__init__",
-                build__init__patch,
-                builder_args=(
-                    self.framework_name,
-                    self.app_interface,
-                ),
-            )
-            build_and_apply_patch(
-                app_class,
-                "__call__",
-                build__call__patch,
-                builder_args=(self.app_interface,),
-            )
+            self.build_and_apply_patches(app_class)
 
         register_module_patcher(patch_application, self.module_name)
 

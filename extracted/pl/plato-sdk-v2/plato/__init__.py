@@ -20,8 +20,8 @@
 #   from plato.chronos import Client, AsyncClient
 #   from plato.chronos.models import AgentCreate, WorldCreate, LaunchJobRequest
 #
-# Usage (sam3):
-#   from plato.sam3 import Sam3, AsyncSam3
+# Usage (segmentation):
+#   from plato.segmentation import Segmentation, AsyncSegmentation
 
 from importlib.metadata import PackageNotFoundError, version
 
@@ -70,9 +70,9 @@ def __getattr__(name: str):
 
         return importlib.import_module("plato.chronos")
 
-    if name == "sam3":
+    if name == "segmentation":
         import importlib
 
-        return importlib.import_module("plato.sam3")
+        return importlib.import_module("plato.segmentation")
 
     raise AttributeError(f"module 'plato' has no attribute '{name}'")

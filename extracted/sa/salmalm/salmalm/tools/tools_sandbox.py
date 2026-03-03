@@ -7,17 +7,10 @@ from salmalm.tools.tool_registry import register
 def handle_sandbox_exec(args: dict) -> str:
     """Execute a command in OS-native sandbox. / OS 기본 샌드박스에서 명령 실행."""
     from salmalm.security.sandbox import sandbox_exec
-    from salmalm.tools.tools_common import _is_safe_command
 
     command = args.get("command", "")
     if not command:
         return "❌ command is required / command를 입력하세요"
-
-    # BUG-DA fix: always run through allowlist/blocklist even in sandbox mode.
-    # When bwrap/sandbox-exec is unavailable, this is the only safety gate.
-    safe, reason = _is_safe_command(command)
-    if not safe:
-        return f"❌ Blocked: {reason}"
 
     timeout = min(args.get("timeout", 30), 120)
     allow_network = args.get("allow_network", False)

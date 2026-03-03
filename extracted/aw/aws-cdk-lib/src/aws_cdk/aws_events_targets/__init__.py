@@ -2969,28 +2969,20 @@ class LambdaFunction(
 
     Example::
 
-        import aws_cdk.aws_lambda as lambda_
-        
-        
-        fn = lambda_.Function(self, "MyFunc",
+        my_function_handler = lambda_.Function(self, "MyFunction",
+            code=lambda_.Code.from_asset("resource/myfunction"),
             runtime=lambda_.Runtime.NODEJS_LATEST,
-            handler="index.handler",
-            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+            handler="index.handler"
         )
         
-        rule = events.Rule(self, "rule",
-            event_pattern=events.EventPattern(
-                source=["aws.ec2"]
-            )
+        event_rule = cloudtrail.Trail.on_event(self, "MyCloudWatchEvent",
+            target=targets.LambdaFunction(my_function_handler)
         )
         
-        queue = sqs.Queue(self, "Queue")
-        
-        rule.add_target(targets.LambdaFunction(fn,
-            dead_letter_queue=queue,  # Optional: add a dead letter queue
-            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-            retry_attempts=2
-        ))
+        event_rule.add_event_pattern(
+            account=["123456789012"],
+            source=["aws.s3"]
+        )
     '''
 
     def __init__(

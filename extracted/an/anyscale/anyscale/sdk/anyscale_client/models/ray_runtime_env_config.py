@@ -42,6 +42,7 @@ class RayRuntimeEnvConfig(object):
         'conda': 'object',
         'env_vars': 'dict(str, str)',
         'config': 'object',
+        'excludes': 'list[str]',
         'image_uri': 'str'
     }
 
@@ -55,10 +56,11 @@ class RayRuntimeEnvConfig(object):
         'conda': 'conda',
         'env_vars': 'env_vars',
         'config': 'config',
+        'excludes': 'excludes',
         'image_uri': 'image_uri'
     }
 
-    def __init__(self, working_dir=None, py_modules=None, relative_working_dir=None, relative_py_modules=None, py_executable=None, pip=None, conda=None, env_vars=None, config=None, image_uri=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, working_dir=None, py_modules=None, relative_working_dir=None, relative_py_modules=None, py_executable=None, pip=None, conda=None, env_vars=None, config=None, excludes=None, image_uri=None, local_vars_configuration=None):  # noqa: E501
         """RayRuntimeEnvConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -73,6 +75,7 @@ class RayRuntimeEnvConfig(object):
         self._conda = None
         self._env_vars = None
         self._config = None
+        self._excludes = None
         self._image_uri = None
         self.discriminator = None
 
@@ -94,6 +97,8 @@ class RayRuntimeEnvConfig(object):
             self.env_vars = env_vars
         if config is not None:
             self.config = config
+        if excludes is not None:
+            self.excludes = excludes
         if image_uri is not None:
             self.image_uri = image_uri
 
@@ -303,6 +308,29 @@ class RayRuntimeEnvConfig(object):
         """
 
         self._config = config
+
+    @property
+    def excludes(self):
+        """Gets the excludes of this RayRuntimeEnvConfig.  # noqa: E501
+
+        File path globs that will be excluded when uploading local files for working_dir.  # noqa: E501
+
+        :return: The excludes of this RayRuntimeEnvConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._excludes
+
+    @excludes.setter
+    def excludes(self, excludes):
+        """Sets the excludes of this RayRuntimeEnvConfig.
+
+        File path globs that will be excluded when uploading local files for working_dir.  # noqa: E501
+
+        :param excludes: The excludes of this RayRuntimeEnvConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._excludes = excludes
 
     @property
     def image_uri(self):

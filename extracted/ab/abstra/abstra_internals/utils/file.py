@@ -407,6 +407,20 @@ def silent_traverse_code(
         yield from traverse_code(path, raise_on_syntax_errors, set())
 
 
+_SDK_PACKAGES = frozenset({"abstra", "abstra_internals", "abstra_statics"})
+
+
+def _is_sdk_module(module_name: str) -> bool:
+    """Check if a module belongs to the Abstra SDK.
+
+    SDK modules must not be cleared from sys.modules because they hold
+    runtime state (e.g. SDKContextStore) that must persist across user
+    script executions within the same process.
+    """
+    top_level = module_name.split(".")[0]
+    return top_level in _SDK_PACKAGES
+
+
 def clear_local_modules(filepath: Path, root: Path) -> Set[str]:
     """
     Clear all local project modules from sys.modules to ensure fresh imports.
@@ -415,6 +429,9 @@ def clear_local_modules(filepath: Path, root: Path) -> Set[str]:
     and Python caches imported modules in sys.modules. When a dependency file
     is modified, we need to ensure the next execution loads the fresh version
     from disk rather than using the stale cached version.
+
+    SDK modules (abstra, abstra_internals, abstra_statics) are never cleared
+    because they hold runtime state that must survive between executions.
 
     Args:
         filepath: The entrypoint file to traverse for dependencies.
@@ -455,6 +472,8 @@ def clear_local_modules(filepath: Path, root: Path) -> Set[str]:
 
     cleared = set()
     for module_name in modules_to_remove:
+        if _is_sdk_module(module_name):
+            continue
         if module_name in sys.modules:
             del sys.modules[module_name]
             cleared.add(module_name)

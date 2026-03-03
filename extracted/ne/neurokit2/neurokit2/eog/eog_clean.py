@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -111,7 +110,6 @@ def eog_clean(eog_signal, sampling_rate=1000, method="neurokit"):
 # Handle missing data
 # =============================================================================
 def _eog_clean_missing(eog_signal):
-
     eog_signal = pd.DataFrame.pad(pd.Series(eog_signal))
 
     return eog_signal
@@ -174,9 +172,7 @@ def _eog_clean_blinker(eog_signal, sampling_rate=1000):
     """
     # "Each candidate signal is band-passed filtered in the interval [1, 20] Hz prior
     # to blink detection."
-    return signal_filter(
-        eog_signal, sampling_rate=sampling_rate, method="butterworth", order=4, lowcut=1, highcut=20
-    )
+    return signal_filter(eog_signal, sampling_rate=sampling_rate, method="butterworth", order=4, lowcut=1, highcut=20)
 
 
 def _eog_clean_mne(eog_signal, sampling_rate=1000):

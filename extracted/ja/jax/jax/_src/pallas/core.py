@@ -13,11 +13,11 @@
 # limitations under the License.
 
 """Module for pallas-core functionality."""
+
 from __future__ import annotations
 
 import collections
-from collections.abc import Callable, Iterable, Iterator, Sequence
-from collections.abc import Hashable, Mapping
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence, Set
 import contextlib
 import copy
 import dataclasses
@@ -25,21 +25,22 @@ import enum
 import functools
 import itertools
 import threading
-from typing import Any, ClassVar, Literal, Protocol, TypeAlias, Union, runtime_checkable
-
+from typing import Any, ClassVar, Protocol, TypeAlias, Union, runtime_checkable
 
 from jax._src import api_util
-from jax._src.api import jit
 from jax._src import config
 from jax._src import core as jax_core
 from jax._src import dtypes
 from jax._src import effects
 from jax._src import frozen_dict
+from jax._src import hijax
 from jax._src import linear_util as lu
+from jax._src import numpy as jnp
 from jax._src import state
 from jax._src import tree_util
 from jax._src import typing as jax_typing
 from jax._src import util
+from jax._src.api import jit
 from jax._src.export._export import export
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
@@ -47,7 +48,6 @@ from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.state import types as state_types
 from jax._src.state.types import TransformedRef
-from jax._src import numpy as jnp
 
 
 class DynamicGridDim:
@@ -124,13 +124,9 @@ class BarrierSemaphore(AbstractSemaphoreTy):
   name = "barrier_semaphore"
   type = barrier_semaphore
 
-Backend = Literal["mosaic_tpu", "triton", "mosaic_gpu"]
-
 @runtime_checkable
 class CompilerParams(Protocol):
   """Base class for compiler parameters."""
-  BACKEND: ClassVar[Backend]
-
   # Subclasses must be dataclasses.
   __dataclass_fields__: ClassVar[dict[str, dataclasses.Field[Any]]]
 
@@ -182,7 +178,7 @@ class ShapedArrayWithMemorySpace(jax_core.ShapedArray):
         mesh_axis_types,
     )
 
-  def update(
+  def update(  # pyrefly: ignore[bad-override]
       self,
       shape=None,
       dtype=None,
@@ -207,6 +203,13 @@ class ShapedArrayWithMemorySpace(jax_core.ShapedArray):
         shape, dtype, weak_type, sharding=sharding, vma=vma,
         memory_space=memory_space
     )
+
+  def unwrap(self) -> jax_core.ShapedArray:
+    """Returns a ShapedArray with the memory space removed."""
+    return jax_core.ShapedArray(
+        self.shape, self.dtype, self.weak_type, sharding=self.sharding, vma=self.vma
+    )
+
 mlir.ir_type_handlers[ShapedArrayWithMemorySpace] = mlir._array_ir_types
 
 
@@ -236,11 +239,11 @@ class MemoryRef:
 
   @property
   def dtype(self):
-    return self.inner_aval.dtype
+    return self.inner_aval.dtype  # pyrefly: ignore[missing-attribute]
 
   @property
   def shape(self):
-    return self.inner_aval.shape
+    return self.inner_aval.shape  # pyrefly: ignore[missing-attribute]
 
   def __lt__(self, other):
     return (self.shape, self.dtype, self.memory_space) < (
@@ -548,7 +551,10 @@ class BlockSpec:
       raise ValueError(
           "shape polymorphism for Pallas does not support "
           "dynamically-shaped blocks. "
-          f"Block spec for {origin} has block_shape: {block_aval.shape}"
+          f"Block spec for {origin} has block_shape: {block_aval.shape}. "
+          "If this is intentional, use the "
+          "core.pallas_export_experimental(dynamic_shapes=True) "
+          "context manager to enable dynamic shapes."
       )
 
     fake_index_map_args, fake_index_map_kwargs = \
@@ -637,11 +643,20 @@ no_block_spec = NoBlockSpec()
 BlockSpecTree = Any
 
 
-class MemoryRefTransform(Protocol):
-  """Transforms a memory reference on load or store."""
-
-  def undo(self, ref: TransformedRef) -> TransformedRef:
-    raise NotImplementedError("Abstract evaluation not implemented.")
+def undo_transforms(
+    aval: jax_core.AbstractValue,
+    memory_transforms: Sequence[state_types.Transform],
+) -> list[state_types.Transform]:
+  """Extract the `Transform`s that reverse the `Transforms`s"""
+  if not memory_transforms:
+    return []
+  transforms: list[state_types.Transform] = []
+  avals = [aval]
+  for t in memory_transforms[:-1]:
+    avals.append(t.transform_type(aval))
+  for t, a in reversed(list(zip(memory_transforms, avals))):
+    transforms.append(t.undo(a))
+  return transforms
 
 
 @dataclasses.dataclass(frozen=True)
@@ -658,7 +673,7 @@ class BlockMapping:
   index_map_out_tree: tree_util.PyTreeDef
   array_aval: jax_core.ShapedArray  # The whole array
   origin: OriginStr
-  transforms: Sequence[MemoryRefTransform] = ()
+  transforms: Sequence[state_types.Transform] = ()
   pipeline_mode: Buffered | None = None
   debug: bool = False
 
@@ -695,10 +710,10 @@ class BlockMapping:
     """Returns the abstract value of the Ref after transformations."""
     if not self.transforms:
       return self.transformed_block_aval
-    ref = TransformedRef(self.transformed_block_aval, ())
-    for transform in reversed(self.transforms):
-      ref = transform.undo(ref)
-    return ref
+    reverse_transforms = tuple(undo_transforms(
+        self.transformed_block_aval, self.transforms
+    ))
+    return TransformedRef(self.transformed_block_aval, reverse_transforms)
 
   def compute_start_indices_interpret(self, loop_idx, *args):
     discharged_jaxpr, discharged_consts = state_discharge.discharge_state(
@@ -819,6 +834,10 @@ def dynamic_shapes_export_enabled() -> bool:
   return _pallas_tracing_env.dynamic_shapes
 
 
+def is_dynamic_dim(d) -> bool:
+  return d is None or not jax_core.is_constant_dim(d)
+
+
 @dataclasses.dataclass(frozen=True)
 class GridMapping:
   """An internal canonicalized version of GridSpec.
@@ -903,7 +922,7 @@ class GridMapping:
 
   @property
   def num_dynamic_grid_bounds(self):
-    return sum(b is dynamic_grid_dim for b in self.grid)
+    return sum(1 for b in self.grid if is_dynamic_dim(b))
 
   @property
   def num_scratch_operands(self):
@@ -921,7 +940,7 @@ class GridMapping:
       axis_env_ctx = contextlib.nullcontext()
     else:
       axis_env_ctx = jax_core.extend_axis_env_nd(
-          zip(self.grid_names, self.grid)
+          zip(self.grid_names, self.grid)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
       )
     with tracing_grid_env(self.grid, self.vmapped_dims), axis_env_ctx:
       yield
@@ -958,6 +977,7 @@ class GridMapping:
   def in_shapes(self) -> Iterable[jax_core.ShapeDtypeStruct]:
     """The shapes of *index, *inputs."""
     index_shapes = (
+        # pyrefly: ignore[missing-attribute]
         jax_core.ShapeDtypeStruct(ia.shape, ia.dtype)
         for ia in self.index_map_avals[len(self.grid) :]
     )
@@ -1156,7 +1176,10 @@ def get_grid_mapping(
     dim_check : Any = jax_core.is_constant_dim  # type: ignore[no-redef]
   assert all(i is None or dim_check(i) for i in grid_spec.grid)
   grid_mapping_grid = tuple(
-      dynamic_grid_dim if d is None else d for d in grid_spec.grid
+      dynamic_grid_dim if (
+          d is None or (not jax_core.is_constant_dim(d) and not dynamic_shapes_export_enabled())
+      ) else d
+      for d in grid_spec.grid
   )
   # The inputs for the index maps
   index_map_avals = (
@@ -1382,6 +1405,7 @@ def core_map(
     cost_estimate: CostEstimate | None = None,
     name: str | None = None,
     metadata: dict[str, str] | None = None,
+    scratch_shapes: ScratchShapeTree = (),
 ):
   """Runs a function on a mesh, mapping it over the devices in the mesh.
 
@@ -1397,18 +1421,27 @@ def core_map(
     name: The (optional) name of the kernel.
     metadata: Optional dictionary of information about the kernel that will be
       serialized as JSON in the HLO. Can be used for debugging and analysis.
+    scratch_shapes: The scratch arrays for the kernel. Supports both sequence
+      and dict format. The space will be core-local unless the memory space type
+      is specified to be shared (e.g., VMEM_SHARED).
   """
   def wrapped(f):
-    flat_args, in_tree = tree_util.tree_flatten(((), {}))
-    debug_info = api_util.debug_info("pallas_core_map", f, (), {})
+    if isinstance(scratch_shapes, dict):
+      fun_args = ((), scratch_shapes)
+    else:
+      fun_args = (scratch_shapes, {})
+
+    flat_args, in_tree = tree_util.tree_flatten(fun_args)
+    debug_info = api_util.debug_info("pallas_core_map", f, *fun_args)  # pyrefly: ignore[bad-argument-type]
     flat_fun, out_tree_thunk = api_util.flatten_fun(
         lu.wrap_init(f, debug_info=debug_info), in_tree
     )
+    ref_avals = tuple(t.get_ref_aval() for t in flat_args)
     with (
         tracing_grid_env(tuple(mesh.shape.values()), mapped_dims=()),
         jax_core.extend_axis_env_nd(mesh.shape.items()),
     ):
-      jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, flat_args)
+      jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, ref_avals)
 
     out_tree = out_tree_thunk()
     if out_tree != tree_util.tree_structure(None):
@@ -1416,6 +1449,8 @@ def core_map(
           f"The kernel function in core_map {debug_info.func_src_info} should"
           f" return None. It returns a PyTree: {out_tree}."
       )
+    if debug:
+      print(f"core_map jaxpr: {jaxpr}")
 
     out = core_map_p.bind(
         *consts,
@@ -1437,6 +1472,7 @@ def core_map(
 
   return wrapped
 
+
 # TODO(sharadmv,ivyzheng): remove this once we use axis dicts primarily
 class CommsEffect(effects.Effect):
   pass
@@ -1450,30 +1486,38 @@ effects.custom_derivatives_allowed_effects.add_type(CommsEffect)
 kernel_local_effects: effects.EffectTypeSet = effects.EffectTypeSet()
 
 
+def get_interpret_effects(interpret: Any) -> Set[effects.Effect]:
+  try:
+    from jax._src.pallas.mosaic.interpret import interpret_pallas_call as mosaic_tpu_interpret  # Avoid circular dependency.
+  except ImportError:
+    pass
+  else:
+    if isinstance(interpret, mosaic_tpu_interpret.InterpretParams):
+      return mosaic_tpu_interpret.get_interpret_effects()
+  try:
+    from jax._src.pallas.mosaic_gpu.interpret import interpret_pallas_call as mosaic_gpu_interpret  # Avoid circular dependency.
+  except ImportError:
+    pass
+  else:
+    if isinstance(interpret, mosaic_gpu_interpret.InterpretParams):
+      return mosaic_gpu_interpret.get_interpret_effects()
+  return effects.no_effects
+
+
 @core_map_p.def_effectful_abstract_eval
-def _core_map_abstract_eval(*args, jaxpr, mesh, **kwargs):
+def _core_map_abstract_eval(*args, jaxpr, mesh, interpret, **kwargs):
   del args
   if jaxpr.outvars:
     raise ValueError("core_map must not return any outputs.")
-  interpret = kwargs.get('interpret', False)
-  effs = set()
-  if interpret:
-    try:
-      from jax._src.pallas.mosaic.interpret import interpret_pallas_call as mosaic_tpu_interpret  # Avoid circular dependency.
-      if isinstance(interpret, mosaic_tpu_interpret.InterpretParams):
-        effs = mosaic_tpu_interpret.get_interpret_effects()
-    except ImportError:
-      pass
-    try:
-      from jax._src.pallas.mosaic_gpu.interpret import interpret_pallas_call as mosaic_gpu_interpret  # Avoid circular dependency.
-      if isinstance(interpret, mosaic_gpu_interpret.InterpretParams):
-        effs = mosaic_gpu_interpret.get_interpret_effects()
-    except ImportError:
-      pass
+  effs = {*get_interpret_effects(interpret)}
   for eff in jaxpr.effects:
     if mesh.discharges_effect(eff) or isinstance(eff, CommsEffect):
       continue
     if kernel_local_effects.contains(eff):
+      continue
+    if isinstance(eff, effects.JaxprInputEffect):
+      if eff.input_index < len(jaxpr.constvars):
+        effs.add(eff)
       continue
     if not isinstance(eff, jax_core.NamedAxisEffect):
       effs.add(eff)
@@ -1499,11 +1543,14 @@ mlir.register_lowering(core_map_p, core_map_lowering_rule)
 class Mesh(Protocol):
 
   @property
-  def backend(self) -> Backend:
+  def default_memory_space(self) -> MemorySpace | Any:
     ...
 
   @property
   def shape(self) -> collections.OrderedDict[object, int]:
+    ...
+
+  def discharges_effect(self, effect: jax_core.Effect) -> bool:
     ...
 
 
@@ -1547,12 +1594,9 @@ def default_mesh_discharge_rule(
     interpret,
     cost_estimate,
     name,
-    memory_space=MemorySpace.ANY,
     metadata,
-    scratch_shapes,
 ):
-  """Discharges a ``core_map`` over a mesh to a ``pallas_call``."""
-  default_memory_space = memory_space
+  """Discharges a ``core_map`` over a mesh to a ``mpmd_map``."""
   if not all(
       isinstance(aval, state.AbstractRef) for aval in (in_avals + out_avals)
   ):
@@ -1560,53 +1604,52 @@ def default_mesh_discharge_rule(
         "default_mesh_discharge_rule only supports Ref inputs/outputs."
     )
 
-  def body(*args):
-    # Due to aliasing, ``args`` contains aliased inputs and outputs so we
-    # remove outputs.
-    in_refs = args[:len(in_avals)]
-    jax_core.eval_jaxpr(jaxpr, in_refs)
-
-  assert len(jaxpr.outvars) == 0
   modified_idxs = sorted(
       eff.input_index
       for eff in jaxpr.effects
       if isinstance(eff, state_types.WriteEffect)
+      and eff.input_index < len(in_avals)
   )
+  default_memory_space = mesh.default_memory_space
   in_memory_spaces = [get_memory_space_aval(aval) for aval in in_avals]
   in_memory_spaces = [
-      memory_space if m is None else m for m in in_memory_spaces
+      default_memory_space if m is None else m for m in in_memory_spaces
   ]
   args = [
       with_memory_space_constraint_p.bind(arg, memory_space=memory_space)
-      if memory_space is not None and memory_space is not default_memory_space else arg
+      if memory_space is not default_memory_space else arg
       for arg, memory_space in zip(args, in_memory_spaces)
   ]
-  in_specs = [
-      BlockSpec(memory_space=memory_space) for memory_space in in_memory_spaces
-  ]
-  out_specs = [in_specs[idx] for idx in modified_idxs]
-  out_shapes = [_get_sds(in_avals[idx]) for idx in modified_idxs]
-  from jax._src.pallas import pallas_call  # Avoid circular dependency.
-  outs = pallas_call._pallas_call(
-      body,
-      name=name,
-      out_shape=out_shapes,
+
+  scratch_avals = [v.aval for v in jaxpr.invars]
+  scratch_shapes = tuple(
+      MemoryRef(v.inner_aval, v.memory_space) for v in scratch_avals
+  )
+
+  def body(*args):
+    # Due to aliasing, ``args`` contains aliased inputs and outputs so we
+    # remove outputs.
+    in_refs, _, scratch_refs = split_list(
+        args, [len(in_avals), len(modified_idxs)]
+    )
+    jax_core.eval_jaxpr(jaxpr, in_refs, *scratch_refs)
+
+  from jax._src.pallas import mpmd  # Avoid circular dependency.
+  outs = mpmd._mpmd_map(
+      [(mesh, body)],
+      out_shapes=tuple(_get_sds(in_avals[idx]) for idx in modified_idxs),
       input_output_aliases={
           in_idx: out_idx for out_idx, in_idx in enumerate(modified_idxs)
       },
-      grid_spec=GridSpec(
-          grid=tuple(mesh.shape.items()),
-          in_specs=in_specs,
-          out_specs=out_specs,
-          scratch_shapes=scratch_shapes,
-      ),
-      mesh=mesh,
+      scratch_shapes=scratch_shapes,
       compiler_params=compiler_params,
       interpret=interpret,
       debug=debug,
       cost_estimate=cost_estimate,
       metadata=metadata,
+      name=name,
   )(*args)
+
   # ``outs`` lacks the unmodified inputs. Add them back in.
   all_outs = [None] * len(args)
   for out_idx, in_idx in enumerate(modified_idxs):
@@ -1652,35 +1695,11 @@ def _core_map_discharge_rule(in_avals, out_avals, *args_flat, jaxpr, debug_info,
 
 
 def _core_map_typecheck_rule(_, *in_atoms, jaxpr, mesh, **kwargs):
-  del in_atoms
   with jax_core.extend_axis_env_nd(tuple(mesh.shape.items())):
     jax_core.check_jaxpr(jaxpr)
-  interpret = kwargs.get('interpret', False)
-  effs = set()
-  if interpret:
-    try:
-      from jax._src.pallas.mosaic.interpret import interpret_pallas_call as mosaic_tpu_interpret  # Avoid circular dependency.
-      if isinstance(interpret, mosaic_tpu_interpret.InterpretParams):
-        effs = mosaic_tpu_interpret.get_interpret_effects()
-    except ImportError:
-      pass
-    try:
-      from jax._src.pallas.mosaic_gpu.interpret import interpret_pallas_call as mosaic_gpu_interpret  # Avoid circular dependency.
-      if isinstance(interpret, mosaic_gpu_interpret.InterpretParams):
-        effs = mosaic_gpu_interpret.get_interpret_effects()
-    except ImportError:
-      pass
-  for eff in jaxpr.effects:
-    if mesh.discharges_effect(eff) or isinstance(eff, CommsEffect):
-      continue
-    if kernel_local_effects.contains(eff):
-      continue
-    if not isinstance(eff, jax_core.NamedAxisEffect):
-      effs.add(eff)
-      continue
-    if eff.name not in mesh.shape:
-      effs.add(eff)
-  return [], effs
+  return _core_map_abstract_eval(*in_atoms, jaxpr=jaxpr, mesh=mesh, **kwargs)
+
+
 jax_core.custom_typechecks[core_map_p] = _core_map_typecheck_rule
 
 
@@ -1693,6 +1712,10 @@ def lower_as_mlir(
     platforms=None,
     **kwargs,
 ) -> mlir.ir.Module:
+  """Lower the function to MLIR.
+
+  Unlike jax.export, the exported artifact provides no stability guarantees.
+  """
   with pallas_export_experimental(dynamic_shapes):
     f = jit(f, device=device, static_argnames=static_argnames)
     if platforms is None:
@@ -1706,6 +1729,36 @@ def lower_as_mlir(
 _out_shape_to_aval_mapping: dict[
     type[Any], Callable[[Any], jax_core.AbstractValue]
 ] = {}
+
+
+def _convert_out_shape_to_aval(out_shape: Any) -> jax_core.AbstractValue:
+  match out_shape:
+    case jax_core.ShapeDtypeStruct():
+      if config._check_vma.value:
+        if out_shape.vma is None:
+          raise ValueError(
+              "When `check_vma=True` on `jax.shard_map`, `vma` on"
+              " `jax.ShapeDtypeStruct` must not be `None`. Please specify how the"
+              " output should be varying across mesh axes using the `vma`"
+              " argument of `jax.ShapeDtypeStruct` or set `check_vma=False` on"
+              " `jax.shard_map`.")
+        return jax_core.ShapedArray(
+            shape=out_shape.shape, dtype=out_shape.dtype,
+            sharding=jax_core.get_cur_mesh_sharding(), vma=out_shape.vma)
+      return jax_core.ShapedArray(shape=out_shape.shape, dtype=out_shape.dtype,
+                                  sharding=jax_core.get_cur_mesh_sharding())
+    case MemoryRef():
+      return out_shape.get_array_aval()
+    case hijax.HiType():
+      return out_shape
+    case _:
+      if type(out_shape) in _out_shape_to_aval_mapping:
+        return _out_shape_to_aval_mapping[type(out_shape)](
+            out_shape
+        )
+      if not (hasattr(out_shape, "shape") and hasattr(out_shape, "dtype")):
+        raise ValueError(f"Invalid out_shape type: {type(out_shape)}")
+      return jax_core.ShapedArray(shape=out_shape.shape, dtype=out_shape.dtype)
 
 
 def _core_map_partial_eval_custom(saveable, unks_in, inst_in, eqn):

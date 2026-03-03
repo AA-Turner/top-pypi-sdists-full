@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-lifecycle
-Version: 1.2.6
+Version: 1.2.7
 Summary: Declarative model lifecycle hooks.
 Home-page: https://github.com/rsinger86/django-lifecycle
 Author: Robert Singer

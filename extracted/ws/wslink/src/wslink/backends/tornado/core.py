@@ -5,9 +5,9 @@
 # the generic backend in a way that it can be used by anything.
 # For real integration, using inheritance like for aiohttp is recommended.
 # -----------------------------------------------------------------------------
-import tornado
 import tempfile
 
+import tornado
 from tornado.websocket import WebSocketHandler
 
 
@@ -38,15 +38,19 @@ class WsLinkWebSocket(WebSocketHandler):
 
 
 def startWebServer(*args, **kwargs):
-    raise NotImplementedError("Generic backend does not provide a launcher")
+    msg = "Generic backend does not provide a launcher"
+    raise NotImplementedError(msg)
 
 
 def create_webserver(server_config):
     # Reverse connection
     if "reverse_url" in server_config:
-        raise NotImplementedError("Generic backend does not support reverse_url")
+        msg = "Generic backend does not support reverse_url"
+        raise NotImplementedError(msg)
 
-    from ..generic.core import create_webserver as create_generic_webserver
+    from ..generic.core import (  # noqa: PLC0415
+        create_webserver as create_generic_webserver,
+    )
 
     generic_server = create_generic_webserver(server_config)
 

@@ -195,6 +195,10 @@ MODEL_PRICE = {
     "vip/nano-banana-pro_4k": 0.3 * 4,
 
     "gemini-3-pro-image-preview": 0.2,
+    "gemini-3.1-flash-image-preview": 0.05,
+    "gemini-3.1-flash-image-preview_1k": 0.065,
+    "gemini-3.1-flash-image-preview_2k": 0.08,
+    "gemini-3.1-flash-image-preview_4k": 0.1,
 
     "gemini-2.5-flash-image": 0.03,
     "gemini-2.5-flash-image-preview": 0.03,
@@ -276,7 +280,7 @@ MODEL_PRICE = {
     "doubao-seedream-4-0-250828": 0.2,
     "seedream-4-5": 0.25,
     "doubao-seedream-4-5-251128": 0.25,
-    "doubao-seedream-5-0-260128": 0.25,
+    "doubao-seedream-5-0-260128": 0.22,
     "seedream-5.0": 0.05,
 
     "seedream-4-0-250828": 0.2,
@@ -302,6 +306,36 @@ MODEL_PRICE = {
     'doubao-seedance-2-0_14s_720p': 4.2,
     'doubao-seedance-2-0_15s_720p': 4.5,
 
+    'doubao-seedance-1-5-pro_4s_480p': 0.361,
+    'doubao-seedance-1-5-pro_5s_480p': 0.45,
+    'doubao-seedance-1-5-pro_6s_480p': 0.54,
+    'doubao-seedance-1-5-pro_7s_480p': 0.63,
+    'doubao-seedance-1-5-pro_8s_480p': 0.721,
+    'doubao-seedance-1-5-pro_9s_480p': 0.81,
+    'doubao-seedance-1-5-pro_10s_480p': 0.9,
+    'doubao-seedance-1-5-pro_11s_480p': 0.991,
+    'doubao-seedance-1-5-pro_12s_480p': 1.08,
+
+    'doubao-seedance-1-5-pro_4s_720p': 0.601,
+    'doubao-seedance-1-5-pro_5s_720p': 0.75,
+    'doubao-seedance-1-5-pro_6s_720p': 0.9,
+    'doubao-seedance-1-5-pro_7s_720p': 1.05,
+    'doubao-seedance-1-5-pro_8s_720p': 1.201,
+    'doubao-seedance-1-5-pro_9s_720p': 1.35,
+    'doubao-seedance-1-5-pro_10s_720p': 1.5,
+    'doubao-seedance-1-5-pro_11s_720p': 1.651,
+    'doubao-seedance-1-5-pro_12s_720p': 1.8,
+
+    'doubao-seedance-1-5-pro_4s_1080p': 1.201,
+    'doubao-seedance-1-5-pro_5s_1080p': 1.5,
+    'doubao-seedance-1-5-pro_6s_1080p': 1.8,
+    'doubao-seedance-1-5-pro_7s_1080p': 2.1,
+    'doubao-seedance-1-5-pro_8s_1080p': 2.401,
+    'doubao-seedance-1-5-pro_9s_1080p': 2.7,
+    'doubao-seedance-1-5-pro_10s_1080p': 3.0,
+    'doubao-seedance-1-5-pro_11s_1080p': 3.301,
+    'doubao-seedance-1-5-pro_12s_1080p': 3.6,
+
     "doubao-seedance-1-0-lite_5s_480p": 0.4,
     "doubao-seedance-1-0-lite_10s_480p": 0.8,
     "doubao-seedance-1-0-lite_5s_720p": 0.8,
@@ -315,24 +349,6 @@ MODEL_PRICE = {
     "doubao-seedance-1-0-pro_10s_720p": 2,
     "doubao-seedance-1-0-pro_5s_1080p": 2.5,
     "doubao-seedance-1-0-pro_10s_1080p": 5,
-
-    "doubao-seedance-1-5-pro_5s_480p": 0.5,  # 0.8
-    "doubao-seedance-1-5-pro_5s_720p": 0.8,
-    "doubao-seedance-1-5-pro_5s_1080p": 1.5,
-    "doubao-seedance-1-5-pro_10s_480p": 0.9,
-    "doubao-seedance-1-5-pro_10s_720p": 1.5,
-    "doubao-seedance-1-5-pro_10s_1080p": 3,
-
-    "doubao-seedance-1-5-pro_4s_480p": 0.5,  # 0.8
-    "doubao-seedance-1-5-pro_4s_720p": 0.8,
-    "doubao-seedance-1-5-pro_4s_1080p": 1.5,
-    "doubao-seedance-1-5-pro_8s_480p": 0.9,
-    "doubao-seedance-1-5-pro_8s_720p": 1.5,
-    "doubao-seedance-1-5-pro_8s_1080p": 3,
-
-    "doubao-seedance-1-5-pro_12s_480p": 0.5 * 3,  # 0.8
-    "doubao-seedance-1-5-pro_12s_720p": 0.8 * 3,
-    "doubao-seedance-1-5-pro_12s_1080p": 1.5 * 3,
 
     # "doubao-seedance-1-0-pro-fast-251015": 1.5 * 3,
     # "doubao-seedance-1-0-pro-fast-251015": 1.5 * 3,
@@ -392,7 +408,7 @@ MODEL_PRICE = {
     "sora-2-8s": 0.15 * 8,
     "sora-2-12s": 0.15 * 12,
     "sora-2-15s": 1,
-    "sora-2": 1,
+    "sora-2": 0.6,
 
     # 视频
     "api-videos-3d": 0.01,
@@ -512,7 +528,6 @@ MODEL_PRICE = {
     "flux.1-krea-dev": 0.1,
     "black-forest-labs/flux.1.1-pro": 0.1,
 
-
     # aitools
     "api-aitools": 0.007,
     "api-images-edits-remove-watermark": 0.01,  # mask
@@ -547,7 +562,6 @@ MODEL_PRICE = {
     "runway_video2video": 0.6,
     "runway_act_one": 1,
     "runwayml_image_to_video": 0.8,
-
 
     # textin
     "textin/watermark-remove": 0.03,
@@ -858,6 +872,8 @@ MODEL_RATIO = {
     "kimi-k2-0905-preview": 2,
     "kimi-k2-instruct-0905": 2,
     "kimi-k2.5": 2,
+    "kimi-k2.5-thinking": 2,
+    "kimi-for-coding": 2,
 
     # 智谱 https://www.bigmodel.cn/pricing
     'glm-4-9b-chat': 0.1,
@@ -905,6 +921,10 @@ MODEL_RATIO = {
     "qwen3.5-plus-thinking": 0.4,
     "qwen3.5-plus-2026-02-15": 0.4,
     "qwen3.5-397b-a17b": 0.4,
+    "qwen3.5-122b-a10b": 0.4,
+    "qwen3.5-35b-a3b": 0.3,
+    "qwen3.5-27b": 0.3,
+    "qwen3.5-flash": 0.1,
 
     "qwen-long": 0.25,
     "qwen-turbo": 0.05,
@@ -1047,6 +1067,7 @@ MODEL_RATIO = {
     "minimax-m2.1": 1.05,
     "minimax-m2.1-lightning": 1.05,
     "minimax-m2.5": 1.05,
+    "minimax-m2.5-highspeed": 1.05,
 
     # deepseek
     "deepseek-prover-v2-671b": 2,
@@ -1368,6 +1389,8 @@ MODEL_RATIO = {
     "gemini-3-flash-preview-thinking": 0.1,
     "gemini-3-flash-deepsearch": 0.5,
     "gemini-3-pro-deepsearch": 1,
+    "gemini-3.1-pro-preview": 1,
+    "gemini-3.1-pro-preview-thinking": 1,
 
     "gpt-3.5-turbo": 0.75,
     "gpt-3.5-turbo-0125": 0.25,
@@ -1530,6 +1553,7 @@ COMPLETION_RATIO = {
     "minimax-m2.1": 4,
     "minimax-m2.1-lightning": 8,
     "minimax-m2.5": 4,
+    "minimax-m2.5-highspeed": 4,
 
     # 智能体
     "gpt-4-plus": 5,
@@ -1559,6 +1583,8 @@ COMPLETION_RATIO = {
     "kimi-k2-thinking-turbo": 7.25,
     "kimi-k2-thinking-251104": 4,
     "kimi-k2.5": 5.5,
+    "kimi-k2.5-thinking": 5.5,
+    "kimi-for-coding": 5.5,
 
     "moonshot-v1-8k": 5,
     "moonshot-v1-32k": 4,
@@ -1788,6 +1814,8 @@ COMPLETION_RATIO = {
     "gemini-3-flash-preview-thinking": 6,
     "gemini-3-flash-deepsearch": 6,
     "gemini-3-pro-deepsearch": 6,
+    "gemini-3.1-pro-preview": 6,
+    "gemini-3.1-pro-preview-thinking": 6,
 
     "hunyuan-a52b-instruct": 5,
     "qwen2.5-coder-32b-instruct": 3,
@@ -1802,6 +1830,11 @@ COMPLETION_RATIO = {
     "qwen3.5-plus-thinking": 6,
     "qwen3.5-plus-2026-02-15": 6,
     "qwen3.5-397b-a17b": 6,
+
+    "qwen3.5-122b-a10b": 5,
+    "qwen3.5-35b-a3b": 5,
+    "qwen3.5-27b": 4,
+    "qwen3.5-flash": 4,
 
     "qwen-long": 4,
     "qwen-max": 4,

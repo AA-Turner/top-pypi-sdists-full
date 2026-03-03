@@ -58,7 +58,7 @@ class GroupedRankingWorkflowApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> PagedResultOfGetGroupedRankingWorkflowResultsResult:
-        """Get the result overview for a multi compare workflow.
+        """Get the result overview for a multi ranking workflow.
 
 
         :param workflow_id: The ID of the workflow to get the results for. (required)
@@ -128,7 +128,7 @@ class GroupedRankingWorkflowApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[PagedResultOfGetGroupedRankingWorkflowResultsResult]:
-        """Get the result overview for a multi compare workflow.
+        """Get the result overview for a multi ranking workflow.
 
 
         :param workflow_id: The ID of the workflow to get the results for. (required)
@@ -198,7 +198,7 @@ class GroupedRankingWorkflowApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Get the result overview for a multi compare workflow.
+        """Get the result overview for a multi ranking workflow.
 
 
         :param workflow_id: The ID of the workflow to get the results for. (required)

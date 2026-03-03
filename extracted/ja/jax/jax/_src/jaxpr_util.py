@@ -16,22 +16,23 @@
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from collections.abc import Callable
+from collections import Counter
+from collections import defaultdict
+from collections.abc import Callable, Iterator
 import gzip
 import itertools
 import json
 import logging
 import types
-from typing import Any, Union
-from collections.abc import Iterator
+from typing import Union
 
 from jax._src import config
 from jax._src import core
 from jax._src import path
-from jax._src import util
 from jax._src import source_info_util
+from jax._src import util
 from jax._src.lib import xla_client
+
 
 map, unsafe_map = util.safe_map, map
 zip, unsafe_zip = util.safe_zip, zip
@@ -125,27 +126,6 @@ def var_defs_and_refs(jaxpr: core.Jaxpr):
   res = [(v, defs[v], refs[v]) for v in defs]
   subs = map(var_defs_and_refs, core.subjaxprs(jaxpr))
   return [(jaxpr, res), *subs] if subs else (jaxpr, res)
-
-def vars_by_fanout(jaxpr: core.Jaxpr):
-  def fmt_key(var, eqn):
-    if eqn is None:
-      return f'{var} <- invar'
-    else:
-      src = source_info_util.summarize(eqn.source_info)
-      return f'{var} <- {eqn.primitive.name} @ {src}'
-
-  def hist(jaxpr, reads):
-    return {fmt_key(var, var_def): len(var_refs)
-            for var, var_def, var_refs in reads}
-
-  return [(j, hist(j, reads)) for j, reads in var_defs_and_refs(jaxpr)]  # pytype: disable=bad-unpacking
-
-def print_histogram(histogram: dict[Any, int]):
-  count_width = max(len(str(v)) for v in histogram.values())
-  count_fmt = '{:>' + str(count_width) + 'd}'
-  pairs = [(v, k) for k, v in histogram.items()]
-  for count, name in sorted(pairs, reverse=True):
-    print(count_fmt.format(count), name)
 
 
 DEFAULT_WORKSPACE_ROOT: str | None = None

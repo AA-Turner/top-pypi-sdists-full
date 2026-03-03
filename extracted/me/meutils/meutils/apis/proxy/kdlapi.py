@@ -100,8 +100,8 @@ if __name__ == '__main__':
         loop.run_until_complete(asyncio.wait(tasks))
 
 
-    # run()
 
-    url = "https://dps.kdlapi.com/api/getdps/?secret_id=o0xwup2fyhkd5qelqvoo&signature=ych2e3mdwbwo0hzwezswri5e5ob45901&num=1&format=json&sep=1&f_auth=1&generateType=4&f_et=1"
+    run()
+
     # url = None
-    arun(get_one_proxy(url))
+    # arun(get_one_proxy(url))

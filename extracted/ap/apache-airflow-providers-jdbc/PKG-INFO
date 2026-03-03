@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-jdbc
-Version: 5.3.2
+Version: 5.4.0
 Summary: Provider package apache-airflow-providers-jdbc for Apache Airflow
 Keywords: airflow-provider,jdbc,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -23,12 +23,12 @@ Classifier: Topic :: System :: Monitoring
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
-Requires-Dist: apache-airflow-providers-common-compat>=1.10.1
-Requires-Dist: apache-airflow-providers-common-sql>=1.20.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.14.0
+Requires-Dist: apache-airflow-providers-common-sql>=1.32.0
 Requires-Dist: jaydebeapi>=1.1.1
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.3.2/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.3.2
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.4.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.4.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -59,7 +59,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-jdbc``
 
-Release: ``5.3.2``
+Release: ``5.4.0``
 
 
 `Java Database Connectivity (JDBC) <https://docs.oracle.com/javase/8/docs/technotes/guides/jdbc/>`__
@@ -72,7 +72,7 @@ This is a provider package for ``jdbc`` provider. All classes for this provider 
 are in ``airflow.providers.jdbc`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.3.2/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.4.0/>`_.
 
 Installation
 ------------
@@ -90,8 +90,8 @@ Requirements
 PIP package                                 Version required
 ==========================================  ==================
 ``apache-airflow``                          ``>=2.11.0``
-``apache-airflow-providers-common-compat``  ``>=1.10.1``
-``apache-airflow-providers-common-sql``     ``>=1.20.0``
+``apache-airflow-providers-common-compat``  ``>=1.14.0``
+``apache-airflow-providers-common-sql``     ``>=1.32.0``
 ``jaydebeapi``                              ``>=1.1.1``
 ==========================================  ==================
 
@@ -116,5 +116,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.3.2/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-jdbc/5.4.0/changelog.html>`_.
 

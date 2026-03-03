@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: appengine-python-standard
-Version: 1.1.10
+Version: 2.0.0
 Summary: Google App Engine services SDK for Python 3
 Home-page: https://github.com/GoogleCloudPlatform/appengine-python-standard
 Author: Google LLC
@@ -27,6 +27,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

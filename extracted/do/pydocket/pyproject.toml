@@ -37,6 +37,7 @@ dependencies = [
     "typer>=0.15.1",
     "typing_extensions>=4.12.0",
     "tzdata>=2025.2; sys_platform == 'win32'",
+    "uncalled-for>=0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -72,9 +73,6 @@ dev = [
     "pytest-xdist>=3.6.1",
     "ruff>=0.14.14",
     "types-croniter>=6",
-]
-
-docs = [
     "zensical",
     "mkdocstrings>=1.0.2",
     "mkdocstrings-python>=2.0.1",

@@ -33,6 +33,7 @@ __all__ = [
     "Override",
     "OverrideOverrideSpecifier",
     "OverrideOverwriteRate",
+    "OverrideOverwriteRateMinimumConfig",
     "OverrideTier",
     "ProfessionalService",
     "ResellerRoyalty",
@@ -256,7 +257,7 @@ class CommitPaymentGateConfig(TypedDict, total=False):
     stripe_config: CommitPaymentGateConfigStripeConfig
     """Only applicable if using STRIPE as your payment gate type."""
 
-    tax_type: Literal["NONE", "STRIPE", "ANROK", "AVALARA", "PRECALCULATED"]
+    tax_type: Literal["NONE", "STRIPE", "ANROK", "PRECALCULATED"]
     """Stripe tax is only supported for Stripe payment gateway.
 
     Select NONE if you do not wish Metronome to calculate tax on your behalf.
@@ -574,6 +575,12 @@ class OverrideOverrideSpecifier(TypedDict, total=False):
     """
 
 
+class OverrideOverwriteRateMinimumConfig(TypedDict, total=False):
+    """Only set for TIERED_PERCENTAGE or PERCENTAGE rate_type."""
+
+    minimum: Required[float]
+
+
 class OverrideOverwriteRate(TypedDict, total=False):
     """Required for OVERWRITE type."""
 
@@ -592,6 +599,9 @@ class OverrideOverwriteRate(TypedDict, total=False):
 
     Only valid for SUBSCRIPTION rate_type. Must be set to true.
     """
+
+    minimum_config: OverrideOverwriteRateMinimumConfig
+    """Only set for TIERED_PERCENTAGE or PERCENTAGE rate_type."""
 
     price: float
     """Default price.

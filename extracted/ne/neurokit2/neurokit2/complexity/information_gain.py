@@ -90,7 +90,6 @@ def information_gain(signal, delay=1, dimension=4, symbolize="mean"):
     fc = 0
     for i in states_unique:
         for j in states_unique:
-
             if (i, j) not in t_prob.keys():
                 continue
             i_j_prob = t_prob.get((i, j), 0)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: confluent-kafka
-Version: 2.13.0
+Version: 2.13.2
 Summary: Confluent's Python client for Apache Kafka
 Author-email: "Confluent Inc." <support@confluent.io>
 Project-URL: Homepage, https://github.com/confluentinc/confluent-kafka-python
@@ -56,7 +56,7 @@ Requires-Dist: httpx>=0.26; extra == "avro"
 Requires-Dist: authlib>=1.0.0; extra == "avro"
 Provides-Extra: json
 Requires-Dist: pyrsistent; extra == "json"
-Requires-Dist: jsonschema; extra == "json"
+Requires-Dist: jsonschema>=4.18.0; extra == "json"
 Requires-Dist: orjson>=3.10; extra == "json"
 Requires-Dist: attrs>=21.2.0; extra == "json"
 Requires-Dist: cachetools>=5.5.0; extra == "json"
@@ -90,7 +90,7 @@ Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: avro<2,>=1.11.1; extra == "dev"
 Requires-Dist: pyrsistent; extra == "dev"
-Requires-Dist: jsonschema; extra == "dev"
+Requires-Dist: jsonschema>=4.18.0; extra == "dev"
 Requires-Dist: orjson>=3.10; extra == "dev"
 Requires-Dist: googleapis-common-protos; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
@@ -146,7 +146,7 @@ Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "dev"
 Requires-Dist: requests; extra == "dev"
 Requires-Dist: avro<2,>=1.11.1; extra == "dev"
 Requires-Dist: pyrsistent; extra == "dev"
-Requires-Dist: jsonschema; extra == "dev"
+Requires-Dist: jsonschema>=4.18.0; extra == "dev"
 Requires-Dist: orjson>=3.10; extra == "dev"
 Requires-Dist: googleapis-common-protos; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
@@ -178,7 +178,7 @@ Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "docs"
 Requires-Dist: requests; extra == "docs"
 Requires-Dist: avro<2,>=1.11.1; extra == "docs"
 Requires-Dist: pyrsistent; extra == "docs"
-Requires-Dist: jsonschema; extra == "docs"
+Requires-Dist: jsonschema>=4.18.0; extra == "docs"
 Requires-Dist: orjson>=3.10; extra == "docs"
 Requires-Dist: googleapis-common-protos; extra == "docs"
 Requires-Dist: protobuf; extra == "docs"
@@ -223,7 +223,7 @@ Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "tests"
 Requires-Dist: requests; extra == "tests"
 Requires-Dist: avro<2,>=1.11.1; extra == "tests"
 Requires-Dist: pyrsistent; extra == "tests"
-Requires-Dist: jsonschema; extra == "tests"
+Requires-Dist: jsonschema>=4.18.0; extra == "tests"
 Requires-Dist: orjson>=3.10; extra == "tests"
 Requires-Dist: googleapis-common-protos; extra == "tests"
 Requires-Dist: protobuf; extra == "tests"
@@ -242,7 +242,7 @@ Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "examples
 Requires-Dist: requests; extra == "examples"
 Requires-Dist: avro<2,>=1.11.1; extra == "examples"
 Requires-Dist: pyrsistent; extra == "examples"
-Requires-Dist: jsonschema; extra == "examples"
+Requires-Dist: jsonschema>=4.18.0; extra == "examples"
 Requires-Dist: orjson>=3.10; extra == "examples"
 Requires-Dist: googleapis-common-protos; extra == "examples"
 Requires-Dist: protobuf; extra == "examples"
@@ -284,7 +284,7 @@ Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: avro<2,>=1.11.1; extra == "all"
 Requires-Dist: pyrsistent; extra == "all"
-Requires-Dist: jsonschema; extra == "all"
+Requires-Dist: jsonschema>=4.18.0; extra == "all"
 Requires-Dist: orjson>=3.10; extra == "all"
 Requires-Dist: googleapis-common-protos; extra == "all"
 Requires-Dist: protobuf; extra == "all"
@@ -340,20 +340,17 @@ Requires-Dist: fastavro<2,>=1.5.4; python_version > "3.7" and extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: avro<2,>=1.11.1; extra == "all"
 Requires-Dist: pyrsistent; extra == "all"
-Requires-Dist: jsonschema; extra == "all"
+Requires-Dist: jsonschema>=4.18.0; extra == "all"
 Requires-Dist: orjson>=3.10; extra == "all"
 Requires-Dist: googleapis-common-protos; extra == "all"
 Requires-Dist: protobuf; extra == "all"
 Dynamic: license-file
 
-# Confluent Python Client for Apache Kafka
+# Confluent's Python Client for Apache Kafka®
 
 [![Try Confluent Cloud - The Data Streaming Platform](https://images.ctfassets.net/8vofjvai1hpv/10bgcSfn5MzmvS4nNqr94J/af43dd2336e3f9e0c0ca4feef4398f6f/confluent-banner-v2.svg)](https://confluent.cloud/signup?utm_source=github&utm_medium=banner&utm_campaign=tm.plg.cflt-oss-repos&utm_term=confluent-kafka-python)
 
-Confluent's Python Client for Apache Kafka<sup>TM</sup>
-=======================================================
-
-**confluent-kafka-python** provides a high-level `Producer`, `Consumer` and `AdminClient` compatible with all [Apache Kafka™](http://kafka.apache.org/) brokers >= v0.8, [Confluent Cloud](https://www.confluent.io/confluent-cloud/) and [Confluent Platform](https://www.confluent.io/product/compare/).
+**confluent-kafka-python** provides a high-level `Producer`, `Consumer` and `AdminClient` compatible with all [Apache Kafka](http://kafka.apache.org/) brokers >= v0.8, [Confluent Cloud](https://www.confluent.io/confluent-cloud/) and [Confluent Platform](https://www.confluent.io/product/compare/).
 
 **Recommended for Production:** While this client works with any Kafka deployment, it's optimized for and fully supported with [Confluent Cloud](https://www.confluent.io/confluent-cloud/) (fully managed) and [Confluent Platform](https://www.confluent.io/product/compare/) (self-managed), which provide enterprise-grade security, monitoring, and support.
 

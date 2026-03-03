@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
 import os
-
 from collections import Counter
 
 import numpy as np
@@ -69,7 +67,7 @@ def read_acqknowledge(filename, sampling_rate="max", resample_method="interpolat
         filename += ".acq"
 
     if os.path.exists(filename) is False:
-        raise ValueError("NeuroKit error: read_acqknowledge(): couldn't" " find the following file: " + filename)
+        raise ValueError("NeuroKit error: read_acqknowledge(): couldn't find the following file: " + filename)
 
     # Read file
     file = bioread.read(filename)
@@ -111,21 +109,17 @@ def read_acqknowledge(filename, sampling_rate="max", resample_method="interpolat
         channel_counter[channel.name] += 1
 
     # Sanitize lengths
-    lengths = []
-    for channel in data:
-        lengths += [len(data[channel])]
+    lengths = [len(signal) for signal in data.values()]
+
     if len(set(lengths)) > 1:  # If different lengths
         length = pd.Series(lengths).mode()[0]  # Find most common (target length)
-        for channel in data:
-            if len(data[channel]) > length:
-                data[channel] = data[channel][0:length]
-            if len(data[channel]) < length:
-                data[channel] = np.concatenate(
-                    [
-                        data[channel],
-                        np.full((length - len(data[channel])), data[channel][-1]),
-                    ]
-                )
+        for channel, signal in data.items():
+            current_len = len(signal)
+            # Truncate or pad the end with the last value
+            if current_len > length:
+                data[channel] = signal[:length]
+            elif current_len < length:
+                data[channel] = np.pad(signal, (0, length - current_len), mode="edge")
 
     # Final dataframe
     df = pd.DataFrame(data)

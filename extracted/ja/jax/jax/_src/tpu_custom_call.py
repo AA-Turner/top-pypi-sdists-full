@@ -65,13 +65,13 @@ _MOSAIC_ALLOW_HLO = config.bool_state(
 # We should also add a TODO to remove the conditional one month later.
 def get_ir_version(ctx: mlir.LoweringRuleContext) -> int | None:
   backend = ctx.module_context.get_backend(optional=True)
-  # TODO(apaszke): remove the forward compatibility check after 2025-12-5.
+  # TODO(apaszke): remove the forward compatibility check after 2025-4-1.
   if (
       ctx.is_forward_compat()
       or backend is None
-      or is_cloud_tpu_older_than(2025, 11, 5, backend)
+      or is_cloud_tpu_older_than(2026, 3, 1, backend)
   ):
-    return 8
+    return 9
   return None
 
 
@@ -125,9 +125,9 @@ class CostEstimate(TypedDict):
   flops: int
   transcendentals: int
   bytes_accessed: int
-  remote_bytes_transferred: int = 0
+  remote_bytes_transferred: int
 
-  def to_json(self) -> bytes:
+  def to_json(self) -> bytes:  # pyrefly: ignore[bad-class-definition]
     return (
         f'{{"flops": {self["flops"]}, "transcendentals":'
         f' {self["transcendentals"]}, "bytes_accessed":'
@@ -167,6 +167,7 @@ class CustomCallBackendConfig:
   internal_scratch_in_bytes: int | None
   output_memory_spaces: tuple[MemorySpace | None, ...] | None
   disable_bounds_checks: bool
+  disable_semaphore_checks: bool
   active_core_count: int | None
   input_memory_spaces: tuple[MemorySpace | None, ...] | None
   skip_device_barrier: bool
@@ -225,23 +226,32 @@ class CustomCallBackendConfig:
       config.write(b', "internal_scratch_in_bytes": ')
       config.write(str(self.internal_scratch_in_bytes).encode("ascii"))
     if self.output_memory_spaces is not None:
-      config.write(b', "output_memory_colors": [')
+      is_tuple = len(self.output_memory_spaces) > 1
+      comma = False
       for i, memory_space in enumerate(self.output_memory_spaces):
-        if i:
+        if memory_space is None:
+          continue
+        if comma:
           config.write(b",")
-        color = memory_space.color if memory_space is not None else -1
-        config.write(str(color).encode("ascii"))
-      config.write(b"]")
+        else:
+          config.write(b', "output_memory_space_colors": [')
+        config.write(f'{{"color":{memory_space.color}'.encode("ascii"))
+        if is_tuple:
+          config.write(f',"shape_index":[{i}]'.encode("ascii"))
+        config.write(b"}")
+        comma = True
+      if comma:
+        config.write(b"]")
     if self.input_memory_spaces is not None:
       comma = False
-      for i, input_memory_space in enumerate(self.input_memory_spaces):
-        if input_memory_space is None:
+      for i, memory_space in enumerate(self.input_memory_spaces):
+        if memory_space is None:
           continue
-        if input_memory_space is MemorySpace.SMEM:
+        if memory_space is MemorySpace.SMEM:
           # TODO(sharadmv): Add support for SMEM (though atm, XLA will not
           # page out SMEM arrays).
           continue
-        if input_memory_space not in (
+        if memory_space not in (
             MemorySpace.HBM,
             MemorySpace.VMEM,
             MemorySpace.SMEM,
@@ -254,7 +264,7 @@ class CustomCallBackendConfig:
         else:
           config.write(b', "input_memory_space_colors": [')
         config.write(
-            f'{{"operand_index":{i},"color":{input_memory_space.color}}}'
+            f'{{"operand_index":{i},"color":{memory_space.color}}}'
             .encode("ascii")
         )
         comma = True
@@ -263,6 +273,9 @@ class CustomCallBackendConfig:
     if self.disable_bounds_checks:
       config.write(b', "disable_bounds_checks": ')
       config.write(str(self.disable_bounds_checks).lower().encode("ascii"))
+    if self.disable_semaphore_checks:
+      config.write(b', "disable_semaphore_checks": ')
+      config.write(str(self.disable_semaphore_checks).lower().encode("ascii"))
     if self.skip_device_barrier:
       config.write(b', "skip_device_barrier": ')
       config.write(str(self.skip_device_barrier).lower().encode("ascii"))
@@ -334,7 +347,7 @@ def _tpu_custom_call_lowering(
     input_output_aliases: tuple[tuple[int, int], ...],
     metadata: Any | None,
 ) -> ir.OpResultList:
-  result_types = [mlir.aval_to_ir_type(aval) for aval in out_avals]
+  result_types = mlir.flatten_ir_types(map(mlir.aval_to_ir_type, out_avals))
   axis_context = ctx.module_context.axis_context
   if isinstance(axis_context, sharding_impls.SPMDAxisContext):
     manual_axes = axis_context.manual_axes | set(axis_context.mesh.manual_axes)
@@ -360,7 +373,7 @@ def _tpu_custom_call_lowering(
     result_shapes = [
         mlir.shape_tensor(mlir.eval_dynamic_shape(ctx, aval_out.shape))
         for aval_out in ctx.avals_out]
-  extra_attributes = None
+  extra_attributes: dict[str, ir.Attribute] | None = None
   # Add kernel_name and kernel_metadata as attributes to the custom call op.
   # This is because we do not want to pollute the backend_config with this
   # information.
@@ -400,12 +413,13 @@ def _lower_mosaic_module_to_asm(
     module: ir.Module,
     *,
     ir_version: int | None = None,
-) -> tuple[ir.Module, tuple[bool, bool]]:
-  has_communication, has_custom_barrier = tpu.private_has_communication(
+) -> tuple[bytes, tuple[bool, bool]]:
+  has_communication, has_custom_barrier = tpu.private_has_communication(  # pyrefly: ignore[missing-attribute]
       module.operation
   )
   # We'll mutate the module, so clone it
-  with module.context as ctx, module.operation.location as _:
+  ctx = module.context
+  with ctx, module.operation.location as _:
     module_op = module.operation.clone()
     prev_allow_unregistered_dialects = ctx.allow_unregistered_dialects
     ctx.allow_unregistered_dialects = True
@@ -554,6 +568,7 @@ def _lower_to_custom_call_config(
     output_memory_spaces: tuple[MemorySpace | None, ...] | None = None,
     ir_version: int | None = None,
     disable_bounds_checks: bool = False,
+    disable_semaphore_checks: bool = False,
     input_memory_spaces: tuple[MemorySpace | None, ...] | None = None,
     skip_device_barrier: bool = False,
     allow_collective_id_without_custom_barrier: bool = False,
@@ -589,6 +604,7 @@ def _lower_to_custom_call_config(
       needs_layout_passes=needs_layout_passes,
       output_memory_spaces=output_memory_spaces,
       disable_bounds_checks=disable_bounds_checks,
+      disable_semaphore_checks=disable_semaphore_checks,
       active_core_count=active_core_count,
       input_memory_spaces=input_memory_spaces,
       skip_device_barrier=skip_device_barrier,
@@ -615,6 +631,7 @@ def _lowered_to_custom_call_config(
     device_type: str | None,
     output_memory_spaces: tuple[MemorySpace | None, ...] | None = None,
     disable_bounds_checks: bool = False,
+    disable_semaphore_checks: bool = False,
     active_core_count: int | None = None,
     input_memory_spaces: tuple[MemorySpace | None, ...] | None = None,
     skip_device_barrier: bool = False,
@@ -637,6 +654,10 @@ def _lowered_to_custom_call_config(
         "vmem_limit_bytes must be an int: provided with a"
         f" {type(vmem_limit_bytes)}."
     )
+  if tiling is not None and  device_type != "sparsecore":
+    raise ValueError(
+        "explicit tiling is only supported for SparseCore kernels."
+    )
   return CustomCallBackendConfig(
       lowered_module_asm,
       has_communication,
@@ -652,6 +673,7 @@ def _lowered_to_custom_call_config(
       internal_scratch_in_bytes,
       output_memory_spaces,
       disable_bounds_checks,
+      disable_semaphore_checks,
       active_core_count=active_core_count,
       input_memory_spaces=input_memory_spaces,
       skip_device_barrier=skip_device_barrier,
@@ -677,6 +699,7 @@ def lower_module_to_custom_call(
     serialization_format: int | None,
     output_memory_spaces: tuple[MemorySpace | None, ...] | None,
     disable_bounds_checks: bool = False,
+    disable_semaphore_checks: bool = False,
     input_memory_spaces: tuple[MemorySpace | None, ...] | None,
     metadata: Any | None = None,
     skip_device_barrier: bool = False,
@@ -703,6 +726,7 @@ def lower_module_to_custom_call(
       output_memory_spaces=output_memory_spaces,
       ir_version=get_ir_version(ctx),
       disable_bounds_checks=disable_bounds_checks,
+      disable_semaphore_checks=disable_semaphore_checks,
       input_memory_spaces=input_memory_spaces,
       skip_device_barrier=skip_device_barrier,
       allow_collective_id_without_custom_barrier=allow_collective_id_without_custom_barrier,
@@ -738,10 +762,12 @@ def as_tpu_kernel(
     serialization_format: int | None = 1,
     output_memory_spaces: tuple[MemorySpace | None, ...] | None = None,
     disable_bounds_checks: bool = False,
+    disable_semaphore_checks: bool = False,
     input_memory_spaces: tuple[MemorySpace | None, ...] | None = None,
     shape_invariant_numerics: bool = False,
     needs_layout_passes: bool | None = None,
     metadata: Any | None = None,
+    tiling: Tiling | None = None,
     _ir_version: int | None = None,
 ) -> Callable[..., Any]:
   """Turns an MLIR Mosaic kernel into a JAX-compatible function."""
@@ -756,10 +782,12 @@ def as_tpu_kernel(
       serialization_format=serialization_format,
       output_memory_spaces=output_memory_spaces,
       disable_bounds_checks=disable_bounds_checks,
+      disable_semaphore_checks=disable_semaphore_checks,
       input_memory_spaces=input_memory_spaces,
       shape_invariant_numerics=shape_invariant_numerics,
       needs_layout_passes=needs_layout_passes,
       ir_version=_ir_version,
+      tiling=tiling,
   )
   return _as_jax_callable(
       config,
@@ -790,6 +818,7 @@ def lowered_as_tpu_kernel(
     serialization_format: int | None = None,
     internal_scratch_in_bytes: int | None = None,
     disable_bounds_checks: bool = False,
+    disable_semaphore_checks: bool = False,
     metadata: Any | None = None,
     allow_collective_id_without_custom_barrier: bool = False,
 ) -> Callable[..., Any]:
@@ -818,6 +847,7 @@ def lowered_as_tpu_kernel(
       needs_hlo_passes=needs_hlo_passes,
       needs_layout_passes=needs_layout_passes,
       disable_bounds_checks=disable_bounds_checks,
+      disable_semaphore_checks=disable_semaphore_checks,
       allow_collective_id_without_custom_barrier=allow_collective_id_without_custom_barrier,
   )
   return _as_jax_callable(

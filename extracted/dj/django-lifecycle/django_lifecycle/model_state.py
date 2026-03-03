@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Any
-from typing import Dict
 from typing import TYPE_CHECKING
 
 from django_lifecycle.utils import get_value
@@ -11,11 +10,11 @@ if TYPE_CHECKING:
 
 
 class ModelState:
-    def __init__(self, initial_state: Dict[str, Any]):
+    def __init__(self, initial_state: dict[str, Any]):
         self.initial_state = initial_state
 
     @classmethod
-    def from_instance(cls, instance: "LifecycleModelMixin") -> ModelState:
+    def from_instance(cls, instance: LifecycleModelMixin) -> ModelState:
         state = instance.__dict__.copy()
 
         for watched_related_field in instance._watched_fk_model_fields():
@@ -32,7 +31,7 @@ class ModelState:
 
         return ModelState(state)
 
-    def get_diff(self, instance: "LifecycleModelMixin") -> dict:
+    def get_diff(self, instance: LifecycleModelMixin) -> dict:
         current = ModelState.from_instance(instance).initial_state
         diffs = {}
 
@@ -43,18 +42,18 @@ class ModelState:
                 continue
 
             if initial_value != current_value:
-                diffs[key] = (key, current_value)
+                diffs[key] = (initial_value, current_value)
 
         return diffs
 
-    def get_value(self, instance: "LifecycleModelMixin", field_name: str) -> Any:
+    def get_value(self, instance: LifecycleModelMixin, field_name: str) -> Any:
         """
         Get initial value of field when model was instantiated.
         """
         field_name = sanitize_field_name(instance, field_name)
         return self.initial_state.get(field_name)
 
-    def has_changed(self, instance: "LifecycleModelMixin", field_name: str) -> bool:
+    def has_changed(self, instance: LifecycleModelMixin, field_name: str) -> bool:
         """
         Check if a field has changed since the model was instantiated.
         """

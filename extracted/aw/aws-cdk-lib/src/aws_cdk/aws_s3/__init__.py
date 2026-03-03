@@ -213,6 +213,24 @@ will still be limited to the resources defined in your pattern.
 
 If you need to restrict the `s3:ListBucket` action to specific paths, you can add a `Condition` to your policy that limits the `objectsKeyPattern` to specific folders. For more details and examples, see the [AWS documentation on bucket policies](https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies.html#example-bucket-policies-folders).
 
+## Attribute-Based Access Control (ABAC)
+
+You can enable ABAC (Attribute-Based Access Control) for an S3 general purpose bucket.
+When ABAC is enabled for the general purpose bucket, you can use tags to manage access to the general purpose buckets as well as for cost tracking purposes.
+When ABAC is disabled for the general purpose buckets, you can only use tags for cost tracking purposes.
+
+To enable ABAC on a bucket:
+
+```python
+bucket = s3.Bucket(self, "Bucket",
+    abac_status=True
+)
+```
+
+By default, if `abacStatus` is not specified, ABAC will not be enabled for the bucket.
+
+For more information about ABAC and how to use it with S3, see the [AWS documentation on ABAC](https://docs.aws.amazon.com/AmazonS3/latest/userguide/buckets-tagging.html).
+
 ## AWS Foundational Security Best Practices
 
 ### Enforcing SSL
@@ -285,9 +303,8 @@ bucket = s3.Bucket.from_bucket_attributes(self, "ImportedBucket",
 )
 
 # now you can just call methods on the bucket
-bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda),
-    prefix="home/myusername/*"
-)
+filter = s3.NotificationKeyFilter(prefix="home/myusername/*")
+bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), filter)
 ```
 
 Alternatively, short-hand factories are available as `Bucket.fromBucketName` and
@@ -1508,16 +1525,17 @@ class BucketAttributes:
 
         Example::
 
-            # my_lambda: lambda.Function
+            # Deploy an imported S3 bucket from a different account
+            # stage: codepipeline.IStage
+            # input: codepipeline.Artifact
             
-            bucket = s3.Bucket.from_bucket_attributes(self, "ImportedBucket",
-                bucket_arn="arn:aws:s3:::amzn-s3-demo-bucket"
-            )
-            
-            # now you can just call methods on the bucket
-            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda),
-                prefix="home/myusername/*"
-            )
+            stage.add_action(codepipeline_actions.S3DeployAction(
+                bucket=s3.Bucket.from_bucket_attributes(self, "Bucket",
+                    account="123456789012"
+                ),
+                input=input,
+                action_name="s3-deploy-action"
+            ))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59c6740ee33c114a2242cf5d785c7eb7be508681dd83101b211e8bfd48b16d0a)
@@ -2315,11 +2333,11 @@ class BucketPolicyProps:
             import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
             
             # Create CloudFront distribution
-            # bucket: s3.Bucket
+            # origin: s3.IBucket
             
             distribution = cloudfront.Distribution(scope, "Distribution",
                 default_behavior=cloudfront.BehaviorOptions(
-                    origin=origins.S3BucketOrigin.with_origin_access_control(bucket)
+                    origin=origins.S3BucketOrigin.with_origin_access_control(origin)
                 )
             )
             
@@ -2393,6 +2411,7 @@ class BucketPolicyProps:
     jsii_type="aws-cdk-lib.aws_s3.BucketProps",
     jsii_struct_bases=[],
     name_mapping={
+        "abac_status": "abacStatus",
         "access_control": "accessControl",
         "auto_delete_objects": "autoDeleteObjects",
         "block_public_access": "blockPublicAccess",
@@ -2433,6 +2452,7 @@ class BucketProps:
     def __init__(
         self,
         *,
+        abac_status: typing.Optional[builtins.bool] = None,
         access_control: typing.Optional["BucketAccessControl"] = None,
         auto_delete_objects: typing.Optional[builtins.bool] = None,
         block_public_access: typing.Optional["BlockPublicAccess"] = None,
@@ -2469,6 +2489,7 @@ class BucketProps:
         website_routing_rules: typing.Optional[typing.Sequence[typing.Union["RoutingRule", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
+        :param abac_status: Enables Amazon S3 to evaluate the ABAC policy in the request. Set to true to enable ABAC, false to explicitly disable it. Default: - The ABAC status is not set
         :param access_control: Specifies a canned ACL that grants predefined permissions to the bucket. Default: BucketAccessControl.PRIVATE
         :param auto_delete_objects: Whether all objects should be automatically deleted when the bucket is removed from the stack or when the stack is deleted. Requires the ``removalPolicy`` to be set to ``RemovalPolicy.DESTROY``. **Warning** if you have deployed a bucket with ``autoDeleteObjects: true``, switching this to ``false`` in a CDK version *before* ``1.126.0`` will lead to all objects in the bucket being deleted. Be sure to update your bucket resources by deploying with CDK version ``1.126.0`` or later **before** switching this value to ``false``. Setting ``autoDeleteObjects`` to true on a bucket will add ``s3:PutBucketPolicy`` to the bucket policy. This is because during bucket deletion, the custom resource provider needs to update the bucket policy by adding a deny policy for ``s3:PutObject`` to prevent race conditions with external bucket writers. Default: false
         :param block_public_access: The block public access configuration of this bucket. Default: - CloudFormation defaults will apply. New buckets and objects don't allow public access, but users can modify bucket policies or object permissions to allow public access
@@ -2528,6 +2549,7 @@ class BucketProps:
             website_redirect = RedirectTarget(**website_redirect)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2ff878f2dca3dd037442155369c2fcc7bd194425c0967a7fd7bfa576071b4dd)
+            check_type(argname="argument abac_status", value=abac_status, expected_type=type_hints["abac_status"])
             check_type(argname="argument access_control", value=access_control, expected_type=type_hints["access_control"])
             check_type(argname="argument auto_delete_objects", value=auto_delete_objects, expected_type=type_hints["auto_delete_objects"])
             check_type(argname="argument block_public_access", value=block_public_access, expected_type=type_hints["block_public_access"])
@@ -2563,6 +2585,8 @@ class BucketProps:
             check_type(argname="argument website_redirect", value=website_redirect, expected_type=type_hints["website_redirect"])
             check_type(argname="argument website_routing_rules", value=website_routing_rules, expected_type=type_hints["website_routing_rules"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if abac_status is not None:
+            self._values["abac_status"] = abac_status
         if access_control is not None:
             self._values["access_control"] = access_control
         if auto_delete_objects is not None:
@@ -2631,6 +2655,19 @@ class BucketProps:
             self._values["website_redirect"] = website_redirect
         if website_routing_rules is not None:
             self._values["website_routing_rules"] = website_routing_rules
+
+    @builtins.property
+    def abac_status(self) -> typing.Optional[builtins.bool]:
+        '''Enables Amazon S3 to evaluate the ABAC policy in the request.
+
+        Set to true to enable ABAC, false to explicitly disable it.
+
+        :default: - The ABAC status is not set
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3-bucket.html#cfn-s3-bucket-abacstatus
+        '''
+        result = self._values.get("abac_status")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def access_control(self) -> typing.Optional["BucketAccessControl"]:
@@ -4943,15 +4980,19 @@ class CfnBucket(
 
     Example::
 
-        # cfn_template: cfn_inc.CfnInclude
+        # child_template: cfn_inc.CfnInclude
         
-        cfn_bucket = cfn_template.get_resource("Bucket")
         
-        role = iam.Role(self, "Role",
-            assumed_by=iam.AnyPrincipal()
+        cfn_bucket = child_template.get_resource("MyBucket")
+        cfn_bucket.bucket_name = "amzn-s3-demo-bucket1"
+        
+        role = iam.Role(self, "MyRole",
+            assumed_by=iam.AccountRootPrincipal()
         )
+        
         role.add_to_policy(iam.PolicyStatement(
-            actions=["s3:*"],
+            actions=["s3:GetObject*", "s3:GetBucket*", "s3:List*"
+            ],
             resources=[cfn_bucket.attr_arn]
         ))
     '''
@@ -18400,7 +18441,8 @@ class IBucket(_IResource_c80c4260, _IBucketRef_3debe44e, typing_extensions.Proto
             # my_lambda: lambda.Function
             
             bucket = s3.Bucket(self, "MyBucket")
-            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), prefix="home/myusername/*")
+            filter = s3.NotificationKeyFilter(prefix="home/myusername/*")
+            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), filter)
         '''
         ...
 
@@ -18969,7 +19011,8 @@ class _IBucketProxy(
             # my_lambda: lambda.Function
             
             bucket = s3.Bucket(self, "MyBucket")
-            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), prefix="home/myusername/*")
+            filter = s3.NotificationKeyFilter(prefix="home/myusername/*")
+            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), filter)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__168148771b23de203b7e69eb1dbaf2f881de4c7cc276b7648b26fd4a3eddbcf0)
@@ -20617,13 +20660,11 @@ class NotificationKeyFilter:
 
         Example::
 
-            # my_queue: sqs.Queue
+            # my_lambda: lambda.Function
             
             bucket = s3.Bucket(self, "MyBucket")
-            bucket.add_event_notification(s3.EventType.OBJECT_REMOVED, s3n.SqsDestination(my_queue),
-                prefix="foo/",
-                suffix=".jpg"
-            )
+            filter = s3.NotificationKeyFilter(prefix="home/myusername/*")
+            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), filter)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9027ccde47331a53dd5d5647e0ac8b2d59832c2e174d2a101438fbf22f7f4ab1)
@@ -22273,7 +22314,8 @@ class BucketBase(
             # my_lambda: lambda.Function
             
             bucket = s3.Bucket(self, "MyBucket")
-            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), prefix="home/myusername/*")
+            filter = s3.NotificationKeyFilter(prefix="home/myusername/*")
+            bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), filter)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0fe08a412ed532786d0cb77df27b83bd9dfe83114ffcfd14b6698c3b9f9de32)
@@ -23167,6 +23209,7 @@ class Bucket(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        abac_status: typing.Optional[builtins.bool] = None,
         access_control: typing.Optional["BucketAccessControl"] = None,
         auto_delete_objects: typing.Optional[builtins.bool] = None,
         block_public_access: typing.Optional["BlockPublicAccess"] = None,
@@ -23205,6 +23248,7 @@ class Bucket(
         '''
         :param scope: -
         :param id: -
+        :param abac_status: Enables Amazon S3 to evaluate the ABAC policy in the request. Set to true to enable ABAC, false to explicitly disable it. Default: - The ABAC status is not set
         :param access_control: Specifies a canned ACL that grants predefined permissions to the bucket. Default: BucketAccessControl.PRIVATE
         :param auto_delete_objects: Whether all objects should be automatically deleted when the bucket is removed from the stack or when the stack is deleted. Requires the ``removalPolicy`` to be set to ``RemovalPolicy.DESTROY``. **Warning** if you have deployed a bucket with ``autoDeleteObjects: true``, switching this to ``false`` in a CDK version *before* ``1.126.0`` will lead to all objects in the bucket being deleted. Be sure to update your bucket resources by deploying with CDK version ``1.126.0`` or later **before** switching this value to ``false``. Setting ``autoDeleteObjects`` to true on a bucket will add ``s3:PutBucketPolicy`` to the bucket policy. This is because during bucket deletion, the custom resource provider needs to update the bucket policy by adding a deny policy for ``s3:PutObject`` to prevent race conditions with external bucket writers. Default: false
         :param block_public_access: The block public access configuration of this bucket. Default: - CloudFormation defaults will apply. New buckets and objects don't allow public access, but users can modify bucket policies or object permissions to allow public access
@@ -23245,6 +23289,7 @@ class Bucket(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = BucketProps(
+            abac_status=abac_status,
             access_control=access_control,
             auto_delete_objects=auto_delete_objects,
             block_public_access=block_public_access,
@@ -23914,6 +23959,7 @@ def _typecheckingstub__4d7b9233434273933326211f004f27c2982fedd89ad904dc86d84c54f
 
 def _typecheckingstub__f2ff878f2dca3dd037442155369c2fcc7bd194425c0967a7fd7bfa576071b4dd(
     *,
+    abac_status: typing.Optional[builtins.bool] = None,
     access_control: typing.Optional[BucketAccessControl] = None,
     auto_delete_objects: typing.Optional[builtins.bool] = None,
     block_public_access: typing.Optional[BlockPublicAccess] = None,
@@ -26319,6 +26365,7 @@ def _typecheckingstub__25f24cbf29544d9c579e765350a7b51ec4ec81bc2cc07a21660738a1e
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    abac_status: typing.Optional[builtins.bool] = None,
     access_control: typing.Optional[BucketAccessControl] = None,
     auto_delete_objects: typing.Optional[builtins.bool] = None,
     block_public_access: typing.Optional[BlockPublicAccess] = None,

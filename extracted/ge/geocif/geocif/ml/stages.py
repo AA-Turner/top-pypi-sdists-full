@@ -39,15 +39,19 @@ def add_stage_information(df, method):
     # to the Starting Stage and Ending Stage
     if "dekad" in method:
         stage_dict = utils.dict_growth_stages
+        stage_dict_end = utils.dict_growth_stages_end
     elif "biweekly" in method:
         stage_dict = utils.dict_growth_stages_biweekly
+        stage_dict_end = utils.dict_growth_stages_biweekly_end
     elif "monthly" in method:
         stage_dict = utils.dict_growth_stages_monthly
+        stage_dict_end = utils.dict_growth_stages_monthly_end
     # Wrap around for stages beyond the dictionary length
     n = len(stage_dict)
-    wrap = lambda x: stage_dict[((x - 1) % n) + 1]
+    wrap_start = lambda x: stage_dict[((x - 1) % n) + 1]
+    wrap_end = lambda x: stage_dict_end[((x - 1) % n) + 1]
     df["Stage Names"] = (
-        df["Starting Stage"].map(wrap) + " - " + df["Ending Stage"].map(wrap)
+        df["Starting Stage"].map(wrap_start) + " - " + df["Ending Stage"].map(wrap_end)
     )
 
     df["Percentage Season"] = float("nan")
@@ -228,15 +232,18 @@ def get_stage_information_dict(stage_str, method):
 
     if "dekad" in method:
         stage_dict = utils.dict_growth_stages
+        stage_dict_end = utils.dict_growth_stages_end
     elif "biweekly" in method:
         stage_dict = utils.dict_growth_stages_biweekly
+        stage_dict_end = utils.dict_growth_stages_biweekly_end
     elif "monthly" in method:
         stage_dict = utils.dict_growth_stages_monthly
+        stage_dict_end = utils.dict_growth_stages_monthly_end
     # Wrap around for stages beyond the dictionary length
     n = len(stage_dict)
     stage_info["Stage Name"] = (
         stage_dict[((int(start_stage) - 1) % n) + 1] + "-" +
-        stage_dict[((int(end_stage) - 1) % n) + 1]
+        stage_dict_end[((int(end_stage) - 1) % n) + 1]
     )
 
     return stage_info
@@ -281,14 +288,17 @@ def update_feature_names(df, method):
         # Convert starting and ending stage using utils.dict_growth_stages
         if "dekad" in method:
             stage_dict = utils.dict_growth_stages
+            stage_dict_end = utils.dict_growth_stages_end
         elif "biweekly" in method:
             stage_dict = utils.dict_growth_stages_biweekly
+            stage_dict_end = utils.dict_growth_stages_biweekly_end
         elif "monthly" in method:
             stage_dict = utils.dict_growth_stages_monthly
+            stage_dict_end = utils.dict_growth_stages_monthly_end
         # Wrap around for stages beyond the dictionary length (e.g. stage 13 → month 1)
         n = len(stage_dict)
         start_stage = stage_dict[((int(start_stage) - 1) % n) + 1]
-        end_stage = stage_dict[((int(end_stage) - 1) % n) + 1]
+        end_stage = stage_dict_end[((int(end_stage) - 1) % n) + 1]
 
         new_column_name = f"{cei} {start_stage}-{end_stage}"
 

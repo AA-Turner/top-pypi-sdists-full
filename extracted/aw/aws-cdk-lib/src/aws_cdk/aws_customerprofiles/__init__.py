@@ -4607,6 +4607,7 @@ class CfnIntegration(
                 key="key",
                 value="value"
             )],
+            scope="scope",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -4617,7 +4618,7 @@ class CfnIntegration(
 
     def __init__(
         self,
-        scope: "_constructs_77d1e7e8.Construct",
+        scope_: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         domain_name: builtins.str,
@@ -4625,24 +4626,26 @@ class CfnIntegration(
         flow_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         object_type_name: typing.Optional[builtins.str] = None,
         object_type_names: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ObjectTypeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        scope: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::CustomerProfiles::Integration``.
 
-        :param scope: Scope in which this resource is defined.
+        :param scope_: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param domain_name: The unique name of the domain.
         :param event_trigger_names: A list of unique names for active event triggers associated with the integration.
         :param flow_definition: The configuration that controls how Customer Profiles retrieves data from the source.
         :param object_type_name: The name of the profile object type mapping to use.
         :param object_type_names: The object type mapping.
+        :param scope: Scope of the integration, such as 'PROFILE' or 'DOMAIN'.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param uri: The URI of the S3 bucket or any other type of data source.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8211c08b95eabfe008b27ab5b3b74bab34f671b7bd9761e15cdb090da9d3d95)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnIntegrationProps(
             domain_name=domain_name,
@@ -4650,11 +4653,12 @@ class CfnIntegration(
             flow_definition=flow_definition,
             object_type_name=object_type_name,
             object_type_names=object_type_names,
+            scope=scope,
             tags=tags,
             uri=uri,
         )
 
-        jsii.create(self.__class__, self, [scope, id, props])
+        jsii.create(self.__class__, self, [scope_, id, props])
 
     @jsii.member(jsii_name="isCfnIntegration")
     @builtins.classmethod
@@ -4810,6 +4814,19 @@ class CfnIntegration(
             type_hints = typing.get_type_hints(_typecheckingstub__d19e3d184d030db553288fb9b5bf060b201c3b429358e9c4818b39453b44a060)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "objectTypeNames", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scope")
+    def scope(self) -> typing.Optional[builtins.str]:
+        '''Scope of the integration, such as 'PROFILE' or 'DOMAIN'.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scope"))
+
+    @scope.setter
+    def scope(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5951782c5dfd20dcc37da8ca97c3d2eb2923765a97d07febacc1724681ff339a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -6461,6 +6478,7 @@ class CfnIntegration(
         "flow_definition": "flowDefinition",
         "object_type_name": "objectTypeName",
         "object_type_names": "objectTypeNames",
+        "scope": "scope",
         "tags": "tags",
         "uri": "uri",
     },
@@ -6474,6 +6492,7 @@ class CfnIntegrationProps:
         flow_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         object_type_name: typing.Optional[builtins.str] = None,
         object_type_names: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ObjectTypeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        scope: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -6484,6 +6503,7 @@ class CfnIntegrationProps:
         :param flow_definition: The configuration that controls how Customer Profiles retrieves data from the source.
         :param object_type_name: The name of the profile object type mapping to use.
         :param object_type_names: The object type mapping.
+        :param scope: Scope of the integration, such as 'PROFILE' or 'DOMAIN'.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param uri: The URI of the S3 bucket or any other type of data source.
 
@@ -6583,6 +6603,7 @@ class CfnIntegrationProps:
                     key="key",
                     value="value"
                 )],
+                scope="scope",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -6597,6 +6618,7 @@ class CfnIntegrationProps:
             check_type(argname="argument flow_definition", value=flow_definition, expected_type=type_hints["flow_definition"])
             check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
             check_type(argname="argument object_type_names", value=object_type_names, expected_type=type_hints["object_type_names"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6610,6 +6632,8 @@ class CfnIntegrationProps:
             self._values["object_type_name"] = object_type_name
         if object_type_names is not None:
             self._values["object_type_names"] = object_type_names
+        if scope is not None:
+            self._values["scope"] = scope
         if tags is not None:
             self._values["tags"] = tags
         if uri is not None:
@@ -6664,6 +6688,15 @@ class CfnIntegrationProps:
         '''
         result = self._values.get("object_type_names")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ObjectTypeMappingProperty"]]]], result)
+
+    @builtins.property
+    def scope(self) -> typing.Optional[builtins.str]:
+        '''Scope of the integration, such as 'PROFILE' or 'DOMAIN'.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-scope
+        '''
+        result = self._values.get("scope")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -6740,6 +6773,7 @@ class CfnObjectType(
             )],
             max_profile_object_count=123,
             source_last_updated_timestamp_format="sourceLastUpdatedTimestampFormat",
+            source_priority=123,
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -6763,6 +6797,7 @@ class CfnObjectType(
         keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.KeyMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         max_profile_object_count: typing.Optional[jsii.Number] = None,
         source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
+        source_priority: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_id: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -6780,6 +6815,7 @@ class CfnObjectType(
         :param keys: A list of keys that can be used to map data to the profile or search for the profile.
         :param max_profile_object_count: The amount of profile object max count assigned to the object type.
         :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
+        :param source_priority: Defines the priority order of object types. Lower value indicates higher priority.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
         '''
@@ -6798,6 +6834,7 @@ class CfnObjectType(
             keys=keys,
             max_profile_object_count=max_profile_object_count,
             source_last_updated_timestamp_format=source_last_updated_timestamp_format,
+            source_priority=source_priority,
             tags=tags,
             template_id=template_id,
         )
@@ -7037,6 +7074,19 @@ class CfnObjectType(
             type_hints = typing.get_type_hints(_typecheckingstub__bc577e5c0fd1bd47194e04599a6df995f066e809b7c98cb3b2e9ef839eaca0bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sourceLastUpdatedTimestampFormat", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourcePriority")
+    def source_priority(self) -> typing.Optional[jsii.Number]:
+        '''Defines the priority order of object types.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "sourcePriority"))
+
+    @source_priority.setter
+    def source_priority(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e2dccaa33976e8f3d995f17a23abe836ca88326cfac341af7300f473d6426834)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourcePriority", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7402,6 +7452,7 @@ class CfnObjectType(
         "keys": "keys",
         "max_profile_object_count": "maxProfileObjectCount",
         "source_last_updated_timestamp_format": "sourceLastUpdatedTimestampFormat",
+        "source_priority": "sourcePriority",
         "tags": "tags",
         "template_id": "templateId",
     },
@@ -7420,6 +7471,7 @@ class CfnObjectTypeProps:
         keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.KeyMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         max_profile_object_count: typing.Optional[jsii.Number] = None,
         source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
+        source_priority: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_id: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -7435,6 +7487,7 @@ class CfnObjectTypeProps:
         :param keys: A list of keys that can be used to map data to the profile or search for the profile.
         :param max_profile_object_count: The amount of profile object max count assigned to the object type.
         :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
+        :param source_priority: Defines the priority order of object types. Lower value indicates higher priority.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
 
@@ -7474,6 +7527,7 @@ class CfnObjectTypeProps:
                 )],
                 max_profile_object_count=123,
                 source_last_updated_timestamp_format="sourceLastUpdatedTimestampFormat",
+                source_priority=123,
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -7493,6 +7547,7 @@ class CfnObjectTypeProps:
             check_type(argname="argument keys", value=keys, expected_type=type_hints["keys"])
             check_type(argname="argument max_profile_object_count", value=max_profile_object_count, expected_type=type_hints["max_profile_object_count"])
             check_type(argname="argument source_last_updated_timestamp_format", value=source_last_updated_timestamp_format, expected_type=type_hints["source_last_updated_timestamp_format"])
+            check_type(argname="argument source_priority", value=source_priority, expected_type=type_hints["source_priority"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -7514,6 +7569,8 @@ class CfnObjectTypeProps:
             self._values["max_profile_object_count"] = max_profile_object_count
         if source_last_updated_timestamp_format is not None:
             self._values["source_last_updated_timestamp_format"] = source_last_updated_timestamp_format
+        if source_priority is not None:
+            self._values["source_priority"] = source_priority
         if tags is not None:
             self._values["tags"] = tags
         if template_id is not None:
@@ -7621,6 +7678,17 @@ class CfnObjectTypeProps:
         '''
         result = self._values.get("source_last_updated_timestamp_format")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_priority(self) -> typing.Optional[jsii.Number]:
+        '''Defines the priority order of object types.
+
+        Lower value indicates higher priority.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-sourcepriority
+        '''
+        result = self._values.get("source_priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -11415,7 +11483,7 @@ def _typecheckingstub__a9d2b6147273c603d09e90db3d8372049e484840bcff7a8dc8031fd2f
     pass
 
 def _typecheckingstub__b8211c08b95eabfe008b27ab5b3b74bab34f671b7bd9761e15cdb090da9d3d95(
-    scope: _constructs_77d1e7e8.Construct,
+    scope_: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     domain_name: builtins.str,
@@ -11423,6 +11491,7 @@ def _typecheckingstub__b8211c08b95eabfe008b27ab5b3b74bab34f671b7bd9761e15cdb090d
     flow_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     object_type_name: typing.Optional[builtins.str] = None,
     object_type_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.ObjectTypeMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scope: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -11473,6 +11542,12 @@ def _typecheckingstub__6ac4be2e5060d6806d086adb14efc1af2df364f07423ea56e6af2958c
 
 def _typecheckingstub__d19e3d184d030db553288fb9b5bf060b201c3b429358e9c4818b39453b44a060(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnIntegration.ObjectTypeMappingProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5951782c5dfd20dcc37da8ca97c3d2eb2923765a97d07febacc1724681ff339a(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11640,6 +11715,7 @@ def _typecheckingstub__52bfebce0bd12cb9d9ed6354b0627c3f2946899ecf1ba8120aa70c1e1
     flow_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     object_type_name: typing.Optional[builtins.str] = None,
     object_type_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.ObjectTypeMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    scope: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -11660,6 +11736,7 @@ def _typecheckingstub__e58419cb0a7694b5c554275a8721df95dc40489e742a23c76f7830ca5
     keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.KeyMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     max_profile_object_count: typing.Optional[jsii.Number] = None,
     source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
+    source_priority: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_id: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -11744,6 +11821,12 @@ def _typecheckingstub__bc577e5c0fd1bd47194e04599a6df995f066e809b7c98cb3b2e9ef839
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e2dccaa33976e8f3d995f17a23abe836ca88326cfac341af7300f473d6426834(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__034fbef34b9c45ddeef371cddf129b147eb3c6d5cb089d2a874dec871d849617(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -11801,6 +11884,7 @@ def _typecheckingstub__674aff1f8e16a6059ac0e56bfd831b21c20b3b3358878f53ea82ff2ee
     keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.KeyMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     max_profile_object_count: typing.Optional[jsii.Number] = None,
     source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
+    source_priority: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_id: typing.Optional[builtins.str] = None,
 ) -> None:

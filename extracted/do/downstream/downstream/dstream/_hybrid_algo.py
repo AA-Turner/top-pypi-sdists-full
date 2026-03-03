@@ -1,3 +1,4 @@
+import itertools as it
 import numbers
 import typing
 
@@ -399,7 +400,12 @@ class hybrid_algo:
             end_chunk = self._fenceposts[index + 1]
             span_chunk_length = end_chunk - begin_chunk
 
-            for Tbar in algo.lookup_ingest_times(span_length, adj_T):
+            ingest_times = (  # safely handle case where algo
+                it.repeat(None, span_length)  # has no ingest capacity,
+                if adj_T == 0  # ... but hasn't been written to yet
+                else algo.lookup_ingest_times(span_length, adj_T)
+            )
+            for Tbar in ingest_times:
                 if Tbar is not None:
                     yield begin_chunk + (
                         (Tbar // span_chunk_length) * num_chunks

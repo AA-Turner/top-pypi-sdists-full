@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Protocol
+from typing import cast, Protocol
 import logging
 import os
 import pathlib
 
 __all__ = ["Path"]
+
 logger = logging.getLogger(__name__)
+
 epath_installed: bool
+
 
 class PathProtocol(Protocol):
   """A factory that creates a PurePath."""
@@ -57,4 +60,4 @@ def make_jax_dump_dir(out_dir_path: str) -> pathlib.Path | None:
       )
   out_dir = Path(out_dir_path)
   out_dir.mkdir(parents=True, exist_ok=True)
-  return out_dir
+  return cast(pathlib.Path, out_dir)  # type: ignore[redundant-cast]

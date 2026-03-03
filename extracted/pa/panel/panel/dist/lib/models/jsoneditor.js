@@ -48,8 +48,8 @@ export class JSONEditorView extends HTMLBoxView {
         return styles;
     }
     remove() {
+        this.editor?.destroy();
         super.remove();
-        this.editor.destroy();
     }
     render() {
         super.render();

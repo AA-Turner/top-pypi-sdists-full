@@ -174,7 +174,7 @@ def _shortest_common_supersequence_ids(thread_ids: list[str], chain_ids: list[st
     return merged_ids
 
 
-def merge_thread_and_chain_history(
+def _merge_thread_and_chain_history(
     thread_history: list[dict[str, Any]],
     chain_history: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -414,11 +414,17 @@ async def derive_conversation_context(
     fetch_history: _FetchThreadHistory,
 ) -> tuple[bool, str | None, list[dict[str, Any]]]:
     """Derive conversation context from threads or reply chains."""
-    if event_info.thread_id:
-        thread_history = await fetch_history(client, room_id, event_info.thread_id)
-        return True, event_info.thread_id, thread_history
+    thread_root_id = event_info.thread_id
+    if thread_root_id is None and event_info.is_edit:
+        # Edit events use top-level m.replace, but thread relation may still
+        # exist in m.new_content for thread edits.
+        thread_root_id = event_info.thread_id_from_edit
+    if thread_root_id is not None:
+        thread_history = await fetch_history(client, room_id, thread_root_id)
+        return True, thread_root_id, thread_history
 
-    if not event_info.reply_to_event_id:
+    reply_chain_seed = event_info.original_event_id if event_info.is_edit else event_info.reply_to_event_id
+    if not reply_chain_seed:
         return False, None, []
 
     (
@@ -432,7 +438,7 @@ async def derive_conversation_context(
         logger,
         fetch_history,
         room_id,
-        event_info.reply_to_event_id,
+        reply_chain_seed,
     )
     if points_to_thread:
         if is_full_thread_history:
@@ -440,7 +446,7 @@ async def derive_conversation_context(
 
         thread_history = await fetch_history(client, room_id, context_root_id)
         if chain_history:
-            thread_history = merge_thread_and_chain_history(thread_history, chain_history)
+            thread_history = _merge_thread_and_chain_history(thread_history, chain_history)
         return True, context_root_id, thread_history
 
     # Policy choice: reply-only chains are still treated as one conversation

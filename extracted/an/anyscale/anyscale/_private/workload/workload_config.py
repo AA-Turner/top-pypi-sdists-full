@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
 from anyscale._private.models import ImageURI, ModelBase
+from anyscale._private.models.integrations import ConnectionConfig, ConnectionType
 from anyscale.compute_config.models import (
     compute_config_type_from_dict,
     ComputeConfig,
@@ -224,3 +225,38 @@ class WorkloadConfig(ModelBase):
                 raise ValueError(
                     f"Invalid Ray version format: {ray_version}. Must be in the format 'X.Y.Z'."
                 )
+
+    connections: Optional[List[Union[ConnectionConfig, Dict]]] = field(
+        default=None,
+        metadata={
+            "docstring": "Connections to third-party integrations (e.g., Databricks) to associate with the workload. "
+            "This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com) to request enablement."
+        },
+    )
+
+    def _validate_connections(
+        self, connections: Optional[List[Union[ConnectionConfig, Dict]]]
+    ) -> Optional[List[ConnectionConfig]]:
+        if connections is None:
+            return None
+        if not isinstance(connections, list):
+            raise TypeError("'connections' must be a list.")
+
+        validated = []
+        for conn in connections:
+            if isinstance(conn, dict):
+                conn_copy = conn.copy()
+                if "connection_type" in conn_copy and isinstance(
+                    conn_copy["connection_type"], str
+                ):
+                    conn_copy["connection_type"] = ConnectionType.validate(
+                        conn_copy["connection_type"]
+                    )
+                validated.append(ConnectionConfig.from_dict(conn_copy))
+            elif isinstance(conn, ConnectionConfig):
+                validated.append(conn)
+            else:
+                raise TypeError(
+                    f"Each connection must be a ConnectionConfig or dict (got {type(conn)})."
+                )
+        return validated

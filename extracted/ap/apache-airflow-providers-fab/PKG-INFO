@@ -1,52 +1,52 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-fab
-Version: 3.3.0
+Version: 3.4.0
 Summary: Provider package apache-airflow-providers-fab for Apache Airflow
-Keywords: airflow-provider,fab,airflow,integration
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.4.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.4.0/changelog.html
+Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
+Project-URL: Source Code, https://github.com/apache/airflow
+Project-URL: Slack Chat, https://s.apache.org/airflow-slack
+Project-URL: Mastodon, https://fosstodon.org/@airflow
+Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
-Requires-Python: >=3.10,!=3.13
-Description-Content-Type: text/x-rst
 License-Expression: Apache-2.0
+License-File: 3rd-party-licenses/LICENSES-ui.txt
+License-File: LICENSE
+License-File: NOTICE
+Keywords: airflow,airflow-provider,fab,integration
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
-License-File: 3rd-party-licenses/LICENSES-ui.txt
-License-File: LICENSE
-License-File: NOTICE
-Requires-Dist: apache-airflow>=3.0.2
+Requires-Python: !=3.13,>=3.10
 Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
+Requires-Dist: apache-airflow>=3.0.2
 Requires-Dist: blinker>=1.6.2; python_version < '3.13'
-Requires-Dist: flask>=2.2.1,<2.3; python_version < '3.13'
+Requires-Dist: cachetools>=6.0; python_version < '3.13'
+Requires-Dist: connexion[flask]<3.0,>=2.14.2; python_version < '3.13'
 Requires-Dist: flask-appbuilder==5.0.1; python_version < '3.13'
+Requires-Dist: flask-limiter!=3.13,<4,>3
 Requires-Dist: flask-login>=0.6.2; python_version < '3.13'
 Requires-Dist: flask-session>=0.8.0; python_version < '3.13'
-Requires-Dist: msgpack>=1.0.0; python_version < '3.13'
 Requires-Dist: flask-sqlalchemy>=3.0.5; python_version < '3.13'
 Requires-Dist: flask-wtf>=1.1.0; python_version < '3.13'
-Requires-Dist: connexion[flask]>=2.14.2,<3.0; python_version < '3.13'
+Requires-Dist: flask<2.3,>=2.2.1; python_version < '3.13'
 Requires-Dist: jmespath>=0.7.0; python_version < '3.13'
-Requires-Dist: werkzeug>=2.2,<4; python_version < '3.13'
-Requires-Dist: wtforms>=3.0,<4; python_version < '3.13'
-Requires-Dist: cachetools>=6.0; python_version < '3.13'
-Requires-Dist: flask_limiter>3,<4,!=3.13
-Requires-Dist: kerberos>=1.3.0 ; extra == "kerberos" and ( python_version < '3.13')
-Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0
-Project-URL: Mastodon, https://fosstodon.org/@airflow
-Project-URL: Slack Chat, https://s.apache.org/airflow-slack
-Project-URL: Source Code, https://github.com/apache/airflow
-Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Requires-Dist: msgpack>=1.0.0; python_version < '3.13'
+Requires-Dist: werkzeug<4,>=2.2; python_version < '3.13'
+Requires-Dist: wtforms<4,>=3.0; python_version < '3.13'
 Provides-Extra: kerberos
+Requires-Dist: kerberos>=1.3.0; (python_version < '3.13') and extra == 'kerberos'
+Description-Content-Type: text/x-rst
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -73,7 +73,7 @@ Provides-Extra: kerberos
 
 Package ``apache-airflow-providers-fab``
 
-Release: ``3.3.0``
+Release: ``3.4.0``
 
 
 `Flask App Builder <https://flask-appbuilder.readthedocs.io/>`__
@@ -86,7 +86,7 @@ This is a provider package for ``fab`` provider. All classes for this provider p
 are in ``airflow.providers.fab`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.4.0/>`_.
 
 Installation
 ------------
@@ -150,5 +150,4 @@ Extra         Dependencies
 ============  ============================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.3.0/changelog.html>`_.
-
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.4.0/changelog.html>`_.

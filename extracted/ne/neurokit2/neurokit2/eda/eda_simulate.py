@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from ..misc import check_random_state, check_random_state_children
@@ -149,7 +148,7 @@ def _eda_simulate_scr(sampling_rate=1000, length=None, time_peak=3.0745, rise=0.
         length = 9 * sampling_rate
     t = np.linspace(sampling_rate / 10000, 90, length)
 
-    gt = np.exp(-((t - time_peak) ** 2) / (2 * rise ** 2))
+    gt = np.exp(-((t - time_peak) ** 2) / (2 * rise**2))
     ht = np.exp(-t / decay[0]) + np.exp(-t / decay[1])  # pylint: disable=E1130
 
     ft = np.convolve(gt, ht)

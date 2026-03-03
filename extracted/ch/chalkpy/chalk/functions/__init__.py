@@ -22,7 +22,7 @@ from chalk.functions.proto import (
     proto_timestamp_to_datetime,
 )
 from chalk.ml.model_version import ModelVersion
-from chalk.utils.duration import parse_chalk_duration
+from chalk.utils.duration import parse_chalk_duration_s
 
 ########################################################################################################################
 # String Functions                                                                                                     #
@@ -4765,7 +4765,7 @@ def _get_chalk_bucket_n(value: Underscore, bucket_duration: str, initial_bucket_
     if bucket_duration in {"all", "infinity"}:
         raise ValueError(f"Invalid bucket duration for `current_bucket_start`: {bucket_duration}")
 
-    bucket_duration_seconds = parse_chalk_duration(bucket_duration).total_seconds()
+    bucket_duration_seconds = parse_chalk_duration_s(bucket_duration)
 
     if bucket_duration_seconds <= 0:
         raise ValueError("Bucket duration must be greater than 0.")

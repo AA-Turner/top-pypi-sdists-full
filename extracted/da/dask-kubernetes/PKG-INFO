@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask-kubernetes
-Version: 2025.7.0
+Version: 2026.3.0
 Summary: Native Kubernetes integration for Dask
 Project-URL: Homepage, https://github.com/dask/dask-kubernetes
 Maintainer: Jacob Tomlinson

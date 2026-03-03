@@ -227,7 +227,7 @@ class WorkspaceReference:
     def __init__(self, *, workspace_id: builtins.str) -> None:
         '''A reference to a Workspace resource.
 
-        :param workspace_id: The Id of the Workspace resource.
+        :param workspace_id: The WorkspaceId of the Workspace resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -250,7 +250,7 @@ class WorkspaceReference:
 
     @builtins.property
     def workspace_id(self) -> builtins.str:
-        '''The Id of the Workspace resource.'''
+        '''The WorkspaceId of the Workspace resource.'''
         result = self._values.get("workspace_id")
         assert result is not None, "Required property 'workspace_id' is missing"
         return typing.cast(builtins.str, result)

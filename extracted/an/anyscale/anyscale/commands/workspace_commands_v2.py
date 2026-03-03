@@ -653,7 +653,10 @@ def create(  # noqa: PLR0913, PLR0912, C901
         if not pathlib.Path(config_file).is_file():
             raise click.ClickException(f"Config file '{config_file}' not found.")
 
-        config = WorkspaceConfig.from_yaml(config_file)
+        try:
+            config = WorkspaceConfig.from_yaml(config_file)
+        except (TypeError, ValueError) as e:
+            raise click.ClickException(str(e)) from None
     else:
         config = WorkspaceConfig()
 
@@ -714,7 +717,10 @@ def create(  # noqa: PLR0913, PLR0912, C901
         if tag_map:
             config = config.options(tags=tag_map)
 
-    anyscale.workspace.create(config,)
+    try:
+        anyscale.workspace.create(config,)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
 
 
 @workspace_cli.command(
@@ -753,7 +759,10 @@ def start(
 id should be used, specifying both will result in an error.
     """
     _validate_workspace_name_and_id(name=name, id=id)
-    anyscale.workspace.start(name=name, id=id, cloud=cloud, project=project)
+    try:
+        anyscale.workspace.start(name=name, id=id, cloud=cloud, project=project)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
 
 
 @workspace_cli.command(
@@ -1545,7 +1554,10 @@ def update(  # noqa: PLR0913, PLR0912
         if not pathlib.Path(config_file).is_file():
             raise click.ClickException(f"Config file '{config_file}' not found.")
 
-        config = UpdateWorkspaceConfig.from_yaml(config_file)
+        try:
+            config = UpdateWorkspaceConfig.from_yaml(config_file)
+        except (TypeError, ValueError) as e:
+            raise click.ClickException(str(e)) from None
     else:
         config = UpdateWorkspaceConfig()
 
@@ -1595,7 +1607,10 @@ def update(  # noqa: PLR0913, PLR0912
             config = config.options(env_vars=env_dict)
 
     # Apply the update
-    anyscale.workspace.update(id=workspace_id, config=config)
+    try:
+        anyscale.workspace.update(id=workspace_id, config=config)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
 
 
 @workspace_cli.command(

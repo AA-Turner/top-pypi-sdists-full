@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pandas as pd
 
 from ..misc import as_vector
@@ -11,9 +10,7 @@ from .ppg_plot import ppg_plot
 from .ppg_quality import ppg_quality
 
 
-def ppg_process(
-    ppg_signal, sampling_rate=1000, method="elgendi", method_quality="templatematch", report=None, **kwargs
-):
+def ppg_process(ppg_signal, sampling_rate=1000, method="elgendi", method_quality="templatematch", report=None, **kwargs):
     """**Process a photoplethysmogram (PPG)  signal**
 
     Convenience function that automatically processes a photoplethysmogram signal.
@@ -78,26 +75,18 @@ def ppg_process(
 
     # Clean signal
     ppg_cleaned = ppg_clean(
-        ppg_signal,
-        sampling_rate=sampling_rate,
-        method=methods["method_cleaning"],
-        **methods["kwargs_cleaning"]
+        ppg_signal, sampling_rate=sampling_rate, method=methods["method_cleaning"], **methods["kwargs_cleaning"]
     )
 
     # Find peaks
     peaks_signal, info = ppg_peaks(
-        ppg_cleaned,
-        sampling_rate=sampling_rate,
-        method=methods["method_peaks"],
-        **methods["kwargs_peaks"]
+        ppg_cleaned, sampling_rate=sampling_rate, method=methods["method_peaks"], **methods["kwargs_peaks"]
     )
 
     info["sampling_rate"] = sampling_rate  # Add sampling rate in dict info
 
     # Rate computation
-    rate = signal_rate(
-        info["PPG_Peaks"], sampling_rate=sampling_rate, desired_length=len(ppg_cleaned)
-    )
+    rate = signal_rate(info["PPG_Peaks"], sampling_rate=sampling_rate, desired_length=len(ppg_cleaned))
 
     # Assess signal quality
     quality = ppg_quality(
@@ -105,7 +94,7 @@ def ppg_process(
         peaks=info["PPG_Peaks"],
         sampling_rate=sampling_rate,
         method=methods["method_quality"],
-        **methods["kwargs_quality"]
+        **methods["kwargs_quality"],
     )
 
     # Prepare output

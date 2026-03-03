@@ -160,7 +160,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "enumfields": ((2, 0), (2, 1)),  # django-enumfields
     "falcon": ((3, 0), (4, 0)),
     "falcon_multipart": ((0, 1), (0, 2)),
-    "fastapi": ((0, 71), (0, 128)),
+    "fastapi": ((0, 71), (0, 133)),
     "flask": ((1, 1), (3, 1)),
     "genshi": ((0, 7), (0, 7)),
     "graphene": ((3, 4), (3, 4)),

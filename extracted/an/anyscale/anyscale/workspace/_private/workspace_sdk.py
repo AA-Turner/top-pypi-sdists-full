@@ -142,6 +142,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             build_id = self._image_sdk.build_image_from_containerfile(
                 name=f"image-for-workspace-{name}",
                 containerfile=self.get_containerfile_contents(config.containerfile),
+                containerfile_path=config.containerfile,
                 ray_version=config.ray_version,
             )
         elif config.image_uri is not None:
@@ -753,6 +754,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             build_id = self._image_sdk.build_image_from_containerfile(
                 name=f"image-for-workspace-{name}",
                 containerfile=self.get_containerfile_contents(config.containerfile),
+                containerfile_path=config.containerfile,
                 ray_version=config.ray_version,
             )
         elif config.image_uri is not None:

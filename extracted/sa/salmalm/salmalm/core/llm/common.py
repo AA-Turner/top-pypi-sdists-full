@@ -69,7 +69,7 @@ def _http_post(url: str, headers: Dict[str, str], body: dict, timeout: int = 120
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read(4 * 1024 * 1024).decode("utf-8"))
+                return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
             # Mask potential API keys in error body
@@ -98,7 +98,7 @@ def _http_get(url: str, headers: Optional[Dict[str, str]] = None, timeout: int =
     h.setdefault("User-Agent", _UA)
     req = urllib.request.Request(url, headers=h)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read(4 * 1024 * 1024).decode("utf-8"))  # type: ignore[no-any-return]
+        return json.loads(resp.read().decode("utf-8"))  # type: ignore[no-any-return]
 
 
 _OPENROUTER_PROVIDERS = frozenset(("deepseek", "meta-llama", "mistralai", "qwen"))

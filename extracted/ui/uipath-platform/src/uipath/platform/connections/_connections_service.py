@@ -665,8 +665,11 @@ class ConnectionsService(BaseService):
             ValueError: If required parameters are missing or invalid
             RuntimeError: If the HTTP request fails or returns an error status
         """
+        connection = self.retrieve(connection_id)
+        folder_key = connection.folder.get("key") if connection.folder else None
+
         spec = self._build_activity_request_spec(
-            activity_metadata, connection_id, activity_input
+            activity_metadata, connection.id, activity_input, folder_key
         )
 
         response = self.request(
@@ -704,8 +707,11 @@ class ConnectionsService(BaseService):
             ValueError: If required parameters are missing or invalid
             RuntimeError: If the HTTP request fails or returns an error status
         """
+        connection = await self.retrieve_async(connection_id)
+        folder_key = connection.folder.get("key") if connection.folder else None
+
         spec = self._build_activity_request_spec(
-            activity_metadata, connection_id, activity_input
+            activity_metadata, connection.id, activity_input, folder_key
         )
 
         response = await self.request_async(
@@ -724,6 +730,7 @@ class ConnectionsService(BaseService):
         activity_metadata: ActivityMetadata,
         connection_id: str,
         activity_input: Dict[str, Any],
+        folder_key: Optional[str] = None,
     ) -> RequestSpec:
         """Build the request specification for invoking an activity."""
         url = f"/elements_/v3/element/instances/{connection_id}{activity_metadata.object_path}"
@@ -767,6 +774,7 @@ class ConnectionsService(BaseService):
         headers = {
             "x-uipath-originator": "uipath-python",
             "x-uipath-source": "uipath-python",
+            **header_folder(folder_key, None),
             **header_params,
         }
 

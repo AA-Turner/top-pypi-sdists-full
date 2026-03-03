@@ -1,7 +1,7 @@
 from AOT_biomaps.Config import config
 from ._mainAcoustic import AcousticField
 from .AcousticEnums import TypeSim, WaveType
-from .AcousticTools import detect_space_0_and_space_1, getAngle
+from .AcousticTools import detect_space_0_and_space_1, getAngle, getFrequency
 from .AcousticTools import hex_to_binary_profile
 
 import os
@@ -126,7 +126,7 @@ class StructuredWave(AcousticField):
                 raise ValueError("Invalid pattern parameters, must provide either fileName or all space/move parameters.")
             
             self.pattern.len_hex = self.params.acoustic['probe']['num_elements'] // 4
-            self.f_s = self._getDecimationFrequency()
+            self.f_s = getFrequency(fileName, self.params.acoustic['probe']['num_elements'], self.params.general['dx'])
 
             if self.angle < -20 or self.angle > 20:
                 raise ValueError("Angle must be between -20 and 20 degrees.")
@@ -152,32 +152,6 @@ class StructuredWave(AcousticField):
         except Exception as e:
             print(f"Error generating file path: {e}")
             return None
-
-    def _getDecimationFrequency(self):
-            """
-            Calculate the decimation frequency based on the pattern parameters.
-
-            Returns:
-                int: Decimation frequency.
-            """
-            try:
-                profile = hex_to_binary_profile(self.getName_field()[6:-4], self.params.acoustic['probe']['num_elements'])
-
-                if set(self.getName_field()[6:-4].lower().replace(" ", "")) == {'f'}:
-                    fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
-                else:   
-                    ft_prof = np.fft.fft(profile)
-                    idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
-                    freqs = np.fft.fftfreq(len(profile), d=self.params.general['dx'])
-
-                    # freqs est en m^-1 car delta_x est en mètres.
-                    fs_m_inv = abs(freqs[idx_max]) 
-
-                    fs_key = fs_m_inv # Fréquence spatiale en mm^-1
-                return  int(fs_key / (1/(len(profile)*self.params.general['dx'])))
-            except Exception as e:
-                print(f"Error calculating decimation frequency: {e}")
-                return None
 
     ## PRIVATE METHODS ##
 

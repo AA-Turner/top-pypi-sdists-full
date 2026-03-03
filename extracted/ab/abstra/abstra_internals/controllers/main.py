@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import json
 import pkgutil
@@ -5,7 +7,7 @@ from multiprocessing import Pipe
 from pathlib import Path
 from shutil import move
 from tempfile import mkdtemp, mktemp
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 from uuid import uuid4
 
 import flask
@@ -47,7 +49,6 @@ from abstra_internals.repositories.keyvalue import KVRepository
 from abstra_internals.repositories.passwordless import PasswordlessRepository
 from abstra_internals.repositories.producer import ProducerRepository
 from abstra_internals.repositories.project.project import (
-    AgentStage,
     FormStage,
     HookStage,
     JobStage,
@@ -65,7 +66,6 @@ from abstra_internals.settings import Settings
 from abstra_internals.templates import (
     ensure_dotenv,
     ensure_gitignore,
-    new_agent_code,
     new_form_code,
     new_hook_code,
     new_job_code,
@@ -204,7 +204,7 @@ class MainController:
         project = self.repositories.project.load()
         return project.get_workspace()
 
-    def get_stage(self, id: str) -> Optional[Stage]:
+    def get_stage(self, id: str) -> Stage | None:
         """
         Retrieve a specific workflow stage by its unique identifier.
 
@@ -263,10 +263,10 @@ class MainController:
     def _read_file_lines_with_pagination(
         self,
         file_path: Path,
-        start_line: Optional[int],
-        end_line: Optional[int],
+        start_line: int | None,
+        end_line: int | None,
         max_lines: int,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Private helper method to read file lines with pagination support.
 
@@ -289,7 +289,7 @@ class MainController:
         try:
             with file_path.open("r", encoding="utf-8") as f:
                 total_lines = sum(1 for _ in f)
-        except (IOError, OSError) as e:
+        except OSError as e:
             AbstraLogger.error(f"Failed to read file {file_path}: {e}")
             return None
         except UnicodeDecodeError as e:
@@ -327,7 +327,7 @@ class MainController:
                 num_lines = actual_end - actual_start + 1
                 content_lines = list(islice(f, start_idx, start_idx + num_lines))
                 content = "".join(content_lines)
-        except (IOError, OSError) as e:
+        except OSError as e:
             AbstraLogger.error(f"Failed to read file {file_path}: {e}")
             return None
         except UnicodeDecodeError as e:
@@ -346,8 +346,8 @@ class MainController:
     def read_stage_file_with_pagination(
         self,
         id: str,
-        start_line: Optional[int] = None,
-        end_line: Optional[int] = None,
+        start_line: int | None = None,
+        end_line: int | None = None,
         max_lines: int = 500,
     ):
         """
@@ -517,8 +517,8 @@ class MainController:
     def read_file_with_pagination(
         self,
         file: str,
-        start_line: Optional[int] = None,
-        end_line: Optional[int] = None,
+        start_line: int | None = None,
+        end_line: int | None = None,
         max_lines: int = 500,
     ):
         """
@@ -656,7 +656,7 @@ class MainController:
         """
         return Settings.root_path.joinpath(file_path).is_file()
 
-    def check_multiple_files_exists(self, file_paths: List[str]):
+    def check_multiple_files_exists(self, file_paths: list[str]):
         """
         Check the existence of multiple files in the project workspace.
 
@@ -844,7 +844,7 @@ class MainController:
 
     def query_files_with_glob(
         self, query: str, glob: str
-    ) -> List[Tuple[str, int, str]]:
+    ) -> list[tuple[str, int, str]]:
         """
         Search for a query string in files matching a glob pattern.
 
@@ -1005,7 +1005,7 @@ class MainController:
                         # Early exit if we have enough matches for return
                         if len(matches) > max_matches + 100:  # Keep some buffer
                             break
-        except (IOError, OSError) as e:
+        except OSError as e:
             AbstraLogger.error(f"Failed to read file {file_path}: {e}")
             return None
         except UnicodeDecodeError as e:
@@ -1017,7 +1017,7 @@ class MainController:
             try:
                 with file_path.open("r", encoding="utf-8") as f:
                     total_lines = sum(1 for _ in f)
-            except (IOError, OSError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError):
                 pass  # Use the line count we have
 
         total_matches = len(matches)
@@ -1042,7 +1042,7 @@ class MainController:
                         islice(f, start_idx, start_idx + num_lines)
                     )
                     context = "".join(context_lines_list)
-            except (IOError, OSError, UnicodeDecodeError) as e:
+            except (OSError, UnicodeDecodeError) as e:
                 AbstraLogger.error(f"Failed to read context for {file_path}: {e}")
                 context = match_text
 
@@ -1065,7 +1065,7 @@ class MainController:
             "matches": result_matches,
         }
 
-    def update_workspace(self, changes: Dict[str, Any]):
+    def update_workspace(self, changes: dict[str, Any]):
         """
         Update workspace branding and styling settings.
 
@@ -1117,8 +1117,8 @@ class MainController:
         self,
         title: str,
         file: str,
-        workflow_position: Tuple[int, int] = (0, 0),
-        id: Optional[str] = None,
+        workflow_position: tuple[int, int] = (0, 0),
+        id: str | None = None,
     ) -> ScriptStage:
         """
         Create a new tasklet stage in the project workflow.
@@ -1179,14 +1179,14 @@ class MainController:
 
         return script
 
-    def get_scripts(self) -> List[ScriptStage]:
+    def get_scripts(self) -> list[ScriptStage]:
         project = self.repositories.project.load()
         scripts = project.get_scripts()
 
         sorted_scripts = sorted(scripts, key=lambda s: s.title.lower())
         return sorted_scripts
 
-    def get_script(self, id: str) -> Optional[ScriptStage]:
+    def get_script(self, id: str) -> ScriptStage | None:
         project = self.repositories.project.load()
         return project.get_script(id)
 
@@ -1194,8 +1194,8 @@ class MainController:
         self,
         title: str,
         file: str,
-        workflow_position: Tuple[int, int] = (0, 0),
-        id: Optional[str] = None,
+        workflow_position: tuple[int, int] = (0, 0),
+        id: str | None = None,
     ) -> FormStage:
         """
         Create a new form stage in the project workflow.
@@ -1251,18 +1251,18 @@ class MainController:
         self.repositories.project.save(project)
         return form
 
-    def get_forms(self) -> List[FormStage]:
+    def get_forms(self) -> list[FormStage]:
         project = self.repositories.project.load()
         forms = project.get_forms()
 
         sorted_forms = sorted(forms, key=lambda f: f.title.lower())
         return sorted_forms
 
-    def get_form(self, id: str) -> Optional[FormStage]:
+    def get_form(self, id: str) -> FormStage | None:
         project = self.repositories.project.load()
         return project.get_form(id)
 
-    def get_form_by_path(self, path: str) -> Optional[FormStage]:
+    def get_form_by_path(self, path: str) -> FormStage | None:
         project = self.repositories.project.load()
         return project.get_form_by_path(path)
 
@@ -1318,8 +1318,8 @@ class MainController:
         self,
         title: str,
         file: str,
-        workflow_position: Tuple[int, int] = (0, 0),
-        id: Optional[str] = None,
+        workflow_position: tuple[int, int] = (0, 0),
+        id: str | None = None,
     ) -> HookStage:
         """
         Create a new hook stage in the project workflow.
@@ -1377,22 +1377,22 @@ class MainController:
         self.repositories.project.save(project)
         return hook
 
-    def get_hook(self, id: str) -> Optional[HookStage]:
+    def get_hook(self, id: str) -> HookStage | None:
         project = self.repositories.project.load()
         return project.get_hook(id)
 
-    def get_hooks(self) -> List[HookStage]:
+    def get_hooks(self) -> list[HookStage]:
         project = self.repositories.project.load()
         hooks = project.get_hooks()
 
         sorted_hooks = sorted(hooks, key=lambda h: h.title.lower())
         return sorted_hooks
 
-    def get_hook_by_path(self, path: str) -> Optional[HookStage]:
+    def get_hook_by_path(self, path: str) -> HookStage | None:
         project = self.repositories.project.load()
         return project.get_hook_by_path(path)
 
-    def get_jobs(self, include_disabled_jobs: bool = False) -> List[JobStage]:
+    def get_jobs(self, include_disabled_jobs: bool = False) -> list[JobStage]:
         project = self.repositories.project.load(
             include_disabled_stages=include_disabled_jobs
         )
@@ -1401,7 +1401,7 @@ class MainController:
         sorted_jobs = sorted(jobs, key=lambda j: j.title.lower())
         return sorted_jobs
 
-    def get_job(self, id: str) -> Optional[JobStage]:
+    def get_job(self, id: str) -> JobStage | None:
         project = self.repositories.project.load()
         stage = project.get_stage(id)
 
@@ -1429,8 +1429,8 @@ class MainController:
         self,
         title: str,
         file: str,
-        workflow_position: Tuple[int, int] = (0, 0),
-        id: Optional[str] = None,
+        workflow_position: tuple[int, int] = (0, 0),
+        id: str | None = None,
     ) -> JobStage:
         """
         Create a new job stage in the project workflow.
@@ -1488,32 +1488,7 @@ class MainController:
         self.repositories.project.save(project)
         return job
 
-    def create_agent(
-        self,
-        title: str,
-        file: str,
-        workflow_position: Tuple[int, int] = (0, 0),
-        id: Optional[str] = None,
-    ) -> AgentStage:
-        project = self.repositories.project.load()
-        agent = AgentStage.create(
-            title, file, workflow_position=workflow_position, id=id
-        )
-        self.init_code_file(agent.file, new_agent_code)
-        project.add_stage(agent)
-        self.repositories.project.save(project)
-        return agent
-
-    def get_agents(self) -> List[AgentStage]:
-        project = self.repositories.project.load()
-        agents = project.get_agents()
-        return sorted(agents, key=lambda a: a.title.lower())
-
-    def get_agent(self, id: str) -> Optional[AgentStage]:
-        project = self.repositories.project.load()
-        return project.get_agent(id)
-
-    def update_stage(self, id: str, changes: Dict[str, Any]) -> Stage:
+    def update_stage(self, id: str, changes: dict[str, Any]) -> Stage:
         """
         Update properties of an existing workflow stage.
 
@@ -1608,7 +1583,7 @@ class MainController:
         self.repositories.project.save(project)
         return stage
 
-    def list_all_stages(self) -> List[Stage]:
+    def list_all_stages(self) -> list[Stage]:
         """
         Retrieve all workflow stages in the current project.
 
@@ -1657,7 +1632,7 @@ class MainController:
         return project.workflow_stages
 
     # Modules
-    def get_modules(self) -> List[str]:
+    def get_modules(self) -> list[str]:
         project = self.repositories.project.load()
         return [module.name for module in project.get_installed_modules()]
 
@@ -1738,7 +1713,7 @@ class MainController:
         return [s.to_access_dto() for s in project.secured_stages]
 
     def update_access_control(
-        self, id: str, is_public: bool, required_roles: List[str]
+        self, id: str, is_public: bool, required_roles: list[str]
     ):
         """
         Update access control settings for a specific stage or home page.
@@ -1782,7 +1757,7 @@ class MainController:
         self.repositories.project.save(project)
         return response[0] if response else None
 
-    def update_access_controls(self, changes: List[Dict[str, Any]]):
+    def update_access_controls(self, changes: list[dict[str, Any]]):
         project = self.repositories.project.load()
         response = project.update_access_controls(changes)
         self.repositories.project.save(project)
@@ -1799,7 +1774,7 @@ class MainController:
     def stop_execution(self, execution_id: str):
         self.execution_repository.stop_execution(execution_id)
 
-    def get_execution_logs(self, id: str) -> List[LogEntry]:
+    def get_execution_logs(self, id: str) -> list[LogEntry]:
         """
         Retrieve execution logs for a specific execution by its ID.
 
@@ -2143,40 +2118,6 @@ class MainController:
             if not hand_off:
                 conn.close()
 
-    def run_agent(self, id: str, task_id: str):
-        """Run an agent stage immediately by its ID.
-
-        Enqueues the agent for execution via the producer/executor pool.
-        The agent's .md template is rendered with task data and executed
-        through the ReAct loop.
-
-        Args:
-            id: Unique identifier of the agent stage to run.
-            task_id: ID of the task that triggers this agent.
-
-        Returns:
-            Dict with ok=True and execution_id on success.
-        """
-        agent = self.get_agent(id)
-        if not agent:
-            raise Exception(f"Agent with id {id} not found")
-
-        conn = self.repositories.producer.enqueue(
-            id, context=ScriptContext(task_id=task_id)
-        )
-
-        try:
-            start_msg = conn.recv()
-
-            if isinstance(start_msg, str):
-                start_msg = json.loads(start_msg)
-
-            start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
-
-            return {"ok": True, "execution_id": start_msg.execution_id}
-        finally:
-            conn.close()
-
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
         """
         Run a code snippet immediately.
@@ -2207,7 +2148,7 @@ class MainController:
 
         return execution_result
 
-    def add_and_install_requirement(self, name: str, version: Optional[str] = None):
+    def add_and_install_requirement(self, name: str, version: str | None = None):
         """
         Add a requirement to requirements.txt and install it automatically.
 
@@ -2256,7 +2197,7 @@ class MainController:
         except Exception as e:
             return {
                 "status": "error",
-                "message": f"Installation failed: {str(e)}",
+                "message": f"Installation failed: {e!s}",
                 "output": installation_output,
                 "requirements": requirements.to_dict(),
             }

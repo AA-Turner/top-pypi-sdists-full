@@ -36,6 +36,7 @@ from jax._src import typing as jax_typing
 from jax._src import effects
 from jax._src import linear_util as lu
 from jax._src import pretty_printer as pp
+from jax._src import source_info_util
 from jax._src import state
 from jax._src import util
 from jax._src.interpreters import ad
@@ -388,9 +389,18 @@ load_p = jax_core.Primitive('masked_load')
 
 @load_p.def_effectful_abstract_eval
 def _load_abstract_eval(*avals_flat, args_tree, **_):
-  ref, transforms, _, _ = args_tree.unflatten(avals_flat)
+  ref_aval, transforms, mask_aval, _ = args_tree.unflatten(avals_flat)
   assert transforms is not None
-  transformed_ref = pallas_core.TransformedRef(ref, transforms)
+  transformed_ref = pallas_core.TransformedRef(ref_aval, transforms)
+  if mask_aval is not None:
+    try:
+      # pyrefly: ignore[no-matching-overload]
+      jnp.broadcast_shapes(transformed_ref.shape, mask_aval.shape)
+    except ValueError:
+      raise ValueError(
+          f"Cannot broadcast mask shape {mask_aval.shape} to load shape"
+          f" {transformed_ref.shape}"
+      )
   return (
       jax_core.ShapedArray(transformed_ref.shape, transformed_ref.dtype),
       {state.ReadEffect(0)},
@@ -404,8 +414,11 @@ def _load_pp_rule(eqn, context, settings):
       eqn.params["args_tree"], eqn.invars
   )
   # TODO(sharadmv): pretty print mask and other
+  annotation = (source_info_util.summarize(eqn.source_info)
+                if settings.source_info else None)
   lhs = jax_core.pp_vars([y], context, print_shapes=settings.print_shapes)
-  result = [lhs, pp.text(" <- "), sp.pp_ref_transforms(context, x, transforms)]
+  result = [lhs, pp.text(" <- ", annotation=annotation),
+            sp.pp_ref_transforms(context, x, transforms)]
   if mask is not None:
     result += [
         pp.text(" "),
@@ -496,18 +509,19 @@ def _load_discharge_rule(in_avals, out_avals, *args_flat, args_tree, **_):
   ref, transforms, mask, other = args_tree.unflatten(args_flat)
   transforms = list(transforms)
   if not transforms or not isinstance(transforms[-1], indexing.NDIndexer):
-    ref_shape = state.get_transforms_shape(transforms, in_avals[0].shape)
-    transforms.append(indexing.NDIndexer.make_trivial_indexer(ref_shape))
+    ref_aval = state.transform_type(transforms, in_avals[0])
+    assert isinstance(ref_aval, state.AbstractRef)
+    transforms.append(indexing.NDIndexer.make_trivial_indexer(ref_aval.shape))
   *prev_transforms, idx = transforms
   assert isinstance(idx, NDIndexer)
   ref = state_discharge.transform_array(ref, prev_transforms)
-  if all((isinstance(s, Slice) or not s.shape) for s in idx.indices):
+  if all((isinstance(s, Slice) or not s.shape) for s in idx.indices):  # pyrefly: ignore[missing-attribute]
     # TODO(ayx): support strided load/store in interpret mode.
     for s in idx.indices:
       if isinstance(s, Slice) and s.stride > 1:
         raise NotImplementedError("Unimplemented stride support.")
     indices = idx.indices
-    scalar_dims = [not isinstance(s, Slice) and not s.shape for s in indices]
+    scalar_dims = [not isinstance(s, Slice) and not s.shape for s in indices]  # pyrefly: ignore[missing-attribute]
     slice_starts = [s.start if isinstance(s, Slice) else s for s in indices]
     slice_sizes = tuple(s.size if isinstance(s, Slice) else 1 for s in indices)
     # fixes an inconsistency with lax.dynamic_slice where if the slice goes out
@@ -564,16 +578,19 @@ def _swap_pp_rule(eqn, context, settings):
   y, = eqn.outvars
   x, transforms, val, mask = eqn.params["args_tree"].unflatten(eqn.invars)
   x_i = sp.pp_ref_transforms(context, x, transforms)
+  annotation = (source_info_util.summarize(eqn.source_info)
+                if settings.source_info else None)
   if isinstance(y, jax_core.DropVar):
     return pp.concat([
         x_i,
-        pp.text(" <- "), pp.text(jax_core.pp_var(val, context))])
+        pp.text(" <- ", annotation=annotation),
+        pp.text(jax_core.pp_var(val, context))])
   y = jax_core.pp_vars([y], context, print_shapes=settings.print_shapes)
   result = [
       y,
       pp.text(", "),
       x_i,
-      pp.text(" <- "),
+      pp.text(" <- ", annotation=annotation),
       x_i,
       pp.text(", "),
       pp.text(jax_core.pp_var(val, context)),
@@ -615,12 +632,13 @@ def _swap_discharge_rule(in_avals, out_avals, *args_flat, args_tree, **_):
   ref, transforms, val, mask = args_tree.unflatten(args_flat)
   transforms = list(transforms)
   if not transforms or not isinstance(transforms[-1], indexing.NDIndexer):
-    ref_shape = state.get_transforms_shape(transforms, in_avals[0].shape)
-    transforms.append(indexing.NDIndexer.make_trivial_indexer(ref_shape))
+    ref_aval = state.transform_type(transforms, in_avals[0])
+    assert isinstance(ref_aval, state.AbstractRef)
+    transforms.append(indexing.NDIndexer.make_trivial_indexer(ref_aval.shape))
   *prev_transforms, idx = transforms
   assert isinstance(idx, NDIndexer)
   ref = state_discharge.transform_array(ref, prev_transforms)
-  if all((isinstance(s, Slice) or not s.shape) for s in idx.indices):
+  if all((isinstance(s, Slice) or not s.shape) for s in idx.indices):  # pyrefly: ignore[missing-attribute]
     # TODO(ayx): support strided load/store in interpret mode.
     for s in idx.indices:
       if isinstance(s, Slice) and s.stride > 1:
@@ -629,7 +647,7 @@ def _swap_discharge_rule(in_avals, out_avals, *args_flat, args_tree, **_):
     scalar_dims = [
         i
         for i, s in enumerate(indices)
-        if not isinstance(s, Slice) and not s.shape
+        if not isinstance(s, Slice) and not s.shape  # pyrefly: ignore[missing-attribute]
     ]
     slice_starts = [s.start if isinstance(s, Slice) else s for s in indices]
     slice_sizes = tuple(s.size if isinstance(s, Slice) else 1 for s in indices)
@@ -999,8 +1017,10 @@ def _run_scoped_lowering_rule(ctx, *args, jaxpr, collective_axes):
     # Create inputs filled with uninitialized values to the body.
     num_consts = len(lower_fun_args)
     body_avals = [v.aval for v in discharged_body.invars[num_consts:]]
-    init_vals = [uninitialized_value(
-        aval.shape, aval.dtype) for aval in body_avals]
+    init_vals = [
+        # pyrefly: ignore[missing-attribute]
+        uninitialized_value(aval.shape, aval.dtype) for aval in body_avals
+    ]
     out = jax_core.eval_jaxpr(discharged_body, [], *lower_fun_args, *init_vals)
     return out[:num_return_values]
 

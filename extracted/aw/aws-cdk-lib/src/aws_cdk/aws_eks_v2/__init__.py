@@ -125,13 +125,13 @@ be created by default. It will only be deployed when `kubectlProviderOptions`
 property is used.**
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "hello-eks",
     version=eks.KubernetesVersion.V1_34,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV34Layer(self, "kubectl")
+        kubectl_layer=KubectlV35Layer(self, "kubectl")
     )
 )
 ```
@@ -437,7 +437,7 @@ eks.Cluster(self, "HelloEKS",
 To provide additional Helm chart values supported by `albController` in CDK, use the `additionalHelmChartValues` property. For example, the following code snippet shows how to set the `enableWafV2` flag:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "HelloEKS",
@@ -542,13 +542,13 @@ To create a `Kubectl Handler`, use `kubectlProviderOptions` when creating the cl
 `kubectlLayer` is the only required property in `kubectlProviderOptions`.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "hello-eks",
     version=eks.KubernetesVersion.V1_34,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV34Layer(self, "kubectl")
+        kubectl_layer=KubectlV35Layer(self, "kubectl")
     )
 )
 ```
@@ -577,13 +577,13 @@ cluster = eks.Cluster.from_cluster_attributes(self, "Cluster",
 You can configure the environment of this function by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
     version=eks.KubernetesVersion.V1_34,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV34Layer(self, "kubectl"),
+        kubectl_layer=KubectlV35Layer(self, "kubectl"),
         environment={
             "http_proxy": "http://proxy.myproxy.com"
         }
@@ -604,13 +604,13 @@ Depending on which version of kubernetes you're targeting, you will need to use 
 the `@aws-cdk/lambda-layer-kubectl-vXY` packages.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
     version=eks.KubernetesVersion.V1_34,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV34Layer(self, "kubectl")
+        kubectl_layer=KubectlV35Layer(self, "kubectl")
     )
 )
 ```
@@ -620,12 +620,12 @@ cluster = eks.Cluster(self, "hello-eks",
 By default, the kubectl provider is configured with 1024MiB of memory. You can use the `memory` option to specify the memory size for the AWS Lambda function:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "MyCluster",
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV34Layer(self, "kubectl"),
+        kubectl_layer=KubectlV35Layer(self, "kubectl"),
         memory=Size.gibibytes(4)
     ),
     version=eks.KubernetesVersion.V1_34
@@ -711,7 +711,7 @@ When you create an Amazon EKS cluster, you can configure it to leverage the [EKS
 Once you have identified the on-premises node and pod (optional) CIDRs you will use for your hybrid nodes and the workloads running on them, you can specify them during cluster creation using the `remoteNodeNetworks` and `remotePodNetworks` (optional) properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 
 eks.Cluster(self, "Cluster",
@@ -764,7 +764,7 @@ eks.AccessPolicy.from_access_policy_name("AmazonEKSAdminPolicy",
 Use `grantAccess()` to grant the AccessPolicy to an IAM principal:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 # vpc: ec2.Vpc
 
 
@@ -781,7 +781,7 @@ cluster = eks.Cluster(self, "Cluster",
     masters_role=cluster_admin_role,
     version=eks.KubernetesVersion.V1_34,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV34Layer(self, "kubectl"),
+        kubectl_layer=KubectlV35Layer(self, "kubectl"),
         memory=Size.gibibytes(4)
     )
 )
@@ -900,7 +900,7 @@ import aws_cdk.aws_s3 as s3
 # or create a new one using an existing issuer url
 # issuer_url: str
 
-from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 # you can import an existing provider
 provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -912,7 +912,7 @@ cluster = eks.Cluster.from_cluster_attributes(self, "MyCluster",
     cluster_name="Cluster",
     open_id_connect_provider=provider,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV34Layer(self, "kubectl")
+        kubectl_layer=KubectlV35Layer(self, "kubectl")
     )
 )
 
@@ -1540,6 +1540,7 @@ from ..aws_autoscaling import (
     BlockDevice as _BlockDevice_0cfc0568,
     CapacityDistributionStrategy as _CapacityDistributionStrategy_2393ccfe,
     CommonAutoScalingGroupProps as _CommonAutoScalingGroupProps_808bbf2d,
+    DeletionProtection as _DeletionProtection_3beb1830,
     GroupMetrics as _GroupMetrics_7cdf729b,
     HealthCheck as _HealthCheck_03a4bd5a,
     HealthChecks as _HealthChecks_b8757873,
@@ -3195,6 +3196,7 @@ class AlbScheme(enum.Enum):
         "capacity_rebalance": "capacityRebalance",
         "cooldown": "cooldown",
         "default_instance_warmup": "defaultInstanceWarmup",
+        "deletion_protection": "deletionProtection",
         "desired_capacity": "desiredCapacity",
         "group_metrics": "groupMetrics",
         "health_check": "healthCheck",
@@ -3233,6 +3235,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         capacity_rebalance: typing.Optional[builtins.bool] = None,
         cooldown: typing.Optional["_Duration_4839e8c3"] = None,
         default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
@@ -3268,6 +3271,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. Default: false
         :param cooldown: Default scaling cooldown for this AutoScalingGroup. Default: Duration.minutes(5)
         :param default_instance_warmup: The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics. This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics, resulting in more reliable usage data. Set this value equal to the amount of time that it takes for resource consumption to become stable after an instance reaches the InService state. To optimize the performance of scaling policies that scale continuously, such as target tracking and step scaling policies, we strongly recommend that you enable the default instance warmup, even if its value is set to 0 seconds Default instance warmup will not be added if no value is specified Default: None
+        :param deletion_protection: Deletion protection for the Auto Scaling group. Default: DeletionProtection.NONE
         :param desired_capacity: Initial amount of instances in the fleet. If this is set to a number, every deployment will reset the amount of instances to this number. It is recommended to leave this value blank. Default: minCapacity, and leave unchanged during deployment
         :param group_metrics: Enable monitoring for group metrics, these metrics describe the group rather than any of its instances. To report all group metrics use ``GroupMetrics.all()`` Group metrics are reported in a granularity of 1 minute at no additional charge. Default: - no group metrics will be reported
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
@@ -3322,6 +3326,7 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
             check_type(argname="argument capacity_rebalance", value=capacity_rebalance, expected_type=type_hints["capacity_rebalance"])
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument default_instance_warmup", value=default_instance_warmup, expected_type=type_hints["default_instance_warmup"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument group_metrics", value=group_metrics, expected_type=type_hints["group_metrics"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -3365,6 +3370,8 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
             self._values["cooldown"] = cooldown
         if default_instance_warmup is not None:
             self._values["default_instance_warmup"] = default_instance_warmup
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if desired_capacity is not None:
             self._values["desired_capacity"] = desired_capacity
         if group_metrics is not None:
@@ -3515,6 +3522,17 @@ class AutoScalingGroupCapacityOptions(_CommonAutoScalingGroupProps_808bbf2d):
         '''
         result = self._values.get("default_instance_warmup")
         return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional["_DeletionProtection_3beb1830"]:
+        '''Deletion protection for the Auto Scaling group.
+
+        :default: DeletionProtection.NONE
+
+        :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/resource-deletion-protection.html#asg-deletion-protection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional["_DeletionProtection_3beb1830"], result)
 
     @builtins.property
     def desired_capacity(self) -> typing.Optional[jsii.Number]:
@@ -8461,13 +8479,13 @@ class KubectlProviderOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
             
             
             cluster = eks.Cluster(self, "hello-eks",
                 version=eks.KubernetesVersion.V1_34,
                 kubectl_provider_options=eks.KubectlProviderOptions(
-                    kubectl_layer=KubectlV34Layer(self, "kubectl"),
+                    kubectl_layer=KubectlV35Layer(self, "kubectl"),
                     environment={
                         "http_proxy": "http://proxy.myproxy.com"
                     }
@@ -9913,6 +9931,17 @@ class KubernetesVersion(
         '''
         return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_34"))
 
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_35")
+    def V1_35(cls) -> "KubernetesVersion":
+        '''Kubernetes version 1.35.
+
+        When creating a ``Cluster`` with this version, you need to also specify the
+        ``kubectlLayer`` property with a ``KubectlV35Layer`` from
+        ``@aws-cdk/lambda-layer-kubectl-v35``.
+        '''
+        return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_35"))
+
     @builtins.property
     @jsii.member(jsii_name="version")
     def version(self) -> builtins.str:
@@ -11322,7 +11351,7 @@ class OidcProviderNative(
         # or create a new one using an existing issuer url
         # issuer_url: str
         
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         # you can import an existing provider
         provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -11334,7 +11363,7 @@ class OidcProviderNative(
             cluster_name="Cluster",
             open_id_connect_provider=provider,
             kubectl_provider_options=eks.KubectlProviderOptions(
-                kubectl_layer=KubectlV34Layer(self, "kubectl")
+                kubectl_layer=KubectlV35Layer(self, "kubectl")
             )
         )
         
@@ -11726,7 +11755,7 @@ class ServiceAccount(
         # or create a new one using an existing issuer url
         # issuer_url: str
         
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         
         # you can import an existing provider
         provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -11738,7 +11767,7 @@ class ServiceAccount(
             cluster_name="Cluster",
             open_id_connect_provider=provider,
             kubectl_provider_options=eks.KubectlProviderOptions(
-                kubectl_layer=KubectlV34Layer(self, "kubectl")
+                kubectl_layer=KubectlV35Layer(self, "kubectl")
             )
         )
         
@@ -12965,6 +12994,7 @@ class Cluster(
         capacity_rebalance: typing.Optional[builtins.bool] = None,
         cooldown: typing.Optional["_Duration_4839e8c3"] = None,
         default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
@@ -13008,6 +13038,7 @@ class Cluster(
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. Default: false
         :param cooldown: Default scaling cooldown for this AutoScalingGroup. Default: Duration.minutes(5)
         :param default_instance_warmup: The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics. This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics, resulting in more reliable usage data. Set this value equal to the amount of time that it takes for resource consumption to become stable after an instance reaches the InService state. To optimize the performance of scaling policies that scale continuously, such as target tracking and step scaling policies, we strongly recommend that you enable the default instance warmup, even if its value is set to 0 seconds Default instance warmup will not be added if no value is specified Default: None
+        :param deletion_protection: Deletion protection for the Auto Scaling group. Default: DeletionProtection.NONE
         :param desired_capacity: Initial amount of instances in the fleet. If this is set to a number, every deployment will reset the amount of instances to this number. It is recommended to leave this value blank. Default: minCapacity, and leave unchanged during deployment
         :param group_metrics: Enable monitoring for group metrics, these metrics describe the group rather than any of its instances. To report all group metrics use ``GroupMetrics.all()`` Group metrics are reported in a granularity of 1 minute at no additional charge. Default: - no group metrics will be reported
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
@@ -13045,6 +13076,7 @@ class Cluster(
             capacity_rebalance=capacity_rebalance,
             cooldown=cooldown,
             default_instance_warmup=default_instance_warmup,
+            deletion_protection=deletion_protection,
             desired_capacity=desired_capacity,
             group_metrics=group_metrics,
             health_check=health_check,
@@ -13867,7 +13899,7 @@ class OidcProviderNativeProps(OpenIdConnectProviderProps):
             # or create a new one using an existing issuer url
             # issuer_url: str
             
-            from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
             
             # you can import an existing provider
             provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -13879,7 +13911,7 @@ class OidcProviderNativeProps(OpenIdConnectProviderProps):
                 cluster_name="Cluster",
                 open_id_connect_provider=provider,
                 kubectl_provider_options=eks.KubectlProviderOptions(
-                    kubectl_layer=KubectlV34Layer(self, "kubectl")
+                    kubectl_layer=KubectlV35Layer(self, "kubectl")
                 )
             )
             
@@ -14174,6 +14206,7 @@ def _typecheckingstub__391f701643a31c9041c2732176c0e9385d97aecf409a768988a75f2f7
     capacity_rebalance: typing.Optional[builtins.bool] = None,
     cooldown: typing.Optional[_Duration_4839e8c3] = None,
     default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,
@@ -15075,6 +15108,7 @@ def _typecheckingstub__fab71b237eae49d14717c1b7a52d3a7624193c66fd44df3bd384e2bde
     capacity_rebalance: typing.Optional[builtins.bool] = None,
     cooldown: typing.Optional[_Duration_4839e8c3] = None,
     default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,

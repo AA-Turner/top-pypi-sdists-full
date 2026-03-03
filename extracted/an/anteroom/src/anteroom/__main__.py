@@ -369,7 +369,7 @@ def _run_usage(
     from .db import init_db
     from .services import storage
 
-    db = init_db(config.app.data_dir)
+    db = init_db(config.app.data_dir / "chat.db")
     usage_cfg = config.cli.usage
     now = datetime.now(timezone.utc)
 
@@ -606,7 +606,7 @@ def _resolve_project_id(config: AppConfig, project_name: str) -> str:
     from .db import get_db
     from .services import storage
 
-    db = get_db(config.app.data_dir / "anteroom.db")
+    db = get_db(config.app.data_dir / "chat.db")
     project = storage.get_project_by_name(db, project_name)
     if not project:
         print(f"Error: Project '{project_name}' not found.", file=sys.stderr)
@@ -620,7 +620,7 @@ def _resolve_space_id(config: AppConfig, space_name: str) -> str:
     from .db import get_db
     from .services.space_storage import resolve_space
 
-    db = get_db(config.app.data_dir / "anteroom.db")
+    db = get_db(config.app.data_dir / "chat.db")
     match, candidates = resolve_space(db, space_name)
     if match:
         return str(match["id"])
@@ -643,7 +643,7 @@ def _run_projects(config: AppConfig) -> None:
     from .db import get_db
     from .services import storage
 
-    db = get_db(config.app.data_dir / "anteroom.db")
+    db = get_db(config.app.data_dir / "chat.db")
     projects = storage.list_projects(db)
     if not projects:
         print("No projects found. Create one in the web UI.")
@@ -683,16 +683,20 @@ def _run_artifact(config: AppConfig, args: argparse.Namespace) -> None:
         print("Usage: aroom artifact {list,show,check,import,create}")
         return
 
-    db = get_db(config.app.data_dir / "anteroom.db")
+    db = get_db(config.app.data_dir / "chat.db")
     console = Console()
 
     if action == "list":
-        arts = artifact_storage.list_artifacts(
-            db,
-            artifact_type=getattr(args, "type", None),
-            namespace=getattr(args, "namespace", None),
-            source=getattr(args, "source", None),
-        )
+        try:
+            arts = artifact_storage.list_artifacts(
+                db,
+                artifact_type=getattr(args, "type", None),
+                namespace=getattr(args, "namespace", None),
+                source=getattr(args, "source", None),
+            )
+        except ValueError as e:
+            console.print(f"[red]Invalid filter: {e}[/red]")
+            sys.exit(1)
         if not arts:
             console.print("[dim]No artifacts found.[/dim]")
             return
@@ -795,6 +799,23 @@ def _run_artifact(config: AppConfig, args: argparse.Namespace) -> None:
             console.print(f"[red]Error:[/red] {e}")
             sys.exit(1)
 
+    elif action == "delete":
+        from .services.artifacts import validate_fqn
+
+        fqn = args.fqn
+        if not validate_fqn(fqn):
+            console.print(f"[red]Invalid FQN format:[/red] {escape(fqn)}")
+            sys.exit(1)
+        art = artifact_storage.get_artifact_by_fqn(db, fqn)
+        if not art:
+            console.print(f"[red]Artifact not found:[/red] {escape(fqn)}")
+            sys.exit(1)
+        if art.get("source") == "built_in":
+            console.print("[red]Cannot delete built-in artifacts.[/red]")
+            sys.exit(1)
+        artifact_storage.delete_artifact(db, art["id"])
+        console.print(f"[green]Deleted[/green] {escape(fqn)}")
+
 
 def _run_artifact_check(config: AppConfig, args: argparse.Namespace, db: Any, console: Any) -> None:
     """Handle `aroom artifact check` subcommand."""
@@ -876,10 +897,10 @@ def _validate_pack_ref(ref: str) -> tuple[str, str]:
     import re
 
     parts = ref.split("/", 1)
-    if len(parts) != 2:
-        print(f"Invalid pack reference: {ref!r}. Use namespace/name format.", file=sys.stderr)
-        sys.exit(1)
-    namespace, name = parts
+    if len(parts) == 1:
+        namespace, name = "default", parts[0]
+    else:
+        namespace, name = parts
     safe_re = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
     if not safe_re.match(namespace):
         print(f"Invalid namespace: {namespace!r}. Must match [a-zA-Z0-9][a-zA-Z0-9._-]{{0,63}}", file=sys.stderr)
@@ -952,7 +973,7 @@ def _run_pack(config: AppConfig, args: argparse.Namespace) -> None:
         console.print("Run [bold]aroom pack refresh[/bold] to clone and install packs.")
         return
 
-    db = get_db(config.app.data_dir / "anteroom.db")
+    db = get_db(config.app.data_dir / "chat.db")
     console = Console()
 
     if action == "list":
@@ -1013,7 +1034,11 @@ def _run_pack(config: AppConfig, args: argparse.Namespace) -> None:
                 "pack",
                 lambda c: f"{c['id'][:8]}  {c.get('namespace', '')}/{c.get('name', '')} v{c.get('version', '')}",
             )
-        pack_info = match
+        if not match:
+            console.print(f"[red]Pack not found:[/red] {escape(args.ref)}")
+            sys.exit(1)
+
+        pack_info = packs.get_pack(db, match["namespace"], match["name"])
         if not pack_info:
             console.print(f"[red]Pack not found:[/red] {escape(args.ref)}")
             sys.exit(1)
@@ -1196,28 +1221,31 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
 
     from .db import get_db
     from .services.space_storage import (
+        count_space_conversations,
         create_space,
         delete_space,
+        get_space_by_name,
         list_spaces,
         resolve_space,
+        sync_space_paths,
         update_space,
     )
     from .services.spaces import (
-        SpaceConfig,
         file_hash,
-        get_spaces_dir,
+        is_local_space,
         parse_space_file,
+        slugify_dir_name,
         validate_space,
-        write_space_file,
+        write_space_template,
     )
 
     console = Console()
     action = getattr(args, "space_action", None)
     if not action:
-        console.print("Usage: aroom space {list,create,load,show,delete,refresh,clone,map,move-root}")
+        console.print("Usage: aroom space {list,create,init,load,show,delete,refresh,clone,map,move-root}")
         return
 
-    db = get_db(config.app.data_dir / "anteroom.db")
+    db = get_db(config.app.data_dir / "chat.db")
 
     def _resolve(name_or_id: str) -> dict | None:
         match, candidates = resolve_space(db, name_or_id)
@@ -1235,36 +1263,70 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
     if action == "list":
         spaces = list_spaces(db)
         if not spaces:
-            console.print("[dim]No spaces found. Create one with:[/dim] aroom space create <path>")
+            console.print("[dim]No spaces found. Create one with:[/dim] aroom space create <name>")
+            console.print("[dim]  or from inside a project:[/dim] aroom space init")
             return
         table = Table(title="Spaces")
         table.add_column("Name", style="bold")
-        table.add_column("File Path")
+        table.add_column("Origin")
+        table.add_column("Conversations", justify="right")
         table.add_column("Last Loaded")
         for s in spaces:
-            table.add_row(s["name"], s["file_path"], s.get("last_loaded_at", ""))
+            fp = s["file_path"]
+            origin = "local" if (fp and is_local_space(fp)) else "global"
+            count = count_space_conversations(db, s["id"])
+            table.add_row(
+                s["name"],
+                origin,
+                str(count),
+                s.get("last_loaded_at", ""),
+            )
         console.print(table)
 
-    elif action == "create":
+    elif action in ("create", "init"):
         import re as _re
 
-        name = args.name
+        cwd = Path.cwd()
+
+        if action == "init":
+            name = slugify_dir_name(cwd.name)
+            if not name:
+                console.print(
+                    "[red]Error:[/red] Cannot derive a space name from the current directory. "
+                    "Use [bold]aroom space create <name>[/bold] instead."
+                )
+                return
+        else:
+            name = args.name
+
         if not _re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$", name):
             console.print(
                 f"[red]Error:[/red] Invalid space name: {escape(name)!r} (must be alphanumeric, hyphens, underscores)"
             )
             return
-        spaces_dir = get_spaces_dir()
-        target = spaces_dir / f"{name}.yaml"
+
+        # Default: create local space in cwd/.anteroom/space.yaml
+        target = cwd / ".anteroom" / "space.yaml"
         if target.exists():
-            console.print(f"[red]Error:[/red] Space file already exists: {target}")
+            console.print(f"[yellow]Space file already exists:[/yellow] {target}")
+            console.print("  Use [bold]aroom space load[/bold] to register it, or edit it directly.")
             return
-        template_cfg = SpaceConfig(name=name)
-        write_space_file(target, template_cfg)
+
+        existing = get_space_by_name(db, name)
+        if existing:
+            console.print(f"[yellow]Space '{escape(name)}' already exists.[/yellow]")
+            console.print(f"  Use [bold]aroom space show {escape(name)}[/bold] to view it.")
+            return
+
+        write_space_template(target, name)
         s = create_space(db, name, str(target), file_hash(target))
-        console.print(f"[green]Created space:[/green] {escape(s['name'])} (id: {s['id'][:8]}...)")
+        # Map cwd so resolve_space_by_cwd() finds this space
+        sync_space_paths(db, s["id"], [{"local_path": str(cwd)}])
+        console.print(f"[green]Created local space:[/green] {escape(s['name'])}")
         console.print(f"  File: {target}")
-        console.print("  Edit this file to add repos, pack sources, packs, and config overrides.")
+        console.print()
+        console.print("  This space will activate automatically when you run [bold]aroom chat[/bold]")
+        console.print("  from this directory.  Edit the YAML to add instructions, packs, and config.")
 
     elif action == "load":
         path = Path(args.path).expanduser().resolve()
@@ -1277,6 +1339,11 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
             console.print("[red]Validation errors:[/red]")
             for e in errors:
                 console.print(f"  - {e}")
+            return
+        existing = get_space_by_name(db, space_cfg.name)
+        if existing:
+            console.print(f"[yellow]Space '{escape(space_cfg.name)}' already exists.[/yellow]")
+            console.print(f"  Use [bold]aroom space show {escape(space_cfg.name)}[/bold] to view it.")
             return
         s = create_space(db, space_cfg.name, str(path), file_hash(path))
         console.print(f"[green]Loaded space:[/green] {escape(s['name'])} (id: {s['id'][:8]}...)")
@@ -1816,8 +1883,9 @@ def main() -> None:
     space_parser = subparsers.add_parser("space", help="Manage spaces")
     space_subparsers = space_parser.add_subparsers(dest="space_action")
     space_subparsers.add_parser("list", help="List all spaces")
-    space_create_parser = space_subparsers.add_parser("create", help="Create a new space with a starter template")
+    space_create_parser = space_subparsers.add_parser("create", help="Create a local space in the current directory")
     space_create_parser.add_argument("name", help="Space name")
+    space_subparsers.add_parser("init", help="Create a local space, deriving the name from the directory")
     space_load_parser = space_subparsers.add_parser("load", help="Load an existing space YAML file")
     space_load_parser.add_argument("path", help="Path to space YAML file")
     space_show_parser = space_subparsers.add_parser("show", help="Show space details")
@@ -1846,6 +1914,9 @@ def main() -> None:
     art_create_parser.add_argument("type", choices=_art_types, help="Artifact type")
     art_create_parser.add_argument("name", help="Artifact name")
     art_create_parser.add_argument("--project", action="store_true", help="Create in project .anteroom/local/")
+
+    art_delete_parser = artifact_subparsers.add_parser("delete", help="Delete an artifact by FQN")
+    art_delete_parser.add_argument("fqn", help="Artifact FQN (e.g. @namespace/type/name)")
 
     args = parser.parse_args()
 

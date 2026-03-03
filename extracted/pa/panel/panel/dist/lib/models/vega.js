@@ -59,9 +59,7 @@ export class VegaPlotView extends LayoutDOMView {
         }
     }
     remove() {
-        if (this.vega_view) {
-            this.vega_view.finalize();
-        }
+        this.vega_view?.finalize();
         super.remove();
     }
     _dispatch_event(name, value) {

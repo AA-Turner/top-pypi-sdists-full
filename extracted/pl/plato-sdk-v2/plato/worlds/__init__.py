@@ -44,6 +44,7 @@ from plato._generated.models import (
     EnvFromSimulator,
 )
 from plato.markers import Agent, Env, EnvList
+from plato.markers import WorkspaceMarker as Workspace
 from plato.markers import WorldSecret as Secret
 from plato.worlds.base import (
     BaseWorld,
@@ -53,6 +54,7 @@ from plato.worlds.base import (
     get_world,
     register_world,
 )
+from plato.worlds.checkpoint import checkpoint
 from plato.worlds.config import (
     AgentConfig,
     CheckpointConfig,
@@ -62,6 +64,16 @@ from plato.worlds.config import (
     RunConfig,
     SessionConfig,
     StateConfig,
+)
+from plato.worlds.durable import (
+    DependencyMissing,
+    DurableOutputs,
+    DurablePath,
+    FromArg,
+    Requires,
+    durable,
+    load_durable,
+    load_durable_path,
 )
 from plato.worlds.models import Observation, StepResult
 from plato.worlds.result_store import ResultStore
@@ -89,11 +101,23 @@ __all__ = [
     "Secret",
     "Env",
     "EnvList",
+    "Workspace",
     "EnvConfig",
     # Env types (re-exported from generated models)
     "EnvFromArtifact",
     "EnvFromSimulator",
     "EnvFromResource",
+    # Checkpoint
+    "checkpoint",
+    # Durable outputs
+    "durable",
+    "Requires",
+    "DependencyMissing",
+    "DurablePath",
+    "DurableOutputs",
+    "FromArg",
+    "load_durable",
+    "load_durable_path",
     # Result store
     "ResultStore",
     # Runner

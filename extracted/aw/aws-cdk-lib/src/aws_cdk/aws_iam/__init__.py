@@ -16262,7 +16262,7 @@ class ArnPrincipal(
     Example::
 
         # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
         # vpc: ec2.Vpc
         
         
@@ -16272,8 +16272,8 @@ class ArnPrincipal(
         
         cluster = eks.Cluster(self, "EksCluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_34,
-            kubectl_layer=KubectlV34Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_35,
+            kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
             masters_role=masters_role
         )
         

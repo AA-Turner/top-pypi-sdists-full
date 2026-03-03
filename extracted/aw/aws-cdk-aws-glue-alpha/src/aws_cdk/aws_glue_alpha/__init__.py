@@ -2427,6 +2427,33 @@ class ConnectionType(
         return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="AZURECOSMOS")
+    def AZURECOSMOS(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Azure Cosmos DB.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "AZURECOSMOS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AZURESQL")
+    def AZURESQL(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Azure SQL Database.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "AZURESQL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="BIGQUERY")
+    def BIGQUERY(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Google BigQuery.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "BIGQUERY"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="CUSTOM")
     def CUSTOM(cls) -> "ConnectionType":
         '''(experimental) Uses configuration settings contained in a custom connector to read from and write to data stores that are not natively supported by AWS Glue.
@@ -2434,6 +2461,15 @@ class ConnectionType(
         :stability: experimental
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "CUSTOM"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DYNAMODB")
+    def DYNAMODB(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Amazon DynamoDB.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "DYNAMODB"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOKADS")
@@ -2553,6 +2589,15 @@ class ConnectionType(
         return typing.cast("ConnectionType", jsii.sget(cls, "MONGODB"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="MYSQL")
+    def MYSQL(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to MySQL.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "MYSQL"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="NETSUITEERP")
     def NETSUITEERP(cls) -> "ConnectionType":
         '''(experimental) Designates a connection to Oracle NetSuite.
@@ -2569,6 +2614,33 @@ class ConnectionType(
         :stability: experimental
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "NETWORK"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENSEARCH")
+    def OPENSEARCH(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Amazon OpenSearch Service.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "OPENSEARCH"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ORACLE")
+    def ORACLE(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Oracle Database.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "ORACLE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="POSTGRESQL")
+    def POSTGRESQL(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to PostgreSQL.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "POSTGRESQL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SALESFORCE")
@@ -2596,6 +2668,15 @@ class ConnectionType(
         :stability: experimental
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SALESFORCEPARDOT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SAPHANA")
+    def SAPHANA(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to SAP HANA.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "SAPHANA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAPODATA")
@@ -2634,6 +2715,15 @@ class ConnectionType(
         return typing.cast("ConnectionType", jsii.sget(cls, "SNAPCHATADS"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="SQLSERVER")
+    def SQLSERVER(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Microsoft SQL Server.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "SQLSERVER"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="STRIPE")
     def STRIPE(cls) -> "ConnectionType":
         '''(experimental) Designates a connection to Stripe.
@@ -2641,6 +2731,24 @@ class ConnectionType(
         :stability: experimental
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "STRIPE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TERADATA")
+    def TERADATA(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Teradata.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "TERADATA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VERTICA")
+    def VERTICA(cls) -> "ConnectionType":
+        '''(experimental) Designates a connection to Vertica.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConnectionType", jsii.sget(cls, "VERTICA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VIEW_VALIDATION_ATHENA")

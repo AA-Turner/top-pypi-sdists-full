@@ -37,7 +37,9 @@ class MiniComputeTemplate(object):
         'name': 'str',
         'archived_at': 'datetime',
         'version': 'int',
-        'config': 'MiniComputeTemplateConfig'
+        'config': 'MiniComputeTemplateConfig',
+        'anonymous': 'bool',
+        'full_config': 'ComputeTemplateConfig'
     }
 
     attribute_map = {
@@ -45,10 +47,12 @@ class MiniComputeTemplate(object):
         'name': 'name',
         'archived_at': 'archived_at',
         'version': 'version',
-        'config': 'config'
+        'config': 'config',
+        'anonymous': 'anonymous',
+        'full_config': 'full_config'
     }
 
-    def __init__(self, id=None, name=None, archived_at=None, version=None, config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, archived_at=None, version=None, config=None, anonymous=False, full_config=None, local_vars_configuration=None):  # noqa: E501
         """MiniComputeTemplate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,6 +63,8 @@ class MiniComputeTemplate(object):
         self._archived_at = None
         self._version = None
         self._config = None
+        self._anonymous = None
+        self._full_config = None
         self.discriminator = None
 
         self.id = id
@@ -67,6 +73,10 @@ class MiniComputeTemplate(object):
             self.archived_at = archived_at
         self.version = version
         self.config = config
+        if anonymous is not None:
+            self.anonymous = anonymous
+        if full_config is not None:
+            self.full_config = full_config
 
     @property
     def id(self):
@@ -180,6 +190,48 @@ class MiniComputeTemplate(object):
             raise ValueError("Invalid value for `config`, must not be `None`")  # noqa: E501
 
         self._config = config
+
+    @property
+    def anonymous(self):
+        """Gets the anonymous of this MiniComputeTemplate.  # noqa: E501
+
+
+        :return: The anonymous of this MiniComputeTemplate.  # noqa: E501
+        :rtype: bool
+        """
+        return self._anonymous
+
+    @anonymous.setter
+    def anonymous(self, anonymous):
+        """Sets the anonymous of this MiniComputeTemplate.
+
+
+        :param anonymous: The anonymous of this MiniComputeTemplate.  # noqa: E501
+        :type: bool
+        """
+
+        self._anonymous = anonymous
+
+    @property
+    def full_config(self):
+        """Gets the full_config of this MiniComputeTemplate.  # noqa: E501
+
+
+        :return: The full_config of this MiniComputeTemplate.  # noqa: E501
+        :rtype: ComputeTemplateConfig
+        """
+        return self._full_config
+
+    @full_config.setter
+    def full_config(self, full_config):
+        """Sets the full_config of this MiniComputeTemplate.
+
+
+        :param full_config: The full_config of this MiniComputeTemplate.  # noqa: E501
+        :type: ComputeTemplateConfig
+        """
+
+        self._full_config = full_config
 
     def to_dict(self):
         """Returns the model properties as a dict"""

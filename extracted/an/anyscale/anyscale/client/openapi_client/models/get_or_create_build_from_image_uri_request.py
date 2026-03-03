@@ -36,17 +36,19 @@ class GetOrCreateBuildFromImageUriRequest(object):
         'image_uri': 'str',
         'ray_version': 'str',
         'registry_login_secret': 'str',
-        'cluster_env_name': 'str'
+        'cluster_env_name': 'str',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
         'image_uri': 'image_uri',
         'ray_version': 'ray_version',
         'registry_login_secret': 'registry_login_secret',
-        'cluster_env_name': 'cluster_env_name'
+        'cluster_env_name': 'cluster_env_name',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, image_uri=None, ray_version=None, registry_login_secret=None, cluster_env_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, image_uri=None, ray_version=None, registry_login_secret=None, cluster_env_name=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """GetOrCreateBuildFromImageUriRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class GetOrCreateBuildFromImageUriRequest(object):
         self._ray_version = None
         self._registry_login_secret = None
         self._cluster_env_name = None
+        self._cloud_id = None
         self.discriminator = None
 
         self.image_uri = image_uri
@@ -65,6 +68,8 @@ class GetOrCreateBuildFromImageUriRequest(object):
             self.registry_login_secret = registry_login_secret
         if cluster_env_name is not None:
             self.cluster_env_name = cluster_env_name
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def image_uri(self):
@@ -159,6 +164,29 @@ class GetOrCreateBuildFromImageUriRequest(object):
         """
 
         self._cluster_env_name = cluster_env_name
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this GetOrCreateBuildFromImageUriRequest.  # noqa: E501
+
+        ID of the Cloud this image is associated with. Required for Azure deployments.  # noqa: E501
+
+        :return: The cloud_id of this GetOrCreateBuildFromImageUriRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this GetOrCreateBuildFromImageUriRequest.
+
+        ID of the Cloud this image is associated with. Required for Azure deployments.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this GetOrCreateBuildFromImageUriRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -136,16 +136,22 @@ def is_requirement(line):
     )
 
 
-def package_data(pkg, sub_roots):
+def package_data(pkg, sub_roots, nested=False):
     """
     Declare package_data based on all root directories inside `pkg`.
 
-    All of the files under each of the sub_roots for every root directory
-    inside `pkg` will be declared as package data for package `pkg`.
+    If nested is True, scans all directories immediately under the package
+    root for matching sub_root directory names.
 
+    If nested is false, only checks directly in the package root for matching
+    directory names.
     """
     data = []
-    roots = [d for d in os.listdir(pkg) if os.path.isdir(os.path.join(pkg, d))]
+    # Default: We scan the package directory. Use for individual blocks.
+    roots = ['.']
+    if nested:
+        # For packages with several xblocks under one directory (xblocks_contrib)
+        roots = [d for d in os.listdir(pkg) if os.path.isdir(os.path.join(pkg, d))]
 
     for root in roots:
         for sub_root in sub_roots:
@@ -263,6 +269,7 @@ setup(
     package_data={
         **package_data(
             "xblocks_contrib", ["static", "public", "templates"],
+            nested=True,
         ),
         **package_data(
             "xblock_pdf", ["static", "templates"],

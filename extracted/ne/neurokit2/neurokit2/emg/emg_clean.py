@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -71,9 +70,7 @@ def emg_clean(emg_signal, sampling_rate=1000, method="biosppy"):
     elif method in ["biosppy"]:
         clean = _emg_clean_biosppy(emg_signal, sampling_rate=sampling_rate)
     else:
-        raise ValueError(
-            "NeuroKit error: emg_clean(): 'method' should be one of 'biosppy' or 'none'."
-        )
+        raise ValueError("NeuroKit error: emg_clean(): 'method' should be one of 'biosppy' or 'none'.")
     return clean
 
 
@@ -81,7 +78,6 @@ def emg_clean(emg_signal, sampling_rate=1000, method="biosppy"):
 # Handle missing data
 # =============================================================================
 def _emg_clean_missing(emg_signal):
-
     emg_signal = pd.DataFrame.pad(pd.Series(emg_signal))
 
     return emg_signal
@@ -94,9 +90,7 @@ def _emg_clean_biosppy(emg_signal, sampling_rate=1000):
     # Parameters
     order = 4
     frequency = 100
-    frequency = (
-        2 * np.array(frequency) / sampling_rate
-    )  # Normalize frequency to Nyquist Frequency (Fs/2).
+    frequency = 2 * np.array(frequency) / sampling_rate  # Normalize frequency to Nyquist Frequency (Fs/2).
 
     # Filtering
     b, a = scipy.signal.butter(N=order, Wn=frequency, btype="highpass", analog=False)

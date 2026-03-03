@@ -1004,6 +1004,21 @@ def benchmark_cuda_ipc():
     print("=" * 70)
 
 
+# =============================================================================
+# Orin Platform Fallback (opt-in via MATRICE_PLATFORM=orin)
+# =============================================================================
+# On Jetson Orin, CUDA IPC is permanently unsupported (unified memory).
+# When MATRICE_PLATFORM=orin is set, replace CudaIpcRingBuffer with
+# OrinShmRingBuffer (POSIX SHM) which has an identical API.
+if os.environ.get("MATRICE_PLATFORM", "").lower() == "orin":
+    try:
+        from .orin_shm_ring_buffer import OrinShmRingBuffer
+        CudaIpcRingBuffer = OrinShmRingBuffer  # type: ignore[misc]
+        logger.info("MATRICE_PLATFORM=orin: CudaIpcRingBuffer -> OrinShmRingBuffer (POSIX SHM)")
+    except ImportError as e:
+        logger.warning(f"MATRICE_PLATFORM=orin but OrinShmRingBuffer import failed: {e}")
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     benchmark_cuda_ipc()

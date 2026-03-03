@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -63,13 +62,12 @@ def emg_eventrelated(epochs, silent=False):
     # Extract features and build dataframe
     data = {}  # Initialize an empty dict
     for i in epochs.keys():
-
         data[i] = {}  # Initialize an empty dict for the current epoch
 
         # Activation following event
         if "EMG_Onsets" not in epochs[i]:
             warn(
-                "Input does not have an `EMG_Onsets` column." " Unable to process EMG features.",
+                "Input does not have an `EMG_Onsets` column. Unable to process EMG features.",
                 category=NeuroKitWarning,
             )
             data[i]["EMG_Activation"] = 0
@@ -100,12 +98,10 @@ def emg_eventrelated(epochs, silent=False):
 # Internals
 # =============================================================================
 def _emg_eventrelated_features(epoch, output={}):
-
     # Sanitize input
     if "EMG_Activity" not in epoch or "EMG_Amplitude" not in epoch:
         warn(
-            "Input does not have an `EMG_Activity` column or `EMG_Amplitude` column."
-            " Will skip computation of EMG amplitudes.",
+            "Input does not have an `EMG_Activity` column or `EMG_Amplitude` column. Will skip computation of EMG amplitudes.",
             category=NeuroKitWarning,
         )
         return output
@@ -121,9 +117,7 @@ def _emg_eventrelated_features(epoch, output={}):
 
     output["EMG_Amplitude_Mean"] = mean
     output["EMG_Amplitude_Max"] = maximum
-    output["EMG_Amplitude_SD"] = np.std(
-        epoch["EMG_Amplitude"][epoch.index > 0].iloc[activated_signal]
-    )
+    output["EMG_Amplitude_SD"] = np.std(epoch["EMG_Amplitude"][epoch.index > 0].iloc[activated_signal])
     output["EMG_Amplitude_Max_Time"] = time
     output["EMG_Bursts"] = activations
 

@@ -358,9 +358,39 @@ class CfnTable(
                         type="type",
         
                         # the properties below are optional
+                        id=123,
                         required=False
                     )]
-                )
+                ),
+        
+                # the properties below are optional
+                iceberg_partition_spec=s3tables.CfnTable.IcebergPartitionSpecProperty(
+                    fields=[s3tables.CfnTable.IcebergPartitionFieldProperty(
+                        name="name",
+                        source_id=123,
+                        transform="transform",
+        
+                        # the properties below are optional
+                        field_id=123
+                    )],
+        
+                    # the properties below are optional
+                    spec_id=123
+                ),
+                iceberg_sort_order=s3tables.CfnTable.IcebergSortOrderProperty(
+                    fields=[s3tables.CfnTable.IcebergSortFieldProperty(
+                        direction="direction",
+                        null_order="nullOrder",
+                        source_id=123,
+                        transform="transform"
+                    )],
+        
+                    # the properties below are optional
+                    order_id=123
+                ),
+                table_properties={
+                    "table_properties_key": "tableProperties"
+                }
             ),
             snapshot_management=s3tables.CfnTable.SnapshotManagementProperty(
                 max_snapshot_age_hours=123,
@@ -748,17 +778,28 @@ class CfnTable(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.IcebergMetadataProperty",
         jsii_struct_bases=[],
-        name_mapping={"iceberg_schema": "icebergSchema"},
+        name_mapping={
+            "iceberg_schema": "icebergSchema",
+            "iceberg_partition_spec": "icebergPartitionSpec",
+            "iceberg_sort_order": "icebergSortOrder",
+            "table_properties": "tableProperties",
+        },
     )
     class IcebergMetadataProperty:
         def __init__(
             self,
             *,
             iceberg_schema: typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
+            iceberg_partition_spec: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergPartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            iceberg_sort_order: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            table_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Contains details about the metadata for an Iceberg table.
 
             :param iceberg_schema: The schema for an Iceberg table.
+            :param iceberg_partition_spec: Partition specification for an Iceberg table.
+            :param iceberg_sort_order: Sort order specification for an Iceberg table.
+            :param table_properties: Iceberg table properties (e.g., format-version, write.parquet.compression-codec).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html
             :exampleMetadata: fixture=_generated
@@ -776,17 +817,56 @@ class CfnTable(
                             type="type",
                 
                             # the properties below are optional
+                            id=123,
                             required=False
                         )]
-                    )
+                    ),
+                
+                    # the properties below are optional
+                    iceberg_partition_spec=s3tables.CfnTable.IcebergPartitionSpecProperty(
+                        fields=[s3tables.CfnTable.IcebergPartitionFieldProperty(
+                            name="name",
+                            source_id=123,
+                            transform="transform",
+                
+                            # the properties below are optional
+                            field_id=123
+                        )],
+                
+                        # the properties below are optional
+                        spec_id=123
+                    ),
+                    iceberg_sort_order=s3tables.CfnTable.IcebergSortOrderProperty(
+                        fields=[s3tables.CfnTable.IcebergSortFieldProperty(
+                            direction="direction",
+                            null_order="nullOrder",
+                            source_id=123,
+                            transform="transform"
+                        )],
+                
+                        # the properties below are optional
+                        order_id=123
+                    ),
+                    table_properties={
+                        "table_properties_key": "tableProperties"
+                    }
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d43941978d7cb0a)
                 check_type(argname="argument iceberg_schema", value=iceberg_schema, expected_type=type_hints["iceberg_schema"])
+                check_type(argname="argument iceberg_partition_spec", value=iceberg_partition_spec, expected_type=type_hints["iceberg_partition_spec"])
+                check_type(argname="argument iceberg_sort_order", value=iceberg_sort_order, expected_type=type_hints["iceberg_sort_order"])
+                check_type(argname="argument table_properties", value=table_properties, expected_type=type_hints["table_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "iceberg_schema": iceberg_schema,
             }
+            if iceberg_partition_spec is not None:
+                self._values["iceberg_partition_spec"] = iceberg_partition_spec
+            if iceberg_sort_order is not None:
+                self._values["iceberg_sort_order"] = iceberg_sort_order
+            if table_properties is not None:
+                self._values["table_properties"] = table_properties
 
         @builtins.property
         def iceberg_schema(
@@ -800,6 +880,39 @@ class CfnTable(
             assert result is not None, "Required property 'iceberg_schema' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSchemaProperty"], result)
 
+        @builtins.property
+        def iceberg_partition_spec(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionSpecProperty"]]:
+            '''Partition specification for an Iceberg table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergpartitionspec
+            '''
+            result = self._values.get("iceberg_partition_spec")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionSpecProperty"]], result)
+
+        @builtins.property
+        def iceberg_sort_order(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortOrderProperty"]]:
+            '''Sort order specification for an Iceberg table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-icebergsortorder
+            '''
+            result = self._values.get("iceberg_sort_order")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortOrderProperty"]], result)
+
+        @builtins.property
+        def table_properties(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''Iceberg table properties (e.g., format-version, write.parquet.compression-codec).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergmetadata.html#cfn-s3tables-table-icebergmetadata-tableproperties
+            '''
+            result = self._values.get("table_properties")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -808,6 +921,196 @@ class CfnTable(
 
         def __repr__(self) -> str:
             return "IcebergMetadataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.IcebergPartitionFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "source_id": "sourceId",
+            "transform": "transform",
+            "field_id": "fieldId",
+        },
+    )
+    class IcebergPartitionFieldProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            source_id: jsii.Number,
+            transform: builtins.str,
+            field_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''A partition field specification for an Iceberg table.
+
+            :param name: The name of the partition field.
+            :param source_id: The source column ID to partition on.
+            :param transform: The partition transform function (identity, bucket[N], truncate[N], year, month, day, hour).
+            :param field_id: The partition field ID (auto-assigned starting from 1000 if not specified).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionfield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                iceberg_partition_field_property = s3tables.CfnTable.IcebergPartitionFieldProperty(
+                    name="name",
+                    source_id=123,
+                    transform="transform",
+                
+                    # the properties below are optional
+                    field_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__679b9f9b424f47edab87cd4b6cad466311960debebb534717fc0925ffe9efe85)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
+                check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
+                check_type(argname="argument field_id", value=field_id, expected_type=type_hints["field_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "source_id": source_id,
+                "transform": transform,
+            }
+            if field_id is not None:
+                self._values["field_id"] = field_id
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the partition field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionfield.html#cfn-s3tables-table-icebergpartitionfield-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_id(self) -> jsii.Number:
+            '''The source column ID to partition on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionfield.html#cfn-s3tables-table-icebergpartitionfield-sourceid
+            '''
+            result = self._values.get("source_id")
+            assert result is not None, "Required property 'source_id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def transform(self) -> builtins.str:
+            '''The partition transform function (identity, bucket[N], truncate[N], year, month, day, hour).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionfield.html#cfn-s3tables-table-icebergpartitionfield-transform
+            '''
+            result = self._values.get("transform")
+            assert result is not None, "Required property 'transform' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def field_id(self) -> typing.Optional[jsii.Number]:
+            '''The partition field ID (auto-assigned starting from 1000 if not specified).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionfield.html#cfn-s3tables-table-icebergpartitionfield-fieldid
+            '''
+            result = self._values.get("field_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergPartitionFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.IcebergPartitionSpecProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fields": "fields", "spec_id": "specId"},
+    )
+    class IcebergPartitionSpecProperty:
+        def __init__(
+            self,
+            *,
+            fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergPartitionFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            spec_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Partition specification for an Iceberg table.
+
+            :param fields: List of partition fields for an Iceberg table.
+            :param spec_id: The partition spec ID (defaults to 0 if not specified).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionspec.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                iceberg_partition_spec_property = s3tables.CfnTable.IcebergPartitionSpecProperty(
+                    fields=[s3tables.CfnTable.IcebergPartitionFieldProperty(
+                        name="name",
+                        source_id=123,
+                        transform="transform",
+                
+                        # the properties below are optional
+                        field_id=123
+                    )],
+                
+                    # the properties below are optional
+                    spec_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fd8cefed1b3fab403a063d558585bc5545a803ebe6ea8c2cbf760b46844c28fe)
+                check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+                check_type(argname="argument spec_id", value=spec_id, expected_type=type_hints["spec_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fields": fields,
+            }
+            if spec_id is not None:
+                self._values["spec_id"] = spec_id
+
+        @builtins.property
+        def fields(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionFieldProperty"]]]:
+            '''List of partition fields for an Iceberg table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionspec.html#cfn-s3tables-table-icebergpartitionspec-fields
+            '''
+            result = self._values.get("fields")
+            assert result is not None, "Required property 'fields' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergPartitionFieldProperty"]]], result)
+
+        @builtins.property
+        def spec_id(self) -> typing.Optional[jsii.Number]:
+            '''The partition spec ID (defaults to 0 if not specified).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergpartitionspec.html#cfn-s3tables-table-icebergpartitionspec-specid
+            '''
+            result = self._values.get("spec_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergPartitionSpecProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -841,6 +1144,7 @@ class CfnTable(
                         type="type",
                 
                         # the properties below are optional
+                        id=123,
                         required=False
                     )]
                 )
@@ -876,9 +1180,200 @@ class CfnTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.IcebergSortFieldProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "direction": "direction",
+            "null_order": "nullOrder",
+            "source_id": "sourceId",
+            "transform": "transform",
+        },
+    )
+    class IcebergSortFieldProperty:
+        def __init__(
+            self,
+            *,
+            direction: builtins.str,
+            null_order: builtins.str,
+            source_id: jsii.Number,
+            transform: builtins.str,
+        ) -> None:
+            '''A sort field specification for an Iceberg table.
+
+            :param direction: Sort direction (asc or desc).
+            :param null_order: Null value ordering (nulls-first or nulls-last).
+            :param source_id: The source column ID to sort on.
+            :param transform: The sort transform function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortfield.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                iceberg_sort_field_property = s3tables.CfnTable.IcebergSortFieldProperty(
+                    direction="direction",
+                    null_order="nullOrder",
+                    source_id=123,
+                    transform="transform"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f66a803be114d90c4e838cc072f12b7394cc1d0e2ce9f128586effbc4963ed4b)
+                check_type(argname="argument direction", value=direction, expected_type=type_hints["direction"])
+                check_type(argname="argument null_order", value=null_order, expected_type=type_hints["null_order"])
+                check_type(argname="argument source_id", value=source_id, expected_type=type_hints["source_id"])
+                check_type(argname="argument transform", value=transform, expected_type=type_hints["transform"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "direction": direction,
+                "null_order": null_order,
+                "source_id": source_id,
+                "transform": transform,
+            }
+
+        @builtins.property
+        def direction(self) -> builtins.str:
+            '''Sort direction (asc or desc).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortfield.html#cfn-s3tables-table-icebergsortfield-direction
+            '''
+            result = self._values.get("direction")
+            assert result is not None, "Required property 'direction' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def null_order(self) -> builtins.str:
+            '''Null value ordering (nulls-first or nulls-last).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortfield.html#cfn-s3tables-table-icebergsortfield-nullorder
+            '''
+            result = self._values.get("null_order")
+            assert result is not None, "Required property 'null_order' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def source_id(self) -> jsii.Number:
+            '''The source column ID to sort on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortfield.html#cfn-s3tables-table-icebergsortfield-sourceid
+            '''
+            result = self._values.get("source_id")
+            assert result is not None, "Required property 'source_id' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def transform(self) -> builtins.str:
+            '''The sort transform function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortfield.html#cfn-s3tables-table-icebergsortfield-transform
+            '''
+            result = self._values.get("transform")
+            assert result is not None, "Required property 'transform' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergSortFieldProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.IcebergSortOrderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"fields": "fields", "order_id": "orderId"},
+    )
+    class IcebergSortOrderProperty:
+        def __init__(
+            self,
+            *,
+            fields: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTable.IcebergSortFieldProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            order_id: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Sort order specification for an Iceberg table.
+
+            :param fields: List of sort fields for an Iceberg table.
+            :param order_id: The sort order ID (defaults to 1 if not specified, 0 is reserved for unsorted).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortorder.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_s3tables as s3tables
+                
+                iceberg_sort_order_property = s3tables.CfnTable.IcebergSortOrderProperty(
+                    fields=[s3tables.CfnTable.IcebergSortFieldProperty(
+                        direction="direction",
+                        null_order="nullOrder",
+                        source_id=123,
+                        transform="transform"
+                    )],
+                
+                    # the properties below are optional
+                    order_id=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__36093a774b631f19332c77b446f185d8c83b036f4cc317101f912b619121327b)
+                check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+                check_type(argname="argument order_id", value=order_id, expected_type=type_hints["order_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fields": fields,
+            }
+            if order_id is not None:
+                self._values["order_id"] = order_id
+
+        @builtins.property
+        def fields(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortFieldProperty"]]]:
+            '''List of sort fields for an Iceberg table.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortorder.html#cfn-s3tables-table-icebergsortorder-fields
+            '''
+            result = self._values.get("fields")
+            assert result is not None, "Required property 'fields' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnTable.IcebergSortFieldProperty"]]], result)
+
+        @builtins.property
+        def order_id(self) -> typing.Optional[jsii.Number]:
+            '''The sort order ID (defaults to 1 if not specified, 0 is reserved for unsorted).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-icebergsortorder.html#cfn-s3tables-table-icebergsortorder-orderid
+            '''
+            result = self._values.get("order_id")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IcebergSortOrderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.SchemaFieldProperty",
         jsii_struct_bases=[],
-        name_mapping={"name": "name", "type": "type", "required": "required"},
+        name_mapping={
+            "name": "name",
+            "type": "type",
+            "id": "id",
+            "required": "required",
+        },
     )
     class SchemaFieldProperty:
         def __init__(
@@ -886,12 +1381,14 @@ class CfnTable(
             *,
             name: builtins.str,
             type: builtins.str,
+            id: typing.Optional[jsii.Number] = None,
             required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Contains details about a schema field.
 
             :param name: The name of the field.
             :param type: The field type. S3 Tables supports all Apache Iceberg primitive types. For more information, see the `Apache Iceberg documentation <https://docs.aws.amazon.com/https://iceberg.apache.org/spec/#primitive-types>`_ .
+            :param id: The unique identifier for the field.
             :param required: A Boolean value that specifies whether values are required for each row in this field. By default, this is ``false`` and null values are allowed in the field. If this is ``true`` the field does not allow null values.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemafield.html
@@ -908,6 +1405,7 @@ class CfnTable(
                     type="type",
                 
                     # the properties below are optional
+                    id=123,
                     required=False
                 )
             '''
@@ -915,11 +1413,14 @@ class CfnTable(
                 type_hints = typing.get_type_hints(_typecheckingstub__b3f6368f6b334e97c5c50a43ab04d5e784e18fdb0e687d1684b9ad01ad6c1a29)
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument required", value=required, expected_type=type_hints["required"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "name": name,
                 "type": type,
             }
+            if id is not None:
+                self._values["id"] = id
             if required is not None:
                 self._values["required"] = required
 
@@ -944,6 +1445,15 @@ class CfnTable(
             result = self._values.get("type")
             assert result is not None, "Required property 'type' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def id(self) -> typing.Optional[jsii.Number]:
+            '''The unique identifier for the field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3tables-table-schemafield.html#cfn-s3tables-table-schemafield-id
+            '''
+            result = self._values.get("id")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def required(
@@ -2374,9 +2884,39 @@ class CfnTableProps:
                             type="type",
             
                             # the properties below are optional
+                            id=123,
                             required=False
                         )]
-                    )
+                    ),
+            
+                    # the properties below are optional
+                    iceberg_partition_spec=s3tables.CfnTable.IcebergPartitionSpecProperty(
+                        fields=[s3tables.CfnTable.IcebergPartitionFieldProperty(
+                            name="name",
+                            source_id=123,
+                            transform="transform",
+            
+                            # the properties below are optional
+                            field_id=123
+                        )],
+            
+                        # the properties below are optional
+                        spec_id=123
+                    ),
+                    iceberg_sort_order=s3tables.CfnTable.IcebergSortOrderProperty(
+                        fields=[s3tables.CfnTable.IcebergSortFieldProperty(
+                            direction="direction",
+                            null_order="nullOrder",
+                            source_id=123,
+                            transform="transform"
+                        )],
+            
+                        # the properties below are optional
+                        order_id=123
+                    ),
+                    table_properties={
+                        "table_properties_key": "tableProperties"
+                    }
                 ),
                 snapshot_management=s3tables.CfnTable.SnapshotManagementProperty(
                     max_snapshot_age_hours=123,
@@ -2718,6 +3258,27 @@ def _typecheckingstub__f49118bb06f06baf9f7618e6cd633803a2486d06b541e59cab8801a6a
 def _typecheckingstub__1e5dc7085346ad722ba37251e910871affc6e3d90d9251cc9d43941978d7cb0a(
     *,
     iceberg_schema: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
+    iceberg_partition_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergPartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iceberg_sort_order: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    table_properties: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__679b9f9b424f47edab87cd4b6cad466311960debebb534717fc0925ffe9efe85(
+    *,
+    name: builtins.str,
+    source_id: jsii.Number,
+    transform: builtins.str,
+    field_id: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd8cefed1b3fab403a063d558585bc5545a803ebe6ea8c2cbf760b46844c28fe(
+    *,
+    fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergPartitionFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    spec_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2729,10 +3290,29 @@ def _typecheckingstub__3613cb002c55c4baeb2517f3445ed9e71396e5ee393d230544d3f1302
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f66a803be114d90c4e838cc072f12b7394cc1d0e2ce9f128586effbc4963ed4b(
+    *,
+    direction: builtins.str,
+    null_order: builtins.str,
+    source_id: jsii.Number,
+    transform: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36093a774b631f19332c77b446f185d8c83b036f4cc317101f912b619121327b(
+    *,
+    fields: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTable.IcebergSortFieldProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    order_id: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b3f6368f6b334e97c5c50a43ab04d5e784e18fdb0e687d1684b9ad01ad6c1a29(
     *,
     name: builtins.str,
     type: builtins.str,
+    id: typing.Optional[jsii.Number] = None,
     required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -64,9 +63,7 @@ def eda_changepoints(eda_cleaned, penalty=10000, show=False):
         if isinstance(eda_cleaned, pd.DataFrame):
             colnames = eda_cleaned.columns.values
             if len([i for i in colnames if "EDA_Clean" in i]) == 0:
-                raise ValueError(
-                    "NeuroKit error: eda_changepoints(): Your input does not contain the cleaned EDA signal."
-                )
+                raise ValueError("NeuroKit error: eda_changepoints(): Your input does not contain the cleaned EDA signal.")
             else:
                 eda_cleaned = eda_cleaned["EDA_Clean"]
 

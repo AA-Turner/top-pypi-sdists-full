@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import dataclasses
-import functools
 import logging
 from typing import Any
 
@@ -50,33 +49,12 @@ IntDeviceId = int | jax.Array
 MultiDimDeviceId = tuple[IntDeviceId, ...] | dict[str | tuple[str, ...], IntDeviceId]
 Ref = state.AbstractRef | state.TransformedRef
 
-repeat_p = jax_core.Primitive('repeat')
 
 def repeat(x: jax.Array, repeats: int, axis: int) -> jax.Array:
   axis = util.canonicalize_axis(axis, x.ndim)
-  return repeat_p.bind(x, repeats=repeats, axis=axis)
-
-@repeat_p.def_abstract_eval
-def _repeat_abstract_eval(x, *, repeats, axis):
-  if axis < 0 or axis >= len(x.shape):
-    raise ValueError(f"axis: {axis} is out of range [0, {len(x.shape)})")
-  shape = list(x.shape)
-  shape[axis] *= repeats
-  return jax_core.ShapedArray(shape, x.dtype)
-
-
-@repeat_p.def_impl
-def repeat_impl(x: jax.Array, *, repeats: int, axis: int):
   reps = [repeats if i == axis else 1 for i in range(x.ndim)]
   return jnp.tile(x, reps)
 
-
-def _repeat_lowering_rule(ctx: mlir.LoweringRuleContext, x, *, repeats, axis):
-  return mlir.lower_fun(
-      functools.partial(repeat_impl, repeats=repeats, axis=axis),
-      multiple_results=False,
-  )(ctx, x)
-mlir.register_lowering(repeat_p, _repeat_lowering_rule)
 
 bitcast_p = jax_core.Primitive("bitcast")
 
@@ -370,7 +348,7 @@ def _get_dma_effects(
   n_dst_transforms = len(tree_util.tree_leaves(dst_transforms_avals))
   n_dst_sem_transforms = len(tree_util.tree_leaves(dst_sem_transforms_avals))
   dst_sem_index = 1 + n_src_transforms + 1 + n_dst_transforms
-  effs = {
+  effs: set[jax_core.Effect] = {
       state.ReadEffect(0),  # Read from src ref
       state.WriteEffect(n_src_transforms + 1),  # Write to dst ref
       state.WriteEffect(dst_sem_index),  # Write to dst sem
@@ -759,6 +737,19 @@ def _dma_wait_abstract_eval(*args, tree, device_id_type):
       src_sem_transforms_avals,
       device_id_aval,
   ) = _dma_unflatten(tree, args)
+  if not isinstance(dst_sem_aval, state.AbstractRef):
+    raise ValueError("Expected the destination semaphore to be a reference")
+  allowed_semaphore_types = {
+      tpu_core.dma_semaphore,
+      pl_core.SEMAPHORE_INTERPRET_DTYPE,
+  }
+  if not any(
+      jnp.issubdtype(dst_sem_aval.dtype, t) for t in allowed_semaphore_types
+  ):
+    raise ValueError(
+        "dma_wait requires a DMA semaphore, but got a regular semaphore."
+        " Use pltpu.semaphore_wait() instead."
+    )
   return [], _get_dma_effects(
       src_transforms_avals,
       dst_transforms_avals,
@@ -1274,3 +1265,131 @@ def _trace_value_abstract_eval(value, *, label):
   if value.dtype not in (jnp.int32, jnp.float32):
     raise ValueError(f"trace_value requires i32 or f32, got {value.dtype}")
   return [], {trace_effect}
+
+
+class MXUEffect(effects.Effect):
+  __str__ = lambda self: "MXU"
+mxu_effect = MXUEffect()
+effects.control_flow_allowed_effects.add_type(MXUEffect)
+pl_core.kernel_local_effects.add_type(MXUEffect)
+
+
+matmul_push_rhs_p = jax_core.Primitive("matmul_push_rhs")
+matmul_push_rhs_p.multiple_results = True
+
+
+def matmul_push_rhs(
+    rhs: jax.Array, staging_register: int, mxu_index: int
+) -> None:
+  """Prepares the RHS for a matrix multiplication in the chosen MXU.
+
+  Each MXU has an independent set of staging registers.
+
+  ```{warning}
+  It is not allowed to push to the same staging register twice. Once
+  the RHS is prepared, it must be loaded into the MXU using `matmul_acc_lhs`
+  before it can be used again.
+  ```
+
+  ```{warning}
+  The kernel must not leave any data in the staging registers upon exit.
+  ```
+
+  Args:
+    rhs: The right-hand side operand. Must be 256x256.
+    staging_register: The staging register to use.
+    mxu_index: The MXU to use.
+  """
+  matmul_push_rhs_p.bind(
+      rhs, staging_register=staging_register, mxu_index=mxu_index
+  )
+
+
+@matmul_push_rhs_p.def_effectful_abstract_eval
+def _matmul_push_rhs_abstract_eval(ref: jax.Array, **_):
+  del ref  # Unused.
+  return [], {mxu_effect}
+
+
+matmul_acc_lhs_p = jax_core.Primitive("matmul_acc_lhs")
+matmul_acc_lhs_p.multiple_results = True
+
+
+def matmul_acc_lhs(
+    acc_addr: int,
+    lhs: jax.Array,
+    mxu_index: int,
+    load_staged_rhs: int | None = None,
+) -> None:
+  """Performs a matrix multiplication in the chosen MXU.
+
+  If `load_staged_rhs` is not None, the previously pushed RHS will be loaded
+  from the given staging register _before_ the matrix multiplication begins.
+  The results of the multiplication are accumulated into the specified
+  accumulator slice.
+
+  Args:
+    acc_addr: The base address of the accumulator slice used for results.
+    lhs: The left-hand side operand. Must be M x 256. For M divisible by the
+      number of sublanes multiplied by datatype packing.
+    mxu_index: The MXU to use.
+    load_staged_rhs: The staging register to load the RHS from. If None, the RHS
+      is not loaded from staging and the matmul will reuse the existing one.
+  """
+  # This is a common error. You might intend to say to load the staged RHS, but
+  # True is equivalent to saying "load the staged RHS FROM REGISTER 1", which is
+  # probably not what you intended.
+  if isinstance(load_staged_rhs, bool):
+    raise TypeError("load_staged_rhs must be an integer or None.")
+  matmul_acc_lhs_p.bind(
+      lhs,
+      acc_addr=acc_addr,
+      mxu_index=mxu_index,
+      load_staged_rhs=load_staged_rhs,
+  )
+
+
+@matmul_acc_lhs_p.def_effectful_abstract_eval
+def _matmul_acc_lhs_abstract_eval(lhs: jax.Array, **_):
+  del lhs  # Unused.
+  return [], {mxu_effect}
+
+
+matmul_pop_p = jax_core.Primitive("matmul_pop")
+
+
+def matmul_pop(
+    acc_addr: int,
+    shape: tuple[int, int],
+    dtype: jax.typing.DTypeLike,
+    mxu_index: int,
+):
+  """Returns the result of a matrix multiplication from the chosen MXU and zeroes the accumulator.
+
+  If the result is not ready yet (the MXU is still busy), the operation blocks.
+
+  ```{warning}
+  The kernel must not leave any data in the accumulator upon exit.
+  ```
+
+  Args:
+    acc_addr: The base address of the popped accumulator slice.
+    shape: The shape of the result.
+    dtype: The dtype of the result.
+    mxu_index: The MXU to use.
+  """
+  return matmul_pop_p.bind(
+      acc_addr=acc_addr,
+      shape=shape,
+      mxu_index=mxu_index,
+      dtype=jnp.dtype(dtype),
+  )
+
+
+@matmul_pop_p.def_effectful_abstract_eval
+def _matmul_pop_abstract_eval(*, shape, dtype, **_):
+  if dtype not in map(jnp.dtype, [jnp.float32, jnp.int32]):
+    raise ValueError(
+        f"Only float32 and int32 accumulators are supported, got {dtype}"
+    )
+  return jax_core.ShapedArray(shape, dtype), {mxu_effect}

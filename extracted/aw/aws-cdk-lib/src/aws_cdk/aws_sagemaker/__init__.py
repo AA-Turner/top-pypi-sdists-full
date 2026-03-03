@@ -33661,6 +33661,15 @@ class CfnModelPackage(
         return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The time at which the model package was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrModelPackageArn")
     def attr_model_package_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the model package.

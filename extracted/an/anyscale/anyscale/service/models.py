@@ -3,6 +3,10 @@ from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
+from anyscale._private.models.integrations import (
+    ConnectionConfig,  # noqa: F401
+    ConnectionType,  # noqa: F401
+)
 from anyscale._private.workload import WorkloadConfig
 
 
@@ -216,6 +220,9 @@ tracing_config: # (Optional) Configuration options for tracing.
 tags:
   team: serving
   cost-center: eng
+connections: # (Optional) List of third-party connections for credential injection.
+  - connection_type: databricks
+    connection_name: my-databricks-connection
 """
 
     # Override the `name` field from `WorkloadConfig` so we can document it separately for jobs and services.

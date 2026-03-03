@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib.gridspec
@@ -61,15 +60,13 @@ def ecg_plot(ecg_signals, info=None):
     # Sanity-check input.
     if not isinstance(ecg_signals, pd.DataFrame):
         raise ValueError(
-            "NeuroKit error: ecg_plot(): The `ecg_signals` argument must be the "
-            "DataFrame returned by `ecg_process()`."
+            "NeuroKit error: ecg_plot(): The `ecg_signals` argument must be the DataFrame returned by `ecg_process()`."
         )
 
     # Extract R-peaks.
     if info is None:
         warn(
-            "'info' dict not provided. Some information might be missing."
-            + " Sampling rate will be set to 1000 Hz.",
+            "'info' dict not provided. Some information might be missing." + " Sampling rate will be set to 1000 Hz.",
             category=NeuroKitWarning,
         )
         info = {"sampling_rate": 1000}

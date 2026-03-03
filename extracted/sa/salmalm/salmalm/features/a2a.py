@@ -82,22 +82,7 @@ class A2AProtocol:
     # ── Peering ──────────────────────────────────────────────
 
     def pair(self, url: str, shared_secret: str, peer_name: str = "") -> str:
-        """Register a peer instance.
-
-        BUG-CF fix: validate URL against SSRF blocklist before storing.
-        """
-        # SSRF protection: reject private/loopback/metadata IPs
-        try:
-            from salmalm.tools.tools_common import _is_private_url_follow_redirects
-            blocked, reason, _ = _is_private_url_follow_redirects(url)
-            if blocked:
-                raise ValueError(f"URL blocked (SSRF protection): {reason}")
-        except ImportError:
-            # Fallback: basic scheme check
-            from urllib.parse import urlparse as _up
-            _parsed = _up(url)
-            if _parsed.scheme not in ("http", "https"):
-                raise ValueError(f"Invalid URL scheme: {_parsed.scheme}")
+        """Register a peer instance."""
         peer_id = uuid.uuid4().hex[:8]
         self.peers[peer_id] = {
             "url": url.rstrip("/"),
@@ -154,9 +139,7 @@ class A2AProtocol:
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                # BUG-CG fix: cap response read to 1 MB to prevent memory exhaustion
-                raw = resp.read(1 * 1024 * 1024)
-                return json.loads(raw.decode("utf-8"))
+                return json.loads(resp.read().decode("utf-8"))
         except Exception as exc:
             log.error("a2a send error: %s", exc)
             return {"error": str(exc)}

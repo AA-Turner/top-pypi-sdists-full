@@ -1,6 +1,6 @@
 [build-system]
 # setuptools removed pkg_resources in version 81
-requires = ["setuptools>=61,<81"]
+requires = ["setuptools>=61,<81", "setuptools-rust>=1.9"]
 build-backend = "setuptools.build_meta"
 
 [project]

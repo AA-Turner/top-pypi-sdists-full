@@ -64,14 +64,12 @@ def mne_crop(raw, tmin=0.0, tmax=None, include_tmax=True, smin=None, smax=None):
         if tmin < 0.0:
             raise ValueError(f"tmin ({tmin}) must be >= 0")
         elif tmax > max_time:
-            raise ValueError(
-                f"tmax ({tmax}) must be less than or equal to the max time ({max_time} sec)."
-            )
+            raise ValueError(f"tmax ({tmax}) must be less than or equal to the max time ({max_time} sec).")
 
         # Convert time to first and last samples
-        new_smin, new_smax = np.where(
-            _time_mask(raw.times, tmin, tmax, sfreq=raw.info["sfreq"], include_tmax=include_tmax)
-        )[0][[0, -1]]
+        new_smin, new_smax = np.where(_time_mask(raw.times, tmin, tmax, sfreq=raw.info["sfreq"], include_tmax=include_tmax))[
+            0
+        ][[0, -1]]
 
     if smin is None:
         smin = new_smin

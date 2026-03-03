@@ -607,6 +607,14 @@ class CfnWorkspace(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrWorkspaceId")
+    def attr_workspace_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: WorkspaceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWorkspaceId"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))

@@ -30,7 +30,9 @@ def mine_grouped(
 
     is_pl = _is_polars(df)
     if is_pl:
-        import polars as pl
+        from rusket._dependencies import import_optional_dependency
+
+        pl = import_optional_dependency("polars")
 
         res_dfs = []
         for name, group_df in df.group_by(group_col):
@@ -48,7 +50,9 @@ def mine_grouped(
         return pl.DataFrame(schema={group_col: pl.Utf8, "support": pl.Float64, "itemsets": pl.List(pl.Utf8)})
 
     else:
-        import pandas as pd
+        from rusket._dependencies import import_optional_dependency
+
+        pd = import_optional_dependency("pandas")
 
         res_dfs = []
         for name, group_df in df.groupby(group_col):
@@ -81,7 +85,9 @@ def rules_grouped(
 
     is_pl = _is_polars(df)
     if is_pl:
-        import polars as pl
+        from rusket._dependencies import import_optional_dependency
+
+        pl = import_optional_dependency("polars")
 
         res_dfs = []
         for name, group_df in df.group_by(group_col):
@@ -107,7 +113,9 @@ def rules_grouped(
         )
 
     else:
-        import pandas as pd
+        from rusket._dependencies import import_optional_dependency
+
+        pd = import_optional_dependency("pandas")
 
         res_dfs = []
         for name, group_df in df.groupby(group_col):
@@ -142,7 +150,9 @@ def prefixspan_grouped(
 
     is_pl = _is_polars(df)
     if is_pl:
-        import polars as pl
+        from rusket._dependencies import import_optional_dependency
+
+        pl = import_optional_dependency("polars")
 
         res_dfs = []
         for name, group_df in df.group_by(group_col):
@@ -150,21 +160,18 @@ def prefixspan_grouped(
                 name = name[0]
             from .prefixspan import PrefixSpan
 
-            try:
-                model = PrefixSpan.from_transactions(
-                    group_df,
-                    user_col=user_col,
-                    time_col=time_col,
-                    item_col=item_col,
-                    min_support=min_support,
-                    max_len=max_len,
-                )
-                res = model.mine()
-                if not res.empty:
-                    res.insert(0, group_col, name)
-                    res_dfs.append(pl.from_pandas(res))
-            except Exception:
-                pass
+            model = PrefixSpan.from_transactions(
+                group_df,
+                user_col=user_col,
+                time_col=time_col,
+                item_col=item_col,
+                min_support=min_support,
+                max_len=max_len,
+            )
+            res = model.mine()
+            if not res.empty:
+                res.insert(0, group_col, name)
+                res_dfs.append(pl.from_pandas(res))
         if res_dfs:
             return pl.concat(res_dfs)
         return pl.DataFrame(schema={group_col: pl.Utf8, "support": pl.Int64, "sequence": pl.List(pl.Utf8)})
@@ -176,21 +183,18 @@ def prefixspan_grouped(
                 name = name[0]
             from .prefixspan import PrefixSpan
 
-            try:
-                model = PrefixSpan.from_transactions(
-                    group_df,
-                    user_col=user_col,
-                    time_col=time_col,
-                    item_col=item_col,
-                    min_support=min_support,
-                    max_len=max_len,
-                )
-                res = model.mine()
-                if not res.empty:
-                    res.insert(0, group_col, name)
-                    res_dfs.append(res)
-            except Exception:
-                pass
+            model = PrefixSpan.from_transactions(
+                group_df,
+                user_col=user_col,
+                time_col=time_col,
+                item_col=item_col,
+                min_support=min_support,
+                max_len=max_len,
+            )
+            res = model.mine()
+            if not res.empty:
+                res.insert(0, group_col, name)
+                res_dfs.append(res)
         if res_dfs:
             return pd.concat(res_dfs, ignore_index=True)
         return pd.DataFrame(columns=[group_col, "support", "sequence"])
@@ -213,7 +217,9 @@ def hupm_grouped(
 
     is_pl = _is_polars(df)
     if is_pl:
-        import polars as pl
+        from rusket._dependencies import import_optional_dependency
+
+        pl = import_optional_dependency("polars")
 
         res_dfs = []
         for name, group_df in df.group_by(group_col):
@@ -221,21 +227,18 @@ def hupm_grouped(
                 name = name[0]
             from .hupm import HUPM
 
-            try:
-                model = HUPM.from_transactions(
-                    group_df,
-                    transaction_col=transaction_col,
-                    item_col=item_col,
-                    utility_col=utility_col,
-                    min_utility=min_utility,
-                    max_len=max_len,
-                )
-                res = model.mine()
-                if not res.empty:
-                    res.insert(0, group_col, name)
-                    res_dfs.append(pl.from_pandas(res))
-            except Exception:
-                pass
+            model = HUPM.from_transactions(
+                group_df,
+                transaction_col=transaction_col,
+                item_col=item_col,
+                utility_col=utility_col,
+                min_utility=min_utility,
+                max_len=max_len,
+            )
+            res = model.mine()
+            if not res.empty:
+                res.insert(0, group_col, name)
+                res_dfs.append(pl.from_pandas(res))
         if res_dfs:
             return pl.concat(res_dfs)
         return pl.DataFrame(schema={group_col: pl.Utf8, "utility": pl.Float64, "itemset": pl.List(pl.Int64)})
@@ -247,21 +250,18 @@ def hupm_grouped(
                 name = name[0]
             from .hupm import HUPM
 
-            try:
-                model = HUPM.from_transactions(
-                    group_df,
-                    transaction_col=transaction_col,
-                    item_col=item_col,
-                    utility_col=utility_col,
-                    min_utility=min_utility,
-                    max_len=max_len,
-                )
-                res = model.mine()
-                if not res.empty:
-                    res.insert(0, group_col, name)
-                    res_dfs.append(res)
-            except Exception:
-                pass
+            model = HUPM.from_transactions(
+                group_df,
+                transaction_col=transaction_col,
+                item_col=item_col,
+                utility_col=utility_col,
+                min_utility=min_utility,
+                max_len=max_len,
+            )
+            res = model.mine()
+            if not res.empty:
+                res.insert(0, group_col, name)
+                res_dfs.append(res)
         if res_dfs:
             return pd.concat(res_dfs, ignore_index=True)
         return pd.DataFrame(columns=[group_col, "utility", "itemset"])
@@ -289,22 +289,15 @@ def recommend_batches(
     except Exception:
         recommender = model  # Trust duck-typing
 
-    try:
-        if is_pl:
-            res_df = recommender.predict_next_chunk(df.to_pandas(), user_col=user_col, k=k)
-            import polars as pl
+    if is_pl:
+        res_df = recommender.predict_next_chunk(df.to_pandas(), user_col=user_col, k=k)
+        from rusket._dependencies import import_optional_dependency
 
-            return pl.from_pandas(res_df)
-        else:
-            import pandas as pd
+        pl = import_optional_dependency("polars")
 
-            return recommender.predict_next_chunk(df, user_col=user_col, k=k)
-    except Exception:
-        if is_pl:
-            import polars as pl
-
-            return pl.DataFrame(schema={user_col: pl.Utf8, "recommended_items": pl.List(pl.Int64)})
-        return pd.DataFrame(columns=[user_col, "recommended_items"])
+        return pl.from_pandas(res_df)
+    else:
+        return recommender.predict_next_chunk(df, user_col=user_col, k=k)
 
 
 def als_grouped(
@@ -332,7 +325,9 @@ def als_grouped(
 
     import warnings
 
-    import pandas as pd
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
 
     from .als import ALS
 
@@ -359,16 +354,13 @@ def als_grouped(
         user_labels = model._user_labels or list(range(model._n_users))
         records = []
         for internal_idx in range(model._n_users):
-            try:
-                item_ids, _ = model.recommend_items(user_id=internal_idx, n=k)
-                records.append(
-                    {
-                        user_col: str(user_labels[internal_idx]),
-                        "recommended_items": [int(x) for x in item_ids],
-                    }
-                )
-            except Exception:
-                pass
+            item_ids, _ = model.recommend_items(user_id=internal_idx, n=k)
+            records.append(
+                {
+                    user_col: str(user_labels[internal_idx]),
+                    "recommended_items": [int(x) for x in item_ids],
+                }
+            )
 
         res_df = pd.DataFrame(records, columns=[user_col, "recommended_items"])
         if not res_df.empty:
@@ -377,7 +369,9 @@ def als_grouped(
         return None
 
     if is_pl:
-        import polars as pl
+        from rusket._dependencies import import_optional_dependency
+
+        pl = import_optional_dependency("polars")
 
         for name, group_df in df.group_by(group_col):
             if isinstance(name, tuple):

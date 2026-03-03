@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 import scipy.signal
@@ -73,9 +72,7 @@ def signal_synchrony(signal1, signal2, method="hilbert", window_size=50):
         coupling = _signal_synchrony_correlation(signal1, signal2, window_size=int(window_size))
 
     else:
-        raise ValueError(
-            "NeuroKit error: signal_synchrony(): 'method' should be one of 'hilbert' or 'correlation'."
-        )
+        raise ValueError("NeuroKit error: signal_synchrony(): 'method' should be one of 'hilbert' or 'correlation'.")
 
     return coupling
 
@@ -86,7 +83,6 @@ def signal_synchrony(signal1, signal2, method="hilbert", window_size=50):
 
 
 def _signal_synchrony_hilbert(signal1, signal2):
-
     hill1 = scipy.signal.hilbert(signal1)
     hill2 = scipy.signal.hilbert(signal2)
 

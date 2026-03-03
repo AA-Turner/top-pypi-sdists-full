@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mo-kwargs
-Version: 7.685.25166
+Version: 8.703.26061
 Summary: Object destructuring of function parameters for Python!
 Home-page: https://github.com/klahnakoski/mo-kwargs
 Author: Kyle Lahnakoski
@@ -16,14 +16,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mo-dots==10.685.25166
 Provides-Extra: tests
-Requires-Dist: mo-testing>=8.674.25037; extra == "tests"
-Requires-Dist: mo-times>=5.672.25036; extra == "tests"
-Requires-Dist: mo-json>=6.672.25036; extra == "tests"
-Requires-Dist: mo-threads>=6.672.25036; extra == "tests"
+Requires-Dist: mo-testing>=8.685.25166; extra == "tests"
+Requires-Dist: mo-times>=5.685.25166; extra == "tests"
+Requires-Dist: mo-json>=6.701.26061; extra == "tests"
+Requires-Dist: mo-threads>=6.698.25331; extra == "tests"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -45,6 +47,9 @@ Object destructuring of function parameters for Python!
  [![Build Status](https://github.com/klahnakoski/mo-kwargs/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/klahnakoski/mo-kwargs/actions/workflows/build.yml)
  [![Coverage Status](https://coveralls.io/repos/github/klahnakoski/mo-kwargs/badge.svg?branch=dev)](https://coveralls.io/github/klahnakoski/mo-kwargs?branch=dev)
 [![Downloads](https://static.pepy.tech/badge/mo-kwargs)](https://pepy.tech/project/mo-kwargs)
+
+
+[See changes](https://github.com/klahnakoski/mo-kwargs#version-changes-features)
 
 
 ## Motivation
@@ -145,3 +150,13 @@ Your method can accept `kwargs` as a parameter. If it does, ensure it defaults t
         >>> login(**creds)
         ekyle
         9000
+
+
+## Version Changes, Features
+
+### Version 8
+
+*March 2026*
+
+* the `kwargs` parameter no longer incudes itself, and no longer includes first argument `self`, `cls` of instance and class methods.
+* the variable keyword argument (`**`) includes all parameters not listed in the method signature. (this was broken in previous versions).

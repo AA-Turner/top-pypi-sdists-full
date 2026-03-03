@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyspnego
-Version: 0.12.0
+Version: 0.12.1
 Summary: Windows Negotiate Authentication Client and Server
 Author-email: Jordan Borean <jborean93@gmail.com>
 License-Expression: MIT

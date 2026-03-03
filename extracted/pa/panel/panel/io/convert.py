@@ -9,6 +9,7 @@ import pathlib
 import uuid
 
 from collections.abc import Sequence
+from html import escape
 from typing import (
     IO, Any, Literal, cast,
 )
@@ -28,7 +29,7 @@ from bokeh.util.serialization import make_id
 from packaging.requirements import Requirement
 
 from .. import __version__, config
-from ..util import base_version, escape
+from ..util import base_version
 from .application import Application, build_single_handler_application
 from .document import MockSessionContext
 from .loading import LOADING_INDICATOR_CSS_CLASS
@@ -47,8 +48,8 @@ WORKER_HANDLER_TEMPLATE = _pn_env.get_template('pyodide_handler.js')
 PANEL_ROOT = pathlib.Path(__file__).parent.parent
 BOKEH_VERSION = base_version(bokeh.__version__)
 PY_VERSION = base_version(__version__)
-PYODIDE_VERSION = 'v0.28.2'
-PYSCRIPT_VERSION = '2025.8.1'
+PYODIDE_VERSION = 'v0.29.3'
+PYSCRIPT_VERSION = '2026.2.1'
 WHL_PATH = DIST_DIR / 'wheels'
 PANEL_LOCAL_WHL = WHL_PATH / f'panel-{__version__.replace("-dirty", "")}-py3-none-any.whl'
 BOKEH_LOCAL_WHL = WHL_PATH / f'bokeh-{BOKEH_VERSION}-py3-none-any.whl'

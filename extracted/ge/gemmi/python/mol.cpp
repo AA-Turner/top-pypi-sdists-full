@@ -102,13 +102,14 @@ void add_mol(nb::module_& m) {
   nb::bind_map<info_map_type, rv_ri>(m, "InfoMap");
 
   nb::class_<CRA>(m, "CRA")
-    .def_ro("chain", &CRA::chain)
-    .def_ro("residue", &CRA::residue)
-    .def_ro("atom", &CRA::atom)
+    .def_rw("chain", &CRA::chain, nb::arg().none())
+    .def_rw("residue", &CRA::residue,  nb::arg().none())
+    .def_rw("atom", &CRA::atom, nb::arg().none())
     .def("atom_matches", [](const CRA& self, const AtomAddress& addr) {
         return atom_matches(self, addr);
     })
     .def("__str__", [](const CRA& self) { return atom_str(self); })
+    .def("cid", [](const CRA& self) { return atom_str(self, true); })
     .def("__repr__", [](const CRA& self) {
         return cat("<gemmi.CRA ", atom_str(self), '>');
     });
@@ -135,6 +136,7 @@ void add_mol(nb::module_& m) {
     .def_rw("assemblies", &Structure::assemblies)
     .def_rw("meta", &Structure::meta)
     .def_rw("has_d_fraction", &Structure::has_d_fraction)
+    .def_rw("non_ascii_line", &Structure::non_ascii_line)
     .def_rw("has_origx", &Structure::has_origx)
     .def_ro("origx", &Structure::origx)
     .def_rw("info", &Structure::info)

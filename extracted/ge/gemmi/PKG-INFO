@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: gemmi
-Version: 0.7.4
+Version: 0.7.5
 Summary: library for structural biology
 Keywords: structural bioinformatics,structural biology,crystallography,CIF,mmCIF,PDB,CCP4,MTZ
 Author-Email: Marcin Wojdyr <wojdyr@gmail.com>
@@ -16,7 +16,7 @@ Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python
 Project-URL: homepage, https://github.com/project-gemmi/gemmi
 Project-URL: repository, https://github.com/project-gemmi/gemmi
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
 [![CI](https://github.com/project-gemmi/gemmi/workflows/CI/badge.svg)](https://github.com/project-gemmi/gemmi/actions)
@@ -49,4 +49,4 @@ two major providers of software for macromolecular crystallography.
 Citing: [JOSS paper](https://doi.org/10.21105/joss.04200).
 
 License: MPLv2, or (at your option) LGPLv3.
-© 2017-2024 Global Phasing Ltd.
+© 2017-2025 Global Phasing Ltd.

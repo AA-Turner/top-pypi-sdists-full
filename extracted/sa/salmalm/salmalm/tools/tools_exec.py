@@ -115,11 +115,9 @@ def _run_capped(run_args: dict, timeout: int, extra_kwargs: dict) -> "tuple[str,
     """Run subprocess with a hard stdout/stderr read cap to prevent OOM.
 
     Returns (stdout_text, stderr_text, returncode).
-    Uses threading to read stdout/stderr concurrently with a hard byte cap,
-    instead of communicate() which buffers ALL output before returning.
+    subprocess.run(capture_output=True) reads ALL output before returning;
+    this wrapper uses Popen so we can stop after _MAX_READ bytes.
     """
-    import threading
-
     proc = subprocess.Popen(
         **run_args,
         stdout=subprocess.PIPE,
@@ -127,50 +125,20 @@ def _run_capped(run_args: dict, timeout: int, extra_kwargs: dict) -> "tuple[str,
         cwd=str(WORKSPACE_DIR),
         **extra_kwargs,
     )
-
-    stdout_chunks: list = []
-    stderr_chunks: list = []
-    stdout_total = [0]
-    stderr_total = [0]
-
-    def _read_stream(stream, chunks: list, total: list) -> None:
-        try:
-            while True:
-                chunk = stream.read(65536)  # 64KB chunks
-                if not chunk:
-                    break
-                remaining = _MAX_READ - total[0]
-                if remaining <= 0:
-                    break
-                chunks.append(chunk[:remaining])
-                total[0] += len(chunk)
-        except Exception:
-            pass
-
-    t_out = threading.Thread(target=_read_stream, args=(proc.stdout, stdout_chunks, stdout_total), daemon=True)
-    t_err = threading.Thread(target=_read_stream, args=(proc.stderr, stderr_chunks, stderr_total), daemon=True)
-    t_out.start()
-    t_err.start()
-
     try:
-        proc.wait(timeout=timeout)
+        # communicate() buffers all output — cap after the fact to limit memory retention.
+        stdout_bytes, stderr_bytes = proc.communicate(timeout=timeout)
+        if len(stdout_bytes) > _MAX_READ:
+            stdout_bytes = stdout_bytes[-_MAX_READ:]  # keep tail (most recent output)
+        if len(stderr_bytes) > _MAX_READ:
+            stderr_bytes = stderr_bytes[-_MAX_READ:]
+        return stdout_bytes.decode("utf-8", errors="replace"), \
+               stderr_bytes.decode("utf-8", errors="replace"), \
+               proc.returncode
     except subprocess.TimeoutExpired:
         proc.kill()
-        proc.wait()
-        t_out.join(timeout=2)
-        t_err.join(timeout=2)
+        proc.communicate()
         raise
-
-    t_out.join(timeout=5)
-    t_err.join(timeout=5)
-
-    stdout_bytes = b"".join(stdout_chunks)
-    stderr_bytes = b"".join(stderr_chunks)
-    return (
-        stdout_bytes.decode("utf-8", errors="replace"),
-        stderr_bytes.decode("utf-8", errors="replace"),
-        proc.returncode,
-    )
 
 
 def _format_exec_output(result) -> str:
@@ -406,9 +374,6 @@ def handle_python_eval(args: dict) -> str:
         return "⚠️ python_eval is disabled by default for security. Enable with SALMALM_PYTHON_EVAL=1"
     code = args.get("code", "")
     timeout_sec = min(args.get("timeout", 15), 30)
-    # Guard: oversized code causes slow AST parsing + regex scanning
-    if len(code) > 50000:
-        return "❌ Code too large (max 50,000 characters)"
 
     # Primary: AST-based validation
     ast_err = _ast_validate(code)

@@ -40,7 +40,7 @@ from jax._src.lax import slicing as lax_slicing
 from jax._src.state import indexing
 from jax._src.state.primitives import addupdate_p, get_p, swap_p, pin, unpin
 from jax._src.state.types import (
-    AbstractRef, RefBitcaster, RefEffect, RefReshaper, get_ref_aval_from_value,
+    AbstractRef, BitcastTransform, RefEffect, ReshapeTransform, get_ref_aval_from_value,
     uninitialized,)
 from jax._src.state.utils import bitcast, hoist_consts_to_refs
 from jax._src.typing import Array
@@ -214,6 +214,18 @@ def _eval_jaxpr_discharge_state(
         if config.refs_to_pins.value:
           ans = pin(ans)
         refs_to_discharge.add(id(outvar.aval))
+      elif eqn.primitive is core.empty_ref_p:
+        [], [outvar] = eqn.invars, eqn.outvars
+        assert isinstance(outvar.aval, AbstractRef)
+        aval = outvar.aval.inner_aval
+        if not isinstance(aval, core.ShapedArray):
+          raise NotImplementedError  # TODO(sharadmv)
+        ans = lax.empty(aval.shape, aval.dtype)
+        refs_to_discharge.add(id(outvar.aval))
+      elif eqn.primitive is core.free_ref_p:
+        [invar], [] = eqn.invars, eqn.outvars
+        refs_to_discharge.remove(id(invar.aval))
+        ans = ()
       elif eqn.primitive is core.freeze_p:
         [invar], [outvar] = eqn.invars, eqn.outvars
         ans = env.read(invar)
@@ -258,7 +270,7 @@ def _eval_jaxpr_discharge_state(
   out_vals = map(env.read, jaxpr.outvars)
   ref_vals = map(
       env.read, [v for v in jaxpr.invars if id(v.aval) in refs_to_discharge])
-  return out_vals + ref_vals
+  return [*out_vals, *ref_vals]
 
 def _is_trivial_indexer(indexer: indexing.NDIndexer):
   """Returns whether the indexer selects the entire shape."""
@@ -387,6 +399,9 @@ def _convert_to_gather_arrays(indexer: indexing.NDIndexer) -> tuple[Array, ...]:
     n_int_indexers = sum(1 for p in is_int_indexing if p)
     last_int_index_idx = n_idxers - 1 - is_int_indexing[::-1].index(True)
     n_slice_index_dims_after_int = n_idxers - last_int_index_idx - 1
+  else:
+    n_idxers = 0
+    last_int_index_idx = 0
 
   def get_idx_in_shape_after_indexing(i):
     if not any(is_int_indexing):
@@ -463,9 +478,9 @@ def transform_array(x, transforms):
     match transform:
       case indexing.NDIndexer():
         result = _index_array(result, transform)
-      case RefBitcaster():
+      case BitcastTransform():
         result = bitcast(result, transform.dtype)
-      case RefReshaper():
+      case ReshapeTransform():
         result = result.reshape(transform.shape)
       case _:
         raise NotImplementedError(f"Unsupported transform: {transform}")
@@ -509,9 +524,9 @@ def transform_swap_array(x, transforms, val):
           # the result of the indexing, and is no longer the original array that
           # was indexed into.
         intermediates.append(new_val)
-      case RefBitcaster():
+      case BitcastTransform():
         intermediates.append(bitcast(new_val, transform.dtype))
-      case RefReshaper():
+      case ReshapeTransform():
         intermediates.append(new_val.reshape(transform.shape))
       case _:
         raise NotImplementedError(f"Unsupported transform: {transform}")
@@ -521,7 +536,7 @@ def transform_swap_array(x, transforms, val):
   new_x = val
 
   # Write phase (reversed loop)
-  for intermediate, transform in reversed(zip(intermediates[:-1], transforms)):
+  for intermediate, transform in reversed(zip(intermediates[:-1], transforms)):  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
     if isinstance(transform, indexing.NDIndexer):
       indexer = transform
       if _is_trivial_indexer(indexer):
@@ -678,7 +693,7 @@ def _run_state_to_lojax(*args, jaxpr, is_initialized, **params):
   out_mut, lo_outs = split_list(all_outs, [pe.num_himuts_out(jaxpr)])
   pe.apply_himut(jaxpr, args, out_mut)
   return pe.raise_lo_outs(arg_avals, lo_outs)
-run_state_p.to_lojax = _run_state_to_lojax
+run_state_p.to_lojax = _run_state_to_lojax  # pyrefly: ignore[bad-assignment]
 
 
 def _default_initialization(x):
@@ -751,7 +766,7 @@ def _run_state_jvp(primals: Sequence[Any], tangents: Sequence[Any], *,
                    is_initialized: tuple[bool, ...]):
   if not all(is_initialized):
     raise NotImplementedError("Uninitialized Refs are not supported in jvp.")
-  nonzero_tangents = [not isinstance(t, ad_util.Zero) for t in tangents]
+  nonzero_tangents: list[bool] = [not isinstance(t, ad_util.Zero) for t in tangents]
   discharged_jaxpr, body_consts = discharge_state(jaxpr, ())
   for _ in range(len(nonzero_tangents)):
     _, out_nonzero_tangents = ad.jvp_jaxpr(
@@ -759,7 +774,7 @@ def _run_state_jvp(primals: Sequence[Any], tangents: Sequence[Any], *,
         nonzero_tangents, instantiate=nonzero_tangents)
     if out_nonzero_tangents == nonzero_tangents:
       break
-    nonzero_tangents = map(operator.or_, nonzero_tangents, out_nonzero_tangents)
+    nonzero_tangents = map(operator.or_, nonzero_tangents, out_nonzero_tangents)  # pyrefly: ignore[bad-assignment]  # pyrefly#2385
   else:
     raise Exception("Invalid fixpoint")
   del discharged_jaxpr, body_consts, out_nonzero_tangents
@@ -779,7 +794,7 @@ def _run_state_jvp(primals: Sequence[Any], tangents: Sequence[Any], *,
                                                            len(primals)])
   del out_consts
   out_tangents_iter = iter(out_tangents)
-  out_tangents = [next(out_tangents_iter) if nz else ad_util.Zero.from_primal_value(p)
+  out_tangents = [next(out_tangents_iter) if nz else ad_util.p2tz(p)
                   for p, nz in zip(out_primals, nonzero_tangents)]
   return out_primals, out_tangents
 ad.primitive_jvps[run_state_p] = _run_state_jvp

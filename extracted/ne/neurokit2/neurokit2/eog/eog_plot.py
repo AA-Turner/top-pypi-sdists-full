@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib.gridspec
@@ -56,8 +55,7 @@ def eog_plot(eog_signals, info=None):
     """
     if info is None:
         warn(
-            "'info' dict not provided. Some information might be missing."
-            + " Sampling rate will be set to 1000 Hz.",
+            "'info' dict not provided. Some information might be missing." + " Sampling rate will be set to 1000 Hz.",
             category=NeuroKitWarning,
         )
 
@@ -68,14 +66,11 @@ def eog_plot(eog_signals, info=None):
     # Sanity-check input.
     if not isinstance(eog_signals, pd.DataFrame):
         raise ValueError(
-            "NeuroKit error: eog_plot(): The `eog_signals` argument must"
-            " be the DataFrame returned by `eog_process()`."
+            "NeuroKit error: eog_plot(): The `eog_signals` argument must be the DataFrame returned by `eog_process()`."
         )
 
     # Prepare figure
-    x_axis = np.linspace(
-        0, eog_signals.shape[0] / info["sampling_rate"], eog_signals.shape[0]
-    )
+    x_axis = np.linspace(0, eog_signals.shape[0] / info["sampling_rate"], eog_signals.shape[0])
     gs = matplotlib.gridspec.GridSpec(2, 2, width_ratios=[1 - 1 / np.pi, 1 / np.pi])
     fig = plt.figure(constrained_layout=False)
     ax0 = fig.add_subplot(gs[0, :-1])
@@ -116,9 +111,7 @@ def eog_plot(eog_signals, info=None):
     ax1.set_title("Blink Rate")
     ax1.set_ylabel("Blinks per minute")
     blink_rate_mean = eog_signals["EOG_Rate"].mean()
-    ax1.plot(
-        x_axis, eog_signals["EOG_Rate"], color="#9C5AFF", label="Rate", linewidth=1.5
-    )
+    ax1.plot(x_axis, eog_signals["EOG_Rate"], color="#9C5AFF", label="Rate", linewidth=1.5)
     ax1.axhline(y=blink_rate_mean, label="Mean", linestyle="--", color="#CEAFFF")
     ax1.legend(loc="upper right")
 
@@ -134,9 +127,7 @@ def eog_plot(eog_signals, info=None):
         epochs_end=0.7,
     )
     events_array = epochs_to_array(events)  # Convert to 2D array
-    events_array = standardize(
-        events_array
-    )  # Rescale so that all the blinks are on the same scale
+    events_array = standardize(events_array)  # Rescale so that all the blinks are on the same scale
 
     blinks_df = epochs_to_df(events)
     blinks_wide = blinks_df.pivot(index="Time", columns="Label", values="Signal")

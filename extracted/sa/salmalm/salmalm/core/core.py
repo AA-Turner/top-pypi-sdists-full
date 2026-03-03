@@ -4,6 +4,7 @@ subagent, skills, session, cron, daily."""
 import hashlib
 import json
 import os
+import sqlite3
 import threading
 import time
 from collections import OrderedDict
@@ -32,7 +33,6 @@ from salmalm.core.audit import (  # noqa: F401
     _flush_audit_buffer,
 )
 from salmalm.core.core_messages import search_messages, delete_message, edit_message  # noqa: F401
-from salmalm.db.connection import OperationalError, get_connection
 
 # ============================================================
 _usage_lock = threading.Lock()  # Usage tracking (separate to avoid contention)
@@ -64,12 +64,15 @@ def _atexit_close_db():
 _atexit.register(_atexit_close_db)
 
 
-def _get_db():
-    """Get thread-local DB connection (reused across calls)."""
+def _get_db() -> sqlite3.Connection:
+    """Get thread-local SQLite connection (reused across calls, WAL mode)."""
     conn = getattr(_thread_local, "audit_conn", None)
     if conn is None:
         AUDIT_DB.parent.mkdir(parents=True, exist_ok=True)  # noqa: F405
-        conn = get_connection(AUDIT_DB)  # noqa: F405
+        conn = sqlite3.connect(str(AUDIT_DB), check_same_thread=True)  # noqa: F405
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA synchronous=NORMAL")
         # Track for shutdown cleanup (cap to prevent unbounded growth)
         import weakref as _weakref
 
@@ -97,7 +100,7 @@ def _get_db():
         # Migration: add user_id column to existing databases
         try:
             conn.execute("ALTER TABLE usage_stats ADD COLUMN user_id INTEGER")
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent migration)
         except Exception as _e:
             log.warning(f"[DB] Migration error (usage_stats.user_id): {_e}")
@@ -115,23 +118,23 @@ def _get_db():
         )""")
         try:
             conn.execute("ALTER TABLE session_store ADD COLUMN parent_session_id TEXT DEFAULT NULL")
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent)
         try:
             conn.execute("ALTER TABLE session_store ADD COLUMN branch_index INTEGER DEFAULT NULL")
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent)
         try:
             conn.execute('ALTER TABLE session_store ADD COLUMN title TEXT DEFAULT ""')
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent)
         try:
             conn.execute("ALTER TABLE session_store ADD COLUMN user_id INTEGER DEFAULT NULL")
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent)
         try:
             conn.execute("ALTER TABLE session_store ADD COLUMN session_meta TEXT DEFAULT '{}'")
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent)
         conn.execute("""CREATE TABLE IF NOT EXISTS session_message_backup (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -382,7 +385,7 @@ def track_usage(model: str, input_tokens: int, output_tokens: int, user_id: Opti
                 ),
             )  # noqa: F405
             conn.commit()
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent)
         # Also record to usage_detail for dashboard daily/monthly charts
         # Table is created in _get_db() init — no CREATE TABLE needed here
@@ -448,7 +451,7 @@ class ModelRouter:
                 if vault_model and vault_model != "auto":
                     self.force_model = vault_model
                     log.info(f"[FIX] Restored model from vault: {vault_model}")
-        except OperationalError:
+        except sqlite3.OperationalError:
             pass  # Column already exists (idempotent)
 
     def set_force_model(self, model: Optional[str]) -> None:

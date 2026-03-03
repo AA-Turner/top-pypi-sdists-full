@@ -3,7 +3,7 @@
 # flake8: noqa
 
 
-__version__ = "v1.2.1"
+__version__ = "1.3.0"
 __author__ = "Tomer Nosrati"
 __contact__ = "tomer.nosrati@gmail.com"
 __homepage__ = "https://pytest-celery.readthedocs.io/"
@@ -115,6 +115,7 @@ if _is_vendor_installed("worker"):
     from pytest_celery.vendors.worker.fixtures import default_worker_env
     from pytest_celery.vendors.worker.fixtures import default_worker_initial_content
     from pytest_celery.vendors.worker.fixtures import default_worker_ports
+    from pytest_celery.vendors.worker.fixtures import default_worker_pytest_celery_pkg
     from pytest_celery.vendors.worker.fixtures import default_worker_signals
     from pytest_celery.vendors.worker.fixtures import default_worker_tasks
     from pytest_celery.vendors.worker.fixtures import default_worker_utils_module

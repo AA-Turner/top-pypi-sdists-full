@@ -330,6 +330,7 @@ class PmapSharding(jsharding.Sharding):
   def shard_shape(self, global_shape: Shape) -> Shape:
     sharded_dim = None
     sharded_dim_size = None
+    sharded_shape = global_shape
     for i, s in enumerate(self.sharding_spec.sharding):
       if isinstance(s, sharding_specs.Unstacked):
         sharded_dim = i
@@ -704,12 +705,12 @@ def parse_flatten_op_sharding(
       while dim_size > 1:
         axis = next(mesh_axis)
         axis_size = mesh_shape[axis]
-        if dim_size % axis_size != 0:
-          raise ValueError(
+        quotient, remainder = divmod(dim_size, axis_size)
+        if remainder != 0:
+          raise jsharding.IndivisibleError(
               f'{shape=} is incompatible with {mesh_shape=}: '
-              f'{dim_size=} is not divisible by {axis_size=}.'
-          )
-        dim_size //= axis_size
+              f'{dim_size=} is not divisible by {axis_size=}.')
+        dim_size = quotient
         dim_partitions.append(axis)
       partitions.append(tuple(dim_partitions))
     if len(hlo_sharding.subgroup_types()) > 1:

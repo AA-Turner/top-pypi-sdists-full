@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: salmalm
-Version: 0.29.11
+Version: 0.29.30
 Summary: Personal AI Gateway — Python AI assistant with multi-model routing, web UI, and 66 built-in tools. Core: uvicorn + fastapi + websockets.
 Author-email: Nightmare Dolsoe <dolsoe@salmalm.dev>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/hyunjun6928-netizen/salmalm
 Project-URL: Repository, https://github.com/hyunjun6928-netizen/salmalm
 Project-URL: Documentation, https://github.com/hyunjun6928-netizen/salmalm#readme
@@ -31,7 +31,6 @@ Requires-Dist: uvicorn[standard]>=0.29.0
 Requires-Dist: fastapi>=0.111.0
 Requires-Dist: websockets>=12.0
 Requires-Dist: cryptography>=41.0
-Requires-Dist: psycopg2-binary; extra == "postgres"
 Provides-Extra: crypto
 Requires-Dist: cryptography>=41.0; extra == "crypto"
 Provides-Extra: browser
@@ -39,8 +38,6 @@ Requires-Dist: playwright>=1.40; extra == "browser"
 Provides-Extra: discord
 Provides-Extra: keychain
 Requires-Dist: keyring>=24.0; extra == "keychain"
-Provides-Extra: postgres
-Requires-Dist: psycopg2-binary>=2.9; extra == "postgres"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"

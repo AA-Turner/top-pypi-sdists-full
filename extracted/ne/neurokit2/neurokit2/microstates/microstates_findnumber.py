@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -8,9 +7,7 @@ from ..stats.cluster_quality import _cluster_quality_dispersion
 from .microstates_segment import microstates_segment
 
 
-def microstates_findnumber(
-    eeg, n_max=12, method="GEV", clustering_method="kmod", show=False, verbose=True, **kwargs
-):
+def microstates_findnumber(eeg, n_max=12, method="GEV", clustering_method="kmod", show=False, verbose=True, **kwargs):
     """**Estimate optimal number of microstates**
 
     Computes statistical indices useful for estimating the optimal number of microstates using a
@@ -79,10 +76,7 @@ def microstates_findnumber(
     dispersion_diff_previous = np.nan
     results = []
     for idx, n_microstates in progress_bar(range(2, n_max + 1), verbose=verbose):
-
-        out = microstates_segment(
-            eeg, n_microstates=n_microstates, method=clustering_method, **kwargs
-        )
+        out = microstates_segment(eeg, n_microstates=n_microstates, method=clustering_method, **kwargs)
 
         segmentation = out["Sequence"]
         rez = {}
@@ -90,9 +84,7 @@ def microstates_findnumber(
         rez["Score_GEV"] = out["GEV"]
 
         # Dispersion
-        dispersion = _cluster_quality_dispersion(
-            data.T, clustering=segmentation, n_clusters=n_microstates
-        )
+        dispersion = _cluster_quality_dispersion(data.T, clustering=segmentation, n_clusters=n_microstates)
         # Dispersion(k)
 
         dispersion_current = dispersion * n_microstates ** (2 / n_channel)

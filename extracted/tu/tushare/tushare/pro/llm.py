@@ -93,6 +93,7 @@ def test_gpt_query():
 
 def test_gpt_stream():
     c = GPTClient()
+    # 流式接口， 返回每个数据对象
     dd = c.gpt_stream("doubao-pro-128k", [
         {
             "role": "user",
@@ -102,6 +103,7 @@ def test_gpt_stream():
     for d in dd:
         print(d)
 
+    # 流式接口， 返回每段文本，（pretty=True）
     dd = c.gpt_stream("doubao-pro-128k", [
         {
             "role": "user",
@@ -113,6 +115,12 @@ def test_gpt_stream():
 
 
 def test_gpt():
+    # 非流式接口
     c = GPTClient()
     dd = c.gpt("doubao-pro-128k", "你好")
     print(dd)
+
+
+if __name__ == '__main__':
+    # test_gpt_stream()
+    test_gpt()

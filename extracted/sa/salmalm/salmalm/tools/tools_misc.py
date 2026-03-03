@@ -223,31 +223,22 @@ def _send_notification_impl(
 
     if channel in ("desktop", "all"):
         try:
-            # BUG-DH fix: sanitize message/title before injecting into
-            # AppleScript/PowerShell strings to prevent code injection.
-            def _sanitize_notif(s: str, max_len: int = 200) -> str:
-                """Strip characters that could escape AppleScript/PS string literals."""
-                return s[:max_len].replace('"', "'").replace("\\", "").replace("\n", " ").replace("\r", "")
-
-            safe_msg = _sanitize_notif(message)
-            safe_title = _sanitize_notif(title or "SalmAlm")
-
             if sys.platform == "darwin":
                 subprocess.run(
-                    ["osascript", "-e", f'display notification "{safe_msg}" with title "{safe_title}"'],
+                    ["osascript", "-e", f'display notification "{message}" with title "{title or "SalmAlm"}"'],
                     timeout=5,
                     capture_output=True,
                 )
                 results.append("desktop: ✅")
             elif sys.platform == "linux":
-                subprocess.run(["notify-send", safe_title, safe_msg], timeout=5, capture_output=True)
+                subprocess.run(["notify-send", title or "SalmAlm", message], timeout=5, capture_output=True)
                 results.append("desktop: ✅")
             elif sys.platform == "win32":
                 ps_cmd = f'''
                 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
                 $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-                $template.GetElementsByTagName("text")[0].AppendChild($template.CreateTextNode("{safe_title}")) | Out-Null
-                $template.GetElementsByTagName("text")[1].AppendChild($template.CreateTextNode("{safe_msg}")) | Out-Null
+                $template.GetElementsByTagName("text")[0].AppendChild($template.CreateTextNode("{title or "SalmAlm"}")) | Out-Null
+                $template.GetElementsByTagName("text")[1].AppendChild($template.CreateTextNode("{message}")) | Out-Null
                 $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
                 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("SalmAlm").Show($toast)
                 '''

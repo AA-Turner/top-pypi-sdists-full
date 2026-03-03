@@ -36,6 +36,7 @@ from hypothesis_jsonschema._from_schema import STRING_FORMATS as BUILT_IN_STRING
 from schemathesis.core import INTERNAL_BUFFER_SIZE, NOT_SET
 from schemathesis.core.compat import RefResolutionError, RefResolver
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
+from schemathesis.core.media_types import is_xml_parts
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.validation import contains_unicode_surrogate_pair, has_invalid_characters, is_latin_1_encodable
@@ -43,6 +44,7 @@ from schemathesis.generation import GenerationMode
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.meta import CoverageScenario
 from schemathesis.openapi.generation.filters import is_invalid_path_parameter
+from schemathesis.transport.serialization import contains_binary
 
 from ..specs.openapi.converter import update_pattern_in_schema
 from ..specs.openapi.formats import STRING_FORMATS, get_default_format_strategies
@@ -215,6 +217,7 @@ class CoverageContext:
     custom_formats: dict[str, st.SearchStrategy]
     validator_cls: type[jsonschema_rs.Validator]
     _resolver: RefResolver | None
+    _schema_generation_cache: dict[tuple[Any, ...], Any]
     allow_extra_parameters: bool
 
     __slots__ = (
@@ -227,6 +230,7 @@ class CoverageContext:
         "custom_formats",
         "validator_cls",
         "_resolver",
+        "_schema_generation_cache",
         "allow_extra_parameters",
     )
 
@@ -242,6 +246,7 @@ class CoverageContext:
         custom_formats: dict[str, st.SearchStrategy],
         validator_cls: type[jsonschema_rs.Validator],
         _resolver: RefResolver | None = None,
+        _schema_generation_cache: dict[tuple[Any, ...], Any] | None = None,
         allow_extra_parameters: bool = True,
     ) -> None:
         self.root_schema = root_schema
@@ -253,6 +258,7 @@ class CoverageContext:
         self.custom_formats = custom_formats
         self.validator_cls = validator_cls
         self._resolver = _resolver
+        self._schema_generation_cache = _schema_generation_cache if _schema_generation_cache is not None else {}
         self.allow_extra_parameters = allow_extra_parameters
 
     @property
@@ -290,6 +296,7 @@ class CoverageContext:
             custom_formats=self.custom_formats,
             validator_cls=self.validator_cls,
             _resolver=self._resolver,
+            _schema_generation_cache=self._schema_generation_cache,
             allow_extra_parameters=self.allow_extra_parameters,
         )
 
@@ -304,6 +311,7 @@ class CoverageContext:
             custom_formats=self.custom_formats,
             validator_cls=self.validator_cls,
             _resolver=self._resolver,
+            _schema_generation_cache=self._schema_generation_cache,
             allow_extra_parameters=self.allow_extra_parameters,
         )
 
@@ -323,16 +331,14 @@ class CoverageContext:
         return True
 
     def will_be_serialized_to_string(self) -> bool:
-        return self.location in ("query", "path", "header", "cookie") or (
-            self.location == "body"
-            and self.media_type
-            in frozenset(
-                [
-                    ("multipart", "form-data"),
-                    ("application", "x-www-form-urlencoded"),
-                ]
-            )
-        )
+        if self.location in ("query", "path", "header", "cookie"):
+            return True
+        if self.location == "body" and self.media_type is not None:
+            if self.media_type in frozenset([("multipart", "form-data"), ("application", "x-www-form-urlencoded")]):
+                return True
+            if is_xml_parts(self.media_type):
+                return True
+        return False
 
     def can_be_negated(self, schema: JsonSchemaObject) -> bool:
         # Path, query, header, and cookie parameters will be stringified anyway
@@ -449,8 +455,27 @@ class CoverageContext:
             schema = dict(schema)
             schema[BUNDLE_STORAGE_KEY] = self.root_schema[BUNDLE_STORAGE_KEY]
 
+        cache_key = _schema_generation_cache_key(schema)
+        cached = self._schema_generation_cache.get(cache_key, NOT_SET)
+        if cached is not NOT_SET:
+            return deepclone(cached) if isinstance(cached, dict | list) else cached
+
         # Deep clone to prevent hypothesis_jsonschema from mutating the original schema
-        return self.generate_from(from_schema(deepclone(schema), custom_formats=self.custom_formats))
+        generated = self.generate_from(from_schema(deepclone(schema), custom_formats=self.custom_formats))
+        self._schema_generation_cache[cache_key] = (
+            deepclone(generated) if isinstance(generated, dict | list) else generated
+        )
+        return generated
+
+
+def _schema_generation_cache_key(schema: JsonSchema) -> tuple[Any, ...]:
+    if isinstance(schema, dict):
+        bundle = schema.get(BUNDLE_STORAGE_KEY)
+        if bundle is not None:
+            without_bundle = {k: v for k, v in schema.items() if k != BUNDLE_STORAGE_KEY}
+            return ("dict_with_bundle", jsonschema_rs.canonical.json.to_string(without_bundle), id(bundle))
+        return ("dict", jsonschema_rs.canonical.json.to_string(schema))
+    return ("json", jsonschema_rs.canonical.json.to_string(schema))
 
 
 T = TypeVar("T")
@@ -509,9 +534,52 @@ class HashSet:
         self._data.clear()
 
 
+_COMBINATOR_KEYS = frozenset({"anyOf", "oneOf", "allOf", "not", "if", "then", "else"})
+
+
+def _with_effective_required(schema: JsonSchemaObject) -> JsonSchemaObject:
+    existing_required: list[str] = schema.get("required", [])
+    properties = schema.get("properties", {})
+    if not properties:
+        return schema
+    for key in ("anyOf", "oneOf"):
+        sub_schemas = schema.get(key)
+        if sub_schemas:
+            for sub_schema in sub_schemas:
+                if isinstance(sub_schema, dict) and "required" in sub_schema:
+                    extra = [f for f in sub_schema["required"] if f not in existing_required and f in properties]
+                    if extra:
+                        return {**schema, "required": list(existing_required) + extra}
+                    break
+    return schema
+
+
+def _merge_with_parent_context(parent: JsonSchemaObject, sub: JsonSchema) -> JsonSchema:
+    if not isinstance(sub, dict):
+        return sub
+    result: dict[str, Any] = {
+        k: (deepclone(v) if k == "properties" else v) for k, v in parent.items() if k not in _COMBINATOR_KEYS
+    }
+    for key, value in sub.items():
+        if key == "required" and "required" in result:
+            parent_req: list[str] = result["required"] if isinstance(result["required"], list) else [result["required"]]
+            sub_req: list[str] = value if isinstance(value, list) else [value]
+            result["required"] = list(dict.fromkeys(parent_req + sub_req))
+        elif key == "properties" and "properties" in result:
+            result["properties"] = {**result["properties"], **value}
+        else:
+            result[key] = value
+    return result
+
+
 def _cover_positive_for_type(
     ctx: CoverageContext, schema: JsonSchemaObject, ty: str | None, seen: HashSet | None = None
 ) -> Generator[GeneratedValue, None, None]:
+    # In negative-only mode this function never yields values.
+    # Avoid expensive template generation in that case.
+    if GenerationMode.POSITIVE not in ctx.generation_modes:
+        return
+
     if ty == "object" or ty == "array":
         template_schema = _get_template_schema(schema, ty)
         template = ctx.generate_from_schema(template_schema)
@@ -528,7 +596,7 @@ def _cover_positive_for_type(
             sub_schemas = schema.get(key)
             if sub_schemas is not None:
                 for sub_schema in sub_schemas:
-                    yield from cover_schema_iter(ctx, sub_schema)
+                    yield from cover_schema_iter(ctx, _merge_with_parent_context(schema, sub_schema))
         all_of = schema.get("allOf")
         if all_of is not None:
             if len(all_of) == 1:
@@ -558,9 +626,9 @@ def _cover_positive_for_type(
             elif ty == "array":
                 yield from _positive_array(ctx, schema, cast(list, template))
             elif ty == "object":
-                yield from _positive_object(ctx, schema, cast(dict, template))
+                yield from _positive_object(ctx, _with_effective_required(schema), cast(dict, template))
         elif "properties" in schema or "required" in schema:
-            yield from _positive_object(ctx, schema, cast(dict, template))
+            yield from _positive_object(ctx, _with_effective_required(schema), cast(dict, template))
         elif "not" in schema and isinstance(schema["not"], dict | bool):
             # For 'not' schemas: generate negative cases of inner schema (violations)
             # These violations are positive for the outer schema, so flip the mode
@@ -944,6 +1012,8 @@ def cover_schema_iter(
 
 
 def is_valid_for_others(value: Any, idx: int, validators: list[jsonschema_rs.Validator]) -> bool:
+    if contains_binary(value):
+        return False
     for vidx, validator in enumerate(validators):
         if idx == vidx:
             # This one is being negated
@@ -954,6 +1024,9 @@ def is_valid_for_others(value: Any, idx: int, validators: list[jsonschema_rs.Val
 
 
 def is_invalid_for_oneOf(value: Any, idx: int, validators: list[jsonschema_rs.Validator]) -> bool:
+    if contains_binary(value):
+        # Binary values cannot be validated by jsonschema_rs; treat as not matching any other sub-schema
+        return True
     valid_count = 0
     for vidx, validator in enumerate(validators):
         if idx == vidx:
@@ -1029,7 +1102,7 @@ def _positive_string(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
     if min_length == 0:
         min_length = None
     max_length = schema.get("maxLength")
-    if ctx.location == "path":
+    if ctx.location == "path" and not ("format" in schema and schema["format"] in ctx.custom_formats):
         schema = _ensure_valid_path_parameter_schema(schema)
     elif ctx.location in ("header", "cookie") and not ("format" in schema and schema["format"] in FORMAT_STRATEGIES):
         # Don't apply it for known formats - they will insure the correct format during generation
@@ -1702,6 +1775,16 @@ def _negative_type(
         strategies.pop("null", None)
         strategies.pop("array", None)
         strategies.pop("object", None)
+    # XML body: null and empty string both serialize to an empty element (<RootTag></RootTag>),
+    # indistinguishable from an empty object {} at the wire level
+    if (
+        "object" in types
+        and ctx.location == ParameterLocation.BODY
+        and ctx.media_type is not None
+        and is_xml_parts(ctx.media_type)
+    ):
+        strategies.pop("null", None)
+        strategies.pop("string", None)
     if filter_func is not None:
         for ty, strategy in strategies.items():
             strategies[ty] = strategy.filter(filter_func)
@@ -1736,6 +1819,9 @@ def _negative_type(
             return True
 
     def _does_not_match_the_original_schema(value: Any) -> bool:
+        # For XML, None serializes to "" (empty element content), not to "None"
+        if ctx.media_type is not None and is_xml_parts(ctx.media_type) and value is None:
+            return not is_valid("")
         return not is_valid(str(value))
 
     if ctx.location == ParameterLocation.PATH:

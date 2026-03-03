@@ -30,6 +30,12 @@ RESERVED_CONFIGURABLE_KEYS = (
     "__otel_tracestate__",
     "__pregel_node_finished",
 )
+RESERVED_METADATA_KEYS = (
+    "thread_id",
+    "assistant_id",
+    "run_id",
+    "cron_id",
+)
 RESERVED_OR_NULL_OR_ESCAPED_PATTERN = rf"^(?!.*\\[uU]0000)(?!({'|'.join(f'{re.escape(k)}$' for k in RESERVED_CONFIGURABLE_KEYS)}))[^\u0000]*$"
 WRITE_SCHEMAS_WITH_CONFIG_OR_CONTEXT = (
     "AssistantCreate",
@@ -39,6 +45,18 @@ WRITE_SCHEMAS_WITH_CONFIG_OR_CONTEXT = (
     "RunCreateStateful",
     "RunCreateStateless",
     "ThreadCronCreate",
+)
+WRITE_SCHEMAS_WITH_METADATA = (
+    "AssistantCreate",
+    "AssistantPatch",
+    "CronCreate",
+    "CronPatch",
+    "RunBatchCreate",
+    "RunCreateStateful",
+    "RunCreateStateless",
+    "ThreadCreate",
+    "ThreadCronCreate",
+    "ThreadPatch",
 )
 
 
@@ -83,22 +101,60 @@ def _apply_validator_only_security_guards(spec: dict) -> None:
 
 
 _RESERVED_KEYS_SET = frozenset(RESERVED_CONFIGURABLE_KEYS)
+_RESERVED_METADATA_KEYS_SET = frozenset(RESERVED_METADATA_KEYS)
 
 
-def _strip_reserved(d: dict, location: str) -> None:
+def _strip_reserved(
+    d: dict,
+    location: str,
+    reserved_keys: frozenset[str] = _RESERVED_KEYS_SET,
+    message: str = "Stripped reserved keys from request",
+) -> None:
     """Remove reserved keys from *d* in-place and log a warning."""
-    found = [k for k in d if k in _RESERVED_KEYS_SET]
+    found = [k for k in d if k in reserved_keys]
     if found:
         for k in found:
             del d[k]
         logger.warning(
-            "Stripped reserved keys from request",
+            message,
             location=location,
             keys=found,
         )
 
 
-def sanitize_reserved_keys(data: typing.Any) -> None:
+def _strip_metadata(d: dict, location: str) -> None:
+    """Strip reserved resource IDs from a ``metadata`` sub-dict if present."""
+    metadata = d.get("metadata")
+    if isinstance(metadata, dict):
+        _strip_reserved(
+            metadata,
+            location,
+            reserved_keys=_RESERVED_METADATA_KEYS_SET,
+            message="Stripped reserved keys from metadata",
+        )
+
+
+def _strip_reserved_metadata_keys(data: typing.Any) -> None:
+    """Strip reserved metadata keys from known request envelope locations.
+
+    Only touches ``metadata`` at the top level and inside ``config`` —
+    never recurses into user-controlled fields like ``input`` or ``command``.
+    """
+    if isinstance(data, list):
+        for item in data:
+            _strip_reserved_metadata_keys(item)
+        return
+    if not isinstance(data, dict):
+        return
+
+    _strip_metadata(data, "metadata")
+
+    config = data.get("config")
+    if isinstance(config, dict):
+        _strip_metadata(config, "config.metadata")
+
+
+def sanitize_reserved_keys(data: typing.Any, *, strip_metadata: bool = True) -> None:
     """Strip server-reserved configurable/context keys from parsed request data.
 
     Instead of rejecting the request with a 422, silently remove the keys and
@@ -107,10 +163,13 @@ def sanitize_reserved_keys(data: typing.Any) -> None:
     """
     if isinstance(data, list):
         for item in data:
-            sanitize_reserved_keys(item)
+            sanitize_reserved_keys(item, strip_metadata=strip_metadata)
         return
     if not isinstance(data, dict):
         return
+
+    if strip_metadata:
+        _strip_reserved_metadata_keys(data)
 
     # write schemas: config.configurable
     config = data.get("config")
@@ -128,6 +187,11 @@ def sanitize_reserved_keys(data: typing.Any) -> None:
     context = data.get("context")
     if isinstance(context, dict):
         _strip_reserved(context, "context")
+
+
+def should_strip_reserved_metadata(schema: typing.Any) -> bool:
+    """Return whether reserved metadata keys should be stripped for this schema."""
+    return schema in _WRITE_SCHEMAS_WITH_METADATA_SET
 
 
 _validation_openapi = copy.deepcopy(openapi)
@@ -273,6 +337,10 @@ CronSearch = jsonschema_rs.validator_for(
 )
 CronCountRequest = jsonschema_rs.validator_for(
     _validation_openapi["components"]["schemas"]["CronCountRequest"]
+)
+
+_WRITE_SCHEMAS_WITH_METADATA_SET = frozenset(
+    globals()[schema_name] for schema_name in WRITE_SCHEMAS_WITH_METADATA
 )
 
 

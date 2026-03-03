@@ -1,9 +1,9 @@
 Metadata-Version: 2.3
 Name: catalystwan
-Version: 0.41.3
+Version: 0.41.4
 Summary: Cisco Catalyst WAN SDK for Python
-Author: kagorski
-Author-email: kagorski@cisco.com
+Author: sbasan
+Author-email: sbasan@cisco.com
 Requires-Python: >=3.8.0,<4.0.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8

@@ -30,7 +30,6 @@ from jax._src import logging_config
 from jax._src.lib import _jax
 from jax._src.lib import guard_lib
 from jax._src.lib import jax_jit
-from jax._src.lib import jaxlib_extension_version
 from jax._src.lib import xla_client
 
 config_ext = xla_client._xla.config
@@ -277,7 +276,7 @@ class State(config_ext.Config[_T]):
     raise TypeError(
         "bool() not supported for instances of type '{0}' "
         "(did you mean to use '{0}.value' instead?)".format(
-            type(self).__name__))
+            type(self).__name__))  # pyrefly: ignore[missing-attribute]  # pyrefly#2444
 
   def _set(self, value: _T) -> None:
     if self._parser:
@@ -549,7 +548,7 @@ def optional_enum_state(
                        f"got {new_val} of type {type(new_val)}.")
     return new_val
 
-  s = State['str | None'](
+  s = State[str | None](
       name, default, help, update_global_hook, update_thread_local_hook,
       parser, include_in_jit_key=include_in_jit_key,
       include_in_trace_context=include_in_trace_context,
@@ -907,7 +906,7 @@ class Flag(Generic[_T]):
     raise TypeError(
         "bool() not supported for instances of type '{0}' "
         "(did you mean to use '{0}.value' instead?)".format(
-            type(self).__name__))
+            type(self).__name__))  # pyrefly: ignore[missing-attribute]  # pyrefly#2444
 
   def _set(self, value: _T) -> None:
     self.value = value
@@ -1147,7 +1146,8 @@ debug_key_reuse = bool_state(
           ' usage tracked, and incorrect reuse of a previously-used key will lead to'
           ' an error. Currently enabling this leads to a small Python overhead on'
           ' every call to a JIT-compiled function with keys as inputs or outputs.'),
-    include_in_trace_context=True)
+    include_in_trace_context=True,
+    include_in_jit_key=True)
 
 check_tracer_leaks = bool_state(
     name='jax_check_tracer_leaks',
@@ -1254,6 +1254,15 @@ pmap_shmap_merge = bool_state(
     upgrade=True,
     help='If True, pmap and shard_map API will be merged.',
     validator=_default_pmap_shmap_merge,
+)
+
+custom_vjp3 = bool_state(
+    name='jax_custom_vjp3',
+    default=False,
+    upgrade=True,
+    help='If True, embrace the future of custom autodiff rules.',
+    include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
 
@@ -1518,6 +1527,17 @@ compilation_cache_dir = optional_string_state(
           '2. The value of this flag set in the command line or by default.'),
 )
 
+compilation_cache_check_contents = bool_state(
+    name='jax_compilation_cache_check_contents',
+    default=False,
+    help=(
+        'When the compilation cache is enabled, check that the value '
+        'found in the disk cache matches the result of a fresh compilation. '
+        'This check is performed only the first time a key is encountered '
+        'in a process.'
+    ),
+)
+
 compilation_cache_expect_pgle = bool_state(
     name='jax_compilation_cache_expect_pgle',
     default=False,
@@ -1756,6 +1776,14 @@ default_matmul_precision = optional_enum_state(
           '"algorithm" for functions that perform matrix multiplications, like '
           ':func:`jax.lax.dot`. To specify an algorithm, set this option to '
           'the name of a :class:`~jax.lax.DotAlgorithmPreset`.\n\n'),
+    include_in_jit_key=True,
+    include_in_trace_context=True)
+
+allow_f16_reductions = bool_state(
+    name='jax_allow_f16_reductions',
+    default=True,
+    help=('If False, `reduce_sum` on `f16` or `bf16` inputs will raise an error.'
+          'Defaults to True.'),
     include_in_jit_key=True,
     include_in_trace_context=True)
 
@@ -2025,21 +2053,20 @@ array_garbage_collection_guard = optional_enum_state(
     ),
 )
 
-if jaxlib_extension_version >= 395:
-  thread_guard = bool_state(
-      name='jax_thread_guard',
-      default=False,
-      help=(
-          'If True, an error will be raised at runtime if a multi-process JAX '
-          'operation is called from a thread other than the one in which the '
-          'thread guard was set. This is useful for detecting cases where '
-          'threads may schedule operations in different orders in different '
-          'processes, leading to non-deterministic crashes.'
-      ),
-      update_thread_local_hook=(
-          # If the state is None, set it to False.
-          lambda val: guard_lib.update_thread_guard_global_state(val or False)),
-  )
+thread_guard = bool_state(
+    name='jax_thread_guard',
+    default=False,
+    help=(
+        'If True, an error will be raised at runtime if a multi-process JAX '
+        'operation is called from a thread other than the one in which the '
+        'thread guard was set. This is useful for detecting cases where '
+        'threads may schedule operations in different orders in different '
+        'processes, leading to non-deterministic crashes.'
+    ),
+    update_thread_local_hook=(
+        # If the state is None, set it to False.
+        lambda val: guard_lib.update_thread_guard_global_state(val or False)),
+)
 
 # TODO(nbasile): Remove hasattr checks after jaxlib 0.8.1 release
 if hasattr(_jax, 'RuntimeTracebackMode'):

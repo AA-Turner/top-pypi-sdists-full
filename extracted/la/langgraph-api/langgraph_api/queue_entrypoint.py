@@ -1,4 +1,5 @@
 import os
+from contextlib import suppress
 
 if not (
     (disable_truststore := os.getenv("DISABLE_TRUSTSTORE"))
@@ -25,6 +26,9 @@ from langgraph_runtime.database import healthcheck
 from langgraph_runtime.metrics import get_metrics
 
 logger = structlog.stdlib.get_logger(__name__)
+
+health_server_task: asyncio.Task | None = None
+shutdown_reason: str | None = None
 
 
 def _ensure_port_available(host: str, port: int) -> None:
@@ -134,7 +138,9 @@ async def health_and_metrics_server():
 
     logger.info(f"Health and metrics server started at http://{host}:{port}")
     try:
-        await server.serve()
+        # Use the internal serve to skip capturing signals, otherwise there's a race condition
+        # where uvicorn captures the signal and will exit early before the queue can gracefully shutdown
+        await server._serve()
     except SystemExit as exc:
         if exc.code == 0:
             return
@@ -159,6 +165,10 @@ async def health_and_metrics_server():
             str(error), host=error.host, port=error.port, cause=str(error.cause)
         )
         raise error from exc
+    except asyncio.CancelledError:
+        # Close the health server cleanly once we've exited the lifespan to make sure we respect graceful shutdown
+        logger.info("Shutting down health and metrics server")
+        await server.shutdown()
 
 
 async def entrypoint(
@@ -186,37 +196,74 @@ async def entrypoint(
     )
 
     async with wrapped_lifespan(app):
-        tasks.add(asyncio.create_task(health_and_metrics_server()))
-        await asyncio.gather(*tasks)
+        # Create the health server task once all start up operations are complete and the API is ready to serve traffic
+        global health_server_task
+        health_server_task = asyncio.create_task(health_and_metrics_server())
+
+        # If the health server fails unexpectedly, trigger shutdown
+        def _on_health_server_done(task: asyncio.Task) -> None:
+            if task.cancelled():
+                return
+            exc = task.exception()
+            if exc is not None and cancel_event is not None:
+                logger.error(
+                    "Health server failed unexpectedly, triggering shutdown",
+                    error=str(exc),
+                )
+                global shutdown_reason
+                shutdown_reason = f"health server failed: {exc}"
+                cancel_event.set()
+
+        health_server_task.add_done_callback(_on_health_server_done)
+
+        # Keep everything running until it's time to shutdown
+        # The only way we want to be able to exit this loop is through a cancelled error
+        while True:
+            await asyncio.sleep(3600)
 
 
 async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queue"):
     """Run the queue entrypoint and shut down gracefully on SIGTERM/SIGINT."""
 
     loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
+    cancel_event = asyncio.Event()
 
+    # Attach signal handler for SIGTERM
     def _handle_signal() -> None:
-        logger.warning("Received termination signal, initiating graceful shutdown")
-        stop_event.set()
+        global shutdown_reason
+        if not cancel_event.is_set():
+            shutdown_reason = "sigterm signal received"
+            cancel_event.set()
 
     try:
         loop.add_signal_handler(signal.SIGTERM, _handle_signal)
     except (NotImplementedError, RuntimeError):
         signal.signal(signal.SIGTERM, lambda *_: _handle_signal())
 
+    # Start the queue entrypoint
     entry_task = asyncio.create_task(
         entrypoint(
             grpc_port=grpc_port,
             entrypoint_name=entrypoint_name,
-            cancel_event=stop_event,
+            cancel_event=cancel_event,
         )
     )
-    # Handle the case where the entrypoint errors out
-    entry_task.add_done_callback(lambda _: stop_event.set())
-    await stop_event.wait()
 
-    logger.warning("Cancelling queue entrypoint task")
+    # Handle the case where the entrypoint errors out
+    def _on_entry_task_done(task: asyncio.Task) -> None:
+        global shutdown_reason
+        logger.info("Entrypoint task finished")
+        if not cancel_event.is_set():
+            shutdown_reason = "entrypoint task finished"
+            cancel_event.set()
+
+    entry_task.add_done_callback(_on_entry_task_done)
+
+    # Wait for something to trigger shutdown
+    await cancel_event.wait()
+    logger.info("Shutting down queue...", shutdown_reason=shutdown_reason)
+
+    # Wait for the queue entrypoint to finish
     entry_task.cancel()
     try:
         await entry_task
@@ -235,6 +282,18 @@ async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queu
                 )
                 raise SystemExit(1) from None
         raise
+    except Exception as exc:
+        logger.exception("Queue entrypoint task failed", exc_info=exc)
+        raise SystemExit(1) from exc
+
+    # Shutdown the health and metrics server
+    global health_server_task
+    if health_server_task is not None:
+        health_server_task.cancel()
+        # We suppress everything here as errors with the health server before cancellation have already been handled
+        with suppress(asyncio.CancelledError, Exception):
+            await health_server_task
+        logger.info("Health and metrics server finished")
 
 
 if __name__ == "__main__":

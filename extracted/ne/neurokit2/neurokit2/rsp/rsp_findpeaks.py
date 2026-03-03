@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 import scipy.signal
@@ -25,8 +24,8 @@ def rsp_findpeaks(
     sampling_rate : int
         The sampling frequency of :func:`.rsp_cleaned` (in Hz, i.e., samples/second).
     method : str
-        The processing pipeline to apply. Can be one of ``"khodadad2018"`` (default), ``"scipy"`` or
-        ``"biosppy"``.
+        The processing pipeline to apply. Can be one of ``"khodadad2018"`` (default), ``"scipy"``,
+        ``"biosppy"``, or ``"bettermann1996"``.
     amplitude_min : float
         Only applies if method is ``"khodadad2018"``. Extrema that have a vertical distance smaller
         than(outlier_threshold * average vertical distance) to any direct neighbour are removed as
@@ -90,9 +89,12 @@ def rsp_findpeaks(
             peak_distance=peak_distance,
             peak_prominence=peak_prominence,
         )
+    elif method in ["bettermann", "bettermann1996"]:
+        info = _rsp_findpeaks_bettermann(cleaned)
     else:
         raise ValueError(
-            "NeuroKit error: rsp_findpeaks(): 'method' should be one of 'khodadad2018', 'scipy' or 'biosppy'."
+            "NeuroKit error: rsp_findpeaks(): 'method' should be one of 'khodadad2018', 'scipy', 'biosppy', "
+            "or 'bettermann1996'."
         )
 
     return info
@@ -120,6 +122,50 @@ def _rsp_findpeaks_biosppy(rsp_cleaned, sampling_rate):
     return info
 
 
+def _rsp_findpeaks_bettermann(rsp_cleaned):
+    """Respiratory peak and trough detection based on Bettermann et al. (1996)
+    https://doi.org/10.1515/bmte.1996.41.11.319
+
+    As described in Schafer et al. (2008)
+    https://doi.org/10.1007/s10439-007-9428-1
+
+    Based on Charlton's MATLAB implementation at:
+    https://github.com/peterhcharlton/impSQI/
+    """
+
+    # First differences
+    diffs = np.diff(rsp_cleaned)
+
+    # Identify peaks
+    left = diffs[:-1] > 0
+    right = diffs[1:] < 0
+    peaks = np.where(left & right)[0] + 1  # +1 to align with original indexing
+
+    # Identify troughs
+    left = diffs[:-1] < 0
+    right = diffs[1:] > 0
+    troughs = np.where(left & right)[0] + 1
+
+    # Keep only relevant peaks: above threshold
+    if len(peaks) > 0:
+        q3 = np.percentile(rsp_cleaned[peaks], 75)
+        thresh = 0.2 * q3
+        rel_peaks = peaks[rsp_cleaned[peaks] > thresh]
+    else:
+        rel_peaks = np.array([], dtype=int)
+
+    # Keep only relevant troughs: below threshold
+    if len(troughs) > 0:
+        q3t = np.percentile(rsp_cleaned[troughs], 25)
+        thresh = 0.2 * q3t
+        rel_troughs = troughs[rsp_cleaned[troughs] < thresh]
+    else:
+        rel_troughs = np.array([], dtype=int)
+
+    info = {"RSP_Peaks": rel_peaks, "RSP_Troughs": rel_troughs}
+    return info
+
+
 def _rsp_findpeaks_khodadad(rsp_cleaned, amplitude_min=0.3):
     """https://iopscience.iop.org/article/10.1088/1361-6579/aad7e6/meta"""
 
@@ -134,12 +180,8 @@ def _rsp_findpeaks_khodadad(rsp_cleaned, amplitude_min=0.3):
 def _rsp_findpeaks_scipy(rsp_cleaned, sampling_rate, peak_distance=0.8, peak_prominence=0.5):
     """https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.find_peaks.html"""
     peak_distance = sampling_rate * peak_distance
-    peaks, _ = scipy.signal.find_peaks(
-        rsp_cleaned, distance=peak_distance, prominence=peak_prominence
-    )
-    troughs, _ = scipy.signal.find_peaks(
-        -rsp_cleaned, distance=peak_distance, prominence=peak_prominence
-    )
+    peaks, _ = scipy.signal.find_peaks(rsp_cleaned, distance=peak_distance, prominence=peak_prominence)
+    troughs, _ = scipy.signal.find_peaks(-rsp_cleaned, distance=peak_distance, prominence=peak_prominence)
 
     # Combine peaks and troughs and sort them.
     extrema = np.sort(np.concatenate((peaks, troughs)))
@@ -177,7 +219,6 @@ def _rsp_findpeaks_extrema(rsp_cleaned):
     # crossing and falling zero crossing.
     extrema = []
     for i in range(len(allx) - 1):
-
         # Determine whether to search for minimum or maximum.
         if startx == "rise":
             if (i + 1) % 2 != 0:
@@ -203,7 +244,6 @@ def _rsp_findpeaks_extrema(rsp_cleaned):
 
 
 def _rsp_findpeaks_outliers(rsp_cleaned, extrema, amplitude_min=0.3):
-
     # Only consider those extrema that have a minimum vertical distance to
     # their direct neighbor, i.e., define outliers in absolute amplitude
     # difference between neighboring extrema.

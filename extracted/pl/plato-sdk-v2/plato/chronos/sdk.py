@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import shutil
 import time
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -68,8 +70,13 @@ def _normalize_tag(tag: str) -> str:
     return tag.replace("-", "_").replace(":", ".").replace(" ", "_")
 
 
-class Chronos:
-    """Synchronous high-level Chronos client."""
+# ---------------------------------------------------------------------------
+# Shared base
+# ---------------------------------------------------------------------------
+
+
+class _ChronosBase:
+    """Shared logic for sync and async Chronos clients."""
 
     def __init__(
         self,
@@ -79,6 +86,123 @@ class Chronos:
     ):
         self._base_url = (base_url or os.environ.get("CHRONOS_URL") or _DEFAULT_CHRONOS_URL).rstrip("/")
         self._api_key = api_key or os.environ.get("PLATO_API_KEY")
+        self._timeout = timeout
+
+    def _build_launch_body(
+        self,
+        package: str,
+        config: dict[str, Any] | None,
+        tags: list[str] | None,
+        runtime: dict[str, Any] | None,
+        allow_prerelease: bool,
+        parent_session_id: str | None,
+    ) -> LaunchJobRequest:
+        if parent_session_id is None:
+            parent_session_id = os.environ.get("SESSION_ID")
+        world_runtime = WorldRuntimeConfig(**runtime) if runtime else None
+        return LaunchJobRequest(
+            world=WorldConfig(package=package, config=config, runtime=world_runtime),
+            tags=[_normalize_tag(t) for t in tags] if tags else None,
+            allow_prerelease=allow_prerelease or None,
+            parent_session_id=parent_session_id,
+        )
+
+    def _build_complete_body(
+        self,
+        status: str,
+        result: dict[str, Any] | None,
+        error_message: str | None,
+    ) -> CompleteSessionRequest:
+        body = CompleteSessionRequest(status=status, error_message=error_message)
+        if result is not None:
+            body.result = result  # extra="allow"
+        return body
+
+    def _build_pull_workspace_plan(
+        self,
+        refs: list[dict[str, Any]],
+        repo_name: str | None,
+        step_name: str | None,
+    ) -> tuple[str, dict[str, Any]]:
+        """Resolve refs and pick the target ref.
+
+        Returns (repo_name, ref_dict).
+        """
+        if not refs:
+            raise ValueError("No workspace refs found")
+
+        if repo_name is None:
+            repo_name = refs[0]["repo_name"]
+
+        # Always filter to the target repo
+        refs = [r for r in refs if r["repo_name"] == repo_name]
+        if not refs:
+            raise ValueError(f"No refs for repo '{repo_name}'")
+
+        ref = None
+        if step_name:
+            for r in reversed(refs):
+                if r["step_name"] == step_name:
+                    ref = r
+                    break
+            if ref is None:
+                available = [r["step_name"] for r in refs]
+                raise ValueError(f"No ref for step '{step_name}'. Available: {available}")
+        else:
+            ref = refs[-1]
+
+        dvc_files = ref.get("dvc_files") or {}
+        if not dvc_files:
+            raise ValueError(
+                f"Ref '{ref['step_name']}' has no DVC files — data may not have been pushed for this checkpoint."
+            )
+
+        return repo_name, ref
+
+    _PLATO_ROOT = Path.home() / ".plato"
+
+    @staticmethod
+    def _find_dvc_bin() -> str:
+        dvc_bin = shutil.which("dvc")
+        if not dvc_bin:
+            raise RuntimeError("dvc not found. Install with: pip install 'dvc[s3]'")
+        return dvc_bin
+
+    def _repo_root(self, repo_name: str) -> Path:
+        """Single DVC repo per workspace repo: ~/.plato/workspaces/{repo_name}
+
+        All sessions share this repo so DVC's content-addressed cache is
+        maximally reused (identical files across sessions are stored once).
+        """
+        return self._PLATO_ROOT / "workspaces" / repo_name
+
+    def _resolve_pull_context(
+        self,
+        refs: list[dict[str, Any]],
+        repo_name: str | None,
+        step_name: str | None,
+    ) -> tuple[str, dict[str, Any], dict[str, str]]:
+        """Pick the target ref and return (repo_name, ref, dvc_files)."""
+        repo_name, ref = self._build_pull_workspace_plan(refs, repo_name, step_name)
+        dvc_files = ref.get("dvc_files") or {}
+        return repo_name, ref, dvc_files
+
+
+# ---------------------------------------------------------------------------
+# Synchronous client
+# ---------------------------------------------------------------------------
+
+
+class Chronos(_ChronosBase):
+    """Synchronous high-level Chronos client."""
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        timeout: float = 60.0,
+    ):
+        super().__init__(base_url, api_key, timeout)
         self._client = httpx.Client(
             base_url=self._base_url,
             timeout=timeout,
@@ -96,15 +220,7 @@ class Chronos:
         allow_prerelease: bool = False,
         parent_session_id: str | None = None,
     ) -> LaunchJobResponse:
-        if parent_session_id is None:
-            parent_session_id = os.environ.get("SESSION_ID")
-        world_runtime = WorldRuntimeConfig(**runtime) if runtime else None
-        body = LaunchJobRequest(
-            world=WorldConfig(package=package, config=config, runtime=world_runtime),
-            tags=[_normalize_tag(t) for t in tags] if tags else None,
-            allow_prerelease=allow_prerelease or None,
-            parent_session_id=parent_session_id,
-        )
+        body = self._build_launch_body(package, config, tags, runtime, allow_prerelease, parent_session_id)
         resp = launch_job.sync(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
         return resp
@@ -134,6 +250,8 @@ class Chronos:
         start = time.monotonic()
         while True:
             status_resp = self.get_status(session_id)
+            elapsed = int(time.monotonic() - start)
+            logger.info("Session %s: status=%s (elapsed=%ds)", session_id, status_resp.status, elapsed)
             if status_resp.status in _TERMINAL_STATUSES:
                 return self.get_session(session_id)
             if timeout is not None and (time.monotonic() - start) >= timeout:
@@ -147,9 +265,7 @@ class Chronos:
         result: dict[str, Any] | None = None,
         error_message: str | None = None,
     ) -> SessionResponse:
-        body = CompleteSessionRequest(status=status, error_message=error_message)
-        if result is not None:
-            body.result = result  # extra="allow"
+        body = self._build_complete_body(status, result, error_message)
         return complete_session.sync(self._client, public_id=session_id, body=body)
 
     def stop(self, session_id: str) -> SessionResponse:
@@ -184,16 +300,145 @@ class Chronos:
         """Get aggregated cost and token metrics for a session."""
         return self.get_trajectory(session_id).total_metrics
 
+    # -- State --
+
+    def save_state(self, session_id: str, state_data: dict[str, Any]) -> bool:
+        """Save world state JSON to the DB."""
+        resp = self._client.put(f"/api/sessions/{session_id}/state", json=state_data)
+        return resp.status_code == 200
+
+    def get_state(self, session_id: str) -> dict[str, Any] | None:
+        """Get world state JSON from the DB. Returns None if not found."""
+        resp = self._client.get(f"/api/sessions/{session_id}/state")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
+
     # -- Checkpoints --
 
     def get_checkpoint_info(self, session_id: str) -> dict[str, Any]:
-        """Get checkpoint metadata including available workspace snapshots.
-
-        Returns dict with: session_id, workspaces, snapshots, resumable_steps, state_keys.
-        """
+        """Get checkpoint metadata including available workspace snapshots."""
         resp = self._client.get(f"/api/sessions/{session_id}/checkpoint-info")
         resp.raise_for_status()
         return resp.json()
+
+    # -- Workspaces --
+
+    def get_workspace_refs(
+        self,
+        session_id: str,
+        repo_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get all workspace refs for a session."""
+        params: dict[str, str] = {}
+        if repo_name:
+            params["repo_name"] = repo_name
+        resp = self._client.get(
+            f"/api/workspace-repos/sessions/{session_id}/workspace-refs",
+            params=params,
+        )
+        resp.raise_for_status()
+        return resp.json().get("refs", [])
+
+    def resolve_workspace_repo(self, repo_name: str) -> dict[str, Any]:
+        """Resolve a workspace repo name to S3 bucket/prefix and repo ID."""
+        resp = self._client.post(
+            "/api/workspace-repos/resolve",
+            json={"name": repo_name},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_workspace_credentials(self, repo_id: str) -> dict[str, str]:
+        """Get STS credentials for accessing a workspace repo's S3 data."""
+        resp = self._client.post(
+            f"/api/workspace-repos/{repo_id}/credentials",
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return {
+            "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
+            "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
+            "AWS_SESSION_TOKEN": data["aws_session_token"],
+            "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
+        }
+
+    def pull_workspace(
+        self,
+        session_id: str,
+        repo_name: str | None = None,
+        step_name: str | None = None,
+    ) -> Path:
+        """Pull a workspace snapshot via DVC.
+
+        Data is stored at ~/.plato/workspaces/{repo_name}/{session_id}/.
+        A single DVC repo per workspace repo means all sessions share the
+        same content-addressed cache — identical files are downloaded once.
+
+        Args:
+            session_id: Session to pull from.
+            repo_name: Workspace name (e.g. "webclone/recordings"). If None,
+                       uses the first repo found in the session's refs.
+            step_name: Checkpoint to restore (e.g. "step.2.stage.annotate").
+                       If None, uses the latest checkpoint.
+
+        Returns:
+            Path to the session's data directory.
+        """
+        import subprocess
+
+        # Resolve ref and credentials
+        refs = self.get_workspace_refs(session_id, repo_name=repo_name)
+        repo_name, ref, dvc_files = self._resolve_pull_context(refs, repo_name, step_name)
+        repo_info = self.resolve_workspace_repo(repo_name)
+        creds = self.get_workspace_credentials(repo_info["repo_id"])
+
+        repo_root = self._repo_root(repo_name)
+        repo_root.mkdir(parents=True, exist_ok=True)
+        session_dir = repo_root / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        env = {**os.environ, **creds, "GIT_DISCOVERY_ACROSS_FILESYSTEM": "1"}
+        dvc_bin = self._find_dvc_bin()
+        remote_url = f"s3://{repo_info['s3_bucket']}/{repo_info['s3_prefix']}/dvc-cache"
+
+        def _run(*args: str) -> None:
+            result = subprocess.run(args, cwd=str(repo_root), env=env, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"Command {args} failed:\n{result.stderr}")
+
+        # Init single DVC repo for this workspace (shared across sessions)
+        if not (repo_root / ".git").is_dir():
+            _run("git", "init")
+            _run("git", "config", "user.email", "plato@plato.so")
+            _run("git", "config", "user.name", "plato")
+        if not (repo_root / ".dvc").is_dir():
+            _run(dvc_bin, "init")
+            _run(dvc_bin, "remote", "add", "-d", "s3", remote_url)
+            _run("git", "add", ".")
+            _run("git", "commit", "-m", "init dvc")
+
+        # Write .dvc pointer files under session subdir
+        for name, content in dvc_files.items():
+            dvc_path = session_dir / f"{name}.dvc"
+            dvc_path.write_text(content)
+        _run("git", "add", ".")
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(repo_root),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if status.stdout.strip():
+            _run("git", "commit", "-m", f"{session_id}: {ref['step_name']}")
+
+        logger.info("Pulling workspace '%s' session=%s (step=%s) ...", repo_name, session_id[:8], ref["step_name"])
+        _run(dvc_bin, "pull", "--force")
+
+        data_dirs = list(dvc_files.keys())
+        return session_dir / data_dirs[0] if data_dirs else session_dir
 
     # -- Lifecycle --
 
@@ -207,7 +452,12 @@ class Chronos:
         self.close()
 
 
-class AsyncChronos:
+# ---------------------------------------------------------------------------
+# Asynchronous client
+# ---------------------------------------------------------------------------
+
+
+class AsyncChronos(_ChronosBase):
     """Asynchronous high-level Chronos client."""
 
     def __init__(
@@ -216,8 +466,7 @@ class AsyncChronos:
         api_key: str | None = None,
         timeout: float = 60.0,
     ):
-        self._base_url = (base_url or os.environ.get("CHRONOS_URL") or _DEFAULT_CHRONOS_URL).rstrip("/")
-        self._api_key = api_key or os.environ.get("PLATO_API_KEY")
+        super().__init__(base_url, api_key, timeout)
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=timeout,
@@ -235,15 +484,7 @@ class AsyncChronos:
         allow_prerelease: bool = False,
         parent_session_id: str | None = None,
     ) -> LaunchJobResponse:
-        if parent_session_id is None:
-            parent_session_id = os.environ.get("SESSION_ID")
-        world_runtime = WorldRuntimeConfig(**runtime) if runtime else None
-        body = LaunchJobRequest(
-            world=WorldConfig(package=package, config=config, runtime=world_runtime),
-            tags=[_normalize_tag(t) for t in tags] if tags else None,
-            allow_prerelease=allow_prerelease or None,
-            parent_session_id=parent_session_id,
-        )
+        body = self._build_launch_body(package, config, tags, runtime, allow_prerelease, parent_session_id)
         resp = await launch_job.asyncio(self._client, body=body)
         _emit_child_session_span(resp.session_id, package)
         return resp
@@ -281,6 +522,16 @@ class AsyncChronos:
                 raise TimeoutError(f"Session {session_id} did not complete within {timeout}s")
             await asyncio.sleep(poll_interval)
 
+    async def complete(
+        self,
+        session_id: str,
+        status: str = "completed",
+        result: dict[str, Any] | None = None,
+        error_message: str | None = None,
+    ) -> SessionResponse:
+        body = self._build_complete_body(status, result, error_message)
+        return await complete_session.asyncio(self._client, public_id=session_id, body=body)
+
     async def stop(self, session_id: str) -> SessionResponse:
         body = CompleteSessionRequest(status="cancelled", error_message="User cancelled")
         return await complete_session.asyncio(self._client, public_id=session_id, body=body)
@@ -315,16 +566,155 @@ class AsyncChronos:
         traj = await self.get_trajectory(session_id)
         return traj.total_metrics
 
+    # -- State --
+
+    async def save_state(self, session_id: str, state_data: dict[str, Any]) -> bool:
+        """Save world state JSON to the DB."""
+        resp = await self._client.put(f"/api/sessions/{session_id}/state", json=state_data)
+        return resp.status_code == 200
+
+    async def get_state(self, session_id: str) -> dict[str, Any] | None:
+        """Get world state JSON from the DB. Returns None if not found."""
+        resp = await self._client.get(f"/api/sessions/{session_id}/state")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
+
     # -- Checkpoints --
 
     async def get_checkpoint_info(self, session_id: str) -> dict[str, Any]:
-        """Get checkpoint metadata including available workspace snapshots.
-
-        Returns dict with: session_id, workspaces, snapshots, resumable_steps, state_keys.
-        """
+        """Get checkpoint metadata including available workspace snapshots."""
         resp = await self._client.get(f"/api/sessions/{session_id}/checkpoint-info")
         resp.raise_for_status()
         return resp.json()
+
+    # -- Workspaces --
+
+    async def get_workspace_refs(
+        self,
+        session_id: str,
+        repo_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get all workspace refs for a session."""
+        params: dict[str, str] = {}
+        if repo_name:
+            params["repo_name"] = repo_name
+        resp = await self._client.get(
+            f"/api/workspace-repos/sessions/{session_id}/workspace-refs",
+            params=params,
+        )
+        resp.raise_for_status()
+        return resp.json().get("refs", [])
+
+    async def resolve_workspace_repo(self, repo_name: str) -> dict[str, Any]:
+        """Resolve a workspace repo name to S3 bucket/prefix and repo ID."""
+        resp = await self._client.post(
+            "/api/workspace-repos/resolve",
+            json={"name": repo_name},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_workspace_credentials(self, repo_id: str) -> dict[str, str]:
+        """Get STS credentials for accessing a workspace repo's S3 data."""
+        resp = await self._client.post(
+            f"/api/workspace-repos/{repo_id}/credentials",
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return {
+            "AWS_ACCESS_KEY_ID": data["aws_access_key_id"],
+            "AWS_SECRET_ACCESS_KEY": data["aws_secret_access_key"],
+            "AWS_SESSION_TOKEN": data["aws_session_token"],
+            "AWS_DEFAULT_REGION": data.get("region", "us-east-1"),
+        }
+
+    async def pull_workspace(
+        self,
+        session_id: str,
+        repo_name: str | None = None,
+        step_name: str | None = None,
+    ) -> Path:
+        """Pull a workspace snapshot via DVC.
+
+        Data is stored at ~/.plato/workspaces/{repo_name}/{session_id}/.
+        A single DVC repo per workspace repo means all sessions share the
+        same content-addressed cache — identical files are downloaded once.
+
+        Args:
+            session_id: Session to pull from.
+            repo_name: Workspace name (e.g. "webclone/recordings"). If None,
+                       uses the first repo found in the session's refs.
+            step_name: Checkpoint to restore (e.g. "step.2.stage.annotate").
+                       If None, uses the latest checkpoint.
+
+        Returns:
+            Path to the session's data directory.
+        """
+        # Resolve ref and credentials
+        refs = await self.get_workspace_refs(session_id, repo_name=repo_name)
+        repo_name, ref, dvc_files = self._resolve_pull_context(refs, repo_name, step_name)
+        repo_info = await self.resolve_workspace_repo(repo_name)
+        creds = await self.get_workspace_credentials(repo_info["repo_id"])
+
+        repo_root = self._repo_root(repo_name)
+        repo_root.mkdir(parents=True, exist_ok=True)
+        session_dir = repo_root / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        env = {**os.environ, **creds, "GIT_DISCOVERY_ACROSS_FILESYSTEM": "1"}
+        dvc_bin = self._find_dvc_bin()
+        remote_url = f"s3://{repo_info['s3_bucket']}/{repo_info['s3_prefix']}/dvc-cache"
+
+        async def _run(*args: str) -> None:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                cwd=str(repo_root),
+                env=env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"Command {args} failed:\n{stderr.decode()}")
+
+        # Init single DVC repo for this workspace (shared across sessions)
+        if not (repo_root / ".git").is_dir():
+            await _run("git", "init")
+            await _run("git", "config", "user.email", "plato@plato.so")
+            await _run("git", "config", "user.name", "plato")
+        if not (repo_root / ".dvc").is_dir():
+            await _run(dvc_bin, "init")
+            await _run(dvc_bin, "remote", "add", "-d", "s3", remote_url)
+            await _run("git", "add", ".")
+            await _run("git", "commit", "-m", "init dvc")
+
+        # Write .dvc pointer files under session subdir
+        for name, content in dvc_files.items():
+            dvc_path = session_dir / f"{name}.dvc"
+            dvc_path.write_text(content)
+        await _run("git", "add", ".")
+
+        # Only commit if there are changes
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "status",
+            "--porcelain",
+            cwd=str(repo_root),
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        if stdout.decode().strip():
+            await _run("git", "commit", "-m", f"{session_id}: {ref['step_name']}")
+
+        logger.info("Pulling workspace '%s' session=%s (step=%s) ...", repo_name, session_id[:8], ref["step_name"])
+        await _run(dvc_bin, "pull", "--force")
+
+        data_dirs = list(dvc_files.keys())
+        return session_dir / data_dirs[0] if data_dirs else session_dir
 
     # -- Lifecycle --
 

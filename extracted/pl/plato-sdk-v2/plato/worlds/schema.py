@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from plato.markers import FieldMarker
+from plato.markers import FieldMarker, WorkspaceMarker
 
 if TYPE_CHECKING:
     from plato.worlds.config import RunConfig
@@ -17,7 +17,7 @@ def _get_runtime_fields() -> set[str]:
     return set(RunConfig.model_fields.keys())
 
 
-def get_field_annotations(config_cls: type[RunConfig]) -> dict[str, FieldMarker | None]:
+def get_field_annotations(config_cls: type[RunConfig]) -> dict[str, FieldMarker | WorkspaceMarker | None]:
     """Get FieldMarker annotations for each field.
 
     Args:
@@ -26,13 +26,13 @@ def get_field_annotations(config_cls: type[RunConfig]) -> dict[str, FieldMarker 
     Returns:
         Dict mapping field name to FieldMarker (or None if no marker)
     """
-    result: dict[str, FieldMarker | None] = {}
+    result: dict[str, FieldMarker | WorkspaceMarker | None] = {}
 
     for field_name, field_info in config_cls.model_fields.items():
         marker = None
 
         for meta in field_info.metadata:
-            if isinstance(meta, FieldMarker):
+            if isinstance(meta, (FieldMarker, WorkspaceMarker)):
                 marker = meta
                 break
 
@@ -60,6 +60,7 @@ def get_world_config_schema(config_cls: type[RunConfig]) -> dict[str, Any]:
     agents: list[dict[str, Any]] = []
     secrets: list[dict[str, Any]] = []
     envs: list[dict[str, Any]] = []
+    workspaces: list[dict[str, Any]] = []
     env_list_field: dict[str, Any] | None = None
 
     # Skip runtime fields (derived from RunConfig base class)
@@ -73,7 +74,7 @@ def get_world_config_schema(config_cls: type[RunConfig]) -> dict[str, Any]:
 
         if marker is None:
             world_properties[field_name] = prop_schema
-        elif marker.kind == "agent":
+        elif isinstance(marker, FieldMarker) and marker.kind == "agent":
             agents.append(
                 {
                     "name": field_name,
@@ -81,7 +82,7 @@ def get_world_config_schema(config_cls: type[RunConfig]) -> dict[str, Any]:
                     "required": marker.required,
                 }
             )
-        elif marker.kind == "secret":
+        elif isinstance(marker, FieldMarker) and marker.kind == "secret":
             secrets.append(
                 {
                     "name": field_name,
@@ -89,7 +90,7 @@ def get_world_config_schema(config_cls: type[RunConfig]) -> dict[str, Any]:
                     "required": marker.required,
                 }
             )
-        elif marker.kind == "env":
+        elif isinstance(marker, FieldMarker) and marker.kind == "env":
             # Get default value for this env field
             field_info = config_cls.model_fields.get(field_name)
             default_value = None
@@ -108,7 +109,15 @@ def get_world_config_schema(config_cls: type[RunConfig]) -> dict[str, Any]:
                     "default": default_value,
                 }
             )
-        elif marker.kind == "env_list":
+        elif isinstance(marker, WorkspaceMarker):
+            workspaces.append(
+                {
+                    "name": field_name,
+                    "description": marker.description,
+                    "tracked": marker.tracked,
+                }
+            )
+        elif isinstance(marker, FieldMarker) and marker.kind == "env_list":
             env_list_field = {
                 "name": field_name,
                 "description": marker.description,

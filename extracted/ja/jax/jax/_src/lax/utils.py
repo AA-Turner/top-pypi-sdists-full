@@ -19,6 +19,7 @@
 from functools import partial
 
 import numpy as np
+from typing import cast
 
 from jax._src import core
 from jax._src import dispatch
@@ -174,6 +175,7 @@ def multi_mem_space_rule(prim, num_out, *avals, **kwargs):
 def standard_abstract_eval(
     prim, shape_rule, dtype_rule, weak_type_rule, sharding_rule, vma_rule,
     unreduced_rule, reduced_rule, memory_space_rule, *avals, **kwargs):
+  assert not prim.multiple_results
   for a in avals:
     if isinstance(a, state.AbstractRef):
       raise ValueError(f'Attempting to pass a Ref {a} to a primitive: '
@@ -181,8 +183,6 @@ def standard_abstract_eval(
     if not isinstance(a, core.ShapedArray):
       raise ValueError(f'Attempting to pass an unexpected type {a} to a '
                        f'primitive: {prim}')
-  assert all(isinstance(aval, core.ShapedArray) for aval in avals), avals
-  assert not prim.multiple_results
   weak_type = weak_type_rule(*avals, **kwargs)
   least_specialized = type(max(avals, key=_get_array_abstraction_level))
   if least_specialized is core.ShapedArray:
@@ -204,7 +204,7 @@ def standard_abstract_eval(
 
 def standard_multi_result_abstract_eval(
     prim, shape_rule, dtype_rule, weak_type_rule, sharding_rule, vma_rule,
-    *avals, **kwargs):
+    unreduced_rule, reduced_rule, *avals, **kwargs):
   assert prim.multiple_results
   assert all(isinstance(aval, core.ShapedArray) for aval in avals), avals
   least_specialized = max(map(type, avals), key=_get_array_abstraction_level)
@@ -212,8 +212,8 @@ def standard_multi_result_abstract_eval(
   if least_specialized is core.ShapedArray:
     core.check_avals_context_mesh(avals, prim.name)
     out_shapes, out_dtypes, out_shardings = call_shape_dtype_sharding_rule(
-        prim, shape_rule, dtype_rule, sharding_rule, None, None, True,
-        *avals, **kwargs)
+        prim, shape_rule, dtype_rule, sharding_rule, unreduced_rule,
+        reduced_rule, True, *avals, **kwargs)
     out_vmas = vma_rule(*avals, **kwargs)
     out_mem_spaces = multi_mem_space_rule(prim, len(out_shapes), *avals, **kwargs)
     if isinstance(weak_types, bool):
@@ -275,3 +275,11 @@ def int_dtype_for_shape(shape: Shape, *, signed: bool) -> DType:
       else:
         return dtypes.default_uint_dtype()
     return np.dtype(np.uint32)
+
+
+
+def ensure_shaped(*avals: core.AbstractValue) -> tuple[core.ShapedArray | state.AbstractRef, ...]:
+  """Cast all inputs to ShapedArray with a runtime instance check."""
+  if any(not isinstance(aval, (core.ShapedArray, state.AbstractRef)) for aval in avals):
+    raise ValueError(f"Expected ShapedArray; got {[type(aval) for aval in avals]}")
+  return tuple(cast(core.ShapedArray | state.AbstractRef, aval) for aval in avals)

@@ -8,7 +8,6 @@ from unittest import mock
 
 # 3rd party
 import pytest
-import pexpect
 
 # local
 from telnetlib3._session_context import TelnetSessionContext
@@ -41,7 +40,10 @@ class _MockOption:
 
 
 def _make_writer(
-    will_echo: bool = False, raw_mode: "bool | None" = False, will_sga: bool = False
+    will_echo: bool = False,
+    raw_mode: "bool | None" = False,
+    will_sga: bool = False,
+    local_sga: bool = False,
 ) -> object:
     """Build a minimal mock writer with the attributes Terminal needs."""
     from telnetlib3.telopt import SGA
@@ -52,6 +54,7 @@ def _make_writer(
         will_echo=will_echo,
         client=True,
         remote_option=_MockOption({SGA: will_sga}),
+        local_option=_MockOption({SGA: local_sga}),
         log=types.SimpleNamespace(debug=lambda *a, **kw: None),
         ctx=ctx,
     )
@@ -188,6 +191,32 @@ def test_make_raw_toggle_echo_flag() -> None:
     restored = term._make_raw(mode, suppress_echo=False)
     assert restored.lflag & termios.ECHO
     assert not restored.lflag & termios.ICANON
+
+
+def test_server_will_sga_local_option() -> None:
+    """DO SGA from server (client WILL SGA) is detected as SGA active."""
+    term = _make_term(_make_writer(local_sga=True, raw_mode=None))
+    assert term._server_will_sga() is True
+
+
+def test_determine_mode_local_sga_goes_raw() -> None:
+    """WILL ECHO + DO SGA (local_option) triggers kludge raw mode."""
+    term = _make_term(_make_writer(will_echo=True, raw_mode=None, local_sga=True))
+    mode = _cooked_mode()
+    result = term.determine_mode(mode)
+    assert result is not mode
+    assert not result.lflag & termios.ICANON
+    assert not result.lflag & termios.ECHO
+
+
+def test_determine_mode_local_sga_without_echo() -> None:
+    """DO SGA alone (no WILL ECHO) triggers character-at-a-time with software echo."""
+    term = _make_term(_make_writer(raw_mode=None, local_sga=True))
+    mode = _cooked_mode()
+    result = term.determine_mode(mode)
+    assert result is not mode
+    assert not result.lflag & termios.ICANON
+    assert term.software_echo is True
 
 
 @pytest.mark.parametrize(
@@ -334,7 +363,7 @@ import contextlib  # noqa: E402
 import subprocess  # noqa: E402
 
 # local
-from telnetlib3.tests.accessories import asyncio_server
+from telnetlib3.tests.accessories import create_server, asyncio_server
 
 _IAC = b"\xff"
 _WILL = b"\xfb"
@@ -357,9 +386,10 @@ def _strip_iac(data: bytes) -> bytes:
 
 
 def _client_cmd(host: str, port: int, extra: "list[str] | None" = None) -> "list[str]":
-    prog = pexpect.which("telnetlib3-client")
-    assert prog is not None
-    args = [prog, host, str(port), "--connect-maxwait=0.5", "--colormatch=none"]
+    # Use sys.executable so the subprocess uses the same Python interpreter and
+    # telnetlib3 package as the test process, not whatever pyenv shim happens to
+    # be on PATH (which may point to a different Python version or install).
+    args = [sys.executable, "-m", "telnetlib3.client", host, str(port), "--connect-maxwait=0.5"]
     if extra:
         args.extend(extra)
     return args
@@ -719,7 +749,6 @@ async def test_raw_event_loop_reactivates_repl() -> None:
     writer = _make_writer()
     writer.log = types.SimpleNamespace(debug=lambda *a, **kw: None, log=lambda *a, **kw: None)
     writer.ctx.raw_mode = None
-    writer.ctx.color_filter = None
     writer.ctx.ascii_eol = False
     writer.ctx.autoreply_engine = None
     writer.ctx.autoreply_rules = []
@@ -779,7 +808,6 @@ async def test_raw_event_loop_typescript_recording() -> None:
     writer = _make_writer()
     writer.log = types.SimpleNamespace(debug=lambda *a, **kw: None, log=lambda *a, **kw: None)
     writer.ctx.raw_mode = True
-    writer.ctx.color_filter = None
     writer.ctx.ascii_eol = False
     writer.ctx.autoreply_engine = None
     writer.ctx.input_filter = None
@@ -949,3 +977,47 @@ async def test_cooked_to_raw_transition_preserves_crlf(
                 assert idx != -1
                 after = text[idx + len(line) :]
                 assert after.startswith("\r\n")
+
+
+async def test_linemode_edit_via_telsh(bind_host: str, unused_tcp_port: int) -> None:
+    """
+    LinemodeBuffer is exercised end-to-end via LinemodeServer + telnet_server_shell.
+
+    Covers _get_linemode_buffer, _raw_event_loop LINEMODE EDIT path, EC (erase-char), EL (erase-
+    line), and line transmission.
+    """
+    from telnetlib3.server import LinemodeServer
+    from telnetlib3.server_shell import telnet_server_shell
+
+    async with create_server(
+        protocol_factory=LinemodeServer,
+        shell=telnet_server_shell,
+        host=bind_host,
+        port=unused_tcp_port,
+        connect_maxwait=0.5,
+    ):
+        cmd = _client_cmd(bind_host, unused_tcp_port)
+
+        def _interact(master_fd: int, proc: "subprocess.Popen[bytes]") -> bytes:
+            # Wait for the telsh prompt — LINEMODE negotiation has completed by then
+            buf = _pty_read(master_fd, marker=b"tel:sh>", timeout=12.0)
+            # EC test: type "helo" + 0x7F (EC = delete-char) + "lo" + CR
+            # LinemodeBuffer: "helo" → EC deletes 'o' → "hel" + "lo" → "hello", CR sends it
+            os.write(master_fd, b"helo\x7flo\r")
+            buf += _pty_read(master_fd, marker=b"no such", timeout=8.0)
+            # EL test: type "garbage" + 0x15 (EL = erase-line) + "slc" + CR
+            os.write(master_fd, b"garbage\x15slc\r")
+            buf += _pty_read(master_fd, marker=b"Special Line", timeout=8.0)
+            # Tidy up
+            os.write(master_fd, b"quit\r")
+            buf += _pty_read(master_fd, proc=proc, timeout=5.0)
+            return buf
+
+        with _pty_client(cmd) as (proc, master_fd):
+            output = await asyncio.to_thread(_interact, master_fd, proc)
+            # Local echo from LinemodeBuffer should include backspace sequence
+            assert b"\x08 \x08" in output
+            # "hello" was transmitted intact and shell replied
+            assert b"no such command" in output
+            # After EL, "slc" was sent clean and shell replied with SLC table
+            assert b"Special Line Characters" in output

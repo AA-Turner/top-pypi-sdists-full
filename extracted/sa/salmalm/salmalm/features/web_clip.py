@@ -135,7 +135,7 @@ def fetch_url(url: str, timeout: int = 15) -> str:
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         charset = resp.headers.get_content_charset() or "utf-8"
-        return resp.read(16 * 1024 * 1024).decode(charset, errors="replace")
+        return resp.read().decode(charset, errors="replace")
 
 
 # ---------------------------------------------------------------------------

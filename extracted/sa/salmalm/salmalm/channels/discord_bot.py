@@ -67,7 +67,7 @@ class DiscordBot:
         req.add_header("User-Agent", "SalmAlm (github.com/hyunjun6928-netizen/salmalm, 0.8)")
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-                return json.loads(resp.read(4 * 1024 * 1024).decode())  # type: ignore[no-any-return]
+                return json.loads(resp.read().decode())  # type: ignore[no-any-return]
         except urllib.error.HTTPError as e:
             err = e.read().decode("utf-8", errors="replace")
             log.error(f"Discord API {method} {path}: {e.code} {err[:200]}")

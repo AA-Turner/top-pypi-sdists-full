@@ -1,41 +1,18 @@
 """Memory tools: memory_read, memory_write, memory_search, usage_report."""
 
-from pathlib import Path
 from salmalm.tools.tool_registry import register
 from salmalm.constants import MEMORY_FILE, MEMORY_DIR
 from salmalm.core import _tfidf, get_usage_report
-
-
-def _resolve_memory_path(fname: str) -> Path:
-    """Resolve memory file path and guard against path traversal.
-
-    BUG-CT fix: callers pass user/LLM-supplied filenames.
-    Without validation, 'fname=../../etc/passwd' would escape MEMORY_DIR.
-    """
-    if fname == "MEMORY.md":
-        return MEMORY_FILE
-    # Strip any leading slashes / dots to prevent traversal
-    # Use Path.name to allow only bare filenames (no directory components)
-    safe_name = Path(fname).name
-    if not safe_name or safe_name in (".", ".."):
-        raise ValueError(f"Invalid memory filename: {fname!r}")
-    p = (MEMORY_DIR / safe_name).resolve()
-    # Final check: resolved path must be inside MEMORY_DIR
-    try:
-        p.relative_to(MEMORY_DIR.resolve())
-    except ValueError:
-        raise ValueError(f"Path traversal blocked: {fname!r}")
-    return p
 
 
 @register("memory_read")
 def handle_memory_read(args: dict) -> str:
     """Handle memory read."""
     fname = args["file"]
-    try:
-        p = _resolve_memory_path(fname)
-    except ValueError as e:
-        return f"❌ {e}"
+    if fname == "MEMORY.md":
+        p = MEMORY_FILE
+    else:
+        p = MEMORY_DIR / fname
     if not p.exists():
         return f"File not found: {fname}"
     return p.read_text(encoding="utf-8")[:30000]
@@ -45,10 +22,10 @@ def handle_memory_read(args: dict) -> str:
 def handle_memory_write(args: dict) -> str:
     """Handle memory write."""
     fname = args["file"]
-    try:
-        p = _resolve_memory_path(fname)
-    except ValueError as e:
-        return f"❌ {e}"
+    if fname == "MEMORY.md":
+        p = MEMORY_FILE
+    else:
+        p = MEMORY_DIR / fname
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(args["content"], encoding="utf-8")
     return f"{fname} saved"

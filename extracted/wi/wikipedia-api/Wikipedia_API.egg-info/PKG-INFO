@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Wikipedia-API
-Version: 0.9.0
+Version: 0.10.0
 Summary: Python Wrapper for Wikipedia
 Home-page: https://github.com/martin-majlis/Wikipedia-API
 Download-URL: https://github.com/martin-majlis/Wikipedia-API/archive/master.tar.gz
@@ -27,6 +27,7 @@ Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE
 Requires-Dist: requests
+Requires-Dist: click
 Provides-Extra: testing
 Dynamic: author
 Dynamic: author-email
@@ -49,7 +50,7 @@ Wikipedia API
 
 .. _Wikipedias': https://www.mediawiki.org/wiki/API:Main_page
 
-|github-stars-flat| |cc-coverage| |docs| |version| |pyversions|
+|github-stars-flat| |codecov-coverage| |docs| |version| |pyversions|
 
 Installation
 ------------
@@ -349,6 +350,69 @@ specify parameter `converttitles`. If you want to specify it, you can use:
 .. _sandbox: https://en.wikipedia.org/wiki/Special:ApiSandbox
 .. _info API call: https://zh.wikipedia.org/wiki/Special:API%E6%B2%99%E7%9B%92#action=query&format=json&variant=zh-tw&prop=info&titles=%E5%AD%9F%E5%8D%AF&converttitles=1&formatversion=2&inprop=varianttitles%7Cdisplaytitle
 
+Error Handling
+~~~~~~~~~~~~~~
+
+All exceptions raised by the library inherit from ``WikipediaException``. No ``requests`` or ``json``
+exceptions are exposed. You can catch specific exceptions or the base ``WikipediaException``.
+
+.. code-block:: python
+
+    import wikipediaapi
+
+    wiki_wiki = wikipediaapi.Wikipedia(user_agent='MyProjectName (merlin@example.com)', language='en')
+
+    # Catch any Wikipedia-API error
+    try:
+        page = wiki_wiki.page('Python_(programming_language)')
+        print(page.summary[0:60])
+    except wikipediaapi.WikipediaException as e:
+        print("Error: %s" % e)
+
+.. code-block:: python
+
+    # Handle rate limiting specifically
+    try:
+        page = wiki_wiki.page('Python_(programming_language)')
+        print(page.summary[0:60])
+    except wikipediaapi.WikiRateLimitError as e:
+        print("Rate limited! Retry after: %s seconds" % e.retry_after)
+    except wikipediaapi.WikiHttpError as e:
+        print("HTTP error %d: %s" % (e.status_code, e))
+    except wikipediaapi.WikiHttpTimeoutError:
+        print("Request timed out")
+    except wikipediaapi.WikiConnectionError:
+        print("Could not connect to Wikipedia")
+    except wikipediaapi.WikiInvalidJsonError:
+        print("Received invalid response from Wikipedia")
+
+Retry Configuration
+~~~~~~~~~~~~~~~~~~~
+
+By default, transient errors (HTTP 429, 5xx, timeouts, connection errors) are retried up to 3 times
+with exponential backoff. You can configure this behavior in the constructor.
+
+.. code-block:: python
+
+    import wikipediaapi
+
+    # Custom retry: 5 retries with 2-second base wait
+    wiki_wiki = wikipediaapi.Wikipedia(
+        user_agent='MyProjectName (merlin@example.com)',
+        language='en',
+        max_retries=5,
+        retry_wait=2.0,
+    )
+
+.. code-block:: python
+
+    # Disable retries entirely
+    wiki_wiki = wikipediaapi.Wikipedia(
+        user_agent='MyProjectName (merlin@example.com)',
+        language='en',
+        max_retries=0,
+    )
+
 How To See Underlying API Call
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -415,8 +479,8 @@ Other Pages
     :target: https://codeclimate.com/github/martin-majlis/Wikipedia-API
     :alt: Issue Count
 
-.. |cc-coverage| image:: https://api.codeclimate.com/v1/badges/6e2c24d72438b39e5c26/test_coverage
-    :target: https://codeclimate.com/github/martin-majlis/Wikipedia-API
+.. |codecov-coverage| image:: https://codecov.io/gh/martin-majlis/Wikipedia-API/graph/badge.svg?token=C4MgwR5nrm
+    :target: https://app.codecov.io/gh/martin-majlis/Wikipedia-API
     :alt: Test Coverage
 
 .. |coveralls| image:: https://coveralls.io/repos/github/martin-majlis/Wikipedia-API/badge.svg?branch=master
@@ -529,6 +593,19 @@ Other Pages
 
 Changelog
 =========
+
+0.10.0
+------
+
+* Introduce command line tool - `wikipedia-cli` - `PR 402`_
+* Kwargs are overwriting default API params (**breaking**) - `PR 408`_
+* Handle HTTP errors, add retries (**breaking**) - `PR 417`_
+* Split `__init__.py` into smaller files - `PR 422`_
+
+.. _PR 402: https://github.com/martin-majlis/Wikipedia-API/pull/402
+.. _PR 408: https://github.com/martin-majlis/Wikipedia-API/pull/408
+.. _PR 417: https://github.com/martin-majlis/Wikipedia-API/pull/417
+.. _PR 422: https://github.com/martin-majlis/Wikipedia-API/pull/422
 
 0.9.0
 -----

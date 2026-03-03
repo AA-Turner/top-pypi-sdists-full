@@ -195,7 +195,7 @@ job_queue_config = JobQueueConfig(
 # An example configuration that creates a job queue if one does not exist with the provided options.
 job_queue_config:
     # Priority of the job (only relevant if the execution_mode is "PRIORITY").
-    priority: 100,
+    priority: 100
     # Specification of the target Job Queue (will be created if does not exist)
     job_queue_spec:
         name: my-job-queue
@@ -403,42 +403,6 @@ connections: # (Optional) List of third-party connections for credential injecti
         for k, v in tags.items():
             if not isinstance(k, str) or not isinstance(v, str):
                 raise TypeError("'tags' must be a Dict[str, str].")
-
-    connections: Optional[List[ConnectionConfig]] = field(
-        default=None,
-        metadata={
-            "docstring": "Connections to third-party integrations (e.g., Databricks) to associate with the job. "
-            "This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com) to request enablement."
-        },
-    )
-
-    def _validate_connections(
-        self, connections: Optional[List[ConnectionConfig]]
-    ) -> Optional[List[ConnectionConfig]]:
-        if connections is None:
-            return None
-        if not isinstance(connections, list):
-            raise TypeError("'connections' must be a list.")
-
-        validated = []
-        for conn in connections:
-            if isinstance(conn, dict):
-                # Convert string connection_type to enum before creating ConnectionConfig
-                conn_copy = conn.copy()
-                if "connection_type" in conn_copy and isinstance(
-                    conn_copy["connection_type"], str
-                ):
-                    conn_copy["connection_type"] = ConnectionType.validate(
-                        conn_copy["connection_type"]
-                    )
-                validated.append(ConnectionConfig.from_dict(conn_copy))
-            elif isinstance(conn, ConnectionConfig):
-                validated.append(conn)
-            else:
-                raise TypeError(
-                    f"Each connection must be a ConnectionConfig or dict (got {type(conn)})."
-                )
-        return validated
 
 
 class JobRunState(ModelEnum):

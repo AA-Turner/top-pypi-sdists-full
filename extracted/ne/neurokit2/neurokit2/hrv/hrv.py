@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.gridspec as gs
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -131,7 +130,6 @@ def hrv(peaks, sampling_rate=1000, show=False, **kwargs):
 # Plot
 # =============================================================================
 def _hrv_plot(peaks, out, sampling_rate=1000, interpolation_rate=100, **kwargs):
-
     fig = plt.figure(constrained_layout=False)
     spec = gs.GridSpec(ncols=2, nrows=2, height_ratios=[1, 1], width_ratios=[1, 1])
 
@@ -156,7 +154,15 @@ def _hrv_plot(peaks, out, sampling_rate=1000, interpolation_rate=100, **kwargs):
 
     # Poincare plot
     out.columns = [col.replace("HRV_", "") for col in out.columns]
-    _hrv_nonlinear_show(rri, rri_time=rri_time, rri_missing=rri_missing, out=out, ax=ax_poincare, ax_marg_x=ax_marg_x, ax_marg_y=ax_marg_y)
+    _hrv_nonlinear_show(
+        rri,
+        rri_time=rri_time,
+        rri_missing=rri_missing,
+        out=out,
+        ax=ax_poincare,
+        ax_marg_x=ax_marg_x,
+        ax_marg_y=ax_marg_y,
+    )
 
     # PSD plot
     rri, rri_time, sampling_rate = intervals_process(

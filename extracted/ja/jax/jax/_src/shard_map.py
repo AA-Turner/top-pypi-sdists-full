@@ -19,7 +19,7 @@ from functools import partial
 import inspect
 from math import prod
 import operator as op
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast, overload
 
 import numpy as np
 
@@ -40,8 +40,8 @@ from jax._src.core import pvary, Tracer, typeof, shard_aval, unshard_aval
 from jax._src.mesh import (AbstractMesh, Mesh, BaseMesh, AxisType,
                            use_abstract_mesh, get_abstract_mesh,
                            get_concrete_mesh)
-from jax._src.pjit import reshard
 from jax._src.lax import lax, parallel as lax_parallel
+from jax._src.lib import _jax
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import hlo, sdy
 from jax._src.sharding_impls import NamedSharding, PartitionSpec
@@ -82,13 +82,31 @@ Infer = InferFromArgs()
 def _get_default_infer():
   return Infer
 
+
+F = TypeVar("F", bound=Callable)
+G = TypeVar("G", bound=Callable)
+
+
+@overload
+def shard_map(f: F, /, *, out_specs: Specs,
+              in_specs: Specs | None | InferFromArgs = ...,
+              mesh: Mesh | AbstractMesh | None = ...,
+              axis_names: Set[AxisName] = ..., check_vma: bool = ...) -> F: ...
+
+@overload
+def shard_map(f: None = None, /, *, out_specs: Specs,
+              in_specs: Specs | None | InferFromArgs = ...,
+              mesh: Mesh | AbstractMesh | None = ...,
+              axis_names: Set[AxisName] = ..., check_vma: bool = ...
+              ) -> Callable[[G], G]: ...
+
 # See https://github.com/jax-ml/jax/pull/30753 to understand why `in_specs`
 # defaults to `Infer`.
-def shard_map(f=None, /, *, out_specs: Specs,
+def shard_map(f: F | None = None, /, *, out_specs: Specs,
               in_specs: Specs | None | InferFromArgs = Infer,
               mesh: Mesh | AbstractMesh | None = None,
-              axis_names: Set[AxisName] = frozenset(),
-              check_vma: bool = True):
+              axis_names: Set[AxisName] = frozenset(), check_vma: bool = True
+              ) -> F | Callable[[G], G]:
   """Map a function over shards of data using a mesh of devices.
 
   See the docs at https://docs.jax.dev/en/latest/notebooks/shard_map.html.
@@ -143,7 +161,21 @@ def shard_map(f=None, /, *, out_specs: Specs,
   return _shard_map(f, **kwargs)
 
 
-def smap(f=None, /, *, in_axes=Infer, out_axes, axis_name: AxisName):
+@overload
+def smap(f: F, /, *,
+         in_axes: int | None | InferFromArgs | tuple[Any, ...] = ...,
+         out_axes: Any, axis_name: AxisName) -> F: ...
+
+@overload
+def smap(f: None = None, /, *,
+         in_axes: int | None | InferFromArgs | tuple[Any, ...] = ...,
+         out_axes: Any, axis_name: AxisName
+         ) -> Callable[[G], G]: ...
+
+def smap(f: F | None = None, /, *,
+         in_axes: int | None | InferFromArgs | tuple[Any, ...] = Infer,
+         out_axes: Any, axis_name: AxisName
+         ) -> F | Callable[[G], G]:
   """Single axis shard_map that maps a function `f` one axis at a time.
 
   Args:
@@ -174,7 +206,8 @@ def smap(f=None, /, *, in_axes=Infer, out_axes, axis_name: AxisName):
     return lambda g: _smap(g, **kwargs)
   return _smap(f, **kwargs)
 
-def _smap(f, *, in_axes, out_axes, axis_name: AxisName):
+def _smap(f: F, *, in_axes: int | None | InferFromArgs | tuple[Any, ...],
+          out_axes: Any, axis_name: AxisName) -> F:
   if isinstance(axis_name, (list, tuple)):
     raise TypeError(
         f"smap axis_name should be a `str` or a `Hashable`, but got {axis_name}")
@@ -203,10 +236,9 @@ def _smap(f, *, in_axes, out_axes, axis_name: AxisName):
 
 
 @partial(traceback_util.api_boundary, repro_api_name="jax.shard_map")
-def _shard_map(f: Callable, *, mesh: Mesh | AbstractMesh | None,
-               in_specs: Specs, out_specs: Specs | Callable[[], Specs],
-               axis_names: Set[AxisName], check_vma: bool,
-               _smap: bool = False) -> Callable:
+def _shard_map(f: F, *, mesh: Mesh | AbstractMesh | None,
+               in_specs: Specs, out_specs: Specs, axis_names: Set[AxisName],
+               check_vma: bool, _smap: bool = False) -> F:
   if not callable(f):
     raise TypeError("shard_map requires a callable for its first argument, "
                     f"but got {f} of type {type(f)}.")
@@ -217,9 +249,10 @@ def _shard_map(f: Callable, *, mesh: Mesh | AbstractMesh | None,
     nonlocal mesh, axis_names
     mesh, axis_names = _shmap_checks(
         mesh, axis_names, in_specs, out_specs, _smap)
-    fun = lu.wrap_init(
-        f, debug_info=api_util.debug_info("shard_map", f, args, {}))
+    dbg = api_util.debug_info("shard_map", f, args, {})
+    fun = lu.wrap_init(f, debug_info=dbg)
     args_flat, in_tree = tree_flatten(args)
+    api_util.check_no_transformed_refs_args(lambda: dbg, args_flat)
     fun, out_specs_thunk = _broadcast_out_specs(fun, out_specs, axis_names)
     fun, out_tree = api_util.flatten_fun_nokwargs(fun, in_tree)
 
@@ -254,9 +287,20 @@ def _shard_map(f: Callable, *, mesh: Mesh | AbstractMesh | None,
         frozenset(mesh.axis_names) - core.get_axis_env().explicit_mesh_axis_names)
     if (mesh_axis_names_wo_vmap == axis_names and
         all(mesh._name_to_type[a] == AxisType.Explicit for a in axis_names)):
-      args_flat = [a if typeof(a).sharding.spec == s
-                   else reshard(a, NamedSharding(mesh, s))
-                   for a, s in zip(args_flat, in_specs_flat)]
+      for a, s in zip(args_flat, in_specs_flat):
+        if not isinstance(s, P): continue
+        arg_aval = typeof(a)
+        s = s._normalized_spec_for_aval(arg_aval.ndim)
+        if config.remove_size_one_mesh_axis_from_type.value:
+          s = core.remove_size_one_mesh_axis(s, mesh)
+        if arg_aval.sharding.spec != s:
+          raise ValueError(
+              f"in_specs passed to shard_map: {s} does not match the specs of"
+              f" the input: {arg_aval.sharding.spec} for arg: {typeof(a)}."
+              " `in_specs` is an optional argument so you can omit specifying"
+              " it and shard_map will infer the in_specs from the arguments."
+              " If you want to reshard your inputs, you can use `jax.reshard`"
+              " on the arguments and then pass those args to shard_map.")
 
     try:
       out_flat = shard_map_p.bind(
@@ -265,36 +309,28 @@ def _shard_map(f: Callable, *, mesh: Mesh | AbstractMesh | None,
           manual_axes=axis_names)
     except _SpecError as e:
       fails, = e.args
-      if not callable(out_specs):
-        msg = _spec_rank_error(SpecErrorType.out, f, out_tree(), out_specs, fails)
-        if any(fail is not no_fail and not fail.shape for fail in fails):
-          msg += (" In particular, for rank 0 outputs which are not constant "
-                  "over the mesh, add at least one (singleton) axis to them so "
-                  "that they can be concatenated using out_specs.")
-        raise ValueError(msg) from None
+      msg = _spec_rank_error(SpecErrorType.out, f, out_tree(), out_specs, fails)
+      if any(fail is not no_fail and not fail.shape for fail in fails):
+        msg += (" In particular, for rank 0 outputs which are not constant "
+                "over the mesh, add at least one (singleton) axis to them so "
+                "that they can be concatenated using out_specs.")
+      raise ValueError(msg) from None
     except _RepError as e:
       fails, = e.args
-      if not callable(out_specs):
-        msg = _inout_vma_error(f, mesh, out_tree(), out_specs, fails)
-        raise ValueError(msg) from None
+      msg = _inout_vma_error(f, mesh, out_tree(), out_specs, fails)
+      raise ValueError(msg) from None
     return tree_unflatten(out_tree(), out_flat)
-  return wrapped
+  return cast(F, wrapped)
 
 
 @lu.transformation_with_aux2
 def _broadcast_out_specs(_fun, _store, out_specs, axis_names, *args, **kwargs):
   ans = _fun(*args, **kwargs)
 
-  if callable(out_specs):
-    out_specs_ = out_specs()
-    _check_specs(SpecErrorType.out, out_specs_, axis_names)
-  else:
-    out_specs_ = out_specs
-
   try:
-    out_specs_flat = broadcast_prefix(out_specs_, ans)
+    out_specs_flat = broadcast_prefix(out_specs, ans)
   except ValueError:
-    e, *_ = prefix_errors(out_specs_, ans)
+    e, *_ = prefix_errors(out_specs, ans)
     raise e('shard_map out_specs') from None
 
   _store.store(tuple(out_specs_flat))
@@ -325,6 +361,8 @@ def _shmap_checks(mesh, axis_names, in_specs, out_specs, _smap):
     raise TypeError("shard_map requires a `jax.sharding.Mesh` or a "
                     "`jax.sharding.AbstractMesh` instance for its "
                     f"second argument, but got {mesh} of type {type(mesh)}.")
+  if mesh.empty:
+    raise ValueError(f"shard_map requires a non-empty mesh. Got {mesh}")
 
   mesh_axis_names_wo_vmap = (
       frozenset(mesh.axis_names) - core.get_axis_env().explicit_mesh_axis_names
@@ -358,9 +396,8 @@ def _shmap_checks(mesh, axis_names, in_specs, out_specs, _smap):
   if in_specs is not Infer and in_specs is not None:
     _check_specs(SpecErrorType.input, in_specs, axis_names)
     _check_unreduced(SpecErrorType.input, mesh, axis_names, in_specs)
-  if not callable(out_specs):
-    _check_specs(SpecErrorType.out, out_specs, axis_names)
-    _check_unreduced(SpecErrorType.out, mesh, axis_names, out_specs)
+  _check_specs(SpecErrorType.out, out_specs, axis_names)
+  _check_unreduced(SpecErrorType.out, mesh, axis_names, out_specs)
   return mesh, axis_names
 
 
@@ -387,10 +424,13 @@ def _manual_spec(manual_axes, spec: P, mesh) -> P:
 SpecErrorType = enum.Enum('SpecErrorType', ['input', 'out'])
 
 def _check_unreduced(error_type, mesh, manual_axes, specs):
+  from jax._src.hijax import HipSpec  # type: ignore
   prefix = 'in' if error_type == SpecErrorType.input else 'out'
   full_manual = frozenset(mesh.axis_names) == manual_axes
   specs_flat, _ = tree_flatten(specs)
   for s in specs_flat:
+    if isinstance(s, HipSpec):
+      continue  # TODO(mattjj,yashkatariya): add user validation method
     if not s.unreduced and not s.reduced:
       continue
     if not full_manual:
@@ -412,6 +452,7 @@ def _check_unreduced(error_type, mesh, manual_axes, specs):
 
 
 def _check_specs(error_type: SpecErrorType, specs: Any, manual_axes) -> None:
+  from jax._src.hijax import HipSpec  # type: ignore
   if error_type == SpecErrorType.input and specs is None:
     raise TypeError(
         "shard_map in_specs argument must be a pytree of "
@@ -420,6 +461,8 @@ def _check_specs(error_type: SpecErrorType, specs: Any, manual_axes) -> None:
         "where `P = jax.sharding.PartitionSpec`?")
 
   def check_spec(p):
+    if isinstance(p, HipSpec):
+      return True  # TODO(mattjj,yashkatariya): add user validation method
     if not isinstance(p, PartitionSpec):
       return False
     for names in p:
@@ -463,16 +506,16 @@ def _check_specs_vs_args(
     dyn_argnums: Sequence[int], in_specs_flat: Sequence[P],
     xs: Sequence) -> None:
   in_avals = map(core.shaped_abstractify, xs)
-  fail = [a if not len(p) <= a.ndim else no_fail
+  fail = [a if isinstance(p, P) and len(p) > a.ndim else no_fail
           for p, a in zip(in_specs_flat, in_avals)]
   if any(f is not no_fail for f in fail):
     fail = _expand_fail(in_tree, dyn_argnums, fail)
     msg = _spec_rank_error(SpecErrorType.input, f, in_tree, in_specs, fail)
     raise ValueError(msg)
-  in_names_flat = tuple(map(_spec_to_names, in_specs_flat))
-  fail = [a if any(a.shape[d] % prod(mesh.shape[n] for n in ns)
-                   for d, ns in names.items()) else no_fail
-          for a, names in zip(in_avals, in_names_flat)]
+  bad = lambda a, d, ns: a.shape[d] % prod(mesh.shape[n] for n in ns)
+  fail = [a if (isinstance(s, P) and
+                any(bad(a, d, ns) for d, ns in _spec_to_names(s).items()))
+          else no_fail for a, s in zip(in_avals, in_specs_flat)]
   if any(f is not no_fail for f in fail):
     fail = _expand_fail(in_tree, dyn_argnums, fail)
     msg = _spec_divisibility_error(f, mesh, in_tree, in_specs, fail)
@@ -652,7 +695,7 @@ class Tup:
 def _implicit_pvary_on_output(f, out_specs_thunk, *args, **kwargs):
   out_flat = f(*args, **kwargs)
   return [pvary(o, tuple(_spec_to_vma(sp) - typeof(o).vma))
-          for o, sp in zip(out_flat, out_specs_thunk())]
+          if isinstance(sp, P) else o for o, sp in zip(out_flat, out_specs_thunk())]
 
 
 @lu.transformation2
@@ -661,7 +704,7 @@ def _implicit_unreduced_on_output(f, out_specs_thunk, *args, **kwargs):
   new_out_flat = []
   for o, sp in zip(out_flat, out_specs_thunk()):
     o_aval = typeof(o)
-    if unreduced := (sp.unreduced - o_aval.sharding.spec.unreduced):
+    if isinstance(sp, P) and (unreduced := sp.unreduced - o_aval.sharding.spec.unreduced):
       axes = order_wrt_mesh(o_aval.sharding.mesh, unreduced)
       new_out_flat.append(lax_parallel.vary_unreduced_cast(o, axes))
     else:
@@ -706,30 +749,42 @@ def _extend_axis_env(mesh, manual_axes):
   return core.extend_axis_env_nd([(k, v) for k, v in mesh.shape.items()
                                   if k in manual_axes])
 
+@lu.transformation_with_aux2
+def _lojax_traceable(_fun, _store, hi_avals_in, *lo_tracers):
+  hi_args = pe.raise_lo_outs(hi_avals_in, lo_tracers)
+  hi_ans = _fun(*hi_args)
+  hi_avals_out = map(typeof, hi_ans)
+  lo_ans = [lo_val for hi_ty, hi_val in zip(hi_avals_out, hi_ans)
+            for lo_val in hi_ty.lower_val(hi_val)]
+  _store.store(tuple(hi_avals_out))
+  return lo_ans
+
 def _shard_map_staging(
     trace: pe.DynamicJaxprTrace, prim: core.Primitive, f: lu.WrappedFun,
-    in_tracers: Sequence[Any], *, mesh: Mesh,
+    args: Sequence[Any], *, mesh: Mesh,
     in_specs, out_specs_thunk, check_vma: bool, manual_axes: frozenset,
   ) -> Sequence[pe.DynamicJaxprTracer]:
   source_info = source_info_util.current()
+  if trace.requires_low:
+    hi_avals_in = [typeof(x) for x in args]
+    in_specs = [lo_spec for hi_spec in in_specs for lo_spec in hi_spec.to_lo()]
+    args = [lo_val for x in args for lo_val in typeof(x).lower_val(x)]
+    out_specs_thunk = (lambda t: lambda: [x for s in t() for x in s.to_lo()])(out_specs_thunk)
+    f, hi_avals_out = _lojax_traceable(f, hi_avals_in, unk_names=True)
   to_jaxpr_tracer = partial(trace.to_jaxpr_tracer, source_info=source_info)
-  in_tracers = map(to_jaxpr_tracer, in_tracers)
+  in_tracers = map(to_jaxpr_tracer, args)  # pyrefly: ignore[bad-assignment]  # pyrefly#2385
   inner_mesh = _as_manual_mesh(mesh, manual_axes)
   in_avals = [t.aval for t in in_tracers]
-  in_avals_ = map(partial(shard_aval, mesh, manual_axes, check_vma), in_specs,
-                  in_avals)
+  in_avals_ = map(partial(shard_aval, mesh, manual_axes, check_vma), in_specs, in_avals)
   with (_extend_axis_env(mesh, manual_axes), use_abstract_mesh(inner_mesh),
         config._check_vma(check_vma)):
-    jaxpr, out_avals_, consts = pe.trace_to_jaxpr_dynamic(
-        f, in_avals_, lower=trace.requires_low)
+    jaxpr, out_avals_, consts = pe.trace_to_jaxpr_dynamic(f, in_avals_, lower=trace.requires_low)
 
   _check_names(out_specs_thunk(), out_avals_)
   if check_vma:
-    out_vma = [v.aval.vma for v in jaxpr.outvars]
-    _check_vmas(mesh, out_specs_thunk(), out_vma)
-  out_avals = map(_check_shapedarray, out_avals_)
-  out_avals = [_check_shapedarray(unshard_aval(mesh, check_vma, spec, aval))
-               for spec, aval in zip(out_specs_thunk(), out_avals)]
+    _check_vmas(mesh, out_specs_thunk(), [v.aval for v in jaxpr.outvars])
+  out_avals = [unshard_aval(mesh, check_vma, spec, aval)
+               for spec, aval in zip(out_specs_thunk(), out_avals_)]
   in_specs_staged = (P(),) * len(consts) + tuple(in_specs)  # type: ignore
   with (_extend_axis_env(mesh, manual_axes), use_abstract_mesh(inner_mesh),
         config._check_vma(check_vma)):
@@ -740,8 +795,11 @@ def _shard_map_staging(
   effs = core.filter_named_axis_effects(jaxpr.effects, mesh.axis_names)
   const_tracers = map(to_jaxpr_tracer, consts)
   trace.frame.is_high |= jaxpr.is_high
-  return trace.emit_eqn([*const_tracers, *in_tracers], out_avals, prim, params,
-                         effs, source_info)
+  out = trace.emit_eqn([*const_tracers, *in_tracers], out_avals, prim, params,
+                       effs, source_info)
+  if trace.requires_low:
+    out = pe.raise_lo_outs(hi_avals_out(), out)
+  return out
 pe.DynamicJaxprTrace.process_shard_map = _shard_map_staging
 
 # TODO add underscore version, for direct-linearize to consume
@@ -749,10 +807,6 @@ pe.DynamicJaxprTrace.process_shard_map = _shard_map_staging
 def _spec_to_names(spec: PartitionSpec):
   return {i: names if isinstance(names, tuple) else (names,)
           for i, names in enumerate(spec) if names is not None}
-
-def _check_shapedarray(aval: core.AbstractValue) -> core.ShapedArray:
-  assert isinstance(aval, core.ShapedArray)
-  return aval
 
 def _shard_shaped_array(mesh: Mesh, manual_axes: frozenset, check_vma,
                         spec, aval: core.AbstractValue) -> core.AbstractValue:
@@ -770,7 +824,10 @@ def _shard_shaped_array(mesh: Mesh, manual_axes: frozenset, check_vma,
   new_shape = tuple(sz // prod(mesh.shape[n] for n in names.get(i, ()))
                     for i, sz in enumerate(aval.shape))
   manual_mesh = _as_manual_mesh(mesh, manual_axes)
-  new_sharding = aval.sharding.update(mesh=manual_mesh)
+  new_spec = aval.sharding.spec.update(
+      unreduced=aval.sharding.spec.unreduced if check_vma else frozenset(),
+      reduced=aval.sharding.spec.reduced if check_vma else frozenset())
+  new_sharding = aval.sharding.update(mesh=manual_mesh, spec=new_spec)
   vma = _spec_to_vma(spec) if check_vma else frozenset()
   vma = vma | aval.vma
   return aval.update(shape=new_shape, sharding=new_sharding, vma=vma)
@@ -779,12 +836,12 @@ core.shard_aval_handlers[core.ShapedArray] = _shard_shaped_array
 def _unshard_shaped_array(mesh: Mesh, check_vma, spec, aval: core.AbstractValue
                           ) -> core.AbstractValue:
   assert isinstance(aval, core.ShapedArray)
-  if spec.unreduced != aval.sharding.spec.unreduced:
+  if check_vma and spec.unreduced != aval.sharding.spec.unreduced:
     raise ValueError(
         "out_specs passed to shard_map should be equal to the unreduced"
         f" present on the out_aval. Got out_specs={spec} and"
         f" out_aval={aval.str_short(True)}")
-  if spec.reduced != aval.sharding.spec.reduced:
+  if check_vma and spec.reduced != aval.sharding.spec.reduced:
     raise ValueError(
         "out_specs passed to shard_map should be equal to the reduced present"
         f" on the out_aval. Got out_specs={spec} and"
@@ -794,7 +851,7 @@ def _unshard_shaped_array(mesh: Mesh, check_vma, spec, aval: core.AbstractValue
                     for i, sz in enumerate(aval.shape))
   names_spec = spec._normalized_spec_for_aval(aval.ndim)
   if aval.ndim == 0:
-    out_spec = P()
+    out_spec = P(unreduced=spec.unreduced, reduced=spec.reduced)
   else:
     out_spec = []  # type: ignore
     for name_s, aval_s in zip(names_spec, aval.sharding.spec):
@@ -815,8 +872,7 @@ def _unshard_shaped_array(mesh: Mesh, check_vma, spec, aval: core.AbstractValue
               get_abstract_mesh())
   new_sharding = NamedSharding(new_mesh, out_spec)
   manual_axes = set(new_mesh.manual_axes)
-  vma = (frozenset(v for v in aval.vma if v in manual_axes)
-         if check_vma else frozenset())
+  vma = frozenset(v for v in aval.vma if v in manual_axes)
   return aval.update(shape=new_shape, sharding=new_sharding, vma=vma)
 core.unshard_aval_handlers[core.ShapedArray] = _unshard_shaped_array
 
@@ -833,9 +889,8 @@ def _shard_map_typecheck(_, *in_atoms, jaxpr, mesh, in_specs, out_specs,
   with _extend_axis_env(mesh, manual_axes), config._check_vma(check_vma):
     core.check_jaxpr(jaxpr)
   if check_vma:
-    out_vma = [v.aval.vma for v in jaxpr.outvars]
-    for vma, out_spec in zip(out_vma, out_specs):
-      if not _valid_repeats(mesh, vma, out_spec):
+    for v, os in zip(jaxpr.outvars, out_specs):
+      if isinstance(os, P) and not _valid_repeats(mesh, v.aval.vma, os):
         raise core.JaxprTypeError(
             "shard_map can't prove output is sufficiently replicated")
   out_avals_sharded = [x.aval for x in jaxpr.outvars]
@@ -908,7 +963,8 @@ def _shard_map_lowering_shardy(
           mlir.TokenSet(zip(ctx.tokens_in.effects(), tokens)),
           (), *in_nodes,
           dim_var_values=ctx.dim_var_values,
-          const_lowering=ctx.const_lowering)
+          const_lowering=ctx.const_lowering,
+          outer_traceback=_jax.Traceback())
       ctx.set_tokens_out(tokens_out)
     return out_nodes
 
@@ -971,7 +1027,8 @@ def _shard_map_lowering_shardy(
         mlir.TokenSet(zip(ctx.tokens_in.effects(), token_arg_values)),
         (), *in_args,
         dim_var_values=dim_var_values,
-        const_lowering=block_const_lowering)
+        const_lowering=block_const_lowering,
+        outer_traceback=_jax.Traceback())
     sdy.ReturnOp([ir.Value(x) for x in (*[v for _, v in tokens_out.items()],
                                         *out_nodes_)])
     num_tokens = len(tokens_out.effects())
@@ -1090,6 +1147,10 @@ def _spec_to_vma(spec):
 def _shard_map_impl(trace, prim, fun, args, *, mesh, in_specs, out_specs_thunk,
                     check_vma, manual_axes):
   del prim
+  if any(s.unreduced or s.reduced for s in in_specs):
+    raise NotImplementedError(
+        "Eager shard_map with unreduced/reduced is not implemented. Please wrap"
+        " your shard_map in `jax.jit`.")
   if isinstance(mesh, AbstractMesh):
     concrete_mesh = get_concrete_mesh()
     mesh = concrete_mesh if not concrete_mesh.empty else mesh
@@ -1102,12 +1163,16 @@ def _shard_map_impl(trace, prim, fun, args, *, mesh, in_specs, out_specs_thunk,
   out_avals = [core.mapped_aval(x.shape[0], 0, core.get_aval(x)) for x in outs]
   _check_names(out_specs_thunk(), out_avals)  # pytype: disable=wrong-arg-types
   if check_vma:
-    _check_vmas(mesh, out_specs_thunk(), out_vma)
+    _check_vmas(mesh, out_specs_thunk(), out_avals)
     src_pspecs = tuple(_vma_to_spec(mesh, r) for r in out_vma)
   else:
     src_pspecs = tuple(P(order_wrt_mesh(mesh, manual_axes))
                        for _ in range(len(out_vma)))
   dst_pspecs = out_specs_thunk()
+  if any(s.unreduced or s.reduced for s in dst_pspecs):
+    raise NotImplementedError(
+        "Eager shard_map with unreduced/reduced is not implemented. Please wrap"
+        " your shard_map in `jax.jit`.")
   return map(partial(_match_spec, mesh, check_vma, manual_axes),
              src_pspecs, dst_pspecs, outs)
 core.EvalTrace.process_shard_map = _shard_map_impl
@@ -1132,7 +1197,8 @@ def _unmatch2(mesh, prev_manual, spec, x):
   src = P(order_wrt_mesh(mesh, prev_manual), *spec)
   newly_manual = _spec_to_vma(spec)
   dst = P(order_wrt_mesh(mesh, prev_manual | newly_manual))
-  return shard_map(lambda x: x, in_specs=src, out_specs=dst)(x)
+  return shard_map(lambda x: x, in_specs=src, out_specs=dst,
+                   axis_names=prev_manual | newly_manual)(x)
 
 def _match_spec2(mesh, prev_manual, spec, x) -> JaxType:
   with (core.eval_context(), api.disable_jit(False),
@@ -1143,7 +1209,8 @@ def _match2(mesh, prev_manual, spec, x):
   newly_manual = _spec_to_vma(spec)
   src = P(order_wrt_mesh(mesh, prev_manual | newly_manual))
   dst = P(order_wrt_mesh(mesh, prev_manual), *spec)
-  return shard_map(lambda x: x, in_specs=src, out_specs=dst)(x)
+  return shard_map(lambda x: x, in_specs=src, out_specs=dst,
+                   axis_names=prev_manual | newly_manual)(x)
 
 
 def _unmatch_spec(mesh: Mesh, check_vma, context_mesh, manual_axes, in_spec,
@@ -1164,7 +1231,7 @@ def _unmatch(mesh, check_vma, in_spec, manual_axes, x):
                    out_specs=dst, check_vma=check_vma, axis_names=manual_axes)(x)
 
 def _check_names(specs, avals: Sequence[core.ShapedArray]) -> None:
-  fail = [a if sp and len(sp) > a.ndim else no_fail
+  fail = [a if isinstance(sp, P) and sp and len(sp) > a.ndim else no_fail
           for sp, a in zip(specs, avals)]
   if any(f is not no_fail for f in fail):
     raise _SpecError(fail)
@@ -1172,9 +1239,9 @@ def _check_names(specs, avals: Sequence[core.ShapedArray]) -> None:
 class _SpecError(Exception):
   pass
 
-def _check_vmas(mesh, specs, vmas):
-  fail = [vma if not _valid_repeats(mesh, vma, sp) else no_fail
-          for sp, vma in zip(specs, vmas)]
+def _check_vmas(mesh, specs, avals):
+  fail = [a.vma if isinstance(sp, P) and not _valid_repeats(mesh, a.vma, sp)  # type: ignore
+          else no_fail for sp, a in zip(specs, avals)]
   if any(f is not no_fail for f in fail):
     raise _RepError(fail)
 
@@ -1388,6 +1455,14 @@ def _device_put_eager_rule(mesh, *xs, srcs, devices, copy_semantics):
   return xs
 eager_rules[dispatch.device_put_p] = _device_put_eager_rule
 
+def raise_notimplemented(*args, **kwargs):
+  raise NotImplementedError(
+      "Eager shard_map with unreduced/reduced is not implemented. Please wrap"
+      " your shard_map in `jax.jit`.")
+
+eager_rules[lax_parallel.preduced_p] = raise_notimplemented
+eager_rules[lax_parallel.vary_unreduced_cast_p] = raise_notimplemented
+eager_rules[core.reduced_vary_cast_p] = raise_notimplemented
 
 # Batching
 
@@ -1435,11 +1510,14 @@ def _shard_map_batch(
   new_params = dict(mesh=mesh, in_specs=new_in_specs,
                     out_specs_thunk=new_out_specs_thunk, check_vma=check_vma,
                     manual_axes=manual_axes)
-  with core.set_current_trace(trace.parent_trace):
+  # TODO(yashkatariya): Remove remove_explicit_mesh_axis_names when vmap
+  # mesh ctx is correctly set.
+  with (core.set_current_trace(trace.parent_trace),
+        core.remove_explicit_mesh_axis_names(trace.axis_data.explicit_mesh_axis)):
     out_vals = prim.bind(fun, *in_vals, **new_params)
   make_tracer = partial(batching.BatchTracer, trace,
                         source_info=source_info_util.current())
-  return map(make_tracer, out_vals, out_dims())
+  return map(make_tracer, out_vals, out_dims())  # pyrefly: ignore[bad-return]  # pyrefly#2385
 batching.BatchTrace.process_shard_map = _shard_map_batch
 
 def _batch_out_specs(spmd_name, explicit_mesh_axis, dims, out_specs):
@@ -1569,7 +1647,7 @@ def _shard_map_linearize(trace, shard_map_p, f: lu.WrappedFun,
   nzs_in = tuple(type(t) is not ad.Zero for t in tangents)
   f = f.with_unknown_names()
   f_primal, linearize_outs_thunk = ad.linearize_subtrace(
-      f, trace.tag, nzs_in, f.debug_info)
+      f, trace.is_vjp, trace.tag, nzs_in, f.debug_info)
   f_primal = _promote_scalar_residuals_lin(f_primal, linearize_outs_thunk)
   all_names = _all_newly_manual_mesh_names(mesh, manual_axes)
 
@@ -1639,7 +1717,7 @@ def _shard_map_linearize(trace, shard_map_p, f: lu.WrappedFun,
       (lu.wrap_init(f_tangent, debug_info=lin_jaxpr.debug_info),
        *residuals, *env, *nz_tangents_in), tangent_params)
   nz_tangents_out_iter = iter(nz_tangents_out)
-  tangents_out = [next(nz_tangents_out_iter) if nz else ad.Zero.from_primal_value(primal)
+  tangents_out = [next(nz_tangents_out_iter) if nz else ad.p2tz(primal)
                   for nz, primal in zip(nzs_out, primals_out)]
   return map(partial(ad.maybe_linearize_tracer, trace), primals_out, nzs_out, tangents_out)
 ad.LinearizeTrace.process_shard_map = _shard_map_linearize
@@ -1682,7 +1760,7 @@ def _unmentioned2(mesh: Mesh, spec, manual_axes: frozenset[AxisName]
                   ) -> list[AxisName]:
   # We use a filtered-down version of unmentioned to avoid defensive-psum over
   # more chips than required in the transpose-no-check-vma case.
-  name_set = _spec_to_vma(spec)
+  name_set = _spec_to_vma(spec) | spec.unreduced
   return [n for n in _all_mesh_names_except_spmd(mesh, manual_axes)
           if n not in name_set]
 
@@ -1705,19 +1783,19 @@ def _shard_map_transpose(out_cts, *args,
   def fun_trans_callable(out_cts, args):
     # TODO(mattjj): when #26811 lands, delete this and just run backward_pass
     in_undef = map(ad.is_undefined_primal, args)
-    res, undefs = partition_list(in_undef, args)
+    res, undefs = partition_list(in_undef, args)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     jaxpr_known, jaxpr_unknown, _, _ = pe.partial_eval_jaxpr_nounits(
-        pe.close_jaxpr(jaxpr), in_undef, False)
+        pe.close_jaxpr(jaxpr), in_undef, False)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     res_reshaped = core.jaxpr_as_fun(jaxpr_known)(*res)
     in_cts = ad.backward_pass(
         jaxpr_unknown.jaxpr, False, (), (*res_reshaped, *undefs), out_cts
     )[len(res_reshaped):]
-    _, in_ct_specs = partition_list(in_undef, in_specs)
+    _, in_ct_specs = partition_list(in_undef, in_specs)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     in_cts = [ad.Zero(x.aval) if type(x) is ad.Zero else x if check_vma
               else lax_parallel.psum(x, tuple(_unmentioned2(mesh, sp, manual_axes)))
               for sp, x in zip(in_ct_specs, in_cts)]
     res_zeros = [ad_util.zero_from_primal(r) for r in res]
-    return merge_lists(in_undef, res_zeros, in_cts)
+    return merge_lists(in_undef, res_zeros, in_cts)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
 
   fun_trans_callable.__name__ = f"transpose({jaxpr.debug_info.func_name})"
   fun_trans = lu.wrap_init(fun_trans_callable, debug_info=jaxpr.debug_info)
@@ -1755,10 +1833,9 @@ def _shard_map_transpose(out_cts, *args,
       api_util._raise_no_nan_in_deoptimized(e)
   except _RepError as e:
     fails, = e.args
-    if not callable(out_specs):
-      msg = _inout_vma_error(
-          fun_trans, mesh, out_tree(), list(new_out_specs_thunk()), fails)
-      raise ValueError(msg) from None
+    msg = _inout_vma_error(
+        fun_trans, mesh, out_tree(), list(new_out_specs_thunk()), fails)
+    raise ValueError(msg) from None
   in_cts = tree_unflatten(out_tree(), out_flat)
   return [ad.Zero(unshard_aval(mesh, check_vma, sp, x.aval))
           if type(x) is ad.Zero else x for sp, x in zip(in_specs, in_cts)]

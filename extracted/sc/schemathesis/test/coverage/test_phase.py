@@ -8,6 +8,7 @@ import jsonschema_rs
 import pytest
 from flask import Flask, jsonify, request
 from hypothesis import Phase, settings
+from hypothesis import strategies as st
 from requests import Request
 from requests.models import RequestEncodingMixin
 
@@ -70,18 +71,7 @@ NEGATIVE_CASES = [
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "null", "h2": Pattern("-?[0-9]+")}, "body": 0},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": "false", "h2": Pattern("-?[0-9]+")}, "body": 0},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"x-prop": {}}},
-    {
-        "query": {"q1": ANY, "q2": "0"},
-        "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")},
-        "body": {"x-prop": [None, None]},
-    },
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"x-prop": None}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"x-prop": False}},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {"x-prop": 0}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": [None, None]},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": ""},
-    {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": False},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": 0},
     {"query": {"q1": ANY, "q2": "0"}, "headers": {"h1": ANY, "h2": Pattern("-?[0-9]+")}, "body": {}},
@@ -135,14 +125,7 @@ MIXED_CASES = [
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": ANY, "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "4", "h2": "000"}, "body": {"j-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": {}}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": [None, None]}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": None}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": False}},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": 0}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": [None, None]},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": ""},
-    {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": False},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": 0},
     {"query": {"q1": "5", "q2": "000"}, "headers": {"h1": "5", "h2": "000"}, "body": {"x-prop": ""}},
@@ -2160,7 +2143,7 @@ def test_unspecified_http_methods(ctx, cli, openapi3_base_url, snapshot_cli):
 
     run_negative_test(operation, test)
 
-    assert methods == {"PATCH", "TRACE", "DELETE", "OPTIONS", "PUT"}
+    assert methods == {"PATCH", "TRACE", "DELETE", "OPTIONS", "PUT", "QUERY"}
 
     methods = set()
 
@@ -2459,7 +2442,7 @@ def test_references(ctx, operation, components):
             ):
                 pass
         else:
-            assert str(operation.err()) == "Schema `` has a required reference to itself"
+            assert "Unresolvable reference in the schema" in str(operation.err())
 
 
 def test_urlencoded_payloads_are_valid(ctx):
@@ -3061,3 +3044,165 @@ def test_missing_content_type_header(ctx):
     assert "Content-Type" not in request.headers, (
         f"Missing Content-Type test should not have Content-Type header, got: {dict(request.headers)}"
     )
+
+
+def test_path_parameter_with_slash_in_custom_format(ctx):
+    # See GH-3527
+    schemathesis.openapi.format("ipv4-network", st.sampled_from(["0.0.0.0/0"]))
+    schema = build_schema(
+        ctx,
+        path="/blocks/{block}",
+        method="get",
+        parameters=[
+            {
+                "name": "block",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string", "format": "ipv4-network"},
+            }
+        ],
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    operation = loaded["/blocks/{block}"]["get"]
+
+    path_values = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            path_values.append(case.path_parameters.get("block"))
+
+    run_positive_test(operation, collect)
+
+    assert path_values, "No coverage cases generated"
+    assert all(v == "0.0.0.0%2F0" for v in path_values), f"Unexpected values: {path_values}"
+
+
+def _collect_xml_coverage_cases(ctx, body_schema):
+    """Build an XML-only schema, run in negative mode, and return coverage phase cases."""
+    schema = build_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {"application/xml": {"schema": body_schema}},
+        },
+    )
+    loaded = schemathesis.openapi.from_dict(schema)
+    operation = loaded["/foo"]["post"]
+
+    cases = []
+
+    def collect(case):
+        if case.meta.phase.name == TestPhase.COVERAGE:
+            cases.append(case)
+
+    run_negative_test(operation, collect)
+    return cases
+
+
+def test_xml_string_field_no_type_mutations(ctx):
+    # For {"type": "string"} XML fields, type mutations produce the same wire bytes as valid strings.
+    # None -> "", False -> "False", 0 -> "0" all become valid string content in XML elements.
+    cases = _collect_xml_coverage_cases(
+        ctx,
+        {"type": "object", "properties": {"x-prop": {"type": "string"}}, "required": ["x-prop"]},
+    )
+    type_mutation_bodies = [
+        c.body
+        for c in cases
+        if isinstance(c.body, dict) and "x-prop" in c.body and not isinstance(c.body["x-prop"], str)
+    ]
+    assert type_mutation_bodies == [], (
+        f"No type mutations should be generated for XML string fields, got: {type_mutation_bodies}"
+    )
+
+
+def test_xml_constrained_string_field_generates_violations(ctx):
+    # Constrained string schemas (e.g. minLength) should produce violations in negative mode.
+    cases = _collect_xml_coverage_cases(
+        ctx,
+        {"type": "object", "properties": {"x-prop": {"type": "string", "minLength": 5}}, "required": ["x-prop"]},
+    )
+    violation_bodies = [
+        c.body
+        for c in cases
+        if isinstance(c.body, dict) and isinstance(c.body.get("x-prop"), str) and len(c.body["x-prop"]) < 5
+    ]
+    assert violation_bodies, "Constrained XML string fields should generate constraint violations"
+
+
+def test_xml_object_body_no_ambiguous_mutations(ctx):
+    # For XML object bodies, both null and empty string serialize to <RootTag></RootTag>,
+    # which is identical to an empty object {} at the wire level. Neither should be generated.
+    cases = _collect_xml_coverage_cases(
+        ctx,
+        {"type": "object", "properties": {"x-prop": {"type": "string"}}},
+    )
+    ambiguous = [c for c in cases if c.body is None or c.body == ""]
+    assert ambiguous == [], (
+        f"Null/empty-string body mutations should not be generated for XML object bodies, got: {ambiguous}"
+    )
+
+
+def test_xml_none_property_mutation_filtered_when_schema_accepts_empty_string(ctx):
+    # For XML string fields, _escape_xml(None) = "" (not "None").
+    # Schema {"type": "string", "maxLength": 0} accepts only "" — None should NOT be generated
+    # because it produces the same valid wire content.
+    cases = _collect_xml_coverage_cases(
+        ctx,
+        {"type": "object", "properties": {"x-prop": {"type": "string", "maxLength": 0}}, "required": ["x-prop"]},
+    )
+    null_property_mutations = [
+        c for c in cases if isinstance(c.body, dict) and "x-prop" in c.body and c.body["x-prop"] is None
+    ]
+    assert null_property_mutations == [], (
+        f"None mutation for XML string field with maxLength:0 should be filtered, got: {null_property_mutations}"
+    )
+
+
+def test_query_method_appears_in_unspecified_methods(ctx):
+    schema = ctx.openapi.build_schema(
+        {"/search": {"post": {"responses": {"200": {"description": "OK"}}}}},
+        version="3.2.0",
+    )
+    schema = schemathesis.openapi.from_dict(schema)
+    operation = schema["/search"]["post"]
+
+    methods = set()
+
+    def test(case):
+        if case.meta.phase.name != TestPhase.COVERAGE:
+            return
+        if case.meta.phase.data.scenario != CoverageScenario.UNSPECIFIED_HTTP_METHOD:
+            return
+        methods.add(case.method)
+
+    run_negative_test(operation, test)
+
+    assert "QUERY" in methods
+
+
+def test_query_method_excluded_from_unexpected_when_defined(ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/search": {
+                "query": {"responses": {"200": {"description": "OK"}}},
+                "post": {"responses": {"200": {"description": "OK"}}},
+            }
+        },
+        version="3.2.0",
+    )
+    schema = schemathesis.openapi.from_dict(schema)
+    operation = schema["/search"]["post"]
+
+    methods = set()
+
+    def test(case):
+        if case.meta.phase.name != TestPhase.COVERAGE:
+            return
+        if case.meta.phase.data.scenario != CoverageScenario.UNSPECIFIED_HTTP_METHOD:
+            return
+        methods.add(case.method)
+
+    run_negative_test(operation, test)
+
+    assert "QUERY" not in methods

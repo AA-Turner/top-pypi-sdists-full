@@ -9,6 +9,7 @@ from arviz_base import rcParams
 from scipy.optimize import Bounds, LinearConstraint, minimize
 from scipy.stats import dirichlet, norm
 
+from arviz_stats.base.stats_utils import get_decimal_places_from_se, round_num
 from arviz_stats.loo import loo
 from arviz_stats.loo.helper_loo import _diff_srs_estimator
 from arviz_stats.utils import ELPDData
@@ -18,6 +19,8 @@ def compare(
     compare_dict,
     method="stacking",
     var_name=None,
+    reference=None,
+    round_to="auto",
 ):
     r"""Compare models based on their expected log pointwise predictive density (ELPD).
 
@@ -52,6 +55,24 @@ def compare(
     var_name: str, optional
         If there is more than a single observed variable in the ``InferenceData``, which
         should be used as the basis for comparison.
+    reference: str, optional
+        Name of the reference model used for computing ``elpd_diff``. If ``None`` (default),
+        the best-performing model (highest ELPD) is used as the reference. When specified,
+        all ``elpd_diff`` values are computed relative to this model, which will have
+        ``elpd_diff = 0``. This is useful for comparing against a baseline model, null model,
+        or a specific model of interest rather than the top-ranked model.
+    round_to : int or {"auto", "none"}, optional
+        Rounding specification. Defaults to "auto". If integer, number of decimal places to
+        round to. Use the string "None" or "none" to return raw numbers. If None use
+        ``rcParams["stats.round_to"]``.
+        If ``"auto"``, applies custom rounding rules to columns in the returned DataFrame:
+
+        * ``elpd`` and ``elpd_diff`` are rounded based on ``se`` and ``dse`` respectively,
+            using the same rule as ``summary`` stat/se pairs.
+        * ``se`` and ``dse`` are rounded based on ``rcParams["stats.round_to"]``.
+        * ``p`` is rounded to 1 decimal place.
+        * ``weight`` uses precision based on the largest weight, showing approximately 2
+          significant digits for that maximum value.
 
     Returns
     -------
@@ -95,7 +116,7 @@ def compare(
            ...: data1 = load_arviz_data("non_centered_eight")
            ...: data2 = load_arviz_data("centered_eight")
            ...: compare_dict = {"non centered": data1, "centered": data2}
-           ...: compare(compare_dict).round(2)
+           ...: compare(compare_dict)
 
     Compare models using subsampled LOO:
 
@@ -108,7 +129,7 @@ def compare(
            ...: data2 = load_arviz_data("centered_eight")
            ...: loo_sub1 = loo_subsample(data1, observations=6, pointwise=True, seed=42)
            ...: loo_sub2 = loo_subsample(data2, observations=6, pointwise=True, seed=42)
-           ...: compare({"non_centered": loo_sub1, "centered": loo_sub2}).round(2)
+           ...: compare({"non_centered": loo_sub1, "centered": loo_sub2})
 
     When using subsampled LOO, the ``subsampling_dse`` column quantifies the additional
     uncertainty from using subsamples instead of all observations. The ``elpd_diff`` values
@@ -143,6 +164,11 @@ def compare(
         Bayesian Analysis, 13, 3 (2018). https://doi.org/10.1214/17-BA1091
         arXiv preprint https://arxiv.org/abs/1704.02030.
     """
+    if round_to == "auto" or round_to is None:
+        round_val = rcParams["stats.round_to"]
+    else:
+        round_val = round_to
+
     ics_dict = _calculate_ics(compare_dict, var_name=var_name)
     names = list(ics_dict.keys())
 
@@ -173,6 +199,12 @@ def compare(
             f"Available methods: {', '.join(available_methods)}. "
             f"Use 'stacking' for robust model averaging as recommended in the original paper "
             f"https://doi.org/10.1214/17-BA1091."
+        )
+
+    if reference is not None and reference not in names:
+        raise ValueError(
+            f"Reference model '{reference}' not found in compare_dict. "
+            f"Available models: {', '.join(names)}"
         )
 
     ics = pd.DataFrame.from_dict(ics_dict, orient="index")
@@ -223,8 +255,8 @@ def compare(
         weights = (z_rv / np.sum(z_rv)).to_numpy()
 
     if np.any(weights):
-        best_model_name = ics.index[0]
-        best_elpd_data = ics_dict[best_model_name]
+        ref_name = reference if reference is not None else ics.index[0]
+        ref_elpd_data = ics_dict[ref_name]
         n_models = len(ics.index)
         mismatched_pairs = []
 
@@ -232,13 +264,13 @@ def compare(
             res = ics.loc[val]
             current_elpd_data = ics_dict[val]
 
-            if idx == 0:
+            if val == ref_name:
                 d_ic = 0.0
                 d_std_err = 0.0
                 subsampling_d_std_err = 0.0 if has_subsampling else None
             else:
                 diff_result = _compute_elpd_diff_subsampled(
-                    best_elpd_data,
+                    ref_elpd_data,
                     current_elpd_data,
                 )
 
@@ -247,7 +279,7 @@ def compare(
                 subsampling_d_std_err = diff_result.get("subsampling_dse")
 
                 if diff_result.get("subsample_mismatch"):
-                    mismatched_pairs.append((best_model_name, val))
+                    mismatched_pairs.append((ref_name, val))
 
             std_err = ses.loc[val]
             weight = weights[idx]
@@ -285,9 +317,19 @@ def compare(
     df_comp["rank"] = df_comp["rank"].astype(int)
     df_comp["warning"] = df_comp["warning"].astype(bool)
 
+    result = df_comp.sort_values(by="elpd", ascending=False)
+
+    if round_to == "auto":
+        result = _round_compare(result, round_val)
+    else:
+        if round_to not in ("None", "none"):
+            cols_to_round = ["elpd", "p", "elpd_diff", "weight", "se", "dse"]
+            result[cols_to_round] = result[cols_to_round].map(lambda x: round_num(x, round_val))
+
     model_order = list(ics.index)
     _order_stat_check(ics_dict, model_order, has_subsampling)
-    return df_comp.sort_values(by="elpd", ascending=False)
+
+    return result
 
 
 def _compute_elpd_diff_subsampled(elpd_a, elpd_b):
@@ -418,7 +460,6 @@ def _difference_estimator(elpd_a, elpd_b, shared_indices, subsample_a=None, subs
         diff_approx_sample,
         diff_approx_all,
         elpd_a.n_data_points,
-        diff_sample.size,
     )
 
     return {
@@ -593,3 +634,43 @@ def _order_stat_check(ics_dict, model_order, has_subsampling):
             "See https://doi.org/10.1007/s11222-024-10442-4 for details.",
             UserWarning,
         )
+
+
+def _round_compare(result, round_val):
+    """Apply custom rounding rules to compare.
+
+    Parameters
+    ----------
+    result : pandas.DataFrame
+        The compare result to round
+    round_val : int or str
+        Number of decimals or significant figures to round to.
+
+    Returns
+    -------
+    pandas.DataFrame
+    """
+    stat_se_pairs = [
+        ("elpd", "se"),
+        ("elpd_diff", "dse"),
+    ]
+
+    for stat_col, se_col in stat_se_pairs:
+        result[se_col] = result[se_col].apply(lambda x: round_num(x, round_val))
+
+        for idx in result.index:
+            stat_val = result.loc[idx, stat_col]
+            se_val = result.loc[idx, se_col]
+
+            decimal_places = get_decimal_places_from_se(se_val)
+            result.loc[idx, stat_col] = round_num(stat_val, decimal_places)
+
+    if "p" in result.columns:
+        result["p"] = result["p"].apply(lambda x: round_num(x, 1))
+
+    if "weight" in result.columns:
+        max_weight = result["weight"].to_numpy(dtype=float).max()
+        decimals = int(np.ceil(-np.log10(max_weight))) + 1
+        result["weight"] = result["weight"].apply(lambda x: round_num(x, decimals))
+
+    return result

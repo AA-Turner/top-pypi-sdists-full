@@ -1943,6 +1943,51 @@ class _IIPAMPoolRefProxy(
 typing.cast(typing.Any, IIPAMPoolRef).__jsii_proxy_class__ = lambda : _IIPAMPoolRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMPrefixListResolverRef")
+class IIPAMPrefixListResolverRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a IPAMPrefixListResolver.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="ipamPrefixListResolverRef")
+    def ipam_prefix_list_resolver_ref(self) -> "IPAMPrefixListResolverReference":
+        '''(experimental) A reference to a IPAMPrefixListResolver resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IIPAMPrefixListResolverRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a IPAMPrefixListResolver.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.IIPAMPrefixListResolverRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="ipamPrefixListResolverRef")
+    def ipam_prefix_list_resolver_ref(self) -> "IPAMPrefixListResolverReference":
+        '''(experimental) A reference to a IPAMPrefixListResolver resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("IPAMPrefixListResolverReference", jsii.get(self, "ipamPrefixListResolverRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IIPAMPrefixListResolverRef).__jsii_proxy_class__ = lambda : _IIPAMPrefixListResolverRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.IIPAMRef")
 class IIPAMRef(
     _constructs_77d1e7e8.IConstruct,
@@ -3423,6 +3468,74 @@ class IPAMPoolReference:
 
     def __repr__(self) -> str:
         return "IPAMPoolReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.IPAMPrefixListResolverReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ipam_prefix_list_resolver_arn": "ipamPrefixListResolverArn",
+        "ipam_prefix_list_resolver_id": "ipamPrefixListResolverId",
+    },
+)
+class IPAMPrefixListResolverReference:
+    def __init__(
+        self,
+        *,
+        ipam_prefix_list_resolver_arn: builtins.str,
+        ipam_prefix_list_resolver_id: builtins.str,
+    ) -> None:
+        '''A reference to a IPAMPrefixListResolver resource.
+
+        :param ipam_prefix_list_resolver_arn: The ARN of the IPAMPrefixListResolver resource.
+        :param ipam_prefix_list_resolver_id: The IpamPrefixListResolverId of the IPAMPrefixListResolver resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            i_pAMPrefix_list_resolver_reference = {
+                "ipam_prefix_list_resolver_arn": "ipamPrefixListResolverArn",
+                "ipam_prefix_list_resolver_id": "ipamPrefixListResolverId"
+            }
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7ac17af28aa1061e001efd103ab675ccb82fc60c97079265f5fdddbcde5fdd3)
+            check_type(argname="argument ipam_prefix_list_resolver_arn", value=ipam_prefix_list_resolver_arn, expected_type=type_hints["ipam_prefix_list_resolver_arn"])
+            check_type(argname="argument ipam_prefix_list_resolver_id", value=ipam_prefix_list_resolver_id, expected_type=type_hints["ipam_prefix_list_resolver_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ipam_prefix_list_resolver_arn": ipam_prefix_list_resolver_arn,
+            "ipam_prefix_list_resolver_id": ipam_prefix_list_resolver_id,
+        }
+
+    @builtins.property
+    def ipam_prefix_list_resolver_arn(self) -> builtins.str:
+        '''The ARN of the IPAMPrefixListResolver resource.'''
+        result = self._values.get("ipam_prefix_list_resolver_arn")
+        assert result is not None, "Required property 'ipam_prefix_list_resolver_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ipam_prefix_list_resolver_id(self) -> builtins.str:
+        '''The IpamPrefixListResolverId of the IPAMPrefixListResolver resource.'''
+        result = self._values.get("ipam_prefix_list_resolver_id")
+        assert result is not None, "Required property 'ipam_prefix_list_resolver_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "IPAMPrefixListResolverReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -11445,6 +11558,7 @@ __all__ = [
     "IIPAMAllocationRef",
     "IIPAMPoolCidrRef",
     "IIPAMPoolRef",
+    "IIPAMPrefixListResolverRef",
     "IIPAMRef",
     "IIPAMResourceDiscoveryAssociationRef",
     "IIPAMResourceDiscoveryRef",
@@ -11475,6 +11589,7 @@ __all__ = [
     "IPAMAllocationReference",
     "IPAMPoolCidrReference",
     "IPAMPoolReference",
+    "IPAMPrefixListResolverReference",
     "IPAMReference",
     "IPAMResourceDiscoveryAssociationReference",
     "IPAMResourceDiscoveryReference",
@@ -11780,6 +11895,14 @@ def _typecheckingstub__54638f34ae06307f1bc4313c2916619169655bbba473fe8a9c1bc2378
     *,
     ipam_pool_arn: builtins.str,
     ipam_pool_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7ac17af28aa1061e001efd103ab675ccb82fc60c97079265f5fdddbcde5fdd3(
+    *,
+    ipam_prefix_list_resolver_arn: builtins.str,
+    ipam_prefix_list_resolver_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12447,5 +12570,5 @@ def _typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db
     """Type checking stubs"""
     pass
 
-for cls in [ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IInstanceConnectEndpointRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISubnetCidrBlockRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
+for cls in [ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IInstanceConnectEndpointRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISubnetCidrBlockRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

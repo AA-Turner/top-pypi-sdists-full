@@ -971,7 +971,7 @@ def _fwd_shardy_rule(value_types, result_types, layout, is_training, is_fp8):
     input_sharding[0] = ArrayMapping('batch', 'nhead', 'qseq', 'head')
   else:
     input_sharding[0] = ArrayMapping('batch', 'qseq', 'nhead', 'head')
-  input_sharding[2] += ('v',)
+  input_sharding[2] = ArrayMapping(*input_sharding[2], 'v')
 
   # The major dimensions are sharded like the query, the minor like the value.
   output_sharding = (ArrayMapping(*input_sharding[0][:-1], 'v'),)
@@ -1039,6 +1039,7 @@ def _infer_bwd_output_sharding(mesh, arg_shapes, layout, variadic_args):
   grad_value_sharding = NamedSharding(mesh, PartitionSpec(*key_spec))
   out_shardings = [grad_query_sharding, grad_key_sharding, grad_value_sharding]
   if has_dbias:
+    assert bias_spec is not None
     grad_bias_sharding = NamedSharding(mesh, PartitionSpec(*bias_spec))
     out_shardings = out_shardings + [grad_bias_sharding]
   return out_shardings

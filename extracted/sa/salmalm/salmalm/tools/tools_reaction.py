@@ -64,7 +64,7 @@ def _react_telegram(chat_id: str, message_id: str, emoji: str, config: Dict[str,
     req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read(4 * 1024 * 1024).decode())
+            result = json.loads(resp.read().decode())
             return {"ok": result.get("ok", False), "result": result}
     except Exception as e:
         log.error(f"Telegram reaction error: {e}")
@@ -115,7 +115,7 @@ def _react_slack(channel_id: str, timestamp: str, emoji: str, config: Dict[str, 
     req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read(4 * 1024 * 1024).decode())
+            result = json.loads(resp.read().decode())
             return {"ok": result.get("ok", False), "error": result.get("error")}
     except Exception as e:
         log.error(f"Slack reaction error: {e}")

@@ -225,6 +225,9 @@ class WorkloadSDK(BaseSDK):
                 new_working_dir = "."
 
             if new_working_dir is not None:
+                # Store user-provided value before upload
+                runtime_env["user_provided_working_dir"] = new_working_dir
+                # Upload and replace with S3 URL
                 runtime_env["working_dir"] = _upload_dir_memoized(
                     new_working_dir, excludes=final_excludes
                 )
@@ -235,6 +238,9 @@ class WorkloadSDK(BaseSDK):
 
             final_py_modules = runtime_env.get("py_modules", None)
             if final_py_modules is not None:
+                # Store user-provided values before upload
+                runtime_env["user_provided_py_modules"] = list(final_py_modules)
+                # Upload and replace with S3 URLs
                 runtime_env["py_modules"] = [
                     _upload_dir_memoized(py_module, excludes=final_excludes)
                     for py_module in final_py_modules
@@ -309,6 +315,8 @@ class WorkloadSDK(BaseSDK):
                 new_working_dir = "."
 
             if new_working_dir is not None:
+                # Store user-provided value before upload
+                runtime_env["user_provided_working_dir"] = new_working_dir
                 if is_dir_remote_uri(new_working_dir):
                     runtime_env["working_dir"] = new_working_dir
                 else:
@@ -323,6 +331,9 @@ class WorkloadSDK(BaseSDK):
 
             final_py_modules = runtime_env.get("py_modules", None)
             if final_py_modules is not None:
+                # Store user-provided values before upload
+                runtime_env["user_provided_py_modules"] = list(final_py_modules)
+
                 py_modules = [
                     py_module
                     for py_module in final_py_modules
@@ -548,8 +559,10 @@ class WorkloadSDK(BaseSDK):
         Raises ValueError if a connection is not found, if an invalid connection
         type is specified, or if duplicate connection types are specified.
         """
-        if not connections:
+        if connections is None:
             return None
+        if len(connections) == 0:
+            return []
 
         # Check for duplicate connection types (only one connection per type allowed)
         seen_types: set = set()

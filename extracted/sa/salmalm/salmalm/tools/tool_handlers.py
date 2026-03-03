@@ -344,7 +344,7 @@ def _exec_tts(args: dict) -> str:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
-        audio = resp.read(50 * 1024 * 1024)  # 50MB cap
+        audio = resp.read()
     save_path.write_bytes(audio)
     size_kb = len(audio) / 1024
     log.info(f"[AUDIO] TTS generated: {fname} ({size_kb:.1f}KB)")
@@ -392,7 +392,7 @@ def _exec_stt(args: dict) -> str:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
-        result = json.loads(resp.read(4 * 1024 * 1024))
+        result = json.loads(resp.read())
     text = result.get("text", "")
     log.info(f"[MIC] STT transcribed: {len(text)} chars")
     return f"🎤 Transcription:\n{text}"
@@ -489,7 +489,7 @@ def _handle_tts_generate(args: dict) -> str:
             )
             try:
                 with urllib.request.urlopen(req, timeout=15) as resp:
-                    audio_data += resp.read(50 * 1024 * 1024)  # 50MB cap
+                    audio_data += resp.read()
             except Exception as e:
                 return f"❌ Google TTS failed: {e}"
 
@@ -513,7 +513,7 @@ def _handle_tts_generate(args: dict) -> str:
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                audio = resp.read(50 * 1024 * 1024)  # 50MB cap
+                audio = resp.read()
             Path(output_path).write_bytes(audio)
             return f"🔊 TTS generated: {output_path} ({len(audio)} bytes, voice={voice})"
         except Exception as e:

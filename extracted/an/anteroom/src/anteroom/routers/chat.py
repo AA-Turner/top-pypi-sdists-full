@@ -258,17 +258,39 @@ def _resolve_sources(
     source_tag: str | None,
     source_group_id: str | None,
     limit: int = 50_000,
+    *,
+    space_id: str | None = None,
+    project_id: str | None = None,
 ) -> str:
-    """Resolve source references and return XML-delimited source content string."""
+    """Resolve source references and return XML-delimited source content string.
+
+    When *space_id* or *project_id* is given, only sources linked to that
+    space/project are included.  Sources auto-injected by the space/project
+    resolution layer always pass this check; this guard prevents a client
+    from injecting arbitrary source IDs that don't belong to the current scope.
+    """
+    # Pre-compute allowed source IDs when scoping is active
+    _allowed_ids: set[str] | None = None
+    if space_id or project_id:
+        _allowed_ids = set()
+        if space_id:
+            _allowed_ids.update(s["id"] for s in storage.get_space_sources(db, space_id))
+        if project_id:
+            _allowed_ids.update(s["id"] for s in storage.get_project_sources(db, project_id))
+
     _referenced_sources: list[dict[str, Any]] = []
     if source_ids:
         for sid in source_ids[:20]:
+            if _allowed_ids is not None and sid not in _allowed_ids:
+                continue
             src = storage.get_source(db, sid)
             if src and src.get("content"):
                 _referenced_sources.append(src)
     if source_tag:
         tagged = storage.list_sources(db, tag_id=source_tag, limit=20)
         for src in tagged:
+            if _allowed_ids is not None and src["id"] not in _allowed_ids:
+                continue
             if src.get("content") and src["id"] not in {s["id"] for s in _referenced_sources}:
                 full = storage.get_source(db, src["id"])
                 if full and full.get("content"):
@@ -276,6 +298,8 @@ def _resolve_sources(
     if source_group_id:
         grouped = storage.list_sources(db, group_id=source_group_id, limit=20)
         for src in grouped:
+            if _allowed_ids is not None and src["id"] not in _allowed_ids:
+                continue
             if src.get("content") and src["id"] not in {s["id"] for s in _referenced_sources}:
                 full = storage.get_source(db, src["id"])
                 if full and full.get("content"):
@@ -315,6 +339,7 @@ def _build_tool_list(
     max_tools: int,
     read_only: bool = False,
     tier_overrides: dict[str, str] | None = None,
+    skill_registry: Any = None,
 ) -> tuple[list[dict[str, Any]], Path | None, str]:
     """Build the unified tool list (builtins + MCP) and return (tools, plan_path, plan_prompt).
 
@@ -344,6 +369,13 @@ def _build_tool_list(
 
     tools_openai = cap_tools(tools_openai, set(tool_registry.list_tools()), limit=max_tools)
 
+    # Append invoke_skill AFTER cap_tools so it's never dropped by tool capping
+    # (matches CLI behavior where invoke_skill is appended post-cap)
+    if skill_registry is not None:
+        invoke_def = skill_registry.get_invoke_skill_definition()
+        if invoke_def:
+            tools_openai.append(invoke_def)
+
     return tools_openai, plan_path, plan_prompt
 
 
@@ -367,9 +399,17 @@ async def _build_chat_system_prompt(
     embedding_service: Any = None,
     injection_detector: Any = None,
     artifact_registry: Any = None,
-) -> str:
-    """Assemble the extra system prompt from all context sources."""
+    skill_registry: Any = None,
+    space_id: str | None = None,
+    project_id: str | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Assemble the extra system prompt from all context sources.
+
+    Returns (extra_prompt, metadata) where metadata includes RAG/source status.
+    """
     from ..services.context_trust import sanitize_trust_tags
+
+    meta: dict[str, Any] = {}
 
     # Runtime context for self-awareness
     runtime_ctx = build_runtime_context(
@@ -410,6 +450,20 @@ async def _build_chat_system_prompt(
         if _artifact_parts:
             extra += "\n\n" + "\n".join(_artifact_parts)
 
+    # Skill catalog
+    if skill_registry is not None:
+        skill_descs = skill_registry.get_skill_descriptions()
+        if skill_descs:
+            skill_lines = [
+                "\n<available_skills>",
+                "The following skills are available. When the user's request clearly matches a skill, "
+                "use the invoke_skill tool to run it.",
+            ]
+            for sname, sdesc in skill_descs:
+                skill_lines.append(f"- {sname}: {sdesc}")
+            skill_lines.append("</available_skills>")
+            extra += "\n".join(skill_lines)
+
     # Plan mode prompt
     if plan_prompt:
         extra += plan_prompt
@@ -448,9 +502,12 @@ async def _build_chat_system_prompt(
         extra += canvas_context
 
     # Source references
-    source_content = _resolve_sources(db, source_ids, source_tag, source_group_id)
+    source_content = _resolve_sources(
+        db, source_ids, source_tag, source_group_id, space_id=space_id, project_id=project_id
+    )
     if source_content:
         extra += source_content
+        meta["sources_truncated"] = "[...truncated...]" in source_content
 
     # RAG context (skip in plan mode)
     rag_config = getattr(config, "rag", None)
@@ -472,11 +529,32 @@ async def _build_chat_system_prompt(
                 embedding_service=embedding_service,
                 config=rag_config,
                 current_conversation_id=conversation_id,
+                space_id=space_id,
+                project_id=project_id,
             )
+            meta["rag_status"] = "ok" if rag_chunks else "no_results"
+            meta["rag_chunks"] = len(rag_chunks)
             if rag_chunks:
                 extra += format_rag_context(rag_chunks)
         except Exception:
             logger.debug("RAG retrieval failed, continuing without context", exc_info=True)
+            meta["rag_status"] = "failed"
+            meta["rag_chunks"] = 0
+    else:
+        # Capture the reason RAG was skipped so prompt_meta is always consistent
+        if not rag_config:
+            meta["rag_status"] = "no_config"
+        elif not rag_config.enabled:
+            meta["rag_status"] = "disabled"
+        elif plan_mode:
+            meta["rag_status"] = "skipped_plan_mode"
+        elif not vec_enabled:
+            meta["rag_status"] = "no_vec_support"
+        elif not embedding_service:
+            meta["rag_status"] = "no_embedding_service"
+        else:
+            meta["rag_status"] = "skipped"
+        meta["rag_chunks"] = 0
 
     # Codebase index
     try:
@@ -491,7 +569,7 @@ async def _build_chat_system_prompt(
     except Exception:
         logger.debug("Codebase index unavailable, continuing without it", exc_info=True)
 
-    return extra
+    return extra, meta
 
 
 @dataclass
@@ -679,6 +757,7 @@ class ToolExecutorContext:
     sa_config: Any
     request_config: Any
     rate_limiter: Any = None
+    skill_registry: Any = None
     subagent_counter: list[int] = field(default_factory=lambda: [0])
     max_subagent_events: int = 500
 
@@ -733,6 +812,24 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
             "_confirm_callback": _confirm,
             "_config": ctx.sa_config,
         }
+    elif tool_name == "invoke_skill":
+        skill_name = arguments.get("skill_name", "")
+        skill = ctx.skill_registry.get(skill_name) if ctx.skill_registry else None
+        if not skill:
+            return {"error": f"Unknown skill: {skill_name}"}
+        args = arguments.get("args", "")
+        prompt = skill.prompt
+        if args:
+            from ..cli.skills import _expand_args
+            from ..services.context_trust import sanitize_trust_tags
+
+            args = sanitize_trust_tags(args[:2000])
+            prompt = _expand_args(prompt, f"<skill_args>{args}</skill_args>")
+        queue = _message_queues.get(ctx.conversation_id)
+        if queue is None:
+            return {"error": "Skill invocation unavailable (no active message queue)"}
+        await queue.put({"role": "user", "content": prompt})
+        return {"status": "skill_invoked", "skill": skill_name}
     elif tool_name == "ask_user":
         arguments = {**arguments, "_ask_callback": _ask_user}
     elif tool_name == "introspect":
@@ -741,7 +838,7 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
             "_config": ctx.request_config,
             "_mcp_manager": ctx.mcp_manager,
             "_tool_registry": ctx.tool_registry,
-            "_skill_registry": None,
+            "_skill_registry": ctx.skill_registry,
             "_instructions_info": None,
             "_tools_openai": ctx.tools_openai,
             "_working_dir": None,
@@ -834,6 +931,7 @@ class StreamContext:
     canvas_needs_approval: bool = False
     token_throttle_interval: float = 0.1
     last_token_broadcast: float = 0.0
+    prompt_meta: dict[str, Any] = field(default_factory=dict)
 
 
 _DISCONNECT_POLL_INTERVAL = 3  # seconds
@@ -920,6 +1018,10 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
             },
         )
 
+    # Emit prompt metadata (RAG status, source info) as an early event
+    if ctx.prompt_meta:
+        yield {"event": "prompt_meta", "data": json.dumps(ctx.prompt_meta)}
+
     try:
         _planning_cfg = ctx.planning_config
 
@@ -966,13 +1068,18 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                 "max_consecutive_text_only",
                 CliConfig.max_consecutive_text_only,
             ),
+            max_line_repeats=getattr(
+                getattr(_app_config, "cli", None),
+                "max_line_repeats",
+                CliConfig.max_line_repeats,
+            ),
         )
+        _pending_usage: dict[str, Any] | None = None
         async for agent_event in _with_keepalive(agent_gen):
             if isinstance(agent_event, dict) and "comment" in agent_event:
                 yield agent_event
                 continue
 
-            _pending_usage: dict[str, Any] | None = None
             kind = agent_event.kind
             data = agent_event.data
 
@@ -1036,9 +1143,10 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                             }
 
             elif kind == "tool_call_start":
-                _canvas_args_accum.clear()
-                _canvas_content_sent.clear()
-                _canvas_stream_started.clear()
+                idx = data.get("index", 0)
+                _canvas_args_accum.pop(idx, None)
+                _canvas_content_sent.pop(idx, None)
+                _canvas_stream_started.discard(idx)
                 _pending_tool_inputs[data["id"]] = data["arguments"]
                 yield {
                     "event": "tool_call_start",
@@ -1099,6 +1207,12 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                     )
 
             elif kind == "tool_call_end":
+                if not current_assistant_msg:
+                    logger.warning(
+                        "tool_call_end received before assistant_message — tool call %s (%s) will not be stored in DB",
+                        data.get("id", "?"),
+                        data.get("tool_name", "?"),
+                    )
                 if current_assistant_msg:
                     tool_input = _pending_tool_inputs.pop(data["id"], {})
                     if ctx.tool_registry.has_tool(data["tool_name"]):
@@ -1734,6 +1848,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         max_tools=request.app.state.config.ai.max_tools,
         read_only=request.app.state.config.safety.read_only,
         tier_overrides=request.app.state.config.safety.tool_tiers,
+        skill_registry=getattr(request.app.state, "skill_registry", None),
     )
 
     tools = tools_openai if tools_openai else None
@@ -1741,7 +1856,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
     is_first_message = not regenerate and len(history) <= 1
     first_user_text = message_text
 
-    extra_system_prompt = await _build_chat_system_prompt(
+    extra_system_prompt, prompt_meta = await _build_chat_system_prompt(
         ai_service=ai_service,
         tool_registry=tool_registry,
         mcp_manager=mcp_manager,
@@ -1760,6 +1875,9 @@ async def chat(conversation_id: str, request: Request) -> Any:
         embedding_service=getattr(request.app.state, "embedding_service", None),
         injection_detector=getattr(request.app.state, "injection_detector", None),
         artifact_registry=getattr(request.app.state, "artifact_registry", None),
+        skill_registry=getattr(request.app.state, "skill_registry", None),
+        space_id=space_id,
+        project_id=project_id,
     )
 
     # Build per-request safety approval context
@@ -1816,6 +1934,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         sa_config=_sa_config,
         request_config=request.app.state.config,
         rate_limiter=_rate_limiter,
+        skill_registry=getattr(request.app.state, "skill_registry", None),
     )
 
     async def _tool_executor(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1848,6 +1967,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         budget_config=getattr(request.app.state.config.cli.usage, "budgets", None),
         canvas_needs_approval=_canvas_needs_approval(safety_config, tool_registry),
         request=request,
+        prompt_meta=prompt_meta,
     )
 
     return EventSourceResponse(_stream_chat_events(stream_ctx))

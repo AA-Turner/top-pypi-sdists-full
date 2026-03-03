@@ -645,7 +645,11 @@ async def run_client() -> None:
     config_msg = f"Client configuration: {accessories.repr_mapping(args)}"
 
     log = accessories.make_logger(
-        name=__name__, loglevel=args["loglevel"], logfile=args["logfile"], logfmt=args["logfmt"]
+        name=__name__,
+        loglevel=args["loglevel"],
+        logfile=args["logfile"],
+        logfmt=args["logfmt"],
+        filemode="w" if args.get("logfile_mode") == "rewrite" else "a",
     )
     log.debug(config_msg)
 
@@ -681,56 +685,7 @@ async def run_client() -> None:
 
     client_factory: Optional[Callable[..., client_base.BaseClient]] = _client_factory
 
-    # Wrap the shell callback to inject color filter when enabled
-    colormatch: str = args["colormatch"]
     shell_callback = args["shell"]
-    if colormatch.lower() != "none":
-        from .color_filter import (
-            PALETTES,
-            ColorConfig,
-            ColorFilter,
-            PetsciiColorFilter,
-            AtasciiControlFilter,
-        )
-
-        # Auto-select encoding-specific filters
-        encoding_name: str = args.get("encoding", "") or ""
-        is_petscii = encoding_name.lower() in ("petscii", "cbm", "commodore", "c64", "c128")
-        is_atascii = encoding_name.lower() in ("atascii", "atari8bit", "atari_8bit")
-        if colormatch == "petscii":
-            colormatch = "c64"
-        if is_petscii and colormatch != "c64":
-            colormatch = "c64"
-
-        if colormatch not in PALETTES:
-            print(
-                f"Unknown palette {colormatch!r}," f" available: {', '.join(sorted(PALETTES))}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        color_config = ColorConfig(
-            palette_name=colormatch,
-            brightness=args["color_brightness"],
-            contrast=args["color_contrast"],
-            background_color=args["background_color"],
-            ice_colors=args["ice_colors"],
-        )
-        if is_petscii or colormatch == "c64":
-            color_filter_obj: object = PetsciiColorFilter(color_config)
-        elif is_atascii:
-            color_filter_obj = AtasciiControlFilter()
-        else:
-            color_filter_obj = ColorFilter(color_config)
-        original_shell = shell_callback
-
-        async def _color_shell(
-            reader: Union[TelnetReader, TelnetReaderUnicode],
-            writer_arg: Union[TelnetWriter, TelnetWriterUnicode],
-        ) -> None:
-            writer_arg.ctx.color_filter = color_filter_obj
-            await original_shell(reader, writer_arg)
-
-        shell_callback = _color_shell
 
     # Wrap shell to inject raw_mode flag and input translation for retro encodings
     raw_mode_val: Optional[bool] = args.get("raw_mode", False)
@@ -774,7 +729,11 @@ async def run_client() -> None:
         ) -> None:
             ctx = writer_arg.ctx
             assert typescript_path is not None
-            ts_file = open(typescript_path, "a", encoding="utf-8")  # noqa: SIM115
+            ts_file = open(  # noqa: SIM115
+                typescript_path,
+                "w" if args.get("typescript_mode") == "rewrite" else "a",
+                encoding="utf-8",
+            )
             ctx.typescript_file = ts_file
             try:
                 await _ts_inner(reader, writer_arg)
@@ -819,6 +778,13 @@ def _get_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--loglevel", default="warn", help="log level")
     parser.add_argument("--logfmt", default=accessories._DEFAULT_LOGFMT, help="log format")
     parser.add_argument("--logfile", help="filepath")
+    parser.add_argument(
+        "--logfile-mode",
+        default="append",
+        choices=["append", "rewrite"],
+        dest="logfile_mode",
+        help="Log file write mode: append (default) or rewrite.",
+    )
     parser.add_argument(
         "--shell", default="telnetlib3.telnet_client_shell", help="module.function_name"
     )
@@ -880,44 +846,6 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         help="always send DO for this option (name like GMCP or number, repeatable)",
     )
     parser.add_argument(
-        "--colormatch",
-        default="vga",
-        metavar="PALETTE",
-        help=(
-            "translate basic 16-color ANSI codes to exact 24-bit RGB values"
-            " from a named hardware palette, bypassing the terminal's custom"
-            " palette to preserve intended MUD/BBS artwork colors"
-            " (vga, xterm, none)"
-        ),
-    )
-    parser.add_argument(
-        "--color-brightness",
-        default=1.0,
-        type=float,
-        metavar="FLOAT",
-        help="color brightness scale [0.0..1.0], where 1.0 is original",
-    )
-    parser.add_argument(
-        "--color-contrast",
-        default=1.0,
-        type=float,
-        metavar="FLOAT",
-        help="color contrast scale [0.0..1.0], where 1.0 is original",
-    )
-    parser.add_argument(
-        "--background-color",
-        default="#000000",
-        metavar="#RRGGBB",
-        help="forced background color as hex RGB (near-black by default)",
-    )
-    parser.add_argument(
-        "--ice-colors",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="treat SGR 5 (blink) as bright background (iCE colors)"
-        " for BBS/ANSI art (default: enabled)",
-    )
-    parser.add_argument(
         "--ascii-eol",
         action="store_true",
         default=False,
@@ -972,6 +900,13 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help="record session to FILE (like Unix script(1))",
     )
+    parser.add_argument(
+        "--typescript-mode",
+        default="append",
+        choices=["append", "rewrite"],
+        dest="typescript_mode",
+        help="Typescript write mode: append (default) or rewrite.",
+    )
     return parser
 
 
@@ -989,20 +924,6 @@ def _parse_option_arg(value: str) -> bytes:
         return option_from_name(value)
     except KeyError:
         return bytes([int(value)])
-
-
-def _parse_background_color(value: str) -> Tuple[int, int, int]:
-    """
-    Parse hex color string to RGB tuple.
-
-    :param value: Color string like ``"#RRGGBB"`` or ``"RRGGBB"``.
-    :returns: (R, G, B) tuple with values 0-255.
-    :raises ValueError: When *value* is not a valid hex color.
-    """
-    h = value.lstrip("#")
-    if len(h) != 6:
-        raise ValueError(f"invalid hex color: {value!r}")
-    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
 
 def _transform_args(args: argparse.Namespace) -> Dict[str, Any]:
@@ -1040,6 +961,7 @@ def _transform_args(args: argparse.Namespace) -> Dict[str, Any]:
         "port": args.port,
         "loglevel": args.loglevel,
         "logfile": args.logfile,
+        "logfile_mode": args.logfile_mode,
         "logfmt": args.logfmt,
         "encoding": args.encoding,
         "tspeed": (args.speed, args.speed),
@@ -1052,11 +974,6 @@ def _transform_args(args: argparse.Namespace) -> Dict[str, Any]:
         "send_environ": tuple(v.strip() for v in args.send_environ.split(",") if v.strip()),
         "always_will": {_parse_option_arg(v) for v in args.always_will},
         "always_do": {_parse_option_arg(v) for v in args.always_do},
-        "colormatch": args.colormatch,
-        "color_brightness": args.color_brightness,
-        "color_contrast": args.color_contrast,
-        "background_color": _parse_background_color(args.background_color),
-        "ice_colors": args.ice_colors,
         "raw_mode": raw_mode,
         "ascii_eol": args.ascii_eol,
         "ansi_keys": args.ansi_keys,
@@ -1068,6 +985,7 @@ def _transform_args(args: argparse.Namespace) -> Dict[str, Any]:
         ),
         "compression": args.compression,
         "typescript": args.typescript,
+        "typescript_mode": args.typescript_mode,
     }
 
 

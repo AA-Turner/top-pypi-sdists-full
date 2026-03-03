@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as st
@@ -36,10 +35,10 @@ def summary_plot(x, errorbars=0, **kwargs):
 
     # Histogram
     counts, bins = np.histogram(x, **kwargs)
-    bin_centers = 0.5*(bins[1:] + bins[:-1])
+    bin_centers = 0.5 * (bins[1:] + bins[:-1])
     if errorbars > 0:
-        samperr = np.std(counts) / np.sqrt(counts) * (st.norm.ppf(1-(1-errorbars)/2))
-        ax.errorbar(bin_centers, counts, yerr=samperr, ecolor="#FF8C00", fmt='.', capsize=5, capthick=2)
+        samperr = np.std(counts) / np.sqrt(counts) * (st.norm.ppf(1 - (1 - errorbars) / 2))
+        ax.errorbar(bin_centers, counts, yerr=samperr, ecolor="#FF8C00", fmt=".", capsize=5, capthick=2)
     ax.hist(bins[:-1], bins, weights=counts, color="#2196F3", edgecolor="white", zorder=1, **kwargs)
 
     # Density
@@ -63,6 +62,6 @@ def summary_plot(x, errorbars=0, **kwargs):
         whiskerprops=dict(linewidth=1.5),
         capprops=dict(linewidth=1.5),
         zorder=4,
-        **kwargs
+        **kwargs,
     )
     return fig

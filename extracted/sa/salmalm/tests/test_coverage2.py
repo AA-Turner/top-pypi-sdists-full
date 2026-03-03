@@ -291,21 +291,44 @@ class TestAuthModule(unittest.TestCase):
 
 
 class TestWebHandlerRoutes(unittest.TestCase):
-    """Test web handler routes via FastAPI TestClient (Mixin legacy removed)."""
+    """Test web handler routes through HTTP."""
 
     @classmethod
     def setUpClass(cls):
-        from fastapi.testclient import TestClient
-        from salmalm.web.app import app
-        cls._client = TestClient(app, raise_server_exceptions=False)
+        from salmalm.web import WebHandler
+        from http.server import HTTPServer
+        cls._server = HTTPServer(('127.0.0.1', 0), WebHandler)
+        cls._port = cls._server.server_address[1]
+        import threading
+        cls._thread = threading.Thread(target=cls._server.serve_forever, daemon=True)
+        cls._thread.start()
+        import time; time.sleep(0.1)
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            cls._server.shutdown()
+            cls._server.server_close()
+        except Exception:
+            pass
+        cls._thread.join(timeout=3)
+        cls._server.server_close()
 
     def _get(self, path):
-        resp = self._client.get(path)
-        return resp.status_code, resp.content
+        from http.client import HTTPConnection
+        conn = HTTPConnection('127.0.0.1', self._port, timeout=10)
+        conn.request('GET', path)
+        resp = conn.getresponse()
+        body = resp.read()
+        return resp.status, body
 
     def _post(self, path, data=None):
-        resp = self._client.post(path, json=data or {})
-        return resp.status_code, resp.content
+        from http.client import HTTPConnection
+        conn = HTTPConnection('127.0.0.1', self._port, timeout=10)
+        body = json.dumps(data).encode() if data else b'{}'
+        conn.request('POST', path, body=body, headers={'Content-Type': 'application/json'})
+        resp = conn.getresponse()
+        return resp.status, resp.read()
 
     def test_root_page(self):
         status, body = self._get('/')
@@ -344,16 +367,21 @@ class TestWebHandlerRoutes(unittest.TestCase):
         self.assertEqual(status, 200)
 
     def test_csp_header(self):
-        resp = self._client.get('/')
-        # CSP header present in production (via middleware); may be absent in test mode
-        csp = resp.headers.get('Content-Security-Policy', '')
-        if csp:
-            self.assertIn("script-src", csp)
+        from http.client import HTTPConnection
+        conn = HTTPConnection('127.0.0.1', self._port, timeout=10)
+        conn.request('GET', '/')
+        resp = conn.getresponse()
+        resp.read()
+        csp = resp.getheader('Content-Security-Policy', '')
+        self.assertIn("script-src", csp)
 
     def test_security_headers(self):
-        resp = self._client.get('/')
-        # Security headers present in production; tolerate absence in test mode
-        self.assertIn(resp.status_code, (200, 401, 302))
+        from http.client import HTTPConnection
+        conn = HTTPConnection('127.0.0.1', self._port, timeout=10)
+        conn.request('GET', '/')
+        resp = conn.getresponse()
+        resp.read()
+        self.assertIsNotNone(resp.getheader('X-Content-Type-Options'))
 
     def test_icon_svg(self):
         status, _ = self._get('/icon-192.svg')

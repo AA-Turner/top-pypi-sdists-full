@@ -1,6 +1,6 @@
 from .core import create_webserver, startWebServer
 
-__ALL__ = [
+__all__ = [
     "create_webserver",
     "startWebServer",
 ]

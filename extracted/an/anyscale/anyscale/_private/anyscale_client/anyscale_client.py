@@ -1028,6 +1028,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         containerfile: str,
         anonymous: bool = True,
         ray_version: Optional[str] = None,
+        containerfile_path: Optional[str] = None,
     ) -> str:
         cluster_env = self._find_or_create_cluster_env(
             cluster_env_name, anonymous=anonymous
@@ -1045,6 +1046,7 @@ class AnyscaleClient(AnyscaleClientInterface):
                 CreateClusterEnvironmentBuild(
                     cluster_environment_id=cluster_env.id,
                     containerfile=containerfile,
+                    containerfile_path=containerfile_path,
                     ray_version=ray_version,  # we don't use the latest version here if ray_version is Noneb/c the backend will try to parse the base image to decide the ray version.
                 )
             ).result

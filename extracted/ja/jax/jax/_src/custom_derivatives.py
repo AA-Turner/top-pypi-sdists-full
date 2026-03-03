@@ -28,7 +28,7 @@ from jax._src import effects
 from jax._src import linear_util as lu
 from jax._src import traceback_util
 from jax._src.ad_util import (
-    stop_gradient_p, SymbolicZero, Zero, zeros_like_aval)
+    stop_gradient_p, SymbolicZero, Zero, zeros_like_aval, p2tz)
 from jax._src.api_util import (
   argnums_partial, flatten_fun_nokwargs, resolve_kwargs,
   prepend_static_args, debug_info, fun_signature,
@@ -70,7 +70,7 @@ def _sum_tangents(_, x, *xs):
   return reduce(ad.add_tangents, xs, x)
 
 def _zeros_like_pytree(x):
-  return tree_map(Zero.from_primal_value, x)
+  return tree_map(p2tz, x)
 
 _stop_gradient = partial(
     tree_map,
@@ -399,11 +399,11 @@ class CustomJVPCallPrimitive(core.Primitive):
   def get_bind_params(self, params):
     new_params = dict(params)
     call_jaxpr: core.ClosedJaxpr = new_params.pop('call_jaxpr')
-    num_consts: int = new_params.pop('num_consts')
+    num_consts: int = new_params.pop('num_consts')  # pyrefly: ignore[bad-assignment]  # pyrefly#2449
     jvp_jaxpr_fun = new_params.pop('jvp_jaxpr_fun')
     fun = lu.wrap_init(core.jaxpr_as_fun(call_jaxpr),
                        debug_info=call_jaxpr.jaxpr.debug_info)
-    jvp = lift_jvp(num_consts, jvp_jaxpr_fun)
+    jvp = lift_jvp(num_consts, jvp_jaxpr_fun)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2449
     return [fun, jvp], new_params
 
 def lift_jvp(num_consts: int, jvp_jaxpr_fun: lu.WrappedFun) -> lu.WrappedFun:
@@ -444,7 +444,8 @@ def _custom_jvp_vjp_call_lowering(ctx: mlir.LoweringRuleContext, *args,
   out, tokens = mlir.jaxpr_subcomp(ctx.module_context, call_jaxpr.jaxpr,
                                    ctx.name_stack, ctx.tokens_in, consts,
                                    *args, dim_var_values=ctx.dim_var_values,
-                                   const_lowering=ctx.const_lowering)
+                                   const_lowering=ctx.const_lowering,
+                                   outer_traceback=ctx.traceback)
   ctx.set_tokens_out(tokens)
   return out
 mlir.register_lowering(custom_jvp_call_p, _custom_jvp_vjp_call_lowering)
@@ -552,6 +553,13 @@ class custom_vjp(Generic[ReturnValue]):
 
   .. _tutorial: https://docs.jax.dev/en/latest/notebooks/Custom_derivative_rules_for_Python_code.html
   """
+
+  def __new__(cls, fun, nondiff_argnums=(), nondiff_argnames=()):
+    if config.custom_vjp3.value:
+      from jax._src.hijax import custom_vjp3  # type: ignore
+      return custom_vjp3(fun, nondiff_argnums, nondiff_argnames)
+    else:
+      return super().__new__(cls)
 
   def __init__(self,
                fun: Callable[..., ReturnValue],
@@ -754,7 +762,6 @@ def _check_primal_refs(
 
 def _check_for_aliased_refs(
     f: Callable, nondiff_argnums: Sequence[int], debug: core.DebugInfo, args):
-  nondiff_argnums_ = set(nondiff_argnums)
   argnums = [x for i, arg in enumerate(args)
              for x in [i] * tree_structure(arg).num_leaves]
   leaves = tree_leaves(args)
@@ -957,7 +964,7 @@ def _flatten_bwd(f: Callable,
       results.append(Zero(ct.aval))
     else:
       if (not config.disable_bwd_checks.value and
-          not core.typecompat(a.to_cotangent_aval(), a_ := core.get_aval(ct))
+          not core.typecompat(a.to_cotangent_aval(), a_ := core.typeof(ct))
           and not _ref_typecompat(a.to_cotangent_aval(), a_)
           and not _temporary_dtype_exception(a.to_cotangent_aval(), a_)):
         msg = ("Custom VJP bwd rule must produce an output with the same "
@@ -978,7 +985,7 @@ def _ref_typecompat(a, a_):
 def _temporary_dtype_exception(a, a_) -> bool:
   if isinstance(a, core.ShapedArray) and isinstance(a_, core.ShapedArray):
     return (a.shape == a_.shape and
-            core.typematch(a, a_, only_shape_shd_check=True) and
+            core.typematch(a, a_, no_dtype_check=True) and
             (dtypes.issubdtype(a_.dtype, dtypes.extended) or
              dtypes.issubdtype(a.dtype, dtypes.np.inexact)))
   return False
@@ -1000,11 +1007,11 @@ class CustomVJPCallPrimitive(core.Primitive):
   def get_bind_params(self, params):
     new_params = dict(params)
     call_jaxpr: core.ClosedJaxpr = new_params.pop('call_jaxpr')
-    num_consts: int = new_params.pop('num_consts')
+    num_consts: int = new_params.pop('num_consts')  # pyrefly: ignore[bad-assignment]  # pyrefly#2449
     fwd_jaxpr_thunk = new_params.pop('fwd_jaxpr_thunk')
     fun = lu.wrap_init(core.jaxpr_as_fun(call_jaxpr),
                        debug_info=call_jaxpr.jaxpr.debug_info)
-    fwd = lift_fwd(num_consts, fwd_jaxpr_thunk)
+    fwd = lift_fwd(num_consts, fwd_jaxpr_thunk)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2449
     const_avals, _ = split_list(call_jaxpr.in_avals, [num_consts])
     bwd = _handle_consts_in_bwd(new_params.pop('bwd'), const_avals)
     return [fun, fwd, bwd], new_params
@@ -1706,7 +1713,7 @@ def _remat_opt_impl(
     num_consts: int,
     num_res: int,
     fwd_jaxpr: core.ClosedJaxpr,
-    fun_jaxpr_thunk: Callable[[], core.ClosedJaxpr],
+    fun_jaxpr_thunk: Callable[[], tuple[core.Jaxpr, Sequence[Any]]],
 ):
   del num_consts, num_res, fun_jaxpr_thunk  # unused
   return core.jaxpr_as_fun(fwd_jaxpr)(*args)
@@ -1721,7 +1728,7 @@ def _remat_opt_vmap(
     num_consts: int,
     num_res: int,
     fwd_jaxpr: core.ClosedJaxpr,
-    fun_jaxpr_thunk: Callable[[], core.ClosedJaxpr],
+    fun_jaxpr_thunk: Callable[[], tuple[core.Jaxpr, Sequence[Any]]],
 ):
   args = [batching.moveaxis(x, d, 0) if d is not not_mapped and d != 0
           else x for x, d in zip(args, in_dims)]
@@ -1757,7 +1764,7 @@ def _remat_opt_jvp(
     num_consts: int,
     num_res: int,
     fwd_jaxpr: core.ClosedJaxpr,
-    fun_jaxpr_thunk: Callable[[], core.ClosedJaxpr],
+    fun_jaxpr_thunk: Callable[[], tuple[core.Jaxpr, Sequence[Any]]],
 ):
   consts, primals = split_list(primals, [num_consts])
   consts_dot, tangents = split_list(tangents, [num_consts])
@@ -1765,12 +1772,12 @@ def _remat_opt_jvp(
   tangents = map(ad.instantiate_zeros, tangents)
   consts_nz = [not isinstance(t, Zero) for t in consts_dot]
   consts_dot = [c for nz, c in zip(consts_nz, consts_dot) if nz]
-  in_nz = consts_nz + [True] * len(tangents)
+  in_nz = consts_nz + [True] * len(tangents)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
   fwd_jaxpr_jvp_, out_nz = ad.jvp_jaxpr(fwd_jaxpr, in_nz, True)
   num_out = len(out_nz) - num_res
   fwd_jaxpr_jvp_ = ad.rearrange_binders(
       fwd_jaxpr_jvp_, [num_consts, len(primals)],
-      [len(consts_dot), len(tangents)], [num_res, num_out], [num_res, num_out])
+      [len(consts_dot), len(tangents)], [num_res, num_out], [num_res, num_out])  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
   fwd_jaxpr_jvp = pe.close_jaxpr(pe.convert_constvars_jaxpr(fwd_jaxpr_jvp_.jaxpr))
 
   # @pe._memoize
@@ -1793,7 +1800,7 @@ def _remat_opt_transpose(
     num_consts: int,
     num_res: int,
     fwd_jaxpr: core.ClosedJaxpr,
-    fun_jaxpr_thunk: Callable[[], core.ClosedJaxpr],
+    fun_jaxpr_thunk: Callable[[], tuple[core.Jaxpr, Sequence[Any]]],
 ):
   # TODO(dfm): It shouldn't be too hard to implement this as needed in the
   # future.

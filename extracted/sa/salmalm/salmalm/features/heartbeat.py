@@ -135,7 +135,7 @@ class CacheWarmer:
 
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                result = json.loads(resp.read(4 * 1024 * 1024).decode("utf-8"))
+                result = json.loads(resp.read().decode("utf-8"))
                 usage = result.get("usage", {})
                 cache_read = usage.get("cache_read_input_tokens", 0)
                 cache_write = usage.get("cache_creation_input_tokens", 0)

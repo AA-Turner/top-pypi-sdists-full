@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import warnings
 
 import numpy as np
@@ -137,9 +136,7 @@ def _density_bkfe(gcounts, drv, h, a, b):
     tau = drv + 4
     L = min(int(tau * h / delta), resol)
     if L == 0:
-        warnings.warn(
-            "WARNING : Binning grid too coarse for current (small) bandwidth: consider increasing 'resolution'"
-        )
+        warnings.warn("WARNING : Binning grid too coarse for current (small) bandwidth: consider increasing 'resolution'")
     lvec = np.arange(L + 1)
     arg = lvec * delta / h
 

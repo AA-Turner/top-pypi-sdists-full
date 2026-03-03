@@ -31,7 +31,7 @@ from functools import partial
 import math
 import operator
 import os
-from typing import Any, IO, Literal, Protocol, TypeVar, Union, overload
+from typing import Any, IO, Literal, Protocol, TypeVar, Union, cast, overload
 
 import numpy as np
 
@@ -266,7 +266,9 @@ def fmin(x1: ArrayLike, x2: ArrayLike) -> Array:
     Array([[ 2.,  3., nan],
            [inf,  5.,  7.]], dtype=float32)
   """
-  return where(ufuncs.less(x1, x2) | ufuncs.isnan(x2), x1, x2)
+  # TODO(jakevdp) remove cast when jit type annotations improve
+  mask = cast(Array, ufuncs.less(x1, x2) | ufuncs.isnan(x2))
+  return where(mask, x1, x2)
 
 
 @export
@@ -316,7 +318,9 @@ def fmax(x1: ArrayLike, x2: ArrayLike) -> Array:
     Array([[ inf,   6.,   7.,  nan],
            [ inf,   9., -inf,  -1.]], dtype=float32)
   """
-  return where(ufuncs.greater(x1, x2) | ufuncs.isnan(x2), x1, x2)
+  # TODO(jakevdp) remove cast when jit type annotations improve
+  mask = cast(Array, ufuncs.greater(x1, x2) | ufuncs.isnan(x2))
+  return where(mask, x1, x2)
 
 
 @export
@@ -1854,7 +1858,7 @@ def gradient(
   elif len(spacing) == len(axis_tuple):
     dx = list(spacing)
   else:
-    TypeError(f"Invalid number of spacing arguments {len(spacing)} for {axis=}")
+    raise TypeError(f"Invalid number of spacing arguments {len(spacing)} for {axis=}")
 
   a_grad = [gradient_along_axis(a, h, ax) for ax, h in zip(axis_tuple, dx)]
   return a_grad[0] if len(axis_tuple) == 1 else a_grad
@@ -2036,7 +2040,8 @@ def ravel(a: ArrayLike, order: str = "C", *, out_sharding=None) -> Array:
 
 @export
 def ravel_multi_index(multi_index: Sequence[ArrayLike], dims: Sequence[int],
-                      mode: str = 'raise', order: str = 'C') -> Array:
+                      mode: str = 'raise', order: str = 'C',
+                      *, dtype: DTypeLike | None = None) -> Array:
   """Convert multi-dimensional indices into flat indices.
 
   JAX implementation of :func:`numpy.ravel_multi_index`
@@ -2050,9 +2055,13 @@ def ravel_multi_index(multi_index: Sequence[ArrayLike], dims: Sequence[int],
         with :func:`~jax.jit` or other JAX transformations.
       - ``"clip"``: clip out-of-bound indices to valid range.
       - ``"wrap"``: wrap out-of-bound indices to valid range.
+      - ``"ignore"``: do not coerce or check input indices. Behavior is
+        undefined if indices are out of bounds.
 
     order: ``"C"`` (default) or ``"F"``, specify whether to assume C-style
       row-major order or Fortran-style column-major order.
+    dtype: the desired output dtype. If not specified, the dtype is determined
+      by standard type promotion rules of the input multi_index.
 
   Returns:
     array of flattened indices
@@ -2094,6 +2103,19 @@ def ravel_multi_index(multi_index: Sequence[ArrayLike], dims: Sequence[int],
   assert len(multi_index) == len(dims), f"len(multi_index)={len(multi_index)} != len(dims)={len(dims)}"
   dims = tuple(core.concrete_or_error(operator.index, d, "in `dims` argument of ravel_multi_index().") for d in dims)
   multi_index_arr = list(util.ensure_arraylike_tuple("ravel_multi_index", multi_index))
+
+  if dtype is None:
+    dtype = dtypes.result_type(int, *multi_index_arr)
+  else:
+    dtype = dtypes.check_and_canonicalize_user_dtype(dtype, "ravel_multi_index")
+  if not issubdtype(dtype, np.integer):
+    raise ValueError(f"{dtype=} is not an integer type.")
+  if math.prod(dims) - 1 > iinfo(dtype).max:
+    raise ValueError(
+      f"jnp.ravel_multi_index: {dtype=} not large enough to hold flattened"
+      f" index for {dims=}. Use the dtype argument to pass a suitable"
+      " dtype (e.g. dtype=np.min_scalar_type(prod(dims))).")
+
   for index in multi_index_arr:
     if mode == 'raise':
       core.concrete_or_error(array, index,
@@ -2108,8 +2130,10 @@ def ravel_multi_index(multi_index: Sequence[ArrayLike], dims: Sequence[int],
     multi_index_arr = [clip(i, 0, d - 1) for i, d in zip(multi_index_arr, dims)]
   elif mode == "wrap":
     multi_index_arr = [i % d for i, d in zip(multi_index_arr, dims)]
+  elif mode == "ignore":
+    pass
   else:
-    raise ValueError(f"invalid mode={mode!r}. Expected 'raise', 'wrap', or 'clip'")
+    raise ValueError(f"invalid mode={mode!r}. Expected 'raise', 'wrap', 'clip', or 'ignore'.")
 
   if order == "F":
     strides = np.cumprod((1,) + dims[:-1])
@@ -2118,9 +2142,9 @@ def ravel_multi_index(multi_index: Sequence[ArrayLike], dims: Sequence[int],
   else:
     raise ValueError(f"invalid order={order!r}. Expected 'C' or 'F'")
 
-  result = array(0, dtype=multi_index_arr[0].dtype if multi_index_arr else int)
+  result = array(0, dtype=dtype)
   for i, s in zip(multi_index_arr, strides):
-    result = result + i * int(s)
+    result = result + i.astype(dtype) * int(s)
   return result
 
 
@@ -3463,7 +3487,7 @@ def round(a: ArrayLike, decimals: int = 0, out: None = None) -> Array:
 @api.jit(static_argnames=('decimals',))
 def around(a: ArrayLike, decimals: int = 0, out: None = None) -> Array:
   """Alias of :func:`jax.numpy.round`"""
-  return round(a, decimals, out)
+  return round(a, decimals, out)  # pyrefly: ignore[no-matching-overload]
 
 
 @export
@@ -6361,6 +6385,16 @@ def repeat(a: ArrayLike, repeats: ArrayLike, axis: int | None = None, *,
     Array([[1, 1, 2, 2, 2, 2, 2],
            [3, 3, 4, 4, 4, 4, 4]], dtype=int32)
   """
+  if core.is_dim(repeats):
+    util.check_arraylike("repeat", a)
+  else:
+    util.check_arraylike("repeat", a, repeats)
+  a = asarray(a)
+
+  if axis is None:
+    a = a.ravel()
+    axis = 0
+
   if out_sharding is not None:
     return _auto_repeat(_repeat, a, repeats, axis, total_repeat_length,
                         out_sharding)
@@ -6378,7 +6412,7 @@ def repeat(a: ArrayLike, repeats: ArrayLike, axis: int | None = None, *,
   try:
     return _repeat(repeats, a, axis=axis,
                    total_repeat_length=total_repeat_length)
-  except core.ShardingTypeError as e:
+  except core.ShardingTypeError:
     raise ValueError(
         "Please pass sharding to `jnp.repeat` via `out_sharding` parameter.")
 
@@ -6397,18 +6431,8 @@ def _auto_repeat(fun, a, repeats, axis, total_repeat_length, out_sharding):
         axes=out_sharding.mesh.explicit_axes  # type: ignore
         )(repeats, a)
 
-def _repeat(repeats: ArrayLike, a: ArrayLike, *, axis: int | None = None,
+def _repeat(repeats, arr, *, axis: int,
             total_repeat_length: int | None = None) -> Array:
-  if core.is_dim(repeats):
-    util.check_arraylike("repeat", a)
-  else:
-    util.check_arraylike("repeat", a, repeats)
-  arr = asarray(a)
-
-  if axis is None:
-    arr = arr.ravel()
-    axis = 0
-
   axis = core.concrete_or_error(operator.index, axis, "'axis' argument of jnp.repeat()")
   assert isinstance(axis, int)  # to appease mypy
 
@@ -6440,7 +6464,7 @@ def _repeat(repeats: ArrayLike, a: ArrayLike, *, axis: int | None = None,
     repeats = np.ravel(repeats)
     if arr.ndim != 0:
       repeats = np.broadcast_to(repeats, [arr.shape[axis]])
-    total_repeat_length = np.sum(repeats)
+    total_repeat_length = int(np.sum(repeats))
   else:
     repeats = ravel(repeats)
     if arr.ndim != 0:
@@ -6528,6 +6552,9 @@ def trapezoid(y: ArrayLike, x: ArrayLike | None = None, dx: ArrayLike = 1.0,
     y = util.ensure_arraylike('trapezoid', y)
     y_arr, = util.promote_dtypes_inexact(y)
     dx_array = asarray(dx)
+    if dx_array.ndim > 0:
+      dx_array = lax.expand_dims(dx_array, range(y_arr.ndim - dx_array.ndim))
+      dx_array = moveaxis(dx_array, axis, -1)
   else:
     y, x = util.ensure_arraylike('trapezoid', y, x)
     y_arr, x_arr = util.promote_dtypes_inexact(y, x)
@@ -6536,6 +6563,10 @@ def trapezoid(y: ArrayLike, x: ArrayLike | None = None, dx: ArrayLike = 1.0,
     else:
       dx_array = moveaxis(diff(x_arr, axis=axis), axis, -1)
   y_arr = moveaxis(y_arr, axis, -1)
+  # Fast path: dx is constant along the integration axis.
+  if dx_array.ndim == 0 or dx_array.shape[-1] == 1:
+    dx_reduced = dx_array if dx_array.ndim == 0 else dx_array[..., 0]
+    return dx_reduced * (y_arr.sum(-1) - 0.5 * (y_arr[..., 0] + y_arr[..., -1]))
   return 0.5 * (dx_array * (y_arr[..., 1:] + y_arr[..., :-1])).sum(-1)
 
 
@@ -9224,7 +9255,7 @@ def cov(m: ArrayLike, y: ArrayLike | None = None, rowvar: bool = True,
       raise RuntimeError("incompatible numbers of samples and aweights")
     # Ensure positive aweights: note that numpy raises an error for negative aweights.
     aweights = abs(aweights)
-    w = aweights if w is None else w * aweights
+    w = asarray(aweights if w is None else w * aweights) # pyrefly: ignore[unsupported-operation]
 
   if dtype is not None:
     X = X.astype(dtype)

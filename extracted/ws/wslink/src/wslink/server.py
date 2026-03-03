@@ -9,10 +9,11 @@ Use "--help" to list the supported arguments.
 
 import argparse
 import asyncio
+import contextlib
 import logging
 
-from wslink import websocket as wsl
 from wslink import backends
+from wslink import websocket as wsl
 
 ws_server = None
 
@@ -122,10 +123,8 @@ def start(argv=None, protocol=wsl.ServerProtocol, description="wslink web-server
     add_arguments(parser)
     args = parser.parse_args(argv)
     # configure protocol, if available
-    try:
+    with contextlib.suppress(AttributeError):
         protocol.configure(args)
-    except AttributeError:
-        pass
 
     start_webserver(options=args, protocol=protocol)
 
@@ -137,6 +136,7 @@ def stop_webserver():
     if ws_server:
         loop = asyncio.get_event_loop()
         return loop.create_task(ws_server.stop())
+    return None
 
 
 # =============================================================================
@@ -178,7 +178,7 @@ def start_webserver(
     disableLogging=False,
     backend="aiohttp",
     exec_mode="main",
-    **kwargs,
+    **_,
 ):
     """
     Starts the web-server with the given protocol. Options must be an object
@@ -188,7 +188,7 @@ def start_webserver(
         options.timeout : timeout for reaping process on idle in seconds
         options.content : root for web-pages to serve.
     """
-    global ws_server
+    global ws_server  # noqa:  PLW0603
 
     # Create default or custom ServerProtocol
     wslinkServer = protocol()
@@ -236,16 +236,15 @@ def start_webserver(
 
         # Confifugre SSL
         if len(options.ssl) > 0:
-            from .ssl_context import generate_ssl_pair, ssl
+            from .ssl_context import generate_ssl_pair, ssl  # noqa:  PLC0415
 
             if options.ssl == "adhoc":
                 options.ssl = generate_ssl_pair(server_config["host"])
             else:
                 tokens = options.ssl.split(",")
                 if len(tokens) != 2:
-                    raise Exception(
-                        f'ssl configure must be "adhoc" or a tuple of files "cert,key"'
-                    )
+                    msg = 'ssl configure must be "adhoc" or a tuple of files "cert,key"'
+                    raise Exception(msg)
                 options.ssl = tokens
             cert, key = options.ssl
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -275,11 +274,9 @@ def start_webserver(
 
     def main_exec():
         # Block until webapp exits
-        try:
+        with contextlib.suppress(SystemExit):
             loop.run_until_complete(create_coroutine())
-        except SystemExit:
             # backend gracefully exit (due to timeout or SIGINT/SIGTERM)
-            pass
 
     def task_exec():
         return loop.create_task(create_coroutine())
@@ -291,7 +288,8 @@ def start_webserver(
     }
 
     if exec_mode not in exec_modes:
-        raise Exception(f"Unknown exec_mode: {exec_mode}")
+        msg = f"Unknown exec_mode: {exec_mode}"
+        raise Exception(msg)
 
     return exec_modes[exec_mode]()
 

@@ -45,6 +45,7 @@ class ProductionServiceV2VersionModel(object):
         'build_id': 'str',
         'compute_config_id': 'str',
         'production_job_ids': 'list[str]',
+        'connection_ids': 'list[str]',
         'current_state': 'ServiceVersionState'
     }
 
@@ -61,10 +62,11 @@ class ProductionServiceV2VersionModel(object):
         'build_id': 'build_id',
         'compute_config_id': 'compute_config_id',
         'production_job_ids': 'production_job_ids',
+        'connection_ids': 'connection_ids',
         'current_state': 'current_state'
     }
 
-    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, current_state=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, created_at=None, weight=None, current_weight=None, target_weight=None, version=None, ray_serve_config=None, ray_gcs_external_storage_config=None, tracing_config=None, build_id=None, compute_config_id=None, production_job_ids=None, connection_ids=None, current_state=None, local_vars_configuration=None):  # noqa: E501
         """ProductionServiceV2VersionModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -82,6 +84,7 @@ class ProductionServiceV2VersionModel(object):
         self._build_id = None
         self._compute_config_id = None
         self._production_job_ids = None
+        self._connection_ids = None
         self._current_state = None
         self.discriminator = None
 
@@ -101,6 +104,8 @@ class ProductionServiceV2VersionModel(object):
         self.build_id = build_id
         self.compute_config_id = compute_config_id
         self.production_job_ids = production_job_ids
+        if connection_ids is not None:
+            self.connection_ids = connection_ids
         self.current_state = current_state
 
     @property
@@ -392,6 +397,29 @@ class ProductionServiceV2VersionModel(object):
             raise ValueError("Invalid value for `production_job_ids`, must not be `None`")  # noqa: E501
 
         self._production_job_ids = production_job_ids
+
+    @property
+    def connection_ids(self):
+        """Gets the connection_ids of this ProductionServiceV2VersionModel.  # noqa: E501
+
+        The list of connection IDs associated with this service version.  # noqa: E501
+
+        :return: The connection_ids of this ProductionServiceV2VersionModel.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._connection_ids
+
+    @connection_ids.setter
+    def connection_ids(self, connection_ids):
+        """Sets the connection_ids of this ProductionServiceV2VersionModel.
+
+        The list of connection IDs associated with this service version.  # noqa: E501
+
+        :param connection_ids: The connection_ids of this ProductionServiceV2VersionModel.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._connection_ids = connection_ids
 
     @property
     def current_state(self):

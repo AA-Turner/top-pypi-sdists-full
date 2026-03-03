@@ -1,7 +1,8 @@
 import argparse
 import asyncio
-import os
 import logging
+import os
+
 import aiohttp
 from aiohttp import web
 
@@ -9,8 +10,8 @@ from aiohttp import web
 # 4MB is the default inside aiohttp
 # -----------------------------------------------------------------------------
 
-MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", 4194304))
-HEART_BEAT = int(os.environ.get("WSLINK_HEART_BEAT", 30))  # 30 seconds
+MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", "4194304"))
+HEART_BEAT = int(os.environ.get("WSLINK_HEART_BEAT", "30"))  # 30 seconds
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -198,7 +199,7 @@ class ForwardConnection:
 
     async def connect(self):
         task = asyncio.create_task(self._ws_client.connect(self._url))
-        task.add_done_callback(lambda *args, **kwargs: self._ws_server.disconnect())
+        task.add_done_callback(lambda *_: self._ws_server.disconnect())
         await self._ws_client.ready
         await self._ws_server.connect(self._req)
 
@@ -221,10 +222,7 @@ class SinkConnection:
         if self._client_req == request:
             return True
 
-        if self._client_ws is None:
-            return True
-
-        return False
+        return self._client_ws is None
 
     async def connect(self, request):
         if self._process_req == request:
@@ -235,7 +233,7 @@ class SinkConnection:
                 await self._client_ws.close()
 
             return True
-        elif self._client_req is None:
+        if self._client_req is None:
             # Second connection is the browser. Can reconnect.
             self._client_req = request
             self._client_ws = WsServerConnection(propagate_disconnect=False)
@@ -278,6 +276,7 @@ class WsHandler:
         if mode == "relay":
             return self.relay_connect
         logger.error("No handler !!!")
+        return None
 
     # -----------------------------
     # forward infrastructure

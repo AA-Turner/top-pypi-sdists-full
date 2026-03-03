@@ -5,11 +5,11 @@ from __future__ import annotations
 import typing as ty
 import warnings
 
+from ._typing import ParamSpec
 from .deprecator import Deprecator
 from .pkg_info import cmp_pkg_version
 
-if ty.TYPE_CHECKING:
-    P = ty.ParamSpec('P')
+P = ParamSpec('P')
 
 
 class ModuleProxy:
@@ -44,7 +44,7 @@ class ModuleProxy:
         return f'<module proxy for {self._module_name}>'
 
 
-class FutureWarningMixin:
+class FutureWarningMixin(ty.Generic[P]):
     """Insert FutureWarning for object creation
 
     Examples

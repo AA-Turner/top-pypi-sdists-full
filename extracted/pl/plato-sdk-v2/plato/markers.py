@@ -87,3 +87,29 @@ def EnvList(description: str = "") -> FieldMarker:
         envs: Annotated[list[EnvConfig], EnvList(description="Environments")]
     """
     return FieldMarker("env_list", description, required=False)
+
+
+class WorkspaceMarker:
+    """Marker for workspace fields in world configs.
+
+    Declares a workspace directory that is automatically created, registered
+    for backup, and optionally versioned with DVC. The workspace is also
+    prepared as an NFS/rsync transport so agents can access it.
+
+    Usage:
+        output: Annotated[Path, WorkspaceMarker(description="Build output")]
+        cache: Annotated[Path, WorkspaceMarker(description="LLM cache", tracked=False)]
+        code: Annotated[Path, WorkspaceMarker(description="Code dir", mount="/workspace")]
+
+    Args:
+        description: Human-readable description.
+        tracked: If True (default), workspace is backed up and versioned with DVC.
+        mount: Mount path on agent VMs. Defaults to the resolved host path.
+            Use this when agents expect files at a specific location (e.g. "/workspace").
+    """
+
+    def __init__(self, description: str = "", tracked: bool = True, mount: str = ""):
+        self.kind = "workspace"
+        self.description = description
+        self.tracked = tracked
+        self.mount = mount  # agent-side mount path

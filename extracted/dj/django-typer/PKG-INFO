@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-typer
-Version: 3.6.3
+Version: 3.6.4
 Summary: Use Typer to define the CLI for your Django management commands.
 Project-URL: Homepage, https://django-typer.readthedocs.io
 Project-URL: Documentation, https://django-typer.readthedocs.io
@@ -32,6 +32,7 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.10
 Requires-Dist: click<8.4,>=8.1.8
 Requires-Dist: django<6.1,>=4.2
@@ -47,6 +48,7 @@ Description-Content-Type: text/markdown
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/django-typer.svg)](https://pypi.python.org/pypi/django-typer/)
 [![PyPI djversions](https://img.shields.io/pypi/djversions/django-typer.svg)](https://pypi.org/project/django-typer/)
 [![PyPI status](https://img.shields.io/pypi/status/django-typer.svg)](https://pypi.python.org/pypi/django-typer)
+[![PyPI - Types](https://img.shields.io/pypi/types/django-typer.svg)](https://pypi.python.org/pypi/django-typer)
 [![Documentation Status](https://readthedocs.org/projects/django-typer/badge/?version=latest)](http://django-typer.readthedocs.io/?badge=latest/)
 [![Code Cov](https://codecov.io/gh/django-commons/django-typer/branch/main/graph/badge.svg?token=0IZOKN2DYL)](https://codecov.io/gh/django-commons/django-typer)
 [![Test Status](https://github.com/django-commons/django-typer/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/django-commons/django-typer/actions/workflows/test.yml?query=branch:main)

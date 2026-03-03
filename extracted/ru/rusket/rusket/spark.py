@@ -74,8 +74,12 @@ def mine_grouped(
         raise ValueError("mine_grouped requires use_colnames=True to safely manage PySpark schemas across partitions.")
 
     # We defer the pyspark imports so we don't crash if pyspark is not installed
-    import pyarrow as pa
-    import pyspark.sql.types as T
+    from rusket._dependencies import import_optional_dependency
+
+    pa = import_optional_dependency("pyarrow")
+    from rusket._dependencies import import_optional_dependency
+
+    T = import_optional_dependency("pyspark.sql.types", "pyspark")
 
     # 1. Define the output schema for the Spark UDF
     # PySpark Grouped Map UDF requires an exact schema
@@ -194,9 +198,12 @@ def prefixspan_grouped(
         - `support` (long/int64)
         - `sequence` (array of strings)
     """
-    import pandas as pd
-    import pyarrow as pa
-    import pyspark.sql.types as T
+    from rusket._dependencies import import_optional_dependency
+
+    pa = import_optional_dependency("pyarrow")
+    from rusket._dependencies import import_optional_dependency
+
+    T = import_optional_dependency("pyspark.sql.types", "pyspark")
 
     schema = T.StructType(
         [
@@ -214,22 +221,19 @@ def prefixspan_grouped(
         # Stay in PyArrow for manipulation — input is Arrow, convert to pandas for the algorithm
         input_pd = table.to_pandas()
 
-        try:
-            model = PrefixSpan.from_transactions(
-                data=input_pd,
-                user_col=user_col,
-                time_col=time_col,
-                item_col=item_col,
-                min_support=min_support,
-                max_len=max_len,
-            )
-            result_pd = model.mine()
+        model = PrefixSpan.from_transactions(
+            data=input_pd,
+            user_col=user_col,
+            time_col=time_col,
+            item_col=item_col,
+            min_support=min_support,
+            max_len=max_len,
+        )
+        result_pd = model.mine()
 
-            # Ensure items in the sequences are cast to string for the array<string> schema
-            if not result_pd.empty:
-                result_pd["sequence"] = result_pd["sequence"].apply(lambda seq: [str(x) for x in seq])
-        except Exception:
-            result_pd = pd.DataFrame(columns=["support", "sequence"])  # type: ignore[reportArgumentType]
+        # Ensure items in the sequences are cast to string for the array<string> schema
+        if not result_pd.empty:
+            result_pd["sequence"] = result_pd["sequence"].apply(lambda seq: [str(x) for x in seq])
 
         if len(result_pd) == 0:
             return pa.Table.from_batches(
@@ -264,20 +268,17 @@ def prefixspan_grouped(
 
             group_id = str(pdf[group_col].iloc[0])
 
-            try:
-                model = PrefixSpan.from_transactions(
-                    data=pdf,
-                    user_col=user_col,
-                    time_col=time_col,
-                    item_col=item_col,
-                    min_support=min_support,
-                    max_len=max_len,
-                )
-                res = model.mine()
-                if not res.empty:
-                    res["sequence"] = res["sequence"].apply(lambda seq: [str(x) for x in seq])
-            except Exception:
-                res = pd.DataFrame(columns=["support", "sequence"])  # type: ignore[reportArgumentType]
+            model = PrefixSpan.from_transactions(
+                data=pdf,
+                user_col=user_col,
+                time_col=time_col,
+                item_col=item_col,
+                min_support=min_support,
+                max_len=max_len,
+            )
+            res = model.mine()
+            if not res.empty:
+                res["sequence"] = res["sequence"].apply(lambda seq: [str(x) for x in seq])
 
             res.insert(0, group_col, group_id)
             return res
@@ -324,9 +325,13 @@ def hupm_grouped(
         - `utility` (double/float64)
         - `itemset` (array of longs/int64)
     """
-    import pandas as pd
-    import pyarrow as pa
-    import pyspark.sql.types as T
+    from rusket._dependencies import import_optional_dependency
+
+    pa = import_optional_dependency("pyarrow")
+
+    from rusket._dependencies import import_optional_dependency
+
+    T = import_optional_dependency("pyspark.sql.types", "pyspark")
 
     schema = T.StructType(
         [
@@ -344,22 +349,19 @@ def hupm_grouped(
         # Stay in PyArrow for manipulation — input is Arrow, convert to pandas for the algorithm
         input_pd = table.to_pandas()
 
-        try:
-            model = HUPM.from_transactions(
-                data=input_pd,
-                transaction_col=transaction_col,
-                item_col=item_col,
-                utility_col=utility_col,
-                min_utility=min_utility,
-                max_len=max_len,
-            )
-            result_pd = model.mine()
+        model = HUPM.from_transactions(
+            data=input_pd,
+            transaction_col=transaction_col,
+            item_col=item_col,
+            utility_col=utility_col,
+            min_utility=min_utility,
+            max_len=max_len,
+        )
+        result_pd = model.mine()
 
-            # Ensure items in the sequences are cast to int64 for the array<long> schema
-            if not result_pd.empty:
-                result_pd["itemset"] = result_pd["itemset"].apply(lambda seq: [int(x) for x in seq])
-        except Exception:
-            result_pd = pd.DataFrame(columns=["utility", "itemset"])  # type: ignore[reportArgumentType]
+        # Ensure items in the sequences are cast to int64 for the array<long> schema
+        if not result_pd.empty:
+            result_pd["itemset"] = result_pd["itemset"].apply(lambda seq: [int(x) for x in seq])
 
         if len(result_pd) == 0:
             return pa.Table.from_batches(
@@ -394,20 +396,17 @@ def hupm_grouped(
 
             group_id = str(pdf[group_col].iloc[0])
 
-            try:
-                model = HUPM.from_transactions(
-                    data=pdf,
-                    transaction_col=transaction_col,
-                    item_col=item_col,
-                    utility_col=utility_col,
-                    min_utility=min_utility,
-                    max_len=max_len,
-                )
-                res = model.mine()
-                if not res.empty:
-                    res["itemset"] = res["itemset"].apply(lambda seq: [int(x) for x in seq])
-            except Exception:
-                res = pd.DataFrame(columns=["utility", "itemset"])  # type: ignore[reportArgumentType]
+            model = HUPM.from_transactions(
+                data=pdf,
+                transaction_col=transaction_col,
+                item_col=item_col,
+                utility_col=utility_col,
+                min_utility=min_utility,
+                max_len=max_len,
+            )
+            res = model.mine()
+            if not res.empty:
+                res["itemset"] = res["itemset"].apply(lambda seq: [int(x) for x in seq])
 
             res.insert(0, group_col, group_id)
             return res
@@ -447,9 +446,15 @@ def rules_grouped(
         A DataFrame containing antecedents, consequents, and all rule metrics,
         prepended with the `group_col`.
     """
-    import pandas as pd
-    import pyarrow as pa
-    import pyspark.sql.types as T
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
+    from rusket._dependencies import import_optional_dependency
+
+    pa = import_optional_dependency("pyarrow")
+    from rusket._dependencies import import_optional_dependency
+
+    T = import_optional_dependency("pyspark.sql.types", "pyspark")
 
     all_metrics = [
         "antecedent support",
@@ -492,22 +497,18 @@ def rules_grouped(
         # Input is Arrow — convert directly to pandas, no Polars hop needed
         pdf = table.to_pandas()
 
-        try:
-            res_df = association_rules(
-                df=pdf,
-                num_itemsets=num_tx,
-                metric=metric,
-                min_threshold=min_threshold,
-                return_metrics=all_metrics,
-            )
+        res_df = association_rules(
+            df=pdf,
+            num_itemsets=num_tx,
+            metric=metric,
+            min_threshold=min_threshold,
+            return_metrics=all_metrics,
+        )
 
-            if not res_df.empty:
-                res_df["antecedents"] = res_df["antecedents"].apply(list)
-                res_df["consequents"] = res_df["consequents"].apply(list)
-            else:
-                res_df = pd.DataFrame(columns=["antecedents", "consequents"] + all_metrics)  # type: ignore[reportArgumentType]
-
-        except Exception:
+        if not res_df.empty:
+            res_df["antecedents"] = res_df["antecedents"].apply(list)
+            res_df["consequents"] = res_df["consequents"].apply(list)
+        else:
             res_df = pd.DataFrame(columns=["antecedents", "consequents"] + all_metrics)  # type: ignore[reportArgumentType]
 
         res_df.insert(0, group_col, group_id)
@@ -542,20 +543,17 @@ def rules_grouped(
             if num_tx is None:
                 num_tx = 0
 
-            try:
-                res_df = association_rules(
-                    df=pdf,
-                    num_itemsets=num_tx,
-                    metric=metric,
-                    min_threshold=min_threshold,
-                    return_metrics=all_metrics,
-                )
-                if not res_df.empty:
-                    res_df["antecedents"] = res_df["antecedents"].apply(list)
-                    res_df["consequents"] = res_df["consequents"].apply(list)
-                else:
-                    res_df = pd.DataFrame(columns=["antecedents", "consequents"] + all_metrics)  # type: ignore[reportArgumentType]
-            except Exception:
+            res_df = association_rules(
+                df=pdf,
+                num_itemsets=num_tx,
+                metric=metric,
+                min_threshold=min_threshold,
+                return_metrics=all_metrics,
+            )
+            if not res_df.empty:
+                res_df["antecedents"] = res_df["antecedents"].apply(list)
+                res_df["consequents"] = res_df["consequents"].apply(list)
+            else:
                 res_df = pd.DataFrame(columns=["antecedents", "consequents"] + all_metrics)  # type: ignore[reportArgumentType]
 
             res_df.insert(0, group_col, group_id)
@@ -593,8 +591,12 @@ def recommend_batches(
         - `user_col`
         - `recommended_items` (array of longs/int64)
     """
-    import pandas as pd
-    import pyspark.sql.types as T
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
+    from rusket._dependencies import import_optional_dependency
+
+    T = import_optional_dependency("pyspark.sql.types", "pyspark")
 
     # If it's a raw ALS model, wrap it
     try:
@@ -620,21 +622,18 @@ def recommend_batches(
 
         # row is a pyspark.sql.Row
         df_single = pd.DataFrame([row.asDict()])
-        try:
-            rec = b_recommender.value
-            res = rec.predict_next_chunk(df_single, user_col=user_col, k=k)
-            u_id = str(res.iloc[0][user_col])
+        rec = b_recommender.value
+        res = rec.predict_next_chunk(df_single, user_col=user_col, k=k)
+        u_id = str(res.iloc[0][user_col])
 
-            # Ensure native Python integers for Spark ArrayType
-            seq = res.iloc[0]["recommended_items"]
-            if isinstance(seq, np.ndarray):
-                items = [int(x) for x in seq]
-            else:
-                items = [int(x) for x in list(seq)]
+        # Ensure native Python integers for Spark ArrayType
+        seq = res.iloc[0]["recommended_items"]
+        if isinstance(seq, np.ndarray):
+            items = [int(x) for x in seq]
+        else:
+            items = [int(x) for x in list(seq)]
 
-            return (u_id, items)
-        except Exception as e:
-            raise e
+        return (u_id, items)
 
     # Using RDD map avoids the PyArrow ListType serialization bugs entirely
     rdd = df.rdd.map(_recommend_row)
@@ -693,9 +692,15 @@ def als_grouped(
         - `user_col`
         - `recommended_items` (array of ints)
     """
-    import pandas as pd
-    import pyarrow as pa
-    import pyspark.sql.types as T
+    from rusket._dependencies import import_optional_dependency
+
+    pd = import_optional_dependency("pandas")
+    from rusket._dependencies import import_optional_dependency
+
+    pa = import_optional_dependency("pyarrow")
+    from rusket._dependencies import import_optional_dependency
+
+    T = import_optional_dependency("pyspark.sql.types", "pyspark")
 
     schema = T.StructType(
         [
@@ -738,16 +743,13 @@ def als_grouped(
             user_labels = model._user_labels or list(range(model._n_users))
             records = []
             for internal_idx in range(model._n_users):
-                try:
-                    item_ids, _ = model.recommend_items(user_id=internal_idx, n=k)
-                    records.append(
-                        {
-                            user_col: str(user_labels[internal_idx]),
-                            "recommended_items": [int(x) for x in item_ids],
-                        }
-                    )
-                except Exception:
-                    pass
+                item_ids, _ = model.recommend_items(user_id=internal_idx, n=k)
+                records.append(
+                    {
+                        user_col: str(user_labels[internal_idx]),
+                        "recommended_items": [int(x) for x in item_ids],
+                    }
+                )
 
             res_df = pd.DataFrame(records, columns=[user_col, "recommended_items"])  # type: ignore[reportArgumentType]
 
@@ -809,16 +811,13 @@ def als_grouped(
                 user_labels = model._user_labels or list(range(model._n_users))
                 records = []
                 for internal_idx in range(model._n_users):
-                    try:
-                        item_ids, _ = model.recommend_items(user_id=internal_idx, n=k)
-                        records.append(
-                            {
-                                user_col: str(user_labels[internal_idx]),
-                                "recommended_items": [int(x) for x in item_ids],
-                            }
-                        )
-                    except Exception:
-                        pass
+                    item_ids, _ = model.recommend_items(user_id=internal_idx, n=k)
+                    records.append(
+                        {
+                            user_col: str(user_labels[internal_idx]),
+                            "recommended_items": [int(x) for x in item_ids],
+                        }
+                    )
 
                 res_df = pd.DataFrame(records, columns=[user_col, "recommended_items"])  # type: ignore[reportArgumentType]
 

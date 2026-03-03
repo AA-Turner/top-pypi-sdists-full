@@ -31,6 +31,7 @@ All calls automatically emit ATIF spans via plato.otel when tracing is initializ
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -43,6 +44,29 @@ from plato.otel import get_tracer
 
 litellm.suppress_debug_info = True  # type: ignore[assignment]
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+
+# Global per-model concurrency semaphores keyed by (model, api_base)
+_model_semaphores: dict[tuple[str, str], asyncio.Semaphore] = {}
+_model_semaphore_lock = asyncio.Lock()
+
+
+async def _get_model_semaphore(model: str, api_base: str, limit: int) -> asyncio.Semaphore:
+    """Get or create a semaphore for a (model, api_base) pair."""
+    key = (model, api_base)
+    if key not in _model_semaphores:
+        async with _model_semaphore_lock:
+            if key not in _model_semaphores:
+                _model_semaphores[key] = asyncio.Semaphore(limit)
+                logger.info("Created concurrency semaphore: model=%s api_base=%s limit=%d", model, api_base, limit)
+    return _model_semaphores[key]
+
+
+def set_concurrency(model: str, limit: int, api_base: str = "") -> None:
+    """Set concurrency limit for a model. Call before any acompletion calls."""
+    key = (model, api_base)
+    _model_semaphores[key] = asyncio.Semaphore(limit)
+    logger.info("Set concurrency: model=%s api_base=%s limit=%d", model, api_base, limit)
+
 
 if TYPE_CHECKING:
     from plato.worlds.config import LLMConfig
@@ -93,6 +117,10 @@ class LLMClient:
         self._max_tokens = config.max_tokens
         self._temperature = config.temperature
         self._store = store
+
+        # Register concurrency limit if configured
+        if config.concurrency > 0:
+            set_concurrency(config.model, config.concurrency)
 
     async def __call__(
         self,
@@ -503,6 +531,7 @@ async def acompletion(
     """Async LLM completion with ATIF tracing.
 
     Same interface as completion() but async.
+    Respects per-model concurrency limits set via set_concurrency().
     """
 
     # Prepend system message if provided
@@ -522,9 +551,20 @@ async def acompletion(
     if temperature is not None:
         call_kwargs["temperature"] = temperature
 
-    start = time.monotonic()
-    raw_response = await litellm.acompletion(**call_kwargs)
-    duration_ms = (time.monotonic() - start) * 1000
+    # Acquire per-model semaphore if one exists
+    api_base = kwargs.get("api_base", "")
+    sem_key = (model, api_base)
+    semaphore = _model_semaphores.get(sem_key)
+
+    if semaphore:
+        await semaphore.acquire()
+    try:
+        start = time.monotonic()
+        raw_response = await litellm.acompletion(**call_kwargs)
+        duration_ms = (time.monotonic() - start) * 1000
+    finally:
+        if semaphore:
+            semaphore.release()
 
     response = _parse_response(raw_response, model)
 

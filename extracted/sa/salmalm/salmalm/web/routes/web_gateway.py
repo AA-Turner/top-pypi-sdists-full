@@ -26,6 +26,71 @@ class WebGatewayMixin:
 
         self._json({"nodes": gateway.list_nodes()})
 
+    def _post_api_config_telegram(self):
+        """Post api config telegram."""
+        if not self._require_auth("admin"):
+            return
+        body = self._body
+        if not vault.is_unlocked:
+            self._json({"error": "Vault locked"}, 403)
+            return
+        vault.set("telegram_token", body.get("token", ""))
+        vault.set("telegram_owner_id", body.get("owner_id", ""))
+        self._json({"ok": True, "message": "Telegram config saved. Restart required."})
+
+    def _post_api_gateway_register(self):
+        """Post api gateway register."""
+        body = self._body
+        from salmalm.features.nodes import gateway
+
+        node_id = body.get("node_id", "")
+        url = body.get("url", "")
+        if not node_id or not url:
+            self._json({"error": "node_id and url required"}, 400)
+            return
+        result = gateway.register(  # type: ignore[assignment]
+            node_id,
+            url,
+            token=body.get("token", ""),
+            capabilities=body.get("capabilities"),
+            name=body.get("name", ""),
+        )
+        self._json(result)  # type: ignore[arg-type]
+
+    def _post_api_gateway_heartbeat(self):
+        """Post api gateway heartbeat."""
+        body = self._body
+        from salmalm.features.nodes import gateway
+
+        node_id = body.get("node_id", "")
+        self._json(gateway.heartbeat(node_id))
+
+    def _post_api_gateway_dispatch(self):
+        """Post api gateway dispatch."""
+        if not self._require_auth("user"):
+            return
+        body = self._body
+        from salmalm.features.nodes import gateway
+
+        node_id = body.get("node_id", "")
+        tool = body.get("tool", "")
+        args = body.get("args", {})
+        if node_id:
+            result = gateway.dispatch(node_id, tool, args)  # type: ignore[assignment]
+        else:
+            result = gateway.dispatch_auto(tool, args)  # type: ignore[assignment]
+            if result is None:
+                result = {"error": "No available node for this tool"}
+        self._json(result)  # type: ignore[arg-type]
+
+    def _post_api_gateway_unregister(self):
+        """Post api gateway unregister."""
+        body = self._body
+        from salmalm.features.nodes import gateway
+
+        node_id = body.get("node_id", "")
+        self._json(gateway.unregister(node_id))
+
     def _post_webhook_slack(self):
         """Post webhook slack."""
         body = self._body
@@ -114,34 +179,25 @@ async def post_config_telegram(request: _Request, _u=_Depends(_auth)):
     return _JSON(content={"ok": True, "message": "Telegram config saved. Restart required."})
 
 @router.post("/api/gateway/register")
-async def post_gateway_register(request: _Request, _u=_Depends(_auth)):
+async def post_gateway_register(request: _Request):
     from salmalm.features.nodes import gateway
-    from salmalm.tools.tools_common import _is_private_url_follow_redirects
-    if _u.get("role") != "admin":
-        return _JSON(content={"error": "Admin access required"}, status_code=403)
     body = await request.json()
     node_id = body.get("node_id", "")
     url = body.get("url", "")
     if not node_id or not url:
         return _JSON(content={"error": "node_id and url required"}, status_code=400)
-    blocked, reason, _ = _is_private_url_follow_redirects(url)
-    if blocked:
-        return _JSON(content={"error": f"Blocked node URL: {reason}"}, status_code=400)
     result = gateway.register(node_id, url, token=body.get("token", ""),
                               capabilities=body.get("capabilities"), name=body.get("name", ""))
     return _JSON(content=result)
 
 @router.post("/api/gateway/heartbeat")
 async def post_gateway_heartbeat(request: _Request):
-    # Heartbeat intentionally unauthenticated — nodes use their own token in body
     from salmalm.features.nodes import gateway
     body = await request.json()
     return _JSON(content=gateway.heartbeat(body.get("node_id", "")))
 
 @router.post("/api/gateway/unregister")
-async def post_gateway_unregister(request: _Request, _u=_Depends(_auth)):
-    if _u.get("role") != "admin":
-        return _JSON(content={"error": "Admin access required"}, status_code=403)
+async def post_gateway_unregister(request: _Request):
     from salmalm.features.nodes import gateway
     body = await request.json()
     return _JSON(content=gateway.unregister(body.get("node_id", "")))

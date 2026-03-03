@@ -20,7 +20,6 @@ import uuid
 from pathlib import Path
 from typing import Callable
 
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -62,37 +61,7 @@ _LLM_PATHS: frozenset = frozenset(
 )
 
 # ── FastAPI app ─────────────────────────────────────────────────────────────
-@asynccontextmanager
-async def _lifespan(application: FastAPI):
-    """FastAPI lifespan handler — replaces deprecated @app.on_event('startup')."""
-    _register_all_routes()
-    yield
-
-
-app = FastAPI(title="SalmAlm", version=VERSION, docs_url=None, redoc_url=None, lifespan=_lifespan)
-
-# ── BUG-DX: Global request body size limit middleware ─────────────────────────
-_BODY_LIMIT_DEFAULT = 10 * 1024 * 1024   # 10MB
-_BODY_LIMIT_UPLOAD = 50 * 1024 * 1024    # 50MB for /api/upload
-
-
-@app.middleware("http")
-async def _body_size_limit_middleware(request: Request, call_next):
-    """Reject requests whose Content-Length exceeds per-path limits."""
-    if request.method in ("POST", "PUT", "PATCH"):
-        max_body = _BODY_LIMIT_UPLOAD if request.url.path == "/api/upload" else _BODY_LIMIT_DEFAULT
-        cl = request.headers.get("content-length")
-        if cl:
-            try:
-                if int(cl) > max_body:
-                    return JSONResponse(
-                        {"error": f"Request body too large (max {max_body // 1024 // 1024}MB)"},
-                        status_code=413,
-                    )
-            except ValueError:
-                pass
-    return await call_next(request)
-
+app = FastAPI(title="SalmAlm", version=VERSION, docs_url=None, redoc_url=None)
 
 # ── Static files ─────────────────────────────────────────────────────────────
 _static_dist = Path(__file__).parent.parent / "static" / "dist"
@@ -211,29 +180,10 @@ async def _dispatch(
     if guard_resp is not None:
         return guard_resp
 
-    # Body — BUG-DX fix: enforce _MAX_POST_SIZE before reading into memory
+    # Body
     if body_bytes is None:
         if method in ("POST", "PUT", "PATCH"):
-            _clen_str = request.headers.get("content-length", "")
-            _max_body = getattr(FastHandler, "_MAX_POST_SIZE", 10 * 1024 * 1024)
-            if request.url.path == "/api/upload":
-                _max_body = 50 * 1024 * 1024  # uploads get 50MB
-            if _clen_str:
-                try:
-                    _clen = int(_clen_str)
-                    if _clen > _max_body:
-                        return JSONResponse(
-                            {"error": f"Request body too large (max {_max_body // 1024 // 1024}MB)"},
-                            status_code=413,
-                        )
-                except ValueError:
-                    pass
             body_bytes = await request.body()
-            if len(body_bytes) > _max_body:
-                return JSONResponse(
-                    {"error": f"Request body too large (max {_max_body // 1024 // 1024}MB)"},
-                    status_code=413,
-                )
         else:
             body_bytes = b""
 
@@ -342,12 +292,6 @@ def _register_all_routes() -> None:
         return
     _routes_registered = True
 
-    # Include FastAPI routers FIRST so explicit routes take priority over catch-all
-    try:
-        _include_route_routers()
-    except Exception:
-        pass
-
     _ensure_handler()
 
     from salmalm.web.web import WebHandler
@@ -441,7 +385,16 @@ def _register_all_routes() -> None:
         return await _dispatch(request, request.method)
 
 
-# Startup handled via lifespan= parameter above (on_event deprecated in FastAPI 0.95+)
+@app.on_event("startup")
+async def _on_startup() -> None:  # noqa: D401
+    _register_all_routes()
+    # Capture main event loop for LLMCronManager._execute_job (daemon thread dispatch)
+    import asyncio as _aio_startup
+    try:
+        from salmalm.core.llm_cron import LLMCronManager
+        LLMCronManager._main_loop = _aio_startup.get_running_loop()
+    except Exception:
+        pass
 
 
 # ── WebSocket endpoint (single-port, same as HTTP) ────────────────────────
@@ -454,7 +407,11 @@ async def websocket_endpoint(websocket: _WebSocket) -> None:
     await _ws_server.handle_connection(websocket)
 
 
-# (routes registered below after _include_route_routers)
+# Also register synchronously for tests that import app without running uvicorn
+try:
+    _register_all_routes()
+except Exception:
+    pass  # will be retried on startup event
 
 
 # ── Include FastAPI routers from route modules ────────────────────────────────
@@ -486,14 +443,7 @@ def _include_route_routers() -> None:
             app.include_router(mod.router)
 
 
-# Include FastAPI routers at module import time — BEFORE _register_all_routes()
-# so explicit routes take priority over the catch-all /{full_path:path}.
 try:
     _include_route_routers()
-except Exception:
-    pass
-
-try:
-    _register_all_routes()
 except Exception:
     pass

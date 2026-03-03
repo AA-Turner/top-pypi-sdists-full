@@ -28,6 +28,9 @@ class SVD(ImplicitRecommender):
         Random seed for reproducibility.
     verbose : int
         Verbosity level (0 = silent, 1+ = progress).
+    use_gpu : bool
+        If True, use GPU acceleration (CuPy or PyTorch) for recommendation
+        scoring. Falls back to CPU if no GPU backend found. Default False.
     """
 
     def __init__(
@@ -38,6 +41,7 @@ class SVD(ImplicitRecommender):
         iterations: int = 20,
         seed: int = 42,
         verbose: int = 0,
+        use_gpu: bool = False,
         **kwargs: Any,
     ) -> None:
         self.factors = factors
@@ -46,6 +50,7 @@ class SVD(ImplicitRecommender):
         self.iterations = iterations
         self.seed = seed
         self.verbose = verbose
+        self.use_gpu = use_gpu
         self._fitted = False
         self._user_factors = None
         self._item_factors = None
@@ -98,11 +103,15 @@ class SVD(ImplicitRecommender):
         else:
             # Try pandas or polars DataFrame
             try:
-                import pandas as pd
+                from rusket._dependencies import import_optional_dependency
+
+                pd = import_optional_dependency("pandas")
             except ImportError:
                 pd = None  # type: ignore
             try:
-                import polars as pl
+                from rusket._dependencies import import_optional_dependency
+
+                pl = import_optional_dependency("polars")
             except ImportError:
                 pl = None  # type: ignore
 
@@ -189,6 +198,26 @@ class SVD(ImplicitRecommender):
         """
         self._check_fitted()
         import numpy as np
+
+        if self.use_gpu:
+            from .gpu import get_gpu_backend_safe, gpu_score_user
+
+            gpu = get_gpu_backend_safe()
+            if gpu is not None:
+                backend, lib = gpu
+                scores = gpu_score_user(
+                    self._user_factors[user_id],  # type: ignore
+                    self._item_factors,  # type: ignore
+                    backend,
+                    lib,
+                )
+                scores = scores + self._global_mean + self._user_biases[user_id] + self._item_biases  # type: ignore
+                if exclude_seen and self._interactions is not None:
+                    indptr = self._interactions.indptr
+                    seen = self._interactions.indices[indptr[user_id] : indptr[user_id + 1]]
+                    scores[seen] = -np.inf
+                top_n = np.argsort(scores)[::-1][:n]
+                return top_n.astype(np.int32), scores[top_n].astype(np.float32)
 
         if exclude_seen and self._interactions is not None:
             indptr = np.asarray(self._interactions.indptr, dtype=np.int64)
@@ -286,13 +315,17 @@ class SVD(ImplicitRecommender):
 
         if format == "polars":
             try:
-                import polars as pl
+                from rusket._dependencies import import_optional_dependency
+
+                pl = import_optional_dependency("polars")
 
                 return pl.DataFrame(data)
             except ImportError:
                 pass
 
-        import pandas as pd
+        from rusket._dependencies import import_optional_dependency
+
+        pd = import_optional_dependency("pandas")
 
         return pd.DataFrame(data)
 

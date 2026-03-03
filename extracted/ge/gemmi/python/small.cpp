@@ -11,7 +11,8 @@
 #include "gemmi/gz.hpp"            // for estimate_uncompressed_size
 #include "gemmi/interop.hpp"       // for atom_to_site, mx_to_sx_structure
 #include "gemmi/flat.hpp"          // for FlatStructure, FlatAtom
-                                   //
+#include "gemmi/pymol_select.hpp"  // for select_atoms
+
 using namespace gemmi;
 
 NB_MAKE_OPAQUE(std::vector<SmallStructure::Site>)
@@ -68,8 +69,7 @@ void add_small(nb::module_& m) {
     .def(nb::init<>())
     .def_rw("name", &SmallStructure::name)
     .def_rw("cell", &SmallStructure::cell)
-    .def_ro("spacegroup", &SmallStructure::spacegroup,
-                  nb::rv_policy::reference_internal)
+    .def_rw("spacegroup", &SmallStructure::spacegroup, nb::arg().none())
     .def_rw("spacegroup_hm", &SmallStructure::spacegroup_hm)
     .def_rw("spacegroup_hall", &SmallStructure::spacegroup_hall)
     .def_rw("spacegroup_number", &SmallStructure::spacegroup_number)
@@ -82,6 +82,7 @@ void add_small(nb::module_& m) {
     })
     .def("determine_and_set_spacegroup", &SmallStructure::determine_and_set_spacegroup,
          nb::arg("order"))
+    .def("setup_cell_images", &SmallStructure::setup_cell_images)
     .def("check_spacegroup", &SmallStructure::check_spacegroup)
     .def("get_atom_type", &SmallStructure::get_atom_type)
     .def("get_all_unit_cell_sites", &SmallStructure::get_all_unit_cell_sites)
@@ -102,6 +103,9 @@ void add_small(nb::module_& m) {
          "Create a flat representation of a Structure")
     .def("generate_structure", &FlatStructure::generate_structure,
          "Reconstructs a Structure from the flat table of atoms")
+    .def("leave_only", &remove_not_selected)
+    .def_rw("strings_as_numbers", &FlatStructure::strings_as_numbers,
+            "If true, string fields return (N,8) char arrays; if false, S8 string arrays")
     .def("__len__", [](const FlatStructure& self) { return self.table.size(); })
     .def("__repr__", [](const FlatStructure& self) {
         return "<gemmi.FlatStructure with " + std::to_string(self.table.size()) + " atoms>";
@@ -131,46 +135,118 @@ void add_small(nb::module_& m) {
     .def_prop_ro("selected", [](FlatStructure& self) {
         return vector_member_array(self.table, &FlatAtom::selected);
     }, nb::rv_policy::reference_internal, "Selection flags as numpy array")
-    // String fields as S8 (8-byte fixed-width string) numpy arrays
-    .def_prop_ro("atom_names", [](FlatStructure& self) {
+    .def_prop_ro("serials", [](FlatStructure& self) {
+        return vector_member_array(self.table, &FlatAtom::serial);
+    }, nb::rv_policy::reference_internal, "Serial numbers as numpy array")
+    .def_prop_ro("altlocs", [](FlatStructure& self) {
+        return vector_member_array(self.table, &FlatAtom::altloc);
+    }, nb::rv_policy::reference_internal, "Alternate location indicators as numpy array")
+    .def_prop_ro("het_flags", [](FlatStructure& self) {
+        return vector_member_array(self.table, &FlatAtom::het_flag);
+    }, nb::rv_policy::reference_internal, "Het flags as numpy array ('A'=ATOM, 'H'=HETATM)")
+    .def_prop_ro("elements", [](FlatStructure& self) {
         constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
-        return nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
+        return nb::ndarray<nb::numpy, uint8_t, nb::shape<-1>>(
+            reinterpret_cast<uint8_t*>(&self.table.data()->element),
+            {self.table.size()},
+            nb::handle(),
+            {stride});
+    }, nb::rv_policy::reference_internal, "Element types as numpy array")
+    .def_prop_ro("entity_type", [](FlatStructure& self) {
+        constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
+        return nb::ndarray<nb::numpy, uint8_t, nb::shape<-1>>(
+            reinterpret_cast<uint8_t*>(&self.table.data()->entity_type),
+            {self.table.size()},
+            nb::handle(),
+            {stride});
+    }, nb::rv_policy::reference_internal, "Entity types as numpy array")
+    .def_prop_ro("resnums", [](FlatStructure& self) {
+        constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom) / sizeof(int));
+        return nb::ndarray<nb::numpy, int, nb::shape<-1>>(
+            &self.table.data()->seq_id.num.value,
+            {self.table.size()},
+            nb::handle(),
+            {stride});
+    }, nb::rv_policy::reference_internal, "Residue sequence numbers as numpy array")
+    .def_prop_ro("icodes", [](FlatStructure& self) {
+        constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
+        return nb::ndarray<nb::numpy, char, nb::shape<-1>>(
+            &self.table.data()->seq_id.icode,
+            {self.table.size()},
+            nb::handle(),
+            {stride});
+    }, nb::rv_policy::reference_internal, "Insertion codes as numpy array")
+    .def_prop_ro("element_weights", [](FlatStructure& self) {
+        std::vector<double> weights;
+        weights.reserve(self.table.size());
+        for (const auto& atom : self.table)
+            weights.push_back(molecular_weight(atom.element));
+        return numpy_array_from_vector(std::move(weights));
+    }, nb::rv_policy::move, "Element molecular weights as numpy array")
+    .def_prop_ro("element_names", [](FlatStructure& self) {
+        std::vector<std::array<char, 2>> names;
+        names.reserve(self.table.size());
+        for (const auto& atom : self.table) {
+            const char* name = element_name(atom.element);
+            names.push_back({name[0], name[1]});
+        }
+        auto raw = py_array2d_from_vector(std::move(names));
+        return nb::cast(raw).attr("view")("S2").attr("ravel")();
+    }, nb::rv_policy::move, "Element names as numpy array")
+    // String fields as S8 (8-byte fixed-width string) numpy arrays
+    .def_prop_ro("atom_names", [](FlatStructure& self) -> nb::object {
+        constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
+        auto raw = nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
             self.table.data()->atom_name,
             {self.table.size(), 8},
             nb::handle(),
             {stride, 1});
+        if (self.strings_as_numbers)
+          return nb::cast(raw);
+        return nb::cast(raw).attr("view")("S8").attr("ravel")();
     }, nb::rv_policy::reference_internal, "Atom names as (N, 8) char array")
-    .def_prop_ro("residue_names", [](FlatStructure& self) {
+    .def_prop_ro("residue_names", [](FlatStructure& self) -> nb::object {
         constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
-        return nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
+        auto raw = nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
             self.table.data()->residue_name,
             {self.table.size(), 8},
             nb::handle(),
             {stride, 1});
+        if (self.strings_as_numbers)
+          return nb::cast(raw);
+        return nb::cast(raw).attr("view")("S8").attr("ravel")();
     }, nb::rv_policy::reference_internal, "Residue names as (N, 8) char array")
-    .def_prop_ro("chain_ids", [](FlatStructure& self) {
+    .def_prop_ro("chain_ids", [](FlatStructure& self) -> nb::object {
         constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
-        return nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
+        auto raw = nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
             self.table.data()->chain_id,
             {self.table.size(), 8},
             nb::handle(),
             {stride, 1});
+        if (self.strings_as_numbers)
+          return nb::cast(raw);
+        return nb::cast(raw).attr("view")("S8").attr("ravel")();
     }, nb::rv_policy::reference_internal, "Chain IDs as (N, 8) char array")
-    .def_prop_ro("subchains", [](FlatStructure& self) {
+    .def_prop_ro("subchains", [](FlatStructure& self) -> nb::object {
         constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
-        return nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
+        auto raw = nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
             self.table.data()->subchain,
             {self.table.size(), 8},
             nb::handle(),
             {stride, 1});
+        if (self.strings_as_numbers)
+          return nb::cast(raw);
+        return nb::cast(raw).attr("view")("S8").attr("ravel")();
     }, nb::rv_policy::reference_internal, "Subchain IDs as (N, 8) char array")
-    .def_prop_ro("entity_ids", [](FlatStructure& self) {
+    .def_prop_ro("entity_ids", [](FlatStructure& self) -> nb::object {
         constexpr int64_t stride = static_cast<int64_t>(sizeof(FlatAtom));
-        return nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
+        auto raw = nb::ndarray<nb::numpy, char, nb::shape<-1, 8>>(
             self.table.data()->entity_id,
             {self.table.size(), 8},
             nb::handle(),
             {stride, 1});
+        if (self.strings_as_numbers)
+          return nb::cast(raw);
+        return nb::cast(raw).attr("view")("S8").attr("ravel")();
     }, nb::rv_policy::reference_internal, "Entity IDs as (N, 8) char array");
 }
-

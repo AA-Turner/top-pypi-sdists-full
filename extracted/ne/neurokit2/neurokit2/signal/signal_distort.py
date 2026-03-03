@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -165,7 +164,6 @@ def signal_distort(
 
 
 def _signal_linear_drift(signal):
-
     n_samples = len(signal)
     linear_drift = np.arange(n_samples) * (1 / n_samples)
 
@@ -183,7 +181,6 @@ def _signal_distort_artifacts(
     silent=False,
     rng=None,
 ):
-
     # Generate artifact burst with random onset and random duration.
     artifacts = _signal_distort_noise(
         len(signal),
@@ -226,7 +223,6 @@ def _signal_distort_powerline(
     powerline_amplitude=0.1,
     silent=False,
 ):
-
     duration = len(signal) / sampling_rate
     powerline_noise = signal_simulate(
         duration=duration,
@@ -254,12 +250,9 @@ def _signal_distort_noise_multifrequency(
     rng=None,
 ):
     base_noise = np.zeros(len(signal))
-    params = listify(
-        noise_amplitude=noise_amplitude, noise_frequency=noise_frequency, noise_shape=noise_shape
-    )
+    params = listify(noise_amplitude=noise_amplitude, noise_frequency=noise_frequency, noise_shape=noise_shape)
 
     for i in range(len(params["noise_amplitude"])):
-
         freq = params["noise_frequency"][i]
         amp = params["noise_amplitude"][i]
         shape = params["noise_shape"][i]
@@ -291,7 +284,6 @@ def _signal_distort_noise(
     silent=False,
     rng=None,
 ):
-
     _noise = np.zeros(n_samples)
     # Apply a very conservative Nyquist criterion in order to ensure
     # sufficiently sampled signals.
@@ -330,9 +322,7 @@ def _signal_distort_noise(
     elif noise_shape == "laplace":
         _noise = rng.laplace(0, noise_amplitude, noise_duration)
     else:
-        raise ValueError(
-            "NeuroKit error: signal_distort(): 'noise_shape' should be one of 'gaussian' or 'laplace'."
-        )
+        raise ValueError("NeuroKit error: signal_distort(): 'noise_shape' should be one of 'gaussian' or 'laplace'.")
 
     if len(_noise) != n_samples:
         _noise = signal_resample(_noise, desired_length=n_samples, method="interpolation")

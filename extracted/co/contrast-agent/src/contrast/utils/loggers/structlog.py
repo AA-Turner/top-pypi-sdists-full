@@ -11,13 +11,13 @@ Use print(...) instead
 from __future__ import annotations
 
 import asyncio
-from contextlib import suppress
+import io
 import os
 import pathlib
-import io
-from socket import gethostname
 import sys
+from contextlib import suppress
 from dataclasses import dataclass
+from socket import gethostname
 from typing import TextIO, cast
 
 from contrast.agent import request_state
@@ -265,7 +265,8 @@ def init_structlog(
 
     structlog.configure(
         processors=[
-            structlog.processors.MaybeTimeStamper(fmt="iso", key="time"),
+            # Force UTC so agent JSON logs are consistent and match early startup logs.
+            structlog.processors.MaybeTimeStamper(fmt="iso", key="time", utc=True),
             structlog.processors.add_log_level,
             rename_key("event", "msg"),
             structlog.processors.CallsiteParameterAdder(

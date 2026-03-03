@@ -4,8 +4,22 @@
 //! visible text content with structural whitespace, bypassing the full
 //! Markdown/Djot conversion pipeline.
 
+use std::fmt::Write;
+
 use crate::options::ConversionOptions;
 use crate::text;
+
+/// Tracks list context for proper marker emission on `<li>` elements.
+#[derive(Clone, Debug)]
+enum ListContext {
+    /// Not inside any list.
+    None,
+    /// Inside `<ul>` — each `<li>` gets a `- ` prefix.
+    Unordered,
+    /// Inside `<ol>` — each `<li>` gets a sequential `N. ` prefix.
+    /// The `next_index` is incremented after each `<li>`.
+    Ordered { next_index: u32 },
+}
 
 /// Tags whose content should be skipped entirely.
 const SKIP_TAGS: &[&str] = &["script", "style", "head", "template", "noscript", "svg", "math"];
@@ -49,9 +63,10 @@ const BLOCK_TAGS: &[&str] = &[
 /// - Inline elements are recursed without markers
 pub fn extract_plain_text(dom: &tl::VDom, parser: &tl::Parser, options: &ConversionOptions) -> String {
     let mut buf = String::with_capacity(1024);
+    let mut list_ctx = ListContext::None;
 
     for child_handle in dom.children() {
-        walk_plain(child_handle, parser, &mut buf, options, false);
+        walk_plain(child_handle, parser, &mut buf, options, false, &mut list_ctx);
     }
 
     post_process(&mut buf);
@@ -65,6 +80,7 @@ fn walk_plain(
     buf: &mut String,
     options: &ConversionOptions,
     in_pre: bool,
+    list_ctx: &mut ListContext,
 ) {
     let Some(node) = node_handle.get(parser) else {
         return;
@@ -105,7 +121,7 @@ fn walk_plain(
                 }
                 "pre" => {
                     ensure_blank_line(buf);
-                    walk_children(tag, parser, buf, options, true);
+                    walk_children(tag, parser, buf, options, true, list_ctx);
                     ensure_blank_line(buf);
                 }
                 "img" => {
@@ -123,19 +139,50 @@ fn walk_plain(
                     walk_table(tag, parser, buf, options);
                     ensure_blank_line(buf);
                 }
+                "ul" => {
+                    ensure_newline(buf);
+                    let mut child_ctx = ListContext::Unordered;
+                    walk_children(tag, parser, buf, options, false, &mut child_ctx);
+                    ensure_newline(buf);
+                }
+                "ol" => {
+                    let start = tag
+                        .attributes()
+                        .get("start")
+                        .flatten()
+                        .and_then(|v| v.as_utf8_str().parse::<u32>().ok())
+                        .unwrap_or(1);
+                    ensure_newline(buf);
+                    let mut child_ctx = ListContext::Ordered { next_index: start };
+                    walk_children(tag, parser, buf, options, false, &mut child_ctx);
+                    ensure_newline(buf);
+                }
                 "li" => {
                     ensure_newline(buf);
-                    walk_children(tag, parser, buf, options, false);
+                    match list_ctx {
+                        ListContext::Unordered => {
+                            buf.push_str("- ");
+                        }
+                        ListContext::Ordered { next_index } => {
+                            let _ = write!(buf, "{}. ", next_index);
+                            *next_index += 1;
+                        }
+                        ListContext::None => {
+                            // <li> outside a list — emit with bullet as fallback
+                            buf.push_str("- ");
+                        }
+                    }
+                    walk_children(tag, parser, buf, options, false, list_ctx);
                     ensure_newline(buf);
                 }
                 _ if BLOCK_TAGS.contains(&tag_str) => {
                     ensure_blank_line(buf);
-                    walk_children(tag, parser, buf, options, in_pre);
+                    walk_children(tag, parser, buf, options, in_pre, list_ctx);
                     ensure_blank_line(buf);
                 }
                 _ => {
-                    // Inline elements and structural containers (html, body, ul, ol, etc.)
-                    walk_children(tag, parser, buf, options, in_pre);
+                    // Inline elements and structural containers (html, body, etc.)
+                    walk_children(tag, parser, buf, options, in_pre, list_ctx);
                 }
             }
         }
@@ -144,11 +191,18 @@ fn walk_plain(
 }
 
 /// Walk all children of a tag.
-fn walk_children(tag: &tl::HTMLTag, parser: &tl::Parser, buf: &mut String, options: &ConversionOptions, in_pre: bool) {
+fn walk_children(
+    tag: &tl::HTMLTag,
+    parser: &tl::Parser,
+    buf: &mut String,
+    options: &ConversionOptions,
+    in_pre: bool,
+    list_ctx: &mut ListContext,
+) {
     let children = tag.children();
     let top = children.top();
     for child in top.iter() {
-        walk_plain(child, parser, buf, options, in_pre);
+        walk_plain(child, parser, buf, options, in_pre, list_ctx);
     }
 }
 
@@ -185,7 +239,8 @@ fn walk_table(table_tag: &tl::HTMLTag, parser: &tl::Parser, buf: &mut String, op
             }
             let mut cell_buf = String::new();
             if let Some(tl::Node::Tag(cell_tag)) = cell_handle.get(parser) {
-                walk_children(cell_tag, parser, &mut cell_buf, options, false);
+                let mut cell_list_ctx = ListContext::None;
+                walk_children(cell_tag, parser, &mut cell_buf, options, false, &mut cell_list_ctx);
             }
             buf.push_str(cell_buf.trim());
         }

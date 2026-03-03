@@ -161,7 +161,6 @@ def _complexity_k_slope(kmax, signal, k_number="max"):
 
 
 def _complexity_k_plot(k_range, slope_values, k_optimal, ax=None):
-
     # Prepare plot
     if ax is None:
         fig, ax = plt.subplots()

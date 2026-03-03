@@ -34,7 +34,7 @@ def handle_calendar_list(args: dict) -> str:
     )
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=15) as resp:
-        data = json.loads(resp.read(4 * 1024 * 1024))
+        data = json.loads(resp.read())
 
     events = data.get("items", [])
     if not events:
@@ -99,7 +99,7 @@ def handle_calendar_add(args: dict) -> str:
         f"{base_url}/events", data=body, headers={**headers, "Content-Type": "application/json"}, method="POST"
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
-        result = json.loads(resp.read(4 * 1024 * 1024))
+        result = json.loads(resp.read())
 
     return f"📅 Event created: **{result.get('summary')}** ({result.get('htmlLink', '')})"
 

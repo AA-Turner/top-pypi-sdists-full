@@ -163,7 +163,7 @@ class ProviderHealthCheck:
                 try:
                     req = urllib.request.Request(endpoint, headers=headers)
                     resp = urllib.request.urlopen(req, timeout=5)
-                    data = json.loads(resp.read(4 * 1024 * 1024))
+                    data = json.loads(resp.read())
                     count = len(data.get("models", data.get("data", [])))
                     return f"ok ({count} models)"
                 except Exception as e:  # noqa: broad-except

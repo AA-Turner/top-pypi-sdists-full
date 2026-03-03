@@ -1598,6 +1598,11 @@ class CfnField(
             type="type",
         
             # the properties below are optional
+            attributes=cases.CfnField.FieldAttributesProperty(
+                text=cases.CfnField.TextAttributesProperty(
+                    is_multiline=False
+                )
+            ),
             description="description",
             domain_id="domainId",
             tags=[CfnTag(
@@ -1614,6 +1619,7 @@ class CfnField(
         *,
         name: builtins.str,
         type: builtins.str,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnField.FieldAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         domain_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1624,6 +1630,7 @@ class CfnField(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: Name of the field.
         :param type: Type of the field.
+        :param attributes: Union of field attributes.
         :param description: Description of the field.
         :param domain_id: The unique identifier of the Cases domain.
         :param tags: An array of key-value pairs to apply to this resource.
@@ -1635,6 +1642,7 @@ class CfnField(
         props = CfnFieldProps(
             name=name,
             type=type,
+            attributes=attributes,
             description=description,
             domain_id=domain_id,
             tags=tags,
@@ -1784,6 +1792,24 @@ class CfnField(
         jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="attributes")
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnField.FieldAttributesProperty"]]:
+        '''Union of field attributes.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnField.FieldAttributesProperty"]], jsii.get(self, "attributes"))
+
+    @attributes.setter
+    def attributes(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnField.FieldAttributesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec9d872641de59c09d1a4aa0f22acf0a4b6384bca238c55b5acd984fda658ff1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the field.'''
@@ -1822,6 +1848,121 @@ class CfnField(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cases.CfnField.FieldAttributesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"text": "text"},
+    )
+    class FieldAttributesProperty:
+        def __init__(
+            self,
+            *,
+            text: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnField.TextAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Union of field attributes.
+
+            :param text: Field attributes for Text field type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-field-fieldattributes.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cases as cases
+                
+                field_attributes_property = cases.CfnField.FieldAttributesProperty(
+                    text=cases.CfnField.TextAttributesProperty(
+                        is_multiline=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__523ee0d133ea645c43762c2e235a9493a7f2cfc762459ff52a9acf636d7003cb)
+                check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if text is not None:
+                self._values["text"] = text
+
+        @builtins.property
+        def text(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnField.TextAttributesProperty"]]:
+            '''Field attributes for Text field type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-field-fieldattributes.html#cfn-cases-field-fieldattributes-text
+            '''
+            result = self._values.get("text")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnField.TextAttributesProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FieldAttributesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cases.CfnField.TextAttributesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"is_multiline": "isMultiline"},
+    )
+    class TextAttributesProperty:
+        def __init__(
+            self,
+            *,
+            is_multiline: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        ) -> None:
+            '''Field attributes for Text field type.
+
+            :param is_multiline: Attribute that defines rendering component and validation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-field-textattributes.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cases as cases
+                
+                text_attributes_property = cases.CfnField.TextAttributesProperty(
+                    is_multiline=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__740b2578760e7393305d88b48521a3000c613a1625cdd16b4967f671c06692ff)
+                check_type(argname="argument is_multiline", value=is_multiline, expected_type=type_hints["is_multiline"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "is_multiline": is_multiline,
+            }
+
+        @builtins.property
+        def is_multiline(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Attribute that defines rendering component and validation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cases-field-textattributes.html#cfn-cases-field-textattributes-ismultiline
+            '''
+            result = self._values.get("is_multiline")
+            assert result is not None, "Required property 'is_multiline' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TextAttributesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_cases.CfnFieldProps",
@@ -1829,6 +1970,7 @@ class CfnField(
     name_mapping={
         "name": "name",
         "type": "type",
+        "attributes": "attributes",
         "description": "description",
         "domain_id": "domainId",
         "tags": "tags",
@@ -1840,6 +1982,7 @@ class CfnFieldProps:
         *,
         name: builtins.str,
         type: builtins.str,
+        attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnField.FieldAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         domain_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1848,6 +1991,7 @@ class CfnFieldProps:
 
         :param name: Name of the field.
         :param type: Type of the field.
+        :param attributes: Union of field attributes.
         :param description: Description of the field.
         :param domain_id: The unique identifier of the Cases domain.
         :param tags: An array of key-value pairs to apply to this resource.
@@ -1867,6 +2011,11 @@ class CfnFieldProps:
                 type="type",
             
                 # the properties below are optional
+                attributes=cases.CfnField.FieldAttributesProperty(
+                    text=cases.CfnField.TextAttributesProperty(
+                        is_multiline=False
+                    )
+                ),
                 description="description",
                 domain_id="domainId",
                 tags=[CfnTag(
@@ -1879,6 +2028,7 @@ class CfnFieldProps:
             type_hints = typing.get_type_hints(_typecheckingstub__03d88f5f2a426612b3094a6a5e2b1d83000a584ac3ec25a332e2eed7bf494641)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1886,6 +2036,8 @@ class CfnFieldProps:
             "name": name,
             "type": type,
         }
+        if attributes is not None:
+            self._values["attributes"] = attributes
         if description is not None:
             self._values["description"] = description
         if domain_id is not None:
@@ -1912,6 +2064,17 @@ class CfnFieldProps:
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnField.FieldAttributesProperty"]]:
+        '''Union of field attributes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cases-field.html#cfn-cases-field-attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnField.FieldAttributesProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3711,6 +3874,7 @@ def _typecheckingstub__bd620a5620fd7cf34e28f8693796fb9f7ddd93fcd8c7695281c08776f
     *,
     name: builtins.str,
     type: builtins.str,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnField.FieldAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     domain_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3754,6 +3918,12 @@ def _typecheckingstub__1d1ce71132b61a56132ed0e80dbe19e4967ff0b2b1c54f168b872efaa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ec9d872641de59c09d1a4aa0f22acf0a4b6384bca238c55b5acd984fda658ff1(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnField.FieldAttributesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c8bb005f1b34005da816178413750d75ad68393cadf6b2e46830cb4281e557b2(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -3772,10 +3942,25 @@ def _typecheckingstub__f8dde35cd2abf2847d466bfc9448c8228fd804275187398cf2ef8bdeb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__523ee0d133ea645c43762c2e235a9493a7f2cfc762459ff52a9acf636d7003cb(
+    *,
+    text: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnField.TextAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__740b2578760e7393305d88b48521a3000c613a1625cdd16b4967f671c06692ff(
+    *,
+    is_multiline: typing.Union[builtins.bool, _IResolvable_da3f097b],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__03d88f5f2a426612b3094a6a5e2b1d83000a584ac3ec25a332e2eed7bf494641(
     *,
     name: builtins.str,
     type: builtins.str,
+    attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnField.FieldAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     domain_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

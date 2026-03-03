@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -7,15 +6,7 @@ from ..stats import standardize
 from .microstates_peaks import microstates_peaks
 
 
-def microstates_clean(
-    eeg,
-    sampling_rate=None,
-    train="gfp",
-    standardize_eeg=True,
-    normalize=True,
-    gfp_method="l1",
-    **kwargs
-):
+def microstates_clean(eeg, sampling_rate=None, train="gfp", standardize_eeg=True, normalize=True, gfp_method="l1", **kwargs):
     """**Prepare eeg data for microstates extraction**
 
     This is mostly a utility function to get the data ready for :func:`.microstates_segment`.
@@ -84,9 +75,7 @@ def microstates_clean(
         eeg = standardize(eeg, **kwargs)
 
     # Get GFP
-    gfp = eeg_gfp(
-        eeg, sampling_rate=sampling_rate, normalize=normalize, method=gfp_method, **kwargs
-    )
+    gfp = eeg_gfp(eeg, sampling_rate=sampling_rate, normalize=normalize, method=gfp_method, **kwargs)
 
     # If train is a custom of vector (assume it's the pre-computed peaks)
     if isinstance(train, (list, np.ndarray)):

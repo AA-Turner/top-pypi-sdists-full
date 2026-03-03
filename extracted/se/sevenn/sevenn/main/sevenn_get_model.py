@@ -9,8 +9,8 @@ description_get_model = (
     'deploy LAMMPS model from the checkpoint'
 )
 checkpoint_help = (
-    'path to the checkpoint | SevenNet-0 | 7net-0 |'
-    ' {SevenNet-0|7net-0}_{11July2024|22May2024}'
+    'Pretrained model name (7net-omni, 7net-omni-i8, 7net-omni-i12, etc.) '
+    'or path to checkpoint file. See documentation for all available models.'
 )
 output_name_help = 'filename prefix'
 get_parallel_help = 'deploy parallel model'
@@ -40,7 +40,9 @@ def add_args(parser):
     )
     ag.add_argument(
         '-flashTP',
+        '--enable_flash',
         '--enable_flashTP',
+        dest='enable_flash',
         help='use flashTP. LAMMPS must be specially compiled.',
         action='store_true',
     )
@@ -66,7 +68,7 @@ def run(args):
     get_parallel = args.get_parallel
     get_serial = not get_parallel
     modal = args.modal
-    use_flash = args.enable_flashTP
+    use_flash = args.enable_flash
     use_cueq = args.enable_cueq
     use_mliap = args.use_mliap
 

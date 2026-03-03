@@ -16,13 +16,12 @@ jobs:
       max-parallel: 1
       matrix:
         python-version:
-          - "3.9"
           - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
@@ -49,9 +48,9 @@ jobs:
           mypy .
 
       - name: Set up protoc
-        uses: arduino/setup-protoc@v1
+        uses: arduino/setup-protoc@v3
         with:
-          version: '3.x'
+          version: '25.x'
 
       - name: Generate proto files
         run: |

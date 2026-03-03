@@ -25,6 +25,7 @@ from jax._src import core
 from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import pretty_printer as pp
+from jax._src import source_info_util
 from jax._src import traceback_util
 from jax._src import tree_util
 from jax._src.interpreters import ad
@@ -41,6 +42,7 @@ from jax._src.state.types import (
     Transform,
     TransformedRef,
     WriteEffect,
+    transform_type as transform_type,
 )
 from jax._src.typing import Array, ArrayLike
 from jax._src.util import safe_map, safe_zip
@@ -381,44 +383,16 @@ def ref_addupdate(
 ## get/set/addupdate abstract evaluation rules
 
 
-def _shape_after_transforming(
-    shape: tuple[int | Array, ...], transforms: tuple[Transform, ...]
-) -> tuple[int | Array, ...]:
-  for transform in transforms:
-    shape = transform.transform_shape(shape)  # type: ignore
-  assert shape is not None
-  return shape
-
-
-def _dtype_after_transforming(
-    dtype: Any, transforms: tuple[Transform, ...]
-) -> Any:
-  for transform in transforms:
-    dtype = transform.transform_dtype(dtype)
-  assert dtype is not None
-  return dtype
-
-
-def _sharding_after_transforming(sharding, transforms):
-  for transform in transforms:
-    sharding = transform.transform_sharding(sharding)
-  assert sharding is not None
-  return sharding
-
-
 def _get_abstract_eval(ref_aval: AbstractRef, *args,
                        tree):
   transforms = tree_util.tree_unflatten(tree, args)
   if transforms and ref_aval.inner_aval.is_high:
-    return ref_aval.inner_aval.ref_get_abstract_eval(ref_aval, *args, tree=tree)
+    # TODO(mattjj): aval.is_high does not imply the existence of ref_get_abstract_aval.
+    return ref_aval.inner_aval.ref_get_abstract_eval(ref_aval, *args, tree=tree)  # pyrefly: ignore[missing-attribute]
   if not isinstance(ref_aval, AbstractRef):
     raise ValueError(f"`get` must be called on `Ref` types: {ref_aval}.")
   if isinstance(ref_aval.inner_aval, core.ShapedArray):
-    out_shape = _shape_after_transforming(ref_aval.shape, transforms)
-    out_dtype = _dtype_after_transforming(ref_aval.dtype, transforms)
-    out_sharding = _sharding_after_transforming(ref_aval.sharding, transforms)
-    out_aval = ref_aval.inner_aval.update(
-        shape=out_shape, dtype=out_dtype, sharding=out_sharding)
+    out_aval = transform_type(transforms, ref_aval.inner_aval)
   else:
     if transforms:
       raise ValueError("Cannot index non-shaped array with nontrivial indices.")
@@ -431,7 +405,8 @@ def _swap_abstract_eval(ref_aval: AbstractRef,
                         *args: Any, tree):
   transforms = tree_util.tree_unflatten(tree, args)
   if transforms and ref_aval.inner_aval.is_high:
-    return ref_aval.inner_aval.ref_swap_abstract_eval(
+    # TODO(mattjj): aval.is_high does not imply the existence of ref_swap_abstract_aval.
+    return ref_aval.inner_aval.ref_swap_abstract_eval(  # pyrefly: ignore[missing-attribute]
         ref_aval, val_aval, *args, tree=tree)
   out_aval: core.AbstractValue
   if not isinstance(ref_aval, AbstractRef):
@@ -441,21 +416,21 @@ def _swap_abstract_eval(ref_aval: AbstractRef,
                      "Did you forget to load from it using `[...]`?")
   if isinstance(ref_aval.inner_aval, core.ShapedArray):
     assert isinstance(val_aval, core.ShapedArray)
-    expected_out_shape = _shape_after_transforming(ref_aval.shape, transforms)
-    expected_out_dtype = _dtype_after_transforming(ref_aval.dtype, transforms)
-    if expected_out_shape != val_aval.shape:
+    expected_out_ty = transform_type(transforms, ref_aval.inner_aval)
+    assert isinstance(expected_out_ty, core.ShapedArray)
+    if expected_out_ty.shape != val_aval.shape:
       raise ValueError("Invalid shape for `swap`. "
                        f"Ref shape: {ref_aval.shape}. "
-                       f"Expected shape: {expected_out_shape}. "
+                       f"Expected shape: {expected_out_ty.shape}. "
                        f"Value shape: {val_aval.shape}. "
                        f"Transforms: {transforms}. ")
-    if expected_out_dtype != val_aval.dtype:
+    if expected_out_ty.dtype != val_aval.dtype:
       raise ValueError(
           "Invalid dtype for `swap`. "
-          f"Ref dtype: {expected_out_dtype}. "
+          f"Ref dtype: {expected_out_ty.dtype}. "
           f"Value dtype: {val_aval.dtype}. "
       )
-    out_aval = core.ShapedArray(expected_out_shape, expected_out_dtype)
+    out_aval = expected_out_ty
   else:
     if transforms:
       raise ValueError("Cannot index non-shaped array with nontrivial indices.")
@@ -471,22 +446,22 @@ def _addupdate_abstract_eval(ref_aval: AbstractRef,
   if not isinstance(ref_aval, AbstractRef):
     raise ValueError(f"`addupdate` must be called on `Ref` types: {ref_aval}.")
   if isinstance(ref_aval.inner_aval, core.ShapedArray):
-    out_shape = _shape_after_transforming(ref_aval.shape, transforms)
-    out_dtype = _dtype_after_transforming(ref_aval.dtype, transforms)
-    out_sharding = _sharding_after_transforming(ref_aval.sharding, transforms)
+    expected_out_ty = transform_type(transforms, ref_aval.inner_aval)
     assert isinstance(val_aval, core.ShapedArray)
-    if out_shape != val_aval.shape:
+    assert isinstance(expected_out_ty, core.ShapedArray)
+    if expected_out_ty.shape != val_aval.shape:
       raise ValueError(
           "Invalid shape for `addupdate`. "
           f"Ref shape: {ref_aval.shape}. "
-          f"Expected shape: {out_shape}. "
+          f"Expected shape: {expected_out_ty.shape}. "
           f"Value shape: {val_aval.shape}. "
           f"Transforms: {transforms}. "
       )
-    if out_dtype != val_aval.dtype:
+    if expected_out_ty.dtype != val_aval.dtype:
       raise ValueError("Invalid dtype for `addupdate`. "
                        f"Ref dtype: {ref_aval.dtype}. "
                        f"Value shape: {val_aval.dtype}. ")
+    out_sharding = expected_out_ty.sharding
     if ((out_sharding.mesh._any_axis_explicit or
          val_aval.sharding.mesh._any_axis_explicit) and
         out_sharding != val_aval.sharding):
@@ -532,8 +507,11 @@ def _get_pp_rule(eqn, context, settings) -> pp.Doc:
   x, *flat_idx = eqn.invars
   transforms = tree_util.tree_unflatten(eqn.params["tree"], flat_idx)
   lhs = core.pp_vars([y], context, print_shapes=settings.print_shapes)
+  annotation = (source_info_util.summarize(eqn.source_info)
+                if settings.source_info else None)
   return pp.concat(
-      [lhs, pp.text(" <- "), pp_ref_transforms(context, x, transforms)]
+      [lhs, pp.text(" <- ", annotation=annotation),
+       pp_ref_transforms(context, x, transforms)]
   )
 core.pp_eqn_rules[get_p] = _get_pp_rule
 
@@ -541,33 +519,36 @@ def _swap_pp_rule(eqn, context, settings) -> pp.Doc:
   y, = eqn.outvars
   x, v, *flat_idx = eqn.invars
   transforms = tree_util.tree_unflatten(eqn.params["tree"], flat_idx)
+  annotation = (source_info_util.summarize(eqn.source_info)
+                if settings.source_info else None)
   if type(y) is core.DropVar:
     # In the case of a set (ignored return value),
     # pretty print `_ = swap x v i` as `x[i] <- v`
     del y
     return pp.concat([
         pp_ref_transforms(context, x, transforms),
-        pp.text(" <- "),
+        pp.text(" <- ", annotation=annotation),
         pp.text(core.pp_var(v, context)),
     ])
   else:
     # pretty-print `y:T = swap x v i` as `y:T, x[i] <- x[i], v`
     x_i = pp_ref_transforms(context, x, transforms)
     y = core.pp_vars([y], context, print_shapes=settings.print_shapes)
-    return pp.concat([y, pp.text(', '), x_i, pp.text(' <- '),
-                      x_i, pp.text(', '),
-                      pp.text(core.pp_var(v, context))])
+    return pp.concat([y, pp.text(', '), x_i,
+                      pp.text(' <- ', annotation=annotation), x_i,
+                      pp.text(', '), pp.text(core.pp_var(v, context))])
 core.pp_eqn_rules[swap_p] = _swap_pp_rule
 
 def _addupdate_pp_rule(eqn, context, settings) -> pp.Doc:
-  del settings
   # pretty-print ` = addupdate x i v` as `x[i] += v`
   () = eqn.outvars
   x, v, *flat_idx = eqn.invars
   transforms = tree_util.tree_unflatten(eqn.params["tree"], flat_idx)
+  annotation = (source_info_util.summarize(eqn.source_info)
+                if settings.source_info else None)
   return pp.concat([
       pp_ref_transforms(context, x, transforms),
-      pp.text(" += "),
+      pp.text(" += ", annotation=annotation),
       pp.text(core.pp_var(v, context)),
   ])
 core.pp_eqn_rules[addupdate_p] = _addupdate_pp_rule
@@ -615,27 +596,6 @@ def addupdate_jvp_rule(primals: list[Any], tangents: list[Any], **params: Any):
 ad.primitive_jvps[addupdate_p] = addupdate_jvp_rule
 
 ##  get/swap/addupdate transpose rules
-
-def _get_transpose(g, ref, *idx, **params):
-  # get transpose is addupdate
-  if type(g) is not ad_util.Zero:
-    addupdate_p.bind(ref, g, *idx, **params)
-  return [None] + [None] * len(idx)
-ad.primitive_transposes[get_p] = _get_transpose
-
-def _swap_transpose(g, ref, x, *idx, **params):
-  # swap transpose is swap
-  x_bar = swap_p.bind(ref, ad_util.instantiate(g), *idx, **params)
-  return [None, x_bar] + [None] * len(idx)
-ad.primitive_transposes[swap_p] = _swap_transpose
-
-def addupdate_transpose(cts_in, ref, x, *idx, **params):
-  # addupdate transpose is get
-  del cts_in, x
-  g = get_p.bind(ref, *idx, **params)
-  return [None, g] + [None] * len(idx)
-ad.primitive_transposes[addupdate_p] = addupdate_transpose
-
 
 def _get_transpose_fancy(g, ref_, *idx, **params):
   if idx and type(g) is not ad_util.Zero:
@@ -825,6 +785,7 @@ def _batch_indexer(
     else:
       batch_idx = indexing.Slice(0, axis_size)  # type: ignore
       new_integer_indexer_shape = ()
+    # pyrefly: ignore[bad-argument-type]  # pyrefly#2499
     new_indices.insert(ref_dim, batch_idx)
   return indexing.NDIndexer(
       tuple(new_indices), ref_shape, new_integer_indexer_shape, validate=True
@@ -1111,7 +1072,7 @@ def _ref_jvp(primals, tangents, *, memory_space, kind):
     tangent_out = core.ref_p.bind(init_dot, memory_space=memory_space, kind=kind)
   return primal_out, tangent_out
 
-def _ref_lin(nzs, x, *, memory_space, kind):
+def _ref_lin(_is_vjp, nzs, x, *, memory_space, kind):
   nz, = nzs
   x_ref = core.ref_p.bind(x, memory_space=memory_space, kind=kind)
   def mut_lin(_, x_dot):
@@ -1127,6 +1088,30 @@ ad.primitive_linearizations[core.ref_p] = _ref_lin
 # TODO(mattjj): lin rule for freeze and accum_grad_in_ref?
 ad.defjvp(core.freeze_p, lambda g, _: core.freeze(g))
 ad.defjvp(core.accum_grad_in_ref_p, lambda g, _: core.accum_grad_in_ref_p.bind(g))
+
+
+def _empty_ref_jvp(primals, tangents, *, ty, memory_space):
+  primal_ref = core.empty_ref_p.bind(ty=ty, memory_space=memory_space)
+  tangent_ref = core.empty_ref_p.bind(ty=ty.to_tangent_aval(),
+                                      memory_space=memory_space)
+  return primal_ref, tangent_ref
+ad.primitive_jvps[core.empty_ref_p] = _empty_ref_jvp
+
+def _empty_ref_lin(_is_vjp, nzs_in, *, ty, memory_space):
+  primal_ref = core.empty_ref_p.bind(ty=ty, memory_space=memory_space)
+  def lin(_):
+    return core.empty_ref_p.bind(ty=ty.to_tangent_aval(),
+                                 memory_space=memory_space)
+  return primal_ref, True, None, lin
+ad.primitive_linearizations[core.empty_ref_p] = _empty_ref_lin
+
+def _free_ref_jvp(primals, tangents):
+  [primal_ref], [tangent_ref] = primals, tangents
+  core.free_ref(primal_ref)
+  core.free_ref(tangent_ref)
+  return (), ()
+
+ad.primitive_jvps[core.free_ref_p] = _free_ref_jvp
 
 # === pinned, chained LinearVals ===
 
@@ -1144,7 +1129,7 @@ def _lower_create_linear(ctx):
   return mlir.custom_call(
       "CreateBuffer",
       operands=[],
-      result_types=[mlir.aval_to_ir_type(out_aval)],
+      result_types=mlir.flatten_ir_types([mlir.aval_to_ir_type(out_aval)]),
   ).results
 mlir.register_lowering(create_linear_p, _lower_create_linear)
 
@@ -1163,7 +1148,7 @@ def _lower_pin(ctx, x_op):
   return mlir.custom_call(
       "Pin",
       operands=mlir.flatten_ir_values([x_op]),
-      result_types=[mlir.aval_to_ir_type(out_aval)],
+      result_types=mlir.flatten_ir_types([mlir.aval_to_ir_type(out_aval)]),
   ).results
 mlir.register_lowering(pin_p, _lower_pin)
 
@@ -1182,7 +1167,7 @@ def _lower_unpin(ctx, x_op):
   return mlir.custom_call(
       "Unpin",
       operands=mlir.flatten_ir_values([x_op]),
-      result_types=[mlir.aval_to_ir_type(out_aval)],
+      result_types=mlir.flatten_ir_types([mlir.aval_to_ir_type(out_aval)]),
   ).results
 mlir.register_lowering(unpin_p, _lower_unpin)
 

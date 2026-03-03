@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -164,20 +163,17 @@ def epochs_create(
     )
 
     # Find the maximum numbers of samples in an epoch
-    parameters["duration"] = list(
-        np.array(parameters["end"]) - np.array(parameters["start"])
-    )
-    epoch_max_duration = int(max((i * sampling_rate for i in parameters["duration"])))
+    parameters["duration"] = list(np.array(parameters["end"]) - np.array(parameters["start"]))
+    epoch_max_duration = int(max(i * sampling_rate for i in parameters["duration"]))
 
     # Extend data by the max samples in epochs * NaN (to prevent non-complete data)
     length_buffer = epoch_max_duration
 
     # First createa buffer of the same dtype as data and fill with it 0s
-    buffer = pd.DataFrame(0, index=range(length_buffer), columns=data.columns).astype(
-        dtype=data.dtypes
-    )
+    buffer = pd.DataFrame(0, index=range(length_buffer), columns=data.columns).astype(dtype=data.dtypes)
     # Only then, we convert the non-integers to nans (because regular numpy's ints cannot be nan)
-    buffer.select_dtypes(exclude=["int", "int64"]).replace({0.0: np.nan}, inplace=True)
+    cols = buffer.select_dtypes(exclude=["int", "int64"]).columns
+    buffer[cols] = buffer[cols].replace({0.0: np.nan})
     # Now we can combine the buffer with the data
     data = pd.concat([buffer, data, buffer], ignore_index=True, sort=False)
 
@@ -215,16 +211,16 @@ def epochs_create(
         epochs[label] = epoch
 
     # Sanitize dtype of individual columns
-    for i in epochs:
-        for colname, column in epochs[i].select_dtypes(include=["object"]).items():
+    for i, epoch_df in epochs.items():
+        for colname, column in epoch_df.select_dtypes(include=["object"]).items():
             # Check whether columns are indices or label/condition
             values = column.unique().tolist()
-            zero_or_one = not (False in [x in [0, 1] for x in values])
+            zero_or_one = all(x in [0, 1] for x in values)
 
             if zero_or_one:
                 # Force to int64
-                epochs[i][colname] = epochs[i][colname].astype("int64")
+                epoch_df[colname] = epoch_df[colname].astype("int64")
             else:
-                epochs[i][colname] = epochs[i][colname].astype("string")
+                epoch_df[colname] = epoch_df[colname].astype("string")
 
     return epochs

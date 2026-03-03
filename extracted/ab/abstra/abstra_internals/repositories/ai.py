@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import json
 from abc import ABC, abstractmethod
+from typing import Any
 
 from abstra_internals.cloud_api import get_session_path, get_tunnel_secret_key
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.contracts_generated import (
+    CloudApiCliAgentsPostRequestBody,
     CloudApiCliAiV2AbortRequest,
     CloudApiCliAiV2ConversationPostRequest,
     CloudApiCliAiV2ConversationPostResponse,
@@ -51,6 +55,13 @@ class AIRepository(ABC):
 
     @abstractmethod
     def start_conversation(self, secret_key: str, tunnel_session_path: str):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def run_agent(
+        self,
+        body: CloudApiCliAgentsPostRequestBody,
+    ) -> dict[str, Any]:
         raise NotImplementedError()
 
 
@@ -106,6 +117,22 @@ class ProductionAIRepository(AIRepository):
         raise NotImplementedError(
             "This method is not implemented in ProductionAIRepository."
         )
+
+    def run_agent(
+        self,
+        body: CloudApiCliAgentsPostRequestBody,
+    ) -> dict[str, Any]:
+        response = self.client.post(
+            endpoint="/agents",
+            json=body.to_dict(),
+            timeout=600,
+        )
+        response.raise_for_status()
+
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            raise Exception(f"Error parsing agent response: {response.text}")
 
 
 class LocalAIRepository(AIRepository):
@@ -209,7 +236,23 @@ class LocalAIRepository(AIRepository):
         Returns:
             None: The method does not return any value.
         """
-        print(f"Deleting thread with ID: {thread_id}")
         url = f"/ai-v2/conversation/{thread_id}"
         response = self.client.delete(url, headers=headers)
         response.raise_for_status()
+
+    def run_agent(
+        self,
+        body: CloudApiCliAgentsPostRequestBody,
+    ) -> dict[str, Any]:
+        headers = resolve_headers()
+        if headers is None:
+            raise Exception("You must be logged in to run an agent")
+
+        response = self.client.post(
+            "/agents",
+            headers=headers,
+            json=body.to_dict(),
+            timeout=600,
+        )
+        response.raise_for_status()
+        return response.json()

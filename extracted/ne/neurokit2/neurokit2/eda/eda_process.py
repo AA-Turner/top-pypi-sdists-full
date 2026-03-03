@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pandas as pd
 
 from ..misc.report import create_report
@@ -10,9 +9,7 @@ from .eda_phasic import eda_phasic
 from .eda_plot import eda_plot
 
 
-def eda_process(
-    eda_signal, sampling_rate=1000, method="neurokit", report=None, **kwargs
-):
+def eda_process(eda_signal, sampling_rate=1000, method="neurokit", report=None, **kwargs):
     """**Process Electrodermal Activity (EDA)**
 
     Convenience function that automatically processes electrodermal activity (EDA) signal.

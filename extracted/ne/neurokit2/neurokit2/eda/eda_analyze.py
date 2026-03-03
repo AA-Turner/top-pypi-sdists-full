@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pandas as pd
 
 from .eda_eventrelated import eda_eventrelated
@@ -89,9 +88,7 @@ def eda_analyze(data, sampling_rate=1000, method="auto"):
             colnames = data.columns.values
 
         if len([i for i in colnames if "Label" in i]) == 0:
-            raise ValueError(
-                "NeuroKit error: eda_analyze(): Wrong input or method, we couldn't extract epochs features."
-            )
+            raise ValueError("NeuroKit error: eda_analyze(): Wrong input or method, we couldn't extract epochs features.")
         else:
             features = eda_eventrelated(data)
 
@@ -101,7 +98,6 @@ def eda_analyze(data, sampling_rate=1000, method="auto"):
 
     # Auto
     elif method in ["auto"]:
-
         if isinstance(data, dict):
             for i in data:
                 duration = len(data[i]) / sampling_rate

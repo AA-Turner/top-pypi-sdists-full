@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -82,9 +81,7 @@ def ecg_intervalrelated(data, sampling_rate=1000):
             intervals[index] = _ecg_intervalrelated_formatinput(data[index], intervals[index])
 
             # HRV
-            intervals[index] = _ecg_intervalrelated_hrv(
-                data[index], sampling_rate, intervals[index]
-            )
+            intervals[index] = _ecg_intervalrelated_hrv(data[index], sampling_rate, intervals[index])
 
         ecg_intervals = pd.DataFrame.from_dict(intervals, orient="index")
 
@@ -97,7 +94,6 @@ def ecg_intervalrelated(data, sampling_rate=1000):
 
 
 def _ecg_intervalrelated_formatinput(data, output={}):
-
     # Sanitize input
     colnames = data.columns.values
     if len([i for i in colnames if "ECG_Rate" in i]) == 0:
@@ -113,7 +109,6 @@ def _ecg_intervalrelated_formatinput(data, output={}):
 
 
 def _ecg_intervalrelated_hrv(data, sampling_rate, output={}):
-
     # Sanitize input
     colnames = data.columns.values
     if len([i for i in colnames if "ECG_R_Peaks" in i]) == 0:

@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 import math
 
 import numpy as np
 import pandas as pd
-import scipy
 import pywt
+import scipy
 
 from ..misc import check_random_state, check_random_state_children
 from ..signal import signal_distort, signal_resample
@@ -30,7 +29,7 @@ def ecg_simulate(
 
     Parameters
     ----------
-    duration : int
+    duration : Union[int, float]
         Desired recording length in seconds.
     sampling_rate : int
         The desired sampling rate (in Hz, i.e., samples/second).
@@ -114,7 +113,7 @@ def ecg_simulate(
 
     # Generate number of samples automatically if length is unspecified
     if length is None:
-        length = duration * sampling_rate
+        length = int(np.ceil(duration * sampling_rate))
     if duration is None:
         duration = length / sampling_rate
 
@@ -322,11 +321,7 @@ def _ecg_simulate_ecgsyn(
     if q != qd:
         raise ValueError(
             "Internal sampling frequency (sfint) must be an integer multiple of the ECG sampling frequency"
-            " (sfecg). Your current choices are: sfecg = "
-            + str(sfecg)
-            + " and sfint = "
-            + str(sfint)
-            + "."
+            " (sfecg). Your current choices are: sfecg = " + str(sfecg) + " and sfint = " + str(sfint) + "."
         )
 
     # Define frequency parameters for rr process
@@ -406,7 +401,6 @@ def _ecg_simulate_ecgsyn(
 
 
 def _ecg_simulate_derivsecgsyn(t, x, rr, ti, sfint, ai, bi):
-
     ta = math.atan2(x[1], x[0])
     r0 = 1
     a0 = 1.0 - np.sqrt(x[0] ** 2 + x[1] ** 2) / r0
@@ -456,8 +450,8 @@ def _ecg_simulate_rrprocess(
     dw1 = w - w1
     dw2 = w - w2
 
-    Hw1 = sig1 * np.exp(-0.5 * (dw1 / c1) ** 2) / np.sqrt(2 * np.pi * c1 ** 2)
-    Hw2 = sig2 * np.exp(-0.5 * (dw2 / c2) ** 2) / np.sqrt(2 * np.pi * c2 ** 2)
+    Hw1 = sig1 * np.exp(-0.5 * (dw1 / c1) ** 2) / np.sqrt(2 * np.pi * c1**2)
+    Hw2 = sig2 * np.exp(-0.5 * (dw2 / c2) ** 2) / np.sqrt(2 * np.pi * c2**2)
     Hw = Hw1 + Hw2
     Hw0 = np.concatenate((Hw[0 : int(n / 2)], Hw[int(n / 2) - 1 :: -1]))
     Sw = (sfrr / 2) * np.sqrt(Hw0)

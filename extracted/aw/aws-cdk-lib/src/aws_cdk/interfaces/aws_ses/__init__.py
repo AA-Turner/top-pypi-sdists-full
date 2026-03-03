@@ -184,6 +184,55 @@ class ContactListReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ses.CustomVerificationEmailTemplateReference",
+    jsii_struct_bases=[],
+    name_mapping={"template_name": "templateName"},
+)
+class CustomVerificationEmailTemplateReference:
+    def __init__(self, *, template_name: builtins.str) -> None:
+        '''A reference to a CustomVerificationEmailTemplate resource.
+
+        :param template_name: The TemplateName of the CustomVerificationEmailTemplate resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ses as interfaces_ses
+            
+            custom_verification_email_template_reference = interfaces_ses.CustomVerificationEmailTemplateReference(
+                template_name="templateName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eee22c43f539103bf5c9a3012ec0e02b3d53fefdbe06140992d58a1c5943859b)
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "template_name": template_name,
+        }
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The TemplateName of the CustomVerificationEmailTemplate resource.'''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomVerificationEmailTemplateReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ses.DedicatedIpPoolReference",
     jsii_struct_bases=[],
     name_mapping={"pool_name": "poolName"},
@@ -420,6 +469,57 @@ class _IContactListRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IContactListRef).__jsii_proxy_class__ = lambda : _IContactListRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_ses.ICustomVerificationEmailTemplateRef"
+)
+class ICustomVerificationEmailTemplateRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CustomVerificationEmailTemplate.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="customVerificationEmailTemplateRef")
+    def custom_verification_email_template_ref(
+        self,
+    ) -> "CustomVerificationEmailTemplateReference":
+        '''(experimental) A reference to a CustomVerificationEmailTemplate resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICustomVerificationEmailTemplateRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CustomVerificationEmailTemplate.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ses.ICustomVerificationEmailTemplateRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="customVerificationEmailTemplateRef")
+    def custom_verification_email_template_ref(
+        self,
+    ) -> "CustomVerificationEmailTemplateReference":
+        '''(experimental) A reference to a CustomVerificationEmailTemplate resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CustomVerificationEmailTemplateReference", jsii.get(self, "customVerificationEmailTemplateRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICustomVerificationEmailTemplateRef).__jsii_proxy_class__ = lambda : _ICustomVerificationEmailTemplateRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ses.IDedicatedIpPoolRef")
@@ -2080,11 +2180,13 @@ __all__ = [
     "ConfigurationSetEventDestinationReference",
     "ConfigurationSetReference",
     "ContactListReference",
+    "CustomVerificationEmailTemplateReference",
     "DedicatedIpPoolReference",
     "EmailIdentityReference",
     "IConfigurationSetEventDestinationRef",
     "IConfigurationSetRef",
     "IContactListRef",
+    "ICustomVerificationEmailTemplateRef",
     "IDedicatedIpPoolRef",
     "IEmailIdentityRef",
     "IMailManagerAddonInstanceRef",
@@ -2138,6 +2240,13 @@ def _typecheckingstub__3b5ae328c9b7ac2d7bc907cf4efe09aa28d00f7f96b67d9ed14120c68
 def _typecheckingstub__bf2861ff3744b9c917ef3e590b8a64df3604ae487bb1f4e654554a0d15dd6703(
     *,
     contact_list_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eee22c43f539103bf5c9a3012ec0e02b3d53fefdbe06140992d58a1c5943859b(
+    *,
+    template_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2270,5 +2379,5 @@ def _typecheckingstub__602c7efea7e375b6f852dbd10f664e586f718be768b824afd2b7d09c6
     """Type checking stubs"""
     pass
 
-for cls in [IConfigurationSetEventDestinationRef, IConfigurationSetRef, IContactListRef, IDedicatedIpPoolRef, IEmailIdentityRef, IMailManagerAddonInstanceRef, IMailManagerAddonSubscriptionRef, IMailManagerAddressListRef, IMailManagerArchiveRef, IMailManagerIngressPointRef, IMailManagerRelayRef, IMailManagerRuleSetRef, IMailManagerTrafficPolicyRef, IMultiRegionEndpointRef, IReceiptFilterRef, IReceiptRuleRef, IReceiptRuleSetRef, ITemplateRef, ITenantRef, IVdmAttributesRef]:
+for cls in [IConfigurationSetEventDestinationRef, IConfigurationSetRef, IContactListRef, ICustomVerificationEmailTemplateRef, IDedicatedIpPoolRef, IEmailIdentityRef, IMailManagerAddonInstanceRef, IMailManagerAddonSubscriptionRef, IMailManagerAddressListRef, IMailManagerArchiveRef, IMailManagerIngressPointRef, IMailManagerRelayRef, IMailManagerRuleSetRef, IMailManagerTrafficPolicyRef, IMultiRegionEndpointRef, IReceiptFilterRef, IReceiptRuleRef, IReceiptRuleSetRef, ITemplateRef, ITenantRef, IVdmAttributesRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

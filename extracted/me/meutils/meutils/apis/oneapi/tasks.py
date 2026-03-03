@@ -81,6 +81,13 @@ async def get_tasks(platform: str = "flux", action: str = "", status: str = "NOT
 
 
 async def polling_tasks(platform: str = "flux", action: str = "", status: str = "NOT_START"):
+    """
+
+    :param platform:
+    :param action:
+    :param status: UNFINISHED
+    :return:
+    """
     response = await get_tasks(platform, action, status)
     if items := response['data']['items']:
         tasks = []
@@ -160,4 +167,4 @@ if __name__ == '__main__':
 
     # arun(refund_tasks())
 
-    arun(get_tasks(return_ids=True))
+    arun(get_tasks("", channel_id="21503", status="UNFINISHED", return_ids=True))

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.spatial
@@ -231,9 +230,7 @@ def _embedding_dimension_correlation(signal, dimension_seq, delay=1, **kwargs):
 
 def _embedding_dimension_afn(signal, dimension_seq, delay=1, **kwargs):
     """AFN."""
-    values = np.asarray(
-        [_embedding_dimension_afn_d(signal, dimension, delay, **kwargs) for dimension in dimension_seq]
-    ).T
+    values = np.asarray([_embedding_dimension_afn_d(signal, dimension, delay, **kwargs) for dimension in dimension_seq]).T
     E, Es = values[0, :], values[1, :]
 
     return E, Es
@@ -359,7 +356,7 @@ def _embedding_dimension_neighbors(y, metric="chebyshev", window=0, maxnum=None,
     elif metric == "euclidean":
         p = 2
     else:
-        raise ValueError('Unknown metric. Should be one of "cityblock", ' '"euclidean", or "chebyshev".')
+        raise ValueError('Unknown metric. Should be one of "cityblock", "euclidean", or "chebyshev".')
 
     tree = scipy.spatial.cKDTree(y)  # pylint: disable=E1102
     n = len(y)
@@ -413,7 +410,6 @@ def _embedding_dimension_plot(
     CD=None,
     ax=None,
 ):
-
     if ax is None:
         fig, ax = plt.subplots()
     else:

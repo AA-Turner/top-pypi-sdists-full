@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import shutil
@@ -5,27 +7,26 @@ import sys
 import tempfile
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Lock
-from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal, Union
 
 from abstra_internals.constants import ABSTRA_LOGO_URL, get_project_url
 from abstra_internals.contracts_generated import (
-    CommonAbstraJsonV17,
-    CommonAbstraJsonV17DefinitionsAgentPermission,
-    CommonAbstraJsonV17DefinitionsAgentStage,
-    CommonAbstraJsonV17DefinitionsComponentStage,
-    CommonAbstraJsonV17DefinitionsFormStage,
-    CommonAbstraJsonV17DefinitionsFormStageAccessControl,
-    CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger,
-    CommonAbstraJsonV17DefinitionsHookStage,
-    CommonAbstraJsonV17DefinitionsJobStage,
-    CommonAbstraJsonV17DefinitionsScriptStage,
-    CommonAbstraJsonV17DefinitionsTransition,
-    CommonAbstraJsonV17Home,
-    CommonAbstraJsonV17HomeAccessControl,
-    CommonAbstraJsonV17Workspace,
+    CommonAbstraJsonV18,
+    CommonAbstraJsonV18DefinitionsComponentStage,
+    CommonAbstraJsonV18DefinitionsFormStage,
+    CommonAbstraJsonV18DefinitionsFormStageAccessControl,
+    CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger,
+    CommonAbstraJsonV18DefinitionsHookStage,
+    CommonAbstraJsonV18DefinitionsJobStage,
+    CommonAbstraJsonV18DefinitionsScriptStage,
+    CommonAbstraJsonV18DefinitionsTransition,
+    CommonAbstraJsonV18Home,
+    CommonAbstraJsonV18HomeAccessControl,
+    CommonAbstraJsonV18Workspace,
     CommonUser,
 )
 from abstra_internals.environment import IS_PRODUCTION
@@ -44,48 +45,14 @@ from abstra_internals.utils.graph import Edge, Graph, Node
 from abstra_internals.utils.string import to_kebab_case
 
 ServedStage = Union["FormStage", "HookStage"]
-StageType = Literal["form", "hook", "job", "script", "component", "agent"]
-
-
-@dataclass
-class AgentPermission:
-    """Represents a permission granted to an Agent."""
-
-    type: Literal["tables", "files", "connections", "source_code"]
-    action: str
-    table_name: Optional[str] = None
-    connection_name: Optional[str] = None
-    condition: Optional[str] = None
-
-    @staticmethod
-    def from_dict(data: Dict[str, Any]) -> "AgentPermission":
-        return AgentPermission(
-            type=data["type"],
-            action=data["action"],
-            table_name=data.get("tableName"),
-            connection_name=data.get("connectionName"),
-            condition=data.get("condition"),
-        )
-
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {
-            "type": self.type,
-            "action": self.action,
-        }
-        if self.table_name is not None:
-            result["tableName"] = self.table_name
-        if self.connection_name is not None:
-            result["connectionName"] = self.connection_name
-        if self.condition is not None:
-            result["condition"] = self.condition
-        return result
+StageType = Literal["form", "hook", "job", "script", "component"]
 
 
 class Stage(ABC):
     id: str
     title: str
-    workflow_transitions: List["WorkflowTransition"]
-    workflow_position: Tuple[float, float]
+    workflow_transitions: list["WorkflowTransition"]
+    workflow_position: tuple[float, float]
     type_name: StageType
     input: bool = False
     output: bool = False
@@ -101,7 +68,7 @@ class Stage(ABC):
         pass
 
     @abstractmethod
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         pass
 
     def __post_init__(self):
@@ -137,7 +104,7 @@ class NotificationTrigger:
     def validate_email(self, email: str) -> bool:
         return isinstance(email, str) and "@" in email
 
-    def get_recipients(self, task_payload: Dict[str, Any]) -> List[str]:
+    def get_recipients(self, task_payload: dict[str, Any]) -> list[str]:
         variable_name = self.variable_name
         if not variable_name:
             return []
@@ -146,7 +113,7 @@ class NotificationTrigger:
         if not raw_value:
             return []
 
-        emails: List[str] = []
+        emails: list[str] = []
         if isinstance(raw_value, str):
             emails.append(raw_value)
 
@@ -155,13 +122,13 @@ class NotificationTrigger:
 
         return [email for email in emails if self.validate_email(email)]
 
-    def to_dto(self) -> Optional[Dict[str, Any]]:
+    def to_dto(self) -> dict[str, Any] | None:
         return {"variable_name": self.variable_name, "enabled": self.enabled}
 
     def to_abstra_json_dto(
         self,
-    ) -> CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger:
-        return CommonAbstraJsonV17DefinitionsFormStageNotificationTrigger(
+    ) -> CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger:
+        return CommonAbstraJsonV18DefinitionsFormStageNotificationTrigger(
             variable_name=self.variable_name, enabled=self.enabled
         )
 
@@ -172,7 +139,7 @@ class WorkflowTransition:
     target_id: str
     target_type: str
     type: Literal["task"]
-    task_type: Optional[str] = None
+    task_type: str | None = None
 
     def __post_init__(self):
         self.id = str(uuid.uuid4()) if self.id is None else self.id
@@ -217,13 +184,11 @@ class WorkflowTransition:
             return "scripts:finished"
         elif source_type == "component":
             return "component:finished"
-        elif source_type == "agent":
-            return "agents:finished"
         else:
             raise Exception(f"Invalid source type {source_type}")
 
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17DefinitionsTransition:
-        return CommonAbstraJsonV17DefinitionsTransition(
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV18DefinitionsTransition:
+        return CommonAbstraJsonV18DefinitionsTransition(
             id=self.id,
             target_id=self.target_id,
             target_type=self.target_type,
@@ -238,14 +203,14 @@ class HookStage(StageWithFile):
     file: str
     path: str
     title: str
-    workflow_transitions: List[WorkflowTransition]
-    workflow_position: Tuple[float, float]
+    workflow_transitions: list[WorkflowTransition]
+    workflow_position: tuple[float, float]
     is_initial: bool = True
     enabled: bool = False
     type_name = "hook"
     input: bool = False
     output: bool = False
-    task_schema: Optional[Dict[str, Any]] = None
+    task_schema: dict[str, Any] | None = None
 
     @staticmethod
     def from_dict(dto: dict):
@@ -270,8 +235,8 @@ class HookStage(StageWithFile):
     def create(
         title: str,
         file: str,
-        id: Union[str, None] = None,
-        workflow_position: Tuple[int, int] = (0, 0),
+        id: str | None = None,
+        workflow_position: tuple[int, int] = (0, 0),
     ):
         _id: str = id or str(uuid.uuid4())
         return HookStage(
@@ -310,7 +275,7 @@ class HookStage(StageWithFile):
     def file_path(self):
         return Settings.root_path.joinpath(self.file)
 
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         for attr, value in changes.items():
             if attr in ["title", "enabled", "input", "output", "task_schema"]:
                 setattr(self, attr, value)
@@ -321,8 +286,8 @@ class HookStage(StageWithFile):
             else:
                 raise Exception(f"Cannot update {attr} of hook")
 
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17DefinitionsHookStage:
-        return CommonAbstraJsonV17DefinitionsHookStage(
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV18DefinitionsHookStage:
+        return CommonAbstraJsonV18DefinitionsHookStage(
             id=self.id,
             file=self.file,
             path=self.path,
@@ -342,20 +307,20 @@ class ScriptStage(StageWithFile):
     id: str
     file: str
     title: str
-    workflow_transitions: List[WorkflowTransition]
-    workflow_position: Tuple[float, float]
+    workflow_transitions: list[WorkflowTransition]
+    workflow_position: tuple[float, float]
     is_initial: bool = True
     type_name = "script"
     input: bool = False
     output: bool = False
-    task_schema: Optional[Dict[str, Any]] = None
+    task_schema: dict[str, Any] | None = None
 
     @staticmethod
     def create(
         title: str,
         file: str,
-        id: Union[str, None] = None,
-        workflow_position: Tuple[int, int] = (0, 0),
+        id: str | None = None,
+        workflow_position: tuple[int, int] = (0, 0),
     ):
         _id = id or str(uuid.uuid4())
         return ScriptStage(
@@ -370,7 +335,7 @@ class ScriptStage(StageWithFile):
         )
 
     @staticmethod
-    def from_dict(data: Dict):
+    def from_dict(data: dict):
         x, y = data["workflow_position"]
         return ScriptStage(
             id=data["id"],
@@ -408,7 +373,7 @@ class ScriptStage(StageWithFile):
     def file_path(self):
         return Settings.root_path.joinpath(self.file)
 
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         for attr, value in changes.items():
             if attr in ["id", "title", "input", "output", "task_schema"]:
                 setattr(self, attr, value)
@@ -417,8 +382,8 @@ class ScriptStage(StageWithFile):
             else:
                 raise Exception(f"Cannot update {attr} of script")
 
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17DefinitionsScriptStage:
-        return CommonAbstraJsonV17DefinitionsScriptStage(
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV18DefinitionsScriptStage:
+        return CommonAbstraJsonV18DefinitionsScriptStage(
             id=self.id,
             file=self.file,
             title=self.title,
@@ -435,17 +400,17 @@ class ScriptStage(StageWithFile):
 class ComponentStage(Stage):
     id: str
     title: str
-    workflow_transitions: List[WorkflowTransition]
-    workflow_position: Tuple[float, float]
-    package_name: Optional[str] = None
+    workflow_transitions: list[WorkflowTransition]
+    workflow_position: tuple[float, float]
+    package_name: str | None = None
     is_initial: bool = True
     type_name = "component"
 
     @staticmethod
     def create(
         title: str,
-        id: Union[str, None] = None,
-        workflow_position: Tuple[int, int] = (0, 0),
+        id: str | None = None,
+        workflow_position: tuple[int, int] = (0, 0),
     ):
         _id = id or str(uuid.uuid4())
         return ComponentStage(
@@ -458,7 +423,7 @@ class ComponentStage(Stage):
         )
 
     @staticmethod
-    def from_dict(data: Dict):
+    def from_dict(data: dict):
         x, y = data["workflow_position"]
         return ComponentStage(
             id=data["id"],
@@ -486,7 +451,7 @@ class ComponentStage(Stage):
     def editor_dto(self):
         return self.as_dict
 
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         for attr, value in changes.items():
             if attr in ["title", "package_name"]:
                 setattr(self, attr, value)
@@ -497,146 +462,13 @@ class ComponentStage(Stage):
         # This will be updated once we add the DTO class
         # For now, return a placeholder that matches the structure
 
-        return CommonAbstraJsonV17DefinitionsComponentStage(
+        return CommonAbstraJsonV18DefinitionsComponentStage(
             id=self.id,
             title=self.title,
             workflow_position=[self.workflow_position[0], self.workflow_position[1]],
             is_initial=self.is_initial,
             transitions=[t.to_abstra_json_dto() for t in self.workflow_transitions],
             package_name=self.package_name,
-        )
-
-
-@dataclass
-class AgentStage(StageWithFile):
-    """A stage that executes an AI agent with a Jinja2 prompt template."""
-
-    id: str
-    file: str  # Path to .md prompt template file
-    title: str
-    workflow_transitions: List[WorkflowTransition]
-    workflow_position: Tuple[float, float]
-    permissions: List[AgentPermission] = field(default_factory=list)
-    is_initial: bool = True
-    type_name = "agent"
-    input: bool = False
-    output: bool = False
-    task_schema: Optional[Dict[str, Any]] = None
-    max_steps: int = 30
-
-    @staticmethod
-    def create(
-        title: str,
-        file: str,
-        id: Union[str, None] = None,
-        workflow_position: Tuple[int, int] = (0, 0),
-        permissions: Optional[List[AgentPermission]] = None,
-    ) -> "AgentStage":
-        _id = id or str(uuid.uuid4())
-        return AgentStage(
-            id=_id,
-            file=file,
-            title=title,
-            workflow_transitions=[],
-            workflow_position=workflow_position,
-            permissions=permissions or [],
-            is_initial=True,
-            input=False,
-            output=False,
-        )
-
-    @staticmethod
-    def from_dict(data: Dict) -> "AgentStage":
-        x, y = data["workflow_position"]
-        return AgentStage(
-            id=data["id"],
-            file=data["file"],
-            title=data["title"],
-            workflow_position=(x, y),
-            is_initial=data.get("is_initial", True),
-            workflow_transitions=[
-                WorkflowTransition.from_dict(t) for t in data.get("transitions", [])
-            ],
-            permissions=[
-                AgentPermission.from_dict(p) for p in data.get("permissions", [])
-            ],
-            input=data.get("input", False),
-            output=data.get("output", False),
-            task_schema=data.get("task_schema"),
-            max_steps=data.get("max_steps", 30),
-        )
-
-    @property
-    def as_dict(self):
-        return {
-            "id": self.id,
-            "file": self.file,
-            "title": self.title,
-            "is_initial": self.is_initial,
-            "workflow_position": self.workflow_position,
-            "transitions": [t.as_dict for t in self.workflow_transitions],
-            "permissions": [p.to_dict() for p in self.permissions],
-            "input": self.input,
-            "output": self.output,
-            "task_schema": self.task_schema,
-            "max_steps": self.max_steps,
-        }
-
-    @property
-    def editor_dto(self):
-        dto = {**self.as_dict}
-        try:
-            dto["prompt_content"] = self.file_path.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            dto["prompt_content"] = ""
-        return dto
-
-    @property
-    def file_path(self):
-        return Settings.root_path.joinpath(self.file)
-
-    def update(self, changes: Dict[str, Any]) -> None:
-        for attr, value in changes.items():
-            if attr in [
-                "title",
-                "is_initial",
-                "input",
-                "output",
-                "task_schema",
-                "max_steps",
-            ]:
-                setattr(self, attr, value)
-            elif attr == "file":
-                _update_file(self, value)
-            elif attr == "permissions":
-                self.permissions = [AgentPermission.from_dict(p) for p in value]
-            elif attr == "workflow_position":
-                self.workflow_position = tuple(value)
-            else:
-                raise Exception(f"Cannot update {attr} of agent")
-
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17DefinitionsAgentStage:
-        return CommonAbstraJsonV17DefinitionsAgentStage(
-            id=self.id,
-            file=self.file,
-            title=self.title,
-            workflow_position=[self.workflow_position[0], self.workflow_position[1]],
-            is_initial=self.is_initial,
-            transitions=[t.to_abstra_json_dto() for t in self.workflow_transitions],
-            permissions=[
-                CommonAbstraJsonV17DefinitionsAgentPermission(
-                    type=p.type,  # type: ignore[arg-type]
-                    action=p.action,
-                    table_name=p.table_name,
-                    connection_name=p.connection_name,
-                    condition=p.condition,
-                )
-                for p in self.permissions
-            ],
-            input=self.input,
-            output=self.output,
-            task_schema=self.task_schema,
-            max_steps=self.max_steps,
         )
 
 
@@ -650,12 +482,12 @@ class InstalledModule:
         return self.path / "abstra.json"
 
     @property
-    def inputs(self) -> List[str]:
+    def inputs(self) -> list[str]:
         input_stages = self.get_input_stages()
         return [stage.id for stage in input_stages]
 
     @property
-    def outputs(self) -> List[str]:
+    def outputs(self) -> list[str]:
         output_stages = self.get_output_stages()
         return [stage.id for stage in output_stages]
 
@@ -676,7 +508,7 @@ class InstalledModule:
         )
         return project
 
-    def get_stages(self) -> List["Stage"]:
+    def get_stages(self) -> list["Stage"]:
         module_project = self.get_project()
         stages = module_project.workflow_stages
         for stage in stages:
@@ -686,12 +518,12 @@ class InstalledModule:
 
         return stages
 
-    def get_input_stages(self) -> List["Stage"]:
+    def get_input_stages(self) -> list["Stage"]:
         module_stages = self.get_stages()
 
         return [stage for stage in module_stages if stage.input]
 
-    def get_output_stages(self) -> List["Stage"]:
+    def get_output_stages(self) -> list["Stage"]:
         module_stages = self.get_stages()
 
         return [stage for stage in module_stages if stage.output]
@@ -700,9 +532,9 @@ class InstalledModule:
 @dataclass
 class AccessSettings:
     is_public: bool
-    required_roles: List[str]
+    required_roles: list[str]
 
-    def should_allow(self, user: Optional[CommonUser]) -> bool:
+    def should_allow(self, user: CommonUser | None) -> bool:
         if self.is_public:
             return True
         if not user:
@@ -725,14 +557,14 @@ class AccessSettings:
             "required_roles": self.required_roles,
         }
 
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         for attr, value in changes.items():
             setattr(self, attr, value)
 
     def to_abstra_json_dto(
         self,
-    ) -> CommonAbstraJsonV17DefinitionsFormStageAccessControl:
-        return CommonAbstraJsonV17DefinitionsFormStageAccessControl(
+    ) -> CommonAbstraJsonV18DefinitionsFormStageAccessControl:
+        return CommonAbstraJsonV18DefinitionsFormStageAccessControl(
             is_public=self.is_public, required_roles=self.required_roles
         )
 
@@ -743,12 +575,12 @@ class JobStage(StageWithFile):
     file: str
     title: str
     schedule: str
-    workflow_position: Tuple[float, float]
-    workflow_transitions: List[WorkflowTransition]
+    workflow_position: tuple[float, float]
+    workflow_transitions: list[WorkflowTransition]
     type_name = "job"
     input: bool = False
     output: bool = False
-    task_schema: Optional[Dict[str, Any]] = None
+    task_schema: dict[str, Any] | None = None
 
     is_initial = True
 
@@ -756,8 +588,8 @@ class JobStage(StageWithFile):
     def create(
         title: str,
         file: str,
-        id: Union[str, None] = None,
-        workflow_position: Tuple[int, int] = (0, 0),
+        id: str | None = None,
+        workflow_position: tuple[int, int] = (0, 0),
     ):
         _id = id or str(uuid.uuid4())
         return JobStage(
@@ -772,7 +604,7 @@ class JobStage(StageWithFile):
         )
 
     @staticmethod
-    def from_dict(data: Dict):
+    def from_dict(data: dict):
         x, y = data["workflow_position"]
         return JobStage(
             file=data["file"],
@@ -810,7 +642,7 @@ class JobStage(StageWithFile):
     def file_path(self):
         return Settings.root_path.joinpath(self.file)
 
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         for attr, value in changes.items():
             if attr in [
                 "identifier",
@@ -826,8 +658,8 @@ class JobStage(StageWithFile):
             else:
                 raise Exception(f"Cannot update {attr} of job")
 
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17DefinitionsJobStage:
-        return CommonAbstraJsonV17DefinitionsJobStage(
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV18DefinitionsJobStage:
+        return CommonAbstraJsonV18DefinitionsJobStage(
             id=self.id,
             file=self.file,
             title=self.title,
@@ -846,16 +678,16 @@ class FormStage(StageWithFile):
     file: str
     title: str
     path: str
-    workflow_transitions: List[WorkflowTransition]
-    workflow_position: Tuple[float, float]
+    workflow_transitions: list[WorkflowTransition]
+    workflow_position: tuple[float, float]
     notification_trigger: NotificationTrigger
     is_initial: bool = True
-    end_message: Optional[str] = None
-    auto_start: Optional[bool] = False
-    start_message: Optional[str] = None
-    error_message: Optional[str] = None
-    timeout_message: Optional[str] = None
-    start_button_text: Optional[str] = None
+    end_message: str | None = None
+    auto_start: bool | None = False
+    start_message: str | None = None
+    error_message: str | None = None
+    timeout_message: str | None = None
+    start_button_text: str | None = None
     access_control: AccessSettings = field(
         default_factory=lambda: AccessSettings(is_public=False, required_roles=[])
     )
@@ -863,14 +695,14 @@ class FormStage(StageWithFile):
     type_name = "form"
     input: bool = False
     output: bool = False
-    task_schema: Optional[Dict[str, Any]] = None
+    task_schema: dict[str, Any] | None = None
 
     @staticmethod
     def create(
         title: str,
         file: str,
-        id: Union[str, None] = None,
-        workflow_position: Tuple[int, int] = (0, 0),
+        id: str | None = None,
+        workflow_position: tuple[int, int] = (0, 0),
     ):
         _id = id or str(uuid.uuid4())
         return FormStage(
@@ -966,7 +798,7 @@ class FormStage(StageWithFile):
     def file_path(self):
         return Settings.root_path.joinpath(self.file)
 
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         for attr, value in changes.items():
             if attr in [
                 "title",
@@ -1003,8 +835,8 @@ class FormStage(StageWithFile):
             "required_roles": self.access_control.required_roles,
         }
 
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17DefinitionsFormStage:
-        return CommonAbstraJsonV17DefinitionsFormStage(
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV18DefinitionsFormStage:
+        return CommonAbstraJsonV18DefinitionsFormStage(
             id=self.id,
             file=self.file,
             path=self.path,
@@ -1054,11 +886,11 @@ class SidebarItem:
 
 @dataclass
 class Sidebar:
-    items: List[SidebarItem]
+    items: list[SidebarItem]
 
     @staticmethod
     def from_dict(
-        sidebar_data: List[dict],
+        sidebar_data: list[dict],
     ):
         return Sidebar(items=[SidebarItem.from_dict(item) for item in sidebar_data])
 
@@ -1071,13 +903,13 @@ class Sidebar:
 class StyleSettings:
     name: str
     language: Languages
-    theme: Optional[str]
-    logo_url: Optional[str]
-    favicon_url: Optional[str]
-    brand_name: Optional[str]
-    main_color: Optional[str]
-    font_family: Optional[str]
-    font_color: Optional[str]
+    theme: str | None
+    logo_url: str | None
+    favicon_url: str | None
+    brand_name: str | None
+    main_color: str | None
+    font_family: str | None
+    font_color: str | None
 
     @property
     def project_name(self):
@@ -1120,7 +952,7 @@ class StyleSettings:
 
         return {**self.as_dict, "logo_url": logo_url, "favicon_url": favicon_url}
 
-    def update(self, changes: Dict[str, Any]):
+    def update(self, changes: dict[str, Any]):
         for attr, value in changes.items():
             if attr == "sidebar":
                 continue
@@ -1128,7 +960,7 @@ class StyleSettings:
                 setattr(self, attr, value)
 
     @staticmethod
-    def from_dict(data: Dict):
+    def from_dict(data: dict):
         defaultValue = StyleSettings.defaultValue()
         return StyleSettings(
             name=data.get("name", defaultValue.name),
@@ -1170,8 +1002,8 @@ class StyleSettings:
             language="en",
         )
 
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17Workspace:
-        return CommonAbstraJsonV17Workspace(
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV18Workspace:
+        return CommonAbstraJsonV18Workspace(
             name=self.name,
             language=self.language,
             theme=self.theme,
@@ -1189,7 +1021,7 @@ class StyleSettingsWithSidebar(StyleSettings):
     sidebar: Sidebar
 
     @staticmethod
-    def from_dict(data: Dict):
+    def from_dict(data: dict):
         child_data = StyleSettings.from_dict(data)
         return StyleSettingsWithSidebar(
             **{
@@ -1270,13 +1102,13 @@ class Home:
             type=self.type_name,
         )
 
-    def update(self, id, changes: Dict[str, Any]):
+    def update(self, id, changes: dict[str, Any]):
         if id == "access_control":
             setattr(self, id, AccessSettings.from_dict(changes))
 
-    def to_abstra_json_dto(self) -> CommonAbstraJsonV17Home:
-        return CommonAbstraJsonV17Home(
-            access_control=CommonAbstraJsonV17HomeAccessControl(
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV18Home:
+        return CommonAbstraJsonV18Home(
+            access_control=CommonAbstraJsonV18HomeAccessControl(
                 is_public=self.access_control.is_public,
                 required_roles=self.access_control.required_roles,
             )
@@ -1287,16 +1119,15 @@ class Home:
 class Project:
     workspace: StyleSettings
     home: Home
-    scripts: List[ScriptStage]
-    forms: List[FormStage]
-    hooks: List[HookStage]
-    jobs: List[JobStage]
-    components: List[ComponentStage]
-    agents: List[AgentStage]
+    scripts: list[ScriptStage]
+    forms: list[FormStage]
+    hooks: list[HookStage]
+    jobs: list[JobStage]
+    components: list[ComponentStage]
 
     _graph: Graph
 
-    abstra_json_path: Optional[Path] = None
+    abstra_json_path: Path | None = None
 
     @property
     def as_dict(self):
@@ -1306,12 +1137,7 @@ class Project:
                 target_stages.add(transition.target_id)
 
         for stage in (
-            self.jobs
-            + self.forms
-            + self.scripts
-            + self.hooks
-            + self.components
-            + self.agents
+            self.jobs + self.forms + self.scripts + self.hooks + self.components
         ):
             if stage.id in target_stages:
                 stage.is_initial = False
@@ -1326,49 +1152,57 @@ class Project:
             "forms": [form.as_dict for form in self.forms],
             "scripts": [script.as_dict for script in self.scripts],
             "components": [component.as_dict for component in self.components],
-            "agents": [agent.as_dict for agent in self.agents],
         }
 
     def to_abstra_json_dto(self):
-        return CommonAbstraJsonV17(
-            version="17.0",
-            workspace=self.workspace.to_abstra_json_dto(),
-            home=self.home.to_abstra_json_dto(),
-            jobs=[job.to_abstra_json_dto() for job in self.jobs],
-            hooks=[hook.to_abstra_json_dto() for hook in self.hooks],
-            forms=[form.to_abstra_json_dto() for form in self.forms],
-            scripts=[script.to_abstra_json_dto() for script in self.scripts],
-            components=[
-                component.to_abstra_json_dto() for component in self.components
-            ],
-            agents=[agent.to_abstra_json_dto() for agent in self.agents],  # type: ignore[call-arg]
+        class _Dto:
+            def __init__(self, data):
+                self._data = data
+
+            def to_dict(self):
+                return self._data
+
+        return _Dto(
+            {
+                "version": "18.0",
+                "workspace": self.workspace.to_abstra_json_dto().to_dict(),
+                "home": self.home.to_abstra_json_dto().to_dict(),
+                "jobs": [job.to_abstra_json_dto().to_dict() for job in self.jobs],
+                "hooks": [hook.to_abstra_json_dto().to_dict() for hook in self.hooks],
+                "forms": [form.to_abstra_json_dto().to_dict() for form in self.forms],
+                "scripts": [
+                    script.to_abstra_json_dto().to_dict() for script in self.scripts
+                ],
+                "components": [
+                    component.to_abstra_json_dto().to_dict()
+                    for component in self.components
+                ],
+            }
         )
 
     @property
-    def workflow_stages(self) -> List[Stage]:
+    def workflow_stages(self) -> list[Stage]:
         return [
             *self.forms,
             *self.jobs,
             *self.hooks,
             *self.scripts,
             *self.components,
-            *self.agents,
         ]
 
     @property
-    def module_stages(self) -> List[Stage]:
+    def module_stages(self) -> list[Stage]:
         module_stages = []
         for module in self.get_installed_modules():
             module_stages.extend(module.get_stages())
         return module_stages
 
-    def get_stages_by_file_path(self, file_path: Path) -> List[StageWithFile]:
+    def get_stages_by_file_path(self, file_path: Path) -> list[StageWithFile]:
         stage_with_file_classes = (
             FormStage,
             HookStage,
             JobStage,
             ScriptStage,
-            AgentStage,
         )
 
         all_stages = self.workflow_stages + self.module_stages
@@ -1387,14 +1221,14 @@ class Project:
 
     def iter_entrypoints(self) -> Generator[Path, None, None]:
         for stage in self.workflow_stages:
-            if isinstance(stage, StageWithFile) and not isinstance(stage, AgentStage):
+            if isinstance(stage, StageWithFile):
                 yield Path(stage.file)
 
     def iter_entrypointed_stages(
         self,
-    ) -> Generator[Tuple[Path, StageWithFile], None, None]:
+    ) -> Generator[tuple[Path, StageWithFile], None, None]:
         for stage in self.workflow_stages:
-            if isinstance(stage, StageWithFile) and not isinstance(stage, AgentStage):
+            if isinstance(stage, StageWithFile):
                 yield Path(stage.file), stage
 
     @property
@@ -1408,10 +1242,10 @@ class Project:
             if file not in entrypoints:
                 yield file
 
-    def get_next_stages_ids(self, id: str) -> List[str]:
+    def get_next_stages_ids(self, id: str) -> list[str]:
         return [node.id for node in self._graph.next_to(id)]
 
-    def get_previous_stages_ids(self, id: str) -> List[str]:
+    def get_previous_stages_ids(self, id: str) -> list[str]:
         return [node.id for node in self._graph.previous_to(id)]
 
     def is_initial(self, target_stage: Stage) -> bool:
@@ -1428,8 +1262,6 @@ class Project:
             self.scripts.append(stage)
         elif isinstance(stage, ComponentStage):
             self.components.append(stage)
-        elif isinstance(stage, AgentStage):
-            self.agents.append(stage)
         else:
             raise Exception(f"Cannot add stage of type {type(stage)}")
 
@@ -1439,28 +1271,28 @@ class Project:
             {**self.workspace.as_dict, "sidebar": sidebar}
         )
 
-    def get_access_control_by_stage_id(self, id: str) -> Optional[AccessSettings]:
+    def get_access_control_by_stage_id(self, id: str) -> AccessSettings | None:
         for stage in [self.home, *self.forms, *self.jobs]:
             if stage.id == id:
                 return stage.access_control
         return None
 
-    def get_access_control_by_stage_path(self, path: str) -> Optional[AccessSettings]:
+    def get_access_control_by_stage_path(self, path: str) -> AccessSettings | None:
         for stage in self.secured_stages:
             if stage.path == path:
                 return stage.access_control
         return None
 
     @property
-    def secured_stages(self) -> List[SecuredStage]:
+    def secured_stages(self) -> list[SecuredStage]:
         return [self.home, *self.forms]
 
-    def get_secured_stage(self, id: str) -> Optional[SecuredStage]:
+    def get_secured_stage(self, id: str) -> SecuredStage | None:
         for stage in self.secured_stages:
             if stage.id == id:
                 return stage
 
-    def update_access_controls(self, changes: List[Dict[str, Any]]):
+    def update_access_controls(self, changes: list[dict[str, Any]]):
         response = []
         for change in changes:
             id = change["id"]
@@ -1469,7 +1301,7 @@ class Project:
 
         return response
 
-    def update_access_control(self, id: str, change: Dict[str, Any]):
+    def update_access_control(self, id: str, change: dict[str, Any]):
         stage = self.get_secured_stage(id)
         if not stage:
             raise StageNotFoundError(f"Stage with id '{id}' not found")
@@ -1490,7 +1322,7 @@ class Project:
             raise StageNotFoundError(f"Stage with id '{id}' not found")
         return stage
 
-    def get_forms(self, include_modules=True) -> List[FormStage]:
+    def get_forms(self, include_modules=True) -> list[FormStage]:
         if not include_modules:
             return self.forms
 
@@ -1501,7 +1333,7 @@ class Project:
 
         return self.forms + module_forms
 
-    def get_scripts(self, include_modules=True) -> List[ScriptStage]:
+    def get_scripts(self, include_modules=True) -> list[ScriptStage]:
         if not include_modules:
             return self.scripts
 
@@ -1512,7 +1344,7 @@ class Project:
 
         return self.scripts + module_scripts
 
-    def get_hooks(self, include_modules=True) -> List[HookStage]:
+    def get_hooks(self, include_modules=True) -> list[HookStage]:
         if not include_modules:
             return self.hooks
 
@@ -1523,7 +1355,7 @@ class Project:
 
         return self.hooks + module_hooks
 
-    def get_jobs(self, include_modules=True) -> List[JobStage]:
+    def get_jobs(self, include_modules=True) -> list[JobStage]:
         if not include_modules:
             return self.jobs
 
@@ -1534,7 +1366,7 @@ class Project:
 
         return self.jobs + module_jobs
 
-    def get_stage(self, id: str, include_modules=True) -> Optional[Stage]:
+    def get_stage(self, id: str, include_modules=True) -> Stage | None:
         for stage in self.workflow_stages:
             if stage.id == id:
                 return stage
@@ -1550,7 +1382,7 @@ class Project:
 
         return None
 
-    def get_stage_module(self, id: str) -> Optional[InstalledModule]:
+    def get_stage_module(self, id: str) -> InstalledModule | None:
         for module in self.get_installed_modules():
             for stage in module.get_stages():
                 if stage.id == id:
@@ -1558,7 +1390,7 @@ class Project:
 
         return None
 
-    def get_form(self, id: str, include_modules=True) -> Optional[FormStage]:
+    def get_form(self, id: str, include_modules=True) -> FormStage | None:
         for form in self.forms:
             if form.id == id:
                 return form
@@ -1573,7 +1405,7 @@ class Project:
 
         return None
 
-    def get_hook(self, id: str, include_modules=True) -> Optional[HookStage]:
+    def get_hook(self, id: str, include_modules=True) -> HookStage | None:
         for hook in self.hooks:
             if hook.id == id:
                 return hook
@@ -1588,7 +1420,7 @@ class Project:
 
         return None
 
-    def get_job(self, id: str, include_modules=True) -> Optional[JobStage]:
+    def get_job(self, id: str, include_modules=True) -> JobStage | None:
         for job in self.jobs:
             if job.id == id:
                 return job
@@ -1603,7 +1435,7 @@ class Project:
 
         return None
 
-    def get_script(self, id: str, include_modules=True) -> Optional[ScriptStage]:
+    def get_script(self, id: str, include_modules=True) -> ScriptStage | None:
         for script in self.scripts:
             if script.id == id:
                 return script
@@ -1618,44 +1450,33 @@ class Project:
 
         return None
 
-    def get_component(self, id: str) -> Optional[ComponentStage]:
+    def get_component(self, id: str) -> ComponentStage | None:
         for component in self.components:
             if component.id == id:
                 return component
 
         return None
 
-    def get_component_by_module_name(
-        self, module_name: str
-    ) -> Optional[ComponentStage]:
+    def get_component_by_module_name(self, module_name: str) -> ComponentStage | None:
         for component in self.components:
             if component.package_name == module_name:
                 return component
 
         return None
 
-    def get_agents(self) -> List[AgentStage]:
-        return self.agents
-
-    def get_agent(self, id: str) -> Optional[AgentStage]:
-        for agent in self.agents:
-            if agent.id == id:
-                return agent
-        return None
-
-    def get_hook_by_path(self, path: str) -> Optional[HookStage]:
+    def get_hook_by_path(self, path: str) -> HookStage | None:
         for hook in self.hooks:
             if hook.path == path:
                 return hook
 
         return None
 
-    def get_form_by_path(self, path: str) -> Optional[FormStage]:
+    def get_form_by_path(self, path: str) -> FormStage | None:
         for form in self.forms:
             if form.path == path:
                 return form
 
-    def get_stage_by_path(self, path: str) -> Optional[Stage]:
+    def get_stage_by_path(self, path: str) -> Stage | None:
         for form in self.forms:
             if form.path == path:
                 return form
@@ -1666,10 +1487,10 @@ class Project:
 
         return None
 
-    def get_initial_stages(self) -> List[Stage]:
+    def get_initial_stages(self) -> list[Stage]:
         return [r for r in self.workflow_stages if self.is_initial(r)]
 
-    def get_module_by_name(self, module_name: str) -> Optional[InstalledModule]:
+    def get_module_by_name(self, module_name: str) -> InstalledModule | None:
         modules = self.get_installed_modules()
         for module in modules:
             if module.name == module_name:
@@ -1677,7 +1498,7 @@ class Project:
 
         return None
 
-    def get_installed_modules(self) -> List[InstalledModule]:
+    def get_installed_modules(self) -> list[InstalledModule]:
         modules_path = Settings.root_path / "abstra_components"
         if not modules_path.is_dir():
             return []
@@ -1696,19 +1517,19 @@ class Project:
 
         raise Exception(f"Module {module_name} is not installed")
 
-    def get_module_stages(self, module_name: str) -> List[Stage]:
+    def get_module_stages(self, module_name: str) -> list[Stage]:
         module = self.get_installed_module_raises(module_name)
         return module.get_stages()
 
-    def get_inputs_for_module(self, module_name: str) -> List[Stage]:
+    def get_inputs_for_module(self, module_name: str) -> list[Stage]:
         module = self.get_installed_module_raises(module_name)
         return module.get_input_stages()
 
-    def get_outputs_for_module(self, module_name: str) -> List[str]:
+    def get_outputs_for_module(self, module_name: str) -> list[str]:
         module = self.get_installed_module_raises(module_name)
         return module.outputs
 
-    def find_module_containing_stage(self, stage_id: str) -> Optional[str]:
+    def find_module_containing_stage(self, stage_id: str) -> str | None:
         for stage in self.workflow_stages:
             if stage.id == stage_id:
                 return None
@@ -1741,7 +1562,7 @@ class Project:
         if self.get_stage_by_path(new_path):
             raise PathConflictError(f"Path {new_path} already exists")
 
-        all_stages: List[Union[FormStage, HookStage, JobStage]] = [
+        all_stages: list[FormStage | HookStage | JobStage] = [
             *self.forms,
             *self.hooks,
             *self.jobs,
@@ -1754,7 +1575,7 @@ class Project:
 
         stage.path = new_path
 
-    def update_stage(self, stage: Stage, changes: Dict[str, Any]) -> Stage:
+    def update_stage(self, stage: Stage, changes: dict[str, Any]) -> Stage:
         # This guarantees that the updated stage will be the one from the project
         project_stage = self.get_stage(stage.id)
 
@@ -1794,7 +1615,6 @@ class Project:
         self.jobs = [j for j in self.jobs if j.id != id]
         self.scripts = [s for s in self.scripts if s.id != id]
         self.components = [p for p in self.components if p.id != id]
-        self.agents = [a for a in self.agents if a.id != id]
 
     @staticmethod
     def _deduplicate_transitions(data: dict) -> dict:
@@ -1817,7 +1637,7 @@ class Project:
         Returns:
             The project dictionary with deduplicated and cleaned transitions
         """
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "components", "agents"]
+        stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
 
         # First, collect all valid stage IDs
         valid_stage_ids = set()
@@ -1895,7 +1715,7 @@ class Project:
             The project dictionary with deduplicated stages
         """
         seen_ids = set()
-        stage_keys = ["scripts", "forms", "hooks", "jobs", "components", "agents"]
+        stage_keys = ["scripts", "forms", "hooks", "jobs", "components"]
 
         for key in stage_keys:
             stages = data.get(key, [])
@@ -1922,7 +1742,7 @@ class Project:
         nodes = []
         edges = []
 
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "components", "agents"]
+        stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
 
         data = Project._deduplicate_stages(data)
         data = Project._deduplicate_transitions(data)
@@ -1951,8 +1771,6 @@ class Project:
             ComponentStage.from_dict(component)
             for component in data.get("components", [])
         ]
-        agents = [AgentStage.from_dict(agent) for agent in data.get("agents", [])]
-
         workspace = StyleSettings.from_dict(data["workspace"])
         home = Home.from_dict(data.get("home", {}))
 
@@ -1963,7 +1781,6 @@ class Project:
             hooks=hooks,
             jobs=jobs,
             components=components,
-            agents=agents,
             home=home,
             _graph=Graph.from_primitives(nodes=nodes, edges=edges),
         )
@@ -1994,7 +1811,6 @@ class Project:
             hooks=[],
             jobs=[],
             components=[],
-            agents=[],
             home=Home.create(),
             _graph=Graph.from_primitives([], []),
         )
@@ -2084,7 +1900,7 @@ class ProjectRepository:
         with self.lock:
             data = json.loads(file_path.read_text(encoding="utf-8"))
             if data["version"] == "v13.0":
-                CommonAbstraJsonV17.from_dict(data)
+                CommonAbstraJsonV18.from_dict(data)
             return Project.from_dict(data)
 
     def initialize_or_migrate(self, verbose=True):
@@ -2108,7 +1924,7 @@ class ProductionProjectRepository(ProjectRepository):
         with self.lock:
             data = json.loads(file_path.read_text(encoding="utf-8"))
             if data["version"] == "v13.0":
-                CommonAbstraJsonV17.from_dict(data)
+                CommonAbstraJsonV18.from_dict(data)
 
             if include_disabled_stages:
                 filtered_data = data
@@ -2119,13 +1935,11 @@ class ProductionProjectRepository(ProjectRepository):
             return Project.from_dict(filtered_data)
 
 
-def filter_stages_from_data(
-    data: dict, disabled_stages_ids: Optional[List[str]] = None
-):
+def filter_stages_from_data(data: dict, disabled_stages_ids: list[str] | None = None):
     if disabled_stages_ids is None or len(disabled_stages_ids) == 0:
         return data
 
-    stage_keys = ["forms", "hooks", "scripts", "jobs", "components", "agents"]
+    stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
 
     copy_data = data.copy()
 

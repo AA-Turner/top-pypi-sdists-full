@@ -6,17 +6,15 @@ from httpx import (
     URL,
     AsyncClient,
     Client,
-    ConnectTimeout,
     Headers,
     HTTPStatusError,
     Response,
-    TimeoutException,
 )
 from tenacity import (
     retry,
     retry_if_exception,
     retry_if_result,
-    wait_exponential,
+    stop_after_attempt,
 )
 
 from ..errors import EnrichedException
@@ -26,14 +24,12 @@ from ._ssl_context import get_httpx_client_kwargs
 from ._url import UiPathUrl
 from ._user_agent import user_agent_value
 from .constants import HEADER_USER_AGENT
-
-
-def is_retryable_exception(exception: BaseException) -> bool:
-    return isinstance(exception, (ConnectTimeout, TimeoutException))
-
-
-def is_retryable_status_code(response: Response) -> bool:
-    return response.status_code >= 500 and response.status_code < 600
+from .retry import (
+    MAX_RETRY_ATTEMPTS,
+    is_retryable_platform_exception,
+    is_retryable_response,
+    platform_wait_strategy,
+)
 
 
 class BaseService:
@@ -63,10 +59,12 @@ class BaseService:
 
     @retry(
         retry=(
-            retry_if_exception(is_retryable_exception)
-            | retry_if_result(is_retryable_status_code)
+            retry_if_exception(is_retryable_platform_exception)
+            | retry_if_result(is_retryable_response)
         ),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
+        wait=platform_wait_strategy,
+        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+        reraise=True,
     )
     def request(
         self,
@@ -117,10 +115,12 @@ class BaseService:
 
     @retry(
         retry=(
-            retry_if_exception(is_retryable_exception)
-            | retry_if_result(is_retryable_status_code)
+            retry_if_exception(is_retryable_platform_exception)
+            | retry_if_result(is_retryable_response)
         ),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
+        wait=platform_wait_strategy,
+        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+        reraise=True,
     )
     async def request_async(
         self,

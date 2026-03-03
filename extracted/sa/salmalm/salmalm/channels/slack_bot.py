@@ -47,7 +47,7 @@ class SlackBot:
             req.add_header(k, v)
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-                result = json.loads(resp.read(4 * 1024 * 1024).decode())
+                result = json.loads(resp.read().decode())
                 if not result.get("ok"):
                     log.error(f"Slack API {method}: {result.get('error', 'unknown')}")
                 return result

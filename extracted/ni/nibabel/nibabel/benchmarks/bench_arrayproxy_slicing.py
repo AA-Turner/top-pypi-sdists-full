@@ -18,7 +18,7 @@ from unittest import mock
 import numpy as np
 
 import nibabel as nib
-from nibabel.openers import HAVE_INDEXED_GZIP
+from nibabel._compression import HAVE_INDEXED_GZIP
 from nibabel.tmpdirs import InTemporaryDirectory
 
 from ..rstutils import rst_table
@@ -96,10 +96,10 @@ def bench_arrayproxy_slicing():
                 slcstr.append(s)
             else:
                 slcstr.append(str(int(s * SHAPE[i])))
-        return f"[{', '.join(slcstr)}]"
+        return f'[{", ".join(slcstr)}]'
 
     with InTemporaryDirectory():
-        print(f'Generating test data... ({int(round(np.prod(SHAPE) * 4 / 1048576.0))} MB)')
+        print(f'Generating test data... ({round(np.prod(SHAPE) * 4 / 1048576.0)} MB)')
 
         data = np.array(np.random.random(SHAPE), dtype=np.float32)
 
@@ -135,14 +135,14 @@ def bench_arrayproxy_slicing():
             # load uncompressed and compressed versions of the image
             img = nib.load(testfile, keep_file_open=keep_open)
 
-            with mock.patch('nibabel.openers.HAVE_INDEXED_GZIP', have_igzip):
+            with mock.patch('nibabel._compression.HAVE_INDEXED_GZIP', have_igzip):
                 imggz = nib.load(testfilegz, keep_file_open=keep_open)
 
             def basefunc():
                 img.dataobj[fix_sliceobj(sliceobj)]
 
             def testfunc():
-                with mock.patch('nibabel.openers.HAVE_INDEXED_GZIP', have_igzip):
+                with mock.patch('nibabel._compression.HAVE_INDEXED_GZIP', have_igzip):
                     imggz.dataobj[fix_sliceobj(sliceobj)]
 
             # make sure nothing is floating around from the previous test

@@ -260,7 +260,7 @@ def planar_snake(
   and when moving from one tile to another, the indices increase along columns
   in one of them and decrease in the other.
   """
-  tile_width = np.int32(tile_width)
+  tile_width = np.int32(tile_width)  # pyrefly: ignore[bad-assignment]
   major_size = np.int32(shape[1 - minor_dim])
   minor_size = np.int32(shape[minor_dim])
   minor_tile_idx = lax.div(lin_idx, tile_width * major_size)
@@ -344,15 +344,18 @@ def dynamic_scheduling_loop(
   def decorator(body):
     grid_idx = tuple(lax.axis_index(axis_name) for axis_name in grid_names)
     success = True
-    def _scoped(try_cancel_buffer, try_cancel_barrier):
+    def _scoped(try_cancel_buffer, try_cancel_barrier, cancel_used_barrier):
+      gpu_primitives.barrier_arrive(cancel_used_barrier)
       def try_cancel_cond(carry):
         _, success, _, _ = carry
         return success
       def try_cancel_body(carry):
         grid_idx, _, wave_step, user_carry = carry
         slot = lax.rem(wave_step, jnp.int32(2))
-        gpu_primitives.try_cluster_cancel(try_cancel_buffer.at[slot],
-                                          try_cancel_barrier.at[slot])
+        gpu_primitives.barrier_wait(cancel_used_barrier)
+        gpu_primitives.try_cluster_cancel(
+            try_cancel_buffer.at[slot], try_cancel_barrier
+        )
         loop_info = NDLoopInfo(
             index=grid_idx,
             local_index=wave_step,
@@ -362,10 +365,11 @@ def dynamic_scheduling_loop(
           body(loop_info)
         else:
           user_carry = body(loop_info, carry=user_carry)
-        gpu_primitives.barrier_wait(try_cancel_barrier.at[slot])
+        gpu_primitives.barrier_wait(try_cancel_barrier)
         grid_idx, success = gpu_primitives.query_cluster_cancel(
             try_cancel_buffer.at[slot],
             grid_names=grid_names)
+        gpu_primitives.barrier_arrive(cancel_used_barrier)
         return (grid_idx, success, wave_step + jnp.int32(1), user_carry)
       init_carry = (grid_idx, success, jnp.int32(0), user_carry)
       final_carry = lax.while_loop(
@@ -373,13 +377,14 @@ def dynamic_scheduling_loop(
           try_cancel_body,
           init_carry,
       )
+      gpu_primitives.barrier_wait(cancel_used_barrier)
       if user_carry is not None:
         return final_carry[-1]
     return pallas_primitives.run_scoped(
         _scoped,
         try_cancel_buffer=gpu_core.TryClusterCancelResult(2),
-        try_cancel_barrier=gpu_core.Barrier(num_arrivals=num_threads,
-                                            num_barriers=2),
+        try_cancel_barrier=gpu_core.Barrier(num_arrivals=num_threads),
+        cancel_used_barrier=gpu_core.Barrier(num_arrivals=num_threads),
         collective_axes=thread_axis,
     )
   return decorator

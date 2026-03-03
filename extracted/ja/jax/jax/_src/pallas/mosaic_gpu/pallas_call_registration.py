@@ -19,11 +19,9 @@ from __future__ import annotations
 
 import os
 import time
-from typing import cast
 import warnings
 
 import jax
-from jax._src import config
 from jax._src import core as jax_core
 from jax._src import frozen_dict
 from jax._src import sharding_impls
@@ -45,7 +43,7 @@ def pallas_call_lowering(
     input_output_aliases: tuple[tuple[int, int], ...],
     grid_mapping: pallas_core.GridMapping,
     mesh: pallas_core.Mesh | None,
-    compiler_params: dict[str, pallas_core.CompilerParams],
+    compiler_params: pallas_core.CompilerParams | None,
     cost_estimate: pallas_core.CostEstimate | None,
     out_avals: tuple[jax_core.AbstractValue, ...],
     metadata: frozen_dict.FrozenDict[str, str] | None,
@@ -59,6 +57,11 @@ def pallas_call_lowering(
         "dynamic grid bounds not supported in the Mosaic GPU backend"
     )
 
+  if mesh is not None and not isinstance(mesh, gpu_core.Mesh):
+    raise NotImplementedError(
+        f"Mesh {mesh} is not supported by the Mosaic GPU backend"
+    )
+
   if debug:
     print(f"\nThe kernel jaxpr for pallas_call {debug_info.func_src_info}:")
     print(jaxpr)
@@ -67,10 +70,11 @@ def pallas_call_lowering(
 
   mgpu.dialect.register_dialect(ctx.module_context.context)  # pytype: disable=attribute-error
 
-  if "mosaic_gpu" in compiler_params:
-    params = cast(gpu_core.CompilerParams, compiler_params["mosaic_gpu"])
+  if compiler_params is None:
+    gpu_params = gpu_core.CompilerParams()
   else:
-    params = gpu_core.CompilerParams()
+    assert isinstance(compiler_params, gpu_core.CompilerParams)
+    gpu_params = compiler_params  # type: ignore[assignment]
 
   jax_mesh = None
   axis_context = ctx.module_context.axis_context
@@ -78,12 +82,15 @@ def pallas_call_lowering(
     if isinstance(axis_context, sharding_impls.SPMDAxisContext):
       jax_mesh = axis_context.mesh
 
-  # TODO(slebedev): Remove this once the ensure-debug-info-scope-on-llvm-func
-  # pass correctly handles full tracebacks.
-  with config.include_full_tracebacks_in_locations(False):
-    lowering_result = lowering.lower_pipelined_jaxpr_to_module(
-        grid_mapping, mesh, jax_mesh, jaxpr, params, cost_estimate
-    )
+  lowering_result = lowering.lower_pipelined_jaxpr_to_module(
+      grid_mapping,
+      mesh,
+      jax_mesh,
+      jaxpr,
+      gpu_params,
+      cost_estimate,
+      outer_traceback=ctx.traceback,
+  )
   if debug:
     print(f"\nThe Mosaic GPU module for pallas_call {debug_info.func_src_info}:")
     print(lowering_result.module.operation)
@@ -125,6 +132,7 @@ def pallas_call_lowering(
         f"{mlir.sanitize_name(debug_info.func_name)}-{time.time_ns()}-trace.json",
     )
     def dump_profile(prof_buffer):
+      assert prof_spec is not None  # pyrefly#40
       try:
         with open(out_file, "x") as f:
           prof_spec.dump(

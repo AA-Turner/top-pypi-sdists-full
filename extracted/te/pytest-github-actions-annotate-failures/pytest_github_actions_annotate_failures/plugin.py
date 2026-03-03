@@ -10,8 +10,9 @@ from _pytest._code.code import ExceptionRepr, ReprEntry
 from packaging import version
 
 if TYPE_CHECKING:
-    from _pytest.nodes import Item
-    from _pytest.reports import CollectReport
+    from warnings import WarningMessage
+
+    from _pytest.reports import TestReport
 
 
 # Reference:
@@ -26,17 +27,16 @@ if TYPE_CHECKING:
 PYTEST_VERSION = version.parse(pytest.__version__)
 
 
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item: Item, call):  # noqa: ARG001
-    # execute all other hooks to obtain the report object
-    outcome = yield
-    report: CollectReport = outcome.get_result()
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_logreport(report: TestReport):
+    """Handle test reporting for all pytest versions."""
 
     # enable only in a workflow of GitHub Actions
     # ref: https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables
     if os.environ.get("GITHUB_ACTIONS") != "true":
         return
 
+    # Only handle failed tests in call phase
     if report.when == "call" and report.failed:
         filesystempath, lineno, _ = report.location
 
@@ -44,7 +44,7 @@ def pytest_runtest_makereport(item: Item, call):  # noqa: ARG001
             # 0-index to 1-index
             lineno += 1
 
-        longrepr = report.head_line or item.name
+        longrepr = report.head_line or "test"
 
         # get the error message and line number from the actual error
         if isinstance(report.longrepr, ExceptionRepr):
@@ -98,14 +98,20 @@ def compute_path(filesystempath: str) -> str:
 
 
 class _AnnotateWarnings:
-    def pytest_warning_recorded(self, warning_message, when, nodeid, location):  # noqa: ARG002
+    def pytest_warning_recorded(
+        self,
+        warning_message: WarningMessage,
+        when: str,  # noqa: ARG002
+        nodeid: str,  # noqa: ARG002
+        location: tuple[str, int, str],  # noqa: ARG002
+    ):
         # enable only in a workflow of GitHub Actions
         # ref: https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables
         if os.environ.get("GITHUB_ACTIONS") != "true":
             return
 
         filesystempath = warning_message.filename
-        workspace = os.environ.get("GITHUB_WORKFLOW")
+        workspace = os.environ.get("GITHUB_WORKSPACE")
 
         if workspace:
             try:
@@ -124,7 +130,7 @@ class _AnnotateWarnings:
             "warning",
             filesystempath,
             warning_message.lineno,
-            message=warning_message.message.args[0],
+            message=str(warning_message.message),
         )
         print(workflow_command, file=sys.stderr)
 

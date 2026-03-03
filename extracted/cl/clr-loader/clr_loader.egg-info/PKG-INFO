@@ -1,22 +1,21 @@
 Metadata-Version: 2.4
 Name: clr_loader
-Version: 0.2.10
+Version: 0.3.0
 Summary: Generic pure Python loader for .NET runtimes
 Author-email: Benedikt Reinartz <filmor@gmail.com>
-License: MIT
 Project-URL: Sources, https://github.com/pythonnet/clr-loader
 Project-URL: Documentation, https://pythonnet.github.io/clr-loader/
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: cffi>=1.13; python_version <= "3.8"
-Requires-Dist: cffi>=1.17; python_version >= "3.8"
+License-File: LICENSE
+Requires-Dist: cffi>=1.17
+Dynamic: license-file
 
 # clr-loader
 

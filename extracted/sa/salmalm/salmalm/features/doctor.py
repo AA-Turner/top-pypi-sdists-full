@@ -70,7 +70,7 @@ class Doctor:
             try:
                 req = urllib.request.Request(f"https://api.telegram.org/bot{tg_token}/getMe")
                 resp = urllib.request.urlopen(req, timeout=5)
-                data = json.loads(resp.read(4 * 1024 * 1024))
+                data = json.loads(resp.read())
                 bot_name = data.get("result", {}).get("username", "?")
                 results.append(f"Telegram: ✅ @{bot_name}")
             except Exception as e:  # noqa: broad-except
@@ -83,7 +83,7 @@ class Doctor:
                     headers={"Authorization": f"Bot {dc_token}"},
                 )
                 resp = urllib.request.urlopen(req, timeout=5)
-                data = json.loads(resp.read(4 * 1024 * 1024))
+                data = json.loads(resp.read())
                 bot_name = data.get("username", "?")
                 results.append(f"Discord: ✅ {bot_name}")
             except Exception as e:  # noqa: broad-except

@@ -524,6 +524,7 @@ def sandbox_start_worker(
     job_id: JobIdArg,
     simulator: SimulatorNameArg,
     dataset: DatasetArg,
+    api: bool = typer.Option(False, "--api", "-a", help="Fetch plato-config from API instead of local file"),
     wait_timeout: int = typer.Option(240, "--wait-timeout", help="Wait timeout in seconds"),
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
@@ -535,6 +536,7 @@ def sandbox_start_worker(
 
     Example:
         plato sandbox start-worker
+        plato sandbox start-worker --api
         plato sandbox start-worker --wait-timeout 300
     """
     with sandbox_context(working_dir, json_output, verbose) as (client, out):
@@ -545,6 +547,7 @@ def sandbox_start_worker(
             simulator=str(simulator),
             dataset=str(dataset),
             wait_timeout=wait_timeout,
+            use_api=api,
         )
 
         out.success({"status": "started"}, "Worker started")

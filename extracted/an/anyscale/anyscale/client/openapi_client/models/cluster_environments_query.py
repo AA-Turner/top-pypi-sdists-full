@@ -39,7 +39,8 @@ class ClusterEnvironmentsQuery(object):
         'image_name': 'TextQuery',
         'paging': 'PageQuery',
         'include_archived': 'bool',
-        'include_anonymous': 'bool'
+        'include_anonymous': 'bool',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class ClusterEnvironmentsQuery(object):
         'image_name': 'image_name',
         'paging': 'paging',
         'include_archived': 'include_archived',
-        'include_anonymous': 'include_anonymous'
+        'include_anonymous': 'include_anonymous',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, project_id=None, creator_id=None, name=None, image_name=None, paging=None, include_archived=False, include_anonymous=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, project_id=None, creator_id=None, name=None, image_name=None, paging=None, include_archived=False, include_anonymous=False, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """ClusterEnvironmentsQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class ClusterEnvironmentsQuery(object):
         self._paging = None
         self._include_archived = None
         self._include_anonymous = None
+        self._cloud_id = None
         self.discriminator = None
 
         if project_id is not None:
@@ -81,6 +84,8 @@ class ClusterEnvironmentsQuery(object):
             self.include_archived = include_archived
         if include_anonymous is not None:
             self.include_anonymous = include_anonymous
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def project_id(self):
@@ -242,6 +247,29 @@ class ClusterEnvironmentsQuery(object):
         """
 
         self._include_anonymous = include_anonymous
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this ClusterEnvironmentsQuery.  # noqa: E501
+
+        Filters Cluster Environments by cloud id. If absent, no filtering is done.  # noqa: E501
+
+        :return: The cloud_id of this ClusterEnvironmentsQuery.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this ClusterEnvironmentsQuery.
+
+        Filters Cluster Environments by cloud id. If absent, no filtering is done.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this ClusterEnvironmentsQuery.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

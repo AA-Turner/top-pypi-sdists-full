@@ -8,6 +8,8 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, get_args, get_origin
 
@@ -18,23 +20,37 @@ from pydantic import BaseModel as PydanticBaseModel
 from typing_extensions import TypeVar
 
 from plato.agents.runner import AgentRunner, create_runtime
-from plato.agents.runtime.workspace import NFSWorkspace, RsyncWorkspace, Workspace
+from plato.agents.runtime.transport import NFSTransport, Transport
 from plato.llm import LLMClient
+from plato.markers import WorkspaceMarker
 from plato.otel import get_tracer, init_tracing, shutdown_tracing
 from plato.runtime import RuntimeConfig, VMRuntimeConfig
 from plato.v2.async_.session import Session
 from plato.vm_metrics import instrument_system_metrics, shutdown_metrics
-from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, SessionConfig, WorkspaceMode
-from plato.worlds.models import Observation, StepResult
-from plato.worlds.restic import ResticCheckpointMixin
-from plato.worlds.s3 import download_from_s3, upload_to_s3
+from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, SessionConfig
+from plato.worlds.models import Observation, StateHistoryEntry, StepResult, WorkspaceSnapshot
 from plato.worlds.schema import get_world_schema
+from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
     from plato.v2.async_.environment import Environment
     from plato.worlds.result_store import ResultStore
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ResolvedWorkspaceRepo:
+    """Result of resolving a workspace repo via Chronos."""
+
+    s3_bucket: str
+    s3_prefix: str
+    repo_id: str
+    commit_ref: str
+    repo_name: str
+    chronos_url: str
+    api_key: str
+
 
 # Global registry of worlds
 _WORLD_REGISTRY: dict[str, type[BaseWorld]] = {}
@@ -106,7 +122,7 @@ def get_world(name: str) -> type[BaseWorld] | None:
     return _WORLD_REGISTRY.get(name)
 
 
-class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
+class BaseWorld(ABC, Generic[ConfigT, StateT]):
     """Base class for Plato worlds.
 
     Subclass with a config type parameter for fully typed config access.
@@ -164,9 +180,10 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
         self._session_id: str | None = None
         self._agent_containers: list[str] = []  # Track spawned agent containers for cleanup
         self._state: StateT | None = None
-        self._workspace: Workspace | None = None
+        self._transport: Transport | None = None  # NFS/rsync transport (set during session connect)
         self._ssh_key_path: Path | None = None
-        self.__init_restic__()
+        self._workspaces: dict[str, Workspace] = {}  # declared workspaces
+        self._tailscaled_proc: asyncio.subprocess.Process | None = None
 
     @property
     def state(self) -> StateT:
@@ -174,11 +191,6 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
         if self._state is None and self._state_class:
             self._state = self._state_class()
         return self._state  # type: ignore[return-value]
-
-    def reset_state(self) -> None:
-        """Reset state to defaults."""
-        if self._state_class:
-            self._state = self._state_class()
 
     @classmethod
     def get_config_class(cls) -> type[RunConfig]:
@@ -218,8 +230,33 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
 
     async def close(self) -> None:
         """Cleanup resources. Called after run completes."""
+        await self._cleanup_tailscale()
         await self._cleanup_agent_containers()
         await self._cleanup_agent_envs()
+
+    async def _cleanup_tailscale(self) -> None:
+        """Terminate tailscaled if this world started it."""
+        proc = self._tailscaled_proc
+        self._tailscaled_proc = None
+        if proc is None:
+            return
+
+        try:
+            if proc.returncode is None:
+                proc.terminate()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=5)
+                except TimeoutError:
+                    self.logger.warning("tailscaled did not exit after SIGTERM, sending SIGKILL")
+                    proc.kill()
+                    await proc.wait()
+            else:
+                await proc.wait()
+        except ProcessLookupError:
+            # Process already exited.
+            return
+        except Exception as e:
+            self.logger.warning(f"Failed to cleanup tailscaled process: {e}")
 
     async def _cleanup_agent_containers(self) -> None:
         """Stop any agent containers spawned by this world."""
@@ -250,7 +287,8 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
 
         try:
             envs = self.plato_session.envs
-        except Exception:
+        except Exception as e:
+            self.logger.warning(f"Failed to list agent envs for cleanup: {e}")
             return
 
         for env in envs:
@@ -266,15 +304,42 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
         """Get an LLM client for the given config, with optional ResultStore caching."""
         return LLMClient(config, store=store)
 
-    def agent(self, config: AgentConfig, workspace: Workspace | None = None) -> AgentRunner:
-        """Get an agent runner for the given config."""
-        ws = self._workspace if workspace is None else workspace
+    def agent(
+        self,
+        config: AgentConfig,
+        workspaces: list[Workspace] | None = None,
+    ) -> AgentRunner:
+        """Get an agent runner for the given config.
+
+        Args:
+            config: Agent configuration.
+            workspaces: Workspaces to mount on the agent.
+                The first workspace becomes the primary workspace.
+        """
+        resolved: list[Transport] = []
+        if workspaces:
+            for workspace in workspaces:
+                if workspace.transport is None:
+                    raise RuntimeError(
+                        f"Workspace '{workspace.name}' has no transport (NFS/rsync). Is the Plato session connected?"
+                    )
+                resolved.append(workspace.transport)
+
+        primary = resolved[0] if resolved else self._transport
+        extra = resolved[1:] if len(resolved) > 1 else None
+
         runtime = create_runtime(
             config,
             session=self.plato_session,
             ssh_key_path=self._ssh_key_path,
         )
-        return AgentRunner(config, runtime, workspace=ws, agent_containers=self._agent_containers)
+        return AgentRunner(
+            config,
+            runtime,
+            workspace=primary,
+            workspaces=extra,
+            agent_containers=self._agent_containers,
+        )
 
     async def _connect_plato_session(self) -> None:
         """Connect to Plato session from config."""
@@ -290,7 +355,7 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
             return
 
         await self._setup_ssh_key()
-        await self._create_workspace()
+        await self._create_transport()
 
     async def _setup_ssh_key(self) -> None:
         """Generate or reuse SSH key and add it to the Plato session."""
@@ -304,33 +369,25 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
         await self.plato_session.add_ssh_key(pub_key)
         self.logger.debug("SSH key added to session")
 
-    async def _create_workspace(self) -> None:
-        """Create the workspace instance from config after session is connected."""
-        assert self._ssh_key_path is not None, "SSH key must be set before creating workspace"
-        ssh_key_path = self._ssh_key_path
-        ws_config = self.config.workspace
+    async def _create_transport(self) -> None:
+        """Create the NFS transport for sharing workspaces with agent VMs."""
+        assert self._ssh_key_path is not None, "SSH key must be set before creating transport"
 
-        if ws_config.mode == WorkspaceMode.nfs:
-            mesh_ip = None
-            if self.plato_session:
-                for env in self.plato_session.envs:
-                    if env.alias == "runtime":
-                        try:
-                            mesh_ip = await env.get_mesh_ip()
-                        except Exception:
-                            pass
-                        break
-            if not mesh_ip or not self.plato_session:
-                raise RuntimeError("NFS mode requested but mesh IP not available")
-            self._workspace = NFSWorkspace(ws_config.path, mesh_ip, ssh_key_path)
-        else:
-            self._workspace = RsyncWorkspace(ws_config.path, ssh_key_path)
+        mesh_ip = None
+        if self.plato_session:
+            for env in self.plato_session.envs:
+                if env.alias == "runtime":
+                    try:
+                        mesh_ip = await env.get_mesh_ip()
+                    except Exception as e:
+                        self.logger.warning(f"Failed to get mesh IP from runtime env: {e}")
+                    break
+        if not mesh_ip or not self.plato_session:
+            raise RuntimeError("NFS transport requires mesh IP from Plato session")
 
-        self.logger.info(f"Workspace mode: {type(self._workspace).__name__} (path={self._workspace.path})")
-        await self._workspace.initialize()
-
-        # Register the default workspace for restic checkpointing
-        self.register_workspace("workspace", ws_config.path, backup=True)
+        self._transport = NFSTransport("/workspace", mesh_ip, self._ssh_key_path)
+        self.logger.info(f"Transport: NFS (mesh_ip={mesh_ip})")
+        await self._transport.initialize()
 
     async def _disconnect_plato_session(self) -> None:
         """Stop heartbeat for the Plato session (does not close the session)."""
@@ -383,74 +440,177 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
         except Exception as e:
             self.logger.warning(f"Failed to report session completion to Chronos: {e}")
 
-    async def _create_checkpoint(self) -> dict[str, str] | None:
-        """Create a checkpoint snapshot of all environments (excluding configured envs)."""
-        if not self.plato_session:
-            self.logger.warning("Cannot create checkpoint: Plato session not connected")
-            return None
-
-        exclude_envs = set(self.config.checkpoint.exclude_envs)
-        envs_to_snapshot = [env for env in self.plato_session.envs if env.alias not in exclude_envs]
-
-        if not envs_to_snapshot:
-            self.logger.info("No environments to checkpoint (all excluded)")
-            return {}
-
-        self.logger.info(
-            f"Creating checkpoint for {len(envs_to_snapshot)} environment(s): {[e.alias for e in envs_to_snapshot]}"
-        )
-
-        results: dict[str, str] = {}
-        for env in envs_to_snapshot:
-            try:
-                result = await env.snapshot_store()
-                artifact_id = result.artifact_id
-                results[env.alias] = artifact_id
-
-                if not result.success or result.error:
-                    self.logger.error(
-                        f"Checkpoint failed for '{env.alias}': {result.error or 'unknown error'} (job_id={env.job_id})"
-                    )
-                elif artifact_id:
-                    self.logger.info(f"Checkpoint created for '{env.alias}': {artifact_id}")
-                else:
-                    self.logger.warning(
-                        f"Checkpoint for '{env.alias}' returned empty artifact_id (job_id={env.job_id})"
-                    )
-            except Exception as e:
-                self.logger.error(f"Failed to checkpoint '{env.alias}': {e}")
-
-        return results
-
     async def save_state(self) -> None:
-        """Persist world state locally and upload to S3."""
+        """Persist world state to Chronos DB."""
         if not self.config.state.enabled or self._state is None:
             return
-        data = self._state.model_dump()
-        workspaces = self._serialize_workspaces()
-        if workspaces:
-            data["_workspaces"] = workspaces
-        state_file = Path(self.config.state.path) / "world_state.json"
-        state_file.parent.mkdir(parents=True, exist_ok=True)
-        state_file.write_text(json.dumps(data, default=str))
-        await self._upload_state()
 
-    def load_state(self) -> bool:
-        """Load world state from the state directory."""
-        if not self.config.state.enabled or not self.config.state.resume:
+        ws_snapshots: dict[str, WorkspaceSnapshot] = {}
+        if self._workspaces:
+            for name, ws in self._workspaces.items():
+                ws_dict = await ws.to_state_dict()
+                ws_snapshots[name] = WorkspaceSnapshot(**ws_dict)
+            self._state.workspaces = ws_snapshots
+
+        # Append to state history
+        self._state.state_history.append(
+            StateHistoryEntry(
+                step=self._step_count,
+                timestamp=datetime.now(UTC).isoformat(),
+                workspaces=ws_snapshots,
+            )
+        )
+
+        await self._upload_state(self._state.model_dump())
+
+    async def load_state(self, session_id: str | None = None) -> bool:
+        """Load world state from Chronos DB and restore tracked workspaces.
+
+        Args:
+            session_id: Session to load state from. Defaults to the current session.
+        """
+        if not self.config.state.enabled:
             return False
-        state_file = Path(self.config.state.path) / "world_state.json"
-        if not state_file.exists():
+        sid = session_id or self.session.session_id
+        if not sid:
             return False
-        try:
-            data = json.loads(state_file.read_text())
-        except (json.JSONDecodeError, OSError):
+        data = await self._download_state(sid)
+        if data is None:
             return False
-        if "_workspaces" in data:
-            self._deserialize_workspaces(data.pop("_workspaces"))
-        if self._state_class:
-            self._state = self._state_class.model_validate(data)  # type: ignore[assignment]
+        if not self._apply_state(data):
+            return False
+
+        # Restore tracked workspaces from the exact checkpoint recorded in state.
+        # When resuming cross-session, the source session may have used
+        # different workspace repo names. Use resume_workspaces config
+        # to override, or fall back to the saved snapshot repo name.
+        resume_repos = self.config.state.resume_workspaces
+        saved_snapshots = self._state.workspaces if self._state else {}
+        for name, workspace in self._workspaces.items():
+            if workspace.tracked:
+                snap = saved_snapshots.get(name)
+                if not snap:
+                    raise RuntimeError(
+                        f"State is missing a snapshot for tracked workspace '{name}'. Cannot perform exact restore."
+                    )
+                if not snap.steps:
+                    raise RuntimeError(
+                        f"State snapshot for tracked workspace '{name}' has no saved step. "
+                        "Cannot perform exact restore."
+                    )
+                exact_step = snap.steps[-1]
+
+                original = {
+                    "session_id": workspace.session_id,
+                    "repo_name": workspace.repo_name,
+                    "repo_id": workspace.repo_id,
+                    "s3_bucket": workspace.s3_bucket,
+                    "s3_prefix": workspace.s3_prefix,
+                }
+                source_session_public_id: str | None = None
+                source_repo_name: str | None = None
+                source_ref_public_id: str | None = None
+                should_record_resume_input = bool(session_id)
+                try:
+                    if session_id:
+                        workspace.session_id = session_id
+
+                    # Override repo config for cross-session resume
+                    override_repo = resume_repos.get(name)
+                    if not override_repo and session_id and snap.repo_name:
+                        override_repo = snap.repo_name
+                    if override_repo and session_id:
+                        resolved = await self._resolve_workspace_repo_by_name(override_repo)
+                        workspace.repo_name = override_repo
+                        workspace.repo_id = resolved.repo_id
+                        workspace.s3_bucket = resolved.s3_bucket
+                        workspace.s3_prefix = resolved.s3_prefix
+                        # Force credential refresh for the new repo
+                        workspace._sts_credentials = {}
+                        workspace._sts_expires_at = 0
+
+                    self.logger.info(
+                        f"Restoring workspace '{name}' from session '{workspace.session_id}' "
+                        f"(repo={workspace.repo_name}, step={exact_step})"
+                    )
+                    restored = await workspace.restore(exact_step)
+                    if not restored:
+                        raise RuntimeError(
+                            f"Workspace '{name}' step '{exact_step}' has no DVC files "
+                            f"(session={workspace.session_id}, repo={workspace.repo_name})"
+                        )
+                    self.logger.info(f"Restored workspace '{name}' from step '{exact_step}'")
+                    source_session_public_id = workspace.session_id
+                    source_repo_name = workspace.repo_name
+                    source_ref_public_id = getattr(workspace, "_last_restored_source_ref_public_id", "") or None
+                except Exception as e:
+                    self.logger.exception(
+                        "Failed to restore workspace '%s' from session '%s' (repo=%s, step=%s)",
+                        name,
+                        workspace.session_id,
+                        workspace.repo_name,
+                        exact_step,
+                    )
+                    raise RuntimeError(
+                        f"Failed to restore workspace '{name}' from session '{workspace.session_id}' "
+                        f"(repo={workspace.repo_name}, step={exact_step}): {e}"
+                    ) from e
+                finally:
+                    workspace.session_id = original["session_id"]
+                    workspace.repo_name = original["repo_name"]
+                    workspace.repo_id = original["repo_id"]
+                    workspace.s3_bucket = original["s3_bucket"]
+                    workspace.s3_prefix = original["s3_prefix"]
+                    # Force credential refresh back to current repo
+                    workspace._sts_credentials = {}
+                    workspace._sts_expires_at = 0
+
+                if should_record_resume_input:
+                    if source_ref_public_id:
+                        await workspace._record_workspace_ref(
+                            exact_step,
+                            "input",
+                            {},
+                            source_ref_public_id=source_ref_public_id,
+                        )
+                    elif source_session_public_id and source_repo_name:
+                        await workspace._record_workspace_ref(
+                            exact_step,
+                            "input",
+                            {},
+                            source_session_public_id=source_session_public_id,
+                            source_repo_name=source_repo_name,
+                            source_step_name=exact_step,
+                        )
+                    else:
+                        raise RuntimeError(
+                            f"Failed to record resume lineage for workspace '{name}' "
+                            f"(repo={workspace.repo_name}, step={exact_step}): missing source metadata"
+                        )
+
         return True
+
+    def _apply_state(self, data: dict) -> bool:
+        """Apply a state dict to the world's in-memory state."""
+        if not self._state_class:
+            return False
+        self._state = self._state_class.model_validate(data)  # type: ignore[assignment]
+        return True
+
+    async def _try_resume(self) -> bool:
+        """Try to resume from saved state. Returns True if resumed.
+
+        Loads state and workspace data from Chronos so we pick up
+        where we left off.
+        """
+        if not self.config.state.enabled:
+            return False
+
+        resume_sid = self.config.state.resume_from or None
+        restored = await self.load_state(session_id=resume_sid)
+        if restored and self._state and self._state.state_history:
+            self._step_count = max(entry.step for entry in self._state.state_history)
+        return restored
 
     def _get_chronos_base_url(self) -> str:
         """Get the Chronos API base URL from session config."""
@@ -460,71 +620,161 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
             return self.session.otel_url.removesuffix("/api/otel")
         return ""
 
-    async def _restore_session_state(self) -> bool:
-        """Download state from a previous session via Chronos presigned URL."""
-        resume_session = self.config.state.resume_session
-        if not resume_session:
-            return False
-
-        self.logger.info(f"Restoring state from session {resume_session}")
-        return await self._download_state(resume_session)
-
-    async def _upload_state(self) -> bool:
-        """Upload world_state.json to S3 via Chronos presigned PUT URL."""
-        if not self.config.state.enabled:
-            return True
-
+    async def _upload_state(self, state_data: dict) -> bool:
+        """Upload world state dict to Chronos DB."""
         session_id = self.session.session_id
         if not session_id:
             self.logger.warning("Cannot upload state: no session_id")
             return False
-
-        state_file = Path(self.config.state.path) / "world_state.json"
-        if not state_file.exists():
-            self.logger.debug("No state file to upload")
-            return True
 
         base_url = self._get_chronos_base_url()
         if not base_url:
             self.logger.warning("Cannot upload state: no chronos_url")
             return False
 
-        return await upload_to_s3(base_url, session_id, "state", state_file.read_bytes(), "application/json")
+        try:
+            api_key = os.environ.get("PLATO_API_KEY", "")
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.put(
+                    f"{base_url}/api/sessions/{session_id}/state",
+                    json=state_data,
+                    headers={"X-API-Key": api_key},
+                )
+                if resp.status_code == 200:
+                    return True
+                self.logger.warning(f"State upload failed: {resp.status_code}")
+                return False
+        except Exception as e:
+            self.logger.warning(f"Failed to upload state: {e}")
+            return False
 
-    async def _download_state(self, resume_session_id: str) -> bool:
-        """Download state.json from a previous session via Chronos presigned URL."""
+    async def _download_state(self, session_id: str) -> dict | None:
+        """Download world state dict from Chronos DB. Returns None if not found."""
         base_url = self._get_chronos_base_url()
         if not base_url:
             self.logger.warning("Cannot download state: no chronos_url")
-            return False
+            return None
 
-        data = await download_from_s3(base_url, resume_session_id, "state")
-        if data is None:
-            return False
+        try:
+            api_key = os.environ.get("PLATO_API_KEY", "")
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(
+                    f"{base_url}/api/sessions/{session_id}/state",
+                    headers={"X-API-Key": api_key},
+                )
+                if resp.status_code == 404:
+                    self.logger.info(f"No state found for session {session_id}")
+                    return None
+                resp.raise_for_status()
+                self.logger.info(f"Downloaded state from session {session_id}")
+                return resp.json()
+        except Exception as e:
+            self.logger.warning(f"Failed to download state: {e}")
+            return None
 
-        state_path = Path(self.config.state.path)
-        state_path.mkdir(parents=True, exist_ok=True)
-        (state_path / "world_state.json").write_bytes(data)
-        self.logger.info(f"Downloaded state from session {resume_session_id}")
-        return True
+    # ------------------------------------------------------------------
+    # Workspace access
+    # ------------------------------------------------------------------
 
-    async def _create_and_upload_checkpoint(self) -> tuple[dict[str, str], bool]:
-        """Create a full checkpoint including env snapshots and state upload."""
-        env_snapshots = await self._create_checkpoint()
-        if env_snapshots is None:
-            env_snapshots = {}
+    def workspace(self, name: str) -> Workspace:
+        """Get a declared workspace by name.
 
-        await self._checkpoint_workspaces()
+        Usage:
+            ws = self.workspace("output")
+            ws.path                          # Path on world VM
+            await ws.commit("capture")       # DVC commit (tracked workspaces)
+            await ws.restore("capture")      # DVC restore
+            data = ws.lazy_read("file.json") # Read from any revision
 
-        state_uploaded = True
-        if self.config.state.enabled:
-            state_uploaded = await self._upload_state()
-            if state_uploaded:
-                self.logger.info(f"Uploaded state at step {self._step_count}")
-            else:
-                self.logger.warning(f"Failed to upload state at step {self._step_count}")
+            # Pass to agent by name:
+            runner = self.agent(config, workspace="output")
+        """
+        if name not in self._workspaces:
+            raise KeyError(f"No workspace '{name}'. Available: {list(self._workspaces.keys())}")
+        return self._workspaces[name]
 
-        return env_snapshots, state_uploaded
+    async def checkpoint(self, label: str) -> None:
+        """Save state and commit all tracked workspaces."""
+        for name, workspace in self._workspaces.items():
+            if workspace.tracked:
+                self.logger.info(f"Checkpoint workspace '{name}' at '{label}'")
+                await workspace.commit(label)
+        await self.save_state()
+
+    def workspace_repo_name(self, field_name: str) -> str:
+        """Return the Chronos repo name for a workspace field.
+
+        Override this in subclasses to customize workspace repo naming.
+        The default is ``{world.name}/{field_name}``::
+
+            class MyWorld(BaseWorld):
+                def workspace_repo_name(self, field_name: str) -> str:
+                    return f"{self.name}/{self.config.project}/{field_name}"
+        """
+        return f"{self.name}/{field_name}"
+
+    async def _resolve_workspace_repo_by_name(self, repo_name: str) -> ResolvedWorkspaceRepo:
+        """Resolve a workspace repo by exact name."""
+        chronos_url = self._get_chronos_base_url()
+        api_key = os.environ.get("PLATO_API_KEY", "")
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{chronos_url}/api/workspace-repos/resolve",
+                json={"name": repo_name},
+                headers={"X-API-Key": api_key},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        return ResolvedWorkspaceRepo(
+            s3_bucket=data["s3_bucket"],
+            s3_prefix=data["s3_prefix"],
+            repo_id=data["repo_id"],
+            commit_ref="",
+            repo_name=repo_name,
+            chronos_url=chronos_url,
+            api_key=api_key,
+        )
+
+    async def _resolve_workspace_repo(self, field_name: str) -> ResolvedWorkspaceRepo:
+        """Resolve workspace repo via Chronos."""
+        init_cfg = self.config.workspaces.get(field_name)
+
+        if init_cfg and init_cfg.commit and ":" in init_cfg.commit:
+            repo_name, commit_ref = init_cfg.commit.split(":", 1)
+        elif init_cfg and init_cfg.commit:
+            repo_name = self.workspace_repo_name(field_name)
+            commit_ref = init_cfg.commit
+        else:
+            repo_name = self.workspace_repo_name(field_name)
+            commit_ref = ""
+
+        chronos_url = self._get_chronos_base_url()
+        api_key = os.environ.get("PLATO_API_KEY", "")
+
+        if not chronos_url:
+            raise RuntimeError(
+                f"Cannot resolve workspace repo '{repo_name}': no chronos_url configured. "
+                "Set session.chronos_url or session.otel_url."
+            )
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{chronos_url}/api/workspace-repos/resolve",
+                json={"name": repo_name},
+                headers={"X-API-Key": api_key},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        return ResolvedWorkspaceRepo(
+            s3_bucket=data["s3_bucket"],
+            s3_prefix=data["s3_prefix"],
+            repo_id=data["repo_id"],
+            commit_ref=commit_ref,
+            repo_name=repo_name,
+            chronos_url=chronos_url,
+            api_key=api_key,
+        )
 
     def get_env(self, alias: str) -> Environment | None:
         """Get an environment by alias."""
@@ -642,6 +892,210 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
         else:
             logger.debug("No otel_url in session - OTel tracing disabled")
 
+    async def _init_declared_workspaces(self) -> None:
+        """Auto-discover Workspace markers on config and set everything up."""
+        annotations = self.config.get_field_annotations()
+        state_root = Path(self.config.state.path)
+
+        for field_name, marker in annotations.items():
+            if not isinstance(marker, WorkspaceMarker):
+                continue
+
+            # Resolve path
+            configured_path = getattr(self.config, field_name, None)
+            if configured_path and str(configured_path) not in (".", ""):
+                ws_path = Path(configured_path)
+            else:
+                ws_path = state_root / field_name
+
+            ws_path.mkdir(parents=True, exist_ok=True)
+            object.__setattr__(self.config, field_name, ws_path)
+
+            # Resolve workspace repo via Chronos
+            if marker.tracked:
+                repo_info = await self._resolve_workspace_repo(field_name)
+            else:
+                repo_info = ResolvedWorkspaceRepo(
+                    s3_bucket="",
+                    s3_prefix="",
+                    repo_id="",
+                    commit_ref="",
+                    repo_name="",
+                    chronos_url="",
+                    api_key="",
+                )
+
+            workspace = Workspace(
+                name=field_name,
+                path=ws_path,
+                tracked=marker.tracked,
+                mount=marker.mount,
+                backup=marker.tracked,
+                s3_bucket=repo_info.s3_bucket,
+                s3_prefix=repo_info.s3_prefix,
+                repo_id=repo_info.repo_id,
+                repo_name=repo_info.repo_name,
+                chronos_url=repo_info.chronos_url,
+                api_key=repo_info.api_key,
+                session_id=self.session.session_id if self.session else "",
+            )
+
+            # Set up NFS/rsync transport BEFORE init — the bind mount
+            # overwrites the directory, so git/dvc must be created after
+            if self._transport:
+                transport = self._transport.with_path(str(workspace.data_path))
+                transport.mount_path = workspace.mount
+                await transport.prepare()
+                workspace.transport = transport
+
+            await workspace.init()
+
+            # Restore from commit ref if specified
+            if repo_info.commit_ref:
+                self.logger.info(f"Restoring workspace '{field_name}' from commit '{repo_info.commit_ref}'")
+                restored = await workspace.restore(repo_info.commit_ref)
+                if not restored:
+                    raise RuntimeError(
+                        f"Workspace '{field_name}' commit '{repo_info.commit_ref}' has no DVC files "
+                        f"(repo={repo_info.repo_name})"
+                    )
+                await workspace._record_workspace_ref(repo_info.commit_ref, "input", {})
+
+            self._workspaces[field_name] = workspace
+            self.logger.info(
+                f"Workspace '{field_name}' at {ws_path} "
+                f"(tracked={marker.tracked}, mount={workspace.mount}, repo={repo_info.repo_name})"
+            )
+
+    async def _generate_tailscale_auth_key(self, api_key: str) -> str:
+        """Generate a short-lived, single-use auth key via the Tailscale API."""
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://api.tailscale.com/api/v2/tailnet/-/keys",
+                auth=("", api_key),
+                json={
+                    "capabilities": {
+                        "devices": {
+                            "create": {
+                                "reusable": False,
+                                "ephemeral": True,
+                                "preauthorized": True,
+                            }
+                        }
+                    },
+                    "expirySeconds": 300,
+                },
+            )
+            if resp.status_code != 200:
+                raise RuntimeError(f"Tailscale API key generation failed (HTTP {resp.status_code}): {resp.text}")
+            return resp.json()["key"]
+
+    async def _setup_tailscale(self) -> None:
+        """Join a Tailscale tailnet using the API key to generate an auth key.
+
+        Raises RuntimeError if any step fails.
+        """
+        ts = self.config.tailscale
+        if not ts.enabled:
+            return
+        if not ts.api_key:
+            raise RuntimeError("tailscale.enabled is True but tailscale.api_key is not set")
+
+        # Generate a short-lived auth key via the Tailscale API
+        self.logger.info("Generating Tailscale auth key...")
+        auth_key = await self._generate_tailscale_auth_key(ts.api_key)
+
+        self.logger.info("Installing Tailscale...")
+        proc = await asyncio.create_subprocess_shell(
+            "curl -fsSL https://tailscale.com/install.sh | sh",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Tailscale install failed (rc={proc.returncode}): {stderr.decode().strip()}")
+
+        # Containers don't have systemd, so start tailscaled manually.
+        self.logger.info("Starting tailscaled daemon...")
+        self._tailscaled_proc = await asyncio.create_subprocess_exec(
+            "sudo",
+            "tailscaled",
+            "--state=/var/lib/tailscale/tailscaled.state",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await asyncio.sleep(2)
+
+        self.logger.info("Connecting to tailnet...")
+        proc = await asyncio.create_subprocess_exec(
+            "sudo",
+            "tailscale",
+            "up",
+            f"--auth-key={auth_key}",
+            "--accept-dns=false",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"'tailscale up' failed (rc={proc.returncode}): {stderr.decode().strip()}")
+
+        # Verify we're connected and can see peers
+        proc = await asyncio.create_subprocess_exec(
+            "sudo",
+            "tailscale",
+            "status",
+            "--json",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"'tailscale status' failed after connect (rc={proc.returncode}): {stderr.decode().strip()}"
+            )
+
+        import json as _json
+
+        status = _json.loads(stdout.decode())
+        self_name = status.get("Self", {}).get("HostName", "unknown")
+        peers = status.get("Peer", {})
+        peer_names = [p.get("HostName", "?") for p in peers.values()]
+        self.logger.info("Tailscale connected as '%s', %d peer(s) visible", self_name, len(peer_names))
+        self.logger.debug("Tailscale peers: %s", ", ".join(peer_names) or "(none)")
+
+        # MagicDNS doesn't reliably configure the system resolver in
+        # containers, so write /etc/hosts entries for all tailscale peers.
+        hosts_lines = []
+        for peer in peers.values():
+            # DNSName is the tailscale MagicDNS name (e.g. "plato-a100.tail1234.ts.net.")
+            # HostName is the OS hostname (e.g. "instance-20260226-193911")
+            dns_name = peer.get("DNSName", "").rstrip(".")
+            os_hostname = peer.get("HostName", "")
+            # Extract short name from DNS (e.g. "plato-a100" from "plato-a100.tail1234.ts.net")
+            short_name = dns_name.split(".")[0] if dns_name else ""
+            addrs = peer.get("TailscaleIPs", [])
+            if addrs:
+                ipv4 = next((a for a in addrs if "." in a), None)
+                if ipv4:
+                    names = []
+                    if short_name:
+                        names.append(short_name)
+                    if os_hostname and os_hostname != short_name:
+                        names.append(os_hostname)
+                    if names:
+                        hosts_lines.append(f"{ipv4}\t{' '.join(names)}")
+        if hosts_lines:
+            try:
+                hosts_block = "\n# Tailscale peers\n" + "\n".join(hosts_lines) + "\n"
+                hosts_path = Path("/etc/hosts")
+                existing = hosts_path.read_text()
+                hosts_path.write_text(existing + hosts_block)
+                self.logger.info("Added %d tailscale peer(s) to /etc/hosts", len(hosts_lines))
+                self.logger.debug("Tailscale /etc/hosts entries: %s", ", ".join(hosts_lines))
+            except Exception as e:
+                self.logger.warning(f"Failed to update /etc/hosts: {e}")
+
     async def _run_loop(self, tracer: Any) -> None:
         """Execute the reset → step → checkpoint loop."""
         # Start VM system metrics collection
@@ -653,35 +1107,25 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
                 job_id=os.environ.get("JOB_ID", ""),
             )
 
-        # Try to restore state from a previous session
-        resumed = False
-        self.logger.info(
-            f"State config: resume={self.config.state.resume}, resume_session={self.config.state.resume_session!r}, resume_step={self.config.state.resume_step}"
-        )
-        if self.config.state.resume:
-            if self.config.state.resume_session:
-                await self._restore_session_state()
-            resumed = self.load_state()
-            self.logger.info(f"load_state returned: {resumed}")
-        if resumed:
-            self.logger.info("Resumed from saved state — skipping full reset")
-            if self.config.state.resume_step is not None:
-                self._step_count = self.config.state.resume_step
+        # Auto-discover and initialize declared workspaces (Workspace markers on config)
+        await self._init_declared_workspaces()
 
-        # Reset phase — sets up workspaces (NFS bind mounts, etc.)
+        # Optional Tailscale VPN setup
+        await self._setup_tailscale()
+
+        # Resume from saved state if available (before reset so state is populated)
+        resumed = await self._try_resume()
+        if resumed:
+            self.logger.info("Resumed from saved state")
+
+        # Reset phase — world-specific initialization
         with tracer.start_as_current_span("reset") as reset_span:
             reset_span.set_attribute("plato.phase", "reset")
             reset_span.set_attribute("plato.world.name", self.name)
-            reset_span.set_attribute("plato.world.resumed", resumed)
             obs = await self.reset()
             obs_data = obs.model_dump()
             reset_span.set_attribute("plato.observation", json.dumps(obs_data, default=str))
 
-        # Restore workspace backups AFTER reset (so NFS bind mounts are set up first)
-        if resumed and self.config.state.resume_session and self._workspace_paths:
-            await self._download_workspace_backup(self.config.state.resume_session)
-            resume_step = self.config.state.resume_step
-            await self._restore_workspaces(step=resume_step)
         self.logger.info(f"World reset complete: {obs}")
 
         while True:
@@ -702,8 +1146,6 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
 
             if not result.done:
                 await self.save_state()
-                if self.config.state.enabled:
-                    await self._checkpoint_workspaces()
 
             if result.done:
                 break
@@ -713,8 +1155,8 @@ class BaseWorld(ResticCheckpointMixin, ABC, Generic[ConfigT, StateT]):
         if result.observation is not None:
             try:
                 self._final_result = result.observation.model_dump()
-            except Exception:
-                pass
+            except Exception as e:
+                self.logger.warning(f"Failed to serialize final observation: {e}")
 
     async def _finalize(self, run_error: Exception | None) -> None:
         """Report completion/failure to Chronos and shutdown tracing."""

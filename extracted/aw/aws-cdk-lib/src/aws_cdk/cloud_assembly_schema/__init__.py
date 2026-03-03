@@ -93,6 +93,7 @@ from .._jsii import *
     jsii_struct_bases=[],
     name_mapping={
         "type": "type",
+        "additional_metadata_file": "additionalMetadataFile",
         "dependencies": "dependencies",
         "display_name": "displayName",
         "environment": "environment",
@@ -105,6 +106,7 @@ class ArtifactManifest:
         self,
         *,
         type: "ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -114,10 +116,11 @@ class ArtifactManifest:
         '''A manifest for a single artifact within the cloud assembly.
 
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
 
         :exampleMetadata: fixture=_generated
@@ -135,6 +138,7 @@ class ArtifactManifest:
                 type=cloud_assembly_schema.ArtifactType.NONE,
             
                 # the properties below are optional
+                additional_metadata_file="additionalMetadataFile",
                 dependencies=["dependencies"],
                 display_name="displayName",
                 environment="environment",
@@ -187,6 +191,7 @@ class ArtifactManifest:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0fe0dea35f8750630dc6eb16d5f979ef40079f01dc4afec1b7ebf62d6958505)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument additional_metadata_file", value=additional_metadata_file, expected_type=type_hints["additional_metadata_file"])
             check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -195,6 +200,8 @@ class ArtifactManifest:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "type": type,
         }
+        if additional_metadata_file is not None:
+            self._values["additional_metadata_file"] = additional_metadata_file
         if dependencies is not None:
             self._values["dependencies"] = dependencies
         if display_name is not None:
@@ -212,6 +219,19 @@ class ArtifactManifest:
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast("ArtifactType", result)
+
+    @builtins.property
+    def additional_metadata_file(self) -> typing.Optional[builtins.str]:
+        '''A file with additional metadata entries.
+
+        The schema of this file is exactly the same as the type of the ``metadata`` field.
+        In other words, that file contains an object mapping construct paths to arrays
+        of metadata entries.
+
+        :default: - no additional metadata
+        '''
+        result = self._values.get("additional_metadata_file")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dependencies(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -250,6 +270,11 @@ class ArtifactManifest:
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, typing.List["MetadataEntry"]]]:
         '''Associated metadata.
+
+        Metadata can be stored directly in the assembly manifest, as well as in a
+        separate file (see ``additionalMetadataFile``). It should prefer to be stored
+        in the additional file, as that will reduce the size of the assembly
+        manifest in cases of a lot of metdata (which CDK does emit by default).
 
         :default: - no metadata.
         '''
@@ -366,6 +391,7 @@ class AssemblyManifest:
                         type=cloud_assembly_schema.ArtifactType.NONE,
             
                         # the properties below are optional
+                        additional_metadata_file="additionalMetadataFile",
                         dependencies=["dependencies"],
                         display_name="displayName",
                         environment="environment",
@@ -6724,6 +6750,7 @@ class LoadBalancerType(enum.Enum):
         "skip_enum_check": "skipEnumCheck",
         "skip_version_check": "skipVersionCheck",
         "topo_sort": "topoSort",
+        "validate_schema": "validateSchema",
     },
 )
 class LoadManifestOptions:
@@ -6733,12 +6760,14 @@ class LoadManifestOptions:
         skip_enum_check: typing.Optional[builtins.bool] = None,
         skip_version_check: typing.Optional[builtins.bool] = None,
         topo_sort: typing.Optional[builtins.bool] = None,
+        validate_schema: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for the loadManifest operation.
 
         :param skip_enum_check: Skip enum checks. This means you may read enum values you don't know about yet. Make sure to always check the values of enums you encounter in the manifest. Default: false
         :param skip_version_check: Skip the version check. This means you may read a newer cloud assembly than the CX API is designed to support, and your application may not be aware of all features that in use in the Cloud Assembly. Default: false
         :param topo_sort: Topologically sort all artifacts. This parameter is only respected by the constructor of ``CloudAssembly``. The property lives here for backwards compatibility reasons. Default: true
+        :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
 
         :exampleMetadata: fixture=_generated
 
@@ -6752,7 +6781,8 @@ class LoadManifestOptions:
             load_manifest_options = LoadManifestOptions(
                 skip_enum_check=False,
                 skip_version_check=False,
-                topo_sort=False
+                topo_sort=False,
+                validate_schema=False
             )
         '''
         if __debug__:
@@ -6760,6 +6790,7 @@ class LoadManifestOptions:
             check_type(argname="argument skip_enum_check", value=skip_enum_check, expected_type=type_hints["skip_enum_check"])
             check_type(argname="argument skip_version_check", value=skip_version_check, expected_type=type_hints["skip_version_check"])
             check_type(argname="argument topo_sort", value=topo_sort, expected_type=type_hints["topo_sort"])
+            check_type(argname="argument validate_schema", value=validate_schema, expected_type=type_hints["validate_schema"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if skip_enum_check is not None:
             self._values["skip_enum_check"] = skip_enum_check
@@ -6767,6 +6798,8 @@ class LoadManifestOptions:
             self._values["skip_version_check"] = skip_version_check
         if topo_sort is not None:
             self._values["topo_sort"] = topo_sort
+        if validate_schema is not None:
+            self._values["validate_schema"] = validate_schema
 
     @builtins.property
     def skip_enum_check(self) -> typing.Optional[builtins.bool]:
@@ -6805,6 +6838,18 @@ class LoadManifestOptions:
         result = self._values.get("topo_sort")
         return typing.cast(typing.Optional[builtins.bool], result)
 
+    @builtins.property
+    def validate_schema(self) -> typing.Optional[builtins.bool]:
+        '''Validate the file according to the declared JSON Schema.
+
+        Be aware that JSON Schema validation has a significant performance cost
+        (about 10x over not validating).
+
+        :default: false, unless $TESTING_CDK is set to '1'
+        '''
+        result = self._values.get("validate_schema")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -6841,6 +6886,7 @@ class Manifest(
         skip_enum_check: typing.Optional[builtins.bool] = None,
         skip_version_check: typing.Optional[builtins.bool] = None,
         topo_sort: typing.Optional[builtins.bool] = None,
+        validate_schema: typing.Optional[builtins.bool] = None,
     ) -> "AssemblyManifest":
         '''Load and validates the cloud assembly manifest from file.
 
@@ -6848,6 +6894,7 @@ class Manifest(
         :param skip_enum_check: Skip enum checks. This means you may read enum values you don't know about yet. Make sure to always check the values of enums you encounter in the manifest. Default: false
         :param skip_version_check: Skip the version check. This means you may read a newer cloud assembly than the CX API is designed to support, and your application may not be aware of all features that in use in the Cloud Assembly. Default: false
         :param topo_sort: Topologically sort all artifacts. This parameter is only respected by the constructor of ``CloudAssembly``. The property lives here for backwards compatibility reasons. Default: true
+        :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bfb4be78db16e194bc36707aee4bf2c1284ffddcd2ddfffe63450850c373f9bd)
@@ -6856,6 +6903,7 @@ class Manifest(
             skip_enum_check=skip_enum_check,
             skip_version_check=skip_version_check,
             topo_sort=topo_sort,
+            validate_schema=validate_schema,
         )
 
         return typing.cast("AssemblyManifest", jsii.sinvoke(cls, "loadAssemblyManifest", [file_path, options]))
@@ -9438,6 +9486,7 @@ publication.publish()
 def _typecheckingstub__c0fe0dea35f8750630dc6eb16d5f979ef40079f01dc4afec1b7ebf62d6958505(
     *,
     type: ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
@@ -9911,6 +9960,7 @@ def _typecheckingstub__80d4beea8990d112d9f873ed9d80c8fbeb641413dbd84d56c37eb8d74
     skip_enum_check: typing.Optional[builtins.bool] = None,
     skip_version_check: typing.Optional[builtins.bool] = None,
     topo_sort: typing.Optional[builtins.bool] = None,
+    validate_schema: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9921,6 +9971,7 @@ def _typecheckingstub__bfb4be78db16e194bc36707aee4bf2c1284ffddcd2ddfffe63450850c
     skip_enum_check: typing.Optional[builtins.bool] = None,
     skip_version_check: typing.Optional[builtins.bool] = None,
     topo_sort: typing.Optional[builtins.bool] = None,
+    validate_schema: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

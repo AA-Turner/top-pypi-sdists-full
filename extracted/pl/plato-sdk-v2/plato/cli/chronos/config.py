@@ -15,6 +15,23 @@ from plato.runtime import VMRuntimeConfig
 from plato.worlds.config import DevConfig, SessionConfig
 
 
+def _expand_vars_recursive(obj: Any) -> None:
+    """Walk a parsed JSON structure and expand ${VAR} references in string values."""
+    if isinstance(obj, dict):
+        for key in list(obj.keys()):
+            val = obj[key]
+            if isinstance(val, str):
+                obj[key] = os.path.expandvars(val)
+            else:
+                _expand_vars_recursive(val)
+    elif isinstance(obj, list):
+        for i, val in enumerate(obj):
+            if isinstance(val, str):
+                obj[i] = os.path.expandvars(val)
+            else:
+                _expand_vars_recursive(val)
+
+
 class WorldConfig(BaseModel):
     """World package, runtime, and config.
 
@@ -66,10 +83,36 @@ class Config(BaseModel):
 
     @classmethod
     def from_file(cls, path: str | Path) -> Config:
-        """Load and validate config from JSON file."""
+        """Load and validate config from JSON file.
+
+        Automatically loads .env files co-located with the config file before
+        performing variable substitution. Lookup order:
+          1. .env.<stem>  (e.g. .env.pranav for dev-config-pranav.json)
+          2. .env
+        """
         path = Path(path).expanduser().resolve()
+
+        # Load .env file next to the config (if any) so ${VAR} substitution works
+        from dotenv import load_dotenv
+
+        stem = path.stem  # e.g. "dev-config-pranav"
+        # Try specific .env first, then generic
+        for env_name in [f".env.{stem.removeprefix('dev-config-')}", ".env"]:
+            env_path = path.parent / env_name
+            if env_path.exists():
+                load_dotenv(env_path, override=True)
+                break
+
         with open(path) as f:
-            # Support `${VAR}` and `$VAR` substitution in configs (docs guarantee this).
-            # Dev mode relies on this for agent secrets like `${ANTHROPIC_API_KEY}`.
-            config_text = os.path.expandvars(f.read())
-        return cls.model_validate(json.loads(config_text))
+            raw = f.read()
+
+        # Support `${VAR}` and `$VAR` substitution in configs (docs guarantee this).
+        # Dev mode relies on this for agent secrets like `${ANTHROPIC_API_KEY}`.
+        #
+        # When the substituted value contains JSON (e.g. OAuth creds), raw
+        # expansion would break the surrounding JSON because of unescaped
+        # quotes.  We parse the raw JSON first, then walk string values and
+        # expand vars there — keeping the result valid JSON.
+        data = json.loads(raw)
+        _expand_vars_recursive(data)
+        return cls.model_validate(data)

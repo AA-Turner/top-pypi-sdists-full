@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -64,7 +63,6 @@ def signal_simulate(
     params = listify(frequency=frequency, amplitude=amplitude)
 
     for i in range(len(params["frequency"])):
-
         freq = params["frequency"][i]
         amp = params["amplitude"][i]
         # Apply a very conservative Nyquist criterion in order to ensure
@@ -109,7 +107,6 @@ def signal_simulate(
 # Simple Sinusoidal Model
 # =============================================================================
 def _signal_simulate_sinusoidal(x, frequency=100, amplitude=0.5):
-
     signal = amplitude * np.sin(2 * np.pi * frequency * x)
 
     return signal

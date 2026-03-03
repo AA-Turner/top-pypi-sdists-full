@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from ..misc import replace
@@ -56,7 +55,6 @@ def microstates_classify(segmentation, microstates):
 # Methods
 # =============================================================================
 def _microstates_sort(microstates):
-
     n_states = len(microstates)
     order_original = np.arange(n_states)
 
@@ -65,9 +63,7 @@ def _microstates_sort(microstates):
     coefs_linear = np.zeros(n_states)
     for i in order_original:
         state = microstates[i, :]
-        _, coefs_linear[i], coefs_quadratic[i] = np.polyfit(
-            state, np.arange(len(state)), 2
-        )
+        _, coefs_linear[i], coefs_quadratic[i] = np.polyfit(state, np.arange(len(state)), 2)
 
     # For each state, which is the biggest trend, linear or quadratic
     order_quad = order_original[np.abs(coefs_linear) <= np.abs(coefs_quadratic)]

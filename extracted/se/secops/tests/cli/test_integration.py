@@ -749,6 +749,118 @@ def test_cli_parser_run_error_cases(cli_env, common_args):
 
 
 @pytest.mark.integration
+def test_cli_parser_run_evaluation_with_parsed_statedump(cli_env, common_args):
+    """
+    Test the 'parser run' command functionality with parsed statedump, covering 
+    reading parser code and logs from files, and providing logs via multiple
+    --log arguments.
+    """
+    test_log_type = f"RESERVED_LOG_TYPE_1"
+
+    # Sample YARA-L parser code
+    sample_parser_code = r"""
+    filter {
+        mutate {
+          replace => {
+            "event1.idm.read_only_udm.metadata.event_type" => "GENERIC_EVENT"
+            "event1.idm.read_only_udm.metadata.vendor_name" =>  "ACME Labs"
+          }
+        }
+        grok {
+          match => {
+            "message" => ["^(?P<_firstWord>[^\s]+)\s.*$"]
+          }
+          on_error => "_grok_message_failed"
+        }
+        if ![_grok_message_failed] {
+          mutate {
+            replace => {
+              "event1.idm.read_only_udm.metadata.description" => "%{_firstWord}"
+            }
+          }
+        }
+        mutate {
+          merge => {
+            "@output" => "event1"
+          }
+        }
+        statedump{}
+    }
+    """
+
+    # Sample log data for --logs-file
+    sample_logs_file_content = """
+    {"appDisplayName":"Azure Active Directory PowerShell","appId":"1b730912-1644-4b74-9bfd-dac224a7b894","appliedConditionalAccessPolicies":[],"clientAppUsed":"Mobile Apps and Desktop clients","conditionalAccessStatus":"success","correlationId":"8bdadb11-5851-4ff2-ad57-799c0149f606","createdDateTime":"2025-06-15T04:31:56Z","deviceDetail":{"browser":"Rich Client 5.2.8.0","deviceId":"","displayName":"","isCompliant":false,"isManaged":false,"operatingSystem":"Windows 8","trustType":""},"id":"ba6e48d0-85e9-45b0-9ce4-83eb83432200","ipAddress":"79.116.213.193","isInteractive":true,"location":{"city":"Madrid","countryOrRegion":"ES","geoCoordinates":{"altitude":null,"latitude":40.416,"longitude":-3.703},"state":"Madrid"},"resourceDisplayName":"Windows Azure Active Directory","resourceId":"00000001-0000-0000-d000-000000000000","riskDetail":"none","riskEventTypes":[],"riskEventTypes_v2":[],"riskLevelAggregated":"none","riskLevelDuringSignIn":"none","riskState":"none","status":{"additionalDetails":null,"errorCode":0,"failureReason":"Other."},"userDisplayName":"Admin Read Only","userId":"6838ec00-f384-40d8-b288-989103aed42b","userPrincipalName":"reports@example.onmicrosoft.com"}
+    """
+
+    parser_code_file_path = None
+    logs_file_path = None
+
+    try:
+        # Create temporary parser code file
+        with tempfile.NamedTemporaryFile(
+            suffix=".yara", mode="w+", delete=False
+        ) as temp_file:
+            temp_file.write(sample_parser_code)
+            parser_code_file_path = temp_file.name
+
+        # Create temporary logs file
+        with tempfile.NamedTemporaryFile(
+            suffix=".log", mode="w+", delete=False
+        ) as temp_file:
+            temp_file.write(sample_logs_file_content)
+            logs_file_path = temp_file.name
+
+        # --- Scenario 1: Using --parser-code-file and --logs-file ---
+        run_cmd_file_input = (
+            [
+                "secops",  # Replace with your actual CLI entry point
+            ]
+            + common_args
+            + [
+                "parser",
+                "run",
+                "--log-type",
+                test_log_type,
+                "--parser-code-file",
+                parser_code_file_path,
+                "--logs-file",
+                logs_file_path,
+                "--statedump-allowed",
+                "--parse_statedump",
+            ]
+        )
+
+        run_result_file_input = subprocess.run(
+            run_cmd_file_input, env=cli_env, capture_output=True, text=True
+        )
+
+        # Assert CLI command execution success
+        assert run_result_file_input.returncode == 0, (
+            "Parser run with files failed: "
+            f"{run_result_file_input.stderr}\n{run_result_file_input.stdout}"
+        )
+
+        # Parse and assert the output
+        run_output_file_input = json.loads(run_result_file_input.stdout)
+        assert "parsedEvents" in run_output_file_input["runParserResults"][0]
+
+        statedump_results = run_output_file_input["runParserResults"][0].get(
+            "statedumpResults"
+        )
+        assert len(statedump_results)
+        assert statedump_results[0].get("statedumpResult")
+        assert statedump_results[0].get("statedumpResult").get("state")
+
+    finally:
+        # Clean up temporary files regardless of test outcome
+        if parser_code_file_path and os.path.exists(parser_code_file_path):
+            os.unlink(parser_code_file_path)
+        if logs_file_path and os.path.exists(logs_file_path):
+            os.unlink(logs_file_path)
+
+
+@pytest.mark.integration
 def test_cli_rule_list(cli_env, common_args):
     """Test the rule list command."""
     # Execute the CLI command

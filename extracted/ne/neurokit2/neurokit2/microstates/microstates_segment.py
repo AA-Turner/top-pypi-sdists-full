@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from ..misc import check_random_state
@@ -21,7 +20,7 @@ def microstates_segment(
     criterion="gev",
     random_state=None,
     optimize=False,
-    **kwargs
+    **kwargs,
 ):
     """**Segment M/EEG signal into Microstates**
 
@@ -176,17 +175,11 @@ def microstates_segment(
     """
     # Sanitize input
     data, indices, gfp, info_mne = microstates_clean(
-        eeg,
-        train=train,
-        sampling_rate=sampling_rate,
-        standardize_eeg=standardize_eeg,
-        gfp_method=gfp_method,
-        **kwargs
+        eeg, train=train, sampling_rate=sampling_rate, standardize_eeg=standardize_eeg, gfp_method=gfp_method, **kwargs
     )
 
     # Run clustering algorithm
     if method in ["kmods", "kmod", "kmeans modified", "modified kmeans"]:
-
         # Seed the random generator for reproducible results
         rng = check_random_state(random_state)
 
@@ -203,7 +196,6 @@ def microstates_segment(
 
         # Do several runs of the k-means algorithm, keep track of the best segmentation.
         for run in range(n_runs):
-
             # Run clustering on subset of data
             _, _, current_info = cluster(
                 data[:, indices].T,
@@ -218,9 +210,7 @@ def microstates_segment(
             current_residual = current_info["residual"]
 
             # Run segmentation on the whole dataset
-            s, p, g, g_all = _microstates_segment_runsegmentation(
-                data, current_microstates, gfp, n_microstates=n_microstates
-            )
+            s, p, g, g_all = _microstates_segment_runsegmentation(data, current_microstates, gfp, n_microstates=n_microstates)
 
             if criterion == "gev":
                 # If better (i.e., higher GEV), keep this segmentation
@@ -283,7 +273,5 @@ def _microstates_segment_runsegmentation(data, microstates, gfp, n_microstates):
     polarity = np.sign(np.choose(segmentation, activation))
 
     # Get Global Explained Variance (GEV)
-    gev, gev_all = _cluster_quality_gev(
-        data.T, microstates, segmentation, sd=gfp, n_clusters=n_microstates
-    )
+    gev, gev_all = _cluster_quality_gev(data.T, microstates, segmentation, sd=gfp, n_clusters=n_microstates)
     return segmentation, polarity, gev, gev_all

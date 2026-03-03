@@ -250,7 +250,7 @@ def dtypes_to_str(dtype_list: Sequence[DType], empty_means_all=False) -> str:
   if not dtype_list and empty_means_all:
     return "all"
 
-  names = {np.dtype(dt).name for dt in dtype_list}
+  names: set[str] = {np.dtype(dt).name for dt in dtype_list}
   signed = {"int8", "int16", "int32", "int64"}
   if signed <= names:
     names = (names - signed) | {"signed"}
@@ -2378,7 +2378,7 @@ def _make_select_and_scatter_add_harness(name,
       padding=padding)
 
 
-for dtype in set(jtu.dtypes.all) - {np.complex64, np.complex128}:
+for dtype in set(jtu.dtypes.all) - {np.complex64, np.complex128}:  # pyrefly: ignore[unsupported-operation]
   _make_select_and_scatter_add_harness("dtypes", dtype=dtype)
 
 # Validate different reduction primitives
@@ -2402,7 +2402,7 @@ _make_select_and_scatter_add_harness(
 _make_select_and_scatter_add_harness("window_strides", window_strides=(1, 2, 3))
 
 # Validate dtypes on TPU
-for dtype in set(jtu.dtypes.all) - {
+for dtype in set(jtu.dtypes.all) - {  # pyrefly: ignore[unsupported-operation]
     np.bool_, np.complex64, np.complex128, np.int8, np.uint8}:
   for window_strides, window_dimensions, nb_inactive_dims in [((1, 2, 1),
                                                                (1, 3, 1), 2)]:
@@ -2485,7 +2485,7 @@ def _make_reduce_harness(name, *,
     init_val = np.array(init_value, dtype=dtype)
     init_values = [init_val]
     if nr_operands == 2:
-      init_values.append(np.int32(0.))
+      init_values.append(np.array(0, dtype=np.int32))
     return lax.reduce(args[0:nr_operands], tuple(init_values),
                       computation, dimensions)
   define(

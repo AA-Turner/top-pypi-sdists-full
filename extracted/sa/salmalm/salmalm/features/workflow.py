@@ -143,19 +143,9 @@ class WorkflowEngine:
                 log.debug(f"Suppressed: {e}")
         return workflows
 
-    @staticmethod
-    def _safe_workflow_name(name: str) -> str:
-        """BUG-DL fix: sanitize workflow name — alphanumeric + hyphen/underscore/space only."""
-        return "".join(c for c in name if c.isalnum() or c in "-_ ")[:128].strip()
-
     def get_workflow(self, name: str) -> Optional[dict]:
         """Get workflow."""
-        safe = self._safe_workflow_name(name)
-        if not safe:
-            return None
-        path = WORKFLOWS_DIR / f"{safe}.json"
-        if not path.is_relative_to(WORKFLOWS_DIR):
-            return None
+        path = WORKFLOWS_DIR / f"{name}.json"
         if not path.exists():
             return None
         with open(path) as f:
@@ -165,31 +155,20 @@ class WorkflowEngine:
         """Save workflow."""
         _ensure_dirs()
         name = workflow.get("name", "")
-        safe = self._safe_workflow_name(name)
-        if not safe:
+        if not name:
             return "❌ workflow name is required"
-        # Update normalized name in workflow dict
-        workflow = dict(workflow)
-        workflow["name"] = safe
-        path = WORKFLOWS_DIR / f"{safe}.json"
-        if not path.is_relative_to(WORKFLOWS_DIR):
-            return "❌ Invalid workflow name"
+        path = WORKFLOWS_DIR / f"{name}.json"
         with open(path, "w") as f:
             json.dump(workflow, f, ensure_ascii=False, indent=2)
-        return f"✅ 워크플로우 저장됨: {safe}"
+        return f"✅ 워크플로우 저장됨: {name}"
 
     def delete_workflow(self, name: str) -> str:
         """Delete workflow."""
-        safe = self._safe_workflow_name(name)
-        if not safe:
-            return "❌ workflow name is required"
-        path = WORKFLOWS_DIR / f"{safe}.json"
-        if not path.is_relative_to(WORKFLOWS_DIR):
-            return "❌ Invalid workflow name"
+        path = WORKFLOWS_DIR / f"{name}.json"
         if not path.exists():
-            return f"❌ 워크플로우 없음: {safe}"
+            return f"❌ 워크플로우 없음: {name}"
         path.unlink()
-        return f"🗑️ 워크플로우 삭제됨: {safe}"
+        return f"🗑️ 워크플로우 삭제됨: {name}"
 
     # ── Execution ────────────────────────────────────────────
 

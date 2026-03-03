@@ -1,7 +1,6 @@
 import inspect
 import os
 import re
-import sys
 import warnings
 from enum import Enum
 from importlib.metadata import entry_points
@@ -729,7 +728,10 @@ def _construct_http_endpoint(parsed_endpoint: ParseResult) -> ParseResult:
     Returns:
         ParseResult: Modified endpoint with "/v1/traces" path.
     """
-    return parsed_endpoint._replace(path="/v1/traces")
+    traces_suffix = "/v1/traces"
+    if parsed_endpoint.path.endswith(traces_suffix):
+        return parsed_endpoint
+    return parsed_endpoint._replace(path=traces_suffix)
 
 
 def _construct_phoenix_cloud_endpoint(parsed_endpoint: ParseResult) -> ParseResult:
@@ -788,22 +790,11 @@ def _normalized_endpoint(
 
 
 def _get_class_signature(fn: Type[Any]) -> inspect.Signature:
-    if sys.version_info >= (3, 9):
-        return inspect.signature(fn)
-    elif sys.version_info >= (3, 8):
-        init_signature = inspect.signature(fn.__init__)
-        new_params = list(init_signature.parameters.values())[1:]  # Skip 'self'
-        new_sig = init_signature.replace(parameters=new_params)
-        return new_sig
-    else:
-        raise RuntimeError("Unsupported Python version")
+    return inspect.signature(fn)
 
 
 def _auto_instrument_installed_openinference_libraries(tracer_provider: TracerProvider) -> None:
-    if sys.version_info < (3, 10):
-        openinference_entry_points = entry_points().get("openinference_instrumentor", [])
-    else:
-        openinference_entry_points = entry_points(group="openinference_instrumentor")
+    openinference_entry_points = entry_points(group="openinference_instrumentor")
     if not openinference_entry_points:
         warnings.warn(
             "No OpenInference instrumentors found. "

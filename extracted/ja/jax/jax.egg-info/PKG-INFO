@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jax
-Version: 0.9.0.1
+Version: 0.9.1
 Summary: Differentiate, compile, and transform Numpy code.
 Home-page: https://github.com/jax-ml/jax
 Author: JAX team
@@ -16,38 +16,38 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1
 Requires-Dist: ml_dtypes>=0.5.0
 Requires-Dist: numpy>=2.0
 Requires-Dist: opt_einsum
 Requires-Dist: scipy>=1.13
 Provides-Extra: minimum-jaxlib
-Requires-Dist: jaxlib==0.9.0.1; extra == "minimum-jaxlib"
+Requires-Dist: jaxlib==0.9.1; extra == "minimum-jaxlib"
 Provides-Extra: cpu
 Provides-Extra: ci
-Requires-Dist: jaxlib==0.8.2; extra == "ci"
+Requires-Dist: jaxlib==0.9.0; extra == "ci"
 Provides-Extra: tpu
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1; extra == "tpu"
-Requires-Dist: libtpu==0.0.34.*; extra == "tpu"
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1; extra == "tpu"
+Requires-Dist: libtpu==0.0.35.*; extra == "tpu"
 Requires-Dist: requests; extra == "tpu"
 Provides-Extra: cuda
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1; extra == "cuda"
-Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.9.0.1,>=0.9.0.1; extra == "cuda"
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1; extra == "cuda"
+Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.9.1,>=0.9.1; extra == "cuda"
 Provides-Extra: cuda12
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1; extra == "cuda12"
-Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.9.0.1,>=0.9.0.1; extra == "cuda12"
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1; extra == "cuda12"
+Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.9.1,>=0.9.1; extra == "cuda12"
 Provides-Extra: cuda13
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1; extra == "cuda13"
-Requires-Dist: jax-cuda13-plugin[with-cuda]<=0.9.0.1,>=0.9.0.1; extra == "cuda13"
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1; extra == "cuda13"
+Requires-Dist: jax-cuda13-plugin[with-cuda]<=0.9.1,>=0.9.1; extra == "cuda13"
 Provides-Extra: cuda12-local
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1; extra == "cuda12-local"
-Requires-Dist: jax-cuda12-plugin<=0.9.0.1,>=0.9.0.1; extra == "cuda12-local"
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1; extra == "cuda12-local"
+Requires-Dist: jax-cuda12-plugin<=0.9.1,>=0.9.1; extra == "cuda12-local"
 Provides-Extra: cuda13-local
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1; extra == "cuda13-local"
-Requires-Dist: jax-cuda13-plugin<=0.9.0.1,>=0.9.0.1; extra == "cuda13-local"
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1; extra == "cuda13-local"
+Requires-Dist: jax-cuda13-plugin<=0.9.1,>=0.9.1; extra == "cuda13-local"
 Provides-Extra: rocm
-Requires-Dist: jaxlib<=0.9.0.1,>=0.9.0.1; extra == "rocm"
-Requires-Dist: jax-rocm7-plugin<=0.9.0.1,>=0.9.0.1; extra == "rocm"
+Requires-Dist: jaxlib<=0.9.1,>=0.9.1; extra == "rocm"
+Requires-Dist: jax-rocm7-plugin<=0.9.1,>=0.9.1; extra == "rocm"
 Provides-Extra: k8s
 Requires-Dist: kubernetes; extra == "k8s"
 Provides-Extra: xprof
@@ -309,7 +309,6 @@ Notebook](https://docs.jax.dev/en/latest/notebooks/Common_Gotchas_in_JAX.html).
 | NVIDIA GPU      | `pip install -U "jax[cuda13]"`                                                                                  |
 | Google TPU      | `pip install -U "jax[tpu]"`                                                                                     |
 | AMD GPU (Linux) | Follow [AMD's instructions](https://github.com/jax-ml/jax/blob/main/build/rocm/README.md).                      |
-| Mac GPU         | Follow [Apple's instructions](https://developer.apple.com/metal/jax/).                                          |
 | Intel GPU       | Follow [Intel's instructions](https://github.com/intel/intel-extension-for-openxla/blob/main/docs/acc_jax.md).  |
 
 See [the documentation](https://docs.jax.dev/en/latest/installation.html)

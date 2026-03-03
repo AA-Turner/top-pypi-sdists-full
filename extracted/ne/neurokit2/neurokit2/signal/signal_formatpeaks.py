@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -15,23 +14,21 @@ def signal_formatpeaks(info, desired_length, peak_indices=None, other_indices=No
     signals = {}
     for feature, values in info.items():
         # Get indices of features
-        if feature != "SCR_RecoveryTime" and any(
-            x in str(feature) for x in ["Peak", "Onset", "Offset", "Trough", "Recovery"]
-        ):
+        if feature != "SCR_RecoveryTime" and any(x in str(feature) for x in ["Peak", "Onset", "Offset", "Trough", "Recovery"]):
             signals[feature] = _signal_from_indices(values, desired_length, 1)
             signals[feature] = signals[feature].astype("int64")  # indexing of feature using 1 and 0
 
         # Get values of features
         elif "RecoveryTime" in feature:
             # Sanitize indices and values
-            other_indices, values = _signal_sanitize_indices(other_indices, values)
+            other_indices, other_values = _signal_sanitize_indices(other_indices, values)
             # Append recovery time values to signal
-            signals[feature] = _signal_from_indices(other_indices, desired_length, values)
+            signals[feature] = _signal_from_indices(other_indices, desired_length, other_values)
         else:
             # Sanitize indices and values
-            peak_indices, values = _signal_sanitize_indices(peak_indices, values)
+            peak_indices, peak_values = _signal_sanitize_indices(peak_indices, values)
             # Append peak values to signal
-            signals[feature] = _signal_from_indices(peak_indices, desired_length, values)
+            signals[feature] = _signal_from_indices(peak_indices, desired_length, peak_values)
 
     signals = pd.DataFrame(signals)
     return signals
@@ -53,7 +50,7 @@ def _signal_sanitize_indices(indices, values):
     return indices, values
 
 
-def _signal_from_indices(indices, desired_length=None, value=1):
+def _signal_from_indices(indices, desired_length=(), value=1):
     """**Generates array of 0 and given values at given indices**
 
     Used in *_findpeaks to transform vectors of peak indices to signal.
@@ -80,8 +77,7 @@ def _signal_from_indices(indices, desired_length=None, value=1):
     else:
         if len(value) != len(indices):
             raise ValueError(
-                "NeuroKit error: _signal_from_indices(): The number of values "
-                "is different from the number of indices."
+                "NeuroKit error: _signal_from_indices(): The number of values is different from the number of indices."
             )
         signal[indices] = value
 

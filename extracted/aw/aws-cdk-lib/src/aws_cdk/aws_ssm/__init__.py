@@ -2263,6 +2263,15 @@ class CfnMaintenanceWindow(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrWindowId")
+    def attr_window_id(self) -> builtins.str:
+        '''The ID of the maintenance window.
+
+        :cloudformationAttribute: WindowId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWindowId"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))

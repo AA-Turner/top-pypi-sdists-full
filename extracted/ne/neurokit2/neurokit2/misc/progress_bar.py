@@ -37,7 +37,7 @@ def progress_bar(it, prefix="", size=40, verbose=True):
         def show(j):
             x = int(size * j / count)
             print(
-                f"{prefix}[{u'█'*x}{('.'*(size-x))}] {j}/{count}",
+                f"{prefix}[{'█' * x}{('.' * (size - x))}] {j}/{count}",
                 end="\r",
                 file=sys.stdout,
                 flush=True,

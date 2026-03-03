@@ -1565,6 +1565,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str identifier: Identifier of the cluster env to look for. Identifiers are in the format my-cluster-env:1 (required)
+        :param str cloud_id: Cloud ID to scope the cluster environment lookup.
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1590,6 +1591,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str identifier: Identifier of the cluster env to look for. Identifiers are in the format my-cluster-env:1 (required)
+        :param str cloud_id: Cloud ID to scope the cluster environment lookup.
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1607,7 +1609,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'identifier'
+            'identifier',
+            'cloud_id'
         ]
         all_params.extend(
             [
@@ -1638,6 +1641,8 @@ class DefaultApi(object):
         query_params = []
         if 'identifier' in local_var_params and local_var_params['identifier'] is not None:  # noqa: E501
             query_params.append(('identifier', local_var_params['identifier']))  # noqa: E501
+        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
 
         header_params = {}
 

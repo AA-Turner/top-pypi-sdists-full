@@ -64,26 +64,43 @@ def _run(coro):
 # HTTP server fixture (shared across HTTP-level test classes)
 # ---------------------------------------------------------------------------
 
-def _get_client():
-    """Return a FastAPI TestClient (replaces legacy WebHandler HTTPServer)."""
-    from fastapi.testclient import TestClient
-    from salmalm.web.app import app
-    return TestClient(app, raise_server_exceptions=False)
+_server_started = False
+_server_port = None
+_server_obj = None
+_server_thread = None
 
 
-_client = _get_client()
+def _ensure_server():
+    global _server_started, _server_port, _server_obj, _server_thread
+    if _server_started:
+        return _server_port
+    from salmalm.web import WebHandler
+    from http.server import HTTPServer
+    _server_obj = HTTPServer(('127.0.0.1', 0), WebHandler)
+    _server_port = _server_obj.server_address[1]
+    _server_thread = threading.Thread(target=_server_obj.serve_forever, daemon=True)
+    _server_thread.start()
+    time.sleep(0.15)
+    _server_started = True
+    return _server_port
 
 
 def _http(method, path, body=None, headers=None):
+    port = _ensure_server()
+    conn = HTTPConnection('127.0.0.1', port, timeout=10)
     hdrs = {'Content-Type': 'application/json'}
     if headers:
         hdrs.update(headers)
-    resp = _client.request(method, path, json=body, headers=hdrs)
+    data = json.dumps(body).encode() if body else None
+    conn.request(method, path, body=data, headers=hdrs)
+    resp = conn.getresponse()
+    raw = resp.read()
+    conn.close()
     try:
-        result = resp.json()
+        result = json.loads(raw)
     except Exception:
-        result = resp.text
-    return resp.status_code, result
+        result = raw.decode(errors='replace')
+    return resp.status, result
 
 
 # ===========================================================================
@@ -319,14 +336,23 @@ class TestAuthE2E(unittest.TestCase):
 
     def test_cors_preflight_no_auth_needed(self):
         """OPTIONS /api/chat는 인증 없이 CORS preflight 처리."""
-        resp = _client.options('/api/chat')
-        self.assertIn(resp.status_code, (200, 204))
+        port = _ensure_server()
+        conn = HTTPConnection('127.0.0.1', port, timeout=10)
+        conn.request('OPTIONS', '/api/chat')
+        resp = conn.getresponse()
+        resp.read()
+        conn.close()
+        self.assertIn(resp.status, (200, 204))
 
     def test_health_endpoint_no_auth(self):
         """GET /health는 인증 없이 접근 가능."""
-        resp = _client.get('/health')
-        # 429 = rate-limited by previous tests in suite; 503 = vault locked
-        self.assertIn(resp.status_code, (200, 404, 429, 503))
+        port = _ensure_server()
+        conn = HTTPConnection('127.0.0.1', port, timeout=10)
+        conn.request('GET', '/health')
+        resp = conn.getresponse()
+        resp.read()
+        conn.close()
+        self.assertIn(resp.status, (200, 404))  # 404 is OK if endpoint not implemented
 
 
 # ===========================================================================

@@ -241,9 +241,11 @@ def _compile_fn(fn, in_structs):
 
   if not isinstance(in_structs, tuple):
     in_structs = (in_structs,)
-  unwrap_output_tuple = False
-  if not isinstance(out_structs := traced.out_info, tuple):
-    out_structs = (out_structs,)
+  if isinstance(traced.out_info, tuple):
+    out_structs = traced.out_info
+    unwrap_output_tuple = False
+  else:
+    out_structs = (traced.out_info,)
     unwrap_output_tuple = True
   flat_arg_types, expected_arg_treedef = jax.tree.flatten(in_structs)
   _, out_treedef = jax.tree.flatten(out_structs)
@@ -289,6 +291,7 @@ def _compile_fn(fn, in_structs):
     return out[0] if unwrap_output_tuple else out
 
   # Unload the compiled code when the Python function is destroyed.
+  # pyrefly: ignore[missing-attribute]
   apply.destructor = weakref.ref(apply, lambda _weak_ref: unload)
 
   return apply

@@ -29,7 +29,7 @@ def compute_last_year_yield(df, target_col="Yield (tn per ha)"):
         for harvest_year in unique_years:
             mask = (group["Harvest Year"] == harvest_year) & (group["Region"] == region)
             last_year_yield = group.loc[mask, target_col].values
-            if last_year_yield:
+            if last_year_yield.size > 0:
                 df.loc[
                     (df["Region"] == region) & (df["Harvest Year"] == harvest_year),
                     f"Last Year {target_col}",

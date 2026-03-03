@@ -3,17 +3,11 @@ geocif.py - REFACTORED VERSION
 
 Main class for agricultural yield forecasting using climate and environmental indicators.
 Refactored to improve readability, maintainability, and debuggability.
-
-Key improvements:
-- Long methods broken into focused, single-responsibility functions
-- Clear separation of concerns
-- Better error handling with specific exceptions
-- Removed breakpoints and unsafe exception handling
-- Improved naming and documentation
 """
 
 import ast
 import os
+import traceback
 from configparser import ConfigParser
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -559,8 +553,11 @@ class Geocif:
 
     def _save_ml_dataframe(self, df: pd.DataFrame):
         """Save ML-ready dataframe to disk."""
+        base = self.dir_analysis
+        if self.experiment_name != "default":
+            base = base / self.experiment_name
         dir_output = (
-            self.dir_analysis / self.country / self.crop / 
+            base / self.country / self.crop /
             self.model_name / str(self.forecast_season)
         )
         dir_output.mkdir(parents=True, exist_ok=True)
@@ -581,8 +578,9 @@ class Geocif:
             how="outer",
         )
         
-        self.dg_country["lat"] = self.dg_country.centroid.y
-        self.dg_country["lon"] = self.dg_country.centroid.x
+        centroids = self.dg_country.to_crs(epsg=6933).centroid.to_crs(epsg=4326)
+        self.dg_country["lat"] = centroids.y
+        self.dg_country["lon"] = centroids.x
         
         df = df.merge(
             self.dg_country[["Country Region", "lat", "lon"]].drop_duplicates(),
@@ -658,6 +656,9 @@ class Geocif:
         self.df_train[f"Detrended {self.target}"] = np.nan
         self.df_train["Detrended Model"] = np.nan
         self.df_train["Detrended Model Type"] = np.nan
+        self.df_test[f"Detrended {self.target}"] = np.nan
+        self.df_test["Detrended Model"] = np.nan
+        self.df_test["Detrended Model Type"] = np.nan
         self.detrend_models = {}
 
         groups = self.df_train.groupby(["Region"])
@@ -705,7 +706,7 @@ class Geocif:
         
         pbar = tqdm(setup_stages)
         for stage in pbar:
-            pbar.set_description(f"ML {num_regions} regions, {len(setup_stages)} stages")
+            pbar.set_description(f"[{self.experiment_name}] ML {self.country} {self.crop} {self.forecast_season} ({num_regions} regions, {len(setup_stages)} stages) fs={self.feature_selection} detrend={self.check_yield_trend}")
             
             try:
                 self.loop_ml(stage, dict_selected_features, dict_best_cei)
@@ -1251,13 +1252,13 @@ class Geocif:
         if self.model_name == "merf":
             return self._predict_merf(X_test, df_region)
         
-        y_pred = self.model.predict(X_test)
-        
+        y_pred = np.asarray(self.model.predict(X_test)).ravel()
+
         try:
             best_hyperparameters = self.model.get_params().copy()
         except AttributeError:
             best_hyperparameters = {}
-        
+
         return y_pred, None, best_hyperparameters
 
     def _predict_merf(self, X_test: pd.DataFrame, df_region: pd.DataFrame) -> Tuple:
@@ -1370,6 +1371,7 @@ class Geocif:
             "Model": np.full(shp, self.model_name),
             "Region_ID": df_region["Region_ID"].values,
             "Region": df_region["Region"].values,
+            "Season": df_region["Season"].values,
             "Harvest Year": df_region["Harvest Year"].values,
             "Area (ha)": df_region["Area (ha)"].values,
             f"Observed {self.target}": np.around(y_test, 3).ravel(),
@@ -1419,7 +1421,7 @@ class Geocif:
                 df.loc[idx, "lower CI"] = np.around(y_pred_ci_[0], 3)
                 df.loc[idx, "upper CI"] = np.around(y_pred_ci_[1], 3)
             else:
-                df.loc[idx, "CI"] = ", ".join(map(str, ci.flatten()))
+                df.loc[idx, "CI"] = ", ".join(map(str, np.asarray(ci).flatten()))
 
     def _add_trend_info(self, df: pd.DataFrame, df_region: pd.DataFrame):
         """Add detrending information if applicable."""
@@ -1453,7 +1455,7 @@ class Geocif:
         """Create unique index for results."""
         index_columns = [
             "Experiment Name", "Model", "Cluster Strategy", "Country",
-            "Region", "Crop", "Harvest Year", "Stage Name", "Time",
+            "Region", "Crop", "Season", "Harvest Year", "Stage Name", "Time",
         ]
         
         return df.apply(
@@ -1492,12 +1494,15 @@ class Geocif:
                     dict_best_cei, dir_output, scaler, pbar
                 )
             except Exception as e:
-                self.logger.error(f"Error processing region {region_id}: {e}")
+                self.logger.error(f"Error processing region {region_id}: {e}\n{traceback.format_exc()}")
 
     def _get_output_directory(self) -> Path:
         """Get output directory for current model/season."""
+        base = self.dir_analysis
+        if self.experiment_name != "default":
+            base = base / self.experiment_name
         dir_output = (
-            self.dir_analysis / self.country / self.crop / 
+            base / self.country / self.crop /
             self.model_name / str(self.forecast_season)
         )
         dir_output.mkdir(parents=True, exist_ok=True)
@@ -1864,8 +1869,8 @@ class TabPFNFitter(BaseFitter):
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
         cat_feature_indices = self._get_categorical_indices(X_train)
         self.obj.model.fit(
-            X_train, 
-            self.obj.y_train, 
+            X_train,
+            np.asarray(self.obj.y_train).ravel(),
             categorical_feature_indices=cat_feature_indices
         )
     
@@ -1885,7 +1890,13 @@ class TabICLFitter(BaseFitter):
     """TabICL-specific fitting."""
 
     def fit(self, X_train: pd.DataFrame, X_train_scaled, df_region: pd.DataFrame):
-        self.obj.model.fit(X_train, self.obj.y_train)
+        import sklearn
+        prev = sklearn.get_config()["transform_output"]
+        sklearn.set_config(transform_output="default")
+        try:
+            self.obj.model.fit(X_train, np.asarray(self.obj.y_train).ravel())
+        finally:
+            sklearn.set_config(transform_output=prev)
 
 
 class NGBoostFitter(BaseFitter):

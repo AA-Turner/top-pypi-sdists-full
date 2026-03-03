@@ -3,13 +3,19 @@ from __future__ import annotations
 __all__ = ["connect", "Connection", "Cursor"]
 
 import sqlite3
+import sys
 from collections.abc import Callable, Sequence
-from functools import partial, update_wrapper
+from functools import partial
 from logging import Logger, getLogger
 from types import TracebackType
 from typing import Any
 
 from anyio import CapacityLimiter, to_thread
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self  # pragma: nocover
 
 
 class Connection:
@@ -24,7 +30,7 @@ class Connection:
         self._log = _log or getLogger(__name__)
         self._limiter = CapacityLimiter(1)
 
-    async def __aenter__(self) -> Connection:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(
@@ -34,13 +40,13 @@ class Connection:
         exc_tb: TracebackType | None,
     ) -> bool | None:
         if exc_val is None:
-            await self.commit()  # type: ignore[call-arg]
+            await self.commit()
             return None
 
         assert exc_type is not None
         assert exc_val is not None
         assert exc_tb is not None
-        await self.rollback()  # type: ignore[call-arg]
+        await self.rollback()
         exception_handled = False
         if self._exception_handler is not None:
             exception_handled = self._exception_handler(exc_type, exc_val, exc_tb, self._log)
@@ -48,34 +54,34 @@ class Connection:
 
     async def execute(self, sql: str, parameters: Sequence[Any] = (), /) -> Cursor:
         real_cursor = await to_thread.run_sync(self._real_connection.execute, sql, parameters, limiter=self._limiter)
-        return Cursor(real_cursor, self._limiter)
+        return Cursor(real_cursor, self._limiter, self._exception_handler, self._log)
 
-    update_wrapper(execute, sqlite3.Connection.execute)
+    async def close(self) -> None:
+        await to_thread.run_sync(self._real_connection.close, limiter=self._limiter)
 
-    async def close(self):
-        return await to_thread.run_sync(self._real_connection.close, limiter=self._limiter)
+    async def commit(self) -> None:
+        await to_thread.run_sync(self._real_connection.commit, limiter=self._limiter)
 
-    update_wrapper(close, sqlite3.Connection.close)
-
-    async def commit(self):
-        return await to_thread.run_sync(self._real_connection.commit, limiter=self._limiter)
-
-    update_wrapper(commit, sqlite3.Connection.commit)
-
-    async def rollback(self):
-        return await to_thread.run_sync(self._real_connection.rollback, limiter=self._limiter)
-
-    update_wrapper(rollback, sqlite3.Connection.rollback)
+    async def rollback(self) -> None:
+        await to_thread.run_sync(self._real_connection.rollback, limiter=self._limiter)
 
     async def cursor(self, factory: Callable[[sqlite3.Connection], sqlite3.Cursor] = sqlite3.Cursor) -> Cursor:
         real_cursor = await to_thread.run_sync(self._real_connection.cursor, factory, limiter=self._limiter)
-        return Cursor(real_cursor, self._limiter)
+        return Cursor(real_cursor, self._limiter, self._exception_handler, self._log)
 
 
 class Cursor:
-    def __init__(self, real_cursor: sqlite3.Cursor, limiter: CapacityLimiter) -> None:
+    def __init__(
+        self,
+        real_cursor: sqlite3.Cursor,
+        limiter: CapacityLimiter,
+        _exception_handler: Callable[[type[BaseException], BaseException, TracebackType, Logger], bool] | None,
+        _log: Logger,
+    ) -> None:
         self._real_cursor = real_cursor
         self._limiter = limiter
+        self._exception_handler = _exception_handler
+        self._log = _log
 
     @property
     def description(self) -> Any:
@@ -89,43 +95,50 @@ class Cursor:
     def arraysize(self) -> int:
         return self._real_cursor.arraysize
 
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
+        await self.close()
+        if exc_val is None:
+            return None
+
+        assert exc_type is not None
+        assert exc_val is not None
+        assert exc_tb is not None
+        exception_handled = False
+        if self._exception_handler is not None:
+            exception_handled = self._exception_handler(exc_type, exc_val, exc_tb, self._log)
+        return exception_handled
+
     async def close(self) -> None:
         await to_thread.run_sync(self._real_cursor.close, limiter=self._limiter)
 
-    update_wrapper(close, sqlite3.Cursor.close)
-
     async def execute(self, sql: str, parameters: Sequence[Any] = (), /) -> Cursor:
-        real_cursor = await to_thread.run_sync(self._real_cursor.execute, sql, parameters, limiter=self._limiter)
-        return Cursor(real_cursor, self._limiter)
-
-    update_wrapper(execute, sqlite3.Cursor.execute)
+        await to_thread.run_sync(self._real_cursor.execute, sql, parameters, limiter=self._limiter)
+        return self
 
     async def executemany(self, sql: str, parameters: Sequence[Any], /) -> Cursor:
-        real_cursor = await to_thread.run_sync(self._real_cursor.executemany, sql, parameters, limiter=self._limiter)
-        return Cursor(real_cursor, self._limiter)
-
-    update_wrapper(executemany, sqlite3.Cursor.executemany)
+        await to_thread.run_sync(self._real_cursor.executemany, sql, parameters, limiter=self._limiter)
+        return self
 
     async def executescript(self, sql_script: str, /) -> Cursor:
-        real_cursor = await to_thread.run_sync(self._real_cursor.executescript, sql_script, limiter=self._limiter)
-        return Cursor(real_cursor, self._limiter)
-
-    update_wrapper(executescript, sqlite3.Cursor.executescript)
+        await to_thread.run_sync(self._real_cursor.executescript, sql_script, limiter=self._limiter)
+        return self
 
     async def fetchone(self) -> tuple[Any, ...] | None:
         return await to_thread.run_sync(self._real_cursor.fetchone, limiter=self._limiter)
 
-    update_wrapper(fetchone, sqlite3.Cursor.fetchone)
-
     async def fetchmany(self, size: int) -> list[tuple[Any, ...]]:
         return await to_thread.run_sync(self._real_cursor.fetchmany, size, limiter=self._limiter)
 
-    update_wrapper(fetchmany, sqlite3.Cursor.fetchmany)
-
     async def fetchall(self) -> list[tuple[Any, ...]]:
         return await to_thread.run_sync(self._real_cursor.fetchall, limiter=self._limiter)
-
-    update_wrapper(fetchall, sqlite3.Cursor.fetchall)
 
 
 async def connect(

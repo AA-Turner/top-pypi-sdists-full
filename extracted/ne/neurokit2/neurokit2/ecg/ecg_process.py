@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pandas as pd
 
 from ..signal import signal_rate, signal_sanitize
@@ -55,11 +54,12 @@ def ecg_process(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
             ECG_T_Peaks|The T-peaks marked as "1" in a list of zeros.
             ECG_T_Onsets|The T-onsets marked as "1" in a list of zeros.
             ECG_T_Offsets|The T-offsets marked as "1" in a list of zeros.
-            ECG_Phase_Atrial|Cardiac phase, marked by "1" for systole and "0" for diastole.
-            ECG_Phase_Completion_Atrial|Cardiac phase (atrial) completion, expressed in \
-                percentage (from 0 to 1), representing the stage of the current cardiac phase.
+            ECG_Phase_Atrial|Cardiac phase (atrial), marked by "1" for systole and "0" for diastole.
+            ECG_Phase_Ventricular|Cardiac phase (ventricular), marked by "1" for systole and "0" for diastole.
+            ECG_Phase_Completion_Atrial|Cardiac phase (atrial) completion, expressed as a \
+                fraction (from 0 to 1), representing the stage of the current cardiac phase.
             ECG_Phase_Completion_Ventricular|Cardiac phase (ventricular) completion, expressed \
-                in percentage (from 0 to 1), representing the stage of the current cardiac phase.
+                as a fraction (from 0 to 1), representing the stage of the current cardiac phase.
 
     rpeaks : dict
         A dictionary containing the samples at which the R-peaks occur, accessible with the key
@@ -104,14 +104,10 @@ def ecg_process(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
     )
 
     # Calculate heart rate
-    rate = signal_rate(
-        info, sampling_rate=sampling_rate, desired_length=len(ecg_cleaned)
-    )
+    rate = signal_rate(info, sampling_rate=sampling_rate, desired_length=len(ecg_cleaned))
 
     # Assess signal quality
-    quality = ecg_quality(
-        ecg_cleaned, rpeaks=info["ECG_R_Peaks"], sampling_rate=sampling_rate
-    )
+    quality = ecg_quality(ecg_cleaned, rpeaks=info["ECG_R_Peaks"], sampling_rate=sampling_rate)
 
     # Merge signals in a DataFrame
     signals = pd.DataFrame(
@@ -137,9 +133,7 @@ def ecg_process(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
     )
 
     # Add additional information to signals DataFrame
-    signals = pd.concat(
-        [signals, instant_peaks, delineate_signal, cardiac_phase], axis=1
-    )
+    signals = pd.concat([signals, instant_peaks, delineate_signal, cardiac_phase], axis=1)
 
     # return signals DataFrame and R-peak locations
     return signals, info

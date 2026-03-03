@@ -46,6 +46,7 @@ def attach(package_name: str, submodules: Sequence[str]) -> tuple[
       value = importlib.import_module(f"{package_name}.{name}")
       # Update module-level globals to avoid calling ``__getattr__`` again
       # for this ``name``.
+      assert owner_name is not None  # pyrefly#40
       setattr(sys.modules[owner_name], name, value)
       return value
     raise AttributeError(f"module '{package_name}' has no attribute '{name}'")

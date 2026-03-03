@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 
 from .epochs_to_df import epochs_to_df
 
 
-def epochs_average(epochs, which=None, show=False, **kwargs):
+def epochs_average(epochs, which=None, indices=["mean", "std", "ci"], show=False, **kwargs):
     """**Compute Grand Average**
 
     Average epochs and returns the grand average, as well as the SD and the confidence interval.
@@ -41,9 +40,7 @@ def epochs_average(epochs, which=None, show=False, **kwargs):
     """
     data = epochs_to_df(epochs)
 
-    assert (
-        "Time" in data.columns
-    ), "Something is wrong with the epochs data, could not find a 'Time' column in them."
+    assert "Time" in data.columns, "Something is wrong with the epochs data, could not find a 'Time' column in them."
 
     # Select only the first column
     if which is None:
@@ -52,21 +49,27 @@ def epochs_average(epochs, which=None, show=False, **kwargs):
         which = [which]
 
     # Define quantile functions
-    def q1(x):
-        return x.quantile(0.025)
+    if "ci" in indices:
 
-    def q2(x):
-        return x.quantile(0.975)
+        def q1(x):
+            return x.quantile(0.025)
+
+        def q2(x):
+            return x.quantile(0.975)
+
+        indices.remove("ci")
+        indices.extend([q1, q2])
 
     # Format which
-    what = {i: ["mean", "std", q1, q2] for i in which}
+    what = {i: indices for i in which}
 
     # Group by and average
     av = data.groupby(["Time"], as_index=False).agg(what).reset_index()
-    av.columns = ["%s%s" % (a, "_%s" % b if b else "") for a, b in av.columns]
+    av.columns = [f"{a}_{b}" if b else f"{a}" for a, b in av.columns]
 
     # Format
     av.columns = av.columns.str.replace("_mean", "_Mean")
+    av.columns = av.columns.str.replace("_median", "_Median")
     av.columns = av.columns.str.replace("_std", "_SD")
     av.columns = av.columns.str.replace("_q1", "_CI_low")
     av.columns = av.columns.str.replace("_q2", "_CI_high")
@@ -75,12 +78,13 @@ def epochs_average(epochs, which=None, show=False, **kwargs):
     if show is True:
         for i in which:
             plt.plot(av["Time"], av[f"{i}_Mean"], label=i)
-            plt.fill_between(
-                av["Time"],
-                av[f"{i}_CI_low"],
-                av[f"{i}_CI_high"],
-                alpha=0.3,
-            )
+            if f"{i}_CI_low" in av.columns and f"{i}_CI_high" in av.columns:
+                plt.fill_between(
+                    av["Time"],
+                    av[f"{i}_CI_low"],
+                    av[f"{i}_CI_high"],
+                    alpha=0.3,
+                )
         plt.legend()
 
     return av

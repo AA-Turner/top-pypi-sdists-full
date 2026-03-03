@@ -20,6 +20,7 @@ from xrspatial.utils import _boundary_to_dask
 from xrspatial.utils import _extract_latlon_coords
 from xrspatial.utils import _pad_array
 from xrspatial.utils import _validate_boundary
+from xrspatial.utils import _validate_raster
 from xrspatial.utils import cuda_args
 from xrspatial.utils import ngjit
 from xrspatial.dataset_support import supports_dataset
@@ -373,7 +374,7 @@ def aspect(agg: xr.DataArray,
 
     References
     ----------
-        - arcgis: http://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-aspect-works.htm#ESRI_SECTION1_4198691F8852475A9F4BC71246579FAA # noqa
+
 
     Examples
     --------
@@ -395,6 +396,8 @@ def aspect(agg: xr.DataArray,
         >>> raster = xr.DataArray(data, dims=['y', 'x'], name='raster')
         >>> aspect_agg = aspect(raster)
     """
+
+    _validate_raster(agg, func_name='aspect', name='agg')
 
     if method not in ('planar', 'geodesic'):
         raise ValueError(

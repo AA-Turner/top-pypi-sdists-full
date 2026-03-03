@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -12,14 +11,7 @@ from .intervals_utils import (
 )
 
 
-def intervals_process(
-    intervals,
-    intervals_time=None,
-    interpolate=False,
-    interpolation_rate=100,
-    detrend=None,
-    **kwargs
-):
+def intervals_process(intervals, intervals_time=None, interpolate=False, interpolation_rate=100, detrend=None, **kwargs):
     """**Interval preprocessing**
 
     R-peak intervals preprocessing.
@@ -94,9 +86,7 @@ def intervals_process(
 
     """
     # Sanitize input
-    intervals, intervals_time, _ = _intervals_sanitize(
-        intervals, intervals_time=intervals_time
-    )
+    intervals, intervals_time, _ = _intervals_sanitize(intervals, intervals_time=intervals_time)
 
     if interpolate is False:
         interpolation_rate = None
@@ -123,14 +113,11 @@ def intervals_process(
 
         intervals = signal_interpolate(intervals_time, intervals, x_new=x_new, **kwargs)
         intervals_time = x_new
-    else:
-        # check if intervals appear to be already interpolated
-        if _intervals_time_uniform(intervals_time):
-            # get sampling rate used for interpolation
-            interpolation_rate = _intervals_time_to_sampling_rate(intervals_time)
+    # check if intervals appear to be already interpolated
+    elif _intervals_time_uniform(intervals_time):
+        # get sampling rate used for interpolation
+        interpolation_rate = _intervals_time_to_sampling_rate(intervals_time)
 
     if detrend is not None:
-        intervals = signal_detrend(
-            intervals, method=detrend, sampling_rate=interpolation_rate
-        )
+        intervals = signal_detrend(intervals, method=detrend, sampling_rate=interpolation_rate)
     return intervals, intervals_time, interpolation_rate

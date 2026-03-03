@@ -20,7 +20,7 @@ import functools
 import itertools
 import math
 import threading
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import jax
 from jax import lax
@@ -28,10 +28,10 @@ from jax._src import callback
 from jax._src import config
 from jax._src import core as jax_core
 from jax._src import frozen_dict
-from jax._src import linear_util as lu
 from jax._src import pjit
 from jax._src import source_info_util
 from jax._src.interpreters import mlir
+from jax._src.tree_util import FlatTree
 from jax._src.pallas import core as pallas_core
 from jax._src.pallas import primitives
 from jax._src.pallas.mosaic import core as mosaic_core
@@ -41,6 +41,7 @@ from jax._src.pallas.mosaic.interpret import vector_clock as vc
 from jax._src.pallas.mosaic.interpret.race_detection_state import RaceDetectionState
 from jax._src.pallas.mosaic.interpret.thread_map import thread_map
 import jax._src.pallas.mosaic.interpret.utils as interpret_utils
+from jax._src import state
 from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.state import primitives as state_primitives
@@ -50,7 +51,7 @@ from jax._src.util import (
     safe_zip,
     split_list
 )
-from jax.interpreters import partial_eval as pe
+from jax._src.interpreters import partial_eval as pe
 import jax.numpy as jnp
 import numpy as np
 
@@ -319,10 +320,9 @@ def _allocate_buffer(
   Returns:
     Integer id for the allocated buffer.
   """
-  device_id = int(device_id)
+  device_id: int = int(device_id)  # pyrefly: ignore[redefinition]
   memory_space_str = TPU_MEMORY_SPACE_NAMES[int(memory_space)]
   del memory_space
-  val = np.array(val)
 
   shared_memory = _get_shared_memory()
 
@@ -355,7 +355,9 @@ def _allocate_buffer(
         # copies of `val` so that each buffer is a distinct ndarray.
         val = val.copy()
 
-    shared_memory.allocate_buffer(key, ref_count=ref_count, value=val)
+    shared_memory.allocate_buffer(
+        key, ref_count=ref_count, value=np.array(val)
+    )
     local_core_id_to_buffer_id[lci] = buffer_id
 
   # The buffer ids should always be kept in sync across all cores.
@@ -411,8 +413,8 @@ def _allocate_semaphores(
   Returns:
     Array of semaphore ids.
   """
-  device_id = int(device_id)
-  shape = tuple(map(int, shape))
+  device_id: int = int(device_id)  # pyrefly: ignore[redefinition]
+  shape: tuple[int, ...] = tuple(map(int, shape))  # pyrefly: ignore[redefinition]
   num_semaphores = math.prod(shape)
 
   shared_memory = _get_shared_memory()
@@ -515,7 +517,9 @@ def get(
     # NOTE: input_name, block_indices, and grid_loop_idx are set only if this
     # function is being called to read a block from a pallas_call input (at the
     # start of one iteration of the kernel body).
+    assert block_indices is not None
     block_indices = tuple(int(x) for x in block_indices)
+    assert grid_loop_idx is not None
     grid_loop_idx = tuple(int(x) for x in tuple(grid_loop_idx))
 
   shared_memory = _get_shared_memory()
@@ -536,7 +540,7 @@ def get(
   # TODO(jburnim): We already know this shape in the Jaxpr where we insert a
   # callback to `get`.  Should we just pass the shape to `get`?
   # TODO(jburnim): Move to a helper function?
-  full_read_shape = []
+  full_read_shape: list[int] = []
   assert len(read_range) <= len(shape)
   for dim_size, idx_or_slice in itertools.zip_longest(
       shape, read_range, fillvalue=None
@@ -550,9 +554,8 @@ def get(
       dim_size = (idx_or_slice.stop - idx_or_slice.start) // idx_or_slice.step
       assert isinstance(dim_size, int)
       full_read_shape.append(dim_size)
-  full_read_shape = tuple(full_read_shape)
 
-  if (ret is None) or (full_read_shape != ret.shape):
+  if (ret is None) or (tuple(full_read_shape) != ret.shape):
     if shared_memory.out_of_bounds_reads == 'raise':
       if source_info is None:
         ctx = contextlib.nullcontext()
@@ -639,7 +642,9 @@ def store(
     # NOTE: output_name, block_indices, and grid_loop_idx are set only if this
     # function is being called to store a block into a pallas_call output (at
     # the end of one iteration of the kernel body).
+    assert block_indices is not None
     block_indices = tuple(int(x) for x in block_indices)
+    assert grid_loop_idx is not None
     grid_loop_idx = tuple(int(x) for x in tuple(grid_loop_idx))
 
   shared_memory = _get_shared_memory()
@@ -934,6 +939,7 @@ def dma_start(
   (src_sem, dst_sem), clock = shared_memory.get_semaphores_and_increment_clock(
       (src_sem_id, dst_sem_id), src_global_core_id
   )
+  assert dst_sem is not None
 
   assert dma_id_counter is not None
   id = dma_id_counter.get_next()
@@ -953,7 +959,7 @@ def dma_start(
       src_sem,
       dst_sem,
       virtual_device_id = shared_memory.get_random_virtual_device_id(),
-      clock=clock,
+      clock=clock,  # pyrefly: ignore[bad-argument-type]
       source_info=source_info,
   )
 
@@ -998,7 +1004,7 @@ def dma_wait(device_id, local_core_id, sem_id, size):
   global_core_id = shared_memory.get_global_core_id(device_id, local_core_id)
 
   (sem,), _ = shared_memory.get_semaphores_and_increment_clock(
-      {sem_id}, global_core_id
+      [sem_id], global_core_id
   )
   assert sem is not None
   sem.wait(size, global_core_id, has_tasks=True)
@@ -1029,7 +1035,7 @@ def semaphore_signal(
     target_local_core_id = 0
 
   (sem,), clock = shared_memory.get_semaphores_and_increment_clock(
-      {sem_id}, src_global_core_id
+      [sem_id], src_global_core_id
   )
   assert sem is not None
   sem.signal(
@@ -1049,26 +1055,11 @@ def semaphore_wait(device_id, local_core_id, sem_id, value):
   global_core_id = shared_memory.get_global_core_id(device_id, local_core_id)
 
   (sem,), _ = shared_memory.get_semaphores_and_increment_clock(
-      {sem_id}, global_core_id
+      [sem_id], global_core_id
   )
   assert sem is not None
   sem.wait(value, global_core_id)
 
-
-def _compute_transformed_shape_and_dtype(shape, dtype, transforms):
-  for transform in transforms:
-    if transform is None:
-      continue
-    shape = transform.transform_shape(shape)
-    dtype = transform.transform_dtype(dtype)
-  return shape, dtype
-
-
-@lu.cache
-def _to_jaxpr(flat_fun, in_avals):
-  new_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, in_avals)
-  new_jaxpr = jax_core.ClosedJaxpr(new_jaxpr, consts)
-  return new_jaxpr
 
 def _is_any(memory_space):
   return memory_space is pallas_core.MemorySpace.ANY
@@ -1098,7 +1089,7 @@ def _interpret_jaxpr(
     axis_indices,
     device_id,
     local_core_id,
-    compiler_params,
+    mosaic_params,
     interpret_params
 ):
   sentinel_for_floating_point_values = (
@@ -1120,7 +1111,7 @@ def _interpret_jaxpr(
       axis_indices=axis_indices,
       device_id=device_id,
       local_core_id=local_core_id,
-      compiler_params=compiler_params,
+      mosaic_params=mosaic_params,
       interpret_params=interpret_params,
   )
   for eqn in jaxpr.eqns:
@@ -1236,11 +1227,11 @@ def _interpret_jaxpr(
         def f(*args, jaxpr):
           return _interpret(jaxpr.jaxpr, *jaxpr.consts, *args)
         invals = deferred_invals()
-        in_avals = tuple(jax_core.shaped_abstractify(i) for i in invals)
-        new_jaxpr = _to_jaxpr(
-            lu.wrap_init(functools.partial(f, jaxpr=eqn.params['jaxpr']),
-                        debug_info=eqn.params['jaxpr'].jaxpr.debug_info),
-            in_avals)
+        args_ft = FlatTree.flatten((invals, {}))
+        avals_ft = args_ft.map(jax_core.shaped_abstractify)
+        new_jaxpr, _ = pe.trace_to_jaxpr(
+            functools.partial(f, jaxpr=eqn.params['jaxpr']), avals_ft,
+            eqn.params['jaxpr'].jaxpr.debug_info)
         out = pjit.jit_p.bind(*invals, **(eqn.params | {'jaxpr': new_jaxpr}))
 
       elif prim is primitives.run_scoped_p:
@@ -1395,8 +1386,10 @@ def _interpret_jaxpr(
             src_sem_transforms,
             target_device_id,
         ) = jax.tree.unflatten(eqn.params['tree'], deferred_invals())
-        read_shape, read_dtype = _compute_transformed_shape_and_dtype(
-            eqn.invars[0].aval.shape, eqn.invars[0].aval.dtype, src_transforms)
+        src_ref_aval = state.transform_type(src_transforms, eqn.invars[0].aval)
+        assert isinstance(src_ref_aval, state.AbstractRef)
+        read_shape = src_ref_aval.shape
+        read_dtype = src_ref_aval.dtype
         callback.io_callback(
             dma_wait,
             (),
@@ -1413,7 +1406,7 @@ def _interpret_jaxpr(
             get_barrier_semaphore,
             jax.ShapeDtypeStruct((), jnp.int16),
             device_id,
-            _get_mosaic_params(compiler_params).collective_id,
+            mosaic_params.collective_id,
             ordered=True,
         )
 
@@ -1481,7 +1474,7 @@ def _interpret_jaxpr(
 def _compute_start_indices(
     block_mapping, loop_idx, *args,
     axis_sizes, mesh, axis_indices, device_id, local_core_id,
-    compiler_params, interpret_params):
+    mosaic_params, interpret_params):
   jaxpr = block_mapping.index_map_jaxpr
   block_indices = _interpret_jaxpr(
       jaxpr.jaxpr,
@@ -1493,7 +1486,7 @@ def _compute_start_indices(
       axis_indices=axis_indices,
       device_id=device_id,
       local_core_id=local_core_id,
-      compiler_params=compiler_params,
+      mosaic_params=mosaic_params,
       interpret_params=interpret_params,
   )
   def _get_start_index(i, b):
@@ -1515,38 +1508,14 @@ def _compute_start_indices(
   )
   return block_indices, ret
 
-def _get_next_indices(grid, indices):
-  next_indices = []
-  carry = True
-  for dim_size, index in reversed(list(zip(grid, indices))):
-    i = jnp.where(carry, index + 1, index)
-    carry = dim_size == i
-    next_indices.append(jnp.where(carry, 0, i))
-  return tuple(reversed(next_indices))
-
-def _get_indices(grid, loop_index):
-  indices = []
-  for dim_size in reversed(grid):
-    i = loop_index % dim_size
-    loop_index = loop_index // dim_size
-    indices.append(i)
-  return tuple(reversed(indices))
-
-def _get_mosaic_params(compiler_params: dict[str, pallas_core.CompilerParams]) -> mosaic_core.CompilerParams:
-  try:
-    return cast(mosaic_core.CompilerParams, compiler_params['mosaic_tpu'])
-  except KeyError:
-    return mosaic_core.CompilerParams()
-
 
 def _get_parallel_dim_semantics(
-    compiler_params: dict[str, Any], num_dimensions_in_grid: int,
+    mosaic_params: mosaic_core.CompilerParams, num_dimensions_in_grid: int,
 ) -> tuple[bool, ...]:
   """Returns a tuple indicating which grid dimensions have parallel semantics.
 
   Args:
-    compiler_params: Representation of a `mosaic_core.CompilerParams` object
-      as a dictionary.
+    mosaic_params: The compiler params for the Mosaic TPU backend.
     num_dimensions_in_grid: The number of dimensions in the grid.
 
   Returns:
@@ -1557,7 +1526,6 @@ def _get_parallel_dim_semantics(
     ValueError: If the dimensions with parallel semantics do not form a prefix
       of the grid.
   """
-  mosaic_params = _get_mosaic_params(compiler_params)
   if mosaic_params.dimension_semantics is None:
     return (False,) * num_dimensions_in_grid
   result = tuple(ds in ('parallel', mosaic_core.PARALLEL)
@@ -1583,7 +1551,7 @@ _GridPointCoordinatesPerDim = tuple[Array, ...]
 
 def _get_randomized_grid_coordinates(
     grid: tuple[int, ...],
-    compiler_params: dict[str, Any],
+    mosaic_params: mosaic_core.CompilerParams,
     random_seed: int | None,
 ) -> _GridPointCoordinatesPerDim:
   """Returns a tuple of randomized coordinates for each 'parallel' dimension in `grid`.
@@ -1598,15 +1566,14 @@ def _get_randomized_grid_coordinates(
 
   Args:
     grid: Tuple of sizes of the dimensions in the grid.
-    compiler_params: Representation of a `mosaic_core.CompilerParams` object
-      as a dictionary.
+    mosaic_params: The compiler params for the Mosaic TPU backend.
     parallel_semantics_per_dim: A tuple of booleans indicating whether the
       corresponding dimension in the grid has parallel semantics.
     random_seed: The seed to use for randomizing coordinates in parallel
       dimensions.
   """
   parallel_semantics_per_dim = _get_parallel_dim_semantics(
-      compiler_params, len(grid)
+      mosaic_params, len(grid)
   )
 
   key = jax.random.key(random_seed or 0)
@@ -1692,7 +1659,7 @@ def interpret_pallas_call(
     input_output_aliases: tuple[tuple[int, int], ...],
     grid_mapping: pallas_core.GridMapping,
     mesh: pallas_core.Mesh | None,
-    compiler_params: dict[str, Any],
+    compiler_params: pallas_core.CompilerParams | None,
     cost_estimate: pallas_core.CostEstimate,
     out_avals: tuple[jax_core.AbstractValue, ...],
     interpret_params: InterpretParams,
@@ -1710,6 +1677,13 @@ def interpret_pallas_call(
     interpret_params = dataclasses.replace(
         interpret_params, num_cores_or_threads=mesh.devices.shape[0]
     )
+
+  if compiler_params is None:
+    mosaic_params = mosaic_core.CompilerParams()
+  else:
+    assert isinstance(compiler_params, mosaic_core.CompilerParams)
+    mosaic_params = compiler_params  # type: ignore[assignment]
+  del compiler_params
 
   args = [remove_memory_space_p.bind(a) for a in args]
   # args contains: *dynamic_grid_sizes, *index, *inputs.  (No consts?)
@@ -1765,7 +1739,7 @@ def interpret_pallas_call(
   input_buffer_ids = []
   for i, var in enumerate(
       jaxpr.invars[grid_mapping.num_index_operands:][:grid_mapping.num_inputs]):
-    assert var.aval.dtype == input_args[i].dtype
+    assert var.aval.dtype == input_args[i].dtype  # pyrefly: ignore[missing-attribute]
     input_buffer_ids.append(
         callback.io_callback(
             _allocate_buffer,
@@ -1838,18 +1812,20 @@ def interpret_pallas_call(
     output_idx = i - grid_mapping.num_inputs
     is_input = i < grid_mapping.num_inputs
     is_output = (output_idx >= 0) and (output_idx < grid_mapping.num_outputs)
-    if var.aval.memory_space == mosaic_core.MemorySpace.SEMAPHORE:
+    aval = var.aval
+    assert isinstance(aval, state.AbstractRef)
+    if aval.memory_space == mosaic_core.MemorySpace.SEMAPHORE:
       kernel_buffer_ids.append(
           callback.io_callback(
               _allocate_semaphores,
-              jax.ShapeDtypeStruct(var.aval.shape, jnp.int16),
+              jax.ShapeDtypeStruct(aval.shape, jnp.int16),
               device_id,
               None,  # local_core_id
-              var.aval.shape,
+              aval.shape,
               ordered=True,
           )
       )
-    elif _is_any(var.aval.memory_space):
+    elif _is_any(aval.memory_space):
       # Use the already-allocated HBM input or output buffer.
       #
       # TODO(jburnim): For kernel args in HBM, check that block shape equals the
@@ -1867,15 +1843,13 @@ def interpret_pallas_call(
               jax.ShapeDtypeStruct((), jnp.int16),
               device_id,
               None,  # local_core_id,
-              TPU_MEMORY_SPACE_IDXS[var.aval.memory_space],
-              interpret_params.get_uninitialized_array(
-                  var.aval.shape, var.aval.dtype
-              ),
+              TPU_MEMORY_SPACE_IDXS[aval.memory_space],
+              interpret_params.get_uninitialized_array(aval.shape, aval.dtype),
               ordered=True,
           )
       )
 
-  if _get_mosaic_params(compiler_params).collective_id is None:
+  if mosaic_params.collective_id is None:
     # The kernel doesn't specify its own barrier semaphore, so we do a global
     # barrier before running the first iteration of the kernel.
     callback.io_callback(_barrier, (), device_id, ordered=True)
@@ -1898,11 +1872,11 @@ def interpret_pallas_call(
     randomized_grid_coordinates = (jnp.array((), dtype=jnp.int32),) * len(grid)
   else:
     randomized_grid_coordinates = _get_randomized_grid_coordinates(
-        grid, compiler_params, interpret_params.random_seed  # type: ignore[arg-type]
+        grid, mosaic_params, interpret_params.random_seed  # type: ignore[arg-type]
     )
 
   parallel_dim_semantics = _get_parallel_dim_semantics(
-      compiler_params, len(grid)
+      mosaic_params, len(grid)
   )
   parallel_subgrid_size = _get_parallel_subgrid_size(
       parallel_dim_semantics, grid  # type: ignore[arg-type]
@@ -1923,7 +1897,7 @@ def interpret_pallas_call(
       return grid_mapping.local_grid_env(grid_point, grid)
     else:
       return tuple(
-          pallas_core.GridAxis(idx, b)
+          pallas_core.GridAxis(idx, b)  # pyrefly: ignore[bad-argument-type]
           for dim, (idx, b) in enumerate(zip(grid_point, grid))
           if dim not in grid_mapping.vmapped_dims
       )
@@ -1943,17 +1917,17 @@ def interpret_pallas_call(
             jnp.int32,
             tuple[jnp.int32, ...],
             jnp.ndarray,
-            list[jnp.ndarray],
-            list[jnp.ndarray],
-            list[jnp.ndarray],
+            tuple[jnp.ndarray, ...],
+            tuple[jnp.ndarray, ...],
+            tuple[jnp.ndarray, ...],
         ],
     ) -> tuple[
         jnp.int32,
         tuple[jnp.int32, ...],
         jnp.ndarray,
-        list[jnp.ndarray],
-        list[jnp.ndarray],
-        list[jnp.ndarray],
+        tuple[jnp.ndarray, ...],
+        tuple[jnp.ndarray, ...],
+        tuple[jnp.ndarray, ...],
     ]:
       """Performs one execution of the kernel body.
 
@@ -1997,7 +1971,7 @@ def interpret_pallas_call(
         )
 
       with pallas_core.grid_env(_get_local_grid_env(grid_point)):
-        next_loop_idx = _get_next_indices(grid, loop_idx)
+        next_loop_idx = interpret_utils.get_next_indices(grid, loop_idx)
         next_grid_point = _get_grid_point(
             next_loop_idx, randomized_grid_coordinates
         )
@@ -2011,7 +1985,7 @@ def interpret_pallas_call(
                 axis_indices=axis_indices,
                 device_id=device_id,
                 local_core_id=core_index,
-                compiler_params=compiler_params,
+                mosaic_params=mosaic_params,
                 interpret_params=interpret_params,
             )
             for bm in grid_mapping.block_mappings
@@ -2030,7 +2004,7 @@ def interpret_pallas_call(
           # TODO(jburnim): Just use input_args[j] when the input is not aliased?
           transform = indexing.NDIndexer(
               indices=tuple(
-                  indexing.ds(st, sz) if not iid else st
+                  indexing.Slice(st, sz) if not iid else st
                   for st, sz, iid in zip(
                       cur_start_indices[index],
                       block_shapes[index],
@@ -2091,7 +2065,7 @@ def interpret_pallas_call(
             axis_indices=axis_indices,
             device_id=device_id,
             local_core_id=core_index,
-            compiler_params=compiler_params,
+            mosaic_params=mosaic_params,
             interpret_params=interpret_params,
         )
 
@@ -2175,11 +2149,11 @@ def interpret_pallas_call(
             next_loop_idx,
             next_grid_point,
             cur_start_indices,
-            next_block_indices,
-            next_start_indices,
+            tuple(next_block_indices),
+            tuple(next_start_indices),
         )
 
-    initial_loop_idx = _get_indices(grid, initial_iteration_idx)
+    initial_loop_idx = interpret_utils.get_indices(grid, initial_iteration_idx)
     initial_grid_point = _get_grid_point(
       initial_loop_idx, randomized_grid_coordinates)
     with pallas_core.grid_env(_get_local_grid_env(initial_grid_point)):
@@ -2193,7 +2167,7 @@ def interpret_pallas_call(
               axis_indices=axis_indices,
               device_id=device_id,
               local_core_id=core_index,
-              compiler_params=compiler_params,
+              mosaic_params=mosaic_params,
               interpret_params=interpret_params,
           )
           for bm in grid_mapping.block_mappings

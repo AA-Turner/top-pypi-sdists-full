@@ -13,9 +13,15 @@ from ._base import (
     FailureHandler,
     Runtime,
     TaskOutcome,
+    current_docket,
+    current_execution,
+    current_worker,
     format_duration,
 )
 from ._concurrency import ConcurrencyBlocked, ConcurrencyLimit
+from ._cooldown import Cooldown
+from ._debounce import Debounce
+from ._ratelimit import RateLimit
 from ._cron import Cron
 from ._contextual import (
     CurrentDocket,
@@ -38,6 +44,7 @@ from ._perpetual import Perpetual
 from ._progress import Progress
 from ._resolution import (
     FailedDependency,
+    get_annotation_dependencies,
     get_single_dependency_of_type,
     get_single_dependency_parameter_of_type,
     resolved_dependencies,
@@ -53,6 +60,9 @@ __all__ = [
     "FailureHandler",
     "CompletionHandler",
     "TaskOutcome",
+    "current_docket",
+    "current_execution",
+    "current_worker",
     "format_duration",
     # Contextual dependencies
     "CurrentDocket",
@@ -66,6 +76,7 @@ __all__ = [
     "DependencyFunction",
     "Shared",
     "SharedContext",
+    "get_annotation_dependencies",
     "get_dependency_parameters",
     # Retry
     "ForcedRetry",
@@ -75,6 +86,9 @@ __all__ = [
     "AdmissionBlocked",
     "ConcurrencyBlocked",
     "ConcurrencyLimit",
+    "Cooldown",
+    "Debounce",
+    "RateLimit",
     "Cron",
     "Perpetual",
     "Progress",

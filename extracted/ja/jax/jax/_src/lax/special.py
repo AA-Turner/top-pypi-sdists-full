@@ -562,7 +562,7 @@ def evaluate_chebyshev_polynomial(x, coefficients):
     b0 = x * b1 - b2 + full_like(x, c)
   return 0.5 * (b0 - b2)
 
-def _i0e_impl32(x):
+def _i0e_impl32(x: Array) -> Array:
   """
   Computes an approximation to the modified Bessel function of the first kind,
   zeroth order. The following implementation follows Cephes' F32 and F64
@@ -597,7 +597,7 @@ def _i0e_impl32(x):
 
   return select(x <= 8.0, result_le_8, result_gt_8)
 
-def _i0e_impl64(x):
+def _i0e_impl64(x: Array) -> Array:
   i0e_coeffs_a = np.array(
      [-4.41534164647933937950E-18, 3.33079451882223809783E-17,
       -2.43127984654795469359E-16, 1.71539128555513303061E-15,
@@ -642,7 +642,7 @@ def _i0e_impl64(x):
 
   return select(x <= 8.0, result_le_8, result_gt_8)
 
-def bessel_i0e_impl(x):
+def bessel_i0e_impl(x: Array) -> Array:
   if x.dtype == np.float64:
     return _i0e_impl64(x)
   elif x.dtype == np.float32:

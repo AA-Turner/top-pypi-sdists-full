@@ -2,13 +2,14 @@ import asyncio
 import copy
 import inspect
 import logging
-import msgpack
 import os
 import traceback
 
+import msgpack
+
 from wslink import schedule_coroutine
+from wslink.chunking import UnChunker, generate_chunks
 from wslink.publish import PublishManager
-from wslink.chunking import generate_chunks, UnChunker
 from wslink.websocket import ServerProtocol
 
 # from http://www.jsonrpc.org/specification, section 5.1
@@ -20,7 +21,7 @@ RESULT_SERIALIZE_ERROR = -32002
 CLIENT_ERROR = -32099
 
 # 4MB is the default inside aiohttp
-MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", 4194304))
+MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", "4194304"))
 
 logger = logging.getLogger(__name__)
 
@@ -88,23 +89,6 @@ class AbstractWebApp:
         return self._app
 
     # -------------------------------------------------------------------------
-    # Legacy / deprecated
-    # -------------------------------------------------------------------------
-
-    def get_config(self):
-        print("DEPRECATED: get_config() use property instead")
-        return self.config
-
-    def set_config(self, config):
-        print("DEPRECATED: set_config() use constructor instead")
-
-    def get_last_active_client_id(self):
-        print(
-            "DEPRECATED: get_last_active_client_id() should be replaced by last_active_client_id"
-        )
-        return self.last_active_client_id
-
-    # -------------------------------------------------------------------------
     # Life cycles
     # -------------------------------------------------------------------------
 
@@ -141,7 +125,7 @@ class AbstractWebApp:
         pass
 
 
-class WslinkHandler(object):
+class WslinkHandler:
     def __init__(self, protocol: ServerProtocol, web_app=None):
         self.serverProtocol = protocol
         self.web_app = web_app
@@ -166,7 +150,10 @@ class WslinkHandler(object):
                     self.addAttachment,
                     lambda: schedule_coroutine(0, self.web_app.stop),
                 )
-                test = lambda x: inspect.ismethod(x) or inspect.isfunction(x)
+
+                def test(x):
+                    return inspect.ismethod(x) or inspect.isfunction(x)
+
                 for k in inspect.getmembers(protocolObject.__class__, test):
                     proc = k[1]
                     if "_wslinkuris" in proc.__dict__:
@@ -231,7 +218,7 @@ class WslinkHandler(object):
                     await self.sendWrappedMessage(
                         rpcid,
                         {
-                            "clientID": "c{0}".format(client_id),
+                            "clientID": f"c{client_id}",
                             "maxMsgSize": MAX_MSG_SIZE,
                         },
                         client_id=client_id,
@@ -255,9 +242,10 @@ class WslinkHandler(object):
 
     async def onMessage(self, is_binary, msg, client_id):
         if not is_binary:
-            error_message = "wslink is not expecting text message:\n> %s"
-            logger.critical(error_message, msg.data)
-            self.log_emitter.critical(error_message % msg.data)
+            logger.critical("wslink is not expecting text message:\n> %s", msg.data)
+            self.log_emitter.critical(
+                f"wslink is not expecting text message:\n> {msg.data}"  # noqa: G004
+            )
             return
 
         full_message = self.unchunkers[client_id].process_chunk(msg.data)
@@ -271,7 +259,7 @@ class WslinkHandler(object):
         logger.debug(debug_message, stripped_payload)
 
         if self.log_emitter.has("debug"):
-            self.log_emitter.debug(debug_message % stripped_payload)
+            self.log_emitter.debug(debug_message % stripped_payload)  # noqa: G002
 
         if "id" not in rpc:
             return
@@ -304,8 +292,8 @@ class WslinkHandler(object):
             return
 
         # No matching method found
-        if not methodName in self.functionMap:
-            self.log_emitter.error(f"Method not found: {methodName}")
+        if methodName not in self.functionMap:
+            self.log_emitter.error(f"Method not found: {methodName}")  # noqa: G004
             with self.network_monitor:
                 await self.sendWrappedError(
                     rpcid,
@@ -393,8 +381,7 @@ class WslinkHandler(object):
         if client_id:
             if self.isClientAuthenticated(client_id):
                 return [self.connections.get(client_id)]
-            else:
-                return []
+            return []
 
         return [
             self.connections[c]
@@ -478,7 +465,7 @@ class WslinkHandler(object):
         self.network_monitor.network_call_completed()
 
     def publish(self, topic, data, client_id=None, skip_last_active_client=False):
-        client_list = [client_id] if client_id else [c_id for c_id in self.connections]
+        client_list = [client_id] if client_id else list(self.connections)
         for client in client_list:
             if self.isClientAuthenticated(client):
                 self.pub_manager.publish(

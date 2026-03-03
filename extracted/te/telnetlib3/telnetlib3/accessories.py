@@ -42,7 +42,7 @@ PATIENCE_MESSAGES = [
 
 def get_version() -> str:
     """Return the current version of telnetlib3."""
-    return "3.0.2"  # keep in sync with pyproject.toml !
+    return "4.0.0"  # keep in sync with pyproject.toml !
 
 
 def encoding_from_lang(lang: str) -> Optional[str]:
@@ -130,7 +130,11 @@ _DEFAULT_LOGFMT = " ".join(
 
 
 def make_logger(
-    name: str, loglevel: str = "info", logfile: Optional[str] = None, logfmt: str = _DEFAULT_LOGFMT
+    name: str,
+    loglevel: str = "info",
+    logfile: Optional[str] = None,
+    logfmt: str = _DEFAULT_LOGFMT,
+    filemode: str = "a",
 ) -> logging.Logger:
     """Create and return simple logger for given arguments."""
     lvl = getattr(logging, loglevel.upper(), None)
@@ -140,6 +144,7 @@ def make_logger(
     _cfg: Dict[str, Any] = {"format": logfmt}
     if logfile:
         _cfg["filename"] = logfile
+        _cfg["filemode"] = filemode
     logging.basicConfig(**_cfg)
     for handler in logging.getLogger().handlers:
         if isinstance(handler, logging.StreamHandler) and not isinstance(

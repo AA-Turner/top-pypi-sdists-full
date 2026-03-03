@@ -1323,6 +1323,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"results": [], "total": 0}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1334,9 +1339,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         # Check query parameters
         assert sent_request.url.params["query_param"] == "test search query"
@@ -1357,6 +1361,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"authenticated": True}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1368,9 +1377,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         # Check custom headers
         assert sent_request.headers["custom_header"] == "secret-api-key"
@@ -1390,6 +1398,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"status": "success"}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1401,9 +1414,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         # Check standard headers
         assert sent_request.headers["x-uipath-originator"] == "uipath-python"
@@ -1425,6 +1437,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"id": 456, "status": "created"}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1436,9 +1453,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         # Check JSON body
         request_json = json.loads(sent_request.content.decode())
@@ -1463,6 +1479,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"user": "user456", "post": "post789"}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1474,9 +1495,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         # Verify URL path substitution worked correctly
         assert sent_request.url.path.endswith(
@@ -1498,6 +1518,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"upload_id": "upload123", "status": "success"}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1509,9 +1534,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         assert "multipart/form-data" in sent_request.headers.get("content-type", "")
 
@@ -1531,6 +1555,11 @@ class TestConnectorActivityInvocation:
         }
         expected_response = {"result": "async_success", "data": {"id": 456}}
 
+        httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
         httpx_mock.add_response(
             method="POST",
             status_code=200,
@@ -1562,6 +1591,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"result": "success"}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1573,9 +1607,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         # custom_header should not be present since it was None
         assert "custom_header" not in sent_request.headers
@@ -1586,6 +1619,7 @@ class TestConnectorActivityInvocation:
 
     def test_invoke_activity_unknown_parameter_raises_error(
         self,
+        httpx_mock: HTTPXMock,
         service: ConnectionsService,
         simple_activity_metadata: ActivityMetadata,
     ) -> None:
@@ -1594,6 +1628,12 @@ class TestConnectorActivityInvocation:
         activity_input = {
             "unknown_param": "value",  # This parameter doesn't exist in metadata
         }
+
+        httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
 
         with pytest.raises(
             ValueError,
@@ -1607,6 +1647,7 @@ class TestConnectorActivityInvocation:
 
     def test_invoke_activity_unsupported_content_type_raises_error(
         self,
+        httpx_mock: HTTPXMock,
         service: ConnectionsService,
     ) -> None:
         """Test that unsupported content types raise a ValueError."""
@@ -1626,6 +1667,12 @@ class TestConnectorActivityInvocation:
         connection_id = "test-connection-123"
         activity_input = {"xml_data": "<test>data</test>"}
 
+        httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+
         with pytest.raises(
             ValueError, match="Unsupported content type: application/xml"
         ):
@@ -1639,6 +1686,9 @@ class TestConnectorActivityInvocation:
         self,
         httpx_mock: HTTPXMock,
         service: ConnectionsService,
+        base_url: str,
+        org: str,
+        tenant: str,
     ) -> None:
         """Test invoking with empty input."""
         activity_metadata = ActivityMetadata(
@@ -1657,6 +1707,12 @@ class TestConnectorActivityInvocation:
         connection_id = "test-connection-123"
         expected_response = {"status": "pong"}
 
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/connections_/api/v1/Connections/{connection_id}",
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
         httpx_mock.add_response(
             method="GET",
             status_code=200,
@@ -1687,6 +1743,11 @@ class TestConnectorActivityInvocation:
         expected_response = {"result": "summary text"}
 
         httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
+        httpx_mock.add_response(
             method="POST",
             status_code=200,
             json=expected_response,
@@ -1698,9 +1759,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         assert "multipart/form-data" in sent_request.headers.get("content-type", "")
 
@@ -1747,6 +1807,11 @@ class TestConnectorActivityInvocation:
             "description": "A file",
         }
 
+        httpx_mock.add_response(
+            method="GET",
+            status_code=200,
+            json={"id": connection_id, "name": "Test", "elementInstanceId": 1},
+        )
         httpx_mock.add_response(method="POST", status_code=200, json={"ok": True})
 
         _ = service.invoke_activity(
@@ -1755,9 +1820,8 @@ class TestConnectorActivityInvocation:
             activity_input=activity_input,
         )
 
-        sent_request = httpx_mock.get_request()
-        if sent_request is None:
-            raise Exception("No request was sent")
+        requests = httpx_mock.get_requests()
+        sent_request = requests[1]
 
         content_type = sent_request.headers["content-type"]
         boundary = content_type.split("boundary=")[1]
@@ -1773,3 +1837,235 @@ class TestConnectorActivityInvocation:
         # Should default to "body" when json_body_section is None
         assert "body" in part_names
         assert "file_param" in part_names
+
+    def test_invoke_activity_retrieves_connection_and_sends_folder_key(
+        self,
+        httpx_mock: HTTPXMock,
+        service: ConnectionsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        simple_activity_metadata: ActivityMetadata,
+    ) -> None:
+        """Test that invoke_activity retrieves the connection and sends its folder key."""
+        connection_id = "test-connection-123"
+        folder_key = "d6f5c54a-e2b2-4083-be93-623aa670ed40"
+
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/connections_/api/v1/Connections/{connection_id}",
+            method="GET",
+            status_code=200,
+            json={
+                "id": connection_id,
+                "name": "Test Connection",
+                "elementInstanceId": 123,
+                "folder": {"key": folder_key},
+            },
+        )
+
+        expected_response = {"status": "success"}
+        httpx_mock.add_response(
+            method="POST",
+            status_code=200,
+            json=expected_response,
+        )
+
+        result = service.invoke_activity(
+            activity_metadata=simple_activity_metadata,
+            connection_id=connection_id,
+            activity_input={"body_field1": "test value"},
+        )
+
+        requests = httpx_mock.get_requests()
+        assert len(requests) == 2
+
+        retrieve_request = requests[0]
+        assert retrieve_request.method == "GET"
+        assert f"/Connections/{connection_id}" in str(retrieve_request.url)
+
+        activity_request = requests[1]
+        assert activity_request.headers[HEADER_FOLDER_KEY] == folder_key
+        assert result == expected_response
+
+    @pytest.mark.asyncio
+    async def test_invoke_activity_async_retrieves_connection_and_sends_folder_key(
+        self,
+        httpx_mock: HTTPXMock,
+        service: ConnectionsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        simple_activity_metadata: ActivityMetadata,
+    ) -> None:
+        """Test that invoke_activity_async retrieves the connection and sends its folder key."""
+        connection_id = "test-connection-123"
+        folder_key = "d6f5c54a-e2b2-4083-be93-623aa670ed40"
+
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/connections_/api/v1/Connections/{connection_id}",
+            method="GET",
+            status_code=200,
+            json={
+                "id": connection_id,
+                "name": "Test Connection",
+                "elementInstanceId": 123,
+                "folder": {"key": folder_key},
+            },
+        )
+
+        expected_response = {"result": "async_success"}
+        httpx_mock.add_response(
+            method="POST",
+            status_code=200,
+            json=expected_response,
+        )
+
+        result = await service.invoke_activity_async(
+            activity_metadata=simple_activity_metadata,
+            connection_id=connection_id,
+            activity_input={"body_field1": "async_value"},
+        )
+
+        requests = httpx_mock.get_requests()
+        assert len(requests) == 2
+
+        retrieve_request = requests[0]
+        assert retrieve_request.method == "GET"
+        assert f"/Connections/{connection_id}" in str(retrieve_request.url)
+
+        activity_request = requests[1]
+        assert activity_request.headers[HEADER_FOLDER_KEY] == folder_key
+        assert result == expected_response
+
+    def test_invoke_activity_omits_folder_header_when_no_folder(
+        self,
+        httpx_mock: HTTPXMock,
+        service: ConnectionsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        simple_activity_metadata: ActivityMetadata,
+    ) -> None:
+        """Test that folder key header is omitted when connection has no folder."""
+        connection_id = "test-connection-123"
+
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/connections_/api/v1/Connections/{connection_id}",
+            method="GET",
+            status_code=200,
+            json={
+                "id": connection_id,
+                "name": "Test Connection",
+                "elementInstanceId": 123,
+                "folder": None,
+            },
+        )
+
+        httpx_mock.add_response(
+            method="POST",
+            status_code=200,
+            json={"status": "success"},
+        )
+
+        _ = service.invoke_activity(
+            activity_metadata=simple_activity_metadata,
+            connection_id=connection_id,
+            activity_input={"body_field1": "test value"},
+        )
+
+        requests = httpx_mock.get_requests()
+        activity_request = requests[1]
+        assert HEADER_FOLDER_KEY not in activity_request.headers
+
+    def test_invoke_activity_uses_connection_id_from_retrieve_response(
+        self,
+        httpx_mock: HTTPXMock,
+        service: ConnectionsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        simple_activity_metadata: ActivityMetadata,
+    ) -> None:
+        """Test that the activity URL uses connection.id from the retrieve response."""
+        original_connection_id = "original-key-abc"
+        resolved_connection_id = "resolved-id-456"
+
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/connections_/api/v1/Connections/{original_connection_id}",
+            method="GET",
+            status_code=200,
+            json={
+                "id": resolved_connection_id,
+                "name": "Test Connection",
+                "elementInstanceId": 789,
+                "folder": None,
+            },
+        )
+
+        httpx_mock.add_response(
+            method="POST",
+            status_code=200,
+            json={"status": "success"},
+        )
+
+        _ = service.invoke_activity(
+            activity_metadata=simple_activity_metadata,
+            connection_id=original_connection_id,
+            activity_input={"body_field1": "test value"},
+        )
+
+        requests = httpx_mock.get_requests()
+        activity_request = requests[1]
+        assert f"/element/instances/{resolved_connection_id}/" in str(
+            activity_request.url
+        )
+        assert f"/element/instances/{original_connection_id}/" not in str(
+            activity_request.url
+        )
+
+    @pytest.mark.asyncio
+    async def test_invoke_activity_async_uses_connection_id_from_retrieve_response(
+        self,
+        httpx_mock: HTTPXMock,
+        service: ConnectionsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        simple_activity_metadata: ActivityMetadata,
+    ) -> None:
+        """Test that the async activity URL uses connection.id from the retrieve response."""
+        original_connection_id = "original-key-abc"
+        resolved_connection_id = "resolved-id-456"
+
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/connections_/api/v1/Connections/{original_connection_id}",
+            method="GET",
+            status_code=200,
+            json={
+                "id": resolved_connection_id,
+                "name": "Test Connection",
+                "elementInstanceId": 789,
+                "folder": None,
+            },
+        )
+
+        httpx_mock.add_response(
+            method="POST",
+            status_code=200,
+            json={"status": "success"},
+        )
+
+        _ = await service.invoke_activity_async(
+            activity_metadata=simple_activity_metadata,
+            connection_id=original_connection_id,
+            activity_input={"body_field1": "test value"},
+        )
+
+        requests = httpx_mock.get_requests()
+        activity_request = requests[1]
+        assert f"/element/instances/{resolved_connection_id}/" in str(
+            activity_request.url
+        )
+        assert f"/element/instances/{original_connection_id}/" not in str(
+            activity_request.url
+        )

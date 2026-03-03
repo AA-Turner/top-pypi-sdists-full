@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import json
 import os
 from warnings import warn
@@ -46,7 +45,7 @@ def read_bitalino(filename):
 
     # Read metadata
     # -------------------------------------------------------------------------
-    with open(filename, "r") as f:
+    with open(filename) as f:
         lines = f.readlines()
         if "OpenSignals" not in lines[0]:
             raise ValueError("Text file is not in OpenSignals format.")
@@ -64,8 +63,7 @@ def read_bitalino(filename):
                 metadata[k]["Annotations"] = annotations[k]
             else:
                 warn(
-                    f"Device {k} not found in metadata ({metadata.keys()})."
-                    + " Something might be wrong.",
+                    f"Device {k} not found in metadata ({metadata.keys()})." + " Something might be wrong.",
                     category=NeuroKitWarning,
                 )
 
@@ -117,7 +115,7 @@ def _read_bitalino_annotations(filename):
     if os.path.isfile(file) is False:
         return None
 
-    with open(file, "r") as f:
+    with open(file) as f:
         lines = f.readlines()
         if "OpenSignals" not in lines[0]:
             raise ValueError("Text file is not in OpenSignals format.")

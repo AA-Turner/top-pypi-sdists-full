@@ -48,7 +48,8 @@ class ApplyServiceModel(object):
         'auto_complete_rollout': 'bool',
         'max_surge_percent': 'int',
         'tags': 'dict(str, str)',
-        'traffic_percent': 'int'
+        'traffic_percent': 'int',
+        'connection_ids': 'list[str]'
     }
 
     attribute_map = {
@@ -67,10 +68,11 @@ class ApplyServiceModel(object):
         'auto_complete_rollout': 'auto_complete_rollout',
         'max_surge_percent': 'max_surge_percent',
         'tags': 'tags',
-        'traffic_percent': 'traffic_percent'
+        'traffic_percent': 'traffic_percent',
+        'connection_ids': 'connection_ids'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, tags=None, traffic_percent=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, version=None, canary_percent=None, ray_serve_config=None, build_id=None, compute_config_id=None, config=None, rollout_strategy=None, ray_gcs_external_storage_config=None, tracing_config=None, auto_complete_rollout=True, max_surge_percent=None, tags=None, traffic_percent=None, connection_ids=None, local_vars_configuration=None):  # noqa: E501
         """ApplyServiceModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -92,6 +94,7 @@ class ApplyServiceModel(object):
         self._max_surge_percent = None
         self._tags = None
         self._traffic_percent = None
+        self._connection_ids = None
         self.discriminator = None
 
         self.name = name
@@ -122,6 +125,7 @@ class ApplyServiceModel(object):
             self.tags = tags
         if traffic_percent is not None:
             self.traffic_percent = traffic_percent
+        self.connection_ids = connection_ids
 
     @property
     def name(self):
@@ -498,6 +502,29 @@ class ApplyServiceModel(object):
         """
 
         self._traffic_percent = traffic_percent
+
+    @property
+    def connection_ids(self):
+        """Gets the connection_ids of this ApplyServiceModel.  # noqa: E501
+
+        List of connection IDs to associate with the service.  # noqa: E501
+
+        :return: The connection_ids of this ApplyServiceModel.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._connection_ids
+
+    @connection_ids.setter
+    def connection_ids(self, connection_ids):
+        """Sets the connection_ids of this ApplyServiceModel.
+
+        List of connection IDs to associate with the service.  # noqa: E501
+
+        :param connection_ids: The connection_ids of this ApplyServiceModel.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._connection_ids = connection_ids
 
     def to_dict(self):
         """Returns the model properties as a dict"""

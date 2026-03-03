@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pandas as pd
 
 from .rsp_eventrelated import rsp_eventrelated
@@ -89,7 +88,6 @@ def rsp_analyze(data, sampling_rate=1000, method="auto"):
 
     # Auto
     elif method in ["auto"]:
-
         if isinstance(data, dict):
             for i in data:
                 duration = len(data[i]) / sampling_rate

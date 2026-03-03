@@ -61,6 +61,7 @@ optional-dependencies.arxiv = [
   "arxiv",
   "pypdf",
 ]
+optional-dependencies.attachments = [  ]
 optional-dependencies.aws_lambda = [
   "boto3>=1.40.8",
 ]
@@ -211,7 +212,6 @@ optional-dependencies.hackernews = [
 optional-dependencies.homeassistant = [
   "httpx>=0.27",
 ]
-optional-dependencies.imdb = [  ]
 optional-dependencies.jina = [
   "httpx>=0.27",
   "pydantic>=2",
@@ -255,6 +255,7 @@ optional-dependencies.openai = [
 optional-dependencies.openbb = [
   "openbb",
 ]
+optional-dependencies.openclaw_compat = [  ]
 optional-dependencies.openweather = [
   "requests",
 ]
@@ -417,8 +418,8 @@ packages = [ "src/mindroom" ]
 
 [tool.ruff]
 target-version = "py312"
-
 line-length = 120
+
 lint.select = [
   "ALL",
 ]

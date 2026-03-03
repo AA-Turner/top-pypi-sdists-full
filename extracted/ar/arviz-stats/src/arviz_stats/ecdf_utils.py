@@ -100,6 +100,11 @@ def ecdf_pit(vals, ci_prob, n_simulations, n_chains=1, rng=None):
     )
 
     lower, upper = get_pointwise_confidence_band(prob_pointwise, n_draws, eval_points)
+    # Ensure the bands start at 0 and end at 1
+    eval_points = np.concatenate(([0.0], eval_points, [1.0]))
+    ecdf = np.concatenate(([0.0], ecdf, [1.0]))
+    lower = np.concatenate(([0.0], lower, [1.0]))
+    upper = np.concatenate(([0.0], upper, [1.0]))
 
     return eval_points, ecdf, lower, upper
 
@@ -245,6 +250,10 @@ def compute_pit_for_histogram(dt_group, hist_dt):
         bin_edges = np.append(left_edges, right_edges[-1])
         dx = np.diff(bin_edges)
 
+        total = np.sum(histogram * dx)
+        if total > 0:
+            histogram = histogram / total
+
         xmin = bin_edges[:-1]
         xmax = bin_edges[1:]
         cdf = np.concatenate([[0.0], np.cumsum(histogram * dx)])
@@ -254,7 +263,7 @@ def compute_pit_for_histogram(dt_group, hist_dt):
 
         inside = (values > xmin[0]) & (values < xmax[-1])
         xi = values[inside]
-        idx = np.searchsorted(xmax, xi, side="right") - 1
+        idx = np.searchsorted(xmin, xi, side="right") - 1
         pit[inside] = cdf[idx] + (xi - xmin[idx]) * histogram[idx]
 
         return pit

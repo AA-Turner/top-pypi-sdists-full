@@ -3,6 +3,9 @@ import { Model } from "@bokehjs/model";
 export class LocationView extends View {
     static __name__ = "LocationView";
     _hash_listener;
+    _idle_ready = false;
+    _pending_url = null;
+    _idle_connected = false;
     initialize() {
         super.initialize();
         this.model.pathname = window.location.pathname;
@@ -32,25 +35,53 @@ export class LocationView extends View {
         super.remove();
         window.removeEventListener("hashchange", this._hash_listener);
     }
-    update(change) {
-        if (!this.model.reload || (change === "reload")) {
-            window.history.pushState({}, "", `${this.model.pathname}${this.model.search}${this.model.hash}`);
-            this.model.href = window.location.href;
-            if (change === "reload") {
-                window.location.reload();
+    _ensure_idle_gate() {
+        if (this._idle_connected) {
+            return;
+        }
+        this._idle_connected = true;
+        const doc = this.model.document;
+        if (doc.is_idle) {
+            this._idle_ready = true;
+            return;
+        }
+        doc.idle.connect(() => {
+            this._idle_ready = true;
+            if (this._pending_url != null) {
+                const url = this._pending_url;
+                this._pending_url = null;
+                window.history.pushState({}, "", url);
+                this.model.href = window.location.href;
             }
+        });
+    }
+    _set_url_gated(url) {
+        this._ensure_idle_gate();
+        if (this._idle_ready) {
+            window.history.pushState({}, "", url);
+            this.model.href = window.location.href;
         }
         else {
-            if (change == "pathname") {
-                window.location.pathname = (this.model.pathname);
-            }
-            if (change == "search") {
-                window.location.search = (this.model.search);
-            }
-            if (change == "hash") {
-                window.location.hash = (this.model.hash);
-            }
+            this._pending_url = url;
         }
+    }
+    update(change) {
+        const url = `${this.model.pathname}${this.model.search}${this.model.hash}`;
+        if (change === "reload") {
+            window.history.pushState({}, "", url);
+            this.model.href = window.location.href;
+            window.location.reload();
+            return;
+        }
+        if (!this.model.reload) {
+            this._set_url_gated(url);
+            return;
+        }
+        if (change === "hash") {
+            window.location.hash = this.model.hash;
+            return;
+        }
+        window.location.href = url;
     }
 }
 export class Location extends Model {

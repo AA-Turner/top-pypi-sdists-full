@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mo-logs
-Version: 8.685.25166
+Version: 8.703.26061
 Summary: More Logs! Structured Logging and Exception Handling
 Home-page: https://github.com/klahnakoski/mo-logs
 Author: Kyle Lahnakoski
@@ -16,20 +16,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mo-dots==10.685.25166
 Requires-Dist: mo-future==7.685.25166
 Requires-Dist: mo-imports==7.685.25166
-Requires-Dist: mo-kwargs==7.685.25166
+Requires-Dist: mo-kwargs==8.703.26061
 Provides-Extra: tests
 Requires-Dist: mo-json>=6.672.25036; extra == "tests"
 Requires-Dist: mo-threads>=6.672.25036; extra == "tests"
-Requires-Dist: mo-testing>=8.674.25037; extra == "tests"
+Requires-Dist: mo-testing>=8.685.25166; extra == "tests"
 Requires-Dist: mo-kwargs>=7.672.25036; extra == "tests"
 Requires-Dist: jx-python>=4.673.25037; extra == "tests"
 Requires-Dist: boto>=2.49.0; extra == "tests"
-Requires-Dist: beautifulsoup4>=4.13.4; extra == "tests"
+Requires-Dist: beautifulsoup4>=4.14.3; extra == "tests"
 Requires-Dist: graypy>=2.1.0; extra == "tests"
 Dynamic: author
 Dynamic: author-email

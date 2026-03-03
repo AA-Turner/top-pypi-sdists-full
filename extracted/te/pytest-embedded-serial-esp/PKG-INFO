@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-embedded-serial-esp
-Version: 2.6.0
+Version: 2.7.0
 Summary: Make pytest-embedded plugin work with Espressif target boards.
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Requires-Python: >=3.10
@@ -16,10 +16,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Testing
 License-File: LICENSE
-Requires-Dist: pytest-embedded-serial~=2.6.0
+Requires-Dist: pytest-embedded-serial~=2.7.0
 Requires-Dist: esptool>=5.1,<6
 Project-URL: changelog, https://github.com/espressif/pytest-embedded/blob/main/CHANGELOG.md
 Project-URL: documentation, https://docs.espressif.com/projects/pytest-embedded/en/latest/

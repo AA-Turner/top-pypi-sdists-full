@@ -53,6 +53,26 @@ TMAReductionOp = Literal[
     "smax",
 ]
 
+# Fixed size of the collective metadata structure in the XLA.
+# Stores rank, param_to_peers_ptrs and multicast_buffer_ptr.
+COLLECTIVE_METADATA_SIZE = 3
+
+# Attribute used to merk the module which uses collective metadata.
+COLLECTIVE_ATTR = "mosaic_gpu.collective_metadata_used"
+# Attribute used to cache the kernel argument which corresponds to a given
+# reference during remote_ref lowering.
+KERNEL_ARG_ID_ATTR = "mosaic_gpu.from_kernel_arg_idx"
+# Attribute used to mark the first creation of the GMEM kernel arguments.
+ORIGINAL_KERNEL_ARG_ATTR = "mosaic_gpu.original_kernel_arg"
+# Attribute used to identify an operation used to load the current device id.
+# Needed for _recompute_peer_device_id in TMA descriptor construction.
+DEVICE_ID_ATTR = "mosaic_gpu.device_id_load"
+
+
+def uses_collective_metadata(module):
+  return COLLECTIVE_ATTR in module.operation.attributes.keys()
+
+
 def _reduction_op_to_ptx(reduction_op: TMAReductionOp) -> str:
   # convert [s|u]min|max to min|max
   return reduction_op[-3:]
@@ -87,6 +107,11 @@ class MemRefTransform:
     """
     raise NotImplementedError("Subclasses should override this method")
 
+  def to_attr(self) -> ir.Attribute:
+    raise NotImplementedError(
+        f"Subclasses should override this method: {type(self)}"
+    )
+
 
 class Rounding(enum.Enum):
   UP = enum.auto()
@@ -106,7 +131,28 @@ class TileTransform(MemRefTransform):
   tiling: tuple[int, ...]
   rounding: Rounding | None = None
 
+  _cc_impl: Any | None = dataclasses.field(init=False, compare=False)
+
+  def __post_init__(self):
+    if not hasattr(mgpu_dialect, "TileTransform"):
+      return
+    rounding = self.rounding
+    if rounding is not None:
+      if rounding == Rounding.UP:
+        rounding = mgpu_dialect.Rounding.UP
+      elif rounding == Rounding.DOWN:
+        rounding = mgpu_dialect.Rounding.DOWN
+      else:
+        raise ValueError(f"Unknown rounding mode: {rounding}")
+    object.__setattr__(
+        self,
+        "_cc_impl",
+        mgpu_dialect.TileTransform(self.tiling, rounding),
+    )
+
   def apply(self, ref: ir.Value) -> ir.Value:
+    if (impl := self._cc_impl) is not None:
+      return impl.apply(ref)
     untiled_rank = ir.MemRefType(ref.type).rank
     tiling_rank = len(self.tiling)
     tiled_rank = untiled_rank + tiling_rank
@@ -140,6 +186,8 @@ class TileTransform(MemRefTransform):
     return utils.memref_transpose(ref, permutation)
 
   def transform_index(self, idx: Sequence[ir.Value]) -> tuple[ir.Value, ...]:
+    if (impl := self._cc_impl) is not None:
+      return impl.transform_index(idx)
     index = ir.IndexType.get()
     tiling_rank = len(self.tiling)
     return (
@@ -155,6 +203,8 @@ class TileTransform(MemRefTransform):
     )
 
   def transform_shape(self, shape: Sequence[int]) -> tuple[int, ...]:
+    if (impl := self._cc_impl) is not None:
+      return impl.transform_shape(shape)
     # Note that this also checks that tiled dims are not squeezed. Their slice
     # size would be 1 if so.
     tiling_rank = len(self.tiling)
@@ -176,6 +226,8 @@ class TileTransform(MemRefTransform):
     )
 
   def transform_strides(self, strides: Sequence[int]) -> tuple[int, ...]:
+    if (impl := self._cc_impl) is not None:
+      return impl.transform_strides(strides)
     tiling_rank = len(self.tiling)
     return (
         *strides[:-tiling_rank],
@@ -186,6 +238,15 @@ class TileTransform(MemRefTransform):
   def batch(self, leading_rank: int) -> MemRefTransform:
     return self
 
+  def to_attr(self) -> ir.Attribute:
+    return mgpu_dialect.TileTransformAttr.get(self.tiling)
+
+@dataclasses.dataclass(frozen=True)
+class SwizzleTransform(MemRefTransform):
+  swizzle: int
+
+  def to_attr(self) -> ir.Attribute:
+    return mgpu_dialect.SwizzleTransformAttr.get(self.swizzle)
 
 @dataclasses.dataclass(frozen=True)
 class TransposeTransform(MemRefTransform):
@@ -213,6 +274,8 @@ class TransposeTransform(MemRefTransform):
         (*range(leading_rank), *(d + leading_rank for d in self.permutation))
     )
 
+  def to_attr(self) -> ir.Attribute:
+    return mgpu_dialect.TransposeTransformAttr.get(self.permutation)
 
 @dataclasses.dataclass(frozen=True)
 class CollapseLeadingIndicesTransform(MemRefTransform):
@@ -433,11 +496,9 @@ def _find_kernel_argument_for_gmem_ref(
   while isinstance(gmem_ref, ir.BlockArgument):
     gmem_ref = gmem_ref.owner.owner.operands[gmem_ref.arg_number]
 
-  # TODO(apaszke): This is a very approximate check. Improve it!
-  if not isinstance(gmem_ref.owner.opview, builtin.UnrealizedConversionCastOp):
+  if ORIGINAL_KERNEL_ARG_ATTR not in gmem_ref.owner.attributes:
     raise NotImplementedError(
-        f"Expected {gmem_ref.owner} to be an unrealized conversion cast"
-        " corresponding to a GMEM kernel argument."
+        f"Expected {gmem_ref.owner} to be a GMEM kernel argument."
     )
   return gmem_ref
 
@@ -528,6 +589,9 @@ class LaunchContext:
   scratch: Scratch
   cluster_size: tuple[int, int, int]
   profiler: OnDeviceProfiler | None = None
+  device_collective_metadata: ir.Value | None = None
+  host_collective_metadata: ir.Value | None = None
+  num_peers: int = 0
   tma_descriptors: dict[
       tuple[ir.Value, tuple[int, ...], int | None, tuple[MemRefTransform, ...], Any, int],
       ir.Value,
@@ -541,62 +605,6 @@ class LaunchContext:
         yield
     else:
       yield
-
-  def cluster_idx(
-      self,
-      dim: gpu.Dimension | Sequence[gpu.Dimension] | None = None,
-      dim_idx: ir.Value | Sequence[ir.Value] | None = None,
-  ) -> ir.Value:
-    """Returns the linear index of a block within a subset of the cluster spanned by the given dimensions.
-
-    dim_idx can be used to specify the index of another block along the selected
-    dimensions. If not provided, the current block's index is used.
-    """
-    if dim is None:
-      dim = gpu.Dimension
-    elif isinstance(dim, gpu.Dimension):
-      dim = (dim,)
-    if dim_idx is None:
-      dim_idx = [gpu.cluster_block_id(d) for d in dim]
-    elif isinstance(dim_idx, ir.Value):
-      if len(dim) != 1:
-        raise ValueError(
-            "Expected a single dimension when passing a single index"
-        )
-      dim_idx = [dim_idx]
-    index = ir.IndexType.get()
-    stride = 1
-    lin_idx = c(0, index)
-    for d, idx in sorted(zip(dim, dim_idx, strict=True), key=lambda x: x[0]):
-      if self.cluster_size[d] == 1:  # Optimize a multiply by 0.
-        continue
-      lin_idx = arith.addi(lin_idx, arith.muli(idx, c(stride, index)))
-      stride *= self.cluster_size[d]
-    return lin_idx
-
-  def get_cluster_ref(self, ref: ir.Value, dim: gpu.Dimension, idx: ir.Value):
-    i32 = ir.IntegerType.get_signless(32)
-    # We replace the offset in the ref type by 0, because memref_ptr always
-    # folds the offset into the pointer.
-    ref_ty = ir.MemRefType(ref.type)
-    strides, _ = ref_ty.get_strides_and_offset()
-    result_type = ir.MemRefType.get(
-        ref_ty.shape,
-        ref_ty.element_type,
-        ir.StridedLayoutAttr.get(0, strides),
-        None,
-    )
-    if ref_ty.memory_space != ir.Attribute.parse("#gpu.address_space<workgroup>"):
-      raise ValueError(f"Expected SMEM but got: {ref.memory_space}")
-    idxs = [gpu.cluster_block_id(d) for d in gpu.Dimension]
-    idxs[dim] = idx
-    flat_block = arith.index_cast(i32, self.cluster_idx(gpu.Dimension, idxs))  # type: ignore
-    return utils.ptr_as_memref(
-        utils.get_cluster_ptr(
-            utils.memref_ptr(ref, memory_space=3), flat_block
-        ),
-        result_type,
-    )
 
   def _alloc_scratch(
       self,
@@ -620,8 +628,11 @@ class LaunchContext:
     self.scratch.next_offset += size
     def host_init_wrapped(host_ptr):
       host_init(
-          llvm.getelementptr(ptr_ty, host_ptr, [], [alloc_base], i8, llvm.GEPNoWrapFlags.none)
+          llvm.getelementptr(
+              ptr_ty, host_ptr, [], [alloc_base], i8, llvm.GEPNoWrapFlags.none
+          ),
       )
+
     self.scratch.host_init.append(host_init_wrapped)
     # with ir.InsertionPoint(self.gmem_scratch_ptr.owner):
     # There is no way to create an insertion point after an operation...
@@ -630,6 +641,44 @@ class LaunchContext:
     )
     gep.move_after(self.scratch.device_ptr().owner)
     return device_init(gep.result)
+
+  def _recompute_peer_id(
+      self,
+      peer_id: ir.Value,
+      fuel=8,
+  ) -> ir.Value:
+    if fuel == 0:
+      raise ReplicationError(
+          "gmem_peer_id computation is too complicated to recompute on the host"
+      )
+    if isinstance(peer_id, ir.BlockArgument):
+      raise ReplicationError("Can't recompute a value that's a block argument")
+    op = peer_id.owner
+
+    # We accept all arith ops
+    if op.OPERATION_NAME.startswith("arith."):
+      if DEVICE_ID_ATTR in op.attributes:
+        return self.device_id(on_host=True)
+      new_operands = [
+          self._recompute_peer_id(x, fuel - 1)
+          for x in op.operands
+      ]
+      result_types = [r.type for r in op.results]
+      new_attributes = {na: op.attributes[na] for na in op.attributes}
+      new_op = ir.Operation.create(
+          op.OPERATION_NAME, result_types, new_operands, new_attributes
+      )
+      return new_op.results if len(new_op.results) > 1 else new_op.result
+
+    # nvshmem_my_pe queries the device id of the current process and works on
+    # both the host and the device.
+    if isinstance(op, llvm.CallOp) and op.callee.value == "nvshmem_my_pe":
+      i32 = ir.IntegerType.get_signless(32)
+      return llvm.call(i32, [], [], [], callee="nvshmem_my_pe")
+
+    raise ReplicationError(
+        f"Unrecognized op can't be recomputed on the host: {op}"
+    )
 
   def _get_tma_desc(
       self,
@@ -650,7 +699,7 @@ class LaunchContext:
       i32 = ir.IntegerType.get_signless(32)
       i64 = ir.IntegerType.get_signless(64)
       ptr_ty = ir.Type.parse("!llvm.ptr")
-      def init_tma_desc(host_ptr):
+      def init_tma_desc(host_ptr: ir.Value):
         ref = gmem_ref
         for t in gmem_transform:
           ref = t.apply(ref)
@@ -673,34 +722,46 @@ class LaunchContext:
             ptr_ty, alloc_ptr, [as_i64(offset)], [llvm_dyn], ref_ty.element_type, llvm.GEPNoWrapFlags.none,
         )
         if isinstance(gmem_peer_id, GlobalBroadcast):
-          self._ensure_nvshmem_decls()
-          world_team = arith.constant(i32, 0)
-          base_ptr = llvm.call(
-              base_ptr.type,
-              [world_team, base_ptr],
-              [],
-              [],
-              callee="nvshmemx_mc_ptr",
-          )
+          if self.host_collective_metadata is None:
+            self._ensure_nvshmem_decls()
+            world_team = arith.constant(i32, 0)
+            base_ptr = llvm.call(
+                base_ptr.type,
+                [world_team, base_ptr],
+                [],
+                [],
+                callee="nvshmemx_mc_ptr",
+            )
+          else:
+            # TODO(patrios): Remove this once multimem lowering with collective
+            # metadata is supported.
+            raise NotImplementedError(
+                "GlobalBroadcast not supported with collective metadata"
+            )
         elif gmem_peer_id is not None:
           if not isinstance(gmem_peer_id, ir.Value):
             peer_id = c(gmem_peer_id, i32)
           else:
             try:
               # We try to reproduce the gmem_peer_id computation on the host.
-              peer_id = _recompute_peer_id(gmem_peer_id, fuel=16)
+              peer_id = self._recompute_peer_id(gmem_peer_id, fuel=16)
             except ReplicationError as e:
               raise ValueError(
                   "Failed to recompute the async_copy peer id on the host"
               ) from e
-          self._ensure_nvshmem_decls()
-          base_ptr = llvm.call(
-              base_ptr.type,
-              [base_ptr, peer_id],
-              [],
-              [],
-              callee="nvshmem_ptr",
-          )
+
+          if self.host_collective_metadata is None:
+            self._ensure_nvshmem_decls()
+            base_ptr = llvm.call(
+                base_ptr.type,
+                [base_ptr, peer_id],
+                [],
+                [],
+                callee="nvshmem_ptr",
+            )
+          else:
+            remote_ref = self.to_remote(ref, peer_id, on_host=True)
+            base_ptr = utils.memref_ptr(remote_ref)
         rank = ref_ty.rank
         assert rank * 2 == len(sizes_and_strides)
         swizzle_arg = (
@@ -722,6 +783,7 @@ class LaunchContext:
             utils.pack_array([c(v, i64) for v in transformed_slice_shape]),
         ]
         func.call([], "mosaic_gpu_init_tma_desc", args)
+
       def cast_tma_desc(device_ptr):
         # TODO(apaszke): Investigate why prefetching can cause launch failures
         # nvvm.prefetch_tensormap(device_ptr)
@@ -824,7 +886,8 @@ class LaunchContext:
         dyn_base_indices[partitioned] = arith.addi(  # type: ignore[index]
             dyn_base_indices[partitioned],
             arith.muli(
-                self.cluster_idx(collective), c(slice_shape[partitioned], index)
+                utils.cluster_idx(collective),
+                c(slice_shape[partitioned], index),
             ),
         )
         dyn_base_indices = tuple(dyn_base_indices)
@@ -924,7 +987,7 @@ class LaunchContext:
               (slice(None),) * (dim - num_squeezed_dims)
               + (utils.ds(block_offset, slice_shape[dim]),),
           )
-      idx = self.cluster_idx(collective)
+      idx = utils.cluster_idx(collective)
       rem_collective_size = collective_size
       has_swizzle = (
           swizzle is not None
@@ -1378,7 +1441,7 @@ class LaunchContext:
         assert collective_size == 2
         if arrive:
           first_block = arith.cmpi(
-              arith.CmpIPredicate.eq, self.cluster_idx(collective), c(0, index),
+              arith.CmpIPredicate.eq, utils.cluster_idx(collective), c(0, index),
           )
           arrive_predicate = arith.andi(predicate, first_block)
           utils.nvvm_mbarrier_arrive_expect_tx(
@@ -1528,7 +1591,7 @@ class LaunchContext:
     utils.warpgroup_barrier()
 
   def _ensure_nvshmem_decls(self):
-    if self.is_device_collective:
+    if self.is_device_collective or self.device_collective_metadata is not None:
       return
     self.is_device_collective = True
     with ir.InsertionPoint(self.module.body):
@@ -1547,9 +1610,51 @@ class LaunchContext:
           "nvshmemx_mc_ptr", nvshmemx_mc_ptr_type, sym_visibility="private"
       )
 
-  def to_remote(self, ref: ir.Value, peer: ir.Value):
-    self._ensure_nvshmem_decls()
+  def _find_kernel_argument_index(self, ref: ir.Value):
+    """Finds the index of the kernel argument used to derive the given reference."""
+    if not isinstance(ref.type, ir.MemRefType):
+      raise ValueError(f"Expected a memref, got {ref.type}")
+
+    op = ref.owner
+    while KERNEL_ARG_ID_ATTR not in getattr(op, "attributes", {}):
+      if not isinstance(op, ir.OpView):
+        raise ValueError(
+            f"Can't find the kernel argument for the reference: {ref}"
+        )
+      memref_operands = [
+          operand
+          for operand in op.operands
+          if isinstance(operand.type, ir.MemRefType)
+      ]
+      if len(memref_operands) != 1:
+        raise ValueError(
+            f"Can't find the kernel argument. {op} doesn't have a single memref"
+            " operand."
+        )
+      op = memref_operands[0].owner
+
+    attr = op.attributes[KERNEL_ARG_ID_ATTR]
+    # Save the result so that we can find it out faster next time.
+    ref.owner.attributes[KERNEL_ARG_ID_ATTR] = attr
+    return attr.value
+
+  def to_remote(
+      self,
+      ref: ir.Value,
+      peer: ir.Value,
+      *,
+      _kernel_arg_idx: int | None = None,
+      on_host: bool = False,
+  ):
+    collective_metadata = (
+        self.host_collective_metadata
+        if on_host
+        else self.device_collective_metadata
+    )
+    i32 = ir.IntegerType.get_signless(32)
+    i64 = ir.IntegerType.get_signless(64)
     if isinstance(ref.type, ir.MemRefType):
+      assert _kernel_arg_idx is None
       # We replace the offset in the ref type by 0, because memref_ptr always
       # folds the offset into the pointer.
       ref_ty = ir.MemRefType(ref.type)
@@ -1560,17 +1665,79 @@ class LaunchContext:
           ir.StridedLayoutAttr.get(0, strides),
           ref_ty.memory_space,
       )
-      return utils.ptr_as_memref(
-          self.to_remote(utils.memref_ptr(ref), peer), result_type
+
+      arg_idx = None
+      if collective_metadata is not None:
+        arg_idx = self._find_kernel_argument_index(ref)
+
+      ref_ptr = utils.memref_ptr(ref)
+      remote_memref = utils.ptr_as_memref(
+          self.to_remote(
+              ref_ptr,
+              peer,
+              _kernel_arg_idx=arg_idx,
+              on_host=on_host,
+          ),
+          result_type,
       )
-    if ref.type != ir.Type.parse("!llvm.ptr"):
-      raise ValueError(f"Unsupported type for to_remote: {ref.type}")
-    if peer.type != ir.IntegerType.get_signless(32):
-      raise ValueError(f"peer index must be an i32, got {peer.type}")
-    return llvm.call(ref.type, [ref, peer], [], [], callee="nvshmem_ptr")
+
+      if collective_metadata is not None:
+        remote_memref.owner.attributes[KERNEL_ARG_ID_ATTR] = ir.IntegerAttr.get(
+            i32, arg_idx
+        )
+      return remote_memref
+
+    if collective_metadata is None:
+      self._ensure_nvshmem_decls()
+      if ref.type != ir.Type.parse("!llvm.ptr"):
+        raise ValueError(f"Unsupported type for to_remote: {ref.type}")
+      if peer.type != i32:
+        raise ValueError(f"peer index must be an i32, got {peer.type}")
+      return llvm.call(ref.type, [ref, peer], [], [], callee="nvshmem_ptr")
+    else:
+      # Collective metadata contains pointers of kernel arguments for each peer
+      # device. The pointer has the following format:
+      # [
+      #   param0_peer0, param0_peer1, ..., param0_peerN,
+      #   param1_peer0, param1_peer1, ..., param1_peerN,
+      #   ...
+      # ]
+      # During the lowering we need to find the corresponding kernel argument
+      # for a given reference, load the corresponding pointer from the
+      # collective metadata and also compute the address of the given reference.
+      # As an example an address of signlas will have an offset from the first
+      # pointer of the kernel arguments defined with the memref.subview
+      # operation.
+      self.module.operation.attributes[COLLECTIVE_ATTR] = ir.UnitAttr.get()
+      index = ir.IndexType.get()
+
+      assert _kernel_arg_idx is not None
+      arg_ptrs_base = arith.constant(
+          index, COLLECTIVE_METADATA_SIZE + self.num_peers * _kernel_arg_idx
+      )
+      local_arg_ptr_offset = arith.addi(
+          arg_ptrs_base,
+          arith.index_cast(index, self.device_id(on_host)),
+      )
+      # TODO(apaszke): Just use the pointer directly. After all it is an arg.
+      local_arg_ptr = memref.load(collective_metadata, [local_arg_ptr_offset])
+      local_offset = arith.subi(llvm.ptrtoint(i64, ref), local_arg_ptr)
+      remote_arg_ptr_offset = arith.addi(
+          arg_ptrs_base, arith.index_cast(index, peer)
+      )
+      remote_arg_ptr = memref.load(collective_metadata, [remote_arg_ptr_offset])
+      memory_address = arith.addi(remote_arg_ptr, local_offset)
+      return llvm.inttoptr(ref.type, memory_address)
 
   def to_remote_multicast(self, ref: ir.Value):
     i32 = ir.IntegerType.get_signless(32)
+
+    # TODO(patrios): Support multimem lowering with collective metadata
+    if self.device_collective_metadata is not None:
+      raise NotImplementedError(
+          "Multicast lowering with collective metadata is not implemented yet"
+      )
+
     self._ensure_nvshmem_decls()
     if not isinstance(ref.type, ir.MemRefType):
       raise ValueError(f"Unsupported type for to_remote_multicast: {ref.type}")
@@ -1591,37 +1758,25 @@ class LaunchContext:
     )
     return utils.MultimemRef(utils.ptr_as_memref(mc_ptr, result_type))
 
-  def device_id(self) -> ir.Value:
-    self._ensure_nvshmem_decls()
+  def device_id(self, on_host: bool = False) -> ir.Value:
+    collective_metadata = (
+        self.host_collective_metadata
+        if on_host
+        else self.device_collective_metadata
+    )
     i32 = ir.IntegerType.get_signless(32)
-    return llvm.call(i32, [], [], [], callee="nvshmem_my_pe")
+    if collective_metadata is None:
+      self._ensure_nvshmem_decls()
+      return llvm.call(i32, [], [], [], callee="nvshmem_my_pe")
+    else:
+      # Rank id is stored as the first element of the collective metadata.
+      self.module.operation.attributes[COLLECTIVE_ATTR] = ir.UnitAttr.get()
+      rank_offset_constant = arith.constant(ir.IndexType.get(), 0)
+      load_op = memref.load(collective_metadata, [rank_offset_constant])
+      device_rank = arith.trunci(i32, load_op)
+      device_rank.owner.attributes[DEVICE_ID_ATTR] = ir.UnitAttr.get()
+      return device_rank
 
 
 class ReplicationError(Exception):
   pass
-
-def _recompute_peer_id(peer_id: ir.Value, fuel=8) -> ir.Value:
-  if fuel == 0:
-    raise ReplicationError(
-        "gmem_peer_id computation is too complicated to recompute on the host"
-    )
-  if isinstance(peer_id, ir.BlockArgument):
-    raise ReplicationError("Can't recompute a value that's a block argument")
-  op = peer_id.owner.opview
-  # We accept all arith ops
-  if op.OPERATION_NAME.startswith("arith."):
-    new_operands = [_recompute_peer_id(x, fuel - 1) for x in op.operands]
-    result_types = [r.type for r in op.results]
-    new_attributes = {na: op.attributes[na] for na in op.attributes}
-    new_op = ir.Operation.create(
-        op.OPERATION_NAME, result_types, new_operands, new_attributes
-    )
-    return new_op.results if len(new_op.results) > 1 else new_op.result
-  # nvshmem_my_pe queries the device id of the current process and works on both
-  # the host and the device.
-  if isinstance(op, llvm.CallOp) and op.callee.value == "nvshmem_my_pe":
-    i32 = ir.IntegerType.get_signless(32)
-    return llvm.call(i32, [], [], [], callee="nvshmem_my_pe")
-  raise ReplicationError(
-      f"Unrecognized op can't be recomputed on the host: {op}"
-  )

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -75,9 +74,7 @@ def fractal_higuchi(signal, k_max="default", show=False, **kwargs):
 
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Get k_max
     if isinstance(k_max, (str, list, np.ndarray, pd.Series)):
@@ -112,19 +109,13 @@ def fractal_higuchi(signal, k_max="default", show=False, **kwargs):
 
 
 def _fractal_higuchi_plot(k_values, average_values, kmax, slope, intercept, ax=None):
-
     if ax is None:
         fig, ax = plt.subplots()
         fig.suptitle("Higuchi Fractal Dimension (HFD)")
     else:
         fig = None
 
-    ax.set_title(
-        "Least-squares linear best-fit curve for $k_{max}$ = "
-        + str(kmax)
-        + ", slope = "
-        + str(np.round(slope, 2))
-    )
+    ax.set_title("Least-squares linear best-fit curve for $k_{max}$ = " + str(kmax) + ", slope = " + str(np.round(slope, 2)))
     ax.set_ylabel(r"$ln$(L(k))")
     ax.set_xlabel(r"$ln$(1/k)")
     colors = plt.cm.plasma(np.linspace(0, 1, len(k_values)))
@@ -138,7 +129,7 @@ def _fractal_higuchi_plot(k_values, average_values, kmax, slope, intercept, ax=N
                 color=colors[i],
                 marker="o",
                 zorder=2,
-                label="k = {}".format(i + 1),
+                label=f"k = {i + 1}",
             )
     else:
         for i in range(0, len(k_values)):
@@ -150,8 +141,8 @@ def _fractal_higuchi_plot(k_values, average_values, kmax, slope, intercept, ax=N
                 zorder=2,
                 label="_no_legend_",
             )
-        ax.plot([], label="k = {}".format(np.min(k_values)), c=colors[0])
-        ax.plot([], label="k = {}".format(np.max(k_values)), c=colors[-1])
+        ax.plot([], label=f"k = {np.min(k_values)}", c=colors[0])
+        ax.plot([], label=f"k = {np.max(k_values)}", c=colors[-1])
 
     fit_values = [slope * i + -intercept for i in -np.log(k_values)]
     ax.plot(-np.log(k_values), fit_values, color="#FF9800", zorder=1)

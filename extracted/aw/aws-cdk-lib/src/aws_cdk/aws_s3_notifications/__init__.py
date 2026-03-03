@@ -109,9 +109,8 @@ class LambdaDestination(
         )
         
         # now you can just call methods on the bucket
-        bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda),
-            prefix="home/myusername/*"
-        )
+        filter = s3.NotificationKeyFilter(prefix="home/myusername/*")
+        bucket.add_event_notification(s3.EventType.OBJECT_CREATED, s3n.LambdaDestination(my_lambda), filter)
     '''
 
     def __init__(self, fn: "_IFunction_6adb0ab8") -> None:

@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 from ..misc.report import get_kwargs
 from .eda_clean import eda_clean
 from .eda_peaks import eda_peaks
 from .eda_phasic import eda_phasic
+
 
 def eda_methods(
     sampling_rate=1000,
@@ -133,9 +133,7 @@ def eda_methods(
       Open-Source Feature Extraction Tool for the Analysis of Peripheral Physiological Data. IEEE
       journal of translational engineering in health and medicine, 6, 2800711.""")
     else:
-        report_info[
-            "text_peaks"
-        ] = f"The peak detection was carried out using the method {method_peaks}."
+        report_info["text_peaks"] = f"The peak detection was carried out using the method {method_peaks}."
 
     # References
     report_info["references"] = list(np.unique(refs))

@@ -25,7 +25,7 @@ from typing import (
 import bokeh.embed.wrappers
 
 from bokeh.embed.bundle import (
-    CSS_RESOURCES as BkCSS_RESOURCES, URL, Bundle as BkBundle,
+    CSS_RESOURCES as BkCSS_RESOURCES, URL, Bundle as BkBundle, _any,
     _bundle_extensions, _use_mathjax, bundle_models, extension_dirs,
 )
 from bokeh.model import Model
@@ -312,6 +312,8 @@ def patch_stylesheet(stylesheet, dist_url):
         patched_url = url.replace(CDN_DIST, dist_url)
     elif url.startswith(LOCAL_DIST) and dist_url.lstrip('./').startswith(LOCAL_DIST):
         patched_url = url.replace(LOCAL_DIST, dist_url)
+    elif url.startswith(LOCAL_DIST) and dist_url != LOCAL_DIST:
+        patched_url = url.replace(LOCAL_DIST, dist_url)
     else:
         return
     version_suffix = f'?v={JS_VERSION}'
@@ -415,11 +417,15 @@ def bundled_files(model: Model, file_type: str = 'javascript') -> list[str]:
     bdir = BUNDLE_DIR / name
     shared = list((JS_URLS if file_type == 'javascript' else CSS_URLS).values())
     files = []
+    npm_cdn_prefixes = (config.npm_cdn, 'https://cdn.jsdelivr.net/npm', 'https://unpkg.com')
     for url in raw_files:
         if url.startswith(CDN_DIST):
             filepath = url.replace(f'{CDN_DIST}bundled/', '')
-        elif url.startswith(config.npm_cdn):
-            filepath = url.replace(config.npm_cdn, '')[1:]
+        elif url.startswith(npm_cdn_prefixes):
+            for prefix in npm_cdn_prefixes:
+                if url.startswith(prefix):
+                    filepath = url.replace(prefix, '')[1:]
+                    break
         else:
             filepath = url_path(url)
         test_filepath = filepath.split('?')[0]
@@ -443,6 +449,12 @@ def bundled_files(model: Model, file_type: str = 'javascript') -> list[str]:
             files.append(url)
     return files
 
+def _panel_use_mathjax(roots) -> bool:
+    """Whether any model in roots is a Panel HTML model (may need MathJax)."""
+    from ..models.markup import HTML as PanelHTML
+    return _any(roots, lambda obj: isinstance(obj, PanelHTML))
+
+
 def bundle_resources(
     roots,
     resources: BkResources,
@@ -465,7 +477,11 @@ def bundle_resources(
     if isinstance(enable_mathjax, bool):
         use_mathjax = enable_mathjax
     elif roots:
-        use_mathjax = _use_mathjax(roots) or 'mathjax' in ext._loaded_extensions
+        use_mathjax = (
+            _use_mathjax(roots) or
+            _panel_use_mathjax(roots) or
+            'mathjax' in ext._loaded_extensions
+        )
     else:
         use_mathjax = 'mathjax' in ext._loaded_extensions
 

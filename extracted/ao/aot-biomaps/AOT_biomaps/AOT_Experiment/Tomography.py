@@ -1,4 +1,4 @@
-from AOT_biomaps.AOT_Acoustic.AcousticTools import format_angle
+from AOT_biomaps.AOT_Acoustic.AcousticTools import format_angle, getAngle, getFrequency
 
 from ._mainExperiment import Experiment
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType
@@ -264,6 +264,12 @@ class Tomography(Experiment):
                     continue
                 if "_" in line and all(c in "0123456789abcdefABCDEF" for c in line.split("_")[0]):
                     patterns.append({"fileName": line})
+                    self.theta.append(getAngle(line))
+                    profile = hex_to_binary_profile(line.split('_')[0], self.params.acoustic['probe']['num_elements'])
+                    self.ActiveList.append(profile)
+                    new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(self.theta[-1])) * np.arange(1, self.params.acoustic['probe']['num_elements'] + 1) * self.params.acoustic['probe']['element_width']
+                    self.DelayLaw.append(new_Delay - np.min(new_Delay))
+                    self.decimations.append(getFrequency(line, self.params.acoustic['probe']['num_elements'], self.params.acoustic['probe']['element_width']))    
                     continue
                 try:
                     parsed = eval(line, {"__builtins__": None})
@@ -345,7 +351,9 @@ class Tomography(Experiment):
             self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, index]
         self.AcousticFields = newAcousticFields
         self.theta = [field.angle for field in newAcousticFields]
-        self.decimations = [field.f_s for field in newAcousticFields]   
+        self.decimations = [field.f_s for field in newAcousticFields] 
+        self.DelayLaw = [self.DelayLaw[i] for i in index]
+        self.ActiveList = [self.ActiveList[i] for i in index]
 
     def selectDecimations(self, decimations):
         if self.AOsignal_withTumor is None and self.AOsignal_withoutTumor is None:
@@ -365,6 +373,8 @@ class Tomography(Experiment):
         self.AcousticFields = newAcousticFields
         self.decimations = [field.f_s for field in newAcousticFields]   
         self.theta = [field.angle for field in newAcousticFields]   
+        self.DelayLaw = [self.DelayLaw[i] for i in index]
+        self.ActiveList = [self.ActiveList[i] for i in index]
 
     def selectPatterns(self, pattern_names):
         if self.AOsignal_withTumor is None and self.AOsignal_withoutTumor is None:
@@ -382,6 +392,10 @@ class Tomography(Experiment):
         if self.AOsignal_withoutTumor is not None:
             self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, index]
         self.AcousticFields = newAcousticFields
+        self.decimations = [field.f_s for field in newAcousticFields]   
+        self.theta = [field.angle for field in newAcousticFields]   
+        self.DelayLaw = [self.DelayLaw[i] for i in index]
+        self.ActiveList = [self.ActiveList[i] for i in index]
 
     def selectRandom(self,N):
         if self.AOsignal_withTumor is None and self.AOsignal_withoutTumor is None:
@@ -397,6 +411,10 @@ class Tomography(Experiment):
         if self.AOsignal_withoutTumor is not None:
             self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, indices]
         self.AcousticFields = newAcousticFields
+        self.decimations = [field.f_s for field in newAcousticFields]   
+        self.theta = [field.angle for field in newAcousticFields]   
+        self.DelayLaw = [self.DelayLaw[i] for i in indices]
+        self.ActiveList = [self.ActiveList[i] for i in indices]
 
     def _genereate_patterns_from_decimations(self, decimations, angles):
         if isinstance(decimations, list):
@@ -406,6 +424,7 @@ class Tomography(Experiment):
 
         angles = np.sort(angles)
         decimations = np.sort(decimations)
+        self.DelayLaw = []
 
         num_elements = self.params.acoustic['probe']['num_elements']
         Width = self.params.acoustic['probe']['element_width']
@@ -468,7 +487,14 @@ class Tomography(Experiment):
             hex_pattern = hexa_list[i]
             pair = f"{hex_pattern}_{format_angle(angle_val)}"
             patterns.append({"fileName": pair})
+        
+        self.decimations = decimations
+        self.theta = angles
+        for angle in angles:
+            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(angle)) * np.arange(1, num_elements + 1) * self.params.acoustic['probe']['element_width']
+            self.DelayLaw.append(new_Delay - np.min(new_Delay))
 
+        self.ActiveList = ActiveLIST
         return patterns
  
     def _generate_patterns(self, N,angles = None):
@@ -781,23 +807,13 @@ class Tomography(Experiment):
         demodulated_data = {}
         structured_buffer = {} 
 
-        for i in trange(len(self.AcousticFields), desc="Demodulating AO signals"):   
-            label = self.AcousticFields[i].getName_field()
-            
-            parts = label.split("_")
-            hex_pattern = parts[0]
-            angle_code = parts[-1]
-            
-            # Angle
-            if angle_code.startswith("1"):
-                angle_deg = -int(angle_code[1:])
-            else:
-                angle_deg = int(angle_code)
-            angle_rad = np.deg2rad(angle_deg)
+        for i in trange(AOsignal.shape[1], desc="Demodulating AO signals"):   
+            hex_pattern =  self.patterns[i]["fileName"]
+            fs_key = self.decimations[i]
+            angle_rad = np.deg2rad(self.theta[i])
             
             # Onde Plane (f_s = 0)
-            if set(hex_pattern.lower().replace(" ", "")) == {'f'}:
-                fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
+            if fs_key == 0:
                 demodulated_data[(fs_key, angle_rad)] = np.array(AOsignal[:,i])
                 continue
                 
@@ -938,7 +954,10 @@ class Tomography(Experiment):
             flipAngle (bool): If True, invert the sign of the angle.
         """
         if self.AcousticFields is None:
-            raise ValueError("AcousticFields is not initialized. Please generate the system matrix first.")
+            print("Warning: AcousticFields is not initialized. No fields to flip, only AO signals.")
+            available_fields = False
+        else:            
+            available_fields = True
 
         num_elements = self.params.acoustic['probe']['num_elements']
         hex_chars_expected = (num_elements + 3) // 4  # Number of hex chars expected for num_elements bits
@@ -953,53 +972,52 @@ class Tomography(Experiment):
         if self.AOsignal_withTumor is not None:
             if flipPattern:
                 self.AOsignal_withTumor = self.AOsignal_withTumor[:, ::-1]  # Inverse l'ordre des colonnes (N)
+            numScans = self.AOsignal_withTumor.shape[1]
         if self.AOsignal_withoutTumor is not None:
             if flipPattern:
                 self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, ::-1]  # Inverse l'ordre des colonnes (N)
+            numScans = self.AOsignal_withoutTumor.shape[1]
 
-        for field in self.AcousticFields:
+        for i in trange(numScans, desc="Flipping AO signals"):
+            fileName = self.patterns[i]["fileName"].split('_')[0]  # Extract the hex pattern part
             # Extract the current pattern and angle from the field name
-            field_name = field.getName_field()
-            if not field_name.startswith("field_"):
-                raise ValueError(f"Unexpected field name format: {field_name}. Expected 'field_hexa_angle'.")
-
-            hex_part, angle_str = field_name[6:].split('_')  # Remove 'field_' prefix
+            angle = self.theta[i]
 
             # Flip the binary pattern if requested
             if flipPattern:
-                bits = bin(int(hex_part, 16))[2:].zfill(num_elements)
+                bits = bin(int(fileName, 16))[2:].zfill(num_elements)
                 flipped_bits = bits[::-1]  # Reverse the bits
                 flipped_hex = f"{int(flipped_bits, 2):0{hex_chars_expected}x}"
             else:
-                flipped_hex = hex_part  # Keep the original pattern
+                flipped_hex = fileName  # Keep the original pattern
 
-            # Flip the angle if requested
-            is_neg = angle_str[0] == '1'
-            val = int(angle_str[1:])
-            current_angle = -val if is_neg else val
 
             if flipAngle:
-                new_angle = -current_angle  # Invert the angle
+                new_angle = -angle  # Invert the angle
             else:
-                new_angle = current_angle  # Keep the original angle
+                new_angle = angle  # Keep the original angle
 
-            new_angle_str = format_angle(new_angle)
-            new_field_name = f"field_{flipped_hex}_{new_angle_str}"
+ 
 
             # Create a new StructuredWave with the flipped pattern and/or angle
-            new_field = StructuredWave(
-                fileName=new_field_name,
-                params=self.params,
-                medium=self.medium
-            )
+            if available_fields:
+                new_angle_str = format_angle(new_angle)
+                new_field_name = f"field_{flipped_hex}_{new_angle_str}"
+                new_field = StructuredWave(
+                    fileName=new_field_name,
+                    params=self.params,
+                    medium=self.medium
+                )
 
             # Copy the field data (flipping columns if flipPattern is True)
             if flipPattern:
-                new_field.field = field.field[:, ::-1, :]  # Reverse the order of elements (columns)
+                if available_fields:
+                    new_field.field = self.AcousticFields[i].field[:, ::-1, :]  # Reverse the order of elements (columns)
             else:
-                new_field.field = field.field.copy()  # Keep the original field data
-
-            new_AcousticFields.append(new_field)
+                if available_fields:
+                    new_field.field = self.AcousticFields[i].field.copy()  # Keep the original field data
+            if available_fields:
+                new_AcousticFields.append(new_field)
             new_theta.append(new_angle)
 
             # Update ActiveList (binary profile)
@@ -1022,10 +1040,11 @@ class Tomography(Experiment):
                     fs_key = fs_m_inv  # Spatial frequency in mm^-1
                 new_decimations.append(int(fs_key / (1/(len(new_profile)*self.params.general['dx']))))
             else:
-                new_decimations.append(field.f_s)  # Keep the original decimation
+                new_decimations.append(self.AcousticFields[i].f_s)  # Keep the original decimation
 
         # Update the attributes
-        self.AcousticFields = new_AcousticFields
+        if available_fields:
+            self.AcousticFields = new_AcousticFields
         self.ActiveList = new_ActiveList
         self.DelayLaw = new_DelayLaw
         self.theta = new_theta

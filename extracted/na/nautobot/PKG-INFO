@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nautobot
-Version: 3.0.7
+Version: 3.0.8
 Summary: Source of truth and network automation platform.
 License: Apache-2.0
 Keywords: Nautobot
@@ -48,7 +48,7 @@ Requires-Dist: django-structlog[celery] (>=10.0.0,<10.1.0)
 Requires-Dist: django-tables2 (>=2.8.0,<2.9.0)
 Requires-Dist: django-taggit (>=6.1.0,<6.2.0)
 Requires-Dist: django-timezone-field (>=7.2.1,<7.3.0)
-Requires-Dist: django-tree-queries (>=0.23.0,<0.24.0)
+Requires-Dist: django-tree-queries (>=0.23.1,<0.24.0)
 Requires-Dist: django-webserver (>=1.2.0,<1.3.0)
 Requires-Dist: djangorestframework (>=3.16.1,<3.17.0)
 Requires-Dist: drf-spectacular[sidecar] (>=0.28.0,<0.29.0)
@@ -61,7 +61,7 @@ Requires-Dist: mysqlclient (>=2.2.8,<2.3.0) ; extra == "all" or extra == "mysql"
 Requires-Dist: napalm (>=4.1.0,<6.0.0) ; extra == "all" or extra == "napalm"
 Requires-Dist: netaddr (>=1.3.0,<1.4.0)
 Requires-Dist: netutils (>=1.14.0,<2.0.0)
-Requires-Dist: nh3 (>=0.3.2,<0.4.0)
+Requires-Dist: nh3 (>=0.3.3,<0.4.0)
 Requires-Dist: packaging (>=23.1)
 Requires-Dist: prometheus-client (>=0.23.1,<0.24.0)
 Requires-Dist: psycopg2-binary (>=2.9.11,<2.10.0)

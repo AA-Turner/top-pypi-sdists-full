@@ -318,7 +318,7 @@ def _all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
     target_col = kwargs.get("target_col")
     method = kwargs.get("method")
 
-    if not all_stages:
+    if not len(all_stages):
         return pd.DataFrame()
 
     # Build time-stage list for the heatmap x-axis.

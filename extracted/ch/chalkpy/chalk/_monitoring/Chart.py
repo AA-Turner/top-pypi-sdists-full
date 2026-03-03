@@ -13,7 +13,7 @@ from chalk._monitoring.charts_enums_codegen import (
 )
 from chalk._monitoring.charts_series_base import SeriesBase, ThresholdFunction
 from chalk.features.resolver import Resolver, ResolverProtocol
-from chalk.utils.duration import parse_chalk_duration
+from chalk.utils.duration import parse_chalk_duration_s
 
 
 @dataclasses.dataclass
@@ -332,7 +332,7 @@ class Chart:
         Chart
             A copy of your `Chart` with the new window period.
         """
-        parse_chalk_duration(window_period)
+        parse_chalk_duration_s(window_period)
         self._window_period = window_period
         return self
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ast
+import contextlib
+import importlib
 import inspect
 from pathlib import Path
 from typing import Any
@@ -18,21 +20,50 @@ def _backfill_from_stub(obj: Any) -> dict[str, str]:
     return {}
 
 
+def _get_stub_localns(obj: Any) -> dict[str, Any]:
+    if (stub_path := _find_stub_path(obj)) and (tree := _parse_stub_ast(stub_path)):
+        return _resolve_stub_imports(tree)
+    return {}
+
+
+def _resolve_stub_imports(tree: ast.Module) -> dict[str, Any]:
+    ns: dict[str, Any] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                with contextlib.suppress(ImportError):
+                    if alias.asname:
+                        ns[alias.asname] = importlib.import_module(alias.name)
+                    else:
+                        top = alias.name.split(".")[0]
+                        ns[top] = importlib.import_module(top)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            try:
+                mod = importlib.import_module(node.module)
+            except ImportError:
+                continue
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                name = alias.asname or alias.name
+                if (val := getattr(mod, alias.name, None)) is not None:
+                    ns[name] = val
+    return ns
+
+
 def _find_stub_path(obj: Any) -> Path | None:
-    module = inspect.getmodule(obj)
-    if module is None:
+    if (module := inspect.getmodule(obj)) is None:
         return None
     try:
         source_file = inspect.getfile(module)
     except TypeError:
         return None
-    stub = Path(source_file).with_suffix(".pyi")
-    if stub.is_file():
+    source = Path(source_file)
+    if (stub := source.with_name(f"{source.name.split('.')[0]}.pyi")).is_file():
         return stub
     if hasattr(module, "__path__"):
         for pkg_dir in module.__path__:
-            init_stub = Path(pkg_dir) / "__init__.pyi"
-            if init_stub.is_file():
+            if (init_stub := Path(pkg_dir) / "__init__.pyi").is_file():
                 return init_stub
     return None
 

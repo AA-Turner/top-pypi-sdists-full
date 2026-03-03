@@ -177,7 +177,7 @@ class STTManager:
 
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                result = json.loads(resp.read(4 * 1024 * 1024))
+                result = json.loads(resp.read())
                 return result.get("text", "")
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8", errors="replace")

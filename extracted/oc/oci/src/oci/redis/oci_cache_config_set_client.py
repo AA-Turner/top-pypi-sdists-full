@@ -172,7 +172,7 @@ class OciCacheConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/redis/change_oci_cache_config_set_compartment.py.html>`__ to see an example of how to use change_oci_cache_config_set_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/redis/change_oci_cache_config_set_compartment.py.html>`__ to see an example of how to use change_oci_cache_config_set_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['ociCacheConfigSetId']
@@ -289,7 +289,7 @@ class OciCacheConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/redis/create_oci_cache_config_set.py.html>`__ to see an example of how to use create_oci_cache_config_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/redis/create_oci_cache_config_set.py.html>`__ to see an example of how to use create_oci_cache_config_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -394,7 +394,7 @@ class OciCacheConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/redis/delete_oci_cache_config_set.py.html>`__ to see an example of how to use delete_oci_cache_config_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/redis/delete_oci_cache_config_set.py.html>`__ to see an example of how to use delete_oci_cache_config_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['ociCacheConfigSetId']
@@ -499,7 +499,7 @@ class OciCacheConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/redis/get_oci_cache_config_set.py.html>`__ to see an example of how to use get_oci_cache_config_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/redis/get_oci_cache_config_set.py.html>`__ to see an example of how to use get_oci_cache_config_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['ociCacheConfigSetId']
@@ -620,7 +620,7 @@ class OciCacheConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/redis/list_associated_oci_cache_clusters.py.html>`__ to see an example of how to use list_associated_oci_cache_clusters API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/redis/list_associated_oci_cache_clusters.py.html>`__ to see an example of how to use list_associated_oci_cache_clusters API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['ociCacheConfigSetId']
@@ -738,7 +738,7 @@ class OciCacheConfigSetClient(object):
         :param str software_version: (optional)
             A filter to return the OCI Cache Config Set resources, whose software version matches with the given software version.
 
-            Allowed values are: "V7_0_5", "REDIS_7_0", "VALKEY_7_2"
+            Allowed values are: "V7_0_5", "REDIS_7_0", "VALKEY_7_2", "VALKEY_8_1"
 
         :param str display_name: (optional)
             A filter to return only resources that match the entire display name given.
@@ -785,7 +785,7 @@ class OciCacheConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/redis/list_oci_cache_config_sets.py.html>`__ to see an example of how to use list_oci_cache_config_sets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/redis/list_oci_cache_config_sets.py.html>`__ to see an example of how to use list_oci_cache_config_sets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -823,7 +823,7 @@ class OciCacheConfigSetClient(object):
                 )
 
         if 'software_version' in kwargs:
-            software_version_allowed_values = ["V7_0_5", "REDIS_7_0", "VALKEY_7_2"]
+            software_version_allowed_values = ["V7_0_5", "REDIS_7_0", "VALKEY_7_2", "VALKEY_8_1"]
             if kwargs['software_version'] not in software_version_allowed_values:
                 raise ValueError(
                     f"Invalid value for `software_version`, must be one of { software_version_allowed_values }"
@@ -940,7 +940,7 @@ class OciCacheConfigSetClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/redis/update_oci_cache_config_set.py.html>`__ to see an example of how to use update_oci_cache_config_set API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/redis/update_oci_cache_config_set.py.html>`__ to see an example of how to use update_oci_cache_config_set API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['ociCacheConfigSetId']

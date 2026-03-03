@@ -1712,6 +1712,204 @@ Annotations.of(self).add_info_v2("my-lib:Construct.someInfo", "Some message expl
 Annotations.of(self).acknowledge_info("my-lib:Construct.someInfo", "This info can be ignored")
 ```
 
+## Mixins
+
+CDK Mixins provide a new, advanced way to add functionality through composable abstractions.
+Unlike traditional L2 constructs that bundle all features together, Mixins allow you to pick and choose exactly the capabilities you need for constructs.
+
+Mixins are an *addition*, not a replacement for construct properties.
+They are applied during or after construct construction using the `.with()` method:
+
+```python
+# Apply mixins fluently with .with()
+s3.CfnBucket(scope, "MyL1Bucket").with(EncryptionAtRest()).with(AutoDeleteObjects())
+
+# Apply multiple mixins to the same construct
+s3.CfnBucket(scope, "MyL1Bucket").with(EncryptionAtRest(), AutoDeleteObjects())
+
+# Mixins work with all types of constructs:
+# L1, L2 and even custom constructs
+s3.Bucket(stack, "MyL2Bucket").with(EncryptionAtRest())
+CustomBucket(stack, "MyCustomBucket").with(EncryptionAtRest())
+```
+
+There is an alternative form available that allows additional, advanced configuration of Mixin application: `Mixins.of()`.
+
+```python
+from aws_cdk import ConstructSelector
+
+
+# Basic: Apply mixins to any construct, calls can be chained
+my_bucket = s3.CfnBucket(scope, "MyBucket")
+Mixins.of(my_bucket).apply(EncryptionAtRest()).apply(AutoDeleteObjects())
+
+# Basic: Or multiple Mixins passed to apply
+Mixins.of(my_bucket).apply(EncryptionAtRest(), AutoDeleteObjects())
+
+# Advanced: Apply to constructs matching a selector, e.g. match by ID
+Mixins.of(scope,
+    ConstructSelector.by_id("prod/**")).apply(ProductionSecurityMixin())
+
+# Advanced: Require a mixin to be applied to every node in the construct tree
+Mixins.of(stack).apply(ProductionSecurityMixin()).require_all()
+```
+
+### How Mixins are applied
+
+Each construct has a `with()` method and Mixins will be applied to all nodes of the construct.
+Sometimes more control is needed.
+Especially when authoring construct libraries, it may be desirable to have full control over the Mixin application process.
+Think of the L3 pattern again: How can you encode the rules to which Mixins may or may not be applied in your L3?
+This is where `Mixins.of()` and the `MixinApplicator` class come in.
+They provide more complex ways to select targets, apply Mixins and set expectations.
+
+#### Mixin application on construct trees
+
+When working with construct trees like Stacks (as opposed to single resources),
+`Mixins.of()` offers a more comprehensive API to configure how Mixins are applied.
+By default, Mixins are applied to all supported constructs in the tree:
+
+```python
+# Apply to all constructs in a scope
+Mixins.of(scope).apply(EncryptionAtRest())
+```
+
+Optionally, you may select specific constructs:
+
+```python
+from aws_cdk import ConstructSelector
+
+
+# Apply to a given L1 resource or L2 resource construct
+Mixins.of(bucket,
+    ConstructSelector.cfn_resource()).apply(EncryptionAtRest())
+
+# Apply to all resources of a specific type
+Mixins.of(scope,
+    ConstructSelector.resources_of_type(s3.CfnBucket.CFN_RESOURCE_TYPE_NAME)).apply(EncryptionAtRest())
+
+# Alternative: select by CloudFormation resource type name
+Mixins.of(scope,
+    ConstructSelector.resources_of_type("AWS::S3::Bucket")).apply(EncryptionAtRest())
+
+# Apply to constructs matching a pattern
+Mixins.of(scope,
+    ConstructSelector.by_id("prod/**")).apply(ProductionSecurityMixin())
+
+# The default is to apply to all constructs in the scope
+Mixins.of(scope,
+    ConstructSelector.all()).apply(ProductionSecurityMixin())
+```
+
+#### Mixins that must be used
+
+Sometimes you need assertions that a Mixin has been applied to certain set of constructs.
+`Mixins.of(...)` keeps track of Mixin applications and this report can be used to create assertions.
+
+It comes with two convenience helpers:
+Use `requireAll()` to assert the Mixin will be applied to all selected constructs.
+If a construct is in the selection that is not supported by the Mixin, this will throw an error.
+The `requireAny()` helper will assert the Mixin was applied to at least one construct from the selection.
+If the Mixin wasn't applied to any construct at all, this will throw an error.
+
+Both helpers will only check future calls of `apply()`.
+Set them before calling `apply()` to take effect.
+
+```python
+Mixins.of(scope, selector).require_all().apply(EncryptionAtRest())
+
+# Get an application report for manual assertions
+report = Mixins.of(scope).apply(EncryptionAtRest()).report
+```
+
+### Creating Custom Mixins
+
+Mixins are simple classes that implement the `IMixin` interface (usually by extending the abstract `Mixin` class):
+
+```python
+@jsii.implements(IMixin)
+class EnableVersioning(Mixin):
+    def supports(self, construct):
+        return s3.CfnBucket.is_cfn_bucket(construct)
+
+    def apply_to(self, bucket):
+        (bucket).versioning_configuration = s3.CfnBucket.VersioningConfigurationProperty(
+            status="Enabled"
+        )
+
+# Usage
+s3.CfnBucket(scope, "MyBucket").with(EnableVersioning())
+```
+
+We recommend to implement Mixins at the L1 level and to have them target a specific resource construct.
+This way, the same Mixin can be applied to constructs from all levels.
+
+When applied, the `.supports()` method is used to decided if a Mixin can be applied to a given construct.
+Depending on the application method (see below), the Mixin is then applied, skipped or an error is thrown.
+
+```python
+bucket_access_logs_mixin.supports(bucket) # returns `true`
+bucket_access_logs_mixin.supports(queue)
+```
+
+#### Validation with Mixins
+
+Mixins have two distinct phases: Initialization and application.
+During initialization only the Mixin's input properties are available, but during application we also have access the target construct.
+
+Mixins should validate their properties and targets as early as possible.
+During initialization validate all input properties.
+Then during application validate any target dependent pre-conditions or interactions with Mixin properties.
+
+Like with constructs, Mixins should *throw an error* in case of unrecoverable failures and use *annotations* for recoverable ones.
+It is best practices to collect errors and throw as a group whenever possible.
+Mixins can attach *[lazy validators](https://github.com/aws/aws-cdk/blob/main/docs/DESIGN_GUIDELINES.md#attaching-lazy-validators)* to the target construct.
+Use this to ensure a certain property is met at end of an app's execution.
+
+```python
+class MyEncryptionAtRest(Mixin):
+    def __init__(self, *, bucketKey=None, algorithm=None):
+        super().__init__()
+        # Validate Mixin props at construction time
+        if bucket_key && algorithm == "aws:kms:dsse": throw new Error("Cannot use S3 Bucket Key and DSSE together");
+
+    def supports(self, construct):
+        return s3.CfnBucket.is_cfn_bucket(construct)
+
+    def apply_to(self, target):
+        # Validate pre-conditions on the target, throw if error is unrecoverable
+        if not target.bucket_encryption: throw new Error("Bucket encryption not configured");
+
+        # Validate properties are met after app execution
+        target.node.add_validation({
+            "validate": () => isKmsEncrypted(target)
+                    ? ['This bucket must use aws:kms encryption.']
+                    : []
+        })
+
+        target.bucket_encryption = s3.CfnBucket.BucketEncryptionProperty(
+            server_side_encryption_configuration=[s3.CfnBucket.ServerSideEncryptionRuleProperty(
+                bucket_key_enabled=True,
+                server_side_encryption_by_default=s3.CfnBucket.ServerSideEncryptionByDefaultProperty(
+                    sse_algorithm="aws:kms"
+                )
+            )]
+        )
+        return target
+```
+
+#### Mixins and Aspects
+
+Mixins and Aspects are similar concepts and both are implementations of the [visitor pattern](https://en.wikipedia.org/wiki/Visitor_pattern).
+They crucially differ in their time of application:
+
+* Mixins are always applied *immediately*, they are a tool of *imperative* programming.
+* Aspects are applied *after* all other code during the synthesis phase, this makes them *declarative*.
+
+Both Mixins and Aspects have valid use cases and complement each other.
+We recommend to use Mixins to *make changes*, and to use Aspects to *validate behaviors*.
+Aspects may also be used when changes need to apply to *future additions*, for examples in custom libraries.
+
 ## Aspects
 
 [Aspects](https://docs.aws.amazon.com/cdk/v2/guide/aspects.html) is a feature in CDK that allows you to apply operations or transformations across all
@@ -2044,7 +2242,6 @@ class AWSEventMetadataProps:
             from aws_cdk.mixins_preview.aws_s3.events import BucketEvents
             import aws_cdk.aws_events as events
             
-            # bucket: s3.Bucket
             
             bucket_events = BucketEvents.from_bucket(bucket)
             
@@ -5913,6 +6110,25 @@ class CfnElement(
             type_hints = typing.get_type_hints(_typecheckingstub__5786b9b09eedff01ff70a3bb7cd27562f344e797dfee3e18aea89baaa5c80ea4)
             check_type(argname="argument new_logical_id", value=new_logical_id, expected_type=type_hints["new_logical_id"])
         return typing.cast(None, jsii.invoke(self, "overrideLogicalId", [new_logical_id]))
+
+    @jsii.member(jsii_name="with")
+    def with_(
+        self,
+        *mixins: "_constructs_77d1e7e8.IMixin",
+    ) -> "_constructs_77d1e7e8.IConstruct":
+        '''Applies one or more mixins to this construct.
+
+        Mixins are applied in order. The list of constructs is captured at the
+        start of the call, so constructs added by a mixin will not be visited.
+        Use multiple ``with()`` calls if subsequent mixins should apply to added
+        constructs.
+
+        :param mixins: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35527c1c15f1d11226cd8202c8bb59488bfa266082a6df8314d095974cbb2082)
+            check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_constructs_77d1e7e8.IConstruct", jsii.invoke(self, "with", [*mixins]))
 
     @builtins.property
     @jsii.member(jsii_name="creationStack")
@@ -11270,6 +11486,85 @@ class CliCredentialsStackSynthesizerProps:
         )
 
 
+class ConstructSelector(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.ConstructSelector",
+):
+    '''Selects constructs from a construct tree based on various criteria.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        construct_selector = cdk.ConstructSelector()
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="all")
+    @builtins.classmethod
+    def all(cls) -> "IConstructSelector":
+        '''Selects all constructs in the tree.'''
+        return typing.cast("IConstructSelector", jsii.sinvoke(cls, "all", []))
+
+    @jsii.member(jsii_name="byId")
+    @builtins.classmethod
+    def by_id(cls, pattern: builtins.str) -> "IConstructSelector":
+        '''Selects constructs whose construct IDs match a pattern.
+
+        Uses glob like matching.
+
+        :param pattern: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87304fead78c2fd8908c5a577a7d2330cfab8cba9ecd85326083817331620c4d)
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+        return typing.cast("IConstructSelector", jsii.sinvoke(cls, "byId", [pattern]))
+
+    @jsii.member(jsii_name="byPath")
+    @builtins.classmethod
+    def by_path(cls, pattern: builtins.str) -> "IConstructSelector":
+        '''Selects constructs whose construct paths match a pattern.
+
+        Uses glob like matching.
+
+        :param pattern: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f3cfad5adc1693db634e3d98e7700d05ca159c307dcb4df7238b230f1f56b22)
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+        return typing.cast("IConstructSelector", jsii.sinvoke(cls, "byPath", [pattern]))
+
+    @jsii.member(jsii_name="cfnResource")
+    @builtins.classmethod
+    def cfn_resource(cls) -> "IConstructSelector":
+        '''Selects CfnResource constructs or the default CfnResource child.'''
+        return typing.cast("IConstructSelector", jsii.sinvoke(cls, "cfnResource", []))
+
+    @jsii.member(jsii_name="onlyItself")
+    @builtins.classmethod
+    def only_itself(cls) -> "IConstructSelector":
+        '''Selects only the provided construct.'''
+        return typing.cast("IConstructSelector", jsii.sinvoke(cls, "onlyItself", []))
+
+    @jsii.member(jsii_name="resourcesOfType")
+    @builtins.classmethod
+    def resources_of_type(cls, *types: builtins.str) -> "IConstructSelector":
+        '''Selects constructs of a specific type.
+
+        :param types: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10d5016d689568c71982edb330610aa68350cf1f0231f336696736ae9f333f13)
+            check_type(argname="argument types", value=types, expected_type=typing.Tuple[type_hints["types"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("IConstructSelector", jsii.sinvoke(cls, "resourcesOfType", [*types]))
+
+
 class ContextProvider(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.ContextProvider"):
     '''Base class for the model side of context providers.
 
@@ -13849,19 +14144,19 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Duration"):
 
     Example::
 
-        # my_role: iam.Role
+        import aws_cdk.aws_lambda as lambda_
         
-        cr.AwsCustomResource(self, "Customized",
-            role=my_role,  # must be assumable by the `lambda.amazonaws.com` service principal
-            timeout=Duration.minutes(10),  # defaults to 2 minutes
-            memory_size=1025,  # defaults to 512 if installLatestAwsSdk is true
-            log_group=logs.LogGroup(self, "AwsCustomResourceLogs",
-                retention=logs.RetentionDays.ONE_DAY
-            ),
-            function_name="my-custom-name",  # defaults to a CloudFormation generated name
-            removal_policy=RemovalPolicy.RETAIN,  # defaults to `RemovalPolicy.DESTROY`
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
+        # fn: lambda.Function
+        
+        fn_url = fn.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
+        
+        cloudfront.Distribution(self, "Distribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.FunctionUrlOrigin(fn_url,
+                    read_timeout=Duration.seconds(30),
+                    response_completion_timeout=Duration.seconds(90),
+                    keepalive_timeout=Duration.seconds(45)
+                )
             )
         )
     '''
@@ -16726,6 +17021,45 @@ class _ICfnResourceOptionsProxy:
 typing.cast(typing.Any, ICfnResourceOptions).__jsii_proxy_class__ = lambda : _ICfnResourceOptionsProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.IConstructSelector")
+class IConstructSelector(typing_extensions.Protocol):
+    '''Selects constructs from a construct tree.'''
+
+    @jsii.member(jsii_name="select")
+    def select(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+    ) -> typing.List["_constructs_77d1e7e8.IConstruct"]:
+        '''Selects constructs from the given scope based on the selector's criteria.
+
+        :param scope: -
+        '''
+        ...
+
+
+class _IConstructSelectorProxy:
+    '''Selects constructs from a construct tree.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IConstructSelector"
+
+    @jsii.member(jsii_name="select")
+    def select(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+    ) -> typing.List["_constructs_77d1e7e8.IConstruct"]:
+        '''Selects constructs from the given scope based on the selector's criteria.
+
+        :param scope: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d3bf9b1dbda5f82d445808f8285cf5572492201e0e0d5c889444b6ab8c51f63)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(typing.List["_constructs_77d1e7e8.IConstruct"], jsii.invoke(self, "select", [scope]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConstructSelector).__jsii_proxy_class__ = lambda : _IConstructSelectorProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.IFragmentConcatenator")
 class IFragmentConcatenator(typing_extensions.Protocol):
     '''Function used to concatenate symbols in the target document language.
@@ -19431,6 +19765,285 @@ class MissingRemovalPolicies(
         return typing.cast(None, jsii.invoke(self, "snapshot", [props]))
 
 
+@jsii.implements(_constructs_77d1e7e8.IMixin)
+class Mixin(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.Mixin"):
+    '''Abstract base class for mixins that provides default implementations.
+
+    :exampleMetadata: fixture=README-mixins infused
+
+    Example::
+
+        class MyEncryptionAtRest(Mixin):
+            def __init__(self, *, bucketKey=None, algorithm=None):
+                super().__init__()
+                # Validate Mixin props at construction time
+                if bucket_key && algorithm == "aws:kms:dsse": throw new Error("Cannot use S3 Bucket Key and DSSE together");
+        
+            def supports(self, construct):
+                return s3.CfnBucket.is_cfn_bucket(construct)
+        
+            def apply_to(self, target):
+                # Validate pre-conditions on the target, throw if error is unrecoverable
+                if not target.bucket_encryption: throw new Error("Bucket encryption not configured");
+        
+                # Validate properties are met after app execution
+                target.node.add_validation({
+                    "validate": () => isKmsEncrypted(target)
+                            ? ['This bucket must use aws:kms encryption.']
+                            : []
+                })
+        
+                target.bucket_encryption = s3.CfnBucket.BucketEncryptionProperty(
+                    server_side_encryption_configuration=[s3.CfnBucket.ServerSideEncryptionRuleProperty(
+                        bucket_key_enabled=True,
+                        server_side_encryption_by_default=s3.CfnBucket.ServerSideEncryptionByDefaultProperty(
+                            sse_algorithm="aws:kms"
+                        )
+                    )]
+                )
+                return target
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="isMixin")
+    @builtins.classmethod
+    def is_mixin(cls, x: typing.Any) -> builtins.bool:
+        '''Checks if ``x`` is a Mixin.
+
+        :param x: Any object.
+
+        :return: true if ``x`` is an object created from a class which extends ``Mixin``.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__116201f944cd6130a09ea3016a2510b405376a6cd7874b333fe2c40858cc3d1f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isMixin", [x]))
+
+    @jsii.member(jsii_name="applyTo")
+    @abc.abstractmethod
+    def apply_to(self, construct: "_constructs_77d1e7e8.IConstruct") -> None:
+        '''Applies the mixin functionality to the target construct.
+
+        :param construct: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="supports")
+    def supports(self, _construct: "_constructs_77d1e7e8.IConstruct") -> builtins.bool:
+        '''Determines whether this mixin can be applied to the given construct.
+
+        :param _construct: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4bd3ef12a75989a85a3430d2c7064d03779bd21ecb0e9db2294b42344722b0a)
+            check_type(argname="argument _construct", value=_construct, expected_type=type_hints["_construct"])
+        return typing.cast(builtins.bool, jsii.invoke(self, "supports", [_construct]))
+
+
+class _MixinProxy(Mixin):
+    @jsii.member(jsii_name="applyTo")
+    def apply_to(self, construct: "_constructs_77d1e7e8.IConstruct") -> None:
+        '''Applies the mixin functionality to the target construct.
+
+        :param construct: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f90fd19eaa177c3f2ef97b48a099fe4a5db76b2636472806c11b00ac0774d8a4)
+            check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
+        return typing.cast(None, jsii.invoke(self, "applyTo", [construct]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Mixin).__jsii_proxy_class__ = lambda : _MixinProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.MixinApplication",
+    jsii_struct_bases=[],
+    name_mapping={"construct": "construct", "mixin": "mixin"},
+)
+class MixinApplication:
+    def __init__(
+        self,
+        *,
+        construct: "_constructs_77d1e7e8.IConstruct",
+        mixin: "_constructs_77d1e7e8.IMixin",
+    ) -> None:
+        '''Represents a successful mixin application.
+
+        :param construct: The construct the mixin was applied to.
+        :param mixin: The mixin that was applied.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            import constructs as constructs
+            
+            # construct: constructs.Construct
+            # mixin: constructs.IMixin
+            
+            mixin_application = cdk.MixinApplication(
+                construct=construct,
+                mixin=mixin
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f81f435b5966454e49a68b0acfe15f44868b1e1572037d6891968d912e5b5816)
+            check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
+            check_type(argname="argument mixin", value=mixin, expected_type=type_hints["mixin"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "construct": construct,
+            "mixin": mixin,
+        }
+
+    @builtins.property
+    def construct(self) -> "_constructs_77d1e7e8.IConstruct":
+        '''The construct the mixin was applied to.'''
+        result = self._values.get("construct")
+        assert result is not None, "Required property 'construct' is missing"
+        return typing.cast("_constructs_77d1e7e8.IConstruct", result)
+
+    @builtins.property
+    def mixin(self) -> "_constructs_77d1e7e8.IMixin":
+        '''The mixin that was applied.'''
+        result = self._values.get("mixin")
+        assert result is not None, "Required property 'mixin' is missing"
+        return typing.cast("_constructs_77d1e7e8.IMixin", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MixinApplication(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class MixinApplicator(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.MixinApplicator"):
+    '''Applies mixins to constructs.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        # construct_selector: cdk.IConstructSelector
+        
+        mixin_applicator = cdk.MixinApplicator(self, construct_selector)
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        selector: typing.Optional["IConstructSelector"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param selector: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4293915f425b152dff3a8c6d56e55fe85b2906ce7be7cde0b93f9a3d0e37b24)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument selector", value=selector, expected_type=type_hints["selector"])
+        jsii.create(self.__class__, self, [scope, selector])
+
+    @jsii.member(jsii_name="apply")
+    def apply(self, *mixins: "_constructs_77d1e7e8.IMixin") -> "MixinApplicator":
+        '''Applies a mixin to selected constructs.
+
+        :param mixins: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__179dcd94b98f89cc9e83ddf49bfb91477242fa621f1fdb83f219c85778c483e9)
+            check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("MixinApplicator", jsii.invoke(self, "apply", [*mixins]))
+
+    @jsii.member(jsii_name="requireAll")
+    def require_all(self) -> "MixinApplicator":
+        '''Requires all selected constructs to support the applied mixins.
+
+        Will only check for future call of ``apply()``.
+        Set this before calling ``apply()`` to take effect.
+
+        Example::
+
+            Mixins.of(scope).require_all().apply(MyMixin())
+        '''
+        return typing.cast("MixinApplicator", jsii.invoke(self, "requireAll", []))
+
+    @jsii.member(jsii_name="requireAny")
+    def require_any(self) -> "MixinApplicator":
+        '''Requires at least one mixin to be successfully applied.
+
+        Will only check for future call of ``apply()``.
+        Set this before calling ``apply()`` to take effect.
+
+        Example::
+
+            Mixins.of(scope).require_any().apply(MyMixin())
+        '''
+        return typing.cast("MixinApplicator", jsii.invoke(self, "requireAny", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="report")
+    def report(self) -> typing.List["MixinApplication"]:
+        '''Returns the successful mixin applications.'''
+        return typing.cast(typing.List["MixinApplication"], jsii.get(self, "report"))
+
+    @builtins.property
+    @jsii.member(jsii_name="selectedConstructs")
+    def selected_constructs(self) -> typing.List["_constructs_77d1e7e8.IConstruct"]:
+        '''The constructs that match the selector in the given scope.'''
+        return typing.cast(typing.List["_constructs_77d1e7e8.IConstruct"], jsii.get(self, "selectedConstructs"))
+
+
+class Mixins(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Mixins"):
+    '''Main entry point for applying mixins.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        
+        mixins = cdk.Mixins()
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(
+        cls,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        selector: typing.Optional["IConstructSelector"] = None,
+    ) -> "MixinApplicator":
+        '''Creates a MixinApplicator for the given scope.
+
+        :param scope: -
+        :param selector: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__798fa35840f0bf2135d27c337526a6386dccc745cba6aebeda21f409bda213d0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument selector", value=selector, expected_type=type_hints["selector"])
+        return typing.cast("MixinApplicator", jsii.sinvoke(cls, "of", [scope, selector]))
+
+
 class Names(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Names"):
     '''Functions for devising unique names for constructs.
 
@@ -21298,6 +21911,25 @@ class Resource(
             type_hints = typing.get_type_hints(_typecheckingstub__e152963ad0a4f5f40b2ee753c3fe470e49b2c37b56c79a40576ebacd92139d4f)
             check_type(argname="argument name_attr", value=name_attr, expected_type=type_hints["name_attr"])
         return typing.cast(builtins.str, jsii.invoke(self, "getResourceNameAttribute", [name_attr]))
+
+    @jsii.member(jsii_name="with")
+    def with_(
+        self,
+        *mixins: "_constructs_77d1e7e8.IMixin",
+    ) -> "_constructs_77d1e7e8.IConstruct":
+        '''Applies one or more mixins to this construct.
+
+        Mixins are applied in order. The list of constructs is captured at the
+        start of the call, so constructs added by a mixin will not be visited.
+        Use multiple ``with()`` calls if subsequent mixins should apply to added
+        constructs.
+
+        :param mixins: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c562d95698e47e4a03923b0dd8520f4177674eddd969b11b79749b44d0932f0)
+            check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_constructs_77d1e7e8.IConstruct", jsii.invoke(self, "with", [*mixins]))
 
     @builtins.property
     @jsii.member(jsii_name="env")
@@ -38760,6 +39392,7 @@ __all__ = [
     "CfnWaitConditionProps",
     "CliCredentialsStackSynthesizer",
     "CliCredentialsStackSynthesizerProps",
+    "ConstructSelector",
     "ContextProvider",
     "CopyOptions",
     "CustomResource",
@@ -38811,6 +39444,7 @@ __all__ = [
     "ICfnConditionExpression",
     "ICfnResourceOptions",
     "ICfnRuleConditionExpression",
+    "IConstructSelector",
     "IFragmentConcatenator",
     "IInspectable",
     "IListProducer",
@@ -38848,6 +39482,10 @@ __all__ = [
     "LazyStringValueOptions",
     "LegacyStackSynthesizer",
     "MissingRemovalPolicies",
+    "Mixin",
+    "MixinApplication",
+    "MixinApplicator",
+    "Mixins",
     "Names",
     "NestedStack",
     "NestedStackProps",
@@ -38974,6 +39612,7 @@ __all__ = [
     "aws_cognito",
     "aws_cognito_identitypool",
     "aws_comprehend",
+    "aws_computeoptimizer",
     "aws_config",
     "aws_connect",
     "aws_connectcampaigns",
@@ -38991,6 +39630,7 @@ __all__ = [
     "aws_devicefarm",
     "aws_devopsagent",
     "aws_devopsguru",
+    "aws_directconnect",
     "aws_directoryservice",
     "aws_dlm",
     "aws_dms",
@@ -39288,6 +39928,7 @@ from . import aws_codestarnotifications
 from . import aws_cognito
 from . import aws_cognito_identitypool
 from . import aws_comprehend
+from . import aws_computeoptimizer
 from . import aws_config
 from . import aws_connect
 from . import aws_connectcampaigns
@@ -39305,6 +39946,7 @@ from . import aws_detective
 from . import aws_devicefarm
 from . import aws_devopsagent
 from . import aws_devopsguru
+from . import aws_directconnect
 from . import aws_directoryservice
 from . import aws_dlm
 from . import aws_dms
@@ -39966,6 +40608,12 @@ def _typecheckingstub__5786b9b09eedff01ff70a3bb7cd27562f344e797dfee3e18aea89baaa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__35527c1c15f1d11226cd8202c8bb59488bfa266082a6df8314d095974cbb2082(
+    *mixins: _constructs_77d1e7e8.IMixin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0af504bd749e0a62686c10b562deecc015abe54143ca61ed442f20ab5b08fee9(
     *,
     alias: builtins.str,
@@ -40583,6 +41231,24 @@ def _typecheckingstub__582012b1da715680697bba8cad465d232673167a367d4087116d4afdd
     file_assets_bucket_name: typing.Optional[builtins.str] = None,
     image_assets_repository_name: typing.Optional[builtins.str] = None,
     qualifier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87304fead78c2fd8908c5a577a7d2330cfab8cba9ecd85326083817331620c4d(
+    pattern: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f3cfad5adc1693db634e3d98e7700d05ca159c307dcb4df7238b230f1f56b22(
+    pattern: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10d5016d689568c71982edb330610aa68350cf1f0231f336696736ae9f333f13(
+    *types: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41355,6 +42021,12 @@ def _typecheckingstub__42237fa93d35be34f4782c5d322036259e005ed0e4f435315b820b187
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6d3bf9b1dbda5f82d445808f8285cf5572492201e0e0d5c889444b6ab8c51f63(
+    scope: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bfafa51d440aea5cf865cffef86aaa2ee71eefc8d710c07db95e541828c87596(
     left: typing.Any,
     right: typing.Any,
@@ -41730,6 +42402,52 @@ def _typecheckingstub__b3f1229a84cb5fdb052e8db135be3d25670d9793cf44ddc71d8134240
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__116201f944cd6130a09ea3016a2510b405376a6cd7874b333fe2c40858cc3d1f(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4bd3ef12a75989a85a3430d2c7064d03779bd21ecb0e9db2294b42344722b0a(
+    _construct: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f90fd19eaa177c3f2ef97b48a099fe4a5db76b2636472806c11b00ac0774d8a4(
+    construct: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f81f435b5966454e49a68b0acfe15f44868b1e1572037d6891968d912e5b5816(
+    *,
+    construct: _constructs_77d1e7e8.IConstruct,
+    mixin: _constructs_77d1e7e8.IMixin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4293915f425b152dff3a8c6d56e55fe85b2906ce7be7cde0b93f9a3d0e37b24(
+    scope: _constructs_77d1e7e8.IConstruct,
+    selector: typing.Optional[IConstructSelector] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__179dcd94b98f89cc9e83ddf49bfb91477242fa621f1fdb83f219c85778c483e9(
+    *mixins: _constructs_77d1e7e8.IMixin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__798fa35840f0bf2135d27c337526a6386dccc745cba6aebeda21f409bda213d0(
+    scope: _constructs_77d1e7e8.IConstruct,
+    selector: typing.Optional[IConstructSelector] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__569ac5c6adbac9575b4137a0343aea0625df007d849957bfacf2e65a01153962(
     node: _constructs_77d1e7e8.Node,
 ) -> None:
@@ -41978,6 +42696,12 @@ def _typecheckingstub__81a274b9bddb7d2d27126243d1f51bbc1a0b5a35ad11c3871538c25c4
 
 def _typecheckingstub__e152963ad0a4f5f40b2ee753c3fe470e49b2c37b56c79a40576ebacd92139d4f(
     name_attr: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c562d95698e47e4a03923b0dd8520f4177674eddd969b11b79749b44d0932f0(
+    *mixins: _constructs_77d1e7e8.IMixin,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44523,5 +45247,5 @@ def _typecheckingstub__47e469f0015340593bcbbe8474c853bc170a6dfd3bcb31e6795042408
     """Type checking stubs"""
     pass
 
-for cls in [IAnyProducer, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, INumberProducer, IPolicyValidationContextBeta1, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
+for cls in [IAnyProducer, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IConstructSelector, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, INumberProducer, IPolicyValidationContextBeta1, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -6,12 +6,12 @@ stdlib-only. SQLite 저장, 매크로 체인 지원.
 from __future__ import annotations
 
 import logging
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from salmalm.constants import KST, BASE_DIR
-from salmalm.db.connection import IntegrityError
 from salmalm.utils.db import connect as _connect_db
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 QA_DB = BASE_DIR / "quick_actions.db"
 
 
-def _get_db(db_path: Optional[Path] = None):
+def _get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
     """Get db."""
     conn = _connect_db(db_path or QA_DB, wal=True)
     conn.execute("""CREATE TABLE IF NOT EXISTS quick_actions (
@@ -41,11 +41,11 @@ class QuickActionManager:
     def __init__(self, db_path: Optional[Path] = None) -> None:
         """Init  ."""
         self._db_path = db_path
-        self._conn = None
+        self._conn: Optional[sqlite3.Connection] = None
         self._command_dispatcher: Optional[Callable] = None
 
     @property
-    def conn(self):
+    def conn(self) -> sqlite3.Connection:
         """Conn."""
         if self._conn is None:
             self._conn = _get_db(self._db_path)
@@ -80,7 +80,7 @@ class QuickActionManager:
             self.conn.commit()
             cmd_count = len(self._parse_chain(commands))
             return f"✅ 액션 '{name}' 등록 ({cmd_count}개 명령어)"
-        except IntegrityError:
+        except sqlite3.IntegrityError:
             self.conn.execute(
                 "UPDATE quick_actions SET commands=?, description=?, updated_at=? WHERE name=?",
                 (commands, description, now, name),
@@ -210,7 +210,7 @@ class QuickActionManager:
             self.conn.execute("UPDATE quick_actions SET name=?, updated_at=? WHERE name=?", (new_name, now, old_name))
             self.conn.commit()
             return f"✅ '{old_name}' → '{new_name}' 이름 변경됨."
-        except IntegrityError:
+        except sqlite3.IntegrityError:
             return f"❌ '{new_name}' 이름이 이미 존재합니다."
 
 

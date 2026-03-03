@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 from salmalm.db import get_connection
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -92,7 +93,7 @@ class TimeCapsule:
         with get_connection(self.db_path) as conn:
             conn.execute(_SCHEMA)
 
-    def _conn(self):
+    def _conn(self) -> sqlite3.Connection:
         """Conn."""
         return get_connection(self.db_path)
 

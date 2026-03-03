@@ -6,12 +6,12 @@ stdlib-only. SQLite 저장, 이모지 진행바, streak 계산.
 from __future__ import annotations
 
 import logging
+import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from salmalm.constants import KST, BASE_DIR
-from salmalm.db.connection import IntegrityError
 from salmalm.utils.db import connect as _connect_db
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 HABIT_DB = BASE_DIR / "habits.db"
 
 
-def _get_db(db_path: Optional[Path] = None):
+def _get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
     """Get db."""
     conn = _connect_db(db_path or HABIT_DB, wal=True)
     conn.execute("""CREATE TABLE IF NOT EXISTS habits (
@@ -45,10 +45,10 @@ class HabitTracker:
     def __init__(self, db_path: Optional[Path] = None) -> None:
         """Init  ."""
         self._db_path = db_path
-        self._conn = None
+        self._conn: Optional[sqlite3.Connection] = None
 
     @property
-    def conn(self):
+    def conn(self) -> sqlite3.Connection:
         """Conn."""
         if self._conn is None:
             self._conn = _get_db(self._db_path)
@@ -70,7 +70,7 @@ class HabitTracker:
             self.conn.execute("INSERT INTO habits (name, created_at) VALUES (?, ?)", (name, now))
             self.conn.commit()
             return f"✅ 습관 '{name}' 등록 완료!"
-        except IntegrityError:
+        except sqlite3.IntegrityError:
             # Maybe it was deactivated, reactivate
             self.conn.execute("UPDATE habits SET active=1 WHERE name=?", (name,))
             self.conn.commit()
@@ -102,7 +102,7 @@ class HabitTracker:
             self.conn.commit()
             streak = self._calc_streak(name, today)
             return f"✅ '{name}' 완료! 🔥 {streak}일 연속"
-        except IntegrityError:
+        except sqlite3.IntegrityError:
             return f"ℹ️ '{name}'은 이미 오늘 완료했습니다."
 
     def uncheck_habit(self, name: str, date: Optional[str] = None) -> str:

@@ -361,6 +361,7 @@ class AnyscaleClientInterface(ABC):
         containerfile: str,
         anonymous: bool,
         ray_version: Optional[str] = None,
+        containerfile_path: Optional[str] = None,
     ) -> str:
         """Get the cluster environment build ID for the cluster environment with provided containerfile.
         Look for an existing cluster environment with the provided name.

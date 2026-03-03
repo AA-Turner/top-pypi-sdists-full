@@ -18,6 +18,8 @@ from asgiref.sync import sync_to_async
 
 MINIO_ENDPOINT = "s3.ffire.cc" if get_myip() else "s3ai.cn"  # 国内外存储
 
+# 访问优化呢
+
 
 class Minio(_Minio):
 

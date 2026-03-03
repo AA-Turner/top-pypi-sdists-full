@@ -1,6 +1,6 @@
 [project]
 name = "django-enum"
-version = "2.4.0"
+version = "2.4.1"
 description = "Full and natural support for enumerations as Django model fields."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -39,7 +39,8 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Site Management",
     "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Libraries :: Python Modules"
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed"
 ]
 
 [build-system]
@@ -48,6 +49,25 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 package = true
+conflicts = [
+  [
+    { group = "dj42" },
+    { group = "dj52" },
+    { group = "dj60" },
+  ],
+  [
+    { group = "mysqlclient2x" },
+    { group = "mysqlclient14" },
+  ],
+  [
+    { group = "psycopg2" },
+    { group = "psycopg3" },
+  ],
+  [
+    { group = "cx_oracle" },
+    { group = "oracledb" },
+  ]
+]
 
 
 [tool.hatch.build.targets.sdist]
@@ -87,22 +107,6 @@ docs = [
     "sphinxcontrib-django>=2.5",
     "python-dateutil>=2.9.0.post0",
 ]
-psycopg2 = [
-    "psycopg2>=2.9.10",
-]
-psycopg3 = [
-    "psycopg",
-]
-mysql = [
-    "mysqlclient>=1.4.0",
-]
-cx_oracle = [
-    "cx-oracle>=8.3.0",
-]
-oracledb = [
-    "oracledb>=2.3.0",
-]
-
 typing = [
     "pyright>=1.1.390",
     "mypy>=1.19.1",
@@ -148,6 +152,35 @@ dev = [
     "tomlkit>=0.13.3",
     "ipdb>=0.13.13",
     "ipython>=8.18.1"
+]
+
+# for CI and testing
+dj42 = [
+    "Django~=4.2; python_version < '3.13'",
+]
+dj52 = [
+    "Django~=5.2",
+]
+dj60 = [
+    "Django~=6.0; python_version >= '3.12'",
+]
+mysqlclient14 = [
+    "mysqlclient==1.4.3",
+]
+psycopg2 = [
+    "psycopg2>=2.9.10",
+]
+psycopg3 = [
+    "psycopg",
+]
+mysqlclient2x = [
+    "mysqlclient>=2.2.8",
+]
+cx_oracle = [
+    "cx-oracle>=8.3.0",
+]
+oracledb = [
+    "oracledb>=2.3.0",
 ]
 
 [tool.mypy]

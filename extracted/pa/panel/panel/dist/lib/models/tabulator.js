@@ -481,7 +481,7 @@ export class DataTabulatorView extends HTMLBoxView {
         return sorters;
     }
     invalidate_render() {
-        this.tabulator.destroy();
+        this.tabulator?.destroy();
         this.tabulator = null;
         this.rerender_();
     }
@@ -538,10 +538,12 @@ export class DataTabulatorView extends HTMLBoxView {
             el.classList.add(cls);
         }
     }
+    remove() {
+        this.tabulator?.destroy();
+        super.remove();
+    }
     render() {
-        if (this.tabulator != null) {
-            this.tabulator.destroy();
-        }
+        this.tabulator?.destroy();
         super.render();
         this._initializing = true;
         this._building = true;
@@ -667,7 +669,7 @@ export class DataTabulatorView extends HTMLBoxView {
         }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
     }
     recompute_page_size() {
-        if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size)) {
+        if (!this.model.pagination || (this.model.page_size !== null && !this._automatic_page_size) || this._initializing || !this.tabulator) {
             return;
         }
         this._automatic_page_size = true;

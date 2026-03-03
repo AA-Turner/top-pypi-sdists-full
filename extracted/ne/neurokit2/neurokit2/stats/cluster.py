@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import functools
 import warnings
 
@@ -135,9 +134,7 @@ def cluster(data, method="kmeans", n_clusters=2, random_state=None, optimize=Fal
 
     # Modified k-means
     elif method in ["kmods", "kmod", "kmeans modified", "modified kmeans"]:
-        out = _cluster_kmod(
-            data, n_clusters=n_clusters, random_state=random_state, optimize=optimize, **kwargs
-        )
+        out = _cluster_kmod(data, n_clusters=n_clusters, random_state=random_state, optimize=optimize, **kwargs)
     # K-medoids
     elif method in ["kmedoids", "k-medoids", "k-centers"]:
         out = _cluster_kmedoids(data, n_clusters=n_clusters, random_state=random_state, **kwargs)
@@ -152,9 +149,7 @@ def cluster(data, method="kmeans", n_clusters=2, random_state=None, optimize=Fal
 
     # Mixture
     elif method in ["mixture", "mixt"]:
-        out = _cluster_mixture(
-            data, n_clusters=n_clusters, bayesian=False, random_state=random_state, **kwargs
-        )
+        out = _cluster_mixture(data, n_clusters=n_clusters, bayesian=False, random_state=random_state, **kwargs)
 
     # Frederic's AAHC
     elif method in ["aahc_frederic", "aahc_eegmicrostates"]:
@@ -162,9 +157,7 @@ def cluster(data, method="kmeans", n_clusters=2, random_state=None, optimize=Fal
 
     # Bayesian
     elif method in ["bayesianmixture", "bayesmixt", "mixturebayesian", "mixturebayes"]:
-        out = _cluster_mixture(
-            data, n_clusters=n_clusters, bayesian=True, random_state=random_state, **kwargs
-        )
+        out = _cluster_mixture(data, n_clusters=n_clusters, bayesian=True, random_state=random_state, **kwargs)
 
     # Others
     else:
@@ -187,9 +180,7 @@ def _cluster_kmeans(data, n_clusters=2, random_state=None, n_init="auto", **kwar
     """K-means clustering algorithm"""
 
     # Initialize clustering function
-    clustering_model = sklearn.cluster.KMeans(
-        n_clusters=n_clusters, random_state=random_state, n_init=n_init, **kwargs
-    )
+    clustering_model = sklearn.cluster.KMeans(n_clusters=n_clusters, random_state=random_state, n_init=n_init, **kwargs)
 
     # Fit
     clustering = clustering_model.fit_predict(data)
@@ -256,10 +247,10 @@ def _cluster_kmedoids(data, n_clusters=2, max_iterations=1000, random_state=None
     for i in range(max_iterations):
         # Find new medoids
         ids_of_medoids = np.full(n_clusters, -1, dtype=int)
-        for i in range(n_clusters):
-            indices = np.where(segmentation == i)[0]
+        for j in range(n_clusters):
+            indices = np.where(segmentation == j)[0]
             distances = find_distance(data[indices, None, :], data[None, indices, :]).sum(axis=0)
-            ids_of_medoids[i] = indices[np.argmin(distances)]
+            ids_of_medoids[j] = indices[np.argmin(distances)]
 
         # Step 3: Reassign objects to medoids
         new_distances = find_distance(data[:, None, :], data[None, ids_of_medoids, :])
@@ -301,15 +292,7 @@ def _cluster_kmedoids(data, n_clusters=2, max_iterations=1000, random_state=None
 # =============================================================================
 # Modified K-means
 # =============================================================================
-def _cluster_kmod(
-    data,
-    n_clusters=4,
-    max_iterations=1000,
-    threshold=1e-6,
-    random_state=None,
-    optimize=False,
-    **kwargs
-):
+def _cluster_kmod(data, n_clusters=4, max_iterations=1000, threshold=1e-6, random_state=None, optimize=False, **kwargs):
     """The modified K-means clustering algorithm,
 
     adapted from Marijn van Vliet and Frederic von Wegner.
@@ -365,7 +348,6 @@ def _cluster_kmod(
     # Initialize iteration
     prev_residual = 0
     for i in range(max_iterations):
-
         # Step 3: Assign each sample to the best matching microstate
         activation = clusters.dot(data.T)
         segmentation = np.argmax(np.abs(activation), axis=0)
@@ -373,7 +355,6 @@ def _cluster_kmod(
         # Step 4: Recompute the topographic maps of the microstates, based on the
         # samples that were assigned to each state.
         for state in np.arange(n_clusters):
-
             # Get data fro specific state
             idx = segmentation == state
             data_state = data[idx, :]
@@ -429,7 +410,7 @@ def _cluster_kmod(
         max_iterations=max_iterations,
         threshold=threshold,
         random_state=random_state,
-        **kwargs
+        **kwargs,
     )
 
     # Info dump
@@ -451,12 +432,7 @@ def _cluster_pca(data, n_clusters=2, random_state=None, **kwargs):
     """Principal Component Analysis (PCA) for clustering."""
     # Fit PCA
     pca = sklearn.decomposition.PCA(
-        n_components=n_clusters,
-        copy=True,
-        whiten=True,
-        svd_solver="auto",
-        random_state=random_state,
-        **kwargs
+        n_components=n_clusters, copy=True, whiten=True, svd_solver="auto", random_state=random_state, **kwargs
     )
     pca = pca.fit(data)
     # clusters = np.array([pca.components_[state, :] for state in range(n_clusters)])
@@ -469,17 +445,13 @@ def _cluster_pca(data, n_clusters=2, random_state=None, **kwargs):
     prediction = pca.transform(data)
     prediction = pd.DataFrame(prediction).add_prefix("Loading_")
     prediction["Cluster"] = prediction.abs().idxmax(axis=1).values
-    prediction["Cluster"] = [
-        np.where(prediction.columns == state)[0][0] for state in prediction["Cluster"]
-    ]
+    prediction["Cluster"] = [np.where(prediction.columns == state)[0][0] for state in prediction["Cluster"]]
 
     # Recover states from clustering
     clusters = _cluster_getclusters(data, prediction["Cluster"])
 
     # Copy function with given parameters
-    clustering_function = functools.partial(
-        _cluster_pca, n_clusters=n_clusters, random_state=random_state, **kwargs
-    )
+    clustering_function = functools.partial(_cluster_pca, n_clusters=n_clusters, random_state=random_state, **kwargs)
 
     # Info dump
     info = {
@@ -498,12 +470,7 @@ def _cluster_ica(data, n_clusters=2, random_state=None, **kwargs):
     """Independent Component Analysis (ICA) for clustering."""
     # Fit ICA
     ica = sklearn.decomposition.FastICA(
-        n_components=n_clusters,
-        algorithm="parallel",
-        whiten=True,
-        fun="exp",
-        random_state=random_state,
-        **kwargs
+        n_components=n_clusters, algorithm="parallel", whiten=True, fun="exp", random_state=random_state, **kwargs
     )
 
     ica = ica.fit(data)
@@ -513,14 +480,10 @@ def _cluster_ica(data, n_clusters=2, random_state=None, **kwargs):
     prediction = ica.transform(data)
     prediction = pd.DataFrame(prediction).add_prefix("Loading_")
     prediction["Cluster"] = prediction.abs().idxmax(axis=1).values
-    prediction["Cluster"] = [
-        np.where(prediction.columns == state)[0][0] for state in prediction["Cluster"]
-    ]
+    prediction["Cluster"] = [np.where(prediction.columns == state)[0][0] for state in prediction["Cluster"]]
 
     # Copy function with given parameters
-    clustering_function = functools.partial(
-        _cluster_ica, n_clusters=n_clusters, random_state=random_state, **kwargs
-    )
+    clustering_function = functools.partial(_cluster_ica, n_clusters=n_clusters, random_state=random_state, **kwargs)
 
     # Recover states from clustering
     clusters = _cluster_getclusters(data, prediction["Cluster"])
@@ -544,13 +507,9 @@ def _cluster_sklearn(data, method="spectral", n_clusters=2, **kwargs):
     if method in ["spectral"]:
         clustering_model = sklearn.cluster.SpectralClustering(n_clusters=n_clusters, **kwargs)
     elif method in ["hierarchical", "ward"]:
-        clustering_model = sklearn.cluster.AgglomerativeClustering(
-            n_clusters=n_clusters, linkage="ward", **kwargs
-        )
+        clustering_model = sklearn.cluster.AgglomerativeClustering(n_clusters=n_clusters, linkage="ward", **kwargs)
     elif method in ["agglomerative", "single"]:
-        clustering_model = sklearn.cluster.AgglomerativeClustering(
-            n_clusters=n_clusters, linkage="single", **kwargs
-        )
+        clustering_model = sklearn.cluster.AgglomerativeClustering(n_clusters=n_clusters, linkage="single", **kwargs)
 
     # Fit
     clustering = clustering_model.fit_predict(data)
@@ -579,9 +538,7 @@ def _cluster_mixture(data, n_clusters=2, bayesian=False, random_state=None, **kw
     """Mixture model"""
     # Initialize clustering function
     if bayesian is False:
-        clustering_model = sklearn.mixture.GaussianMixture(
-            n_components=n_clusters, random_state=random_state, **kwargs
-        )
+        clustering_model = sklearn.mixture.GaussianMixture(n_components=n_clusters, random_state=random_state, **kwargs)
     else:
         clustering_model = sklearn.mixture.BayesianGaussianMixture(
             n_components=n_clusters, random_state=random_state, **kwargs
@@ -599,9 +556,7 @@ def _cluster_mixture(data, n_clusters=2, bayesian=False, random_state=None, **kw
     prediction["Cluster"] = clustering
 
     # Else, copy function
-    clustering_function = functools.partial(
-        _cluster_mixture, n_clusters=n_clusters, random_state=random_state, **kwargs
-    )
+    clustering_function = functools.partial(_cluster_mixture, n_clusters=n_clusters, random_state=random_state, **kwargs)
 
     # Info dump
     info = {
@@ -619,16 +574,7 @@ def _cluster_mixture(data, n_clusters=2, bayesian=False, random_state=None, **kw
 # =============================================================================
 
 
-def _cluster_aahc(
-    data,
-    n_clusters=2,
-    gfp=None,
-    gfp_peaks=None,
-    gfp_sum_sq=None,
-    random_state=None,
-    use_peaks=False,
-    **kwargs
-):
+def _cluster_aahc(data, n_clusters=2, gfp=None, gfp_peaks=None, gfp_sum_sq=None, random_state=None, use_peaks=False, **kwargs):
     """Atomize and Agglomerative Hierarchical Clustering Algorithm, AAHC (Murray et al., Brain Topography, 2008),
     implemented by https://github.com/Frederic-vW/eeg_microstates/blob/master/eeg_microstates.py#L518
 
@@ -687,7 +633,6 @@ def _cluster_aahc(
 
     # Main loop: atomize + agglomerate
     while n_maps > n_clusters:
-
         # correlations of the data sequence with each cluster
         m_x, s_x = data.mean(axis=1, keepdims=True), data.std(axis=1)
         m_y, s_y = maps.mean(axis=1, keepdims=True), maps.std(axis=1)
@@ -737,14 +682,10 @@ def _cluster_aahc(
     # Get distance
     prediction = _cluster_quality_distance(cluster_data, maps, to_dataframe=True)
     prediction["Cluster"] = prediction.abs().idxmax(axis=1).values
-    prediction["Cluster"] = [
-        np.where(prediction.columns == state)[0][0] for state in prediction["Cluster"]
-    ]
+    prediction["Cluster"] = [np.where(prediction.columns == state)[0][0] for state in prediction["Cluster"]]
 
     # Function
-    clustering_function = functools.partial(
-        _cluster_aahc, n_clusters=n_clusters, random_state=random_state, **kwargs
-    )
+    clustering_function = functools.partial(_cluster_aahc, n_clusters=n_clusters, random_state=random_state, **kwargs)
 
     # Info dump
     info = {

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib.patches
@@ -109,9 +108,7 @@ def rsp_rrv(rsp_rate, troughs=None, sampling_rate=1000, show=False, silent=True)
     # Get indices
     rrv = {}  # Initialize empty dict
     rrv.update(_rsp_rrv_time(bbi))
-    rrv.update(
-        _rsp_rrv_frequency(rsp_period, sampling_rate=sampling_rate, show=show, silent=silent)
-    )
+    rrv.update(_rsp_rrv_frequency(rsp_period, sampling_rate=sampling_rate, show=show, silent=silent))
     rrv.update(_rsp_rrv_nonlinear(bbi))
 
     rrv = pd.DataFrame.from_dict(rrv, orient="index").T.add_prefix("RRV_")
@@ -225,18 +222,14 @@ def _rsp_rrv_nonlinear(bbi):
     if len(bbi) / 10 > 16:
         out["DFA_alpha1"] = fractal_dfa(bbi, scale=np.arange(4, 17), multifractal=False)[0]
         # For multifractal
-        mdfa_alpha1, _ = fractal_dfa(
-            bbi, multifractal=True, q=np.arange(-5, 6), scale=np.arange(4, 17)
-        )
+        mdfa_alpha1, _ = fractal_dfa(bbi, multifractal=True, q=np.arange(-5, 6), scale=np.arange(4, 17))
         for k in mdfa_alpha1.columns:
             out["MFDFA_alpha1_" + k] = mdfa_alpha1[k].values[0]
 
     if len(bbi) > 65:
         out["DFA_alpha2"] = fractal_dfa(bbi, scale=np.arange(16, 65), multifractal=False)[0]
         # For multifractal
-        mdfa_alpha2, _ = fractal_dfa(
-            bbi, multifractal=True, q=np.arange(-5, 6), scale=np.arange(16, 65)
-        )
+        mdfa_alpha2, _ = fractal_dfa(bbi, multifractal=True, q=np.arange(-5, 6), scale=np.arange(16, 65))
         for k in mdfa_alpha2.columns:
             out["MFDFA_alpha2_" + k] = mdfa_alpha2[k].values[0]
     return out
@@ -248,7 +241,6 @@ def _rsp_rrv_nonlinear(bbi):
 
 
 def _rsp_rrv_formatinput(rsp_rate, troughs, sampling_rate=1000):
-
     if isinstance(rsp_rate, tuple):
         rsp_rate = rsp_rate[0]
         troughs = None
@@ -264,9 +256,7 @@ def _rsp_rrv_formatinput(rsp_rate, troughs, sampling_rate=1000):
                     "we couldn't extract rsp_rate and respiratory troughs indices."
                 )
             else:
-                rsp_rate = signal_rate(
-                    df[cols], sampling_rate=sampling_rate, desired_length=len(df)
-                )
+                rsp_rate = signal_rate(df[cols], sampling_rate=sampling_rate, desired_length=len(df))
         else:
             rsp_rate = df[cols[0]].values
 
@@ -275,9 +265,7 @@ def _rsp_rrv_formatinput(rsp_rate, troughs, sampling_rate=1000):
             troughs = _signal_formatpeaks_sanitize(df, key="RSP_Troughs")
         except NameError as e:
             raise ValueError(
-                "NeuroKit error: _rsp_rrv_formatinput(): "
-                "Wrong input, we couldn't extract "
-                "respiratory troughs indices."
+                "NeuroKit error: _rsp_rrv_formatinput(): Wrong input, we couldn't extract respiratory troughs indices."
             ) from e
     else:
         troughs = _signal_formatpeaks_sanitize(troughs, key="RSP_Troughs")
@@ -316,9 +304,7 @@ def _rsp_rrv_plot(bbi):
         fill=False,
     )
     ax.add_patch(ellipse)
-    ellipse = matplotlib.patches.Ellipse(
-        xy=(mean_bbi, mean_bbi), width=2 * sd2, height=2 * sd1, angle=45
-    )
+    ellipse = matplotlib.patches.Ellipse(xy=(mean_bbi, mean_bbi), width=2 * sd2, height=2 * sd1, angle=45)
     ellipse.set_alpha(0.02)
     ellipse.set_facecolor("blue")
     ax.add_patch(ellipse)

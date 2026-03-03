@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "easydev"
-version = "0.13.3"
+version = "0.14.0"
 description = "Common utilities to ease development of Python packages"
 authors = [
     { "name" = "Thomas Cokelaer", "email" = "thomas.cokelaer@pasteur.fr" },
@@ -21,10 +21,12 @@ classifiers = [
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: BSD License",
         "Operating System :: POSIX :: Linux",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Scientific/Engineering :: Information Analysis",
@@ -51,7 +53,7 @@ colorama = "^0.4.6"
 colorlog = "^6.8.2"
 pexpect = "^4.9.0"
 platformdirs = "^4.2.0"
-line-profiler = "^4.1.2"
+line-profiler = "^5.0.0"
 
 
 

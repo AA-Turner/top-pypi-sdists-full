@@ -95,12 +95,6 @@ class PluginManager:
                     continue
                 if plugin_dir.name.startswith("_") or plugin_dir.name.startswith("."):
                     continue
-                # Symlink traversal guard: resolved path must be inside PLUGINS_DIR
-                try:
-                    plugin_dir.resolve().relative_to(PLUGINS_DIR.resolve())
-                except ValueError:
-                    log.warning("[PLUGIN] Blocked symlink outside plugins dir: %s", plugin_dir)
-                    continue
 
                 plugin_json = plugin_dir / "plugin.json"
                 init_py = plugin_dir / "__init__.py"
@@ -114,12 +108,7 @@ class PluginManager:
                     log.error(f"[PLUGIN] Bad plugin.json in {plugin_dir.name}: {e}")
                     continue
 
-                raw_name = metadata.get("name", plugin_dir.name)
-                # Sanitize: plugin name must be safe for use as module identifier
-                import re as _re_plug
-                name = _re_plug.sub(r"[^a-zA-Z0-9_\-]", "_", str(raw_name))[:64]
-                if not name:
-                    name = plugin_dir.name
+                name = metadata.get("name", plugin_dir.name)
                 info = PluginInfo(name, plugin_dir, metadata)
 
                 # Check enabled state

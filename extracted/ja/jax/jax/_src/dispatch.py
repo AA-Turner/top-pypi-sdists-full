@@ -106,7 +106,7 @@ def xla_primitive_callable(prim: core.Primitive, **params):
       return prim.bind(*args, **params)
   prim_fun.__name__ = prim.name
   prim_fun.__qualname__ = prim.name
-  prim_fun._apply_primitive = True
+  prim_fun._apply_primitive = True  # pyrefly: ignore[missing-attribute]
   return api.jit(prim_fun)
 
 
@@ -271,8 +271,6 @@ def get_intermediate_shardings(
       out.extend((o, source_info) for o in eqn.params['out_shardings'])
     elif eqn.primitive is shard_map.shard_map_p:
       mesh = eqn.params['mesh']
-      if isinstance(mesh, AbstractMesh):
-        continue
       source_info = SourceInfo(eqn.source_info, eqn.primitive.name)
       out.extend((NamedSharding(mesh, spec), source_info)
                  for spec in [*eqn.params['in_specs'], *eqn.params['out_specs']])
@@ -429,6 +427,9 @@ def _device_put_sharding_impl(
 ):
   from jax.experimental import multihost_utils  # pytype: disable=import-error
 
+  # Use a dynamic type, because the static type depends on the value of
+  # ``x_is_jax_array``.
+  x_sharding: Any
   if isinstance(x, array.ArrayImpl):
     x_is_jax_array = True
     x_is_fully_addressable, x_sharding = x.is_fully_addressable, x.sharding
@@ -505,10 +506,12 @@ def _device_put_sharding_impl(
 
   # Only `Device` exists below. `Sharding` instance is handled above.
   if x_is_jax_array:
-    if not x_is_fully_addressable:
+    if not x_is_fully_addressable and not is_single_device_sharding(x_sharding):
       raise ValueError(
-          "device_put's first argument must be a fully addressable array, but "
-          f"got value with devices {x.devices()}")
+          "When the second argument to `device_put` is a Device, the first "
+          "argument must be a fully addressable array or a non-addressable "
+          "array with a single device sharding. Got value with devices "
+          f"{x.devices()}")
     if device is None:
       if copy == ArrayCopySemantics.REUSE_INPUT:
         return x
@@ -516,11 +519,19 @@ def _device_put_sharding_impl(
         return _DeferredShardArg(x, x_sharding, aval, x.committed, copy)
     elif is_single_device_sharding(x_sharding):
       device = x_sharding._device_assignment[0] if device is None else device
+      sharding = SingleDeviceSharding(device)
+      if not x._committed and not sharding.has_addressable_devices:
+        # For uncommitted arrays in McJAX, each process has a local copy of the
+        # array. If the destination sharding is not addressable, no data
+        # transfer is needed, since the data was transferred in the process
+        # in which the sharding is addressable.
+        shards, devices = [], []
+      else:
+        shards, devices = [x], [device]
       if copy == ArrayCopySemantics.ALWAYS_COPY:
-        return xc.batched_device_put(aval, SingleDeviceSharding(device), [x],
-                                     [device], True, True)
-      return pxla.batched_device_put(aval, SingleDeviceSharding(device), [x],
-                                     [device])
+        return xc.batched_device_put(aval, sharding, shards, devices, True,
+                                     True)
+      return pxla.batched_device_put(aval, sharding, shards, devices)
 
   sh = SingleDeviceSharding(pxla.get_default_device()
                             if device is None else device)
@@ -716,6 +727,7 @@ def _tpu_gpu_device_put_lowering(ctx, *xs, devices, srcs, copy_semantics):
               device._to_xla_hlo_sharding(aval.ndim).to_proto())
       mem_kind = (core.mem_space_to_kind(device)
                   if isinstance(device, core.MemorySpace) else device.memory_kind)
+      assert mem_kind is not None
       x = mlir.wrap_with_memory_kind(x, mem_kind, out_aval)
       return x
     return x

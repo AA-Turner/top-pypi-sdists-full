@@ -97,32 +97,17 @@ def check_approval(command: str) -> tuple:
 
     # Denylist check (exact or pattern match)
     for pattern in config.get("denylist", []):
-        try:
-            if re.search(pattern, cmd_stripped):
-                return False, f"Denied by denylist pattern: {pattern}", False
-        except re.error as _reerr:
-            log.warning("[APPROVALS] Invalid denylist regex ignored: %s (%s)", pattern[:80], _reerr)
-            continue
+        if re.search(pattern, cmd_stripped):
+            return False, f"Denied by denylist pattern: {pattern}", False
 
-    # Allowlist check: command must match the allowed prefix AND have no additional
-    # tokens (prevents "ls; rm -rf /" bypassing an allowlist entry of "ls").
-    import shlex as _shlex
+    # Allowlist check (exact prefix match)
     for allowed in config.get("allowlist", []):
         if cmd_stripped.startswith(allowed):
-            # Ensure nothing follows that could inject shell operators
-            rest = cmd_stripped[len(allowed):]
-            _SHELL_INJECT = frozenset({"|", ";", "&", "`", "$", "(", ")", "\n", "\r"})
-            if not rest or (rest.startswith(" ") and not any(c in rest for c in _SHELL_INJECT)):
-                return True, "Allowed by allowlist", False
+            return True, "Allowed by allowlist", False
 
     # Dangerous pattern detection
     for pattern in DANGEROUS_PATTERNS:
-        try:
-            matched = re.search(pattern, cmd_stripped, re.IGNORECASE)
-        except re.error:
-            log.warning("[APPROVALS] Invalid denylist regex skipped: %s", pattern[:80])
-            continue
-        if matched:
+        if re.search(pattern, cmd_stripped, re.IGNORECASE):
             if config.get("auto_approve"):
                 return True, f"Auto-approved (dangerous: {pattern})", False
             return False, f"Dangerous command detected: {pattern}", True
@@ -221,37 +206,10 @@ class BackgroundSession:
                     **popen_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=run_env, cwd=str(_ws)
                 )
                 self.process = proc  # Now kill() can reach it
-                # BUG-DG fix: cap stdout/stderr during streaming to avoid OOM
-                # on long-running commands that produce large output.
-                _MAX_STDOUT = 100_000  # chars
-                _MAX_STDERR = 10_000
-                stdout_chunks: list = []
-                stderr_chunks: list = []
-                stdout_total = [0]
-                stderr_total = [0]
-
-                def _read_capped(stream, chunks, total, cap):
-                    try:
-                        for line in stream:
-                            total[0] += len(line)
-                            if total[0] <= cap:
-                                chunks.append(line)
-                    except Exception:
-                        pass
-
-                import threading as _thr
-                t_out = _thr.Thread(target=_read_capped, args=(proc.stdout, stdout_chunks, stdout_total, _MAX_STDOUT), daemon=True)
-                t_err = _thr.Thread(target=_read_capped, args=(proc.stderr, stderr_chunks, stderr_total, _MAX_STDERR), daemon=True)
-                t_out.start(); t_err.start()
                 try:
-                    proc.wait(timeout=self.timeout)
-                    t_out.join(timeout=5); t_err.join(timeout=5)
-                    self.stdout_data = "".join(stdout_chunks)
-                    if stdout_total[0] > _MAX_STDOUT:
-                        self.stdout_data += f"\n[... {stdout_total[0] - _MAX_STDOUT} chars truncated]"
-                    self.stderr_data = "".join(stderr_chunks)
-                    if stderr_total[0] > _MAX_STDERR:
-                        self.stderr_data += f"\n[... {stderr_total[0] - _MAX_STDERR} chars truncated]"
+                    stdout, stderr = proc.communicate(timeout=self.timeout)
+                    self.stdout_data = stdout[-100_000:] if stdout else ""
+                    self.stderr_data = stderr[-10_000:] if stderr else ""
                     self.exit_code = proc.returncode
                     self.status = "completed"
                 except subprocess.TimeoutExpired:
@@ -282,8 +240,7 @@ class BackgroundSession:
 
         self._thread = threading.Thread(target=_run, daemon=True, name=f"bg-exec-{self.session_id}")
         self._thread.start()
-        with BackgroundSession._lock:  # BUG-DW fix: guard _sessions dict write
-            BackgroundSession._sessions[self.session_id] = self
+        BackgroundSession._sessions[self.session_id] = self
         return self.session_id
 
     def poll(self) -> dict:
@@ -322,21 +279,17 @@ class BackgroundSession:
     @classmethod
     def list_sessions(cls) -> list:
         """List all background sessions."""
-        with cls._lock:  # BUG-DW fix
-            snapshot = list(cls._sessions.values())
-        return [s.poll() for s in snapshot]
+        return [s.poll() for s in cls._sessions.values()]
 
     @classmethod
     def get_session(cls, session_id: str):
         """Get a background session by ID."""
-        with cls._lock:  # BUG-DW fix
-            return cls._sessions.get(session_id)
+        return cls._sessions.get(session_id)
 
     @classmethod
     def kill_session(cls, session_id: str) -> str:
         """Kill a specific background session."""
-        with cls._lock:  # BUG-DW fix
-            s = cls._sessions.get(session_id)
+        s = cls._sessions.get(session_id)
         if not s:
             return f"❌ Session {session_id} not found"
         return s.kill()

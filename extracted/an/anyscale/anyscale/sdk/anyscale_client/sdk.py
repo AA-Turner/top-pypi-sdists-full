@@ -4,15 +4,9 @@ import os
 import logging
 import copy
 from time import sleep, time
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from anyscale.api import configure_tcp_keepalive
-from anyscale.sdk.anyscale_client.models.cluster_compute_config import (
-    ClusterComputeConfig,
-)
-from anyscale.sdk.anyscale_client.models.create_cluster_compute import (
-    CreateClusterCompute,
-)
 from anyscale.sdk.anyscale_client.models.production_job import ProductionJob
 from anyscale.sdk.anyscale_client.models.ha_job_states import HaJobStates
 from anyscale.utils.runtime_env import upload_and_rewrite_working_dir
@@ -26,20 +20,15 @@ from anyscale.sdk.anyscale_client.models.create_byod_cluster_environment import 
     CreateBYODClusterEnvironment,
 )
 from anyscale.sdk.anyscale_client.models.cluster import Cluster
-from anyscale.sdk.anyscale_client.models.cluster_state import ClusterState
-from anyscale.sdk.anyscale_client.models.update_cluster import UpdateCluster
 
 from anyscale.sdk.anyscale_client.models.cluster_environment_build import (
     ClusterEnvironmentBuild,
 )
 from anyscale.shared_anyscale_utils.headers import RequestHeaders
 from anyscale.cli_logger import BlockLogger, StringLogger, pad_string
-from anyscale.cluster_compute import get_selected_cloud_id_or_default
 from anyscale.util import get_endpoint
 from anyscale.authenticate import AuthenticationBlock
 from anyscale_client.models import ClusterEnvironmentBuildStatus
-from anyscale.util import get_ray_and_py_version_for_default_cluster_env
-from anyscale.project_utils import get_default_project
 from anyscale.utils.ray_version_utils import get_correct_name_for_base_image_name
 
 logger = logging.getLogger(__file__)
@@ -308,193 +297,6 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
             self.log.info("Cluster environment successfully finished building.")
             return self.get_build(operation_id).result
 
-    def launch_cluster(
-        self,
-        project_id: Optional[str],
-        cluster_name: str,
-        cluster_environment_build_id: Optional[str] = None,
-        cluster_compute_id: Optional[str] = None,
-        poll_rate_seconds: int = 15,
-        timeout_seconds: Optional[int] = None,
-        idle_timeout_minutes: Optional[int] = None,
-        cluster_compute_config: Optional[ClusterComputeConfig] = None,
-        log_output: bool = False,
-    ) -> Cluster:
-        """
-        Starts a Cluster in the specified Project.
-        If a Cluster with the specified name already exists, we will update that Cluster.
-        Otherwise, a new Cluster will be created.
-
-        Args:
-            project_id - ID of the Project the Cluster belongs to or None to launch cluster without a project.
-            cluster_name - Name of the Cluster
-            cluster_environment_build_id - Cluster Environment Build to start this Cluster with
-                                           If none, uses a default cluster_environment_build
-            cluster_compute_id - Cluster Compute to start this Cluster with
-                                 If none, it checks if `cluster_compute_config` is specified.
-                                 If `cluster_compute_config` is none, it uses a default cluster_compute.
-            poll_rate_seconds - seconds to wait when polling Cluster operation status; defaults to 15
-            timeout_seconds - maximum number of seconds to wait for Cluster operation to complete before timing out; defaults to no timeout
-            idle_timeout_minutes - Idle timeout (in minutes), after which the Cluster is terminated
-            cluster_compute_config - One-off Cluster Compute that this Cluster will use.
-            log_output - Whether to show verbose logs during execution
-
-        Returns:
-            Cluster object
-
-        Raises:
-            Exception if starting Cluster fails or times out
-        """
-
-        self.log.log_output = log_output
-        if project_id:
-            search_project_id = project_id
-        else:
-            parent_cloud_id = get_selected_cloud_id_or_default(
-                cluster_compute_id=cluster_compute_id,
-                cluster_compute_config=cluster_compute_config,
-                cloud_id=None,
-                cloud_name=None,
-            )
-            default_project = get_default_project(parent_cloud_id=parent_cloud_id)
-            project_id = default_project.id
-
-        clusters: Optional[List[Cluster]] = self.search_clusters(
-            {"project_id": project_id, "name": {"equals": cluster_name}}
-        ).results
-
-        if clusters:
-
-            sorted_clusters_list = sorted(clusters, key=lambda x: x.created_at, reverse=True)
-            cluster: Cluster = sorted_clusters_list[0]
-
-            if cluster.state in [ClusterState.STARTINGUP, ClusterState.RUNNING, ClusterState.UPDATING, ClusterState.TERMINATING, ClusterState.AWAITINGSTARTUP]:
-                raise Exception(
-                    f"Cluster {cluster_name} in project {project_id} is in state {cluster.state}. "
-                    "Please terminate the cluster or use a new cluster name, then rerun launch_cluster."
-                )
-
-            if not cluster_environment_build_id:
-                cluster_environment_build_id = cluster.cluster_environment_build_id
-
-            if not cluster_compute_id:
-                cluster_compute_id = cluster.cluster_compute_id
-
-            if not idle_timeout_minutes:
-                idle_timeout_minutes = cluster.idle_timeout_minutes
-
-            # Update cluster with new configurations
-            # Or use configurations from terminated cluster
-            update_cluster_config = UpdateCluster(
-                cluster_environment_build_id=cluster_environment_build_id,
-                cluster_compute_id=cluster_compute_id,
-                idle_timeout_minutes=idle_timeout_minutes,
-            )
-
-            self.update_cluster(cluster.id, update_cluster_config)
-
-        else:
-            if not cluster_environment_build_id:
-                # Use default cluster environment build when starting cluster without specifying an id
-                (
-                    ray_version,
-                    py_version,
-                ) = get_ray_and_py_version_for_default_cluster_env()
-                cluster_environment_build_id = (
-                    self.get_default_cluster_environment_build(
-                        f"py{py_version}", ray_version
-                    ).result.id
-                )
-
-            if not cluster_compute_id:
-                if cluster_compute_config:
-                    cluster_compute_id = self.create_cluster_compute(
-                        CreateClusterCompute(
-                            config=cluster_compute_config, anonymous=True
-                        )
-                    ).result.id
-                else:
-                    # Use default cluster compute when starting cluster without specifying an id
-                    cluster_compute_id = self.get_default_cluster_compute().result.id
-
-
-            create_cluster_payload: Dict[str, Any] = {
-                "name": cluster_name,
-                "project_id": project_id,
-                "cluster_environment_build_id": cluster_environment_build_id,
-                "cluster_compute_id": cluster_compute_id,
-            }
-            if idle_timeout_minutes:
-                create_cluster_payload["idle_timeout_minutes"] = idle_timeout_minutes
-
-            # Create cluster DB reference
-            cluster = self.create_cluster(create_cluster_payload).result
-
-        # Start cluster
-        start_operation = self.start_cluster(
-            cluster.id,
-            {
-                "cluster_environment_build_id": cluster_environment_build_id,
-                "cluster_compute_id": cluster_compute_id,
-                "idle_timeout_minutes": idle_timeout_minutes,
-            },
-        ).result
-
-        return self.wait_for_cluster_operation(
-            start_operation.id, poll_rate_seconds, timeout_seconds
-        )
-
-    def launch_cluster_with_new_cluster_environment(
-        self,
-        project_id: Optional[str],
-        cluster_name: str,
-        create_cluster_environment: CreateClusterEnvironment,
-        cluster_compute_id: Optional[str] = None,
-        poll_rate_seconds: int = 15,
-        timeout_seconds: Optional[int] = None,
-        idle_timeout_minutes: Optional[int] = None,
-        cluster_compute_config: Optional[ClusterComputeConfig] = None,
-    ) -> Cluster:
-        """
-        Builds a new Cluster Environment, then starts a Cluster in the specified Project with the new build.
-        If a Cluster with the specified name already exists, we will update that Cluster.
-        Otherwise, a new Cluster will be created.
-
-        Args:
-            project_id - ID of the Project the Cluster belongs to or None to launch a cluster without a project.
-            cluster_name - Name of the Cluster
-            create_cluster_environment - CreateClusterEnvironment object
-            cluster_compute_id - Cluster Compute to start this Cluster with
-                                 If none, it checks if `cluster_compute_config` is specified.
-                                 If `cluster_compute_config` is  none, it uses a default cluster_compute.
-            poll_rate_seconds - seconds to wait when polling for operations; defaults to 15
-            timeout_seconds - maximum number of seconds to wait for each operation to complete before timing out; defaults to no timeout
-            idle_timeout_minutes - Idle timeout (in minutes), after which the Cluster is terminated
-            cluster_compute_config - One-off Cluster Compute that this Cluster will use.
-
-        Returns:
-            Cluster object
-
-        Raises:
-            Exception if building the new Cluster Environment fails or starting the Cluster fails.
-        """
-
-        cluster_environment_build = self.build_cluster_environment(
-            create_cluster_environment, poll_rate_seconds, timeout_seconds
-        )
-
-        assert cluster_environment_build is not None
-        return self.launch_cluster(
-            project_id,
-            cluster_name,
-            cluster_environment_build.id,
-            cluster_compute_id,
-            poll_rate_seconds,
-            timeout_seconds,
-            idle_timeout_minutes,
-            cluster_compute_config,
-        )
-
     def wait_for_cluster_operation(
         self,
         operation_id: str,
@@ -531,7 +333,7 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
         if operation.result.error:
             raise Exception("Failed to start Cluster", operation.result.error)
         else:
-            return self.get_cluster(operation.cluster_id).result
+            return super().get_cluster(operation.cluster_id).result
 
     def fetch_production_job_logs(self, job_id: str) -> str:
         from anyscale.controllers.job_controller import JobController
@@ -597,7 +399,7 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
         Raises
             Exception if invalid cluster name
         """
-        clusters = self.search_clusters(
+        clusters = super().search_clusters(
             {"project_id": project_id, "name": {"equals": cluster_name}}
         ).results
 
@@ -637,6 +439,63 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
             "AnyscaleSDK.search_clouds() is deprecated. "
             "Please use anyscale.cloud.list() instead. "
             "See https://docs.anyscale.com/reference/cloud for details."
+        )
+
+    # Cluster
+    def launch_cluster(self, *args, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.launch_cluster() is deprecated. "
+            "Please use anyscale.workspace.create() instead. "
+            "See https://docs.anyscale.com/reference/workspace for details."
+        )
+
+    def launch_cluster_with_new_cluster_environment(self, *args, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.launch_cluster_with_new_cluster_environment() is deprecated. "
+            "Please use anyscale.workspace.create() instead. "
+            "See https://docs.anyscale.com/reference/workspace for details."
+        )
+
+    def create_cluster(self, create_cluster, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_cluster() is deprecated. "
+            "Please use anyscale.workspace.create() instead. "
+            "See https://docs.anyscale.com/reference/workspace for details."
+        )
+
+    def delete_cluster(self, cluster_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.delete_cluster() is deprecated. "
+            "No replacement. Deleting a cluster is no longer supported. "
+            "See https://docs.anyscale.com/reference/workspace for details."
+        )
+
+    def search_clusters(self, clusters_query, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.search_clusters() is deprecated. "
+            "Please use anyscale.workspace.list() instead. "
+            "See https://docs.anyscale.com/reference/workspace for details."
+        )
+
+    def start_cluster(self, cluster_id, start_cluster_options, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.start_cluster() is deprecated. "
+            "Please use anyscale.workspace.start() instead. "
+            "See https://docs.anyscale.com/reference/workspace for details."
+        )
+
+    def terminate_cluster(self, cluster_id, terminate_cluster_options, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.terminate_cluster() is deprecated. "
+            "Please use anyscale.workspace.terminate() instead. "
+            "See https://docs.anyscale.com/reference/workspace for details."
+        )
+
+    def update_cluster(self, cluster_id, update_cluster, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.update_cluster() is deprecated. "
+            "Please use anyscale.workspace.update() instead. "
+            "See https://docs.anyscale.com/reference/workspace for details."
         )
 
     # Cluster Environment
@@ -701,6 +560,11 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
             "AnyscaleSDK.search_cluster_environments() is deprecated. "
             "Please use anyscale.image.list() instead. "
             "See https://docs.anyscale.com/reference/image for details."
+        )
+
+    def get_default_cluster_environment_build(self, python_version, ray_version, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_default_cluster_environment_build() is deprecated."
         )
 
     # Compute Config
@@ -789,4 +653,104 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
             "AnyscaleSDK.terminate_service() is deprecated. "
             "Please use anyscale.service.terminate() instead. "
             "See https://docs.anyscale.com/reference/service-api for details."
+        )
+
+    # Job
+    def create_job(self, create_production_job, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_job() is deprecated. "
+            "Please use anyscale.job.submit() instead."
+            "See https://docs.anyscale.com/reference/job-api for more details."
+        )
+
+    # def get_production_job(self, production_job_id, **kwargs):
+    #     raise AnyscaleSDKDeprecationError(
+    #         "AnyscaleSDK.get_production_job() is deprecated. "
+    #         "Please use anyscale.job.status() instead."
+    #         "See https://docs.anyscale.com/reference/job-api for more details."
+    #     )
+
+    def terminate_job(self, production_job_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.terminate_job() is deprecated. "
+            "Please use anyscale.job.terminate() instead."
+            "See https://docs.anyscale.com/reference/job-api for more details."
+        )
+
+    def fetch_job_logs(self, job_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.fetch_job_logs() is deprecated. "
+            "Please use anyscale.job.get_logs() instead."
+            "See https://docs.anyscale.com/reference/job-api for more details."
+        )
+
+    def fetch_production_job_logs(self, production_job_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.fetch_production_job_logs() is deprecated. "
+            "Please use anyscale.job.get_logs() instead."
+            "See https://docs.anyscale.com/reference/job-api for more details."
+        )
+
+    def get_job_logs_download(self, job_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_job_logs_download() is deprecated. "
+            "Please use anyscale.job.get_logs() instead."
+            "See https://docs.anyscale.com/reference/job-api for more details."
+        )
+
+    def get_job_logs_stream(self, job_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_job_logs_stream() is deprecated. "
+            "Please use anyscale.job.get_logs() instead."
+            "See https://docs.anyscale.com/reference/job-api for more details."
+        )
+
+    def search_jobs(self, jobs_query, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.search_jobs() is deprecated. "
+            "Please use anyscale.job.list() instead."
+            "See https://docs.anyscale.com/reference/job-api for more details."
+        )
+
+    # def list_production_jobs(self, **kwargs):
+    #     raise AnyscaleSDKDeprecationError(
+    #         "AnyscaleSDK.list_production_jobs() is deprecated. "
+    #         "Please use anyscale.job.list() instead."
+    #         "See https://docs.anyscale.com/reference/job-api for more details."
+    #     )
+    
+    # Schedule
+    def create_or_update_schedule(self, create_schedule, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.create_or_update_schedule() is deprecated. "
+            "Please use anyscale.schedule.apply() instead. "
+            "See https://docs.anyscale.com/reference/schedule-api for details."
+        )
+
+    def get_schedule(self, schedule_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.get_schedule() is deprecated. "
+            "Please use anyscale.schedule.status() instead. "
+            "See https://docs.anyscale.com/reference/schedule-api for details."
+        )
+
+    def list_schedules(self, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.list_schedules() is deprecated. "
+            "Please use anyscale.schedule.list() instead. "
+            "See https://docs.anyscale.com/reference/schedule-api for details."
+        )
+
+    def pause_schedule(self, schedule_id, pause_schedule, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.pause_schedule() is deprecated. "
+            "Please use anyscale.schedule.set_state() instead. "
+            "See https://docs.anyscale.com/reference/schedule-api for details."
+        )
+
+    def run_schedule(self, schedule_id, **kwargs):
+        raise AnyscaleSDKDeprecationError(
+            "AnyscaleSDK.run_schedule() is deprecated. "
+            "Please use anyscale.schedule.trigger() instead. "
+            "See https://docs.anyscale.com/reference/schedule-api for details."
         )

@@ -97,6 +97,33 @@ dict_growth_stages_monthly = {
     12: "Dec 1",
 }
 
+# End-date dictionaries: last day of each period (start of next period - 1 day)
+dict_growth_stages_end = {
+    1: "Jan 10", 2: "Jan 20", 3: "Jan 31", 4: "Feb 9", 5: "Feb 19",
+    6: "Feb 28", 7: "Mar 10", 8: "Mar 20", 9: "Mar 31", 10: "Apr 9",
+    11: "Apr 19", 12: "Apr 29", 13: "May 9", 14: "May 19", 15: "May 29",
+    16: "Jun 8", 17: "Jun 18", 18: "Jun 28", 19: "Jul 8", 20: "Jul 18",
+    21: "Jul 28", 22: "Aug 7", 23: "Aug 17", 24: "Aug 27", 25: "Sep 6",
+    26: "Sep 16", 27: "Sep 26", 28: "Oct 6", 29: "Oct 16", 30: "Oct 26",
+    31: "Nov 5", 32: "Nov 15", 33: "Nov 25", 34: "Dec 5", 35: "Dec 15",
+    36: "Dec 25", 37: "Dec 31",
+}
+
+dict_growth_stages_biweekly_end = {
+    1: "Jan 14", 2: "Jan 28", 3: "Feb 11", 4: "Feb 25", 5: "Mar 10",
+    6: "Mar 24", 7: "Apr 7", 8: "Apr 21", 9: "May 5", 10: "May 19",
+    11: "Jun 2", 12: "Jun 16", 13: "Jun 30", 14: "Jul 14", 15: "Jul 28",
+    16: "Aug 11", 17: "Aug 25", 18: "Sep 8", 19: "Sep 22", 20: "Oct 6",
+    21: "Oct 20", 22: "Nov 3", 23: "Nov 17", 24: "Dec 1", 25: "Dec 15",
+    26: "Dec 30", 27: "Dec 31",
+}
+
+dict_growth_stages_monthly_end = {
+    1: "Jan 31", 2: "Feb 28", 3: "Mar 31", 4: "Apr 30", 5: "May 31",
+    6: "Jun 30", 7: "Jul 31", 8: "Aug 31", 9: "Sep 30", 10: "Oct 31",
+    11: "Nov 30", 12: "Dec 31",
+}
+
 
 def remove_last_part(s):
     # Function to remove the part after the last underscore, including the last underscore
@@ -792,12 +819,14 @@ def display_run_summary(title, params, wait=20):
     from rich.console import Console
     from rich.panel import Panel
     from rich.table import Table
+    from geocif import __version__
 
     console = Console()
     table = Table(show_header=False, box=None, padding=(0, 1))
     table.add_column(style="bold cyan", no_wrap=True)
     table.add_column()
 
+    table.add_row("version", __version__)
     for label, value in params:
         if isinstance(value, list):
             value = ", ".join(str(v) for v in value)

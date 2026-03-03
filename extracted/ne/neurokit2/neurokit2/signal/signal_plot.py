@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -7,9 +6,7 @@ from ..events import events_plot
 from ..stats import standardize as nk_standardize
 
 
-def signal_plot(
-    signal, sampling_rate=None, subplots=False, standardize=False, labels=None, **kwargs
-):
+def signal_plot(signal, sampling_rate=None, subplots=False, standardize=False, labels=None, **kwargs):
     """**Plot signal with events as vertical lines**
 
     Parameters
@@ -81,7 +78,6 @@ def signal_plot(
             signal = np.array(signal)
 
     if isinstance(signal, pd.DataFrame) is False:
-
         # If list is passed
         if isinstance(signal, list) or len(np.array(signal).shape) > 1:
             out = pd.DataFrame()
@@ -116,7 +112,7 @@ def signal_plot(
         vector = signal[col]
         if vector.nunique() == 2:
             indices = np.where(vector == np.max(vector.unique()))
-            if bool(np.any(np.diff(indices) == 1)) is False:
+            if not np.any(np.diff(indices) == 1):
                 events_columns.append(col)
                 continuous_columns.remove(col)
 
@@ -144,7 +140,6 @@ def signal_plot(
             plt.gca().set_xlabel(title_x)
 
     else:
-
         # Aesthetics
         colors = [
             "#1f77b4",
@@ -188,9 +183,7 @@ def signal_plot(
         n_labels = len(labels)
 
     if len(signal[continuous_columns].columns) != n_labels:
-        raise ValueError(
-            "NeuroKit error: signal_plot(): number of labels does not equal the number of plotted signals."
-        )
+        raise ValueError("NeuroKit error: signal_plot(): number of labels does not equal the number of plotted signals.")
 
     if subplots is False:
         plt.legend(labels, loc=1)

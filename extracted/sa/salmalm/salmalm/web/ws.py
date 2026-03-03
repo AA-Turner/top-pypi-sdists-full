@@ -198,26 +198,6 @@ class WebSocketServer:
             return
 
         session_id = websocket.query_params.get("session", "web")
-
-        # BUG-DQ fix: scope session_id to authenticated user in multi-tenant mode.
-        # Prevents user A from connecting to user B's session_id (message hijack).
-        if _user and _user.get("role") != "admin":
-            _uid_ws = _user.get("id") or _user.get("uid")
-            if _uid_ws and session_id not in ("web", ""):
-                # Non-default session must be namespaced to this user
-                if not session_id.startswith(f"{session_id.split('_')[0]}"):
-                    # Validate ownership via session store
-                    try:
-                        from salmalm.core.session_store import _sessions as _ss_map
-                        existing = _ss_map.get(session_id)
-                        if existing and existing.user_id is not None and existing.user_id != _uid_ws:
-                            log.warning("[WS] session_id %s owned by user %s, rejected user %s",
-                                        session_id, existing.user_id, _uid_ws)
-                            await websocket.close(code=4003, reason="Forbidden: session belongs to another user")
-                            return
-                    except Exception:
-                        pass
-
         client = _WSClientAdapter(websocket, session_id)
 
         await self._manager.connect(websocket, session_id)
@@ -250,10 +230,7 @@ class WebSocketServer:
                 if data.get("type") == "abort":
                     try:
                         from salmalm.features.edge_cases import abort_controller
-                        # BUG-DT fix: only allow aborting own session, not other users'
                         sid = data.get("session", session_id)
-                        if sid != session_id:
-                            sid = session_id  # ignore cross-session abort attempts
                         abort_controller.set_abort(sid)
                         await websocket.send_json({"type": "aborted", "session": sid})
                     except Exception as e:

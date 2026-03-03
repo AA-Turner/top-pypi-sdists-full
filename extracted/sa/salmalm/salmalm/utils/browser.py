@@ -251,7 +251,7 @@ class BrowserController:
             url = f"http://{self.debug_host}:{self.debug_port}/json"
             req = urllib.request.Request(url)
             with urllib.request.urlopen(req, timeout=5) as resp:
-                targets = json.loads(resp.read(4 * 1024 * 1024))
+                targets = json.loads(resp.read())
 
             # Find a page target
             pages = [t for t in targets if t.get("type") == "page"]
@@ -412,7 +412,7 @@ class BrowserController:
             req = urllib.request.Request(url)
             def _fetch():
                 with urllib.request.urlopen(req, timeout=5) as resp:
-                    return json.loads(resp.read(4 * 1024 * 1024))
+                    return json.loads(resp.read())
             targets = await _asyncio_bt.to_thread(_fetch)
             return [
                 {"id": t["id"], "title": t.get("title", ""), "url": t.get("url", ""), "type": t.get("type", "")}
@@ -430,7 +430,7 @@ class BrowserController:
             req = urllib.request.Request(api_url, method="PUT")
             def _do_new_tab():
                 with urllib.request.urlopen(req, timeout=5) as resp:
-                    return json.loads(resp.read(4 * 1024 * 1024))
+                    return json.loads(resp.read())
             return await _aio_nt.to_thread(_do_new_tab)  # type: ignore[no-any-return]
         except Exception as e:
             return {"error": str(e)}

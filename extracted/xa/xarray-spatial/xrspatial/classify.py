@@ -24,7 +24,14 @@ except ImportError:
 import numba as nb
 import numpy as np
 
-from xrspatial.utils import ArrayTypeFunctionMapping, cuda_args, ngjit, not_implemented_func
+from xrspatial.utils import (
+    ArrayTypeFunctionMapping,
+    _validate_raster,
+    _validate_scalar,
+    cuda_args,
+    ngjit,
+    not_implemented_func,
+)
 from xrspatial.dataset_support import supports_dataset
 
 
@@ -136,6 +143,7 @@ def binary(agg, values, name='binary'):
                [0.,  0.,  0.,  0.,  np.nan]], dtype=float32)
         Dimensions without coordinates: dim_0, dim_1
     """
+    _validate_raster(agg, func_name='binary', name='agg', ndim=None)
 
     mapper = ArrayTypeFunctionMapping(numpy_func=_run_numpy_binary,
                                       dask_func=_run_dask_numpy_binary,
@@ -380,6 +388,7 @@ def reclassify(agg: xr.DataArray,
 
     Reclassify works with Dask with CuPy backed xarray DataArray.
     """
+    _validate_raster(agg, func_name='reclassify', name='agg', ndim=None)
 
     if len(bins) != len(new_values):
         raise ValueError(
@@ -393,7 +402,8 @@ def reclassify(agg: xr.DataArray,
                         attrs=agg.attrs)
 
 
-def _run_quantile(data, k, module):
+def _run_quantile(data, num_sample, k, module):
+    # num_sample ignored for in-memory backends
     w = 100.0 / k
     p = module.arange(w, 100 + w, w)
 
@@ -405,27 +415,47 @@ def _run_quantile(data, k, module):
     return q
 
 
-def _run_dask_cupy_quantile(data, k):
-    # Convert dask+cupy chunks to numpy one at a time via map_blocks,
-    # then use dask's streaming approximate percentile (no full materialization).
+def _run_dask_quantile(data, num_sample, k):
+    # Avoid boolean fancy indexing (data[da.isfinite(data)]) which creates
+    # unknown dask chunk sizes.  Use sampling via indexed access to avoid
+    # materialising the full array (#884).
+    w = 100.0 / k
+    p = np.arange(w, 100 + w, w)
+    if p[-1] > 100.0:
+        p[-1] = 100.0
+    clean = da.where(da.isinf(data), np.nan, data)
+    num_data = data.size
+    if num_sample is None or num_sample >= num_data:
+        num_sample = num_data
+    sample_idx = _generate_sample_indices(num_data, num_sample)
+    values = np.asarray(clean.ravel()[sample_idx].compute())
+    values = values[np.isfinite(values)]
+    q = np.percentile(values, p)
+    q = np.unique(q)
+    return q
+
+
+def _run_dask_cupy_quantile(data, num_sample, k):
+    # Convert dask+cupy chunks to numpy, then same safe path as dask (#884).
     data_cpu = data.map_blocks(cupy.asnumpy, dtype=data.dtype, meta=np.array(()))
-    return _run_quantile(data_cpu, k, da)
+    return _run_dask_quantile(data_cpu, num_sample, k)
 
 
-def _quantile(agg, k):
+def _quantile(agg, num_sample, k):
     mapper = ArrayTypeFunctionMapping(
         numpy_func=lambda *args: _run_quantile(*args, module=np),
-        dask_func=lambda *args: _run_quantile(*args, module=da),
+        dask_func=_run_dask_quantile,
         cupy_func=lambda *args: _run_quantile(*args, module=cupy),
         dask_cupy_func=_run_dask_cupy_quantile
     )
-    out = mapper(agg)(agg.data, k)
+    out = mapper(agg)(agg.data, num_sample, k)
     return out
 
 
 @supports_dataset
 def quantile(agg: xr.DataArray,
              k: int = 4,
+             num_sample: Optional[int] = 20_000,
              name: Optional[str] = 'quantile') -> xr.DataArray:
     """
     Reclassifies data for array `agg` into new values based on quantile
@@ -438,6 +468,12 @@ def quantile(agg: xr.DataArray,
         of values to be reclassified.
     k : int, default=4
         Number of quantiles to be produced.
+    num_sample : int or None, default=20000
+        Number of sample data points used to compute percentile
+        breakpoints.  For dask-backed arrays the sample is drawn
+        lazily to avoid materialising the entire array into RAM.
+        ``None`` means use all data (safe for numpy/cupy,
+        automatically capped for dask).
     name : str, default='quantile'
         Name of the output aggregate array.
 
@@ -488,8 +524,10 @@ def quantile(agg: xr.DataArray,
         Attributes:
             res:      (10.0, 10.0)
     """
+    _validate_raster(agg, func_name='quantile', name='agg', ndim=None)
+    _validate_scalar(k, func_name='quantile', name='k', dtype=int, min_val=2)
 
-    q = _quantile(agg, k)
+    q = _quantile(agg, num_sample, k)
     k_q = q.shape[0]
     if k_q < k:
         print("Quantile Warning: Not enough unique values"
@@ -695,16 +733,11 @@ def _run_dask_natural_break(agg, num_sample, k):
     max_data = float(da.nanmax(da.where(da.isinf(data), np.nan, data)).compute())
 
     num_data = data.size
-    if num_sample is not None and num_sample < num_data:
-        # Sample lazily from dask array; only materialize the sample
-        sample_idx = _generate_sample_indices(num_data, num_sample)
-        sample_data_np = np.asarray(data.ravel()[sample_idx].compute())
-        bins, uvk = _compute_natural_break_bins(
-            sample_data_np, None, k, max_data)
-    else:
-        data_flat_np = np.asarray(data.ravel().compute())
-        bins, uvk = _compute_natural_break_bins(
-            data_flat_np, None, k, max_data)
+    if num_sample is None or num_sample >= num_data:
+        num_sample = num_data  # cap: still uses indexed access, never .compute() all
+    sample_idx = _generate_sample_indices(num_data, num_sample)
+    sample_data_np = np.asarray(data.ravel()[sample_idx].compute())
+    bins, uvk = _compute_natural_break_bins(sample_data_np, None, k, max_data)
 
     out = _bin(agg, bins, np.arange(uvk))
     return out
@@ -717,17 +750,12 @@ def _run_dask_cupy_natural_break(agg, num_sample, k):
     max_data = float(da.nanmax(da.where(da.isinf(data), np.nan, data)).compute().item())
 
     num_data = data.size
-    if num_sample is not None and num_sample < num_data:
-        # Sample lazily from dask array; only materialize the sample
-        sample_idx = _generate_sample_indices(num_data, num_sample)
-        sample_data = data.ravel()[sample_idx].compute()
-        sample_data_np = cupy.asnumpy(sample_data)
-        bins, uvk = _compute_natural_break_bins(
-            sample_data_np, None, k, max_data)
-    else:
-        data_flat_np = cupy.asnumpy(data.ravel().compute())
-        bins, uvk = _compute_natural_break_bins(
-            data_flat_np, None, k, max_data)
+    if num_sample is None or num_sample >= num_data:
+        num_sample = num_data  # cap: still uses indexed access, never .compute() all
+    sample_idx = _generate_sample_indices(num_data, num_sample)
+    sample_data = data.ravel()[sample_idx].compute()
+    sample_data_np = cupy.asnumpy(sample_data)
+    bins, uvk = _compute_natural_break_bins(sample_data_np, None, k, max_data)
 
     out = _bin(agg, bins, np.arange(uvk))
     return out
@@ -819,6 +847,8 @@ def natural_breaks(agg: xr.DataArray,
                [ 4.,  4.,  4.,  4., nan]], dtype=float32)
         Dimensions without coordinates: dim_0, dim_1
     """
+    _validate_raster(agg, func_name='natural_breaks', name='agg', ndim=None)
+    _validate_scalar(k, func_name='natural_breaks', name='k', dtype=int, min_val=2)
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=_run_natural_break,
@@ -927,6 +957,8 @@ def equal_interval(agg: xr.DataArray,
         Attributes:
             res:      (10.0, 10.0)
     """
+    _validate_raster(agg, func_name='equal_interval', name='agg', ndim=None)
+    _validate_scalar(k, func_name='equal_interval', name='k', dtype=int, min_val=1)
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=lambda *args: _run_equal_interval(*args, module=np),
@@ -998,6 +1030,8 @@ def std_mean(agg: xr.DataArray,
     ----------
         - PySAL: https://pysal.org/mapclassify/_modules/mapclassify/classifiers.html#StdMean
     """
+    _validate_raster(agg, func_name='std_mean', name='agg', ndim=None)
+
     mapper = ArrayTypeFunctionMapping(
         numpy_func=lambda *args: _run_std_mean(*args, module=np),
         dask_func=lambda *args: _run_std_mean(*args, module=da),
@@ -1095,6 +1129,8 @@ def head_tail_breaks(agg: xr.DataArray,
     ----------
         - PySAL: https://pysal.org/mapclassify/_modules/mapclassify/classifiers.html#HeadTailBreaks
     """
+    _validate_raster(agg, func_name='head_tail_breaks', name='agg', ndim=None)
+
     mapper = ArrayTypeFunctionMapping(
         numpy_func=lambda *args: _run_head_tail_breaks(*args, module=np),
         dask_func=_run_dask_head_tail_breaks,
@@ -1109,20 +1145,39 @@ def head_tail_breaks(agg: xr.DataArray,
                         attrs=agg.attrs)
 
 
-def _run_percentiles(data, pct, module):
+def _run_percentiles(data, num_sample, pct, module):
+    # num_sample ignored for in-memory backends
     q = module.percentile(data[module.isfinite(data)], pct)
     q = module.unique(q)
     return q
 
 
-def _run_dask_cupy_percentiles(data, pct):
+def _run_dask_percentiles(data, num_sample, pct):
+    # Avoid boolean fancy indexing (data[da.isfinite(data)]) which creates
+    # unknown dask chunk sizes.  Use sampling via indexed access to avoid
+    # materialising the full array (#884).
+    clean = da.where(da.isinf(data), np.nan, data)
+    num_data = data.size
+    if num_sample is None or num_sample >= num_data:
+        num_sample = num_data
+    sample_idx = _generate_sample_indices(num_data, num_sample)
+    values = np.asarray(clean.ravel()[sample_idx].compute())
+    values = values[np.isfinite(values)]
+    q = np.percentile(values, pct)
+    q = np.unique(q)
+    return q
+
+
+def _run_dask_cupy_percentiles(data, num_sample, pct):
+    # Convert dask+cupy chunks to numpy, then same safe path as dask (#884).
     data_cpu = data.map_blocks(cupy.asnumpy, dtype=data.dtype, meta=np.array(()))
-    return _run_percentiles(data_cpu, pct, da)
+    return _run_dask_percentiles(data_cpu, num_sample, pct)
 
 
 @supports_dataset
 def percentiles(agg: xr.DataArray,
                 pct: Optional[List] = None,
+                num_sample: Optional[int] = 20_000,
                 name: Optional[str] = 'percentiles') -> xr.DataArray:
     """
     Classify data based on percentile breakpoints.
@@ -1134,6 +1189,12 @@ def percentiles(agg: xr.DataArray,
         of values to be classified.
     pct : list of float, default=[1, 10, 50, 90, 99]
         Percentile values to use as breakpoints.
+    num_sample : int or None, default=20000
+        Number of sample data points used to compute percentile
+        breakpoints.  For dask-backed arrays the sample is drawn
+        lazily to avoid materialising the entire array into RAM.
+        ``None`` means use all data (safe for numpy/cupy,
+        automatically capped for dask).
     name : str, default='percentiles'
         Name of output aggregate array.
 
@@ -1149,16 +1210,18 @@ def percentiles(agg: xr.DataArray,
     ----------
         - PySAL: https://pysal.org/mapclassify/_modules/mapclassify/classifiers.html#Percentiles
     """
+    _validate_raster(agg, func_name='percentiles', name='agg', ndim=None)
+
     if pct is None:
         pct = [1, 10, 50, 90, 99]
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=lambda *args: _run_percentiles(*args, module=np),
-        dask_func=lambda *args: _run_percentiles(*args, module=da),
+        dask_func=_run_dask_percentiles,
         cupy_func=lambda *args: _run_percentiles(*args, module=cupy),
         dask_cupy_func=_run_dask_cupy_percentiles,
     )
-    q = mapper(agg)(agg.data, pct)
+    q = mapper(agg)(agg.data, num_sample, pct)
 
     # Materialize bin edges to numpy
     if hasattr(q, 'compute'):
@@ -1204,7 +1267,8 @@ def _compute_maximum_break_bins(values_np, k):
     return bins
 
 
-def _run_maximum_breaks(agg, k, module):
+def _run_maximum_breaks(agg, num_sample, k, module):
+    # num_sample ignored for in-memory backends
     data = agg.data
     if module == cupy:
         finite = data[cupy.isfinite(data)]
@@ -1218,21 +1282,29 @@ def _run_maximum_breaks(agg, k, module):
     return out
 
 
-def _run_dask_maximum_breaks(agg, k):
+def _run_dask_maximum_breaks(agg, num_sample, k):
     data = agg.data
     data_clean = da.where(da.isinf(data), np.nan, data)
-    values_np = np.asarray(data_clean.ravel().compute())
+    num_data = data.size
+    if num_sample is None or num_sample >= num_data:
+        num_sample = num_data
+    sample_idx = _generate_sample_indices(num_data, num_sample)
+    values_np = np.asarray(data_clean.ravel()[sample_idx].compute())
     values_np = values_np[np.isfinite(values_np)]
     bins = _compute_maximum_break_bins(values_np, k)
     out = _bin(agg, bins, np.arange(len(bins)))
     return out
 
 
-def _run_dask_cupy_maximum_breaks(agg, k):
+def _run_dask_cupy_maximum_breaks(agg, num_sample, k):
     data = agg.data
     data_clean = da.where(da.isinf(data), np.nan, data)
     data_cpu = data_clean.map_blocks(cupy.asnumpy, dtype=data.dtype, meta=np.array(()))
-    values_np = np.asarray(data_cpu.ravel().compute())
+    num_data = data.size
+    if num_sample is None or num_sample >= num_data:
+        num_sample = num_data
+    sample_idx = _generate_sample_indices(num_data, num_sample)
+    values_np = np.asarray(data_cpu.ravel()[sample_idx].compute())
     values_np = values_np[np.isfinite(values_np)]
     bins = _compute_maximum_break_bins(values_np, k)
     out = _bin(agg, bins, np.arange(len(bins)))
@@ -1242,6 +1314,7 @@ def _run_dask_cupy_maximum_breaks(agg, k):
 @supports_dataset
 def maximum_breaks(agg: xr.DataArray,
                    k: int = 5,
+                   num_sample: Optional[int] = 20_000,
                    name: Optional[str] = 'maximum_breaks') -> xr.DataArray:
     """
     Classify data using the Maximum Breaks algorithm.
@@ -1256,6 +1329,11 @@ def maximum_breaks(agg: xr.DataArray,
         of values to be classified.
     k : int, default=5
         Number of classes to be produced.
+    num_sample : int or None, default=20000
+        Number of sample data points used to fit the model.
+        For dask-backed arrays the sample is drawn lazily to avoid
+        materialising the entire array into RAM.  ``None`` means use
+        all data (safe for numpy/cupy, automatically capped for dask).
     name : str, default='maximum_breaks'
         Name of output aggregate array.
 
@@ -1271,13 +1349,16 @@ def maximum_breaks(agg: xr.DataArray,
     ----------
         - PySAL: https://pysal.org/mapclassify/_modules/mapclassify/classifiers.html#MaximumBreaks
     """
+    _validate_raster(agg, func_name='maximum_breaks', name='agg', ndim=None)
+    _validate_scalar(k, func_name='maximum_breaks', name='k', dtype=int, min_val=2)
+
     mapper = ArrayTypeFunctionMapping(
         numpy_func=lambda *args: _run_maximum_breaks(*args, module=np),
         dask_func=_run_dask_maximum_breaks,
         cupy_func=lambda *args: _run_maximum_breaks(*args, module=cupy),
         dask_cupy_func=_run_dask_cupy_maximum_breaks,
     )
-    out = mapper(agg)(agg, k)
+    out = mapper(agg)(agg, num_sample, k)
     return xr.DataArray(out,
                         name=name,
                         dims=agg.dims,
@@ -1374,6 +1455,8 @@ def box_plot(agg: xr.DataArray,
     ----------
         - PySAL: https://pysal.org/mapclassify/_modules/mapclassify/classifiers.html#BoxPlot
     """
+    _validate_raster(agg, func_name='box_plot', name='agg', ndim=None)
+
     mapper = ArrayTypeFunctionMapping(
         numpy_func=lambda *args: _run_box_plot(*args, module=np),
         dask_func=lambda *args: _run_box_plot(*args, module=da),

@@ -52,7 +52,7 @@ export class DeckGLPlotView extends LayoutDOMView {
         this._connect_sources();
     }
     remove() {
-        this.deckGL.finalize();
+        this.deckGL?.finalize();
         super.remove();
     }
     _update_layers() {

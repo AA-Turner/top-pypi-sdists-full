@@ -25,6 +25,7 @@ from rich.console import Console
 
 from plato._generated.api.v1.cluster import prefetch_snapshot
 from plato._generated.api.v1.env import cleanup as env_cleanup
+from plato._generated.api.v1.env import get_simulator_by_name as env_get_simulator_by_name
 from plato._generated.api.v1.gitea import (
     create_simulator_repository,
     get_accessible_simulators,
@@ -32,6 +33,8 @@ from plato._generated.api.v1.gitea import (
     get_simulator_repository,
 )
 from plato._generated.api.v1.sandbox import start_worker
+from plato._generated.api.v1.simulator import get_plato_config as simulator_get_plato_config
+from plato._generated.api.v1.simulator import get_simulator_versions as simulator_get_simulator_versions
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
 from plato._generated.api.v2.jobs import state as jobs_state
 from plato._generated.api.v2.sessions import add_ssh_key as sessions_add_ssh_key
@@ -1054,12 +1057,52 @@ class SandboxClient:
         simulator: str,
         dataset: str,
         wait_timeout: int = 300,  # 5 minutes
+        use_api: bool = False,
     ) -> None:
-        with open(self.working_dir / "plato-config.yml", "rb") as f:
-            plato_config = yaml.safe_load(f)
-        plato_config_model = PlatoConfig.model_validate(plato_config)
-        dataset_config = plato_config_model.datasets[dataset]
+        if use_api:
+            self.console.print("[cyan]Config source: API[/cyan]")
+            # Use v1 simulator artifact APIs to resolve the correct simulator artifact,
+            # then fetch its plato-config.yml.
+            sim_info = env_get_simulator_by_name.sync(
+                client=self._http,
+                name=simulator,
+                x_api_key=self.api_key,
+            )
 
+            versions = simulator_get_simulator_versions.sync(
+                client=self._http,
+                simulator_name=simulator,
+                include_checkpoints=False,
+                x_api_key=self.api_key,
+            )
+
+            dataset_versions = [v for v in versions.versions if v.dataset == dataset]
+            if not dataset_versions:
+                available_datasets = sorted({v.dataset for v in versions.versions})
+                raise ValueError(
+                    f"No simulator versions found for simulator='{simulator}' dataset='{dataset}'. "
+                    f"Available datasets: {available_datasets}"
+                )
+
+            tag = sim_info.versionTag
+            tagged_versions = [v for v in dataset_versions if tag in (v.tags or [])] if tag else []
+
+            selected = max((tagged_versions or dataset_versions), key=lambda v: v.created_at)
+            plato_config_resp = simulator_get_plato_config.sync(
+                client=self._http,
+                artifact_id=selected.artifact_id,
+                x_api_key=self.api_key,
+            )
+            if not plato_config_resp.plato_config:
+                raise ValueError(f"No plato_config returned for artifact_id='{selected.artifact_id}'")
+
+            plato_config_model = PlatoConfig.model_validate(yaml.safe_load(plato_config_resp.plato_config))
+        else:
+            with open(self.working_dir / "plato-config.yml", "rb") as f:
+                plato_config = yaml.safe_load(f)
+            plato_config_model = PlatoConfig.model_validate(plato_config)
+
+        dataset_config = plato_config_model.datasets[dataset]
         # Convert AppApiV2SchemasArtifactSimConfigDataset to AppSchemasBuildModelsSimConfigDataset
         # They have compatible fields but different nested types
         dataset_config_dict = dataset_config.model_dump(exclude_none=True, mode="json")

@@ -1,7 +1,9 @@
 from functools import partial
-from wslink.emitter import EventEmitter
-from wslink.backends.generic.core import GenericServer
+
 from IPython.core.getipython import get_ipython
+
+from wslink.backends.generic.core import GenericServer
+from wslink.emitter import EventEmitter
 
 
 class WsJupyterComm(EventEmitter):
@@ -18,10 +20,10 @@ class WsJupyterComm(EventEmitter):
     def on_message(self, msg):
         self.emit("message", msg["content"]["data"], msg["buffers"])
 
-    def on_close(self, msg):
+    def on_close(self, _):
         self.comm = None
 
-    def on_open(self, comm, msg):
+    def on_open(self, comm, _):
         self.comm = comm
         comm.on_msg(self.on_message)
         comm.on_close(self.on_close)
@@ -31,7 +33,7 @@ JUPYTER_COMM = None
 
 
 def get_jupyter_comm(kernel=None):
-    global JUPYTER_COMM
+    global JUPYTER_COMM  # noqa: PLW0603
     if JUPYTER_COMM is None:
         JUPYTER_COMM = WsJupyterComm(kernel)
 
@@ -90,10 +92,10 @@ class JupyterGenericServer(GenericServer):
         await connection.send(is_binary, message)
 
 
-def startWebServer(*args, **kwargs):
-    raise NotImplementedError("Generic backend does not provide a launcher")
+def startWebServer(*_, **__):
+    msg = "Generic backend does not provide a launcher"
+    raise NotImplementedError(msg)
 
 
 def create_webserver(server_config):
-    jupyter_generic_server = JupyterGenericServer(server_config)
-    return jupyter_generic_server
+    return JupyterGenericServer(server_config)

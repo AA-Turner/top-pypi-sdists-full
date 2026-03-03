@@ -14,5 +14,6 @@ def checkURI(uri):
     for component in components:
         match = componentRegex.match(component)
         if not match:
-            raise Exception("invalid URI")
+            msg = "invalid URI"
+            raise Exception(msg)
     return uri

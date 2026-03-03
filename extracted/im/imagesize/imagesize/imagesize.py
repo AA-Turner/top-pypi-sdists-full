@@ -90,7 +90,7 @@ def get(filepath):
     height = -1
     width = -1
 
-    if isinstance(filepath, io.BytesIO):  # file-like object
+    if isinstance(filepath, (io.BytesIO, io.BufferedReader)):  # file-like object
         fhandle = filepath
     else:
         fhandle = open(filepath, 'rb')
@@ -253,14 +253,17 @@ def get(filepath):
             if head[12:16] == b"VP8 ":
                 width, height = struct.unpack("<HH", head[26:30])
             elif head[12:16] == b"VP8X":
-                width = struct.unpack("<I", head[24:27] + b"\0")[0]
-                height = struct.unpack("<I", head[27:30] + b"\0")[0]
+                width = struct.unpack("<I", head[24:27] + b"\0")[0] + 1
+                height = struct.unpack("<I", head[27:30] + b"\0")[0] + 1
             elif head[12:16] == b"VP8L":
                 b = head[21:25]
                 width = (((b[1] & 63) << 8) | b[0]) + 1
                 height = (((b[3] & 15) << 10) | (b[2] << 2) | ((b[1] & 192) >> 6)) + 1
             else:
                 raise ValueError("Unsupported WebP file")
+        elif head.startswith(b'BM'):
+            width, height = struct.unpack("<ll", head[18:26])
+
 
     finally:
         fhandle.close()

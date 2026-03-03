@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17552",
+    version="17553",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -200,6 +200,7 @@ setup(
         "System.Net.Security",
         "System.Net.Sockets",
         "System.Numerics",
+        "System.Numerics.Colors",
         "System.Numerics.Hashing",
         "System.Reflection",
         "System.Reflection.Emit",
@@ -417,6 +418,7 @@ setup(
         "System.Net.Security": ["*.py", "*.pyi", "py.typed"],
         "System.Net.Sockets": ["*.py", "*.pyi", "py.typed"],
         "System.Numerics": ["*.py", "*.pyi", "py.typed"],
+        "System.Numerics.Colors": ["*.py", "*.pyi", "py.typed"],
         "System.Numerics.Hashing": ["*.py", "*.pyi", "py.typed"],
         "System.Reflection": ["*.py", "*.pyi", "py.typed"],
         "System.Reflection.Emit": ["*.py", "*.pyi", "py.typed"],

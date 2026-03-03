@@ -31,6 +31,8 @@ class ClusterEnv:
   :class:`ClusterEnv` subclasses are automatically detected when imported.
   """
 
+  name: str = ""
+
   _cluster_types: list[type[ClusterEnv]] = []
   opt_in_only_method: bool = False # Override this in derived classes if necessary
 

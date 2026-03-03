@@ -34,6 +34,7 @@ _TPU_V5E = "TPU v5e"
 _TPU_V5P = "TPU v5p"
 _TPU_V6_LITE = "TPU v6 lite"
 _TPU_7X = "TPU7x"
+_TPU_7 = "TPU7"
 
 # Maps physical topology -> mesh shape -> transpose to use for jekbradbury's
 # famous contiguous mesh trick.
@@ -239,6 +240,7 @@ device_kind_handler_dict: dict[
     _TPU_V5P: _v5p_create_device_mesh,
     _TPU_V6_LITE: _v5e_create_device_mesh,
     _TPU_7X: _7x_create_device_mesh,
+    _TPU_7: _7x_create_device_mesh,
 }
 
 
@@ -419,7 +421,7 @@ def _create_device_mesh_for_nd_torus_splitting_axes(
   ):
     # Go over all the possible assignment for the logical axis, including the
     # one that splits multiple physical axes.
-    best_logical_axis_assignment = None
+    best_logical_axis_assignment: np.ndarray | None = None
     for logical_axis_assignment in _enumerate_feasible_logical_axis_assignments(
         physical_mesh_shape, assignment, logical_axis_size
     ):
@@ -701,7 +703,7 @@ def _get_physical_tpu_mesh(jax_devices: Sequence[Any]) -> np.ndarray:
           coords[1] - min_coords[1],
           d.core_on_chip - min_cores_per_chip,
       ] = d
-  elif (device_kind in (_TPU_7X,) or
+  elif (device_kind in (_TPU_7X,_TPU_7) or
         (device_kind in (_TPU_V5P,) and cores_per_chip == 2)):
     out = np.empty(dims + (cores_per_chip,), dtype=object)
     for d in jax_devices:

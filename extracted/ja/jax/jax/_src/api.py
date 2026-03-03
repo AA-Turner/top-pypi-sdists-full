@@ -539,10 +539,11 @@ def value_and_grad(fun: Callable, argnums: int | Sequence[int] = 0,
                                           require_static_args_hashable=False)
     for leaf in tree_leaves(dyn_args):
       _check_input_dtype_grad(holomorphic, allow_int, leaf)
-    if not has_aux:
-      ans, vjp_py = _vjp(f_partial, *dyn_args)
-    else:
+    if has_aux:
       ans, vjp_py, aux = _vjp(f_partial, *dyn_args, has_aux=True)
+    else:
+      ans, vjp_py = _vjp(f_partial, *dyn_args)
+      aux = None
     _check_scalar(ans)
     tree_map(partial(_check_output_dtype_grad, holomorphic), ans)
     g = vjp_py(lax_internal._one_vjp(ans))
@@ -736,12 +737,12 @@ def jacfwd(fun: Callable, argnums: int | Sequence[int] = 0,
     f_partial, dyn_args = argnums_partial(f, argnums, args,
                                           require_static_args_hashable=False)
     tree_map(partial(_check_input_dtype_jacfwd, holomorphic), dyn_args)
-    if not has_aux:
-      pushfwd: Callable = partial(_jvp, f_partial, dyn_args)
-      y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
-    else:
-      pushfwd: Callable = partial(_jvp, f_partial, dyn_args, has_aux=True)
+    pushfwd: Callable = partial(_jvp, f_partial, dyn_args, has_aux=has_aux)
+    if has_aux:
       y, jac, aux = vmap(pushfwd, out_axes=(None, -1, None))(_std_basis(dyn_args))
+    else:
+      y, jac = vmap(pushfwd, out_axes=(None, -1))(_std_basis(dyn_args))
+      aux = None
     tree_map(partial(_check_output_dtype_jacfwd, holomorphic), y)
     example_args = dyn_args[0] if isinstance(argnums, int) else dyn_args
     jac_tree = tree_map(partial(_jacfwd_unravel, example_args), y, jac)
@@ -830,10 +831,11 @@ def jacrev(fun: Callable, argnums: int | Sequence[int] = 0,
     f_partial, dyn_args = argnums_partial(f, argnums, args,
                                           require_static_args_hashable=False)
     tree_map(partial(_check_input_dtype_jacrev, holomorphic, allow_int), dyn_args)
-    if not has_aux:
-      y, pullback = _vjp(f_partial, *dyn_args)
-    else:
+    if has_aux:
       y, pullback, aux = _vjp(f_partial, *dyn_args, has_aux=True)
+    else:
+      y, pullback = _vjp(f_partial, *dyn_args)
+      aux = None
     tree_map(partial(_check_output_dtype_jacrev, holomorphic), y)
     jac = vmap(pullback)(_std_basis(y))
     jac = jac[0] if isinstance(argnums, int) else jac
@@ -985,7 +987,7 @@ def _unravel_array_into_pytree(pytree, axis, example, arr, specs):
   leaves, treedef = tree_flatten(pytree)
   specs, _ = tree_flatten(specs)
   shapes = [arr.shape[:axis] + np.shape(l) + arr.shape[axis+1:] for l in leaves]
-  parts = _split(arr, np.cumsum(map(np.size, leaves[:-1])), axis)
+  parts = _split(arr, np.cumsum(map(np.size, leaves[:-1])), axis)  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
   reshaped_parts = [
       _possible_downcast(np.reshape(x, shape),
                          leaf if example is None else example,
@@ -1158,13 +1160,17 @@ def vmap(fun: F,
     # rather than raising an error. https://github.com/jax-ml/jax/issues/2367
     in_axes = tuple(in_axes)
 
-  if not (in_axes is None or type(in_axes) in {int, tuple, *batching.spec_types}):
+  from jax._src import hijax  # type: ignore
+  if not (in_axes is None or type(in_axes) in {int, tuple, *batching.spec_types}
+          or isinstance(in_axes, hijax.MappingSpec)):
     raise TypeError("vmap in_axes must be an int, None, or a tuple of entries corresponding "
                     f"to the positional arguments passed to the function, but got {in_axes}.")
-  if not all(type(l) in {int, *batching.spec_types} for l in tree_leaves(in_axes)):
+  if not all(type(l) in {int, *batching.spec_types} or isinstance(l, hijax.MappingSpec)
+             for l in tree_leaves(in_axes)):
     raise TypeError("vmap in_axes must be an int, None, or (nested) container "
                     f"with those types as leaves, but got {in_axes}.")
-  if not all(type(l) in {int, *batching.spec_types} for l in tree_leaves(out_axes)):
+  if not all(type(l) in {int, *batching.spec_types} or isinstance(l, hijax.MappingSpec)
+             for l in tree_leaves(out_axes)):
     raise TypeError("vmap out_axes must be an int, None, or (nested) container "
                     f"with those types as leaves, but got {out_axes}.")
 
@@ -1179,7 +1185,7 @@ def vmap(fun: F,
 
     args_flat, in_tree  = tree_flatten((args, kwargs), is_leaf=batching.is_vmappable)
     dbg = debug_info("vmap", fun, args, kwargs)
-
+    api_util.check_no_transformed_refs_args(lambda: dbg, args_flat)
     f = lu.wrap_init(fun, debug_info=dbg)
     flat_fun, out_tree = batching.flatten_fun_for_vmap(f, in_tree)
     in_axes_flat = flatten_axes("vmap in_axes", in_tree, (in_axes, 0), kws=True)
@@ -1192,6 +1198,7 @@ def vmap(fun: F,
     axis_size_ = (axis_size if axis_size is not None else
                   _mapped_axis_size(fun, in_tree, args_flat, in_axes_flat, "vmap"))
     explicit_mesh_axis = _mapped_axis_spec(args_flat, in_axes_flat)
+    _check_ema_unmapped_args(explicit_mesh_axis, args_flat, in_axes_flat)
     if spmd_axis_name is not None and explicit_mesh_axis is not None:
       if config.remove_size_one_mesh_axis_from_type.value:
         mesh = get_abstract_mesh()
@@ -1233,7 +1240,7 @@ def _mapped_axis_spec(args_flat, in_axes_flat):
     try:
       # Duck type arrays like BCOO arrays can be passed to vmap.
       return shaped_abstractify(arg).sharding.spec[i]
-    except (IndexError, TypeError):
+    except (IndexError, TypeError, AttributeError):
       return None
 
   out_spec = None
@@ -1250,6 +1257,19 @@ def _mapped_axis_spec(args_flat, in_axes_flat):
   if out_spec is not None and not isinstance(out_spec, tuple):
     out_spec = (out_spec,)
   return out_spec
+
+def _check_ema_unmapped_args(ema, args_flat, in_axes_flat):
+  if ema is None:
+    return
+  for a, i in zip(args_flat, in_axes_flat):
+    if i is None:
+      aval = core.typeof(a)
+      spec = set(sharding_impls.flatten_spec(aval.sharding.spec))
+      if any(e in spec for e in ema):
+        raise ValueError(
+            "Unmapped values passed to vmap cannot be sharded along the mesh"
+            f" axis you are vmapping over. Got type: {aval.str_short(True)},"
+            f" in_axes: {i} and vmapped mesh axis: {ema}")
 
 def _mapped_axis_size(fn, tree, vals, dims, name):
   if not vals:
@@ -1289,7 +1309,7 @@ def _mapped_axis_size(fn, tree, vals, dims, name):
   args, kwargs = tree_unflatten(tree, vals)
   try:
     ba = inspect.signature(fn).bind(*args, **kwargs)
-    signature_parameters: list[str] = list(ba.signature.parameters.keys())
+    signature_parameters: list[str] | None = list(ba.signature.parameters.keys())
   except (TypeError, ValueError):
     signature_parameters = None
 
@@ -1784,6 +1804,7 @@ def _cpp_pmap(
     )
 
     execute: Callable | None = None
+    const_args = []
     with core.take_current_trace() as trace:
       try:
         if isinstance(trace, core.EvalTrace):
@@ -1800,8 +1821,8 @@ def _cpp_pmap(
 
     ### Decide whether we can support the C++ fast path
     use_fastpath = False
-    if execute is not None and isinstance(execute, pxla.ExecuteReplicated):
-      execute_replicated = typing.cast(pxla.ExecuteReplicated, execute)
+    if isinstance(execute, pxla.ExecuteReplicated):
+      execute_replicated: pxla.ExecuteReplicated = execute
       use_fastpath = (
         # TODO(sharadmv): Enable effects in replicated computation
         not execute_replicated.has_unordered_effects
@@ -1846,11 +1867,11 @@ def _cpp_pmap(
 
   pmap_f = wraps(fun)(cpp_mapped_f)
   # Store some data for the `lower` and `trace` methods
-  pmap_f._fun = fun
-  pmap_f._prepare_pmap = prepare_pmap_fn
-  pmap_f._backend = backend
-  pmap_f._axis_name = axis_name
-  pmap_f._donate_tuple = donate_tuple
+  pmap_f._fun = fun  # pyrefly: ignore[missing-attribute]
+  pmap_f._prepare_pmap = prepare_pmap_fn  # pyrefly: ignore[missing-attribute]
+  pmap_f._backend = backend  # pyrefly: ignore[missing-attribute]
+  pmap_f._axis_name = axis_name  # pyrefly: ignore[missing-attribute]
+  pmap_f._donate_tuple = donate_tuple  # pyrefly: ignore[missing-attribute]
 
   # TODO(necula): move these to top-level; we don't need to do this for
   # every pmap
@@ -2058,7 +2079,7 @@ def linearize(fun: Callable, *primals, has_aux: bool = False
   if has_aux:
     out_tree, aux_tree = out_tree()
   else:
-    out_tree = out_tree()
+    out_tree, aux_tree = out_tree(), None
   out_primal_py = tree_unflatten(out_tree, out_primals)
   primal_avals = list(map(core.get_aval, primals_flat))
   # Ensure that lifted_jvp is a PyTree
@@ -2106,48 +2127,6 @@ def _lift_linearized(jaxpr, primal_avals, io_tree, out_pvals, consts, *py_args):
     return full_out
 
   return apply_flat_fun_nokwargs(fun, io_tree, py_args)
-
-@api_boundary
-def _vjp_pullback_wrapper(name, out_primal_avals, io_tree, fun, *py_args_):
-  if len(py_args_) != 1:
-    msg = (f"The function returned by `jax.vjp` applied to {name} was called "
-           f"with {len(py_args_)} arguments, but functions returned by "
-           "`jax.vjp` must be called with a single argument corresponding to "
-           f"the single value returned by {name} (even if that returned "
-           "value is a tuple or other container).\n"
-           "\n"
-           "For example, if we have:\n"
-           "\n"
-           "  def f(x):\n"
-           "    return (x, x)\n"
-           "  _, f_vjp = jax.vjp(f, 1.0)\n"
-           "\n"
-           "the function `f` returns a single tuple as output, and so we call "
-           "`f_vjp` with a single tuple as its argument:\n"
-           "\n"
-           "  x_bar, = f_vjp((2.0, 2.0))\n"
-           "\n"
-           "If we instead call `f_vjp(2.0, 2.0)`, with the values 'splatted "
-           "out' as arguments rather than in a tuple, this error can arise.")
-    raise TypeError(msg)
-  py_args, = py_args_
-  in_tree_expected, out_tree = io_tree
-  args, in_tree = tree_flatten(py_args)
-  if in_tree != in_tree_expected:
-    raise ValueError(f"unexpected tree structure of argument to vjp function: "
-                     f"got {in_tree}, but expected to match {in_tree_expected}")
-  for arg, aval in zip(args, out_primal_avals):
-    ct_aval = shaped_abstractify(arg)
-    ct_aval_expected = aval.to_cotangent_aval()
-    if (not core.typecompat(ct_aval, ct_aval_expected) and
-        not _temporary_dtype_exception(ct_aval, ct_aval_expected)):
-      raise ValueError(
-          "unexpected JAX type (e.g. shape/dtype) for argument to vjp function: "
-          f"got {ct_aval.str_short()}, but expected {ct_aval_expected.str_short()} "
-          f"because the corresponding output of the function {name} had JAX type "
-          f"{aval.str_short()}")
-  ans = fun(*args)
-  return tree_unflatten(out_tree, ans)
 
 # TODO(mattjj): see similar function in custom_derivatives.py
 def _temporary_dtype_exception(a, a_) -> bool:
@@ -2228,12 +2207,13 @@ def _vjp(fun, *primals, has_aux=False):
   if not has_aux:
     flat_fun, out_tree = flatten_fun_nokwargs(fun, in_tree)
     out_primals_flat, out_pvals, jaxpr, residuals = ad.linearize(
-        flat_fun, *primals_flat)
+        flat_fun, *primals_flat, is_vjp=True)
     out_tree = out_tree()
+    aux = aux_tree = None
   else:
     flat_fun, out_aux_trees = flatten_fun_nokwargs2(fun, in_tree)
     out_primals_flat, out_pvals, jaxpr, residuals, aux = ad.linearize(
-        flat_fun, *primals_flat, has_aux=True)
+        flat_fun, *primals_flat, has_aux=True, is_vjp=True)
     out_tree, aux_tree = out_aux_trees()
     del out_aux_trees
   out_known = [pval.is_known() for pval in out_pvals]
@@ -2251,6 +2231,8 @@ def _vjp(fun, *primals, has_aux=False):
   if not has_aux:
     return out_primals, f_vjp
   else:
+    assert aux is not None
+    assert aux_tree is not None
     return out_primals, f_vjp, tree_unflatten(aux_tree, aux)
 
 def _vjp3_callable(spec, out_known, jaxpr, out_primal_avals, in_tree, out_tree,
@@ -2447,9 +2429,9 @@ def linear_transpose(fun: Callable, *primals, reduce_axes=()) -> Callable:
   jaxpr, _ = pe.dce_jaxpr(jaxpr, [True] * len(jaxpr.outvars), True)
   out_avals, _ = unzip2(out_pvals)
   out_dtypes = map(lambda a: a.dtype, out_avals)
-  if not (all(dtypes.issubdtype(d, np.inexact) for d in in_dtypes + out_dtypes)
+  if not (all(dtypes.issubdtype(d, np.inexact) for d in in_dtypes + out_dtypes)  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
           or all(dtypes.issubdtype(d, np.integer)
-                 for d in in_dtypes + out_dtypes)):
+                 for d in in_dtypes + out_dtypes)):  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
     raise TypeError("linear_transpose only supports [float or complex] -> "
                     "[float or complex], and integer -> integer functions, "
                     f"but got {in_dtypes} -> {out_dtypes}.")
@@ -2475,7 +2457,7 @@ def linear_transpose(fun: Callable, *primals, reduce_axes=()) -> Callable:
 @overload
 def make_jaxpr(
     fun: Callable,
-    static_argnums: int | Iterable[int] = (),
+    static_argnums: int | Sequence[int] = (),
     axis_env: Sequence[tuple[AxisName, int]] | None = None,
     return_shape: Literal[False] = ...,
 ) -> Callable[..., core.ClosedJaxpr]:
@@ -2484,7 +2466,7 @@ def make_jaxpr(
 @overload
 def make_jaxpr(
     fun: Callable,
-    static_argnums: int | Iterable[int] = (),
+    static_argnums: int | Sequence[int] = (),
     axis_env: Sequence[tuple[AxisName, int]] | None = None,
     return_shape: Literal[True] = ...,
 ) -> Callable[..., tuple[core.ClosedJaxpr, Any]]:
@@ -2493,7 +2475,7 @@ def make_jaxpr(
 @partial(api_boundary, repro_api_name="jax.make_japr")
 def make_jaxpr(
     fun: Callable,
-    static_argnums: int | Iterable[int] = (),
+    static_argnums: int | Sequence[int] = (),
     axis_env: Sequence[tuple[AxisName, int]] | None = None,
     return_shape: bool = False,
 ) -> Callable[..., core.ClosedJaxpr | tuple[core.ClosedJaxpr, Any]]:
@@ -2573,8 +2555,7 @@ def make_jaxpr(
     else:
       jaxpr = traced.jaxpr
     if return_shape:
-      out = [ShapeDtypeStruct(o.shape, o.dtype) for o in jaxpr.out_avals]
-      return jaxpr, tree_unflatten(tree_structure(traced.out_info), out)
+      return jaxpr, traced.out_info
     return jaxpr
 
   make_jaxpr_f.__module__ = "jax"
@@ -2635,8 +2616,15 @@ def pspec_to_sharding(name, val):
       raise ValueError(
           "Please set a mesh via `jax.set_mesh` if a PartitionSpec is"
           f" passed to {name}")
-    return NamedSharding(mesh, val)
-  return val
+    out = NamedSharding(mesh, val)
+  else:
+    out = val
+  if isinstance(out, NamedSharding) and out.spec.unreduced:
+    raise NotImplementedError(
+        "device_put with unreduced is not implemented. Please use"
+        f" `jax.reshard`. Got {out}")
+  return out
+
 
 def device_put(
     x,

@@ -79,6 +79,8 @@ from ..interfaces.aws_devopsagent import (
     AssociationReference as _AssociationReference_249ec236,
     IAgentSpaceRef as _IAgentSpaceRef_2ffb48ed,
     IAssociationRef as _IAssociationRef_ac0997e3,
+    IServiceRef as _IServiceRef_a4cfa131,
+    ServiceReference as _ServiceReference_cb07f28f,
 )
 
 
@@ -104,7 +106,25 @@ class CfnAgentSpace(
             name="name",
         
             # the properties below are optional
-            description="description"
+            description="description",
+            operator_app=devopsagent.CfnAgentSpace.OperatorAppProperty(
+                iam=devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
+                    operator_app_role_arn="operatorAppRoleArn",
+        
+                    # the properties below are optional
+                    created_at="createdAt",
+                    updated_at="updatedAt"
+                ),
+                idc=devopsagent.CfnAgentSpace.IdcAuthConfigurationProperty(
+                    idc_instance_arn="idcInstanceArn",
+                    operator_app_role_arn="operatorAppRoleArn",
+        
+                    # the properties below are optional
+                    created_at="createdAt",
+                    idc_application_arn="idcApplicationArn",
+                    updated_at="updatedAt"
+                )
+            )
         )
     '''
 
@@ -115,6 +135,7 @@ class CfnAgentSpace(
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        operator_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DevOpsAgent::AgentSpace``.
 
@@ -122,12 +143,15 @@ class CfnAgentSpace(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the Agent Space.
         :param description: The description of the Agent Space.
+        :param operator_app: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3897cdc52c2bc2a74bdd32702e32905947b3c0fc36798edcdac7875cc9939456)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAgentSpaceProps(name=name, description=description)
+        props = CfnAgentSpaceProps(
+            name=name, description=description, operator_app=operator_app
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -260,6 +284,46 @@ class CfnAgentSpace(
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIamCreatedAt")
+    def attr_operator_app_iam_created_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OperatorApp.Iam.CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIamCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIamUpdatedAt")
+    def attr_operator_app_iam_updated_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OperatorApp.Iam.UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIamUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIdcCreatedAt")
+    def attr_operator_app_idc_created_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OperatorApp.Idc.CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIdcCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIdcIdcApplicationArn")
+    def attr_operator_app_idc_idc_application_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OperatorApp.Idc.IdcApplicationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIdcIdcApplicationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIdcUpdatedAt")
+    def attr_operator_app_idc_updated_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OperatorApp.Idc.UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIdcUpdatedAt"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrUpdatedAt")
     def attr_updated_at(self) -> builtins.str:
         '''The timestamp when the resource was last updated.
@@ -299,11 +363,323 @@ class CfnAgentSpace(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="operatorApp")
+    def operator_app(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.OperatorAppProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.OperatorAppProperty"]], jsii.get(self, "operatorApp"))
+
+    @operator_app.setter
+    def operator_app(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.OperatorAppProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708cf7f6fa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "operatorApp", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.IamAuthConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "operator_app_role_arn": "operatorAppRoleArn",
+            "created_at": "createdAt",
+            "updated_at": "updatedAt",
+        },
+    )
+    class IamAuthConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            operator_app_role_arn: builtins.str,
+            created_at: typing.Optional[builtins.str] = None,
+            updated_at: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param operator_app_role_arn: 
+            :param created_at: 
+            :param updated_at: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-iamauthconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                iam_auth_configuration_property = devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
+                    operator_app_role_arn="operatorAppRoleArn",
+                
+                    # the properties below are optional
+                    created_at="createdAt",
+                    updated_at="updatedAt"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4beb411197d70233cb23add12a5f3b652beb521a346992040d7d02b2b1ddd228)
+                check_type(argname="argument operator_app_role_arn", value=operator_app_role_arn, expected_type=type_hints["operator_app_role_arn"])
+                check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
+                check_type(argname="argument updated_at", value=updated_at, expected_type=type_hints["updated_at"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "operator_app_role_arn": operator_app_role_arn,
+            }
+            if created_at is not None:
+                self._values["created_at"] = created_at
+            if updated_at is not None:
+                self._values["updated_at"] = updated_at
+
+        @builtins.property
+        def operator_app_role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-iamauthconfiguration.html#cfn-devopsagent-agentspace-iamauthconfiguration-operatorapprolearn
+            '''
+            result = self._values.get("operator_app_role_arn")
+            assert result is not None, "Required property 'operator_app_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def created_at(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-iamauthconfiguration.html#cfn-devopsagent-agentspace-iamauthconfiguration-createdat
+            '''
+            result = self._values.get("created_at")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def updated_at(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-iamauthconfiguration.html#cfn-devopsagent-agentspace-iamauthconfiguration-updatedat
+            '''
+            result = self._values.get("updated_at")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IamAuthConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.IdcAuthConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "idc_instance_arn": "idcInstanceArn",
+            "operator_app_role_arn": "operatorAppRoleArn",
+            "created_at": "createdAt",
+            "idc_application_arn": "idcApplicationArn",
+            "updated_at": "updatedAt",
+        },
+    )
+    class IdcAuthConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            idc_instance_arn: builtins.str,
+            operator_app_role_arn: builtins.str,
+            created_at: typing.Optional[builtins.str] = None,
+            idc_application_arn: typing.Optional[builtins.str] = None,
+            updated_at: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param idc_instance_arn: 
+            :param operator_app_role_arn: 
+            :param created_at: 
+            :param idc_application_arn: 
+            :param updated_at: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idcauthconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                idc_auth_configuration_property = devopsagent.CfnAgentSpace.IdcAuthConfigurationProperty(
+                    idc_instance_arn="idcInstanceArn",
+                    operator_app_role_arn="operatorAppRoleArn",
+                
+                    # the properties below are optional
+                    created_at="createdAt",
+                    idc_application_arn="idcApplicationArn",
+                    updated_at="updatedAt"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__54cfce91472eb9681ce65a0ce7a6d266ecbcafccbd8e1842288a0f262a4d5755)
+                check_type(argname="argument idc_instance_arn", value=idc_instance_arn, expected_type=type_hints["idc_instance_arn"])
+                check_type(argname="argument operator_app_role_arn", value=operator_app_role_arn, expected_type=type_hints["operator_app_role_arn"])
+                check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
+                check_type(argname="argument idc_application_arn", value=idc_application_arn, expected_type=type_hints["idc_application_arn"])
+                check_type(argname="argument updated_at", value=updated_at, expected_type=type_hints["updated_at"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "idc_instance_arn": idc_instance_arn,
+                "operator_app_role_arn": operator_app_role_arn,
+            }
+            if created_at is not None:
+                self._values["created_at"] = created_at
+            if idc_application_arn is not None:
+                self._values["idc_application_arn"] = idc_application_arn
+            if updated_at is not None:
+                self._values["updated_at"] = updated_at
+
+        @builtins.property
+        def idc_instance_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idcauthconfiguration.html#cfn-devopsagent-agentspace-idcauthconfiguration-idcinstancearn
+            '''
+            result = self._values.get("idc_instance_arn")
+            assert result is not None, "Required property 'idc_instance_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def operator_app_role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idcauthconfiguration.html#cfn-devopsagent-agentspace-idcauthconfiguration-operatorapprolearn
+            '''
+            result = self._values.get("operator_app_role_arn")
+            assert result is not None, "Required property 'operator_app_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def created_at(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idcauthconfiguration.html#cfn-devopsagent-agentspace-idcauthconfiguration-createdat
+            '''
+            result = self._values.get("created_at")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def idc_application_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idcauthconfiguration.html#cfn-devopsagent-agentspace-idcauthconfiguration-idcapplicationarn
+            '''
+            result = self._values.get("idc_application_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def updated_at(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idcauthconfiguration.html#cfn-devopsagent-agentspace-idcauthconfiguration-updatedat
+            '''
+            result = self._values.get("updated_at")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdcAuthConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.OperatorAppProperty",
+        jsii_struct_bases=[],
+        name_mapping={"iam": "iam", "idc": "idc"},
+    )
+    class OperatorAppProperty:
+        def __init__(
+            self,
+            *,
+            iam: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.IamAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            idc: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.IdcAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param iam: 
+            :param idc: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-operatorapp.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                operator_app_property = devopsagent.CfnAgentSpace.OperatorAppProperty(
+                    iam=devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
+                        operator_app_role_arn="operatorAppRoleArn",
+                
+                        # the properties below are optional
+                        created_at="createdAt",
+                        updated_at="updatedAt"
+                    ),
+                    idc=devopsagent.CfnAgentSpace.IdcAuthConfigurationProperty(
+                        idc_instance_arn="idcInstanceArn",
+                        operator_app_role_arn="operatorAppRoleArn",
+                
+                        # the properties below are optional
+                        created_at="createdAt",
+                        idc_application_arn="idcApplicationArn",
+                        updated_at="updatedAt"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__163f48e2381f16154d3ed1a507d7fa1b64898c9ada42152eb65e4a5a869c805c)
+                check_type(argname="argument iam", value=iam, expected_type=type_hints["iam"])
+                check_type(argname="argument idc", value=idc, expected_type=type_hints["idc"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if iam is not None:
+                self._values["iam"] = iam
+            if idc is not None:
+                self._values["idc"] = idc
+
+        @builtins.property
+        def iam(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.IamAuthConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-operatorapp.html#cfn-devopsagent-agentspace-operatorapp-iam
+            '''
+            result = self._values.get("iam")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.IamAuthConfigurationProperty"]], result)
+
+        @builtins.property
+        def idc(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.IdcAuthConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-operatorapp.html#cfn-devopsagent-agentspace-operatorapp-idc
+            '''
+            result = self._values.get("idc")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.IdcAuthConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OperatorAppProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpaceProps",
     jsii_struct_bases=[],
-    name_mapping={"name": "name", "description": "description"},
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "operator_app": "operatorApp",
+    },
 )
 class CfnAgentSpaceProps:
     def __init__(
@@ -311,11 +687,13 @@ class CfnAgentSpaceProps:
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        operator_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAgentSpace``.
 
         :param name: The name of the Agent Space.
         :param description: The description of the Agent Space.
+        :param operator_app: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html
         :exampleMetadata: fixture=_generated
@@ -330,18 +708,39 @@ class CfnAgentSpaceProps:
                 name="name",
             
                 # the properties below are optional
-                description="description"
+                description="description",
+                operator_app=devopsagent.CfnAgentSpace.OperatorAppProperty(
+                    iam=devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
+                        operator_app_role_arn="operatorAppRoleArn",
+            
+                        # the properties below are optional
+                        created_at="createdAt",
+                        updated_at="updatedAt"
+                    ),
+                    idc=devopsagent.CfnAgentSpace.IdcAuthConfigurationProperty(
+                        idc_instance_arn="idcInstanceArn",
+                        operator_app_role_arn="operatorAppRoleArn",
+            
+                        # the properties below are optional
+                        created_at="createdAt",
+                        idc_application_arn="idcApplicationArn",
+                        updated_at="updatedAt"
+                    )
+                )
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8cdb6d5f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument operator_app", value=operator_app, expected_type=type_hints["operator_app"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
         if description is not None:
             self._values["description"] = description
+        if operator_app is not None:
+            self._values["operator_app"] = operator_app
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -361,6 +760,16 @@ class CfnAgentSpaceProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def operator_app(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.OperatorAppProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html#cfn-devopsagent-agentspace-operatorapp
+        '''
+        result = self._values.get("operator_app")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.OperatorAppProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2839,11 +3248,2801 @@ class CfnAssociationProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IServiceRef_a4cfa131)
+class CfnService(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnService",
+):
+    '''The AWS::DevOpsAgent::Service resource registers external services (like Dynatrace, MCP servers, GitLab) for integration with DevOpsAgent.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html
+    :cloudformationResource: AWS::DevOpsAgent::Service
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_devopsagent as devopsagent
+        
+        # exchange_parameters: Any
+        
+        cfn_service = devopsagent.CfnService(self, "MyCfnService",
+            service_type="serviceType",
+        
+            # the properties below are optional
+            service_details=devopsagent.CfnService.ServiceDetailsProperty(
+                dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
+                    account_urn="accountUrn",
+        
+                    # the properties below are optional
+                    authorization_config=devopsagent.CfnService.DynatraceAuthorizationConfigProperty(
+                        o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+        
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters
+                        )
+                    )
+                ),
+                git_lab=devopsagent.CfnService.GitLabDetailsProperty(
+                    target_url="targetUrl",
+                    token_type="tokenType",
+                    token_value="tokenValue",
+        
+                    # the properties below are optional
+                    group_id="groupId"
+                ),
+                mcp_server=devopsagent.CfnService.MCPServerDetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
+                        api_key=devopsagent.CfnService.ApiKeyDetailsProperty(
+                            api_key_header="apiKeyHeader",
+                            api_key_name="apiKeyName",
+                            api_key_value="apiKeyValue"
+                        ),
+                        o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+                            exchange_url="exchangeUrl",
+        
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters,
+                            scopes=["scopes"]
+                        )
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+        
+                    # the properties below are optional
+                    description="description"
+                ),
+                mcp_server_new_relic=devopsagent.CfnService.NewRelicServiceDetailsProperty(
+                    authorization_config=devopsagent.CfnService.NewRelicAuthorizationConfigProperty(
+                        api_key=devopsagent.CfnService.NewRelicApiKeyConfigProperty(
+                            account_id="accountId",
+                            api_key="apiKey",
+                            region="region",
+        
+                            # the properties below are optional
+                            alert_policy_ids=["alertPolicyIds"],
+                            application_ids=["applicationIds"],
+                            entity_guids=["entityGuids"]
+                        )
+                    )
+                ),
+                mcp_server_splunk=devopsagent.CfnService.MCPServerSplunkDetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
+                        bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                            token_name="tokenName",
+                            token_value="tokenValue",
+        
+                            # the properties below are optional
+                            authorization_header="authorizationHeader"
+                        )
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+        
+                    # the properties below are optional
+                    description="description"
+                ),
+                service_now=devopsagent.CfnService.ServiceNowServiceDetailsProperty(
+                    instance_url="instanceUrl",
+        
+                    # the properties below are optional
+                    authorization_config=devopsagent.CfnService.ServiceNowAuthorizationConfigProperty(
+                        o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+        
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters
+                        )
+                    )
+                )
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        service_type: builtins.str,
+        service_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::DevOpsAgent::Service``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param service_type: The type of service being registered.
+        :param service_details: Service-specific configuration details.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb30580cca07)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServiceProps(
+            service_type=service_type, service_details=service_details
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnService")
+    @builtins.classmethod
+    def is_cfn_service(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnService.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4747cf77eaeb36736a2ca00fd2ce576b093ee7f10e64c38001e2eac5a33d8149)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnService", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae6a60e2418d472a473b14d2bbcbd2350af8fed2083a2938616370c1e08ed3e0)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2740d5b9657545f92bc9b54f5c97b22d107226f26deef1c36cbd652d62b9aba0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccessibleResources")
+    def attr_accessible_resources(self) -> "_IResolvable_da3f097b":
+        '''List of accessible resources for this service.
+
+        :cloudformationAttribute: AccessibleResources
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAccessibleResources"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAdditionalServiceDetails")
+    def attr_additional_service_details(self) -> "_IResolvable_da3f097b":
+        '''Additional details specific to the service type returned after registration.
+
+        :cloudformationAttribute: AdditionalServiceDetails
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAdditionalServiceDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrServiceId")
+    def attr_service_id(self) -> builtins.str:
+        '''The unique identifier of the service.
+
+        :cloudformationAttribute: ServiceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrServiceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceRef")
+    def service_ref(self) -> "_ServiceReference_cb07f28f":
+        '''A reference to a Service resource.'''
+        return typing.cast("_ServiceReference_cb07f28f", jsii.get(self, "serviceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceType")
+    def service_type(self) -> builtins.str:
+        '''The type of service being registered.'''
+        return typing.cast(builtins.str, jsii.get(self, "serviceType"))
+
+    @service_type.setter
+    def service_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a87d815016e64b5bdf47334ae0b9ef194602b4aa5a9e6cd5a5d9b1d6b516b9a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceDetails")
+    def service_details(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]]:
+        '''Service-specific configuration details.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]], jsii.get(self, "serviceDetails"))
+
+    @service_details.setter
+    def service_details(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38b28b2539546ba11e45199a6bde41e432e6246da9ea58bba29ece3bbf5c4193)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceDetails", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.AdditionalServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dynatrace": "dynatrace",
+            "git_lab": "gitLab",
+            "mcp_server": "mcpServer",
+            "mcp_server_new_relic": "mcpServerNewRelic",
+            "mcp_server_splunk": "mcpServerSplunk",
+            "service_now": "serviceNow",
+        },
+    )
+    class AdditionalServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredDynatraceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            git_lab: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredGitLabServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredNewRelicDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredMCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.RegisteredServiceNowDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param dynatrace: Dynatrace service details returned after registration.
+            :param git_lab: GitLab service details returned after registration.
+            :param mcp_server: MCP server details returned after registration.
+            :param mcp_server_new_relic: New Relic service details returned after registration.
+            :param mcp_server_splunk: MCP server details returned after registration.
+            :param service_now: ServiceNow service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                additional_service_details_property = devopsagent.CfnService.AdditionalServiceDetailsProperty(
+                    dynatrace=devopsagent.CfnService.RegisteredDynatraceDetailsProperty(
+                        account_urn="accountUrn"
+                    ),
+                    git_lab=devopsagent.CfnService.RegisteredGitLabServiceDetailsProperty(
+                        target_url="targetUrl",
+                        token_type="tokenType",
+                
+                        # the properties below are optional
+                        group_id="groupId"
+                    ),
+                    mcp_server=devopsagent.CfnService.RegisteredMCPServerDetailsProperty(
+                        authorization_method="authorizationMethod",
+                        endpoint="endpoint",
+                        name="name",
+                
+                        # the properties below are optional
+                        api_key_header="apiKeyHeader",
+                        description="description"
+                    ),
+                    mcp_server_new_relic=devopsagent.CfnService.RegisteredNewRelicDetailsProperty(
+                        account_id="accountId",
+                        region="region",
+                
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    mcp_server_splunk=devopsagent.CfnService.RegisteredMCPServerDetailsProperty(
+                        authorization_method="authorizationMethod",
+                        endpoint="endpoint",
+                        name="name",
+                
+                        # the properties below are optional
+                        api_key_header="apiKeyHeader",
+                        description="description"
+                    ),
+                    service_now=devopsagent.CfnService.RegisteredServiceNowDetailsProperty(
+                        instance_url="instanceUrl"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__35d2aa127fac97efcf9f5ae815fbac6244f4de11a1b85beb8acc053b8eb8edee)
+                check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
+                check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
+                check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
+                check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
+                check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
+                check_type(argname="argument service_now", value=service_now, expected_type=type_hints["service_now"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if dynatrace is not None:
+                self._values["dynatrace"] = dynatrace
+            if git_lab is not None:
+                self._values["git_lab"] = git_lab
+            if mcp_server is not None:
+                self._values["mcp_server"] = mcp_server
+            if mcp_server_new_relic is not None:
+                self._values["mcp_server_new_relic"] = mcp_server_new_relic
+            if mcp_server_splunk is not None:
+                self._values["mcp_server_splunk"] = mcp_server_splunk
+            if service_now is not None:
+                self._values["service_now"] = service_now
+
+        @builtins.property
+        def dynatrace(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredDynatraceDetailsProperty"]]:
+            '''Dynatrace service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-dynatrace
+            '''
+            result = self._values.get("dynatrace")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredDynatraceDetailsProperty"]], result)
+
+        @builtins.property
+        def git_lab(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredGitLabServiceDetailsProperty"]]:
+            '''GitLab service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-gitlab
+            '''
+            result = self._values.get("git_lab")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredGitLabServiceDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerDetailsProperty"]]:
+            '''MCP server details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-mcpserver
+            '''
+            result = self._values.get("mcp_server")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server_new_relic(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredNewRelicDetailsProperty"]]:
+            '''New Relic service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-mcpservernewrelic
+            '''
+            result = self._values.get("mcp_server_new_relic")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredNewRelicDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server_splunk(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerDetailsProperty"]]:
+            '''MCP server details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-mcpserversplunk
+            '''
+            result = self._values.get("mcp_server_splunk")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredMCPServerDetailsProperty"]], result)
+
+        @builtins.property
+        def service_now(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredServiceNowDetailsProperty"]]:
+            '''ServiceNow service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-servicenow
+            '''
+            result = self._values.get("service_now")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.RegisteredServiceNowDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdditionalServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.ApiKeyDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "api_key_header": "apiKeyHeader",
+            "api_key_name": "apiKeyName",
+            "api_key_value": "apiKeyValue",
+        },
+    )
+    class ApiKeyDetailsProperty:
+        def __init__(
+            self,
+            *,
+            api_key_header: builtins.str,
+            api_key_name: builtins.str,
+            api_key_value: builtins.str,
+        ) -> None:
+            '''API key authentication details.
+
+            :param api_key_header: HTTP header name to send the API key.
+            :param api_key_name: User friendly API key name.
+            :param api_key_value: API key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-apikeydetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                api_key_details_property = devopsagent.CfnService.ApiKeyDetailsProperty(
+                    api_key_header="apiKeyHeader",
+                    api_key_name="apiKeyName",
+                    api_key_value="apiKeyValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__76e209fab46047902f46ddb19cd603ac6794e4e730c2326df60b5016370583cf)
+                check_type(argname="argument api_key_header", value=api_key_header, expected_type=type_hints["api_key_header"])
+                check_type(argname="argument api_key_name", value=api_key_name, expected_type=type_hints["api_key_name"])
+                check_type(argname="argument api_key_value", value=api_key_value, expected_type=type_hints["api_key_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "api_key_header": api_key_header,
+                "api_key_name": api_key_name,
+                "api_key_value": api_key_value,
+            }
+
+        @builtins.property
+        def api_key_header(self) -> builtins.str:
+            '''HTTP header name to send the API key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-apikeydetails.html#cfn-devopsagent-service-apikeydetails-apikeyheader
+            '''
+            result = self._values.get("api_key_header")
+            assert result is not None, "Required property 'api_key_header' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_key_name(self) -> builtins.str:
+            '''User friendly API key name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-apikeydetails.html#cfn-devopsagent-service-apikeydetails-apikeyname
+            '''
+            result = self._values.get("api_key_name")
+            assert result is not None, "Required property 'api_key_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_key_value(self) -> builtins.str:
+            '''API key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-apikeydetails.html#cfn-devopsagent-service-apikeydetails-apikeyvalue
+            '''
+            result = self._values.get("api_key_value")
+            assert result is not None, "Required property 'api_key_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApiKeyDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.BearerTokenDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "token_name": "tokenName",
+            "token_value": "tokenValue",
+            "authorization_header": "authorizationHeader",
+        },
+    )
+    class BearerTokenDetailsProperty:
+        def __init__(
+            self,
+            *,
+            token_name: builtins.str,
+            token_value: builtins.str,
+            authorization_header: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Bearer token authentication details.
+
+            :param token_name: User friendly bearer token name.
+            :param token_value: Bearer token value.
+            :param authorization_header: HTTP header name to send the bearer token. Default: - "Authorization"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-bearertokendetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                bearer_token_details_property = devopsagent.CfnService.BearerTokenDetailsProperty(
+                    token_name="tokenName",
+                    token_value="tokenValue",
+                
+                    # the properties below are optional
+                    authorization_header="authorizationHeader"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b1ed3f342895156ff05fa55fe762ca658173862cfba9138b08506eef2da17f21)
+                check_type(argname="argument token_name", value=token_name, expected_type=type_hints["token_name"])
+                check_type(argname="argument token_value", value=token_value, expected_type=type_hints["token_value"])
+                check_type(argname="argument authorization_header", value=authorization_header, expected_type=type_hints["authorization_header"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "token_name": token_name,
+                "token_value": token_value,
+            }
+            if authorization_header is not None:
+                self._values["authorization_header"] = authorization_header
+
+        @builtins.property
+        def token_name(self) -> builtins.str:
+            '''User friendly bearer token name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-bearertokendetails.html#cfn-devopsagent-service-bearertokendetails-tokenname
+            '''
+            result = self._values.get("token_name")
+            assert result is not None, "Required property 'token_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_value(self) -> builtins.str:
+            '''Bearer token value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-bearertokendetails.html#cfn-devopsagent-service-bearertokendetails-tokenvalue
+            '''
+            result = self._values.get("token_value")
+            assert result is not None, "Required property 'token_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_header(self) -> typing.Optional[builtins.str]:
+            '''HTTP header name to send the bearer token.
+
+            :default: - "Authorization"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-bearertokendetails.html#cfn-devopsagent-service-bearertokendetails-authorizationheader
+            '''
+            result = self._values.get("authorization_header")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BearerTokenDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.DynatraceAuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"o_auth_client_credentials": "oAuthClientCredentials"},
+    )
+    class DynatraceAuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            o_auth_client_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.OAuthClientDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Dynatrace OAuth authorization configuration.
+
+            :param o_auth_client_credentials: OAuth client credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-dynatraceauthorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                dynatrace_authorization_config_property = devopsagent.CfnService.DynatraceAuthorizationConfigProperty(
+                    o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                
+                        # the properties below are optional
+                        client_name="clientName",
+                        exchange_parameters=exchange_parameters
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d4c94d9ef2811300fc8439f749f5e0b012380780ff3ee8da59d63a89012981e4)
+                check_type(argname="argument o_auth_client_credentials", value=o_auth_client_credentials, expected_type=type_hints["o_auth_client_credentials"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if o_auth_client_credentials is not None:
+                self._values["o_auth_client_credentials"] = o_auth_client_credentials
+
+        @builtins.property
+        def o_auth_client_credentials(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.OAuthClientDetailsProperty"]]:
+            '''OAuth client credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-dynatraceauthorizationconfig.html#cfn-devopsagent-service-dynatraceauthorizationconfig-oauthclientcredentials
+            '''
+            result = self._values.get("o_auth_client_credentials")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.OAuthClientDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DynatraceAuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.DynatraceServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "account_urn": "accountUrn",
+            "authorization_config": "authorizationConfig",
+        },
+    )
+    class DynatraceServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            account_urn: builtins.str,
+            authorization_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.DynatraceAuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Dynatrace service configuration.
+
+            :param account_urn: Dynatrace resource account URN.
+            :param authorization_config: Dynatrace OAuth authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-dynatraceservicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                dynatrace_service_details_property = devopsagent.CfnService.DynatraceServiceDetailsProperty(
+                    account_urn="accountUrn",
+                
+                    # the properties below are optional
+                    authorization_config=devopsagent.CfnService.DynatraceAuthorizationConfigProperty(
+                        o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+                
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1093f5ca4a6437d94226499a72d7ed498cbf6c82d31179c14e9526707fa4f8c0)
+                check_type(argname="argument account_urn", value=account_urn, expected_type=type_hints["account_urn"])
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "account_urn": account_urn,
+            }
+            if authorization_config is not None:
+                self._values["authorization_config"] = authorization_config
+
+        @builtins.property
+        def account_urn(self) -> builtins.str:
+            '''Dynatrace resource account URN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-dynatraceservicedetails.html#cfn-devopsagent-service-dynatraceservicedetails-accounturn
+            '''
+            result = self._values.get("account_urn")
+            assert result is not None, "Required property 'account_urn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DynatraceAuthorizationConfigProperty"]]:
+            '''Dynatrace OAuth authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-dynatraceservicedetails.html#cfn-devopsagent-service-dynatraceservicedetails-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DynatraceAuthorizationConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DynatraceServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.GitLabDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_url": "targetUrl",
+            "token_type": "tokenType",
+            "token_value": "tokenValue",
+            "group_id": "groupId",
+        },
+    )
+    class GitLabDetailsProperty:
+        def __init__(
+            self,
+            *,
+            target_url: builtins.str,
+            token_type: builtins.str,
+            token_value: builtins.str,
+            group_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''GitLab service configuration.
+
+            :param target_url: GitLab instance URL.
+            :param token_type: Type of GitLab access token.
+            :param token_value: GitLab access token value.
+            :param group_id: Optional GitLab group ID for group-level access tokens.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-gitlabdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                git_lab_details_property = devopsagent.CfnService.GitLabDetailsProperty(
+                    target_url="targetUrl",
+                    token_type="tokenType",
+                    token_value="tokenValue",
+                
+                    # the properties below are optional
+                    group_id="groupId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6b58d9276d7725a7b2a814720d881a8dd974b0d85b18fe425efb863bc1d25a08)
+                check_type(argname="argument target_url", value=target_url, expected_type=type_hints["target_url"])
+                check_type(argname="argument token_type", value=token_type, expected_type=type_hints["token_type"])
+                check_type(argname="argument token_value", value=token_value, expected_type=type_hints["token_value"])
+                check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target_url": target_url,
+                "token_type": token_type,
+                "token_value": token_value,
+            }
+            if group_id is not None:
+                self._values["group_id"] = group_id
+
+        @builtins.property
+        def target_url(self) -> builtins.str:
+            '''GitLab instance URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-gitlabdetails.html#cfn-devopsagent-service-gitlabdetails-targeturl
+            '''
+            result = self._values.get("target_url")
+            assert result is not None, "Required property 'target_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_type(self) -> builtins.str:
+            '''Type of GitLab access token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-gitlabdetails.html#cfn-devopsagent-service-gitlabdetails-tokentype
+            '''
+            result = self._values.get("token_type")
+            assert result is not None, "Required property 'token_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_value(self) -> builtins.str:
+            '''GitLab access token value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-gitlabdetails.html#cfn-devopsagent-service-gitlabdetails-tokenvalue
+            '''
+            result = self._values.get("token_value")
+            assert result is not None, "Required property 'token_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def group_id(self) -> typing.Optional[builtins.str]:
+            '''Optional GitLab group ID for group-level access tokens.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-gitlabdetails.html#cfn-devopsagent-service-gitlabdetails-groupid
+            '''
+            result = self._values.get("group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitLabDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerAuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "api_key": "apiKey",
+            "o_auth_client_credentials": "oAuthClientCredentials",
+        },
+    )
+    class MCPServerAuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            api_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ApiKeyDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            o_auth_client_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerOAuthClientCredentialsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param api_key: API key authentication details.
+            :param o_auth_client_credentials: MCP server OAuth client credentials configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverauthorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                m_cPServer_authorization_config_property = devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
+                    api_key=devopsagent.CfnService.ApiKeyDetailsProperty(
+                        api_key_header="apiKeyHeader",
+                        api_key_name="apiKeyName",
+                        api_key_value="apiKeyValue"
+                    ),
+                    o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        exchange_url="exchangeUrl",
+                
+                        # the properties below are optional
+                        client_name="clientName",
+                        exchange_parameters=exchange_parameters,
+                        scopes=["scopes"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d23407dd8b2083d432d8db1552b2c86a3325b7151f0c72016ef6edc6a6fd65e8)
+                check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+                check_type(argname="argument o_auth_client_credentials", value=o_auth_client_credentials, expected_type=type_hints["o_auth_client_credentials"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if api_key is not None:
+                self._values["api_key"] = api_key
+            if o_auth_client_credentials is not None:
+                self._values["o_auth_client_credentials"] = o_auth_client_credentials
+
+        @builtins.property
+        def api_key(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ApiKeyDetailsProperty"]]:
+            '''API key authentication details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverauthorizationconfig.html#cfn-devopsagent-service-mcpserverauthorizationconfig-apikey
+            '''
+            result = self._values.get("api_key")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ApiKeyDetailsProperty"]], result)
+
+        @builtins.property
+        def o_auth_client_credentials(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerOAuthClientCredentialsConfigProperty"]]:
+            '''MCP server OAuth client credentials configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverauthorizationconfig.html#cfn-devopsagent-service-mcpserverauthorizationconfig-oauthclientcredentials
+            '''
+            result = self._values.get("o_auth_client_credentials")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerOAuthClientCredentialsConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerAuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_config": "authorizationConfig",
+            "endpoint": "endpoint",
+            "name": "name",
+            "description": "description",
+        },
+    )
+    class MCPServerDetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerAuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            endpoint: builtins.str,
+            name: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''MCP server configuration.
+
+            :param authorization_config: MCP server authorization configuration.
+            :param endpoint: MCP server endpoint URL.
+            :param name: MCP server name.
+            :param description: Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                m_cPServer_details_property = devopsagent.CfnService.MCPServerDetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
+                        api_key=devopsagent.CfnService.ApiKeyDetailsProperty(
+                            api_key_header="apiKeyHeader",
+                            api_key_name="apiKeyName",
+                            api_key_value="apiKeyValue"
+                        ),
+                        o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+                            exchange_url="exchangeUrl",
+                
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters,
+                            scopes=["scopes"]
+                        )
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8254611fd4c93bda748b35259025cc559c3ff3316f16d3a4c6b8742407842e77)
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_config": authorization_config,
+                "endpoint": endpoint,
+                "name": name,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerAuthorizationConfigProperty"]:
+            '''MCP server authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverdetails.html#cfn-devopsagent-service-mcpserverdetails-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            assert result is not None, "Required property 'authorization_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerAuthorizationConfigProperty"], result)
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverdetails.html#cfn-devopsagent-service-mcpserverdetails-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverdetails.html#cfn-devopsagent-service-mcpserverdetails-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserverdetails.html#cfn-devopsagent-service-mcpserverdetails-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "exchange_url": "exchangeUrl",
+            "client_name": "clientName",
+            "exchange_parameters": "exchangeParameters",
+            "scopes": "scopes",
+        },
+    )
+    class MCPServerOAuthClientCredentialsConfigProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+            exchange_url: builtins.str,
+            client_name: typing.Optional[builtins.str] = None,
+            exchange_parameters: typing.Any = None,
+            scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''MCP server OAuth client credentials configuration.
+
+            :param client_id: OAuth client ID.
+            :param client_secret: OAuth client secret.
+            :param exchange_url: OAuth token exchange URL.
+            :param client_name: User friendly OAuth client name.
+            :param exchange_parameters: OAuth token exchange parameters.
+            :param scopes: OAuth scopes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                m_cPServer_oAuth_client_credentials_config_property = devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                    exchange_url="exchangeUrl",
+                
+                    # the properties below are optional
+                    client_name="clientName",
+                    exchange_parameters=exchange_parameters,
+                    scopes=["scopes"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__198a110da941ce87aaecb0a0b1ba18fa10731b81d29b4a768fd8f795ff2b76f5)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument exchange_url", value=exchange_url, expected_type=type_hints["exchange_url"])
+                check_type(argname="argument client_name", value=client_name, expected_type=type_hints["client_name"])
+                check_type(argname="argument exchange_parameters", value=exchange_parameters, expected_type=type_hints["exchange_parameters"])
+                check_type(argname="argument scopes", value=scopes, expected_type=type_hints["scopes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "exchange_url": exchange_url,
+            }
+            if client_name is not None:
+                self._values["client_name"] = client_name
+            if exchange_parameters is not None:
+                self._values["exchange_parameters"] = exchange_parameters
+            if scopes is not None:
+                self._values["scopes"] = scopes
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''OAuth client ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html#cfn-devopsagent-service-mcpserveroauthclientcredentialsconfig-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''OAuth client secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html#cfn-devopsagent-service-mcpserveroauthclientcredentialsconfig-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def exchange_url(self) -> builtins.str:
+            '''OAuth token exchange URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html#cfn-devopsagent-service-mcpserveroauthclientcredentialsconfig-exchangeurl
+            '''
+            result = self._values.get("exchange_url")
+            assert result is not None, "Required property 'exchange_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_name(self) -> typing.Optional[builtins.str]:
+            '''User friendly OAuth client name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html#cfn-devopsagent-service-mcpserveroauthclientcredentialsconfig-clientname
+            '''
+            result = self._values.get("client_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def exchange_parameters(self) -> typing.Any:
+            '''OAuth token exchange parameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html#cfn-devopsagent-service-mcpserveroauthclientcredentialsconfig-exchangeparameters
+            '''
+            result = self._values.get("exchange_parameters")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''OAuth scopes.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html#cfn-devopsagent-service-mcpserveroauthclientcredentialsconfig-scopes
+            '''
+            result = self._values.get("scopes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerOAuthClientCredentialsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bearer_token": "bearerToken"},
+    )
+    class MCPServerSplunkAuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            bearer_token: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.BearerTokenDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''MCP server splunk authorization configuration.
+
+            :param bearer_token: Bearer token authentication details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversplunkauthorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cPServer_splunk_authorization_config_property = devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
+                    bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                        token_name="tokenName",
+                        token_value="tokenValue",
+                
+                        # the properties below are optional
+                        authorization_header="authorizationHeader"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7c92e97e3c227e3467ecb452f408839f30cb1b85644fbd8f96962ea3606723a1)
+                check_type(argname="argument bearer_token", value=bearer_token, expected_type=type_hints["bearer_token"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bearer_token": bearer_token,
+            }
+
+        @builtins.property
+        def bearer_token(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.BearerTokenDetailsProperty"]:
+            '''Bearer token authentication details.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversplunkauthorizationconfig.html#cfn-devopsagent-service-mcpserversplunkauthorizationconfig-bearertoken
+            '''
+            result = self._values.get("bearer_token")
+            assert result is not None, "Required property 'bearer_token' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.BearerTokenDetailsProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerSplunkAuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.MCPServerSplunkDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_config": "authorizationConfig",
+            "endpoint": "endpoint",
+            "name": "name",
+            "description": "description",
+        },
+    )
+    class MCPServerSplunkDetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerSplunkAuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            endpoint: builtins.str,
+            name: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Splunk MCP server configuration.
+
+            :param authorization_config: MCP server splunk authorization configuration.
+            :param endpoint: MCP server endpoint URL.
+            :param name: MCP server name.
+            :param description: Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversplunkdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                m_cPServer_splunk_details_property = devopsagent.CfnService.MCPServerSplunkDetailsProperty(
+                    authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
+                        bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                            token_name="tokenName",
+                            token_value="tokenValue",
+                
+                            # the properties below are optional
+                            authorization_header="authorizationHeader"
+                        )
+                    ),
+                    endpoint="endpoint",
+                    name="name",
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__53d93e87f0f22c03aa42a187eee24ad101676f59eb3e0ca8d617001ea054e7d1)
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_config": authorization_config,
+                "endpoint": endpoint,
+                "name": name,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSplunkAuthorizationConfigProperty"]:
+            '''MCP server splunk authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversplunkdetails.html#cfn-devopsagent-service-mcpserversplunkdetails-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            assert result is not None, "Required property 'authorization_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSplunkAuthorizationConfigProperty"], result)
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversplunkdetails.html#cfn-devopsagent-service-mcpserversplunkdetails-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversplunkdetails.html#cfn-devopsagent-service-mcpserversplunkdetails-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversplunkdetails.html#cfn-devopsagent-service-mcpserversplunkdetails-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MCPServerSplunkDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.NewRelicApiKeyConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "account_id": "accountId",
+            "api_key": "apiKey",
+            "region": "region",
+            "alert_policy_ids": "alertPolicyIds",
+            "application_ids": "applicationIds",
+            "entity_guids": "entityGuids",
+        },
+    )
+    class NewRelicApiKeyConfigProperty:
+        def __init__(
+            self,
+            *,
+            account_id: builtins.str,
+            api_key: builtins.str,
+            region: builtins.str,
+            alert_policy_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            application_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            entity_guids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''New Relic API key configuration.
+
+            :param account_id: New Relic Account ID.
+            :param api_key: New Relic User API Key.
+            :param region: New Relic region.
+            :param alert_policy_ids: List of alert policy IDs.
+            :param application_ids: List of monitored APM application IDs.
+            :param entity_guids: List of globally unique IDs for New Relic resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicapikeyconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                new_relic_api_key_config_property = devopsagent.CfnService.NewRelicApiKeyConfigProperty(
+                    account_id="accountId",
+                    api_key="apiKey",
+                    region="region",
+                
+                    # the properties below are optional
+                    alert_policy_ids=["alertPolicyIds"],
+                    application_ids=["applicationIds"],
+                    entity_guids=["entityGuids"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4540b44ec165187fba7151d272d0adb7a00d610661a528aea957f435fc7864dd)
+                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+                check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument alert_policy_ids", value=alert_policy_ids, expected_type=type_hints["alert_policy_ids"])
+                check_type(argname="argument application_ids", value=application_ids, expected_type=type_hints["application_ids"])
+                check_type(argname="argument entity_guids", value=entity_guids, expected_type=type_hints["entity_guids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "account_id": account_id,
+                "api_key": api_key,
+                "region": region,
+            }
+            if alert_policy_ids is not None:
+                self._values["alert_policy_ids"] = alert_policy_ids
+            if application_ids is not None:
+                self._values["application_ids"] = application_ids
+            if entity_guids is not None:
+                self._values["entity_guids"] = entity_guids
+
+        @builtins.property
+        def account_id(self) -> builtins.str:
+            '''New Relic Account ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicapikeyconfig.html#cfn-devopsagent-service-newrelicapikeyconfig-accountid
+            '''
+            result = self._values.get("account_id")
+            assert result is not None, "Required property 'account_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_key(self) -> builtins.str:
+            '''New Relic User API Key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicapikeyconfig.html#cfn-devopsagent-service-newrelicapikeyconfig-apikey
+            '''
+            result = self._values.get("api_key")
+            assert result is not None, "Required property 'api_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''New Relic region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicapikeyconfig.html#cfn-devopsagent-service-newrelicapikeyconfig-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def alert_policy_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of alert policy IDs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicapikeyconfig.html#cfn-devopsagent-service-newrelicapikeyconfig-alertpolicyids
+            '''
+            result = self._values.get("alert_policy_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def application_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of monitored APM application IDs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicapikeyconfig.html#cfn-devopsagent-service-newrelicapikeyconfig-applicationids
+            '''
+            result = self._values.get("application_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of globally unique IDs for New Relic resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicapikeyconfig.html#cfn-devopsagent-service-newrelicapikeyconfig-entityguids
+            '''
+            result = self._values.get("entity_guids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NewRelicApiKeyConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.NewRelicAuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"api_key": "apiKey"},
+    )
+    class NewRelicAuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            api_key: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NewRelicApiKeyConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''New Relic authorization configuration.
+
+            :param api_key: New Relic API key configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicauthorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                new_relic_authorization_config_property = devopsagent.CfnService.NewRelicAuthorizationConfigProperty(
+                    api_key=devopsagent.CfnService.NewRelicApiKeyConfigProperty(
+                        account_id="accountId",
+                        api_key="apiKey",
+                        region="region",
+                
+                        # the properties below are optional
+                        alert_policy_ids=["alertPolicyIds"],
+                        application_ids=["applicationIds"],
+                        entity_guids=["entityGuids"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0d02b1a5660e7d89e5617cc435ae1a1785a9d793dd158e69f86d868f5bda2b17)
+                check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "api_key": api_key,
+            }
+
+        @builtins.property
+        def api_key(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.NewRelicApiKeyConfigProperty"]:
+            '''New Relic API key configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicauthorizationconfig.html#cfn-devopsagent-service-newrelicauthorizationconfig-apikey
+            '''
+            result = self._values.get("api_key")
+            assert result is not None, "Required property 'api_key' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.NewRelicApiKeyConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NewRelicAuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.NewRelicServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"authorization_config": "authorizationConfig"},
+    )
+    class NewRelicServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NewRelicAuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''New Relic service configuration.
+
+            :param authorization_config: New Relic authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicservicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                new_relic_service_details_property = devopsagent.CfnService.NewRelicServiceDetailsProperty(
+                    authorization_config=devopsagent.CfnService.NewRelicAuthorizationConfigProperty(
+                        api_key=devopsagent.CfnService.NewRelicApiKeyConfigProperty(
+                            account_id="accountId",
+                            api_key="apiKey",
+                            region="region",
+                
+                            # the properties below are optional
+                            alert_policy_ids=["alertPolicyIds"],
+                            application_ids=["applicationIds"],
+                            entity_guids=["entityGuids"]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6cbaca433d39be3f05d6d65edb9b3be293ab0c26466a109e90955d317343e3a1)
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_config": authorization_config,
+            }
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnService.NewRelicAuthorizationConfigProperty"]:
+            '''New Relic authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-newrelicservicedetails.html#cfn-devopsagent-service-newrelicservicedetails-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            assert result is not None, "Required property 'authorization_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnService.NewRelicAuthorizationConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NewRelicServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.OAuthClientDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "client_name": "clientName",
+            "exchange_parameters": "exchangeParameters",
+        },
+    )
+    class OAuthClientDetailsProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+            client_name: typing.Optional[builtins.str] = None,
+            exchange_parameters: typing.Any = None,
+        ) -> None:
+            '''OAuth client credentials.
+
+            :param client_id: OAuth client ID.
+            :param client_secret: OAuth client secret.
+            :param client_name: User friendly OAuth client name.
+            :param exchange_parameters: OAuth token exchange parameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-oauthclientdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                o_auth_client_details_property = devopsagent.CfnService.OAuthClientDetailsProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                
+                    # the properties below are optional
+                    client_name="clientName",
+                    exchange_parameters=exchange_parameters
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__69d30adb9097619b550fc8e2637f42ea3cd647e1f1847d2932439a6b3a7a859e)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_name", value=client_name, expected_type=type_hints["client_name"])
+                check_type(argname="argument exchange_parameters", value=exchange_parameters, expected_type=type_hints["exchange_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+            }
+            if client_name is not None:
+                self._values["client_name"] = client_name
+            if exchange_parameters is not None:
+                self._values["exchange_parameters"] = exchange_parameters
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''OAuth client ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-oauthclientdetails.html#cfn-devopsagent-service-oauthclientdetails-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''OAuth client secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-oauthclientdetails.html#cfn-devopsagent-service-oauthclientdetails-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_name(self) -> typing.Optional[builtins.str]:
+            '''User friendly OAuth client name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-oauthclientdetails.html#cfn-devopsagent-service-oauthclientdetails-clientname
+            '''
+            result = self._values.get("client_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def exchange_parameters(self) -> typing.Any:
+            '''OAuth token exchange parameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-oauthclientdetails.html#cfn-devopsagent-service-oauthclientdetails-exchangeparameters
+            '''
+            result = self._values.get("exchange_parameters")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OAuthClientDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredDynatraceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"account_urn": "accountUrn"},
+    )
+    class RegisteredDynatraceDetailsProperty:
+        def __init__(self, *, account_urn: builtins.str) -> None:
+            '''Dynatrace service details returned after registration.
+
+            :param account_urn: Dynatrace resource account URN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registereddynatracedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_dynatrace_details_property = devopsagent.CfnService.RegisteredDynatraceDetailsProperty(
+                    account_urn="accountUrn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__699f5a8b23e937bb3b578edf7c8136622218b1b1889514fbae9a950886329586)
+                check_type(argname="argument account_urn", value=account_urn, expected_type=type_hints["account_urn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "account_urn": account_urn,
+            }
+
+        @builtins.property
+        def account_urn(self) -> builtins.str:
+            '''Dynatrace resource account URN.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registereddynatracedetails.html#cfn-devopsagent-service-registereddynatracedetails-accounturn
+            '''
+            result = self._values.get("account_urn")
+            assert result is not None, "Required property 'account_urn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredDynatraceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredGitLabServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "target_url": "targetUrl",
+            "token_type": "tokenType",
+            "group_id": "groupId",
+        },
+    )
+    class RegisteredGitLabServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            target_url: builtins.str,
+            token_type: builtins.str,
+            group_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''GitLab service details returned after registration.
+
+            :param target_url: GitLab instance URL.
+            :param token_type: Type of GitLab access token.
+            :param group_id: Optional GitLab group ID for group-level access tokens.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgitlabservicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_git_lab_service_details_property = devopsagent.CfnService.RegisteredGitLabServiceDetailsProperty(
+                    target_url="targetUrl",
+                    token_type="tokenType",
+                
+                    # the properties below are optional
+                    group_id="groupId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4d854446e4c62fec988f432899059d4e43ccb4fc2c2abfed1d4da911d0c348df)
+                check_type(argname="argument target_url", value=target_url, expected_type=type_hints["target_url"])
+                check_type(argname="argument token_type", value=token_type, expected_type=type_hints["token_type"])
+                check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "target_url": target_url,
+                "token_type": token_type,
+            }
+            if group_id is not None:
+                self._values["group_id"] = group_id
+
+        @builtins.property
+        def target_url(self) -> builtins.str:
+            '''GitLab instance URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgitlabservicedetails.html#cfn-devopsagent-service-registeredgitlabservicedetails-targeturl
+            '''
+            result = self._values.get("target_url")
+            assert result is not None, "Required property 'target_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_type(self) -> builtins.str:
+            '''Type of GitLab access token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgitlabservicedetails.html#cfn-devopsagent-service-registeredgitlabservicedetails-tokentype
+            '''
+            result = self._values.get("token_type")
+            assert result is not None, "Required property 'token_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def group_id(self) -> typing.Optional[builtins.str]:
+            '''Optional GitLab group ID for group-level access tokens.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgitlabservicedetails.html#cfn-devopsagent-service-registeredgitlabservicedetails-groupid
+            '''
+            result = self._values.get("group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredGitLabServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredMCPServerDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorization_method": "authorizationMethod",
+            "endpoint": "endpoint",
+            "name": "name",
+            "api_key_header": "apiKeyHeader",
+            "description": "description",
+        },
+    )
+    class RegisteredMCPServerDetailsProperty:
+        def __init__(
+            self,
+            *,
+            authorization_method: builtins.str,
+            endpoint: builtins.str,
+            name: builtins.str,
+            api_key_header: typing.Optional[builtins.str] = None,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''MCP server details returned after registration.
+
+            :param authorization_method: MCP server authorization method.
+            :param endpoint: MCP server endpoint URL.
+            :param name: MCP server name.
+            :param api_key_header: API key header name if using API key authentication.
+            :param description: Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserverdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_mCPServer_details_property = devopsagent.CfnService.RegisteredMCPServerDetailsProperty(
+                    authorization_method="authorizationMethod",
+                    endpoint="endpoint",
+                    name="name",
+                
+                    # the properties below are optional
+                    api_key_header="apiKeyHeader",
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__64842feca3ddfa950e85ba4c6de1af968036678a7ccca7400342a6c0f3560eae)
+                check_type(argname="argument authorization_method", value=authorization_method, expected_type=type_hints["authorization_method"])
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument api_key_header", value=api_key_header, expected_type=type_hints["api_key_header"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorization_method": authorization_method,
+                "endpoint": endpoint,
+                "name": name,
+            }
+            if api_key_header is not None:
+                self._values["api_key_header"] = api_key_header
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def authorization_method(self) -> builtins.str:
+            '''MCP server authorization method.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserverdetails.html#cfn-devopsagent-service-registeredmcpserverdetails-authorizationmethod
+            '''
+            result = self._values.get("authorization_method")
+            assert result is not None, "Required property 'authorization_method' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''MCP server endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserverdetails.html#cfn-devopsagent-service-registeredmcpserverdetails-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''MCP server name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserverdetails.html#cfn-devopsagent-service-registeredmcpserverdetails-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def api_key_header(self) -> typing.Optional[builtins.str]:
+            '''API key header name if using API key authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserverdetails.html#cfn-devopsagent-service-registeredmcpserverdetails-apikeyheader
+            '''
+            result = self._values.get("api_key_header")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional description for the MCP server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserverdetails.html#cfn-devopsagent-service-registeredmcpserverdetails-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredMCPServerDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredNewRelicDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "account_id": "accountId",
+            "region": "region",
+            "description": "description",
+        },
+    )
+    class RegisteredNewRelicDetailsProperty:
+        def __init__(
+            self,
+            *,
+            account_id: builtins.str,
+            region: builtins.str,
+            description: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''New Relic service details returned after registration.
+
+            :param account_id: New Relic account ID.
+            :param region: New Relic region.
+            :param description: Optional user description.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registerednewrelicdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_new_relic_details_property = devopsagent.CfnService.RegisteredNewRelicDetailsProperty(
+                    account_id="accountId",
+                    region="region",
+                
+                    # the properties below are optional
+                    description="description"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9deb554de08ee49b5922b70dd0b785627adafa9ad66a8f39d7cf9b406b3b7499)
+                check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "account_id": account_id,
+                "region": region,
+            }
+            if description is not None:
+                self._values["description"] = description
+
+        @builtins.property
+        def account_id(self) -> builtins.str:
+            '''New Relic account ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registerednewrelicdetails.html#cfn-devopsagent-service-registerednewrelicdetails-accountid
+            '''
+            result = self._values.get("account_id")
+            assert result is not None, "Required property 'account_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''New Relic region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registerednewrelicdetails.html#cfn-devopsagent-service-registerednewrelicdetails-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def description(self) -> typing.Optional[builtins.str]:
+            '''Optional user description.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registerednewrelicdetails.html#cfn-devopsagent-service-registerednewrelicdetails-description
+            '''
+            result = self._values.get("description")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredNewRelicDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredServiceNowDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"instance_url": "instanceUrl"},
+    )
+    class RegisteredServiceNowDetailsProperty:
+        def __init__(self, *, instance_url: builtins.str) -> None:
+            '''ServiceNow service details returned after registration.
+
+            :param instance_url: ServiceNow instance URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredservicenowdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_service_now_details_property = devopsagent.CfnService.RegisteredServiceNowDetailsProperty(
+                    instance_url="instanceUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__69bbba76b884f0dd1a6039cedb012b79e9c976c7d68746f12a249175306115fc)
+                check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instance_url": instance_url,
+            }
+
+        @builtins.property
+        def instance_url(self) -> builtins.str:
+            '''ServiceNow instance URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredservicenowdetails.html#cfn-devopsagent-service-registeredservicenowdetails-instanceurl
+            '''
+            result = self._values.get("instance_url")
+            assert result is not None, "Required property 'instance_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredServiceNowDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.ServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dynatrace": "dynatrace",
+            "git_lab": "gitLab",
+            "mcp_server": "mcpServer",
+            "mcp_server_new_relic": "mcpServerNewRelic",
+            "mcp_server_splunk": "mcpServerSplunk",
+            "service_now": "serviceNow",
+        },
+    )
+    class ServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            dynatrace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.DynatraceServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            git_lab: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.GitLabDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_new_relic: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.NewRelicServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mcp_server_splunk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.MCPServerSplunkDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceNowServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param dynatrace: Dynatrace service configuration.
+            :param git_lab: GitLab service configuration.
+            :param mcp_server: MCP server configuration.
+            :param mcp_server_new_relic: New Relic service configuration.
+            :param mcp_server_splunk: Splunk MCP server configuration.
+            :param service_now: ServiceNow service configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                service_details_property = devopsagent.CfnService.ServiceDetailsProperty(
+                    dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
+                        account_urn="accountUrn",
+                
+                        # the properties below are optional
+                        authorization_config=devopsagent.CfnService.DynatraceAuthorizationConfigProperty(
+                            o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters
+                            )
+                        )
+                    ),
+                    git_lab=devopsagent.CfnService.GitLabDetailsProperty(
+                        target_url="targetUrl",
+                        token_type="tokenType",
+                        token_value="tokenValue",
+                
+                        # the properties below are optional
+                        group_id="groupId"
+                    ),
+                    mcp_server=devopsagent.CfnService.MCPServerDetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
+                            api_key=devopsagent.CfnService.ApiKeyDetailsProperty(
+                                api_key_header="apiKeyHeader",
+                                api_key_name="apiKeyName",
+                                api_key_value="apiKeyValue"
+                            ),
+                            o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                                exchange_url="exchangeUrl",
+                
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters,
+                                scopes=["scopes"]
+                            )
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+                
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    mcp_server_new_relic=devopsagent.CfnService.NewRelicServiceDetailsProperty(
+                        authorization_config=devopsagent.CfnService.NewRelicAuthorizationConfigProperty(
+                            api_key=devopsagent.CfnService.NewRelicApiKeyConfigProperty(
+                                account_id="accountId",
+                                api_key="apiKey",
+                                region="region",
+                
+                                # the properties below are optional
+                                alert_policy_ids=["alertPolicyIds"],
+                                application_ids=["applicationIds"],
+                                entity_guids=["entityGuids"]
+                            )
+                        )
+                    ),
+                    mcp_server_splunk=devopsagent.CfnService.MCPServerSplunkDetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
+                            bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                                token_name="tokenName",
+                                token_value="tokenValue",
+                
+                                # the properties below are optional
+                                authorization_header="authorizationHeader"
+                            )
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+                
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    service_now=devopsagent.CfnService.ServiceNowServiceDetailsProperty(
+                        instance_url="instanceUrl",
+                
+                        # the properties below are optional
+                        authorization_config=devopsagent.CfnService.ServiceNowAuthorizationConfigProperty(
+                            o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters
+                            )
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2d3cc706658e74f84415c4cda29e3f1af191a52f1dbbf8701c25e0091302740f)
+                check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
+                check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
+                check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
+                check_type(argname="argument mcp_server_new_relic", value=mcp_server_new_relic, expected_type=type_hints["mcp_server_new_relic"])
+                check_type(argname="argument mcp_server_splunk", value=mcp_server_splunk, expected_type=type_hints["mcp_server_splunk"])
+                check_type(argname="argument service_now", value=service_now, expected_type=type_hints["service_now"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if dynatrace is not None:
+                self._values["dynatrace"] = dynatrace
+            if git_lab is not None:
+                self._values["git_lab"] = git_lab
+            if mcp_server is not None:
+                self._values["mcp_server"] = mcp_server
+            if mcp_server_new_relic is not None:
+                self._values["mcp_server_new_relic"] = mcp_server_new_relic
+            if mcp_server_splunk is not None:
+                self._values["mcp_server_splunk"] = mcp_server_splunk
+            if service_now is not None:
+                self._values["service_now"] = service_now
+
+        @builtins.property
+        def dynatrace(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DynatraceServiceDetailsProperty"]]:
+            '''Dynatrace service configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-dynatrace
+            '''
+            result = self._values.get("dynatrace")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.DynatraceServiceDetailsProperty"]], result)
+
+        @builtins.property
+        def git_lab(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.GitLabDetailsProperty"]]:
+            '''GitLab service configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-gitlab
+            '''
+            result = self._values.get("git_lab")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.GitLabDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerDetailsProperty"]]:
+            '''MCP server configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-mcpserver
+            '''
+            result = self._values.get("mcp_server")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server_new_relic(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NewRelicServiceDetailsProperty"]]:
+            '''New Relic service configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-mcpservernewrelic
+            '''
+            result = self._values.get("mcp_server_new_relic")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.NewRelicServiceDetailsProperty"]], result)
+
+        @builtins.property
+        def mcp_server_splunk(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSplunkDetailsProperty"]]:
+            '''Splunk MCP server configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-mcpserversplunk
+            '''
+            result = self._values.get("mcp_server_splunk")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.MCPServerSplunkDetailsProperty"]], result)
+
+        @builtins.property
+        def service_now(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceNowServiceDetailsProperty"]]:
+            '''ServiceNow service configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-servicenow
+            '''
+            result = self._values.get("service_now")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceNowServiceDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.ServiceNowAuthorizationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"o_auth_client_credentials": "oAuthClientCredentials"},
+    )
+    class ServiceNowAuthorizationConfigProperty:
+        def __init__(
+            self,
+            *,
+            o_auth_client_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.OAuthClientDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''ServiceNow OAuth authorization configuration.
+
+            :param o_auth_client_credentials: OAuth client credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicenowauthorizationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                service_now_authorization_config_property = devopsagent.CfnService.ServiceNowAuthorizationConfigProperty(
+                    o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                
+                        # the properties below are optional
+                        client_name="clientName",
+                        exchange_parameters=exchange_parameters
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ff2fade9fa308db855d28957e382348359076946ed4f567ccc0909401bc9757f)
+                check_type(argname="argument o_auth_client_credentials", value=o_auth_client_credentials, expected_type=type_hints["o_auth_client_credentials"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if o_auth_client_credentials is not None:
+                self._values["o_auth_client_credentials"] = o_auth_client_credentials
+
+        @builtins.property
+        def o_auth_client_credentials(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.OAuthClientDetailsProperty"]]:
+            '''OAuth client credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicenowauthorizationconfig.html#cfn-devopsagent-service-servicenowauthorizationconfig-oauthclientcredentials
+            '''
+            result = self._values.get("o_auth_client_credentials")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.OAuthClientDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceNowAuthorizationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.ServiceNowServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "instance_url": "instanceUrl",
+            "authorization_config": "authorizationConfig",
+        },
+    )
+    class ServiceNowServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            instance_url: builtins.str,
+            authorization_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceNowAuthorizationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''ServiceNow service configuration.
+
+            :param instance_url: ServiceNow instance URL.
+            :param authorization_config: ServiceNow OAuth authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicenowservicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                # exchange_parameters: Any
+                
+                service_now_service_details_property = devopsagent.CfnService.ServiceNowServiceDetailsProperty(
+                    instance_url="instanceUrl",
+                
+                    # the properties below are optional
+                    authorization_config=devopsagent.CfnService.ServiceNowAuthorizationConfigProperty(
+                        o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                            client_id="clientId",
+                            client_secret="clientSecret",
+                
+                            # the properties below are optional
+                            client_name="clientName",
+                            exchange_parameters=exchange_parameters
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d187ccd94caa63f84c780709217fd146f3bb8a30928a00c86283e0e434a2df54)
+                check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
+                check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instance_url": instance_url,
+            }
+            if authorization_config is not None:
+                self._values["authorization_config"] = authorization_config
+
+        @builtins.property
+        def instance_url(self) -> builtins.str:
+            '''ServiceNow instance URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicenowservicedetails.html#cfn-devopsagent-service-servicenowservicedetails-instanceurl
+            '''
+            result = self._values.get("instance_url")
+            assert result is not None, "Required property 'instance_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def authorization_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceNowAuthorizationConfigProperty"]]:
+            '''ServiceNow OAuth authorization configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicenowservicedetails.html#cfn-devopsagent-service-servicenowservicedetails-authorizationconfig
+            '''
+            result = self._values.get("authorization_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceNowAuthorizationConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceNowServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devopsagent.CfnServiceProps",
+    jsii_struct_bases=[],
+    name_mapping={"service_type": "serviceType", "service_details": "serviceDetails"},
+)
+class CfnServiceProps:
+    def __init__(
+        self,
+        *,
+        service_type: builtins.str,
+        service_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnService``.
+
+        :param service_type: The type of service being registered.
+        :param service_details: Service-specific configuration details.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devopsagent as devopsagent
+            
+            # exchange_parameters: Any
+            
+            cfn_service_props = devopsagent.CfnServiceProps(
+                service_type="serviceType",
+            
+                # the properties below are optional
+                service_details=devopsagent.CfnService.ServiceDetailsProperty(
+                    dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
+                        account_urn="accountUrn",
+            
+                        # the properties below are optional
+                        authorization_config=devopsagent.CfnService.DynatraceAuthorizationConfigProperty(
+                            o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+            
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters
+                            )
+                        )
+                    ),
+                    git_lab=devopsagent.CfnService.GitLabDetailsProperty(
+                        target_url="targetUrl",
+                        token_type="tokenType",
+                        token_value="tokenValue",
+            
+                        # the properties below are optional
+                        group_id="groupId"
+                    ),
+                    mcp_server=devopsagent.CfnService.MCPServerDetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerAuthorizationConfigProperty(
+                            api_key=devopsagent.CfnService.ApiKeyDetailsProperty(
+                                api_key_header="apiKeyHeader",
+                                api_key_name="apiKeyName",
+                                api_key_value="apiKeyValue"
+                            ),
+                            o_auth_client_credentials=devopsagent.CfnService.MCPServerOAuthClientCredentialsConfigProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+                                exchange_url="exchangeUrl",
+            
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters,
+                                scopes=["scopes"]
+                            )
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+            
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    mcp_server_new_relic=devopsagent.CfnService.NewRelicServiceDetailsProperty(
+                        authorization_config=devopsagent.CfnService.NewRelicAuthorizationConfigProperty(
+                            api_key=devopsagent.CfnService.NewRelicApiKeyConfigProperty(
+                                account_id="accountId",
+                                api_key="apiKey",
+                                region="region",
+            
+                                # the properties below are optional
+                                alert_policy_ids=["alertPolicyIds"],
+                                application_ids=["applicationIds"],
+                                entity_guids=["entityGuids"]
+                            )
+                        )
+                    ),
+                    mcp_server_splunk=devopsagent.CfnService.MCPServerSplunkDetailsProperty(
+                        authorization_config=devopsagent.CfnService.MCPServerSplunkAuthorizationConfigProperty(
+                            bearer_token=devopsagent.CfnService.BearerTokenDetailsProperty(
+                                token_name="tokenName",
+                                token_value="tokenValue",
+            
+                                # the properties below are optional
+                                authorization_header="authorizationHeader"
+                            )
+                        ),
+                        endpoint="endpoint",
+                        name="name",
+            
+                        # the properties below are optional
+                        description="description"
+                    ),
+                    service_now=devopsagent.CfnService.ServiceNowServiceDetailsProperty(
+                        instance_url="instanceUrl",
+            
+                        # the properties below are optional
+                        authorization_config=devopsagent.CfnService.ServiceNowAuthorizationConfigProperty(
+                            o_auth_client_credentials=devopsagent.CfnService.OAuthClientDetailsProperty(
+                                client_id="clientId",
+                                client_secret="clientSecret",
+            
+                                # the properties below are optional
+                                client_name="clientName",
+                                exchange_parameters=exchange_parameters
+                            )
+                        )
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a12adbc62e2ac0f5b7caf0c232882e56ee71ed33922d8b268e225ddc848413f6)
+            check_type(argname="argument service_type", value=service_type, expected_type=type_hints["service_type"])
+            check_type(argname="argument service_details", value=service_details, expected_type=type_hints["service_details"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_type": service_type,
+        }
+        if service_details is not None:
+            self._values["service_details"] = service_details
+
+    @builtins.property
+    def service_type(self) -> builtins.str:
+        '''The type of service being registered.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-servicetype
+        '''
+        result = self._values.get("service_type")
+        assert result is not None, "Required property 'service_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_details(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]]:
+        '''Service-specific configuration details.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-servicedetails
+        '''
+        result = self._values.get("service_details")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnServiceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAgentSpace",
     "CfnAgentSpaceProps",
     "CfnAssociation",
     "CfnAssociationProps",
+    "CfnService",
+    "CfnServiceProps",
 ]
 
 publication.publish()
@@ -2854,6 +6053,7 @@ def _typecheckingstub__3897cdc52c2bc2a74bdd32702e32905947b3c0fc36798edcdac7875cc
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    operator_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2910,10 +6110,45 @@ def _typecheckingstub__2b7561d8cdcaf93c81d1cf0a9a4cc5790c03232e494d49db5171a9359
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708cf7f6fa(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgentSpace.OperatorAppProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4beb411197d70233cb23add12a5f3b652beb521a346992040d7d02b2b1ddd228(
+    *,
+    operator_app_role_arn: builtins.str,
+    created_at: typing.Optional[builtins.str] = None,
+    updated_at: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54cfce91472eb9681ce65a0ce7a6d266ecbcafccbd8e1842288a0f262a4d5755(
+    *,
+    idc_instance_arn: builtins.str,
+    operator_app_role_arn: builtins.str,
+    created_at: typing.Optional[builtins.str] = None,
+    idc_application_arn: typing.Optional[builtins.str] = None,
+    updated_at: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__163f48e2381f16154d3ed1a507d7fa1b64898c9ada42152eb65e4a5a869c805c(
+    *,
+    iam: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.IamAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    idc: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.IdcAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8cdb6d5f(
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    operator_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3142,6 +6377,262 @@ def _typecheckingstub__4b9c7866e61a4a7267964c2e97d2c2f23071408ae1546eca41521d60b
     configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.ServiceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     service_id: builtins.str,
     linked_association_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb30580cca07(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    service_type: builtins.str,
+    service_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4747cf77eaeb36736a2ca00fd2ce576b093ee7f10e64c38001e2eac5a33d8149(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae6a60e2418d472a473b14d2bbcbd2350af8fed2083a2938616370c1e08ed3e0(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2740d5b9657545f92bc9b54f5c97b22d107226f26deef1c36cbd652d62b9aba0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a87d815016e64b5bdf47334ae0b9ef194602b4aa5a9e6cd5a5d9b1d6b516b9a7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38b28b2539546ba11e45199a6bde41e432e6246da9ea58bba29ece3bbf5c4193(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.ServiceDetailsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35d2aa127fac97efcf9f5ae815fbac6244f4de11a1b85beb8acc053b8eb8edee(
+    *,
+    dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredDynatraceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    git_lab: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredGitLabServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredNewRelicDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredMCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.RegisteredServiceNowDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76e209fab46047902f46ddb19cd603ac6794e4e730c2326df60b5016370583cf(
+    *,
+    api_key_header: builtins.str,
+    api_key_name: builtins.str,
+    api_key_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1ed3f342895156ff05fa55fe762ca658173862cfba9138b08506eef2da17f21(
+    *,
+    token_name: builtins.str,
+    token_value: builtins.str,
+    authorization_header: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4c94d9ef2811300fc8439f749f5e0b012380780ff3ee8da59d63a89012981e4(
+    *,
+    o_auth_client_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.OAuthClientDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1093f5ca4a6437d94226499a72d7ed498cbf6c82d31179c14e9526707fa4f8c0(
+    *,
+    account_urn: builtins.str,
+    authorization_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DynatraceAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b58d9276d7725a7b2a814720d881a8dd974b0d85b18fe425efb863bc1d25a08(
+    *,
+    target_url: builtins.str,
+    token_type: builtins.str,
+    token_value: builtins.str,
+    group_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d23407dd8b2083d432d8db1552b2c86a3325b7151f0c72016ef6edc6a6fd65e8(
+    *,
+    api_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ApiKeyDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    o_auth_client_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerOAuthClientCredentialsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8254611fd4c93bda748b35259025cc559c3ff3316f16d3a4c6b8742407842e77(
+    *,
+    authorization_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    endpoint: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__198a110da941ce87aaecb0a0b1ba18fa10731b81d29b4a768fd8f795ff2b76f5(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+    exchange_url: builtins.str,
+    client_name: typing.Optional[builtins.str] = None,
+    exchange_parameters: typing.Any = None,
+    scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c92e97e3c227e3467ecb452f408839f30cb1b85644fbd8f96962ea3606723a1(
+    *,
+    bearer_token: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.BearerTokenDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53d93e87f0f22c03aa42a187eee24ad101676f59eb3e0ca8d617001ea054e7d1(
+    *,
+    authorization_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerSplunkAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    endpoint: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4540b44ec165187fba7151d272d0adb7a00d610661a528aea957f435fc7864dd(
+    *,
+    account_id: builtins.str,
+    api_key: builtins.str,
+    region: builtins.str,
+    alert_policy_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    application_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    entity_guids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d02b1a5660e7d89e5617cc435ae1a1785a9d793dd158e69f86d868f5bda2b17(
+    *,
+    api_key: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NewRelicApiKeyConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cbaca433d39be3f05d6d65edb9b3be293ab0c26466a109e90955d317343e3a1(
+    *,
+    authorization_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NewRelicAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69d30adb9097619b550fc8e2637f42ea3cd647e1f1847d2932439a6b3a7a859e(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+    client_name: typing.Optional[builtins.str] = None,
+    exchange_parameters: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__699f5a8b23e937bb3b578edf7c8136622218b1b1889514fbae9a950886329586(
+    *,
+    account_urn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d854446e4c62fec988f432899059d4e43ccb4fc2c2abfed1d4da911d0c348df(
+    *,
+    target_url: builtins.str,
+    token_type: builtins.str,
+    group_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64842feca3ddfa950e85ba4c6de1af968036678a7ccca7400342a6c0f3560eae(
+    *,
+    authorization_method: builtins.str,
+    endpoint: builtins.str,
+    name: builtins.str,
+    api_key_header: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9deb554de08ee49b5922b70dd0b785627adafa9ad66a8f39d7cf9b406b3b7499(
+    *,
+    account_id: builtins.str,
+    region: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69bbba76b884f0dd1a6039cedb012b79e9c976c7d68746f12a249175306115fc(
+    *,
+    instance_url: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d3cc706658e74f84415c4cda29e3f1af191a52f1dbbf8701c25e0091302740f(
+    *,
+    dynatrace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DynatraceServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    git_lab: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.GitLabDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_new_relic: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.NewRelicServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mcp_server_splunk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.MCPServerSplunkDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceNowServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff2fade9fa308db855d28957e382348359076946ed4f567ccc0909401bc9757f(
+    *,
+    o_auth_client_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.OAuthClientDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d187ccd94caa63f84c780709217fd146f3bb8a30928a00c86283e0e434a2df54(
+    *,
+    instance_url: builtins.str,
+    authorization_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceNowAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a12adbc62e2ac0f5b7caf0c232882e56ee71ed33922d8b268e225ddc848413f6(
+    *,
+    service_type: builtins.str,
+    service_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

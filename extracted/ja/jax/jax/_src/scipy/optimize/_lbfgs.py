@@ -58,8 +58,8 @@ class LBFGSResults(NamedTuple):
       5 = line search failed
     ls_status: integer describing the end status of the last line search
   """
-  converged: bool | Array
-  failed: bool | Array
+  converged: Array
+  failed: Array
   k: int | Array
   nfev: int | Array
   ngev: int | Array
@@ -130,8 +130,8 @@ def _minimize_lbfgs(
   # initial evaluation
   f_0, g_0 = api.value_and_grad(fun)(x0)
   state_initial = LBFGSResults(
-    converged=False,
-    failed=False,
+    converged=jnp.array(False, dtype=bool),
+    failed=jnp.array(False, dtype=bool),
     k=0,
     nfev=1,
     ngev=1,

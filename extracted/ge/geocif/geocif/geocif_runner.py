@@ -148,7 +148,10 @@ def execute_models(inputs, logger, parser):
         with mp.Pool(cpu_count) as pool:
             pool.map(loop_execute, inputs)
     else:
-        for inputs in tqdm(inputs, desc="Executing ML models"):
+        pbar = tqdm(inputs, desc="Executing ML models")
+        for inputs in pbar:
+            country, crop, season = inputs[1], inputs[2], inputs[3]
+            pbar.set_description(f"{country} {crop} {season}")
             loop_execute(inputs)
 
     logger.info("======================================")
@@ -178,14 +181,27 @@ def _build_summary_params(parser, inputs):
         params.append((f"  {country} seasons", sorted(info["seasons"])))
         params.append((f"  {country} models", sorted(info["models"])))
 
+    # Global settings
+    for key in ["db", "method"]:
+        if parser.has_option("DEFAULT", key):
+            params.append((key, parser.get("DEFAULT", key)))
+
     # ML settings (safe reads with fallbacks)
     for key, section in [
         ("feature_selection", "ML"),
         ("cluster_strategy", "ML"),
         ("model_type", "ML"),
+        ("check_yield_trend", "ML"),
+        ("use_single_time_period_as_feature", "ML"),
+        ("lag_yield_as_feature", "ML"),
     ]:
         if parser.has_option(section, key):
             params.append((key, parser.get(section, key)))
+
+    # Per-model use_ceis (show from first model)
+    first_model = inputs[0][4] if inputs else None
+    if first_model and parser.has_option(first_model, "use_ceis"):
+        params.append(("use_ceis", parser.get(first_model, "use_ceis")))
 
     params.append(("Parallel", str(do_parallel)))
     if do_parallel:

@@ -144,6 +144,55 @@ class ApprovedOriginReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.ContactFlowModuleAliasReference",
+    jsii_struct_bases=[],
+    name_mapping={"contact_flow_module_alias_arn": "contactFlowModuleAliasArn"},
+)
+class ContactFlowModuleAliasReference:
+    def __init__(self, *, contact_flow_module_alias_arn: builtins.str) -> None:
+        '''A reference to a ContactFlowModuleAlias resource.
+
+        :param contact_flow_module_alias_arn: The ContactFlowModuleAliasARN of the ContactFlowModuleAlias resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_connect as interfaces_connect
+            
+            contact_flow_module_alias_reference = interfaces_connect.ContactFlowModuleAliasReference(
+                contact_flow_module_alias_arn="contactFlowModuleAliasArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20d4bbaa3402801ecaedf7fd115c6b26c722e3c434fea3b3c5595d76f6875dbf)
+            check_type(argname="argument contact_flow_module_alias_arn", value=contact_flow_module_alias_arn, expected_type=type_hints["contact_flow_module_alias_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_flow_module_alias_arn": contact_flow_module_alias_arn,
+        }
+
+    @builtins.property
+    def contact_flow_module_alias_arn(self) -> builtins.str:
+        '''The ContactFlowModuleAliasARN of the ContactFlowModuleAlias resource.'''
+        result = self._values.get("contact_flow_module_alias_arn")
+        assert result is not None, "Required property 'contact_flow_module_alias_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContactFlowModuleAliasReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_connect.ContactFlowModuleReference",
     jsii_struct_bases=[],
     name_mapping={"contact_flow_module_arn": "contactFlowModuleArn"},
@@ -188,6 +237,55 @@ class ContactFlowModuleReference:
 
     def __repr__(self) -> str:
         return "ContactFlowModuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.ContactFlowModuleVersionReference",
+    jsii_struct_bases=[],
+    name_mapping={"contact_flow_module_version_arn": "contactFlowModuleVersionArn"},
+)
+class ContactFlowModuleVersionReference:
+    def __init__(self, *, contact_flow_module_version_arn: builtins.str) -> None:
+        '''A reference to a ContactFlowModuleVersion resource.
+
+        :param contact_flow_module_version_arn: The ContactFlowModuleVersionARN of the ContactFlowModuleVersion resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_connect as interfaces_connect
+            
+            contact_flow_module_version_reference = interfaces_connect.ContactFlowModuleVersionReference(
+                contact_flow_module_version_arn="contactFlowModuleVersionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__765dc1aed839fcfb38c331a611567553c325090dc403c41e00e34926961cf6fc)
+            check_type(argname="argument contact_flow_module_version_arn", value=contact_flow_module_version_arn, expected_type=type_hints["contact_flow_module_version_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "contact_flow_module_version_arn": contact_flow_module_version_arn,
+        }
+
+    @builtins.property
+    def contact_flow_module_version_arn(self) -> builtins.str:
+        '''The ContactFlowModuleVersionARN of the ContactFlowModuleVersion resource.'''
+        result = self._values.get("contact_flow_module_version_arn")
+        assert result is not None, "Required property 'contact_flow_module_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContactFlowModuleVersionReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -754,6 +852,53 @@ class _IApprovedOriginRefProxy(
 typing.cast(typing.Any, IApprovedOriginRef).__jsii_proxy_class__ = lambda : _IApprovedOriginRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.IContactFlowModuleAliasRef"
+)
+class IContactFlowModuleAliasRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowModuleAlias.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleAliasRef")
+    def contact_flow_module_alias_ref(self) -> "ContactFlowModuleAliasReference":
+        '''(experimental) A reference to a ContactFlowModuleAlias resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContactFlowModuleAliasRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowModuleAlias.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_connect.IContactFlowModuleAliasRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleAliasRef")
+    def contact_flow_module_alias_ref(self) -> "ContactFlowModuleAliasReference":
+        '''(experimental) A reference to a ContactFlowModuleAlias resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ContactFlowModuleAliasReference", jsii.get(self, "contactFlowModuleAliasRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContactFlowModuleAliasRef).__jsii_proxy_class__ = lambda : _IContactFlowModuleAliasRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IContactFlowModuleRef")
 class IContactFlowModuleRef(
     _constructs_77d1e7e8.IConstruct,
@@ -797,6 +942,53 @@ class _IContactFlowModuleRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IContactFlowModuleRef).__jsii_proxy_class__ = lambda : _IContactFlowModuleRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.IContactFlowModuleVersionRef"
+)
+class IContactFlowModuleVersionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowModuleVersion.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleVersionRef")
+    def contact_flow_module_version_ref(self) -> "ContactFlowModuleVersionReference":
+        '''(experimental) A reference to a ContactFlowModuleVersion resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IContactFlowModuleVersionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ContactFlowModuleVersion.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_connect.IContactFlowModuleVersionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="contactFlowModuleVersionRef")
+    def contact_flow_module_version_ref(self) -> "ContactFlowModuleVersionReference":
+        '''(experimental) A reference to a ContactFlowModuleVersion resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ContactFlowModuleVersionReference", jsii.get(self, "contactFlowModuleVersionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IContactFlowModuleVersionRef).__jsii_proxy_class__ = lambda : _IContactFlowModuleVersionRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IContactFlowRef")
@@ -1296,6 +1488,51 @@ class _IIntegrationAssociationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IIntegrationAssociationRef).__jsii_proxy_class__ = lambda : _IIntegrationAssociationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.INotificationRef")
+class INotificationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Notification.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationRef")
+    def notification_ref(self) -> "NotificationReference":
+        '''(experimental) A reference to a Notification resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INotificationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Notification.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_connect.INotificationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="notificationRef")
+    def notification_ref(self) -> "NotificationReference":
+        '''(experimental) A reference to a Notification resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NotificationReference", jsii.get(self, "notificationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INotificationRef).__jsii_proxy_class__ = lambda : _INotificationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_connect.IPhoneNumberRef")
@@ -2279,6 +2516,55 @@ class IntegrationAssociationReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_connect.NotificationReference",
+    jsii_struct_bases=[],
+    name_mapping={"notification_arn": "notificationArn"},
+)
+class NotificationReference:
+    def __init__(self, *, notification_arn: builtins.str) -> None:
+        '''A reference to a Notification resource.
+
+        :param notification_arn: The Arn of the Notification resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_connect as interfaces_connect
+            
+            notification_reference = interfaces_connect.NotificationReference(
+                notification_arn="notificationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f4ece0f255a501d0bd96693eb9db3bee21572a43e2fd821454853291e5c8f9e)
+            check_type(argname="argument notification_arn", value=notification_arn, expected_type=type_hints["notification_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "notification_arn": notification_arn,
+        }
+
+    @builtins.property
+    def notification_arn(self) -> builtins.str:
+        '''The Arn of the Notification resource.'''
+        result = self._values.get("notification_arn")
+        assert result is not None, "Required property 'notification_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NotificationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_connect.PhoneNumberReference",
     jsii_struct_bases=[],
     name_mapping={"phone_number_arn": "phoneNumberArn"},
@@ -3149,7 +3435,9 @@ class WorkspaceReference:
 __all__ = [
     "AgentStatusReference",
     "ApprovedOriginReference",
+    "ContactFlowModuleAliasReference",
     "ContactFlowModuleReference",
+    "ContactFlowModuleVersionReference",
     "ContactFlowReference",
     "ContactFlowVersionReference",
     "DataTableAttributeReference",
@@ -3160,7 +3448,9 @@ __all__ = [
     "HoursOfOperationReference",
     "IAgentStatusRef",
     "IApprovedOriginRef",
+    "IContactFlowModuleAliasRef",
     "IContactFlowModuleRef",
+    "IContactFlowModuleVersionRef",
     "IContactFlowRef",
     "IContactFlowVersionRef",
     "IDataTableAttributeRef",
@@ -3172,6 +3462,7 @@ __all__ = [
     "IInstanceRef",
     "IInstanceStorageConfigRef",
     "IIntegrationAssociationRef",
+    "INotificationRef",
     "IPhoneNumberRef",
     "IPredefinedAttributeRef",
     "IPromptRef",
@@ -3192,6 +3483,7 @@ __all__ = [
     "InstanceReference",
     "InstanceStorageConfigReference",
     "IntegrationAssociationReference",
+    "NotificationReference",
     "PhoneNumberReference",
     "PredefinedAttributeReference",
     "PromptReference",
@@ -3228,9 +3520,23 @@ def _typecheckingstub__420107c3fcd91bed4de5358f4760ba480949bdc8881c5d0538f7ef3c2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__20d4bbaa3402801ecaedf7fd115c6b26c722e3c434fea3b3c5595d76f6875dbf(
+    *,
+    contact_flow_module_alias_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7ec59a97e450b6e15ebf5f88fe0e6ba5fd33f4df09f3ba1201e6804bf44c54c7(
     *,
     contact_flow_module_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__765dc1aed839fcfb38c331a611567553c325090dc403c41e00e34926961cf6fc(
+    *,
+    contact_flow_module_version_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3317,6 +3623,13 @@ def _typecheckingstub__c5999c1ba890f4adfda7054c24861a2310b5ba7a9a28f49ee65ee35f0
     instance_id: builtins.str,
     integration_arn: builtins.str,
     integration_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f4ece0f255a501d0bd96693eb9db3bee21572a43e2fd821454853291e5c8f9e(
+    *,
+    notification_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3442,5 +3755,5 @@ def _typecheckingstub__59549022c53269d7289aa349f0070431eec816e9588f5cf8c4a4c8e46
     """Type checking stubs"""
     pass
 
-for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleRef, IContactFlowRef, IContactFlowVersionRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IWorkspaceRef]:
+for cls in [IAgentStatusRef, IApprovedOriginRef, IContactFlowModuleAliasRef, IContactFlowModuleRef, IContactFlowModuleVersionRef, IContactFlowRef, IContactFlowVersionRef, IDataTableAttributeRef, IDataTableRecordRef, IDataTableRef, IEmailAddressRef, IEvaluationFormRef, IHoursOfOperationRef, IInstanceRef, IInstanceStorageConfigRef, IIntegrationAssociationRef, INotificationRef, IPhoneNumberRef, IPredefinedAttributeRef, IPromptRef, IQueueRef, IQuickConnectRef, IRoutingProfileRef, IRuleRef, ISecurityKeyRef, ISecurityProfileRef, ITaskTemplateRef, ITrafficDistributionGroupRef, IUserHierarchyGroupRef, IUserHierarchyStructureRef, IUserRef, IViewRef, IViewVersionRef, IWorkspaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

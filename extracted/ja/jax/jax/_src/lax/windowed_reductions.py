@@ -130,7 +130,7 @@ def reduce_window(
   Args:
     operand: input array or tree of arrays.
     init_value: value or tree of values. Tree structure must match that
-      of ``operand``.
+      of ``operand``. The values in ``init_value`` must be scalars.
     computation: callable function over which to reduce. Input and output must be
       a tree of the same structure as ``operand``.
     window_dimensions: sequence of integers specifying the window size.
@@ -442,7 +442,7 @@ def reduce_window_jvp(
 
   init_value_tangent = map(ad_util.instantiate, init_value_tangent)
   c_reduction_jaxpr = ClosedJaxpr(reduction_jaxpr, consts)
-  jvp_reduction = ad.jvp_jaxpr(c_reduction_jaxpr, (True,) * len(tangents), [False] * len(init_value_tangent))[0]
+  jvp_reduction = ad.jvp_jaxpr(c_reduction_jaxpr, (True,) * len(tangents), [False] * len(init_value_tangent))[0]  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
 
   def wrapper(left, right):
     pl, tl = util.split_list(left, [n])
@@ -488,7 +488,8 @@ def _generic_reduce_window_lower(
       raise NotImplementedError('Cannot lower effectful `reduce_window`.')
     out_nodes, _ = mlir.jaxpr_subcomp(ctx.module_context, jaxpr, ctx.name_stack,
         mlir.TokenSet(), consts, *reducer.arguments,  # type: ignore[misc]
-        dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering)
+        dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering,
+        outer_traceback=ctx.traceback)
     return mlir.flatten_ir_values(out_nodes)
 
   return mlir.reduce_window(
@@ -746,7 +747,8 @@ def _select_and_scatter_lower(
                                       mlir.TokenSet(), select_consts,
                                       *select.arguments,
                                       dim_var_values=ctx.dim_var_values,
-                                      const_lowering=ctx.const_lowering)
+                                      const_lowering=ctx.const_lowering,
+                                      outer_traceback=ctx.traceback)
     hlo.return_(mlir.flatten_ir_values(out_nodes))
   scatter = op.scatter.blocks.append(scalar_type, scalar_type)
   with ir.InsertionPoint(scatter):
@@ -757,7 +759,8 @@ def _select_and_scatter_lower(
                                       mlir.TokenSet(), scatter_consts,
                                       *scatter.arguments,
                                       dim_var_values=ctx.dim_var_values,
-                                      const_lowering=ctx.const_lowering)
+                                      const_lowering=ctx.const_lowering,
+                                      outer_traceback=ctx.traceback)
     hlo.return_(mlir.flatten_ir_values(out_nodes))
   return [mlir.lower_with_sharding_in_types(ctx, r, aval)
           for r, aval in zip(op.results, ctx.avals_out)]
@@ -784,7 +787,7 @@ def _select_and_scatter_add_jvp(
       padding)
   del g_operand
   if type(g_source) is ad_util.Zero:
-    tangent_out = ad_util.Zero.from_primal_value(val_out)
+    tangent_out = ad_util.p2tz(val_out)
   else:
     tangent_out = _select_and_scatter_add(
         g_source, operand, select_prim, window_dimensions,
@@ -1042,7 +1045,7 @@ def _select_and_gather_add_jvp(
       padding, base_dilation, window_dilation)
   del g_operand
   if type(g_source) is ad_util.Zero:
-    tangent_out = ad_util.Zero.from_primal_value(val_out)
+    tangent_out = ad_util.p2tz(val_out)
   else:
     tangent_out = _select_and_gather_add(
         g_source, operand, select_prim, window_dimensions,

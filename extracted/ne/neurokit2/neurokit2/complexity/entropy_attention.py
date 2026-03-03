@@ -83,9 +83,7 @@ def entropy_attention(signal, show=False, silent=False, **kwargs):
 
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Identify key patterns
     Xmax, _ = scipy.signal.find_peaks(signal, **kwargs)
@@ -94,8 +92,7 @@ def entropy_attention(signal, show=False, silent=False, **kwargs):
     if len(Xmax) == 0 or len(Xmin) == 0:
         if silent is False:
             warn(
-                "No local maxima or minima was detected, which makes it impossible to compute AttEn"
-                ". Returning np.nan",
+                "No local maxima or minima was detected, which makes it impossible to compute AttEn. Returning np.nan",
                 category=NeuroKitWarning,
             )
         return np.nan, {}

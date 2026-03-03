@@ -15,6 +15,7 @@ from .mne_data import mne_data
 from .mne_templateMRI import mne_templateMRI
 from .mne_to_df import mne_to_df, mne_to_dict
 
+
 __all__ = [
     "mne_data",
     "mne_channel_add",

@@ -73,9 +73,11 @@ from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
 from ..interfaces.aws_timestream import (
     DatabaseReference as _DatabaseReference_878e2d6a,
     IDatabaseRef as _IDatabaseRef_b98a2003,
+    IInfluxDBClusterRef as _IInfluxDBClusterRef_8187b607,
     IInfluxDBInstanceRef as _IInfluxDBInstanceRef_adefa1a4,
     IScheduledQueryRef as _IScheduledQueryRef_fe91b7e9,
     ITableRef as _ITableRef_93a3bc2d,
+    InfluxDBClusterReference as _InfluxDBClusterReference_befb9855,
     InfluxDBInstanceReference as _InfluxDBInstanceReference_13d7bb22,
     ScheduledQueryReference as _ScheduledQueryReference_28692146,
     TableReference as _TableReference_c79e93d0,
@@ -395,6 +397,993 @@ class CfnDatabaseProps:
 
     def __repr__(self) -> str:
         return "CfnDatabaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IInfluxDBClusterRef_8187b607, _ITaggableV2_4e6798f8)
+class CfnInfluxDBCluster(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster",
+):
+    '''The AWS::Timestream::InfluxDBCluster resource creates an InfluxDB cluster.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html
+    :cloudformationResource: AWS::Timestream::InfluxDBCluster
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_timestream as timestream
+        
+        cfn_influx_dBCluster = timestream.CfnInfluxDBCluster(self, "MyCfnInfluxDBCluster",
+            allocated_storage=123,
+            bucket="bucket",
+            db_instance_type="dbInstanceType",
+            db_parameter_group_identifier="dbParameterGroupIdentifier",
+            db_storage_type="dbStorageType",
+            deployment_type="deploymentType",
+            failover_mode="failoverMode",
+            log_delivery_configuration=timestream.CfnInfluxDBCluster.LogDeliveryConfigurationProperty(
+                s3_configuration=timestream.CfnInfluxDBCluster.S3ConfigurationProperty(
+                    bucket_name="bucketName",
+                    enabled=False
+                )
+            ),
+            name="name",
+            network_type="networkType",
+            organization="organization",
+            password="password",
+            port=123,
+            publicly_accessible=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            username="username",
+            vpc_security_group_ids=["vpcSecurityGroupIds"],
+            vpc_subnet_ids=["vpcSubnetIds"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        allocated_storage: typing.Optional[jsii.Number] = None,
+        bucket: typing.Optional[builtins.str] = None,
+        db_instance_type: typing.Optional[builtins.str] = None,
+        db_parameter_group_identifier: typing.Optional[builtins.str] = None,
+        db_storage_type: typing.Optional[builtins.str] = None,
+        deployment_type: typing.Optional[builtins.str] = None,
+        failover_mode: typing.Optional[builtins.str] = None,
+        log_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBCluster.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        organization: typing.Optional[builtins.str] = None,
+        password: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        username: typing.Optional[builtins.str] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Timestream::InfluxDBCluster``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param allocated_storage: The allocated storage for the InfluxDB cluster.
+        :param bucket: The bucket for the InfluxDB cluster.
+        :param db_instance_type: The compute instance of the InfluxDB cluster.
+        :param db_parameter_group_identifier: The name of an existing InfluxDB parameter group.
+        :param db_storage_type: The storage type of the InfluxDB cluster.
+        :param deployment_type: Deployment type of the InfluxDB cluster.
+        :param failover_mode: Failover mode of the InfluxDB cluster.
+        :param log_delivery_configuration: Configuration for sending logs to customer account from the InfluxDB cluster.
+        :param name: The unique name that is associated with the InfluxDB cluster.
+        :param network_type: Network type of the InfluxDB cluster.
+        :param organization: The organization for the InfluxDB cluster.
+        :param password: The password for the InfluxDB cluster.
+        :param port: The port number on which InfluxDB accepts connections.
+        :param publicly_accessible: Attach a public IP to the customer ENI. Default: - false
+        :param tags: An arbitrary set of tags (key-value pairs) for this DB cluster.
+        :param username: The username for the InfluxDB cluster.
+        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with this InfluxDB cluster.
+        :param vpc_subnet_ids: A list of EC2 subnet IDs for this InfluxDB cluster.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be8ecc5b7ea47ffefaf63209143e2288844fffe44ea992cf74c71a11f6bb1a76)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnInfluxDBClusterProps(
+            allocated_storage=allocated_storage,
+            bucket=bucket,
+            db_instance_type=db_instance_type,
+            db_parameter_group_identifier=db_parameter_group_identifier,
+            db_storage_type=db_storage_type,
+            deployment_type=deployment_type,
+            failover_mode=failover_mode,
+            log_delivery_configuration=log_delivery_configuration,
+            name=name,
+            network_type=network_type,
+            organization=organization,
+            password=password,
+            port=port,
+            publicly_accessible=publicly_accessible,
+            tags=tags,
+            username=username,
+            vpc_security_group_ids=vpc_security_group_ids,
+            vpc_subnet_ids=vpc_subnet_ids,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForInfluxDBCluster")
+    @builtins.classmethod
+    def arn_for_influx_db_cluster(
+        cls,
+        resource: "_IInfluxDBClusterRef_8187b607",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78aacbb083cb18bd0fae0362137a877b24b17c2a13d66225a37ee380bd6cfe6d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInfluxDBCluster", [resource]))
+
+    @jsii.member(jsii_name="isCfnInfluxDBCluster")
+    @builtins.classmethod
+    def is_cfn_influx_db_cluster(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInfluxDBCluster.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d8b9cd951677c9de20c022dd2c7b2685ba8b3a59dfeb6aae7a4a64c11b98c793)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInfluxDBCluster", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbc2a1a7881de3b8b7bf2f8b117222ad09cc36038b4ee2035e8b913f18265665)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aff7f02f3a7d8baa6daf605d0b2cc9093c3f7bfbf63a079cc2dd76a084adab36)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) that is associated with the InfluxDB cluster.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpoint")
+    def attr_endpoint(self) -> builtins.str:
+        '''The connection endpoint for the InfluxDB cluster.
+
+        :cloudformationAttribute: Endpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineType")
+    def attr_engine_type(self) -> builtins.str:
+        '''The engine type for the InfluxDB cluster.
+
+        :cloudformationAttribute: EngineType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The service generated unique identifier for InfluxDB cluster.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrInfluxAuthParametersSecretArn")
+    def attr_influx_auth_parameters_secret_arn(self) -> builtins.str:
+        '''The Auth parameters secret Amazon Resource name (ARN) that is associated with the InfluxDB cluster.
+
+        :cloudformationAttribute: InfluxAuthParametersSecretArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrInfluxAuthParametersSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReaderEndpoint")
+    def attr_reader_endpoint(self) -> builtins.str:
+        '''The reader endpoint for the InfluxDB cluster.
+
+        :cloudformationAttribute: ReaderEndpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReaderEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Status of the InfluxDB cluster.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="influxDbClusterRef")
+    def influx_db_cluster_ref(self) -> "_InfluxDBClusterReference_befb9855":
+        '''A reference to a InfluxDBCluster resource.'''
+        return typing.cast("_InfluxDBClusterReference_befb9855", jsii.get(self, "influxDbClusterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allocatedStorage")
+    def allocated_storage(self) -> typing.Optional[jsii.Number]:
+        '''The allocated storage for the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "allocatedStorage"))
+
+    @allocated_storage.setter
+    def allocated_storage(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bddb51bc7e48ee9839803252d7691864c62dd47a67b1db1037264c32ade39ddf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allocatedStorage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="bucket")
+    def bucket(self) -> typing.Optional[builtins.str]:
+        '''The bucket for the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bucket"))
+
+    @bucket.setter
+    def bucket(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ed108173874d31132be43f69e88b051adcbb255996a3b4e35e80ff269d9f63c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbInstanceType")
+    def db_instance_type(self) -> typing.Optional[builtins.str]:
+        '''The compute instance of the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbInstanceType"))
+
+    @db_instance_type.setter
+    def db_instance_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23e53a86129d583506ede51a48db103a0018c29c6f2dcfac0fbeb9f4531ba742)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbInstanceType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbParameterGroupIdentifier")
+    def db_parameter_group_identifier(self) -> typing.Optional[builtins.str]:
+        '''The name of an existing InfluxDB parameter group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbParameterGroupIdentifier"))
+
+    @db_parameter_group_identifier.setter
+    def db_parameter_group_identifier(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__467c28f68b6cef111d53a36ddb71f4b0e7d1ab528d241e063316bfe7335a5f9d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbParameterGroupIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbStorageType")
+    def db_storage_type(self) -> typing.Optional[builtins.str]:
+        '''The storage type of the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbStorageType"))
+
+    @db_storage_type.setter
+    def db_storage_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c778d21b06b0fb18d5f4dce35cffce6b204ecc2a3131f4f04f96402fb9aa762c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbStorageType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentType")
+    def deployment_type(self) -> typing.Optional[builtins.str]:
+        '''Deployment type of the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deploymentType"))
+
+    @deployment_type.setter
+    def deployment_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2109d480d931ad54e375735a13460e83d3ff947fac621effd55f1284b40adcee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="failoverMode")
+    def failover_mode(self) -> typing.Optional[builtins.str]:
+        '''Failover mode of the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "failoverMode"))
+
+    @failover_mode.setter
+    def failover_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8db63d23c673fdd93e19005fa2c6e862e6f0719dda9e9d9805b313db11a2575)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "failoverMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="logDeliveryConfiguration")
+    def log_delivery_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.LogDeliveryConfigurationProperty"]]:
+        '''Configuration for sending logs to customer account from the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.LogDeliveryConfigurationProperty"]], jsii.get(self, "logDeliveryConfiguration"))
+
+    @log_delivery_configuration.setter
+    def log_delivery_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.LogDeliveryConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3bcdc4478040881e6184512128e874c5748859c04d5ea5d21c23dd251fffc439)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logDeliveryConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The unique name that is associated with the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2048d0f5633422d82f2979387fb4e6ca2674e41f31b67d8c2b05755937ab933b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="networkType")
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''Network type of the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
+
+    @network_type.setter
+    def network_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__78cb008bfe2dc54fabe75317efa195c0596ed6fb8a93c8c90db6959dd2a4096e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="organization")
+    def organization(self) -> typing.Optional[builtins.str]:
+        '''The organization for the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "organization"))
+
+    @organization.setter
+    def organization(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60f14ef893074666eeb6c3285f3a11dd951a7a32ec8f25462c3ff9026a64d911)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "organization", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="password")
+    def password(self) -> typing.Optional[builtins.str]:
+        '''The password for the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "password"))
+
+    @password.setter
+    def password(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9f0e665f1d028640e4e75c223b6c6f9fe4e6b5f2a620e8232c11b200481441e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="port")
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port number on which InfluxDB accepts connections.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "port"))
+
+    @port.setter
+    def port(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1569047b5356e160ce1414f092aba2e0210f0cc9c44fed9a85af65cf89e3b98f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="publiclyAccessible")
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Attach a public IP to the customer ENI.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "publiclyAccessible"))
+
+    @publicly_accessible.setter
+    def publicly_accessible(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2773bee62e5b8fc7665dfe67e3183a20998f681f3ff3d0951015bf3d8a354e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An arbitrary set of tags (key-value pairs) for this DB cluster.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b153d5da2cedbf75ba4f16eb905e07274c2c522264ca0ce9e4b6aae3927f51ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="username")
+    def username(self) -> typing.Optional[builtins.str]:
+        '''The username for the InfluxDB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "username"))
+
+    @username.setter
+    def username(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__353aa73728bcdf61d06bddccc8587fba2a4b48036e20121d843572f1920c441b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcSecurityGroupIds")
+    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Amazon EC2 VPC security groups to associate with this InfluxDB cluster.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "vpcSecurityGroupIds"))
+
+    @vpc_security_group_ids.setter
+    def vpc_security_group_ids(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d941a108facac1b85cc821bce20a8f8022885be83d81e4c0352fa23146cc9fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcSubnetIds")
+    def vpc_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of EC2 subnet IDs for this InfluxDB cluster.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "vpcSubnetIds"))
+
+    @vpc_subnet_ids.setter
+    def vpc_subnet_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82c55a2c35cdfb40b9e1ed407cf997c1a8861272dd05c69e94a2bd033d143f27)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcSubnetIds", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster.LogDeliveryConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_configuration": "s3Configuration"},
+    )
+    class LogDeliveryConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            s3_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBCluster.S3ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Configuration for sending logs to customer account from the InfluxDB cluster.
+
+            :param s3_configuration: S3 configuration for sending logs to customer account from the InfluxDB cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-logdeliveryconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                log_delivery_configuration_property = timestream.CfnInfluxDBCluster.LogDeliveryConfigurationProperty(
+                    s3_configuration=timestream.CfnInfluxDBCluster.S3ConfigurationProperty(
+                        bucket_name="bucketName",
+                        enabled=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__30486ba511c7d03d709e141f626e8ba39cbc321f0c0d08443643f8c6b199e4d6)
+                check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_configuration": s3_configuration,
+            }
+
+        @builtins.property
+        def s3_configuration(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.S3ConfigurationProperty"]:
+            '''S3 configuration for sending logs to customer account from the InfluxDB cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-logdeliveryconfiguration.html#cfn-timestream-influxdbcluster-logdeliveryconfiguration-s3configuration
+            '''
+            result = self._values.get("s3_configuration")
+            assert result is not None, "Required property 's3_configuration' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.S3ConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogDeliveryConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster.S3ConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket_name": "bucketName", "enabled": "enabled"},
+    )
+    class S3ConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_name: builtins.str,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        ) -> None:
+            '''S3 configuration for sending logs to customer account from the InfluxDB cluster.
+
+            :param bucket_name: The bucket name for logs to be sent from the InfluxDB cluster.
+            :param enabled: Specifies whether logging to customer specified bucket is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-s3configuration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                s3_configuration_property = timestream.CfnInfluxDBCluster.S3ConfigurationProperty(
+                    bucket_name="bucketName",
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8bbe9d14170f24c0bc2829837e1b538aebc3b8946a62ba268befb9cf1f2440b5)
+                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_name": bucket_name,
+                "enabled": enabled,
+            }
+
+        @builtins.property
+        def bucket_name(self) -> builtins.str:
+            '''The bucket name for logs to be sent from the InfluxDB cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-s3configuration.html#cfn-timestream-influxdbcluster-s3configuration-bucketname
+            '''
+            result = self._values.get("bucket_name")
+            assert result is not None, "Required property 'bucket_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Specifies whether logging to customer specified bucket is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbcluster-s3configuration.html#cfn-timestream-influxdbcluster-s3configuration-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3ConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allocated_storage": "allocatedStorage",
+        "bucket": "bucket",
+        "db_instance_type": "dbInstanceType",
+        "db_parameter_group_identifier": "dbParameterGroupIdentifier",
+        "db_storage_type": "dbStorageType",
+        "deployment_type": "deploymentType",
+        "failover_mode": "failoverMode",
+        "log_delivery_configuration": "logDeliveryConfiguration",
+        "name": "name",
+        "network_type": "networkType",
+        "organization": "organization",
+        "password": "password",
+        "port": "port",
+        "publicly_accessible": "publiclyAccessible",
+        "tags": "tags",
+        "username": "username",
+        "vpc_security_group_ids": "vpcSecurityGroupIds",
+        "vpc_subnet_ids": "vpcSubnetIds",
+    },
+)
+class CfnInfluxDBClusterProps:
+    def __init__(
+        self,
+        *,
+        allocated_storage: typing.Optional[jsii.Number] = None,
+        bucket: typing.Optional[builtins.str] = None,
+        db_instance_type: typing.Optional[builtins.str] = None,
+        db_parameter_group_identifier: typing.Optional[builtins.str] = None,
+        db_storage_type: typing.Optional[builtins.str] = None,
+        deployment_type: typing.Optional[builtins.str] = None,
+        failover_mode: typing.Optional[builtins.str] = None,
+        log_delivery_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInfluxDBCluster.LogDeliveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        organization: typing.Optional[builtins.str] = None,
+        password: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        username: typing.Optional[builtins.str] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInfluxDBCluster``.
+
+        :param allocated_storage: The allocated storage for the InfluxDB cluster.
+        :param bucket: The bucket for the InfluxDB cluster.
+        :param db_instance_type: The compute instance of the InfluxDB cluster.
+        :param db_parameter_group_identifier: The name of an existing InfluxDB parameter group.
+        :param db_storage_type: The storage type of the InfluxDB cluster.
+        :param deployment_type: Deployment type of the InfluxDB cluster.
+        :param failover_mode: Failover mode of the InfluxDB cluster.
+        :param log_delivery_configuration: Configuration for sending logs to customer account from the InfluxDB cluster.
+        :param name: The unique name that is associated with the InfluxDB cluster.
+        :param network_type: Network type of the InfluxDB cluster.
+        :param organization: The organization for the InfluxDB cluster.
+        :param password: The password for the InfluxDB cluster.
+        :param port: The port number on which InfluxDB accepts connections.
+        :param publicly_accessible: Attach a public IP to the customer ENI. Default: - false
+        :param tags: An arbitrary set of tags (key-value pairs) for this DB cluster.
+        :param username: The username for the InfluxDB cluster.
+        :param vpc_security_group_ids: A list of Amazon EC2 VPC security groups to associate with this InfluxDB cluster.
+        :param vpc_subnet_ids: A list of EC2 subnet IDs for this InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            cfn_influx_dBCluster_props = timestream.CfnInfluxDBClusterProps(
+                allocated_storage=123,
+                bucket="bucket",
+                db_instance_type="dbInstanceType",
+                db_parameter_group_identifier="dbParameterGroupIdentifier",
+                db_storage_type="dbStorageType",
+                deployment_type="deploymentType",
+                failover_mode="failoverMode",
+                log_delivery_configuration=timestream.CfnInfluxDBCluster.LogDeliveryConfigurationProperty(
+                    s3_configuration=timestream.CfnInfluxDBCluster.S3ConfigurationProperty(
+                        bucket_name="bucketName",
+                        enabled=False
+                    )
+                ),
+                name="name",
+                network_type="networkType",
+                organization="organization",
+                password="password",
+                port=123,
+                publicly_accessible=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                username="username",
+                vpc_security_group_ids=["vpcSecurityGroupIds"],
+                vpc_subnet_ids=["vpcSubnetIds"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__814531a2e78a843f44fa3e4ebd14e42a7a13b1c44ad04cd38cf33c0327739a44)
+            check_type(argname="argument allocated_storage", value=allocated_storage, expected_type=type_hints["allocated_storage"])
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument db_instance_type", value=db_instance_type, expected_type=type_hints["db_instance_type"])
+            check_type(argname="argument db_parameter_group_identifier", value=db_parameter_group_identifier, expected_type=type_hints["db_parameter_group_identifier"])
+            check_type(argname="argument db_storage_type", value=db_storage_type, expected_type=type_hints["db_storage_type"])
+            check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
+            check_type(argname="argument failover_mode", value=failover_mode, expected_type=type_hints["failover_mode"])
+            check_type(argname="argument log_delivery_configuration", value=log_delivery_configuration, expected_type=type_hints["log_delivery_configuration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument organization", value=organization, expected_type=type_hints["organization"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+            check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
+            check_type(argname="argument vpc_subnet_ids", value=vpc_subnet_ids, expected_type=type_hints["vpc_subnet_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allocated_storage is not None:
+            self._values["allocated_storage"] = allocated_storage
+        if bucket is not None:
+            self._values["bucket"] = bucket
+        if db_instance_type is not None:
+            self._values["db_instance_type"] = db_instance_type
+        if db_parameter_group_identifier is not None:
+            self._values["db_parameter_group_identifier"] = db_parameter_group_identifier
+        if db_storage_type is not None:
+            self._values["db_storage_type"] = db_storage_type
+        if deployment_type is not None:
+            self._values["deployment_type"] = deployment_type
+        if failover_mode is not None:
+            self._values["failover_mode"] = failover_mode
+        if log_delivery_configuration is not None:
+            self._values["log_delivery_configuration"] = log_delivery_configuration
+        if name is not None:
+            self._values["name"] = name
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if organization is not None:
+            self._values["organization"] = organization
+        if password is not None:
+            self._values["password"] = password
+        if port is not None:
+            self._values["port"] = port
+        if publicly_accessible is not None:
+            self._values["publicly_accessible"] = publicly_accessible
+        if tags is not None:
+            self._values["tags"] = tags
+        if username is not None:
+            self._values["username"] = username
+        if vpc_security_group_ids is not None:
+            self._values["vpc_security_group_ids"] = vpc_security_group_ids
+        if vpc_subnet_ids is not None:
+            self._values["vpc_subnet_ids"] = vpc_subnet_ids
+
+    @builtins.property
+    def allocated_storage(self) -> typing.Optional[jsii.Number]:
+        '''The allocated storage for the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-allocatedstorage
+        '''
+        result = self._values.get("allocated_storage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def bucket(self) -> typing.Optional[builtins.str]:
+        '''The bucket for the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-bucket
+        '''
+        result = self._values.get("bucket")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def db_instance_type(self) -> typing.Optional[builtins.str]:
+        '''The compute instance of the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-dbinstancetype
+        '''
+        result = self._values.get("db_instance_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def db_parameter_group_identifier(self) -> typing.Optional[builtins.str]:
+        '''The name of an existing InfluxDB parameter group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-dbparametergroupidentifier
+        '''
+        result = self._values.get("db_parameter_group_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def db_storage_type(self) -> typing.Optional[builtins.str]:
+        '''The storage type of the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-dbstoragetype
+        '''
+        result = self._values.get("db_storage_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deployment_type(self) -> typing.Optional[builtins.str]:
+        '''Deployment type of the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-deploymenttype
+        '''
+        result = self._values.get("deployment_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def failover_mode(self) -> typing.Optional[builtins.str]:
+        '''Failover mode of the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-failovermode
+        '''
+        result = self._values.get("failover_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_delivery_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.LogDeliveryConfigurationProperty"]]:
+        '''Configuration for sending logs to customer account from the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-logdeliveryconfiguration
+        '''
+        result = self._values.get("log_delivery_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInfluxDBCluster.LogDeliveryConfigurationProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The unique name that is associated with the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''Network type of the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def organization(self) -> typing.Optional[builtins.str]:
+        '''The organization for the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-organization
+        '''
+        result = self._values.get("organization")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def password(self) -> typing.Optional[builtins.str]:
+        '''The password for the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-password
+        '''
+        result = self._values.get("password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port number on which InfluxDB accepts connections.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Attach a public IP to the customer ENI.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-publiclyaccessible
+        '''
+        result = self._values.get("publicly_accessible")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An arbitrary set of tags (key-value pairs) for this DB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def username(self) -> typing.Optional[builtins.str]:
+        '''The username for the InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-username
+        '''
+        result = self._values.get("username")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Amazon EC2 VPC security groups to associate with this InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-vpcsecuritygroupids
+        '''
+        result = self._values.get("vpc_security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def vpc_subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of EC2 subnet IDs for this InfluxDB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbcluster.html#cfn-timestream-influxdbcluster-vpcsubnetids
+        '''
+        result = self._values.get("vpc_subnet_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInfluxDBClusterProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4112,6 +5101,8 @@ class CfnTableProps:
 __all__ = [
     "CfnDatabase",
     "CfnDatabaseProps",
+    "CfnInfluxDBCluster",
+    "CfnInfluxDBClusterProps",
     "CfnInfluxDBInstance",
     "CfnInfluxDBInstanceProps",
     "CfnScheduledQuery",
@@ -4196,6 +5187,203 @@ def _typecheckingstub__fffb8befe8374295020dd254ed0c77820bb26fc0d94c59e0a34f89d6f
     database_name: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be8ecc5b7ea47ffefaf63209143e2288844fffe44ea992cf74c71a11f6bb1a76(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    allocated_storage: typing.Optional[jsii.Number] = None,
+    bucket: typing.Optional[builtins.str] = None,
+    db_instance_type: typing.Optional[builtins.str] = None,
+    db_parameter_group_identifier: typing.Optional[builtins.str] = None,
+    db_storage_type: typing.Optional[builtins.str] = None,
+    deployment_type: typing.Optional[builtins.str] = None,
+    failover_mode: typing.Optional[builtins.str] = None,
+    log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBCluster.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    organization: typing.Optional[builtins.str] = None,
+    password: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    username: typing.Optional[builtins.str] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78aacbb083cb18bd0fae0362137a877b24b17c2a13d66225a37ee380bd6cfe6d(
+    resource: _IInfluxDBClusterRef_8187b607,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8b9cd951677c9de20c022dd2c7b2685ba8b3a59dfeb6aae7a4a64c11b98c793(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbc2a1a7881de3b8b7bf2f8b117222ad09cc36038b4ee2035e8b913f18265665(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aff7f02f3a7d8baa6daf605d0b2cc9093c3f7bfbf63a079cc2dd76a084adab36(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bddb51bc7e48ee9839803252d7691864c62dd47a67b1db1037264c32ade39ddf(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ed108173874d31132be43f69e88b051adcbb255996a3b4e35e80ff269d9f63c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23e53a86129d583506ede51a48db103a0018c29c6f2dcfac0fbeb9f4531ba742(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__467c28f68b6cef111d53a36ddb71f4b0e7d1ab528d241e063316bfe7335a5f9d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c778d21b06b0fb18d5f4dce35cffce6b204ecc2a3131f4f04f96402fb9aa762c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2109d480d931ad54e375735a13460e83d3ff947fac621effd55f1284b40adcee(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8db63d23c673fdd93e19005fa2c6e862e6f0719dda9e9d9805b313db11a2575(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3bcdc4478040881e6184512128e874c5748859c04d5ea5d21c23dd251fffc439(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInfluxDBCluster.LogDeliveryConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2048d0f5633422d82f2979387fb4e6ca2674e41f31b67d8c2b05755937ab933b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78cb008bfe2dc54fabe75317efa195c0596ed6fb8a93c8c90db6959dd2a4096e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60f14ef893074666eeb6c3285f3a11dd951a7a32ec8f25462c3ff9026a64d911(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9f0e665f1d028640e4e75c223b6c6f9fe4e6b5f2a620e8232c11b200481441e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1569047b5356e160ce1414f092aba2e0210f0cc9c44fed9a85af65cf89e3b98f(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2773bee62e5b8fc7665dfe67e3183a20998f681f3ff3d0951015bf3d8a354e5(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b153d5da2cedbf75ba4f16eb905e07274c2c522264ca0ce9e4b6aae3927f51ac(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__353aa73728bcdf61d06bddccc8587fba2a4b48036e20121d843572f1920c441b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d941a108facac1b85cc821bce20a8f8022885be83d81e4c0352fa23146cc9fe(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82c55a2c35cdfb40b9e1ed407cf997c1a8861272dd05c69e94a2bd033d143f27(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30486ba511c7d03d709e141f626e8ba39cbc321f0c0d08443643f8c6b199e4d6(
+    *,
+    s3_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBCluster.S3ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8bbe9d14170f24c0bc2829837e1b538aebc3b8946a62ba268befb9cf1f2440b5(
+    *,
+    bucket_name: builtins.str,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__814531a2e78a843f44fa3e4ebd14e42a7a13b1c44ad04cd38cf33c0327739a44(
+    *,
+    allocated_storage: typing.Optional[jsii.Number] = None,
+    bucket: typing.Optional[builtins.str] = None,
+    db_instance_type: typing.Optional[builtins.str] = None,
+    db_parameter_group_identifier: typing.Optional[builtins.str] = None,
+    db_storage_type: typing.Optional[builtins.str] = None,
+    deployment_type: typing.Optional[builtins.str] = None,
+    failover_mode: typing.Optional[builtins.str] = None,
+    log_delivery_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInfluxDBCluster.LogDeliveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    organization: typing.Optional[builtins.str] = None,
+    password: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    username: typing.Optional[builtins.str] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    vpc_subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -24,11 +24,11 @@ import pytest
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from .. import imageglobals
+from .._compression import HAVE_ZSTD
 from ..analyze import AnalyzeHeader, AnalyzeImage
 from ..arraywriters import WriterError
 from ..casting import sctypes_aliases
 from ..nifti1 import Nifti1Header
-from ..optpkg import optional_package
 from ..spatialimages import HeaderDataError, HeaderTypeError, supported_np_types
 from ..testing import (
     assert_dt_equal,
@@ -40,8 +40,6 @@ from ..testing import (
 from ..tmpdirs import InTemporaryDirectory
 from . import test_spatialimages as tsi
 from . import test_wrapstruct as tws
-
-HAVE_ZSTD = optional_package('pyzstd')[1]
 
 header_file = os.path.join(data_path, 'analyze.hdr')
 
@@ -497,7 +495,7 @@ class TestAnalyzeHeader(tws._TestLabeledWrapStruct):
         hdr = self.header_class()
         s1 = str(hdr)
         # check the datacode recoding
-        rexp = re.compile('^datatype +: float32', re.MULTILINE)
+        rexp = re.compile(r'^datatype +: float32', re.MULTILINE)
         assert rexp.search(s1) is not None
 
     def test_from_header(self):
@@ -849,10 +847,10 @@ class TestAnalyzeImage(tsi.TestSpatialImage, tsi.MmapImageMixin):
         assert_array_equal(hdr.get_zooms(), (9, 3, 4))
         # Modify data in-place?  Update on save
         data = img.get_fdata()
-        data.shape = (3, 2, 4)
+        data[0, 0, 0] = 1
         img.to_file_map()
         img_back = img.from_file_map(img.file_map)
-        assert_array_equal(img_back.shape, (3, 2, 4))
+        assert img_back.get_fdata()[0, 0, 0] == 1
 
     def test_pickle(self):
         # Test that images pickle

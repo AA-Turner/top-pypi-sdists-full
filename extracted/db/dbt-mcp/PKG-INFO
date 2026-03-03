@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-mcp
-Version: 1.9.2
+Version: 1.9.3
 Summary: A MCP (Model Context Protocol) server for interacting with dbt resources.
 Project-URL: Documentation, https://docs.getdbt.com/docs/dbt-ai/about-mcp
 Project-URL: Issues, https://github.com/dbt-labs/dbt-mcp/issues
@@ -227,7 +227,7 @@ Requires-Dist: dbtlabs-vortex==0.2.0
 Requires-Dist: fastapi>=0.116.1
 Requires-Dist: filelock>=3.18.0
 Requires-Dist: httpx==0.28.1
-Requires-Dist: mcp[cli]==1.23.1
+Requires-Dist: mcp[cli]==1.26.0
 Requires-Dist: pydantic-settings==2.10.1
 Requires-Dist: pyjwt==2.10.1
 Requires-Dist: pyyaml==6.0.2
@@ -330,6 +330,7 @@ The dbt MCP server architecture allows for your agent to connect to a variety of
 - `get_column_lineage`: Traces column-level lineage locally (requires dbt-lsp via dbt Labs VSCE).
 
 ### MCP Server Metadata
+- `get_mcp_server_branch`: Returns the current git branch of the running dbt MCP server.
 - `get_mcp_server_version`: Returns the current version of the dbt MCP server.
 
 

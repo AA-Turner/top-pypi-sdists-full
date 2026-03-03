@@ -157,7 +157,6 @@ def debug_print(fmt, *args, uniform=True, scope=None):
   new_args = []
   for arg in args:
     if isinstance(arg.type, ir.VectorType):
-      index = ir.IndexType.get()
       vec_ty = ir.VectorType(arg.type)
       if len(vec_ty.shape) > 1:
         raise NotImplementedError(
@@ -1711,7 +1710,6 @@ def dyn_dot(x, y):
 
 def shfl_bfly(x: ir.Value, distance: int | ir.Value):
   i32 = ir.IntegerType.get_signless(32)
-  index = ir.IndexType.get()
   if isinstance(distance, int):
     distance = c(distance, i32)
   if (result_type := x.type) != i32:
@@ -1764,7 +1762,15 @@ def shfl_bfly(x: ir.Value, distance: int | ir.Value):
   return bitcast(y, result_type)
 
 
-def redux(x: ir.Value, mask: ir.Value, kind: nvvm.ReduxKind):
+# TODO(bchetioui): Clean this up once minimum jaxlib version is at least 0.9.1.
+if hasattr(nvvm, "ReductionKind"):
+  ReductionKind = nvvm.ReductionKind
+else:
+  assert hasattr(nvvm, "ReduxKind")
+  ReductionKind = nvvm.ReduxKind
+
+
+def redux(x: ir.Value, mask: ir.Value, kind: ReductionKind):  # type: ignore
   i32 = ir.IntegerType.get_signless(32)
   if isinstance(vec_ty := x.type, ir.VectorType):
     if bitwidth(vec_ty.element_type) != 32:
@@ -1787,7 +1793,7 @@ def redux(x: ir.Value, mask: ir.Value, kind: nvvm.ReduxKind):
     raise NotImplementedError(x.type)
   assert mask.type == i32
   extra_kwargs = {}
-  if kind == nvvm.ReduxKind.FMAX or kind == nvvm.ReduxKind.FMIN:
+  if kind == ReductionKind.FMAX or kind == ReductionKind.FMIN:
     extra_kwargs = dict(nan=True)
   return nvvm.redux_sync(x.type, x, kind, mask, **extra_kwargs)
 
@@ -1901,45 +1907,45 @@ def _vector_concat_rec(vectors: Sequence[ir.Value]) -> ir.Value:
       return _vector_concat_rec([l, r])
 
 
-def is_known_divisible(value, divisor, max_depth=10) -> bool:
+def is_known_divisible(value: ir.Value, divisor: int, max_depth=10) -> bool:
   """Returns True if the value is statically known to be divisible by the divisor."""
   if divisor == 1:
     return True
-  if max_depth < 0 or not isinstance(value.owner, ir.OpView):
+  if max_depth < 0:
     return False
 
   new_depth = max_depth - 1
-  def_op = value.owner.opview
+  def_op = value.owner
 
   match def_op:
     case arith.IndexCastOp():
-      return is_known_divisible(value.owner.operands[0], divisor, max_depth - 1)
+      return is_known_divisible(def_op.in_, divisor, max_depth - 1)
     case arith.ConstantOp():
-      return ir.IntegerAttr(def_op.value).value % divisor == 0
+      return def_op.literal_value % divisor == 0
     case arith.MulIOp():
       # Only cover the case where one operand is divisible. It's still possible
       # that the final product is divisible, but we don't check that here.
       return is_known_divisible(
-          value.owner.operands[0], divisor, new_depth
-      ) or is_known_divisible(value.owner.operands[1], divisor, new_depth)
+          def_op.lhs, divisor, new_depth
+      ) or is_known_divisible(def_op.rhs, divisor, new_depth)
     case arith.SelectOp():
       return is_known_divisible(
-          value.owner.operands[1], divisor, new_depth
-      ) and is_known_divisible(value.owner.operands[2], divisor, new_depth)
+          def_op.true_value, divisor, new_depth
+      ) and is_known_divisible(def_op.false_value, divisor, new_depth)
     case arith.MaxSIOp() | arith.MinSIOp() | arith.MaxUIOp() | arith.MinUIOp():
       return is_known_divisible(
-          value.owner.operands[0], divisor, new_depth
-      ) and is_known_divisible(value.owner.operands[1], divisor, new_depth)
+          def_op.lhs, divisor, new_depth
+      ) and is_known_divisible(def_op.rhs, divisor, new_depth)
     case arith.AddIOp() | arith.SubIOp():
       # Only cover the common case where both operads are divisible.
       return is_known_divisible(
-          value.owner.operands[0], divisor, new_depth
-      ) and is_known_divisible(value.owner.operands[1], divisor, new_depth)
+          def_op.lhs, divisor, new_depth
+      ) and is_known_divisible(def_op.rhs, divisor, new_depth)
     case arith.AndIOp():
       # Only cover the specific case where the divisor is a power of two.
       return divisor.bit_count() == 1 and (
-          is_known_divisible(value.owner.operands[0], divisor, new_depth)
-          or is_known_divisible(value.owner.operands[1], divisor, new_depth)
+          is_known_divisible(def_op.lhs, divisor, new_depth)
+          or is_known_divisible(def_op.rhs, divisor, new_depth)
       )
 
   return False
@@ -2060,24 +2066,72 @@ def nvvm_mbarrier_arrive_expect_tx(barrier: ir.Value, expect_tx: ir.Value, predi
     return nvvm.mbarrier_arrive_expect_tx(barrier, expect_tx, predicate=predicate)  # pytype: disable=missing-parameter
 
 
-def elements_to_bytes(offset: ir.Value, element_bitwidth: int) -> ir.Value:
-  """Convert an element-based linear offset to a byte-based offset."""
-  index_ty = offset.type
+def cluster_idx(
+    dim: gpu.Dimension | Sequence[gpu.Dimension] | None = None,
+    dim_idx: ir.Value | Sequence[ir.Value] | None = None,
+) -> ir.Value:
+  """Returns the linear index of a block within a subset of the cluster spanned by the given dimensions.
 
-  if element_bitwidth > 8:
-    return arith.muli(offset, c(element_bitwidth // 8, index_ty))
-  elif element_bitwidth < 8:
-    return arith.divsi(offset, c(8 // element_bitwidth, index_ty))
-  else:
-    return offset
+  dim_idx can be used to specify the index of another block along the selected
+  dimensions. If not provided, the current block's index is used.
+  """
+  if dim is None:
+    dim = gpu.Dimension
+  elif isinstance(dim, gpu.Dimension):
+    dim = (dim,)
+  if dim_idx is None:
+    dim_idx = [gpu.cluster_block_id(d) for d in dim]
+  elif isinstance(dim_idx, ir.Value):
+    if len(dim) != 1:
+      raise ValueError(
+          "Expected a single dimension when passing a single index"
+      )
+    dim_idx = [dim_idx]
+  index = ir.IndexType.get()
+  stride = c(1, index)
+  lin_idx = c(0, index)
+  for d, idx in sorted(zip(dim, dim_idx, strict=True), key=lambda x: x[0]):
+    lin_idx = arith.addi(lin_idx, arith.muli(idx, stride))
+    stride = arith.muli(stride, gpu.cluster_dim_blocks(d))
+  return lin_idx
 
 
-def get_cluster_ptr(ptr: ir.Value, cluster_block: ir.Value):
+def get_cluster_ptr(
+    ptr: ir.Value, cluster_block: ir.Value, generic: bool = True
+):
   i32 = ir.IntegerType.get_signless(32)
   assert cluster_block.type == i32, cluster_block.type
   assert ptr.type == ir.Type.parse("!llvm.ptr<3>"), ptr.type
   mapped_smem_ptr = nvvm.mapa(ir.Type.parse("!llvm.ptr<7>"), ptr, cluster_block)
+  if not generic:
+    return mapped_smem_ptr
   return llvm.addrspacecast(ir.Type.parse("!llvm.ptr"), mapped_smem_ptr)
+
+
+def get_cluster_ref(
+    ref: ir.Value, dim: gpu.Dimension, idx: ir.Value, generic: bool = True
+):
+  i32 = ir.IntegerType.get_signless(32)
+  # We replace the offset in the ref type by 0, because memref_ptr always
+  # folds the offset into the pointer.
+  ref_ty = ir.MemRefType(ref.type)
+  strides, _ = ref_ty.get_strides_and_offset()
+  result_type = ir.MemRefType.get(
+      ref_ty.shape,
+      ref_ty.element_type,
+      ir.StridedLayoutAttr.get(0, strides),
+      None if generic else ir.IntegerAttr.get(i32, 7),
+  )
+  if ref_ty.memory_space != ir.Attribute.parse("#gpu.address_space<workgroup>"):
+    raise ValueError(f"Expected SMEM but got: {ref.memory_space}")
+  idxs = [gpu.cluster_block_id(d) for d in gpu.Dimension]
+  idxs[dim] = idx
+  flat_block = arith.index_cast(i32, cluster_idx(gpu.Dimension, idxs))  # type: ignore
+  return ptr_as_memref(
+      get_cluster_ptr(memref_ptr(ref, memory_space=3), flat_block, generic),
+      result_type,
+      ptr_memory_space=None if generic else 7,
+  )
 
 
 @dataclasses.dataclass(frozen=True)

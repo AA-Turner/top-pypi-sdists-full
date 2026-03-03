@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from abstra_internals.utils.file import (
+    _is_sdk_module,
     clear_local_modules,
     generate_conflictless_path,
     module2path,
@@ -173,3 +174,70 @@ class ClearLocalModulesTest(unittest.TestCase):
         # Verify the entrypoint itself was cleared
         self.assertIn("test_entrypoint", cleared)
         self.assertNotIn("test_entrypoint", sys.modules)
+
+    def test_does_not_clear_sdk_modules(self):
+        # Create a fake abstra_internals module structure under project root
+        sdk_dir = self.root / "abstra_internals" / "controllers" / "sdk"
+        sdk_dir.mkdir(parents=True)
+        (self.root / "abstra_internals" / "__init__.py").write_text("")
+        (self.root / "abstra_internals" / "controllers" / "__init__.py").write_text("")
+        (
+            self.root / "abstra_internals" / "controllers" / "sdk" / "__init__.py"
+        ).write_text("")
+        (sdk_dir / "sdk_context.py").write_text("class SDKContextStore: pass")
+
+        # Create entrypoint that imports it
+        main_file = self.root / "test_main_sdk.py"
+        main_file.write_text(
+            "from abstra_internals.controllers.sdk.sdk_context import SDKContextStore"
+        )
+
+        # Simulate these modules being in sys.modules
+        sdk_module = type(sys)("abstra_internals.controllers.sdk.sdk_context")
+        sys.modules["abstra_internals.controllers.sdk.sdk_context"] = sdk_module
+        sys.modules["abstra_internals.controllers.sdk"] = type(sys)(
+            "abstra_internals.controllers.sdk"
+        )
+
+        try:
+            cleared = clear_local_modules(main_file, self.root)
+
+            # SDK modules must NOT be cleared
+            self.assertNotIn("abstra_internals.controllers.sdk.sdk_context", cleared)
+            self.assertNotIn("abstra_internals.controllers.sdk", cleared)
+            self.assertNotIn("abstra_internals.controllers", cleared)
+            self.assertNotIn("abstra_internals", cleared)
+
+            # SDK modules must still be in sys.modules
+            self.assertIn("abstra_internals.controllers.sdk.sdk_context", sys.modules)
+            self.assertIs(
+                sys.modules["abstra_internals.controllers.sdk.sdk_context"], sdk_module
+            )
+        finally:
+            # Clean up SDK modules we added
+            for key in list(sys.modules.keys()):
+                if key.startswith("abstra_internals.controllers.sdk"):
+                    del sys.modules[key]
+
+
+class IsSdkModuleTest(unittest.TestCase):
+    def test_abstra_top_level(self):
+        self.assertTrue(_is_sdk_module("abstra"))
+
+    def test_abstra_submodule(self):
+        self.assertTrue(_is_sdk_module("abstra.ai"))
+
+    def test_abstra_internals_top_level(self):
+        self.assertTrue(_is_sdk_module("abstra_internals"))
+
+    def test_abstra_internals_deep(self):
+        self.assertTrue(_is_sdk_module("abstra_internals.controllers.sdk.sdk_context"))
+
+    def test_abstra_statics(self):
+        self.assertTrue(_is_sdk_module("abstra_statics"))
+
+    def test_user_module(self):
+        self.assertFalse(_is_sdk_module("my_module"))
+
+    def test_user_module_similar_name(self):
+        self.assertFalse(_is_sdk_module("abstractions.utils"))

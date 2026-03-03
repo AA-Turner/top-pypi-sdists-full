@@ -8,6 +8,7 @@
 
 #include <string>
 #include <vector>
+#include <cmath>
 #include "cifdoc.hpp"
 #include "elem.hpp"  // for Element
 #include "fail.hpp"  // for fail, unreachable
@@ -181,19 +182,31 @@ struct Restraints {
 
   // BFS
   std::vector<AtomId> find_shortest_path(const AtomId& a, const AtomId& b,
-                                         std::vector<AtomId> visited) const {
+                                         std::vector<AtomId> visited,
+                                         int min_length=1) const {
     int start = (int) visited.size();
     int end = -1;
     visited.push_back(b);
     std::vector<int> parent(visited.size(), -1);
+    std::vector<int> depth(visited.size(), -1);
+    depth[start] = 0;
     for (int n = start; end == -1 && n != (int) visited.size(); ++n) {
       for (const Bond& bond : bonds)
         if (const AtomId* id = bond.other(visited[n])) {
-          if (*id == a)
-            end = (int) visited.size();
-          if (!in_vector(*id, visited)) {
+          if (*id == a) {
+            int cand_len = depth[n] + 1;
+            if (cand_len >= min_length) {
+              end = (int) visited.size();
+              if (!in_vector(*id, visited)) {
+                visited.push_back(*id);
+                parent.push_back(n);
+                depth.push_back(cand_len);
+              }
+            }
+          } else if (!in_vector(*id, visited)) {
             visited.push_back(*id);
             parent.push_back(n);
+            depth.push_back(depth[n] + 1);
           }
         }
     }
@@ -348,7 +361,8 @@ struct ChemComp {
     //  '0.000' which is not correct but we ignore it).
     float charge = 0;
     std::string chem_type;
-    Position xyz;
+    std::string acedrg_type;  // read from _chem_comp_atom.atom_type
+    Position xyz{NAN, NAN, NAN};
 
     bool is_hydrogen() const { return gemmi::is_hydrogen(el); }
   };
@@ -369,6 +383,7 @@ struct ChemComp {
   std::string name;
   std::string type_or_group;  // _chem_comp.type or _chem_comp.group
   Group group = Group::Null;
+  bool has_descriptor = false;  // true if _pdbx_chem_comp_descriptor present
   bool has_coordinates = false;
   std::vector<Atom> atoms;
   std::vector<Aliasing> aliases;
@@ -453,6 +468,18 @@ struct ChemComp {
     if (it == atoms.end())
       fail("Chemical component ", name, " has no atom ", atom_id);
     return int(it - atoms.begin());
+  }
+
+  int find_atom_index(const std::string& atom_id) const {
+    auto it = find_atom(atom_id);
+    return it != atoms.end() ? int(it - atoms.begin()) : -1;
+  }
+
+  std::map<std::string, size_t> make_atom_index() const {
+    std::map<std::string, size_t> atom_index;
+    for (size_t i = 0; i < atoms.size(); ++i)
+      atom_index[atoms[i].id] = i;
+    return atom_index;
   }
 
   const Atom& get_atom(const std::string& atom_id) const {
@@ -591,15 +618,54 @@ inline ChemComp make_chemcomp_from_block(const cif::Block& block_) {
     cc.set_group(group_col.str(0));
   else if (cif::Column type_col = block.find_values("_chem_comp.type"))
     cc.type_or_group = type_col.str(0);
+  // Presence of descriptor category (AceDRG uses it to gate torsion corrections)
+  cc.has_descriptor = block.find("_pdbx_chem_comp_descriptor.", {"comp_id"}).ok();
   for (auto row : block.find("_chem_comp_atom.",
                              {"atom_id", "type_symbol", "?type_energy",
-                             "?charge", "?partial_charge", "?alt_atom_id"}))
-    cc.atoms.push_back({row.str(0),
-                        row.has(5) ? row.str(5) : "",
-                        Element(row.str(1)),
-                        (float) cif::as_number(row.one_of(3, 4), 0.0),
-                        row.has(2) ? row.str(2) : "",
-                        Position()});
+                             "?charge", "?partial_charge", "?alt_atom_id",
+                             "?atom_type",
+                             "?model_Cartn_x",
+                             "?model_Cartn_y",
+                             "?model_Cartn_z",
+                             "?x",
+                             "?y",
+                             "?z",
+                             "?pdbx_model_Cartn_x_ideal",
+                             "?pdbx_model_Cartn_y_ideal",
+                             "?pdbx_model_Cartn_z_ideal"})) {
+    ChemComp::Atom atom;
+    atom.id = row.str(0);
+    atom.old_id = row.has(5) ? row.str(5) : "";
+    atom.el = Element(row.str(1));
+    atom.charge = (float) cif::as_number(row.one_of(3, 4), 0.0);
+    atom.chem_type = row.has(2) ? row.str(2) : "";
+    atom.acedrg_type = row.has(6) ? row.str(6) : "";
+    auto set_xyz_if_finite = [&](int ix, int iy, int iz) {
+      if (!row.has(ix) || !row.has(iy) || !row.has(iz))
+        return false;
+      double x = cif::as_number(row[ix]);
+      double y = cif::as_number(row[iy]);
+      double z = cif::as_number(row[iz]);
+      if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+        return false;
+      atom.xyz = Position(x, y, z);
+      return true;
+    };
+    if (!set_xyz_if_finite(7, 8, 9) &&
+        !set_xyz_if_finite(10, 11, 12))
+      set_xyz_if_finite(13, 14, 15);
+    cc.atoms.push_back(std::move(atom));
+  }
+  // Also check _chem_comp_acedrg table for atom types (used by acedrg output)
+  for (auto row : block.find("_chem_comp_acedrg.", {"atom_id", "atom_type"})) {
+    std::string atom_id = row.str(0);
+    std::string atom_type = row.str(1);
+    for (auto& atom : cc.atoms)
+      if (atom.id == atom_id && atom.acedrg_type.empty()) {
+        atom.acedrg_type = atom_type;
+        break;
+      }
+  }
   for (auto row : block.find("_chem_comp_bond.",
                              {"atom_id_1", "atom_id_2",              // 0, 1
                               "?type", "?value_order",               // 2, 3

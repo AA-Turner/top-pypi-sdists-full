@@ -35,16 +35,18 @@ class CreateBYODAppConfig(object):
     openapi_types = {
         'name': 'str',
         'config_json': 'CreateBYODAppConfigConfigurationSchema',
-        'anonymous': 'bool'
+        'anonymous': 'bool',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
         'name': 'name',
         'config_json': 'config_json',
-        'anonymous': 'anonymous'
+        'anonymous': 'anonymous',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, name=None, config_json=None, anonymous=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, config_json=None, anonymous=False, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """CreateBYODAppConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,12 +55,15 @@ class CreateBYODAppConfig(object):
         self._name = None
         self._config_json = None
         self._anonymous = None
+        self._cloud_id = None
         self.discriminator = None
 
         self.name = name
         self.config_json = config_json
         if anonymous is not None:
             self.anonymous = anonymous
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def name(self):
@@ -132,6 +137,29 @@ class CreateBYODAppConfig(object):
         """
 
         self._anonymous = anonymous
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this CreateBYODAppConfig.  # noqa: E501
+
+        ID of the Cloud this App Config is associated with.  # noqa: E501
+
+        :return: The cloud_id of this CreateBYODAppConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this CreateBYODAppConfig.
+
+        ID of the Cloud this App Config is associated with.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this CreateBYODAppConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -67,9 +66,7 @@ def fractal_sda(signal, scales=None, show=False):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Detrend signal
     signal = signal_detrend(signal)
@@ -110,21 +107,12 @@ def fractal_sda(signal, scales=None, show=False):
 
 
 def _fractal_sda_plot(sds, scales, slope, intercept, ax=None):
-
     if ax is None:
         fig, ax = plt.subplots()
-        fig.suptitle(
-            "Standardized Dispersion as a function of Sample-Bin size"
-            + ", slope = "
-            + str(np.round(slope, 2))
-        )
+        fig.suptitle("Standardized Dispersion as a function of Sample-Bin size" + ", slope = " + str(np.round(slope, 2)))
     else:
         fig = None
-        ax.set_title(
-            "Standardized Dispersion as a function of Sample-Bin size"
-            + ", slope = "
-            + str(np.round(slope, 2))
-        )
+        ax.set_title("Standardized Dispersion as a function of Sample-Bin size" + ", slope = " + str(np.round(slope, 2)))
 
     ax.set_ylabel(r"$\log_{10}$(Standardized Dispersion)")
     ax.set_xlabel(r"$\log_{10}$(Bin Size)")

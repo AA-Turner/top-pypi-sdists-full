@@ -328,7 +328,12 @@ class WebHandler(
                 pass
 
     # ── GET Route Table (exact path → method) ──
-    _GET_ROUTES: dict = {
+    _GET_ROUTES: dict = {}
+    for _mixin_cls in [
+        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin,
+    ]:
+        _GET_ROUTES.update(getattr(_mixin_cls, 'GET_ROUTES', {}))
+    _GET_ROUTES.update({
         "/api/notifications": "_get_api_notifications",
         "/api/presence": "_get_api_presence",
         "/api/channels": "_get_api_channels",
@@ -346,7 +351,7 @@ class WebHandler(
         "/sw.js": "_get_sw_js",
         "/dashboard": "_get_dashboard",
         "/docs": "_get_docs",
-    }
+    })
 
 
     def _get_api_notifications(self):
@@ -544,7 +549,7 @@ class WebHandler(
             import urllib.request
 
             resp = urllib.request.urlopen("https://pypi.org/pypi/salmalm/json", timeout=10)
-            data = json.loads(resp.read(4 * 1024 * 1024).decode())
+            data = json.loads(resp.read().decode())
             latest = data.get("info", {}).get("version", VERSION)  # noqa: F405
             is_exe = getattr(sys, "frozen", False)
             result = {"current": VERSION, "latest": latest, "exe": is_exe}  # noqa: F405
@@ -678,9 +683,14 @@ self.addEventListener('fetch',e=>{{
     # Max POST body size: 10MB
     _MAX_POST_SIZE = 10 * 1024 * 1024
 
-    _POST_ROUTES: dict = {
+    _POST_ROUTES: dict = {}
+    for _mixin_cls in [
+        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin,
+    ]:
+        _POST_ROUTES.update(getattr(_mixin_cls, 'POST_ROUTES', {}))
+    _POST_ROUTES.update({
         "/api/security/unban": "_post_api_security_unban",
-    }
+    })
 
 
     def _do_post_inner(self):
@@ -728,6 +738,21 @@ self.addEventListener('fetch',e=>{{
                     return
             return getattr(self, _post_handler)()
 
-        self._json({"error": "Not found"}, 404)
+        # ── Remaining POST routes (dispatch table above handles most) ──────
+        if self.path in ("/api/chat", "/api/chat/stream"):
+            return self._post_api_chat()
+        elif self.path in ("/api/llm-router/switch", "/api/model/switch"):
+            return self._post_api_model_switch()
+        elif self.path in ("/api/llm-router/test-key", "/api/test-provider"):
+            return self._post_api_test_provider()
+        elif self.path.startswith("/api/thoughts/search"):
+            return self._post_api_thoughts_search()
+        else:
+            self._json({"error": "Not found"}, 404)
 
     _GET_PREFIX_ROUTES: list = []
+    for _mixin_cls in [
+        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin,
+    ]:
+        _GET_PREFIX_ROUTES.extend(getattr(_mixin_cls, 'GET_PREFIX_ROUTES', []))
+

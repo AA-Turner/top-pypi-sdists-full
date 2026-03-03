@@ -38,7 +38,8 @@ class MiniBuild(object):
         'status': 'BuildStatus',
         'application_template_name': 'str',
         'application_template_id': 'str',
-        'docker_image_name': 'str'
+        'docker_image_name': 'str',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class MiniBuild(object):
         'status': 'status',
         'application_template_name': 'application_template_name',
         'application_template_id': 'application_template_id',
-        'docker_image_name': 'docker_image_name'
+        'docker_image_name': 'docker_image_name',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, id=None, revision=None, status=None, application_template_name=None, application_template_id=None, docker_image_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, revision=None, status=None, application_template_name=None, application_template_id=None, docker_image_name=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """MiniBuild - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class MiniBuild(object):
         self._application_template_name = None
         self._application_template_id = None
         self._docker_image_name = None
+        self._cloud_id = None
         self.discriminator = None
 
         self.id = id
@@ -71,6 +74,8 @@ class MiniBuild(object):
         self.application_template_id = application_template_id
         if docker_image_name is not None:
             self.docker_image_name = docker_image_name
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def id(self):
@@ -219,6 +224,29 @@ class MiniBuild(object):
         """
 
         self._docker_image_name = docker_image_name
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this MiniBuild.  # noqa: E501
+
+        The cloud ID of the cluster environment this build belongs to.  # noqa: E501
+
+        :return: The cloud_id of this MiniBuild.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this MiniBuild.
+
+        The cloud ID of the cluster environment this build belongs to.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this MiniBuild.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

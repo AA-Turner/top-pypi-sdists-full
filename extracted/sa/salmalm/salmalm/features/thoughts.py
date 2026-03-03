@@ -4,6 +4,7 @@ from __future__ import annotations
 from salmalm.security.crypto import log
 
 import re
+import sqlite3
 from salmalm.db import get_connection
 import time
 from datetime import datetime, timedelta
@@ -86,6 +87,7 @@ class ThoughtStream:
     def list_recent(self, n: int = 10) -> List[Dict]:
         """List most recent N thoughts."""
         with get_connection(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * FROM thoughts ORDER BY created_at DESC LIMIT ?", (n,)).fetchall()
         return [dict(r) for r in rows]
 
@@ -107,6 +109,7 @@ class ThoughtStream:
             if thought_ids:
                 placeholders = ",".join("?" * len(thought_ids))
                 with get_connection(self.db_path) as conn:
+                    conn.row_factory = sqlite3.Row
                     rows = conn.execute(
                         f"SELECT * FROM thoughts WHERE id IN ({placeholders}) ORDER BY created_at DESC", thought_ids
                     ).fetchall()
@@ -116,6 +119,7 @@ class ThoughtStream:
 
         # Fallback: simple LIKE search
         with get_connection(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM thoughts WHERE content LIKE ? ORDER BY created_at DESC LIMIT 20", (f"%{query}%",)
             ).fetchall()
@@ -124,6 +128,7 @@ class ThoughtStream:
     def by_tag(self, tag: str) -> List[Dict]:
         """Filter thoughts by tag."""
         with get_connection(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM thoughts WHERE tags LIKE ? ORDER BY created_at DESC", (f"%{tag}%",)
             ).fetchall()
@@ -135,6 +140,7 @@ class ThoughtStream:
             date_str = datetime.now(KST).strftime("%Y-%m-%d")
 
         with get_connection(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT * FROM thoughts WHERE created_at LIKE ? ORDER BY created_at ASC", (f"{date_str}%",)
             ).fetchall()
@@ -150,6 +156,7 @@ class ThoughtStream:
             weekly = conn.execute("SELECT COUNT(*) FROM thoughts WHERE created_at >= ?", (week_ago,)).fetchone()[0]
 
             # Tag frequency
+            conn.row_factory = sqlite3.Row
             rows = conn.execute('SELECT tags FROM thoughts WHERE tags != ""').fetchall()
 
         tag_counter = {}
@@ -171,6 +178,7 @@ class ThoughtStream:
     def export_markdown(self) -> str:
         """Export all thoughts as Markdown."""
         with get_connection(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * FROM thoughts ORDER BY created_at ASC").fetchall()
 
         if not rows:

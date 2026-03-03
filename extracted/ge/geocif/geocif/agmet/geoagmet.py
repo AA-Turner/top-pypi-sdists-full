@@ -262,6 +262,7 @@ class AgmetGeo(base.BaseGeo):
         # Add temporary columns expected by stats.add_statistics
         self.df_ccs["Region"] = self.df_ccs["region"]
         self.df_ccs["Harvest Year"] = self.df_ccs["harvest_season"]
+        self.df_ccs["Season"] = int(self.growing_season)
 
         country_str = country.replace("_", " ").title()
         crop_str = utils.get_crop_name(crop)
@@ -282,8 +283,8 @@ class AgmetGeo(base.BaseGeo):
             self.df_ccs["yield"] = self.df_ccs["Yield (tn per ha)"]
 
         # Drop temporary columns
-        drop_cols = ["Region", "Harvest Year", "Yield (tn per ha)", "Area (ha)",
-                     "Production (tn)", "Area"]
+        drop_cols = ["Region", "Harvest Year", "Season", "Yield (tn per ha)",
+                     "Area (ha)", "Production (tn)", "Area"]
         self.df_ccs.drop(
             columns=[c for c in drop_cols if c in self.df_ccs.columns],
             inplace=True,
@@ -422,6 +423,25 @@ def create_title_for_plot(obj):
     return sup_title
 
 
+def _create_district_title(obj, cal_region):
+    """Build plot title for a district (calendar region) plot."""
+    cal_region_name = cal_region.replace("_", " ").title()
+    country_name = obj.country.replace("_", " ").title()
+    long_crop_name = utils.get_crop_name(obj.crop)
+
+    df_crop_per_season = pd.read_csv(obj.dir_metadata / "crop_per_season.csv")
+    df_crop_per_season.columns = df_crop_per_season.columns.str.lower()
+    crop_key = utils.get_crop_abbrev(obj.crop)
+    crop_name = df_crop_per_season[
+        (df_crop_per_season["country"] == obj.country)
+        & (df_crop_per_season["crop"] == crop_key)
+        & (df_crop_per_season["season"] == int(obj.growing_season))
+    ]["name"].values
+    crop_name = crop_name[0] if len(crop_name) > 0 else long_crop_name.replace("_", " ").title()
+
+    return f"{cal_region_name} ({country_name})\n{crop_name} {obj.plot_season}"
+
+
 def _process_combination(obj, country, scale, crop, growing_season):
     """Process a single (country, scale, crop, growing_season) combination.
 
@@ -436,14 +456,15 @@ def _process_combination(obj, country, scale, crop, growing_season):
     for plot_season in obj.plot_seasons:
         obj.get_closest_season(plot_season)
 
+        ###############################################################
+        # Loop 1: Admin-level plots (one per region)
+        ###############################################################
         for region in obj.list_regions:
             obj.setup_region(region, plot_season, "region")
 
-            # If available, add CHIRPS-GEFS data to the dataframe
             if obj.precip_var == "chirps":
                 obj.add_precip_forecast(plot_season)
 
-            # Get crop calendar dates for region
             dates_calendar = [
                 obj.date_planting,
                 obj.date_greenup,
@@ -451,13 +472,8 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 obj.date_harvesting,
             ]
 
-            # TODO: Only plot if dates_calendar has valid dates
-            # Create title for plot
             sup_title = create_title_for_plot(obj)
 
-            ###############################################################
-            # Agmet plots for admin units
-            ###############################################################
             plot.plots_ts_cur_yr(
                 obj.df_region,
                 obj.eo_plot,
@@ -470,60 +486,68 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 fname=f"{obj.region}.png",
             )
 
-            ###############################################################
-            # Agmet plots for calendar regions
-            ###############################################################
-            columns = [c for c in (obj.eo_model or []) + ["month", "day", "yield"] if c in obj.df_region.columns]
-            if "chirps" in obj.df_region.columns:
+        ###############################################################
+        # Loop 2: District plots (one per calendar region, aggregated)
+        ###############################################################
+        for cal_region in obj.list_calendar_regions:
+            if pd.isna(cal_region):
+                continue
+
+            # Filter full df_ccs to all regions in this calendar region
+            df_district = obj.df_ccs[obj.df_ccs["calendar_region"] == cal_region].copy()
+            df_district.index = pd.to_datetime(df_district.index)
+
+            # Use first region in this calendar region for crop calendar dates
+            first_region = df_district["region"].iloc[0]
+            obj.setup_region(first_region, plot_season, "region")
+            dates_calendar = [
+                obj.date_planting,
+                obj.date_greenup,
+                obj.date_senescence,
+                obj.date_harvesting,
+            ]
+
+            # Build column list for aggregation
+            columns = [c for c in (obj.eo_model or []) + ["month", "day", "yield"]
+                       if c in df_district.columns]
+            if "chirps" in df_district.columns:
                 try:
                     bool_year_check, bool_date_check = obj.check_date(
-                        obj.df_region, obj.plot_season
+                        df_district, obj.plot_season
                     )
-                except:
-                    breakpoint()
+                except Exception:
+                    bool_year_check, bool_date_check = False, False
 
                 if bool_date_check and bool_year_check:
                     columns = [c for c in (obj.eo_model or []) + [
-                        "month",
-                        "day",
-                        "chirps_gefs",
-                        "yield",
-                    ] if c in obj.df_region.columns]
+                        "month", "day", "chirps_gefs", "yield",
+                    ] if c in df_district.columns]
 
             try:
-                df_calendar_region = (
-                    obj.df_region.groupby(
-                        [
-                            "country",
-                            "calendar_region",
-                            "harvest_season",
-                            "doy",
-                            "datetime",
-                        ]
+                df_agg = (
+                    df_district.groupby(
+                        ["country", "calendar_region", "harvest_season", "doy", "datetime"]
                     )[columns]
                     .mean()
                     .reset_index()
                 )
             except Exception:
                 continue
-            df_calendar_region.loc[:, "average_temperature"] = (
-                df_calendar_region["cpc_tmax"] + df_calendar_region["cpc_tmin"]
+
+            df_agg.loc[:, "average_temperature"] = (
+                df_agg["cpc_tmax"] + df_agg["cpc_tmin"]
             ) / 2.0
-            df_calendar_region.set_index(
-                pd.DatetimeIndex(df_calendar_region["datetime"]),
-                inplace=True,
-                drop=True,
+            df_agg.set_index(
+                pd.DatetimeIndex(df_agg["datetime"]), inplace=True, drop=True
             )
-            df_calendar_region.index.name = None
-            df_calendar_region.sort_values(by="datetime", inplace=True)
+            df_agg.index.name = None
+            df_agg.sort_values(by="datetime", inplace=True)
 
-            # TODO: Only plot if dates_calendar has valid dates
-            # Create title for plot
-            sup_title = create_title_for_plot(obj)
+            sup_title = _create_district_title(obj, cal_region)
 
-            if not df_calendar_region.empty:
+            if not df_agg.empty:
                 plot.plots_ts_cur_yr(
-                    df_calendar_region,
+                    df_agg,
                     obj.eo_plot,
                     closest=obj.closest,
                     dates_cal=dates_calendar,
@@ -531,7 +555,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     logos=[obj.logo_harvest, obj.logo_geoglam],
                     dir_out=obj.dir_agmet / "district",
                     sup_title=sup_title,
-                    fname=f"{obj.calendar_region}.png",
+                    fname=f"{cal_region}.png",
                 )
 
 

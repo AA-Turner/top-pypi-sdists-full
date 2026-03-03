@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: GeoAlchemy2
-Version: 0.18.3
+Version: 0.18.4
 Summary: Using SQLAlchemy with Spatial Databases
 Author-email: Eric Lemoine <eric.lemoine@gmail.com>, Adrien Berchet <adrien.berchet@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://geoalchemy-2.readthedocs.io/en/stable/
 Project-URL: Tracker, https://github.com/geoalchemy/geoalchemy2/issues
 Project-URL: Source, https://github.com/geoalchemy/geoalchemy2
@@ -17,7 +17,6 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst

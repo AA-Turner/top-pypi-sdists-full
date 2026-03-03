@@ -663,7 +663,7 @@ def _inspect_sharding_lowering_rule(ctx: mlir.LoweringRuleContext, value, *,
   def _hlo_sharding_callback(hlo_sharding: xc.HloSharding):
     if mesh.empty:
       return callback(
-          sharding_impls.GSPMDSharding(devices, hlo_sharding))
+          sharding_impls.GSPMDSharding(devices, hlo_sharding))  # pyrefly: ignore[bad-argument-type]
     pspec = (P() if hlo_sharding.is_manual() else
              parse_flatten_op_sharding(hlo_sharding, mesh)[0])
     return callback(NamedSharding(mesh, pspec))
@@ -690,15 +690,6 @@ def _inspect_sharding_lowering_rule(ctx: mlir.LoweringRuleContext, value, *,
                    result_layouts=None)
   return []
 mlir.register_lowering(inspect_sharding_p, _inspect_sharding_lowering_rule)
-
-def inspect_sharding_prop_user_sharding(sharding, backend_string):
-  del sharding, backend_string
-  return []
-
-def inspect_sharding_infer_sharding_from_operands(arg_shapes, arg_shardings,
-                                                  shape, backend_string):
-  del arg_shapes, shape, backend_string
-  return arg_shardings[0]
 
 def _slice_to_chunk_idx(size: int, slc: slice) -> int:
   if slc.stop == slc.start == None:

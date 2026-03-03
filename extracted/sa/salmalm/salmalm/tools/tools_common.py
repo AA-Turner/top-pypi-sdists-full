@@ -146,10 +146,6 @@ def _is_safe_command(cmd: str) -> tuple:
     """Check if command is safe to execute (allowlist + blocklist double defense)."""
     if not cmd.strip():
         return False, "Empty command"
-    # Command length guard: long strings cause O(n) regex scans across all patterns
-    _MAX_CMD_LEN = 8192
-    if len(cmd) > _MAX_CMD_LEN:
-        return False, f"Command too long (max {_MAX_CMD_LEN} chars)"
     # Shell operator blocking (pipe, redirect, chain) — requires SALMALM_ALLOW_SHELL=1
     if not os.environ.get("SALMALM_ALLOW_SHELL"):
         if re.search(r"[|;&]|>>?|<<", cmd):

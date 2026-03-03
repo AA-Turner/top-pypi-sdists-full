@@ -54,7 +54,7 @@ class TelegramMediaMixin:
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=30) as resp:
-                audio_data = resp.read(50 * 1024 * 1024)  # 50MB cap
+                audio_data = resp.read()
             # Save to temp file and send
             import tempfile
 
@@ -165,7 +165,7 @@ class TelegramMediaMixin:
                             method="POST",
                         )
                         with urllib.request.urlopen(req, timeout=30) as resp:
-                            result = json.loads(resp.read(4 * 1024 * 1024))
+                            result = json.loads(resp.read())
                         transcript = result.get("text", "")
                         if transcript:
                             file_info = f"[🎤 Voice transcription]\n{transcript}"

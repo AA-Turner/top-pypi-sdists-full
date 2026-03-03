@@ -44,8 +44,6 @@ class ContentMixin:
 
     def _get_thoughts(self):
         """Get thoughts."""
-        if not self._require_auth("user"):
-            return
         from salmalm.features.thoughts import thought_stream
         import urllib.parse as _up
 
@@ -54,17 +52,12 @@ class ContentMixin:
         if search_q:
             results = thought_stream.search(search_q)
         else:
-            try:
-                n = max(1, min(int(qs.get("limit", ["20"])[0]), 200))
-            except (TypeError, ValueError):
-                n = 20
+            n = int(qs.get("limit", ["20"])[0])
             results = thought_stream.list_recent(n)
         self._json({"thoughts": results})
 
     def _get_thoughts_stats(self):
         """Get thoughts stats."""
-        if not self._require_auth("user"):
-            return
         from salmalm.features.thoughts import thought_stream
 
         self._json(thought_stream.stats())
@@ -106,6 +99,87 @@ class ContentMixin:
                     {"name": "browser", "description": "Browser automation"},
                 ]
         self._json({"tools": tools, "count": len(tools)})
+
+    def _post_api_thoughts_search(self):
+        """Handle /api/thoughts/search."""
+        body = self._body
+        if not self._require_auth("user"):
+            return
+        from salmalm.features.thoughts import thought_stream
+
+        q = body.get("q", body.get("query", ""))
+        if not q:
+            self._json({"error": "query required"}, 400)
+            return
+        results = thought_stream.search(q)
+        self._json({"thoughts": results})
+
+    def _post_api_bookmarks(self):
+        """Post api bookmarks."""
+        body = self._body
+        # Add/remove bookmark — LobeChat style (북마크 추가/제거)
+        if not self._require_auth("user"):
+            return
+        action = body.get("action", "add")
+        session_id = body.get("session_id", "")
+        message_index = body.get("message_index")
+        if not session_id or message_index is None:
+            self._json({"error": "Missing session_id or message_index"}, 400)
+            return
+        from salmalm.features.edge_cases import bookmark_manager
+
+        if action == "add":
+            ok = bookmark_manager.add(
+                session_id,
+                int(message_index),
+                content_preview=body.get("preview", ""),
+                note=body.get("note", ""),
+                role=body.get("role", "assistant"),
+            )
+            self._json({"ok": ok})
+        elif action == "remove":
+            ok = bookmark_manager.remove(session_id, int(message_index))
+            self._json({"ok": ok})
+        else:
+            self._json({"error": "Unknown action"}, 400)
+        return
+
+    def _post_api_thoughts(self):
+        """Post api thoughts."""
+        body = self._body
+        from salmalm.features.thoughts import thought_stream
+
+        content = body.get("content", "").strip()
+        if not content:
+            self._json({"error": "content required"}, 400)
+            return
+        mood = body.get("mood", "neutral")
+        tid = thought_stream.add(content, mood=mood)
+        self._json({"ok": True, "id": tid})
+
+    def _get_api_browser_status(self):
+        """GET /api/browser/status — check if Playwright (browser automation) is available."""
+        available = False
+        reason = "playwright not installed"
+        try:
+            import importlib.util
+            if importlib.util.find_spec("playwright") is not None:
+                # Also verify chromium executable exists
+                try:
+                    from playwright.sync_api import sync_playwright
+                    with sync_playwright() as p:
+                        exe = p.chromium.executable_path
+                        import os
+                        available = os.path.isfile(exe)
+                        reason = "chromium found" if available else f"chromium missing: {exe}"
+                except Exception as _e:
+                    available = False
+                    reason = f"playwright import error: {_e}"
+            else:
+                reason = "playwright package not installed (pip install salmalm[browser])"
+        except Exception as _e:
+            reason = str(_e)
+        self._json({"available": available, "reason": reason})
 
     def _get_personas(self):
         """Get personas."""
@@ -167,6 +241,106 @@ class ContentMixin:
 
         self._json(rag_engine.get_stats())
 
+    def _get_api_search(self) -> None:
+        """Handle GET /api/search routes."""
+        if not self._require_auth("user"):
+            return
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        query = params.get("q", [""])[0]
+        if not query:
+            self._json({"error": "Missing q parameter"}, 400)
+            return
+        try:
+            lim = max(1, min(int(params.get("limit", ["20"])[0]), 200))
+        except (TypeError, ValueError, IndexError):
+            lim = 20
+        from salmalm.core import search_messages
+
+        results = search_messages(query, limit=lim)
+        self._json({"query": query, "results": results, "count": len(results)})
+
+    def _get_api_rag_search(self) -> None:
+        """Handle GET /api/rag/search routes."""
+        if not self._require_auth("user"):
+            return
+        from salmalm.features.rag import rag_engine
+        import urllib.parse
+
+        parsed = urllib.parse.urlparse(self.path)
+        params = urllib.parse.parse_qs(parsed.query)
+        query = params.get("q", [""])[0]
+        if not query:
+            self._json({"error": "Missing q parameter"}, 400)
+        else:
+            try:
+                _rag_n = max(1, min(int(params.get("n", ["5"])[0]), 50))
+            except (TypeError, ValueError, IndexError):
+                _rag_n = 5
+            results = rag_engine.search(query, max_results=_rag_n)
+            self._json({"query": query, "results": results})
+
+    def _get_api_memory_read(self) -> None:
+        """Handle GET /api/memory/read? routes."""
+        if not self._require_auth("user"):
+            return
+        import urllib.parse as _up
+
+        qs = _up.parse_qs(_up.urlparse(self.path).query)
+        fpath = qs.get("file", [""])[0]
+        if not fpath or ".." in fpath:
+            self._json({"error": "Invalid path"}, 400)
+            return
+        # P0-1: Block absolute paths and resolve to prevent path traversal
+        from pathlib import PurePosixPath
+
+        if PurePosixPath(fpath).is_absolute() or "\\" in fpath:
+            self._json({"error": "Invalid path"}, 400)
+            return
+        full = (BASE_DIR / fpath).resolve()
+        if not full.is_relative_to(BASE_DIR.resolve()):
+            self._json({"error": "Path outside allowed directory"}, 403)
+            return
+        if not full.exists() or not full.is_file():
+            self._json({"error": "File not found"}, 404)
+            return
+        try:
+            content = full.read_text(encoding="utf-8")[:50000]
+            self._json({"file": fpath, "content": content, "size": full.stat().st_size})
+        except Exception as e:
+            log.warning("[FILE] Read error for %s: %s", fpath, e)
+            self._json({"error": "File read error — check server logs"}, 500)
+
+    def _get_api_sessions_summary(self) -> None:
+        """Handle GET /api/sessions/ routes."""
+        # Conversation summary card — BIG-AGI style (대화 요약 카드)
+        if not self._require_auth("user"):
+            return
+        m = _RE_SESSION_SUMMARY.match(self.path)
+        if m:
+            from salmalm.features.edge_cases import get_summary_card
+
+            card = get_summary_card(m.group(1))
+            self._json({"summary": card})
+        else:
+            self._json({"error": "Invalid path"}, 400)
+
+    def _get_api_sessions_alternatives(self) -> None:
+        """Handle GET /api/sessions/ routes."""
+        # Conversation fork alternatives — LibreChat style (대화 포크)
+        if not self._require_auth("user"):
+            return
+        m = _RE_SESSION_ALT.match(self.path)
+        if m:
+            from salmalm.features.edge_cases import conversation_fork
+
+            alts = conversation_fork.get_alternatives(m.group(1), int(m.group(2)))
+            self._json({"alternatives": alts})
+        else:
+            self._json({"error": "Invalid path"}, 400)
+
     def _get_groups(self):
         """Get groups."""
         if not self._require_auth("user"):
@@ -219,6 +393,52 @@ class ContentMixin:
             {"name": "/split", "desc": "A/B split response"},
         ]
         self._json({"commands": cmds, "count": len(cmds)})
+
+    def _get_api_dashboard(self):
+        """Get api dashboard."""
+        if not self._require_auth("user"):
+            return
+        # Dashboard data: sessions, costs, tools, cron jobs
+        from salmalm.core import _sessions, _llm_cron, PluginLoader, SubAgent  # type: ignore[attr-defined]
+
+        sessions_info = [
+            {
+                "id": s.id,
+                "messages": len(s.messages),
+                "last_active": s.last_active,
+                "created": s.created,
+            }
+            for s in _sessions.values()
+        ]
+        cron_jobs = _llm_cron.list_jobs() if _llm_cron else []
+        plugins = [{"name": n, "tools": len(p["tools"])} for n, p in PluginLoader._plugins.items()]
+        subagents = SubAgent.list_agents()
+        usage = get_usage_report()
+        # Cost by hour (from audit)
+        cost_timeline = []
+        try:
+            import sqlite3 as _sq
+
+            _conn = _sq.connect(str(AUDIT_DB))  # noqa: F405
+            cur = _conn.execute(
+                "SELECT substr(ts,1,13) as hour, COUNT(*) as cnt "
+                "FROM audit_log WHERE event='tool_exec' "
+                "GROUP BY hour ORDER BY hour DESC LIMIT 24"
+            )
+            cost_timeline = [{"hour": r[0], "count": r[1]} for r in cur.fetchall()]
+            _conn.close()
+        except Exception as e:
+            log.debug(f"Suppressed: {e}")
+        self._json(
+            {
+                "sessions": sessions_info,
+                "usage": usage,
+                "cron_jobs": cron_jobs,
+                "plugins": plugins,
+                "subagents": subagents,
+                "cost_timeline": cost_timeline,
+            }
+        )
 
     def _get_manifest_json(self):
         """Get manifest json."""
@@ -303,9 +523,7 @@ async def get_rag(_u=_Depends(_auth)):
     return _JSON(content=rag_engine.get_stats())
 
 @router.get("/api/personas")
-async def get_personas(request: _Request, _u=_Depends(_auth)):
-    # BUG-CC fix: added _auth dependency — unauthenticated callers could enumerate
-    # any session's active persona via x-session-id header (information disclosure)
+async def get_personas(request: _Request):
     from salmalm.core.prompt import list_personas, get_active_persona
     session_id = request.headers.get("x-session-id", "web")
     personas = list_personas()
@@ -313,12 +531,12 @@ async def get_personas(request: _Request, _u=_Depends(_auth)):
     return _JSON(content={"personas": personas, "active": active})
 
 @router.get("/api/thoughts")
-async def get_thoughts(q: str = _Query(None), limit: int = _Query(20, ge=1, le=200), _u=_Depends(_auth)):
+async def get_thoughts(q: str = _Query(None), limit: int = _Query(20), _u=_Depends(_auth)):
     from salmalm.features.thoughts import thought_stream
     if q:
         results = thought_stream.search(q)
     else:
-        results = thought_stream.list_recent(max(1, min(limit, 200)))
+        results = thought_stream.list_recent(limit)
     return _JSON(content={"thoughts": results})
 
 @router.get("/api/thoughts/stats")
@@ -398,10 +616,10 @@ async def get_commands():
 
 @router.get("/api/dashboard")
 async def get_dashboard(_u=_Depends(_auth)):
+    import sqlite3 as _sq
     from salmalm.constants import AUDIT_DB
     from salmalm.core import _sessions, _llm_cron, PluginLoader, SubAgent
     from salmalm.core.core import get_usage_report
-    from salmalm.db import get_connection
     sessions_info = [{"id": s.id, "messages": len(s.messages), "last_active": s.last_active, "created": s.created}
                      for s in _sessions.values()]
     cron_jobs = _llm_cron.list_jobs() if _llm_cron else []
@@ -410,7 +628,7 @@ async def get_dashboard(_u=_Depends(_auth)):
     usage = get_usage_report()
     cost_timeline = []
     try:
-        _conn = get_connection(AUDIT_DB)
+        _conn = _sq.connect(str(AUDIT_DB))
         cur = _conn.execute("SELECT substr(ts,1,13) as hour, COUNT(*) as cnt FROM audit_log WHERE event='tool_exec' GROUP BY hour ORDER BY hour DESC LIMIT 24")
         cost_timeline = [{"hour": r[0], "count": r[1]} for r in cur.fetchall()]
         _conn.close()
@@ -432,19 +650,19 @@ async def get_manifest():
     return _JSON(content=manifest)
 
 @router.get("/api/search")
-async def get_search(q: str = _Query(""), limit: int = _Query(20, ge=1, le=500), _u=_Depends(_auth)):
+async def get_search(q: str = _Query(""), limit: int = _Query(20), _u=_Depends(_auth)):
     if not q:
         return _JSON(content={"error": "Missing q parameter"}, status_code=400)
     from salmalm.core import search_messages
-    results = search_messages(q, limit=min(limit, 500))
+    results = search_messages(q, limit=limit)
     return _JSON(content={"query": q, "results": results, "count": len(results)})
 
 @router.get("/api/rag/search")
-async def get_rag_search(q: str = _Query(""), n: int = _Query(5, ge=1, le=50), _u=_Depends(_auth)):
+async def get_rag_search(q: str = _Query(""), n: int = _Query(5), _u=_Depends(_auth)):
     if not q:
         return _JSON(content={"error": "Missing q parameter"}, status_code=400)
     from salmalm.features.rag import rag_engine
-    results = rag_engine.search(q, max_results=min(n, 50))
+    results = rag_engine.search(q, max_results=n)
     return _JSON(content={"query": q, "results": results})
 
 @router.get("/api/memory/read")
@@ -483,19 +701,12 @@ async def post_bookmarks(request: _Request, _u=_Depends(_auth)):
     message_index = body.get("message_index")
     if not session_id or message_index is None:
         return _JSON(content={"error": "Missing session_id or message_index"}, status_code=400)
-    # BUG-CD fix: reject negative message_index
-    try:
-        mi = int(message_index)
-    except (TypeError, ValueError):
-        return _JSON(content={"error": "Invalid message_index"}, status_code=400)
-    if mi < 0:
-        return _JSON(content={"error": "message_index must be >= 0"}, status_code=400)
     if action == "add":
-        ok = bookmark_manager.add(session_id, mi, content_preview=body.get("preview", ""),
+        ok = bookmark_manager.add(session_id, int(message_index), content_preview=body.get("preview", ""),
                                   note=body.get("note", ""), role=body.get("role", "assistant"))
         return _JSON(content={"ok": ok})
     elif action == "remove":
-        ok = bookmark_manager.remove(session_id, mi)
+        ok = bookmark_manager.remove(session_id, int(message_index))
         return _JSON(content={"ok": ok})
     return _JSON(content={"error": "Unknown action"}, status_code=400)
 

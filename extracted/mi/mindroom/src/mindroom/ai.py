@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import functools
 import os
+import re
 from copy import deepcopy
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 import diskcache
@@ -28,6 +30,7 @@ from agno.run.agent import (
     ToolCallStartedEvent,
 )
 from agno.run.base import RunStatus
+from agno.run.team import TeamRunOutput
 from agno.utils.message import filter_tool_calls
 
 from mindroom.agents import _get_agent_session, create_agent, create_session_storage, get_seen_event_ids
@@ -36,8 +39,9 @@ from mindroom.credentials import get_credentials_manager
 from mindroom.credentials_sync import get_api_key_for_provider, get_ollama_host
 from mindroom.error_handling import get_user_friendly_error_message
 from mindroom.logging_config import get_logger
+from mindroom.media_inputs import MediaInputs
 from mindroom.memory import build_memory_enhanced_prompt
-from mindroom.tool_events import (
+from mindroom.tool_system.events import (
     complete_pending_tool_block,
     extract_tool_completed_info,
     format_tool_combined,
@@ -45,23 +49,53 @@ from mindroom.tool_events import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Sequence
+    from collections.abc import AsyncGenerator, AsyncIterator, Sequence
     from pathlib import Path
 
     from agno.agent import Agent
     from agno.knowledge.knowledge import Knowledge
-    from agno.media import Image
     from agno.models.base import Model
+    from agno.models.message import Message
     from agno.session.agent import AgentSession
 
     from mindroom.config.main import Config
     from mindroom.config.models import ModelConfig
-    from mindroom.tool_events import ToolTraceEntry
+    from mindroom.tool_system.events import ToolTraceEntry
 
 logger = get_logger(__name__)
 
 AIStreamChunk = str | RunContentEvent | ToolCallStartedEvent | ToolCallCompletedEvent
 _AI_RUN_METADATA_VERSION = 1
+_INLINE_MEDIA_FALLBACK_MARKER = "[Inline media unavailable for this model]"
+_INLINE_MEDIA_FIELD_PATTERN = re.compile(r"(?:document|image|audio|video)\.source\.base64(?:\.media_type)?")
+_INLINE_MEDIA_MIME_MISMATCH_PATTERN = re.compile(r"image was specified using the .* media type")
+
+
+def _empty_request_metric_totals() -> dict[str, int]:
+    return {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "reasoning_tokens": 0,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+    }
+
+
+@dataclass
+class _StreamingAttemptState:
+    full_response: str = ""
+    tool_count: int = 0
+    observed_tool_calls: int = 0
+    pending_tools: list[tuple[str, int]] = field(default_factory=list)
+    latest_model_id: str | None = None
+    latest_model_provider: str | None = None
+    completed_run_event: RunCompletedEvent | None = None
+    request_metric_totals: dict[str, int] = field(default_factory=_empty_request_metric_totals)
+    first_token_latency: float | None = None
+    retry_requested: bool = False
+    user_error: Exception | None = None
+    stream_exception: Exception | None = None
 
 
 def _canonical_provider(provider: str) -> str:
@@ -69,32 +103,31 @@ def _canonical_provider(provider: str) -> str:
     return provider.strip().lower().replace("-", "_")
 
 
-def _estimate_message_media_chars(message: object) -> int:
-    media_fields = (
-        "images",
-        "audio",
-        "videos",
-        "files",
-        "audio_output",
-        "image_output",
-        "video_output",
-        "file_output",
+def _estimate_message_media_chars(message: Message) -> int:
+    media_values = (
+        message.images,
+        message.audio,
+        message.videos,
+        message.files,
+        message.audio_output,
+        message.image_output,
+        message.video_output,
+        message.file_output,
     )
     media_chars = 0
-    for field in media_fields:
-        media_value = getattr(message, field, None)
+    for media_value in media_values:
         if media_value:
             media_chars += len(str(media_value))
     return media_chars
 
 
-def _estimate_messages_tokens(messages: Sequence[Any] | None) -> int:
+def _estimate_messages_tokens(messages: Sequence[Message] | None) -> int:
     """Estimate token count for messages using chars / 4 approximation."""
     if not messages:
         return 0
     total_chars = 0
     for msg in messages:
-        content = getattr(msg, "compressed_content", None) or getattr(msg, "content", None)
+        content = msg.compressed_content or msg.content
         if isinstance(content, str):
             total_chars += len(content)
         elif isinstance(content, list):
@@ -102,7 +135,7 @@ def _estimate_messages_tokens(messages: Sequence[Any] | None) -> int:
                 total_chars += len(str(part))
         elif content is not None:
             total_chars += len(str(content))
-        tool_calls = getattr(msg, "tool_calls", None)
+        tool_calls = msg.tool_calls
         if tool_calls:
             total_chars += len(str(tool_calls))
         total_chars += _estimate_message_media_chars(msg)
@@ -124,7 +157,7 @@ def _estimate_static_tokens(agent: Agent, full_prompt: str) -> int:
 
 def _get_history_skip_roles(agent: Agent) -> list[str] | None:
     """Return history skip_roles matching Agno's run-message construction."""
-    system_role = getattr(agent, "system_message_role", None)
+    system_role = agent.system_message_role
     if isinstance(system_role, str) and system_role not in {"user", "assistant", "tool"}:
         return [system_role]
     return None
@@ -132,22 +165,22 @@ def _get_history_skip_roles(agent: Agent) -> list[str] | None:
 
 def _get_team_scope(agent: Agent) -> tuple[str | None, str | None]:
     """Return (team_id, agent_id) only when agent is actually in a team scope."""
-    team_id = getattr(agent, "team_id", None)
+    team_id = agent.team_id
     if not isinstance(team_id, str) or not team_id:
         return None, None
-    agent_id = getattr(agent, "id", None)
+    agent_id = agent.id
     return team_id, agent_id if isinstance(agent_id, str) and agent_id else None
 
 
-def _get_replayable_runs(session: AgentSession, agent: Agent) -> list[RunOutput]:
+def _get_replayable_runs(session: AgentSession, agent: Agent) -> list[RunOutput | TeamRunOutput]:
     """Get runs eligible for history replay, matching Agno session filtering."""
-    runs = [run for run in session.runs or [] if isinstance(run, RunOutput)]
+    runs = [run for run in session.runs or [] if isinstance(run, (RunOutput, TeamRunOutput))]
 
     team_id, agent_id = _get_team_scope(agent)
     if team_id is not None:
-        if agent_id:
-            runs = [run for run in runs if run.agent_id == agent_id]
-        runs = [run for run in runs if getattr(run, "team_id", None) == team_id]
+        runs = [run for run in runs if isinstance(run, TeamRunOutput) and run.team_id == team_id]
+    elif agent_id:
+        runs = [run for run in runs if isinstance(run, RunOutput) and run.agent_id == agent_id]
 
     skip_statuses = {RunStatus.paused, RunStatus.cancelled, RunStatus.error}
     return [run for run in runs if run.parent_run_id is None and run.status not in skip_statuses]
@@ -163,7 +196,7 @@ def _estimate_history_tokens(session: AgentSession, agent: Agent, run_limit: int
         limit=None,
         skip_roles=_get_history_skip_roles(agent),
     )
-    max_tool_calls_from_history = getattr(agent, "max_tool_calls_from_history", None)
+    max_tool_calls_from_history = agent.max_tool_calls_from_history
     if max_tool_calls_from_history is None:
         return _estimate_messages_tokens(messages)
     history_copy = [deepcopy(msg) for msg in messages]
@@ -673,6 +706,137 @@ def _build_cache_key(
     return f"{key}:tool_calls={visibility}"
 
 
+def _is_media_validation_error_text(error_text: str) -> bool:
+    """Return whether provider error text indicates inline media validation failure."""
+    lowered_error_text = error_text.lower()
+    return bool(
+        _INLINE_MEDIA_FIELD_PATTERN.search(lowered_error_text)
+        or _INLINE_MEDIA_MIME_MISMATCH_PATTERN.search(lowered_error_text),
+    )
+
+
+def _should_retry_without_inline_media(error: Exception | str, media_inputs: MediaInputs) -> bool:
+    """Return whether this run should retry once without inline media."""
+    if not media_inputs.has_any():
+        return False
+    return _is_media_validation_error_text(str(error))
+
+
+def _append_inline_media_fallback_prompt(full_prompt: str) -> str:
+    """Append one-time guidance when inline media had to be dropped."""
+    if _INLINE_MEDIA_FALLBACK_MARKER in full_prompt:
+        return full_prompt
+    return (
+        f"{full_prompt.rstrip()}\n\n"
+        f"{_INLINE_MEDIA_FALLBACK_MARKER} "
+        "The model rejected inline attachments for this turn. "
+        "Use available attachment IDs and tools to inspect files instead."
+    )
+
+
+def _request_stream_retry(
+    state: _StreamingAttemptState,
+    *,
+    retried_without_inline_media: bool,
+    media_inputs: MediaInputs,
+    error: Exception | str,
+    log_message: str,
+    agent_name: str,
+) -> bool:
+    """Set retry flag when inline-media fallback should be attempted."""
+    if retried_without_inline_media or state.full_response:
+        # Once any stream content is emitted, retrying would duplicate partial output.
+        return False
+    if not _should_retry_without_inline_media(error, media_inputs):
+        return False
+    state.retry_requested = True
+    logger.warning(
+        log_message,
+        agent=agent_name,
+        error=str(error),
+    )
+    return True
+
+
+def _track_stream_tool_started(
+    state: _StreamingAttemptState,
+    event: ToolCallStartedEvent,
+    *,
+    show_tool_calls: bool,
+) -> None:
+    """Track started tool-call metadata for streaming output."""
+    state.observed_tool_calls += 1
+    if not show_tool_calls:
+        return
+
+    state.tool_count += 1
+    tool_msg, trace_entry = format_tool_started_event(event.tool, tool_index=state.tool_count)
+    if tool_msg:
+        state.full_response += tool_msg
+    if trace_entry is not None:
+        state.pending_tools.append((trace_entry.tool_name, state.tool_count))
+
+
+def _track_stream_tool_completed(
+    state: _StreamingAttemptState,
+    event: ToolCallCompletedEvent,
+    *,
+    show_tool_calls: bool,
+    agent_name: str,
+) -> None:
+    """Track completed tool-call metadata for streaming output."""
+    if not show_tool_calls:
+        return
+
+    info = extract_tool_completed_info(event.tool)
+    if info is None:
+        return
+    tool_name, result = info
+    match_pos = next(
+        (pos for pos in range(len(state.pending_tools) - 1, -1, -1) if state.pending_tools[pos][0] == tool_name),
+        None,
+    )
+    if match_pos is None:
+        logger.warning(
+            "Missing pending tool start in AI stream; skipping completion marker",
+            tool_name=tool_name,
+            agent=agent_name,
+        )
+        return
+    _, tool_index = state.pending_tools.pop(match_pos)
+    state.full_response, _ = complete_pending_tool_block(
+        state.full_response,
+        tool_name,
+        result,
+        tool_index=tool_index,
+    )
+
+
+def _track_model_request_metrics(
+    state: _StreamingAttemptState,
+    event: ModelRequestCompletedEvent,
+) -> None:
+    """Track per-request model/token usage for streamed runs."""
+    if event.model:
+        state.latest_model_id = event.model
+    if event.model_provider:
+        state.latest_model_provider = event.model_provider
+    if isinstance(event.input_tokens, int):
+        state.request_metric_totals["input_tokens"] += event.input_tokens
+    if isinstance(event.output_tokens, int):
+        state.request_metric_totals["output_tokens"] += event.output_tokens
+    if isinstance(event.total_tokens, int):
+        state.request_metric_totals["total_tokens"] += event.total_tokens
+    if isinstance(event.reasoning_tokens, int):
+        state.request_metric_totals["reasoning_tokens"] += event.reasoning_tokens
+    if isinstance(event.cache_read_tokens, int):
+        state.request_metric_totals["cache_read_tokens"] += event.cache_read_tokens
+    if isinstance(event.cache_write_tokens, int):
+        state.request_metric_totals["cache_write_tokens"] += event.cache_write_tokens
+    if state.first_token_latency is None and isinstance(event.time_to_first_token, (int, float)):
+        state.first_token_latency = float(event.time_to_first_token)
+
+
 async def _cached_agent_run(
     agent: Agent,
     full_prompt: str,
@@ -680,19 +844,23 @@ async def _cached_agent_run(
     agent_name: str,
     storage_path: Path,
     user_id: str | None = None,
-    images: Sequence[Image] | None = None,
+    media: MediaInputs | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> RunOutput:
     """Cached wrapper for agent.arun() calls."""
-    # Skip cache when images are present (large bytes, unlikely to repeat)
+    media_inputs = media or MediaInputs()
+    # Skip cache when media is present (large bytes, unlikely to repeat)
     # or when Agno history is enabled (prompt can be identical but replayed history differs)
-    cache = None if (images or agent.add_history_to_context) else _get_cache(storage_path)
+    cache = None if (media_inputs.has_any() or agent.add_history_to_context) else _get_cache(storage_path)
     if cache is None:
         return await agent.arun(
             full_prompt,
             session_id=session_id,
             user_id=user_id,
-            images=images,
+            audio=media_inputs.audio,
+            images=media_inputs.images,
+            files=media_inputs.files,
+            videos=media_inputs.videos,
             metadata=metadata,
         )
 
@@ -783,7 +951,7 @@ async def ai_response(
     knowledge: Knowledge | None = None,
     user_id: str | None = None,
     include_interactive_questions: bool = True,
-    images: Sequence[Image] | None = None,
+    media: MediaInputs | None = None,
     reply_to_event_id: str | None = None,
     show_tool_calls: bool = True,
     tool_trace_collector: list[ToolTraceEntry] | None = None,
@@ -804,7 +972,7 @@ async def ai_response(
         include_interactive_questions: Whether to include the interactive
             question authoring prompt. Set to False for channels that do not
             support Matrix reaction-based question flows.
-        images: Optional images to pass to the AI model for vision analysis
+        media: Optional multimodal inputs (audio/images/files/videos)
         reply_to_event_id: Matrix event ID of the triggering message, stored
             in run metadata for unseen message tracking and edit cleanup.
         show_tool_calls: Whether to include tool call details inline in the response text.
@@ -818,6 +986,7 @@ async def ai_response(
 
     """
     logger.info("AI request", agent=agent_name)
+    media_inputs = media or MediaInputs()
 
     # Prepare agent and prompt - this can fail if agent creation fails (e.g., missing API key)
     try:
@@ -848,12 +1017,37 @@ async def ai_response(
             agent_name,
             storage_path,
             user_id=user_id,
-            images=images,
+            media=media_inputs,
             metadata=metadata,
         )
     except Exception as e:
-        logger.exception("Error generating AI response", agent=agent_name)
-        return get_user_friendly_error_message(e, agent_name)
+        if _should_retry_without_inline_media(e, media_inputs):
+            logger.warning(
+                "Retrying AI response without inline media after validation error",
+                agent=agent_name,
+                error=str(e),
+            )
+            fallback_prompt = _append_inline_media_fallback_prompt(full_prompt)
+            try:
+                response = await _cached_agent_run(
+                    agent,
+                    fallback_prompt,
+                    session_id,
+                    agent_name,
+                    storage_path,
+                    user_id=user_id,
+                    media=MediaInputs(),
+                    metadata=metadata,
+                )
+            except Exception as retry_error:
+                logger.exception(
+                    "Error generating AI response after inline-media fallback",
+                    agent=agent_name,
+                )
+                return get_user_friendly_error_message(retry_error, agent_name)
+        else:
+            logger.exception("Error generating AI response", agent=agent_name)
+            return get_user_friendly_error_message(e, agent_name)
 
     if tool_trace_collector is not None:
         tool_trace_collector.extend(_extract_tool_trace(response))
@@ -876,6 +1070,81 @@ async def ai_response(
     return _extract_response_content(response, show_tool_calls=show_tool_calls)
 
 
+async def _process_stream_events(  # noqa: C901
+    stream_generator: AsyncIterator[object],
+    *,
+    state: _StreamingAttemptState,
+    show_tool_calls: bool,
+    agent_name: str,
+    media_inputs: MediaInputs,
+    retried_without_inline_media: bool,
+) -> AsyncGenerator[AIStreamChunk, None]:
+    """Consume one streaming attempt, yielding chunks and mutating *state*."""
+    try:
+        async for event in stream_generator:
+            if isinstance(event, RunContentEvent) and event.content:
+                chunk_text = str(event.content)
+                state.full_response += chunk_text
+                yield event
+                continue
+
+            if isinstance(event, ToolCallStartedEvent):
+                _track_stream_tool_started(
+                    state,
+                    event,
+                    show_tool_calls=show_tool_calls,
+                )
+                yield event
+                continue
+
+            if isinstance(event, ToolCallCompletedEvent):
+                _track_stream_tool_completed(
+                    state,
+                    event,
+                    show_tool_calls=show_tool_calls,
+                    agent_name=agent_name,
+                )
+                yield event
+                continue
+
+            if isinstance(event, ModelRequestCompletedEvent):
+                _track_model_request_metrics(state, event)
+                continue
+
+            if isinstance(event, RunCompletedEvent):
+                state.completed_run_event = event
+                continue
+
+            if isinstance(event, RunErrorEvent):
+                error_text = event.content or "Unknown agent error"
+                if _request_stream_retry(
+                    state,
+                    retried_without_inline_media=retried_without_inline_media,
+                    media_inputs=media_inputs,
+                    error=error_text,
+                    log_message="Retrying streaming AI response without inline media after run error",
+                    agent_name=agent_name,
+                ):
+                    return
+                logger.error("Agent run error during streaming", agent=agent_name, error=error_text)
+                state.user_error = Exception(error_text)
+                return
+
+            logger.debug("Skipping stream event", event_type=type(event).__name__)
+    except Exception as e:
+        if _request_stream_retry(
+            state,
+            retried_without_inline_media=retried_without_inline_media,
+            media_inputs=media_inputs,
+            error=e,
+            log_message="Retrying streaming AI response without inline media after stream exception",
+            agent_name=agent_name,
+        ):
+            return
+        logger.exception("Error during streaming AI response")
+        state.stream_exception = e
+
+
 async def stream_agent_response(  # noqa: C901, PLR0912, PLR0915
     agent_name: str,
     prompt: str,
@@ -887,7 +1156,7 @@ async def stream_agent_response(  # noqa: C901, PLR0912, PLR0915
     knowledge: Knowledge | None = None,
     user_id: str | None = None,
     include_interactive_questions: bool = True,
-    images: Sequence[Image] | None = None,
+    media: MediaInputs | None = None,
     reply_to_event_id: str | None = None,
     show_tool_calls: bool = True,
     run_metadata_collector: dict[str, Any] | None = None,
@@ -910,7 +1179,7 @@ async def stream_agent_response(  # noqa: C901, PLR0912, PLR0915
         include_interactive_questions: Whether to include the interactive
             question authoring prompt. Set to False for channels that do not
             support Matrix reaction-based question flows.
-        images: Optional images to pass to the AI model for vision analysis
+        media: Optional multimodal inputs (audio/images/files/videos)
         reply_to_event_id: Matrix event ID of the triggering message, stored
             in run metadata for unseen message tracking and edit cleanup.
         show_tool_calls: Whether to include tool call details inline in the streamed response.
@@ -922,6 +1191,7 @@ async def stream_agent_response(  # noqa: C901, PLR0912, PLR0915
 
     """
     logger.info("AI streaming request", agent=agent_name)
+    media_inputs = media or MediaInputs()
 
     # Prepare agent and prompt - this can fail if agent creation fails
     try:
@@ -944,171 +1214,125 @@ async def stream_agent_response(  # noqa: C901, PLR0912, PLR0915
 
     metadata = _build_run_metadata(reply_to_event_id, unseen_event_ids)
 
-    # Check cache (skip when images are present or history is enabled)
-    cache = None if (images or agent.add_history_to_context) else _get_cache(storage_path)
+    # Check cache (skip when media is present or history is enabled)
+    cache = None if (media_inputs.has_any() or agent.add_history_to_context) else _get_cache(storage_path)
     if cache is not None:
         model = agent.model
         assert model is not None
         cache_key = _build_cache_key(agent, full_prompt, session_id, show_tool_calls=show_tool_calls)
         cached_result = cache.get(cache_key)
         if cached_result is not None:
+            cached_run = cast("RunOutput", cached_result)
             logger.info("Cache hit", agent=agent_name)
-            response_text = cached_result.content or ""
+            response_text = cached_run.content or ""
             if run_metadata_collector is not None:
                 cached_metadata = _build_ai_run_metadata_content(
                     agent_name=agent_name,
                     config=config,
-                    run_id=getattr(cached_result, "run_id", None),
-                    session_id=getattr(cached_result, "session_id", None) or session_id,
+                    run_id=cached_run.run_id,
+                    session_id=cached_run.session_id or session_id,
                     status="cached",
-                    model=getattr(cached_result, "model", None),
-                    model_provider=getattr(cached_result, "model_provider", None),
-                    metrics=getattr(cached_result, "metrics", None),
-                    tool_count=len(cached_result.tools) if getattr(cached_result, "tools", None) else 0,
+                    model=cached_run.model,
+                    model_provider=cached_run.model_provider,
+                    metrics=cached_run.metrics,
+                    tool_count=len(cached_run.tools) if cached_run.tools else 0,
                 )
                 if cached_metadata:
                     run_metadata_collector.update(cached_metadata)
             yield response_text
             return
 
-    full_response = ""
-    tool_count = 0
-    observed_tool_calls = 0
-    pending_tools: list[tuple[str, int]] = []
-    latest_model_id: str | None = None
-    latest_model_provider: str | None = None
-    completed_run_event: RunCompletedEvent | None = None
-    request_metric_totals: dict[str, int] = {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "total_tokens": 0,
-        "reasoning_tokens": 0,
-        "cache_read_tokens": 0,
-        "cache_write_tokens": 0,
-    }
-    first_token_latency: float | None = None
+    attempt_prompt = full_prompt
+    attempt_media_inputs = media_inputs
+    state = _StreamingAttemptState()
 
-    # Execute the streaming AI call - this can fail for network, rate limits, etc.
-    try:
-        stream_generator = agent.arun(
-            full_prompt,
-            session_id=session_id,
-            user_id=user_id,
-            images=images,
-            stream=True,
-            stream_events=True,
-            metadata=metadata,
-        )
-    except Exception as e:
-        logger.exception("Error starting streaming AI response")
-        yield get_user_friendly_error_message(e, agent_name)
-        return
+    for retried_without_inline_media in (False, True):
+        state = _StreamingAttemptState()
 
-    # Process the stream events
-    try:
-        async for event in stream_generator:
-            if isinstance(event, RunContentEvent) and event.content:
-                chunk_text = str(event.content)
-                full_response += chunk_text
-                yield event
-            elif isinstance(event, ToolCallStartedEvent):
-                observed_tool_calls += 1
-                if show_tool_calls:
-                    tool_count += 1
-                    tool_msg, trace_entry = format_tool_started_event(event.tool, tool_index=tool_count)
-                    if tool_msg:
-                        full_response += tool_msg
-                    if trace_entry is not None:
-                        pending_tools.append((trace_entry.tool_name, tool_count))
-                yield event
-            elif isinstance(event, ToolCallCompletedEvent):
-                if show_tool_calls:
-                    info = extract_tool_completed_info(event.tool)
-                    if info:
-                        tool_name, result = info
-                        match_pos = next(
-                            (
-                                pos
-                                for pos in range(len(pending_tools) - 1, -1, -1)
-                                if pending_tools[pos][0] == tool_name
-                            ),
-                            None,
-                        )
-                        if match_pos is None:
-                            logger.warning(
-                                "Missing pending tool start in AI stream; skipping completion marker",
-                                tool_name=tool_name,
-                                agent=agent_name,
-                            )
-                            yield event
-                            continue
-                        _, tool_index = pending_tools.pop(match_pos)
-                        full_response, _ = complete_pending_tool_block(
-                            full_response,
-                            tool_name,
-                            result,
-                            tool_index=tool_index,
-                        )
-                yield event
-            elif isinstance(event, ModelRequestCompletedEvent):
-                if event.model:
-                    latest_model_id = event.model
-                if event.model_provider:
-                    latest_model_provider = event.model_provider
-                if isinstance(event.input_tokens, int):
-                    request_metric_totals["input_tokens"] += event.input_tokens
-                if isinstance(event.output_tokens, int):
-                    request_metric_totals["output_tokens"] += event.output_tokens
-                if isinstance(event.total_tokens, int):
-                    request_metric_totals["total_tokens"] += event.total_tokens
-                if isinstance(event.reasoning_tokens, int):
-                    request_metric_totals["reasoning_tokens"] += event.reasoning_tokens
-                if isinstance(event.cache_read_tokens, int):
-                    request_metric_totals["cache_read_tokens"] += event.cache_read_tokens
-                if isinstance(event.cache_write_tokens, int):
-                    request_metric_totals["cache_write_tokens"] += event.cache_write_tokens
-                if first_token_latency is None and isinstance(event.time_to_first_token, (int, float)):
-                    first_token_latency = float(event.time_to_first_token)
-            elif isinstance(event, RunCompletedEvent):
-                completed_run_event = event
-            elif isinstance(event, RunErrorEvent):
-                error_text = event.content or "Unknown agent error"
-                logger.error("Agent run error during streaming", agent=agent_name, error=error_text)
-                yield get_user_friendly_error_message(Exception(error_text), agent_name)
-                return
-            else:
-                logger.debug("Skipping stream event", event_type=type(event).__name__)
-    except Exception as e:
-        logger.exception("Error during streaming AI response")
-        yield get_user_friendly_error_message(e, agent_name)
-        return
+        # Execute the streaming AI call - this can fail for network, rate limits, etc.
+        try:
+            stream_generator = agent.arun(
+                attempt_prompt,
+                session_id=session_id,
+                user_id=user_id,
+                audio=attempt_media_inputs.audio,
+                images=attempt_media_inputs.images,
+                files=attempt_media_inputs.files,
+                videos=attempt_media_inputs.videos,
+                stream=True,
+                stream_events=True,
+                metadata=metadata,
+            )
+        except Exception as e:
+            if _request_stream_retry(
+                state,
+                retried_without_inline_media=retried_without_inline_media,
+                media_inputs=attempt_media_inputs,
+                error=e,
+                log_message="Retrying streaming AI response without inline media after validation error",
+                agent_name=agent_name,
+            ):
+                attempt_prompt = _append_inline_media_fallback_prompt(full_prompt)
+                attempt_media_inputs = MediaInputs()
+                continue
+            logger.exception("Error starting streaming AI response")
+            yield get_user_friendly_error_message(e, agent_name)
+            return
+
+        async for stream_chunk in _process_stream_events(
+            stream_generator,
+            state=state,
+            show_tool_calls=show_tool_calls,
+            agent_name=agent_name,
+            media_inputs=attempt_media_inputs,
+            retried_without_inline_media=retried_without_inline_media,
+        ):
+            yield stream_chunk
+
+        if state.retry_requested:
+            attempt_prompt = _append_inline_media_fallback_prompt(full_prompt)
+            attempt_media_inputs = MediaInputs()
+            continue
+
+        if state.user_error is not None:
+            yield get_user_friendly_error_message(state.user_error, agent_name)
+            return
+
+        if state.stream_exception is not None:
+            yield get_user_friendly_error_message(state.stream_exception, agent_name)
+            return
+
+        break
 
     if run_metadata_collector is not None:
-        fallback_metrics = _build_model_request_metrics_fallback(request_metric_totals, first_token_latency)
+        fallback_metrics = _build_model_request_metrics_fallback(
+            state.request_metric_totals,
+            state.first_token_latency,
+        )
         run_metadata = _build_ai_run_metadata_content(
             agent_name=agent_name,
             config=config,
-            run_id=completed_run_event.run_id if completed_run_event is not None else None,
+            run_id=state.completed_run_event.run_id if state.completed_run_event is not None else None,
             session_id=(
-                completed_run_event.session_id
-                if completed_run_event is not None and completed_run_event.session_id is not None
+                state.completed_run_event.session_id
+                if state.completed_run_event is not None and state.completed_run_event.session_id is not None
                 else session_id
             ),
             status=RunStatus.completed,
-            model=latest_model_id,
-            model_provider=latest_model_provider,
-            metrics=completed_run_event.metrics if completed_run_event is not None else None,
+            model=state.latest_model_id,
+            model_provider=state.latest_model_provider,
+            metrics=state.completed_run_event.metrics if state.completed_run_event is not None else None,
             metrics_fallback=fallback_metrics,
             tool_count=(
-                len(completed_run_event.tools)
-                if completed_run_event is not None and completed_run_event.tools is not None
-                else observed_tool_calls
+                len(state.completed_run_event.tools)
+                if state.completed_run_event is not None and state.completed_run_event.tools is not None
+                else state.observed_tool_calls
             ),
         )
         if run_metadata:
             run_metadata_collector.update(run_metadata)
 
-    if cache is not None and full_response:
-        cached_response = RunOutput(content=full_response)
+    if cache is not None and state.full_response:
+        cached_response = RunOutput(content=state.full_response)
         cache.set(cache_key, cached_response)
         logger.info("Response cached", agent=agent_name)

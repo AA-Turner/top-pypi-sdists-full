@@ -15,7 +15,7 @@
 import collections
 from functools import partial
 import operator
-from typing import Any
+from typing import Any, NamedTuple
 from collections.abc import Callable
 
 from jax._src import ad_util
@@ -173,8 +173,11 @@ def _root_jvp(const_lengths, jaxprs, primals, tangents):
   return solution, solution_dot
 
 
-class _LinearSolveTuple(collections.namedtuple(
-    '_LinearSolveTuple', 'matvec, vecmat, solve, transpose_solve')):
+class _LinearSolveTuple(NamedTuple):
+  matvec: Any
+  vecmat: Any
+  solve: Any
+  transpose_solve: Any
 
   def transpose(self):
     return type(self)(self.vecmat, self.matvec, self.transpose_solve, self.solve)
@@ -350,7 +353,7 @@ def _tangent_linear_map(func: Callable, params, params_dot,
   this function computes ``∂A @ x``.
   """
   assert any(type(p) is not ad_util.Zero for p in params_dot)
-  zeros = _map(ad_util.Zero.from_primal_value, x)
+  zeros = _map(ad_util.p2tz, x)
   _, out_tangent = ad.jvp(lu.wrap_init(func, debug_info=debug_info)).call_wrapped(
       params + list(x), params_dot + zeros)
   return out_tangent
@@ -387,7 +390,7 @@ def _custom_linear_solve_jvp(primals, tangents, const_lengths, jaxprs):
   # split into x tangents and aux tangents (these become zero)
   dx_leaves, daux_leaves = split_list(x_dot, [num_x_leaves])
 
-  daux_leaves = _map(ad_util.Zero.from_primal_value, daux_leaves)
+  daux_leaves = _map(ad_util.p2tz, daux_leaves)
 
   x_dot = dx_leaves + daux_leaves
 

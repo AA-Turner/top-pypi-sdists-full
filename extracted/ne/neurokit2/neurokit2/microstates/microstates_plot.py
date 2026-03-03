@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib
 import matplotlib.gridspec
 import matplotlib.pyplot as plt
@@ -101,9 +100,7 @@ def microstates_plot(microstates, segmentation=None, gfp=None, info=None, epoch=
 
     cmap = plt.get_cmap("plasma").resampled(n)
     # Plot the GFP line above the area
-    ax["GFP"].plot(
-        times[epoch[0] : epoch[1]], gfp[epoch[0] : epoch[1]], color="black", linewidth=0.5
-    )
+    ax["GFP"].plot(times[epoch[0] : epoch[1]], gfp[epoch[0] : epoch[1]], color="black", linewidth=0.5)
     # Plot area
     for state, color in zip(range(n), cmap.colors):
         ax["GFP"].fill_between(

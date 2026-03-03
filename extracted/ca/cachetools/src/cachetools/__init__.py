@@ -12,7 +12,7 @@ __all__ = (
     "cachedmethod",
 )
 
-__version__ = "7.0.1"
+__version__ = "7.0.2"
 
 import collections
 import collections.abc
@@ -40,6 +40,9 @@ class _DefaultSize:
 
     def pop(self, _key):
         return 1
+
+    def clear(self):
+        pass
 
 
 class Cache(collections.abc.MutableMapping):
@@ -134,6 +137,17 @@ class Cache(collections.abc.MutableMapping):
             self[key] = value = default
         return value
 
+    # Although the MutableMapping.clear() default implementation works
+    # perfectly well, it calls popitem() in a loop until the cache is
+    # empty, resulting in O(n) complexity.  For large caches, this
+    # becomes a significant performance bottleneck, so we provide an
+    # optimized version for each Cache subclass.
+
+    def clear(self):
+        self.__data.clear()
+        self.__size.clear()
+        self.__currsize = 0
+
     @property
     def maxsize(self):
         """The maximum size of the cache."""
@@ -176,6 +190,10 @@ class FIFOCache(Cache):
             raise KeyError("%s is empty" % type(self).__name__) from None
         else:
             return (key, self.pop(key))
+
+    def clear(self):
+        Cache.clear(self)
+        self.__order.clear()
 
 
 class LFUCache(Cache):
@@ -237,6 +255,12 @@ class LFUCache(Cache):
         key = next(iter(curr.keys))  # remove an arbitrary element
         return (key, self.pop(key))
 
+    def clear(self):
+        Cache.clear(self)
+        root = self.__root
+        root.prev = root.next = root
+        self.__links.clear()
+
     def __touch(self, key):
         """Increment use count"""
         link = self.__links[key]
@@ -286,6 +310,10 @@ class LRUCache(Cache):
         else:
             return (key, self.pop(key))
 
+    def clear(self):
+        Cache.clear(self)
+        self.__order.clear()
+
     def __touch(self, key):
         """Mark as recently used"""
         try:
@@ -331,6 +359,11 @@ class RRCache(Cache):
             raise KeyError("%s is empty" % type(self).__name__) from None
         else:
             return (key, self.pop(key))
+
+    def clear(self):
+        Cache.clear(self)
+        self.__index.clear()
+        del self.__keys[:]
 
 
 class _TimedCache(Cache):
@@ -389,11 +422,6 @@ class _TimedCache(Cache):
         """The timer function used by the cache."""
         return self.__timer
 
-    def clear(self):
-        with self.__timer as time:
-            self.expire(time)
-            Cache.clear(self)
-
     def get(self, *args, **kwargs):
         with self.__timer:
             return Cache.get(self, *args, **kwargs)
@@ -405,6 +433,12 @@ class _TimedCache(Cache):
     def setdefault(self, *args, **kwargs):
         with self.__timer:
             return Cache.setdefault(self, *args, **kwargs)
+
+    def clear(self):
+        # Subclasses must override to also reset their own time-tracking
+        # structures; we do not call expire() here since clear() should
+        # be O(1) regardless of cache contents.
+        Cache.clear(self)
 
 
 class TTLCache(_TimedCache):
@@ -536,6 +570,12 @@ class TTLCache(_TimedCache):
             else:
                 return (key, self.pop(key))
 
+    def clear(self):
+        _TimedCache.clear(self)
+        root = self.__root
+        root.prev = root.next = root
+        self.__links.clear()
+
     def __getlink(self, key):
         value = self.__links[key]
         self.__links.move_to_end(key)
@@ -659,6 +699,11 @@ class TLRUCache(_TimedCache):
                 raise KeyError("%s is empty" % type(self).__name__) from None
             else:
                 return (key, self.pop(key))
+
+    def clear(self):
+        _TimedCache.clear(self)
+        self.__items.clear()
+        del self.__order[:]
 
     def __getitem(self, key):
         value = self.__items[key]

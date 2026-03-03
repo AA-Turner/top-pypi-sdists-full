@@ -225,6 +225,7 @@ api_key_case_management/org_id,ws_id:
     - r+w:workspace_case/org_id,ws_id
     - w:workspace_case_flow_trigger/org_id,ws_id
     - w:workspace_case_queue/org_id,ws_id
+    - r+w:workspace_agent_management/org_id,ws_id,{env=*,type=copilot}
 api_key_case_management_cases/org_id,ws_id:
     - r+w:workspace_case/org_id,ws_id
 api_key_case_management_queues/org_id,ws_id:

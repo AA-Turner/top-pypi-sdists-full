@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING
 
 from plato.agents.runtime import DockerRuntime, PlatoVMRuntime
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
+from plato.agents.runtime.transport import Transport
 from plato.agents.runtime.vm import VMConfig
-from plato.agents.runtime.workspace import RsyncWorkspace, Workspace
 from plato.runtime import VMRuntimeConfig
 
 if TYPE_CHECKING:
@@ -71,13 +71,15 @@ class AgentRunner:
         self,
         agent: AgentConfig,
         runtime: Runtime,
-        workspace: Workspace | None = None,
+        workspace: Transport | None = None,
+        workspaces: list[Transport] | None = None,
         agent_containers: list[str] | None = None,
         agent_code_path: Path | None = None,
     ):
         self._agent = agent
         self._runtime = runtime
         self._workspace = workspace
+        self._default_workspaces = workspaces or []
         self._prepare_hooks: list[Callable[[PreparedAgent], Awaitable[None]]] = []
         self._post_run_hooks: list[Callable[[PreparedAgent], Awaitable[None]]] = []
         self._agent_containers = agent_containers
@@ -117,7 +119,7 @@ class AgentRunner:
         to resume its Claude Code session) up to *max_continuations* additional
         times if *exit_condition* returns ``False`` after an execution.
 
-        The VM is prepared once and kept alive across all attempts.  Workspace
+        The VM is prepared once and kept alive across all attempts.  Transport
         sync-back happens after each ``execute()`` call, so the exit condition
         can inspect files on the shared workspace / NFS mount.
 
@@ -136,15 +138,15 @@ class AgentRunner:
     async def run(
         self,
         instruction: str,
-        workspace: Workspace | str | None = None,
+        workspace: Transport | str | None = None,
         mount_path: str | None = None,
-        workspaces: list[Workspace] | None = None,
+        workspaces: list[Transport] | None = None,
     ) -> str:
         """Run the agent: prepare → hooks → execute (with optional continuation loop) → cleanup.
 
         Args:
             instruction: Task instruction for the agent.
-            workspace: Primary workspace. Accepts a Workspace object or a host path string.
+            workspace: Primary workspace. Accepts a Transport object or a host path string.
             mount_path: Where to mount the primary workspace on the agent VM.
                 Defaults to the same path as on the host.
             workspaces: Additional workspaces to mount on the agent VM.
@@ -158,19 +160,17 @@ class AgentRunner:
                 if self._workspace is not None:
                     ws = self._workspace.with_path(workspace)
                 else:
-                    ssh_key = getattr(self._runtime, "ssh_key_path", None)
-                    if not ssh_key:
-                        raise RuntimeError("Runtime has no ssh_key_path for RsyncWorkspace fallback")
-                    ws = RsyncWorkspace(workspace, ssh_key)
+                    raise RuntimeError("No transport configured — cannot create workspace from path string")
             else:
                 ws = workspace
         if mount_path and ws:
             ws.mount_path = mount_path
 
         # Set workspaces on VM runtime
+        all_workspaces = workspaces or self._default_workspaces
         if isinstance(self._runtime, PlatoVMRuntime):
             self._runtime.workspace = ws
-            self._runtime.workspaces = workspaces or []
+            self._runtime.workspaces = all_workspaces
 
         # Derive string path for ctx.workspace (used by DockerRuntime)
         workspace_path = ws.path if ws else None

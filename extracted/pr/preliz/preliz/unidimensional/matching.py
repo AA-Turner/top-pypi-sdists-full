@@ -91,6 +91,9 @@ def match_moments(
 
     none_idx, fixed = get_fixed_params(to_dist)
 
+    if not from_dist.is_frozen:
+        raise ValueError("`from_dist` must be a fully parametrized distribution.")
+
     target_values = np.array(from_dist.moments(moments))
     if not np.any(np.isfinite(target_values)):
         raise ValueError(
@@ -99,7 +102,7 @@ def match_moments(
 
     # Initialize `to_dist` to a distribution matching the mean and standard deviation
     # of `from_dist`. The ``_fit_moments`` method is correct for some distributions,
-    # but just an heuristic for others.
+    # but just a heuristic for others.
     to_dist._fit_moments(from_dist.mean(), from_dist.std())
 
     opt = optimize_moments(to_dist, moments, target_values, none_idx, fixed)
@@ -212,7 +215,7 @@ def match_quantiles(
 
     # Initialize `to_dist` to a distribution matching the mean and standard deviation
     # of `from_dist`. The ``_fit_moments`` method is correct for some distributions,
-    # but just an heuristic for others.
+    # but just a heuristic for others.
     to_dist._fit_moments(from_dist.mean(), from_dist.std())
 
     opt = optimize_quantiles(to_dist, quantiles, target_values, none_idx, fixed)

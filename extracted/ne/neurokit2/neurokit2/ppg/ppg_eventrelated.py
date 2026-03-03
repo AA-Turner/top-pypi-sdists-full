@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ..epochs.eventrelated_utils import (
     _eventrelated_addinfo,
     _eventrelated_rate,
@@ -69,7 +68,6 @@ def ppg_eventrelated(epochs, silent=False):
     # Extract features and build dataframe
     data = {}  # Initialize an empty dict
     for i in epochs.keys():
-
         data[i] = {}  # Initialize empty container
 
         # Rate

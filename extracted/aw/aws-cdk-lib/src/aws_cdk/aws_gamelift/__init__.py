@@ -2236,7 +2236,7 @@ class CfnContainerFleet(
 
             :param max_size: The maximum value that is allowed for the fleet's instance count for a location.
             :param desired_ec2_instances: Defaults to MinSize if not defined. The number of EC2 instances you want to maintain in the specified fleet location. This value must fall between the minimum and maximum size limits. If any auto-scaling policy is defined for the container fleet, the desired instance will only be applied once during fleet creation and will be ignored in updates to avoid conflicts with auto-scaling. During updates with any auto-scaling policy defined, if current desired instance is lower than the new MinSize, it will be increased to the new MinSize; if current desired instance is larger than the new MaxSize, it will be decreased to the new MaxSize.
-            :param managed_capacity_configuration: Configuration options for GameLift-managed capacity behavior.
+            :param managed_capacity_configuration: Configuration options for Amazon GameLift Servers managed capacity behavior.
             :param min_size: The minimum value allowed for the fleet's instance count for a location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-locationcapacity.html
@@ -2303,7 +2303,7 @@ class CfnContainerFleet(
         def managed_capacity_configuration(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerFleet.ManagedCapacityConfigurationProperty"]]:
-            '''Configuration options for GameLift-managed capacity behavior.
+            '''Configuration options for Amazon GameLift Servers managed capacity behavior.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-locationcapacity.html#cfn-gamelift-containerfleet-locationcapacity-managedcapacityconfiguration
             '''
@@ -2550,7 +2550,7 @@ class CfnContainerFleet(
             zero_capacity_strategy: builtins.str,
             scale_in_after_inactivity_minutes: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''Configuration options for GameLift-managed capacity behavior.
+            '''Configuration options for Amazon GameLift Servers managed capacity behavior.
 
             :param zero_capacity_strategy: The strategy Amazon GameLift Servers will use to automatically scale your capacity to and from zero in response to game session activity. Game session activity refers to any active running sessions or game session requests. When set to SCALE_TO_AND_FROM_ZERO, MinSize must not be specified and will be managed automatically. When set to MANUAL, MinSize is required.
             :param scale_in_after_inactivity_minutes: Length of time, in minutes, that Amazon GameLift Servers will wait before scaling in your MinSize and DesiredInstances to 0 after a period with no game session activity.

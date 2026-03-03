@@ -1015,6 +1015,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
             type=cloud_assembly_schema.ArtifactType.NONE,
         
             # the properties below are optional
+            additional_metadata_file="additionalMetadataFile",
             dependencies=["dependencies"],
             display_name="displayName",
             environment="environment",
@@ -1071,6 +1072,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         id: builtins.str,
         *,
         type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -1081,10 +1083,11 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         :param assembly: -
         :param id: -
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
@@ -1093,6 +1096,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         manifest = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
+            additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
             display_name=display_name,
             environment=environment,
@@ -1110,6 +1114,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         id: builtins.str,
         *,
         type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -1121,10 +1126,11 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         :param assembly: - The cloud assembly from which to load the artifact.
         :param id: - The artifact ID.
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
 
         :return: the ``CloudArtifact`` that matches the artifact type or ``undefined`` if it's an artifact type that is unrecognized by this module.
@@ -1135,6 +1141,7 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
+            additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
             display_name=display_name,
             environment=environment,
@@ -1213,7 +1220,8 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         cloud_assembly = cx_api.CloudAssembly("directory",
             skip_enum_check=False,
             skip_version_check=False,
-            topo_sort=False
+            topo_sort=False,
+            validate_schema=False
         )
     '''
 
@@ -1224,6 +1232,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         skip_enum_check: typing.Optional[builtins.bool] = None,
         skip_version_check: typing.Optional[builtins.bool] = None,
         topo_sort: typing.Optional[builtins.bool] = None,
+        validate_schema: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Reads a cloud assembly from the specified directory.
 
@@ -1231,6 +1240,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
         :param skip_enum_check: Skip enum checks. This means you may read enum values you don't know about yet. Make sure to always check the values of enums you encounter in the manifest. Default: false
         :param skip_version_check: Skip the version check. This means you may read a newer cloud assembly than the CX API is designed to support, and your application may not be aware of all features that in use in the Cloud Assembly. Default: false
         :param topo_sort: Topologically sort all artifacts. This parameter is only respected by the constructor of ``CloudAssembly``. The property lives here for backwards compatibility reasons. Default: true
+        :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f166d3cdd543050e1f6916d3f8b21148d9dce169d0973ba379565d8cc49a4601)
@@ -1239,6 +1249,7 @@ class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAss
             skip_enum_check=skip_enum_check,
             skip_version_check=skip_version_check,
             topo_sort=topo_sort,
+            validate_schema=validate_schema,
         )
 
         jsii.create(self.__class__, self, [directory, load_options])
@@ -1501,6 +1512,7 @@ class CloudAssemblyBuilder(
         id: builtins.str,
         *,
         type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -1511,10 +1523,11 @@ class CloudAssemblyBuilder(
 
         :param id: - The ID of the artifact.
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
@@ -1522,6 +1535,7 @@ class CloudAssemblyBuilder(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         manifest = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
+            additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
             display_name=display_name,
             environment=environment,
@@ -1694,6 +1708,7 @@ class CloudFormationStackArtifact(
             type=cloud_assembly_schema.ArtifactType.NONE,
         
             # the properties below are optional
+            additional_metadata_file="additionalMetadataFile",
             dependencies=["dependencies"],
             display_name="displayName",
             environment="environment",
@@ -1750,6 +1765,7 @@ class CloudFormationStackArtifact(
         artifact_id: builtins.str,
         *,
         type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -1760,10 +1776,11 @@ class CloudFormationStackArtifact(
         :param assembly: -
         :param artifact_id: -
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
@@ -1772,6 +1789,7 @@ class CloudFormationStackArtifact(
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
+            additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
             display_name=display_name,
             environment=environment,
@@ -3144,6 +3162,7 @@ class NestedCloudAssemblyArtifact(
             type=cloud_assembly_schema.ArtifactType.NONE,
         
             # the properties below are optional
+            additional_metadata_file="additionalMetadataFile",
             dependencies=["dependencies"],
             display_name="displayName",
             environment="environment",
@@ -3200,6 +3219,7 @@ class NestedCloudAssemblyArtifact(
         name: builtins.str,
         *,
         type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -3210,10 +3230,11 @@ class NestedCloudAssemblyArtifact(
         :param assembly: -
         :param name: -
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
@@ -3222,6 +3243,7 @@ class NestedCloudAssemblyArtifact(
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
+            additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
             display_name=display_name,
             environment=environment,
@@ -3563,6 +3585,7 @@ class TreeCloudArtifact(
             type=cloud_assembly_schema.ArtifactType.NONE,
         
             # the properties below are optional
+            additional_metadata_file="additionalMetadataFile",
             dependencies=["dependencies"],
             display_name="displayName",
             environment="environment",
@@ -3619,6 +3642,7 @@ class TreeCloudArtifact(
         name: builtins.str,
         *,
         type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -3629,10 +3653,11 @@ class TreeCloudArtifact(
         :param assembly: -
         :param name: -
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
@@ -3641,6 +3666,7 @@ class TreeCloudArtifact(
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
+            additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
             display_name=display_name,
             environment=environment,
@@ -4299,6 +4325,7 @@ class AssetManifestArtifact(
             type=cloud_assembly_schema.ArtifactType.NONE,
         
             # the properties below are optional
+            additional_metadata_file="additionalMetadataFile",
             dependencies=["dependencies"],
             display_name="displayName",
             environment="environment",
@@ -4355,6 +4382,7 @@ class AssetManifestArtifact(
         name: builtins.str,
         *,
         type: "_aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType",
+        additional_metadata_file: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         display_name: typing.Optional[builtins.str] = None,
         environment: typing.Optional[builtins.str] = None,
@@ -4365,10 +4393,11 @@ class AssetManifestArtifact(
         :param assembly: -
         :param name: -
         :param type: The type of artifact.
+        :param additional_metadata_file: A file with additional metadata entries. The schema of this file is exactly the same as the type of the ``metadata`` field. In other words, that file contains an object mapping construct paths to arrays of metadata entries. Default: - no additional metadata
         :param dependencies: IDs of artifacts that must be deployed before this artifact. Default: - no dependencies.
         :param display_name: A string that can be shown to a user to uniquely identify this artifact inside a cloud assembly tree. Is used by the CLI to present a list of stacks to the user in a way that makes sense to them. Even though the property name "display name" doesn't imply it, this field is used to select stacks as well, so all stacks should have a unique display name. Default: - no display name
         :param environment: The environment into which this artifact is deployed. Default: - no envrionment.
-        :param metadata: Associated metadata. Default: - no metadata.
+        :param metadata: Associated metadata. Metadata can be stored directly in the assembly manifest, as well as in a separate file (see ``additionalMetadataFile``). It should prefer to be stored in the additional file, as that will reduce the size of the assembly manifest in cases of a lot of metdata (which CDK does emit by default). Default: - no metadata.
         :param properties: The set of properties for this artifact (depends on type). Default: - no properties.
         '''
         if __debug__:
@@ -4377,6 +4406,7 @@ class AssetManifestArtifact(
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         artifact = _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactManifest(
             type=type,
+            additional_metadata_file=additional_metadata_file,
             dependencies=dependencies,
             display_name=display_name,
             environment=environment,
@@ -4498,6 +4528,7 @@ def _typecheckingstub__1ed62a7c2247dd4c625ec6c28ed3100e2bf8bc293ce9accfb5aa199e5
     id: builtins.str,
     *,
     type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
@@ -4512,6 +4543,7 @@ def _typecheckingstub__9a9e7172494e8d6e1062852f66a87eb480f31763995170a9b158baa1f
     id: builtins.str,
     *,
     type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
@@ -4533,6 +4565,7 @@ def _typecheckingstub__f166d3cdd543050e1f6916d3f8b21148d9dce169d0973ba379565d8cc
     skip_enum_check: typing.Optional[builtins.bool] = None,
     skip_version_check: typing.Optional[builtins.bool] = None,
     topo_sort: typing.Optional[builtins.bool] = None,
+    validate_schema: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4592,6 +4625,7 @@ def _typecheckingstub__46e80c3b6bfd97977edd543650bf180354083f8f8ac476e020cef1381
     id: builtins.str,
     *,
     type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
@@ -4621,6 +4655,7 @@ def _typecheckingstub__e4221f8243cf17c04683af8c1bce956c1e255ee17738e4524551c6505
     artifact_id: builtins.str,
     *,
     type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
@@ -4761,6 +4796,7 @@ def _typecheckingstub__1aa6af50763dddea1d45ad3308472b2d2ff5763ed26b8f4919b6ff417
     name: builtins.str,
     *,
     type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
@@ -4805,6 +4841,7 @@ def _typecheckingstub__d44839b2c4ac38a89725b61338793da24a9add3afea876d70e9f06e98
     name: builtins.str,
     *,
     type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,
@@ -4866,6 +4903,7 @@ def _typecheckingstub__2f357f6d07a16e0dfa09eb27eac736f3cba2a46289700a94afedb335c
     name: builtins.str,
     *,
     type: _aws_cdk_cloud_assembly_schema_cae1d136.ArtifactType,
+    additional_metadata_file: typing.Optional[builtins.str] = None,
     dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     display_name: typing.Optional[builtins.str] = None,
     environment: typing.Optional[builtins.str] = None,

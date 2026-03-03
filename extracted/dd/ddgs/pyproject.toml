@@ -28,10 +28,8 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.1.8",
-    "primp>=0.15.0",
+    "primp==1.1.2",
     "lxml>=4.9.4",
-    "httpx[http2,socks,brotli]>=0.28.1",  # temporarily
-    "fake-useragent>=2.2.0",
 ]
 dynamic = ["version"]
 
@@ -44,18 +42,29 @@ ddgs = "ddgs.cli:safe_entry_point"
 [tool.setuptools.dynamic]
 version = {attr = "ddgs.__version__"}
 
+[tool.setuptools.packages.find]
+include = ["ddgs*"]
+exclude = ["api*"]
+
 [project.optional-dependencies]
 dev = [
     "mypy>=1.17.1",
-    "pre-commit",
+    "prek",
     "pytest>=8.4.1",
-    "pytest-dependency>=0.6.0",
     "ruff>=0.13.0",
+    "typing-extensions>=4.15.0",
 
     # for mypy
     "lxml-stubs",
     "types-Pygments",
     "types-pexpect",
+    "types-PyYAML",
+    "types-ujson"
+]
+api = [
+    "fastapi>=0.135.1",
+    "mcp>=1.26.0",
+    "uvicorn[standard]>=0.41.0",
 ]
 
 [tool.ruff]

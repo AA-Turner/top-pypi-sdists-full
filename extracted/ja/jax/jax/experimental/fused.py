@@ -102,7 +102,8 @@ def _fused_jvp(primals, tangents, *, jaxpr, out_spaces):
   return primals_out, tangents_out
 ad.primitive_jvps[fused_p] = _fused_jvp
 
-def _fused_lin(nzs, *primals, jaxpr, out_spaces):
+def _fused_lin(_is_vjp, nzs, *primals, jaxpr, out_spaces):
+  # TODO(mattjj): why did i do jvp + dce here, not ad.linearize_jaxpr?
   jaxpr_jvp, out_nzs = ad.jvp_jaxpr(jaxpr, nzs, False)
   lin_outs = [False] * len(out_nzs) + [True] * sum(out_nzs)
   jaxpr_lin_, used_inputs = pe.dce_jaxpr(jaxpr_jvp.jaxpr, lin_outs, False)
@@ -141,6 +142,11 @@ def _transpose_jaxpr(jaxpr, in_tree, in_avals):
   cell = lambda: None
   def transposed(*in_flat):
     primals_in, cts_in = tree_unflatten(in_tree, in_flat)
+    primals_in = tuple(
+        ad.UndefinedPrimal(p.aval.update(memory_space=core.MemorySpace.Any))
+        if type(p) is ad.UndefinedPrimal else p for p in primals_in)
+    cts_in = [ad.Zero(ct.aval.update(memory_space=core.MemorySpace.Any))
+              if type(ct) is ad.Zero else ct for ct in cts_in]
     out = ad.backward_pass(jaxpr.jaxpr, False, jaxpr.consts, primals_in, cts_in)
     out = [ct if not isinstance(ct, ad.Zero) else None for ct in out]
     cts_out, cell.out_tree = tree_flatten(out)  # type: ignore

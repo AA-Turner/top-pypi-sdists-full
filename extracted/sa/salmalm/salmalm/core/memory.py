@@ -73,27 +73,20 @@ class MemoryManager:
 
     # ── Read / Write ──────────────────────────────────────────
 
-    _MAX_READ = 4 * 1024 * 1024  # BUG-BV: 4MB read cap — prevents OOM on oversized memory files
-
     def read(self, filename: str) -> str:
         """Read a memory file. Supports MEMORY.md and memory/YYYY-MM-DD.md."""
         if filename == "MEMORY.md":
             if MEMORY_FILE.exists():
-                raw = MEMORY_FILE.read_bytes()[:self._MAX_READ]
-                return raw.decode("utf-8", errors="replace")
+                return MEMORY_FILE.read_text(encoding="utf-8", errors="replace")
             return "(MEMORY.md does not exist yet)"
         fpath = MEMORY_DIR / filename
         if fpath.exists() and fpath.resolve().is_relative_to(MEMORY_DIR.resolve()):
-            raw = fpath.read_bytes()[:self._MAX_READ]
-            return raw.decode("utf-8", errors="replace")
+            return fpath.read_text(encoding="utf-8", errors="replace")
         return f"(File not found: {filename})"
 
     def write(self, filename: str, content: str, append: bool = False) -> str:
         """Write to a memory file. Secrets are automatically scrubbed."""
         MEMORY_DIR.mkdir(exist_ok=True)
-        _MAX_CONTENT = 2 * 1024 * 1024  # 2MB hard cap per write
-        if len(content) > _MAX_CONTENT:
-            return f"❌ Content too large (max 2MB, got {len(content):,} bytes)"
         # Scrub secrets before writing to any memory file
         if self._contains_secret(content):
             log.warning(f"[MEMORY] Secret detected in write to {filename} — redacting")

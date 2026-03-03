@@ -49,8 +49,8 @@ from jax._src import xla_bridge as xb
 from jax._src.interpreters import partial_eval as pe
 from jax._src.layout import AutoLayout, Layout
 from jax._src.lib import _jax
+from jax._src.lib import jaxlib_extension_version
 from jax._src.lib import jax_mlir_ext
-from jax._src.lib import version as jaxlib_version
 from jax._src.lib import xla_client as xc
 from jax._src.lib.mlir import dialects, ir, passmanager
 from jax._src.lib.mlir.dialects import func as func_dialect, hlo
@@ -65,7 +65,6 @@ from jax._src.typing import ArrayLike
 from jax._src.util import foreach
 import numpy as np
 
-USE_NEW_TPU_CALLBACK_LOWERING = jaxlib_version >= (0, 9, 1)
 
 # mypy: ignore-errors
 
@@ -92,11 +91,6 @@ def dense_int_elements(xs) -> ir.DenseIntElementsAttr:
 
 dense_int_array = ir.DenseI64ArrayAttr.get
 
-def dense_bool_elements(xs: Sequence[bool]) -> ir.DenseElementsAttr:
-  a = np.packbits(np.array(xs, np.bool_), bitorder='little')
-  return ir.DenseElementsAttr.get(
-      a, type=ir.IntegerType.get_signless(1), shape=[len(xs)])
-
 def i32_attr(i): return ir.IntegerAttr.get(ir.IntegerType.get_signless(32), i)
 def i64_attr(i): return ir.IntegerAttr.get(ir.IntegerType.get_signless(64), i)
 
@@ -114,8 +108,8 @@ def shape_tensor(sizes: Sequence[int | ir.RankedTensorType]
   ds = map(lower_dim, sizes)
   if not ds:
     return type_cast(ir.RankedTensorType, ir_constant(np.array([], np.int32)))
-  elif len(ds) == 1:
-    return ds[0]
+  elif len(ds) == 1:  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+    return ds[0]  # pyrefly: ignore[bad-index]  # pyrefly#2385
   else:
     return hlo.concatenate(ds, i64_attr(0))
 
@@ -173,6 +167,16 @@ _dtype_to_ir_type : dict[np.dtype, Callable[[], ir.Type]] = {
   np.dtype(dtypes.float4_e2m1fn): ir.Float4E2M1FNType.get,
 }
 
+if dtypes.int1 is not None:
+  assert dtypes.uint1 is not None
+  _dtype_to_ir_type[np.dtype(dtypes.int1)] = partial(
+      ir.IntegerType.get_signless, 1
+  )
+  _dtype_to_ir_type[np.dtype(dtypes.uint1)] = partial(
+      ir.IntegerType.get_unsigned, 1
+  )
+
+
 def dtype_to_ir_type(dtype: core.bint | np.dtype | np.generic) -> ir.Type:
   if isinstance(dtype, core.bint):
     # TODO Support different-size underlying dtypes to take advantage of the
@@ -212,6 +216,7 @@ def aval_to_ir_type(aval: core.AbstractValue) -> IrTypes:
 
 ir_type_handlers[core.ShapedArray] = _array_ir_types
 ir_type_handlers[core.AbstractToken] = lambda _: hlo.TokenType.get()
+ir_type_handlers[core.AbstractTodo] = lambda x: _array_ir_types(x.inner_aval)
 
 # This is a backwards compatibility shim for external users of jax.mlir apis.
 def aval_to_ir_types(aval: core.AbstractValue) -> tuple[ir.Type, ...]:
@@ -267,13 +272,7 @@ def ir_constant(
   raise TypeError(f"No constant handler for type: {type(val)}")
 
 def _numpy_array_constant(x: np.ndarray | np.generic) -> IrValues:
-  element_type = dtype_to_ir_type(x.dtype)
-  shape = x.shape
-  if x.dtype == np.bool_:
-    x = np.packbits(x, bitorder='little')  # type: ignore
-  x = np.ascontiguousarray(x)
-  attr = ir.DenseElementsAttr.get(x, type=element_type, shape=shape)  # type: ignore
-  return hlo.constant(attr)
+  return hlo.constant(_numpy_array_attribute(x))
 
 
 def _masked_array_constant_handler(*args, **kwargs):
@@ -368,10 +367,16 @@ def _numpy_scalar_attribute(val: Any) -> ir.Attribute:
 def _numpy_array_attribute(x: np.ndarray | np.generic) -> ir.Attribute:
   element_type = dtype_to_ir_type(x.dtype)
   shape = x.shape
-  if x.dtype == np.bool_:
-    x = np.packbits(x, bitorder='little')  # type: ignore
   x = np.ascontiguousarray(x)
-  return ir.DenseElementsAttr.get(x, type=element_type, shape=shape)  # type: ignore
+  try:
+    return ir.DenseElementsAttr.get(x, type=element_type, shape=shape)  # type: ignore
+  except ValueError:
+    # Backwards compatibility fallback for old MLIR versions.
+    # Delete once minimum supported jaxlib version is 0.9.1.
+    if x.dtype != np.bool_:
+      raise
+    x = np.ascontiguousarray(np.packbits(x, bitorder='little'))
+    return ir.DenseElementsAttr.get(x, type=element_type, shape=shape)  # type: ignore
 
 def _numpy_array_attribute_handler(val: np.ndarray | np.generic) -> ir.Attribute:
   if 0 in val.strides and val.size > 0:
@@ -449,14 +454,23 @@ def get_canonical_source_file(file_name: str, caches: TracebackCaches) -> str:
   caches.canonical_name_cache[file_name] = file_name
   return file_name
 
-def _traceback_to_location(ctx: ModuleContext, tb: xc.Traceback) -> ir.Location:
+
+class HasTracebackCaches(Protocol):
+  @property
+  def traceback_caches(self) -> TracebackCaches:
+    ...
+
+
+def _traceback_to_location(ctx: HasTracebackCaches, tb: xc.Traceback) -> ir.Location:
   """Converts a full traceback to a callsite() MLIR location."""
   return ctx.traceback_caches.traceback_to_location_cache.get(tb)
 
 def source_info_to_location(
-    ctx: ModuleContext, primitive: core.Primitive | None,
+    ctx: HasTracebackCaches,
+    primitive: core.Primitive | None,
     name_stack: source_info_util.NameStack,
-    traceback: xc.Traceback | None) -> ir.Location:
+    traceback: xc.Traceback | None,
+) -> ir.Location:
   if config.include_full_tracebacks_in_locations.value:
     if traceback is None:
       loc = ir.Location.unknown()
@@ -930,18 +944,6 @@ def flatten_ir_types(xs: Iterable[IrTypes]) -> list[ir.Type]:
 
 _unflatten_done = object()
 
-def unflatten_ir_types(xs: Iterable[ir.Type], ns: Sequence[int]) -> list[IrTypes]:
-  """Splits `xs` into subsequences of lengths `ns`.
-
-  Unlike `split_list`, the `sum(ns)` must be equal to `len(xs)`, and if n == 1
-  then types are not wrapped in a singleton list."""
-  xs_iter = iter(xs)
-  unflattened: list[IrTypes]
-  unflattened = [next(xs_iter) if n == 1 else tuple(next(xs_iter)
-                 for _ in range(n)) for n in ns]
-  assert next(xs_iter, _unflatten_done) is _unflatten_done
-  return unflattened
-
 def len_ir_types(x: IrTypes) -> int:
   return 1 if isinstance(x, ir.Type) else len(x)
 
@@ -1155,7 +1157,7 @@ def check_jaxpr_constants(closed_jaxpr: core.ClosedJaxpr):
 
   message = (
       "A large amount of constants were captured during lowering"
-      f" ({util.pprint_bytes(total_bytes)} total). If this is intentional,"
+      f" ({util.pprint_bytes(total_bytes)} total). If this is intentional,"  # pyrefly: ignore[unbound-name]  # pyrefly#2382
       " disable this warning by setting JAX_CAPTURED_CONSTANTS_WARN_BYTES=-1. "
   )
 
@@ -1321,8 +1323,8 @@ def lower_jaxpr_to_module(
         xla_donated_args=xla_donated_args,
         arg_names=arg_names,
         result_names=result_names,
-        arg_memory_kinds=arg_memory_kinds,
-        result_memory_kinds=result_memory_kinds,
+        arg_memory_kinds=arg_memory_kinds,  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+        result_memory_kinds=result_memory_kinds,  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
         arg_layouts=in_layouts,
         result_layouts=out_layouts,
         propagated_out_mem_kinds=propagated_out_mem_kinds)
@@ -1382,8 +1384,8 @@ def _set_up_aliases(input_output_aliases, avals_in, avals_out,
   if (arg_memory_kinds is None or result_memory_kinds is None or
       any(a is None for a in arg_memory_kinds) or
       any(r is None for r in result_memory_kinds)):
-    arg_memory_kinds = [None] * len(avals_in)
-    result_memory_kinds = [None] * len(avals_out)
+    arg_memory_kinds = [None] * len(avals_in)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
+    result_memory_kinds = [None] * len(avals_out)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
 
   donations = collections.defaultdict(collections.deque)
   for i, (aval, am, donated, aliased) in enumerate(
@@ -1428,7 +1430,7 @@ def _set_up_aliases(input_output_aliases, avals_in, avals_out,
       else:
         # Fallback to xla donation if layouts don't match.
         if xla_donated_args is None:
-          xla_donated_args = [False] * len(avals_in)
+          xla_donated_args = [False] * len(avals_in)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
         xla_donated_args[input_id] = True
 
   aliased_output_ids = {i for i in input_output_aliases if i is not None}
@@ -1448,14 +1450,14 @@ def _set_up_aliases(input_output_aliases, avals_in, avals_out,
     # If the argument is not a token and hasn't been aliased or donated to XLA,
     # then try to find an output array with matching size.
     if (out_donated_args[input_idx]
-        and avals_in[input_idx] is not core.abstract_token):
-      key = (avals_in[input_idx].size, arg_memory_kinds[input_idx])
+        and avals_in[input_idx] is not core.abstract_token):  # pyrefly: ignore[bad-index]  # pyrefly#2385
+      key = (avals_in[input_idx].size, arg_memory_kinds[input_idx])  # pyrefly: ignore[bad-index]  # pyrefly#2385
       if results_not_matched.get(key, ()):
         # XLA donate the argument because there's a matching output array.
         results_not_matched[key].popleft()
         out_donated_args[input_idx] = False
         if xla_donated_args is None:
-          xla_donated_args = [False] * len(avals_in)
+          xla_donated_args = [False] * len(avals_in)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
         xla_donated_args[input_idx] = True
 
   return input_output_aliases, out_donated_args, xla_donated_args
@@ -1750,7 +1752,7 @@ def lower_jaxpr_to_fun(
 
     if input_output_aliases is not None:
       output_ids = util.unflatten(
-        list(range(len(flat_output_types))), map(len_ir_types, output_types))
+        list(range(len(flat_output_types))), map(len_ir_types, output_types))  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
       aliases: list[int | None] = []
       for itypes, alias in zip(input_types, input_output_aliases):
         if alias is None:
@@ -1799,7 +1801,7 @@ def lower_jaxpr_to_fun(
         attrs['jax.result_info'] = ir.StringAttr.get(name_)
 
   if use_sharding_annotations and ir_result_shardings is not None:
-    for attrs, sharding, uv in zip(result_attrs, ir_result_shardings,
+    for attrs, sharding, uv in zip(result_attrs, ir_result_shardings,  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
                                    unconstrained_variants):  # type: ignore
       if sharding is not None and not uv.contains_unconstrained:
         if config.use_shardy_partitioner.value:
@@ -1838,6 +1840,9 @@ def lower_jaxpr_to_fun(
       if main_function
       else source_info_util.new_name_stack()
   )
+  outer_traceback = (
+      source_info_util.current().traceback if main_function else None
+  )
 
   with ir.InsertionPoint(entry_block):
     flat_args = entry_block.arguments
@@ -1855,8 +1860,8 @@ def lower_jaxpr_to_fun(
 
     # A lowering context just for function body entry/exit code.
     entry_lowering_ctx = LoweringRuleContext(
-        module_context=ctx, name_stack=name_stack, traceback=None, primitive=None,
-        avals_in=[], avals_out=None,
+        module_context=ctx, name_stack=name_stack, traceback=None,
+        primitive=None, avals_in=[], avals_out=None,
         tokens_in=TokenSet.create([]), tokens_out=None,
         axis_size_env=None, dim_var_values=dim_var_values,
         const_lowering=const_lowering)
@@ -1871,7 +1876,7 @@ def lower_jaxpr_to_fun(
           if (a is not core.abstract_token and
               dtypes.issubdtype(a.dtype, dtypes.extended) and
               (s is None or all_unconstrained(rs, a))) else o  # pytype: disable=attribute-error
-          for o, s, a, rs in zip(flat_args, ir_arg_shardings, input_avals,
+          for o, s, a, rs in zip(flat_args, ir_arg_shardings, input_avals,  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
                                  arg_shardings)  # type: ignore
       ]
 
@@ -1887,9 +1892,9 @@ def lower_jaxpr_to_fun(
     consts_for_constvars = [unique_consts[id(c)] for c in jaxpr.consts]
 
     out_vals, tokens_out = jaxpr_subcomp(
-        ctx, jaxpr.jaxpr, name_stack, tokens_in,
-        consts_for_constvars, *args, dim_var_values=dim_var_values,
-        const_lowering=const_lowering)
+        ctx, jaxpr.jaxpr, name_stack, tokens_in, consts_for_constvars, *args,
+        dim_var_values=dim_var_values, const_lowering=const_lowering,
+        outer_traceback=outer_traceback)
     outs: list[IrValues] = []
     for eff in effects:
       outs.append(tokens_out.get(eff))
@@ -1904,7 +1909,7 @@ def lower_jaxpr_to_fun(
 
     if ir_result_shardings is not None:
       temp_flat_outputs = []
-      for o, s, o_aval, uv in zip(flat_outputs, ir_result_shardings,
+      for o, s, o_aval, uv in zip(flat_outputs, ir_result_shardings,  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
                                   output_avals, unconstrained_variants):  # type: ignore
         if (s is not None and uv.contains_unconstrained and
             not uv.all_unconstrained):
@@ -1936,7 +1941,7 @@ def lower_jaxpr_to_fun(
           if (a is not core.abstract_token and
               dtypes.issubdtype(a.dtype, dtypes.extended) and
               (s is None or all_unconstrained(rs, a))) else o  # pytype: disable=attribute-error
-          for o, s, a, rs in zip(flat_outputs, ir_result_shardings, output_avals,
+          for o, s, a, rs in zip(flat_outputs, ir_result_shardings, output_avals,  # pyrefly: ignore[no-matching-overload]  # pyrefly#2385
                                  result_shardings)  # type: ignore
       ]
 
@@ -1986,14 +1991,18 @@ def replicate_trailing_dims(ctx, val: ir.Value, aval) -> ir.Value:
 
 _uncacheable_primitives: set[core.Primitive] = set()
 
-def jaxpr_subcomp(ctx: ModuleContext, jaxpr: core.Jaxpr,
-                  name_stack: source_info_util.NameStack,
-                  tokens: TokenSet,
-                  consts_for_constvars: Sequence[IrValues],
-                  *args: IrValues,
-                  dim_var_values: Sequence[ir.Value],
-                  const_lowering: dict[tuple[int, core.AbstractValue], IrValues],
-                  ) -> tuple[Sequence[IrValues], TokenSet]:
+
+def jaxpr_subcomp(
+    ctx: ModuleContext,
+    jaxpr: core.Jaxpr,
+    name_stack: source_info_util.NameStack,
+    tokens: TokenSet,
+    consts_for_constvars: Sequence[IrValues],
+    *args: IrValues,
+    dim_var_values: Sequence[ir.Value],
+    const_lowering: dict[tuple[int, core.AbstractValue], IrValues],
+    outer_traceback: xc.Traceback | None,
+) -> tuple[Sequence[IrValues], TokenSet]:
   """Lowers a jaxpr into MLIR, inlined into an existing function.
 
   Assumes that an MLIR context, location, and insertion point are set.
@@ -2044,6 +2053,10 @@ def jaxpr_subcomp(ctx: ModuleContext, jaxpr: core.Jaxpr,
   foreach(write, jaxpr.constvars, consts_for_constvars)
   foreach(write, jaxpr.invars, args)
   last_used = core.last_used(jaxpr)
+  if jaxlib_extension_version >= 409:
+    outer_traceback = outer_traceback or xc.Traceback()
+  else:
+    outer_traceback = None
   for eqn in jaxpr.eqns:
     in_nodes = tuple(map(read, eqn.invars))
     assert all(_is_ir_values(v) for v in in_nodes), (eqn, in_nodes)
@@ -2053,20 +2066,23 @@ def jaxpr_subcomp(ctx: ModuleContext, jaxpr: core.Jaxpr,
     tokens_in = tokens.subset(ordered_effects)
 
     eqn_name_stack = name_stack + eqn.source_info.name_stack
-    loc = source_info_to_location(ctx, eqn.primitive, eqn_name_stack,
-                                  eqn.source_info.traceback)
+    if jaxlib_extension_version >= 409:
+      traceback = (eqn.source_info.traceback or xc.Traceback()) + outer_traceback
+    else:
+      traceback = eqn.source_info.traceback
+    loc = source_info_to_location(ctx, eqn.primitive, eqn_name_stack, traceback)
     with (source_info_util.user_context(eqn.source_info.traceback), loc,
           eqn.ctx.manager):
       # TODO(mattjj, phawkins): support caching for dynamic shapes.
       can_cache_lowering = (
           eqn.primitive not in _uncacheable_primitives)
       if can_cache_lowering:
-        loc = source_info_to_location(ctx, None, eqn_name_stack,
-                                      eqn.source_info.traceback)
+        loc = source_info_to_location(ctx, None, eqn_name_stack, traceback)
         with loc:
           out_nodes, tokens_out = _cached_lowering(
               ctx, eqn, tokens_in, tuple(dim_var_values), const_lowering,
-              *in_nodes, **eqn.params)
+              *in_nodes, **eqn.params,
+          )
       else:
         # If we cannot cache the lowering, lower inline.
         axis_size_env = None
@@ -2093,12 +2109,16 @@ def jaxpr_subcomp(ctx: ModuleContext, jaxpr: core.Jaxpr,
     core.clean_up_dead_vars(eqn, env, last_used)
   return tuple(read(v) for v in jaxpr.outvars), tokens
 
+
 def _cached_lowering(
-    ctx: ModuleContext, eqn: core.JaxprEqn,
+    ctx: ModuleContext,
+    eqn: core.JaxprEqn,
     tokens_in: TokenSet,
     dim_var_values: tuple[ir.Value, ...],
     const_lowering: dict[tuple[int, core.AbstractValue], IrValues],
-    *args, **params) -> tuple[Sequence[IrValues], TokenSet]:
+    *args,
+    **params,
+) -> tuple[Sequence[IrValues], TokenSet]:
   """Lowers a jaxpr equation, using a cache.
 
   The jaxpr equation's lowering is emitted as an out-of-line MLIR function, and
@@ -2124,9 +2144,10 @@ def _cached_lowering(
   if cache_entry is None:
     avals_out = map(lambda v: v.aval, eqn.outvars)
     cache_entry = _emit_lowering_rule_as_fun(
-        partial(_uncached_lowering, eqn.primitive, eqn.ctx, eqn.effects), ctx,
-        eqn.ctx, eqn.primitive, ordered_effects, avals_in,
-        avals_out, **params)
+        partial(_uncached_lowering, eqn.primitive, eqn.ctx, eqn.effects),
+        ctx, eqn.ctx, eqn.primitive, ordered_effects, avals_in, avals_out,
+        **params,
+    )  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     ctx.lowering_cache[cache_key] = cache_entry
 
   tokens_in_args = tuple(tokens_in.get(eff) for eff in ordered_effects)
@@ -2158,7 +2179,7 @@ def _emit_lowering_rule_as_fun(
     ordered_effects: Sequence[core.Effect],
     avals_in: Sequence[core.AbstractValue],
     avals_out: Sequence[core.AbstractValue],
-    **params
+    **params,
 ) -> LoweringCacheValue:
   """Emits the contents of a lowering rule as a private function."""
   num_dim_vars = len(ctx.shape_poly_state.dim_vars)
@@ -2201,7 +2222,9 @@ def _emit_lowering_rule_as_fun(
         tokens_in=TokenSet(zip(ordered_effects, token_args)),
         tokens_out=None, jaxpr_eqn_ctx=eqn_ctx, dim_var_values=dim_var_values,
         const_lowering=const_lowering)
-    with ir.Location.name(str(primitive.name)):
+    with source_info_to_location(
+      ctx, primitive, source_info_util.new_name_stack(), None
+    ):
       outs, inline = lowering_rule(sub_ctx, *unflattened_args, **params)
     if sub_ctx.tokens_out:
       outs = [*[sub_ctx.tokens_out.get(eff) for eff in ordered_effects], *outs]
@@ -2434,7 +2457,7 @@ def lower_per_platform(ctx: LoweringRuleContext,
   results = case_op.results
   if ordered_effects:
     tokens, results = util.split_list(
-      unflatten_ir_values_like_types(results, output_types),
+      unflatten_ir_values_like_types(results, output_types),  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
       [len(ordered_effects)])
     tokens_out = ctx.tokens_in.update_tokens(TokenSet(zip(ordered_effects,
                                                           tokens)))
@@ -2458,7 +2481,7 @@ def lower_fun(fun: Callable, multiple_results: bool = True) -> Callable:
         debug_info=api_util.debug_info("lower_fun", fun, args, {}))
 
     jaxpr, _, consts_for_constvars = pe.trace_to_jaxpr_dynamic(
-        wrapped_fun, ctx.avals_in)
+        wrapped_fun, ctx.avals_in, lower=True)
 
     if any(isinstance(e, core.InternalMutableArrayEffect) for e in jaxpr.effects):
       from jax._src.interpreters import pxla  # type: ignore
@@ -2477,7 +2500,8 @@ def lower_fun(fun: Callable, multiple_results: bool = True) -> Callable:
         ir_consts(consts_for_constvars, [v.aval for v in jaxpr.constvars]),
         *args,
         dim_var_values=ctx.dim_var_values,
-        const_lowering=ctx.const_lowering)
+        const_lowering=ctx.const_lowering,
+        outer_traceback=xc.Traceback())
     ctx.set_tokens_out(tokens)
     return out
 
@@ -2494,20 +2518,14 @@ def _lower_jaxpr_to_fun_cached(
     try:
       func_op, _, _ = ctx.cached_primitive_lowerings[key]
     except KeyError:
-      num_callbacks = len(ctx.host_callbacks)
       func_op = lower_jaxpr_to_fun(
           ctx, fn_name, call_jaxpr, effects, num_const_args=num_const_args,
           in_avals=in_avals, arg_names=arg_names, result_names=result_names)
-      # If this Jaxpr includes callbacks, we can't cache the lowering because
-      # on TPU under libtpu <= 0.0.34 every callback must have a globally
-      # unique channel, but the channel gets assigned during lowering.
-      has_callbacks = len(ctx.host_callbacks) > num_callbacks
-      if USE_NEW_TPU_CALLBACK_LOWERING or not has_callbacks or "tpu" not in ctx.platforms:
-        ctx.cached_primitive_lowerings[key] = (
-            func_op,
-            func_op.name.value,
-            func_op.type.results,
-        )
+      ctx.cached_primitive_lowerings[key] = (
+          func_op,
+          func_op.name.value,
+          func_op.type.results,
+      )
   else:
     func_op = lower_jaxpr_to_fun(
         ctx, fn_name, call_jaxpr, effects,
@@ -2541,7 +2559,7 @@ def lower_called_computation(
   check_backend_matches(backend, ctx.platforms)
   effects = list(tokens_in.effects())
   output_types = map(aval_to_ir_type, out_avals)
-  output_types = [token_type()] * len(effects) + output_types
+  output_types = [token_type()] * len(effects) + output_types  # pyrefly: ignore[unsupported-operation]  # pyrefly#2385
   func_op = _lower_jaxpr_to_fun_cached(
       ctx, fn_name, call_jaxpr, num_const_args, effects, in_avals=in_avals,
       arg_names=arg_names, result_names=result_names)

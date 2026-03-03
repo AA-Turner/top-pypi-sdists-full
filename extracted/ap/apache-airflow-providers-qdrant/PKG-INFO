@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-qdrant
-Version: 1.5.2
+Version: 1.5.3
 Summary: Provider package apache-airflow-providers-qdrant for Apache Airflow
 Keywords: airflow-provider,qdrant,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -24,10 +24,10 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.8.0
-Requires-Dist: qdrant_client>=1.15.1
+Requires-Dist: qdrant_client>=1.15.1, !=1.17.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.2/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.2
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.3/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.3
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -58,7 +58,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-qdrant``
 
-Release: ``1.5.2``
+Release: ``1.5.3``
 
 
 `Qdrant <https://qdrant.tech/documentation>`__
@@ -71,7 +71,7 @@ This is a provider package for ``qdrant`` provider. All classes for this provide
 are in ``airflow.providers.qdrant`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.2/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.3/>`_.
 
 Installation
 ------------
@@ -85,13 +85,13 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-==========================================  ==================
+==========================================  =====================
 PIP package                                 Version required
-==========================================  ==================
+==========================================  =====================
 ``apache-airflow``                          ``>=2.11.0``
 ``apache-airflow-providers-common-compat``  ``>=1.8.0``
-``qdrant_client``                           ``>=1.15.1``
-==========================================  ==================
+``qdrant_client``                           ``>=1.15.1,!=1.17.0``
+==========================================  =====================
 
 Cross provider package dependencies
 -----------------------------------
@@ -113,5 +113,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.2/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-qdrant/1.5.3/changelog.html>`_.
 

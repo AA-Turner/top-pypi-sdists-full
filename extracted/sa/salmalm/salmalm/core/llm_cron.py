@@ -46,11 +46,7 @@ class LLMCronManager:
         prompt: str,
         model: Optional[str] = None,
         notify=True,
-        user_id: Optional[int] = None,
     ) -> dict:
-        # Input validation
-        name = str(name)[:128]
-        prompt = str(prompt)[:50000]  # 50K chars max — same as python_eval code cap
         """Add a new LLM cron job.
         schedule: {'kind': 'cron', 'expr': '0 6 * * *', 'tz': 'Asia/Seoul'}
                   {'kind': 'every', 'seconds': 3600}
@@ -70,7 +66,6 @@ class LLMCronManager:
             "created": datetime.now(KST).isoformat(),  # noqa: F405
             "last_run": None,
             "run_count": 0,
-            "user_id": user_id,
         }
         self.jobs.append(job)
         self.save_jobs()
@@ -92,10 +87,13 @@ class LLMCronManager:
             {
                 "id": j["id"],
                 "name": j["name"],
+                "prompt": j.get("prompt", ""),
                 "schedule": j["schedule"],
                 "enabled": j["enabled"],
                 "last_run": j["last_run"],
-                "run_count": j["run_count"],
+                "run_count": j.get("run_count", 0),
+                "error_count": j.get("error_count", 0),
+                "last_error": j.get("last_error"),
             }
             for j in self.jobs
         ]
@@ -108,11 +106,10 @@ class LLMCronManager:
         now = datetime.now(KST)  # noqa: F405
 
         if sched["kind"] == "every":
-            interval = max(int(sched.get("seconds", 60)), 60)  # minimum 60s between runs
             if not job["last_run"]:
                 return True
             elapsed = (now - datetime.fromisoformat(job["last_run"])).total_seconds()
-            return elapsed >= interval
+            return elapsed >= sched["seconds"]  # type: ignore[no-any-return]
 
         elif sched["kind"] == "cron":
             # Simple cron: minute hour day month weekday
@@ -221,8 +218,79 @@ class LLMCronManager:
             self.save_jobs()
             log.warning(f"[CRON] Job {job['name']} disabled after 5 consecutive failures")
 
+    # Main asyncio event loop — captured by tick() on first async call so that
+    # _execute_job (which runs in a daemon thread) can dispatch coroutines onto it.
+    _main_loop = None
+
+    def _execute_job(self, job: dict) -> None:
+        """Execute a single cron job synchronously (runs in a background thread).
+
+        Called from web_cron._post_api_cron_run via threading.Thread so it must
+        be a plain (non-async) method.  Dispatches onto the captured main loop
+        via run_coroutine_threadsafe so all async resources (DB, sessions, etc.)
+        are accessed from the correct event loop.
+        """
+        import asyncio as _asyncio_cron
+
+        async def _run():
+            from salmalm.core.engine import process_message
+
+            log.info(f"[CRON] Manual run: {job['name']} ({job['id']})")
+            cost_before = _usage["total_cost"]
+            try:
+                response = await process_message(
+                    f"cron-{job['id']}", job["prompt"], model_override=job.get("model")
+                )
+                cost_after = _usage["total_cost"]
+                cron_cost = cost_after - cost_before
+                MAX_CRON_JOB_COST = 2.0
+                if cron_cost > MAX_CRON_JOB_COST:
+                    log.warning(f"[CRON] Job {job['name']} cost ${cron_cost:.2f} — exceeds ${MAX_CRON_JOB_COST} cap")
+                job["last_run"] = datetime.now(KST).isoformat()  # noqa: F405
+                job["run_count"] = job.get("run_count", 0) + 1
+                job["error_count"] = 0
+                job.pop("last_error", None)
+                self.save_jobs()
+                log.info(f"[CRON] Cron completed: {job['name']} ({len(response)} chars)")
+                self._notify_completion(job, response)
+                write_daily_log(f"[CRON] {job['name']}: {response[:150]}")
+                if job["schedule"]["kind"] == "at":
+                    job["enabled"] = False
+                    self.save_jobs()
+            except Exception as e:
+                log.error(f"[CRON] cron error ({job['name']}): {e}", exc_info=True)
+                job["last_run"] = datetime.now(KST).isoformat()  # noqa: F405
+                job["last_error"] = str(e)[:200]
+                job["error_count"] = job.get("error_count", 0) + 1
+                self.save_jobs()
+                self._handle_cron_failure(job, e)
+
+        loop = LLMCronManager._main_loop
+        if loop and loop.is_running():
+            try:
+                fut = _asyncio_cron.run_coroutine_threadsafe(_run(), loop)
+                fut.result(timeout=300)
+                return
+            except Exception as _e:
+                log.error(f"[CRON] run_coroutine_threadsafe failed: {_e}", exc_info=True)
+                return
+        # Fallback: no main loop captured yet — spin a fresh loop (limited functionality)
+        log.warning(f"[CRON] Main loop not captured; running {job['name']} in isolated loop")
+        _loop = _asyncio_cron.new_event_loop()
+        try:
+            _loop.run_until_complete(_run())
+        finally:
+            _loop.close()
+
     async def tick(self) -> None:
         """Check and execute due jobs. Also runs heartbeat if due."""
+        # Capture running event loop so _execute_job (daemon thread) can dispatch onto it
+        import asyncio as _aio_tick
+        try:
+            LLMCronManager._main_loop = _aio_tick.get_running_loop()
+        except RuntimeError:
+            pass
+
         # OpenClaw-style heartbeat check
         if heartbeat.should_beat():
             try:

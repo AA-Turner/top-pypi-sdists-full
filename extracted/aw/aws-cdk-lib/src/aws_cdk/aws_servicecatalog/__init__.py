@@ -3360,7 +3360,8 @@ class CfnLaunchRoleConstraint(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''The unique identifier for the launch role constraint.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))

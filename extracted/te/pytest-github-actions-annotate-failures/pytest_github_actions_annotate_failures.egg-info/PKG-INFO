@@ -1,38 +1,37 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pytest-github-actions-annotate-failures
-Version: 0.3.0
+Version: 0.4.0
 Summary: pytest plugin to annotate failed tests with a workflow command for GitHub Actions
 Author-email: utgwkk <utagawakiki@gmail.com>
 Maintainer-email: utgwkk <utagawakiki@gmail.com>
-License: MIT
+License-Expression: MIT
+Project-URL: changelog, https://github.com/pytest-dev/pytest-github-actions-annotate-failures/releases
 Project-URL: homepage, https://github.com/pytest-dev/pytest-github-actions-annotate-failures
 Project-URL: repository, https://github.com/pytest-dev/pytest-github-actions-annotate-failures
-Project-URL: changelog, https://github.com/pytest-dev/pytest-github-actions-annotate-failures/releases
-Keywords: ansible,testing,molecule,plugin
+Keywords: plugin,pytest,testing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
+Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Framework :: Pytest
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python
-Classifier: Topic :: System :: Systems Administration
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pytest>=6.0.0
+Requires-Dist: pytest>=7.0.0
+Dynamic: license-file
 
 # pytest-github-actions-annotate-failures
 [Pytest](https://pypi.org/project/pytest/) plugin to annotate failed tests with a [workflow command for GitHub Actions](https://help.github.com/en/actions/reference/workflow-commands-for-github-actions)
@@ -51,11 +50,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       with:
-        python-version: 3.8
+        python-version: 3.13
 
     - name: Install dependencies
       run: |

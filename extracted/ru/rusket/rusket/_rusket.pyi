@@ -45,7 +45,29 @@ def als_fit_implicit(
     cg_iters: int = 3,
     use_cholesky: bool = False,
     anderson_m: int = 0,
-) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]: ...
+    use_eals: bool = False,
+    eals_iters: int = 1,
+    item_pop_weights: npt.NDArray[np.float32] | None = None,
+    use_biases: bool = False,
+) -> tuple[
+    npt.NDArray[np.float32],  # user_factors
+    npt.NDArray[np.float32],  # item_factors
+    float,  # global_bias
+    npt.NDArray[np.float32],  # user_biases
+    npt.NDArray[np.float32],  # item_biases
+]: ...
+def als_recalculate_user(
+    item_factors: npt.NDArray[np.float32],
+    indices: npt.NDArray[np.int32],
+    data: npt.NDArray[np.float32],
+    regularization: float,
+    alpha: float,
+    cg_iters: int = 3,
+    use_cholesky: bool = False,
+    use_eals: bool = False,
+    eals_iters: int = 1,
+    item_pop_weights: npt.NDArray[np.float32] | None = None,
+) -> npt.NDArray[np.float32]: ...
 def als_recommend_items(
     user_factors: npt.NDArray[np.float32],
     item_factors: npt.NDArray[np.float32],
@@ -53,6 +75,9 @@ def als_recommend_items(
     n: int,
     exclude_indptr: npt.NDArray[np.int64],
     exclude_indices: npt.NDArray[np.int32],
+    global_bias: float = 0.0,
+    user_biases: npt.NDArray[np.float32] | None = None,
+    item_biases: npt.NDArray[np.float32] | None = None,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.float32]]: ...
 def als_recommend_all(
     user_factors: npt.NDArray[np.float32],
@@ -60,12 +85,18 @@ def als_recommend_all(
     n: int,
     exclude_indptr: npt.NDArray[np.int64],
     exclude_indices: npt.NDArray[np.int32],
+    global_bias: float = 0.0,
+    user_biases: npt.NDArray[np.float32] | None = None,
+    item_biases: npt.NDArray[np.float32] | None = None,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.int32], npt.NDArray[np.float32]]: ...
 def als_recommend_users(
     user_factors: npt.NDArray[np.float32],
     item_factors: npt.NDArray[np.float32],
     item_id: int,
     n: int,
+    global_bias: float = 0.0,
+    user_biases: npt.NDArray[np.float32] | None = None,
+    item_biases: npt.NDArray[np.float32] | None = None,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.float32]]: ...
 def bpr_fit_implicit(
     indptr: npt.NDArray[np.int64],
@@ -149,6 +180,22 @@ def itemknn_recommend_items(
     exc_indices: npt.NDArray[np.int32],
     n_items: int,
 ) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.float32]]: ...
+def userknn_top_k(
+    indptr: npt.NDArray[np.int64], indices: npt.NDArray[np.int32], data: npt.NDArray[np.float32], k: int
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int32], npt.NDArray[np.float32]]: ...
+def userknn_recommend_items(
+    w_indptr: npt.NDArray[np.int64],
+    w_indices: npt.NDArray[np.int32],
+    w_data: npt.NDArray[np.float32],
+    fit_indptr: npt.NDArray[np.int64],
+    fit_indices: npt.NDArray[np.int32],
+    user_data: npt.NDArray[np.float32],
+    user_id: int,
+    n: int,
+    exc_indptr: npt.NDArray[np.int64],
+    exc_indices: npt.NDArray[np.int32],
+    n_items: int,
+) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.float32]]: ...
 def fpmc_fit(
     indptr: npt.NDArray[np.int64],
     indices: npt.NDArray[np.int32],
@@ -194,6 +241,9 @@ def lightgcn_fit(
     k_layers: int,
     learning_rate: float,
     lambda_: float,
+    ssl_ratio: float,
+    ssl_temp: float,
+    ssl_weight: float,
     iterations: int,
     seed: int,
     verbose: bool,
@@ -210,6 +260,35 @@ def sasrec_fit(
     seed: int,
     verbose: bool,
 ) -> npt.NDArray[np.float32]: ...
+def sasrec_predict(
+    item_emb_matrix: npt.NDArray[np.float32],
+    sequences: list[list[int]],
+    max_seq: int,
+    exclude_seen: bool,
+    n_items: int,
+    k: int,
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float32]]: ...
+def bert4rec_fit(
+    sequences: list[list[int]],
+    n_items: int,
+    factors: int,
+    n_layers: int,
+    max_seq: int,
+    mask_prob: float,
+    learning_rate: float,
+    lambda_: float,
+    iterations: int,
+    seed: int,
+    verbose: bool,
+) -> npt.NDArray[np.float32]: ...
+def bert4rec_predict(
+    item_emb_matrix: npt.NDArray[np.float32],
+    sequences: list[list[int]],
+    max_seq: int,
+    exclude_seen: bool,
+    n_items: int,
+    k: int,
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float32]]: ...
 def ndcg_at_k(actual: list[int], pred: list[int], k: int) -> float: ...
 def precision_at_k(actual: list[int], pred: list[int], k: int) -> float: ...
 def recall_at_k(actual: list[int], pred: list[int], k: int) -> float: ...
@@ -270,3 +349,74 @@ class RustIncrementalPCA:
     def get_components(self) -> npt.NDArray[np.float32]: ...
     def get_singular_values(self) -> npt.NDArray[np.float32]: ...
     def get_mean(self) -> npt.NDArray[np.float32]: ...
+
+def cross_validate_als(
+    users: list[int],
+    items: list[int],
+    values: list[float],
+    n_users: int,
+    n_items: int,
+    factors_list: list[int],
+    regularization_list: list[float],
+    alpha_list: list[float],
+    iterations_list: list[int],
+    use_eals_list: list[bool],
+    eals_iters_list: list[int],
+    cg_iters_list: list[int],
+    use_cholesky_list: list[bool],
+    seed_list: list[int],
+    n_folds: int,
+    k: int,
+    metric: str,
+    fold_seed: int,
+    verbose: bool,
+) -> tuple[int, float, list[list[float]], list[list[float]], list[list[list[float]]]]: ...
+def cross_validate_generic(
+    kind: str,
+    users: list[int],
+    items: list[int],
+    values: list[float],
+    n_users: int,
+    n_items: int,
+    factors_list: list[int],
+    regularization_list: list[float],
+    iterations_list: list[int],
+    seed_list: list[int],
+    alpha_list: list[float],
+    use_eals_list: list[bool],
+    eals_iters_list: list[int],
+    cg_iters_list: list[int],
+    use_cholesky_list: list[bool],
+    learning_rate_list: list[float],
+    k_layers_list: list[int],
+    n_folds: int,
+    k: int,
+    metric: str,
+    fold_seed: int,
+    verbose: bool,
+) -> tuple[int, float, list[list[float]], list[list[float]], list[list[list[float]]]]: ...
+def nmf_fit(
+    indptr: npt.NDArray[np.int64],
+    indices: npt.NDArray[np.int32],
+    data: npt.NDArray[np.float64],
+    n_users: int,
+    n_items: int,
+    factors: int,
+    iterations: int,
+    regularization: float,
+    seed: int,
+    verbose: bool,
+) -> tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]: ...
+def ease_fit(
+    indptr: npt.NDArray[np.int64],
+    indices: npt.NDArray[np.int32],
+    data: npt.NDArray[np.float32],
+    n_items: int,
+    regularization: float,
+) -> npt.NDArray[np.float32]: ...
+def tfidf_cosine_similarity(
+    texts: list[str],
+    max_features: int,
+    ngram_min: int,
+    ngram_max: int,
+) -> npt.NDArray[np.float32]: ...

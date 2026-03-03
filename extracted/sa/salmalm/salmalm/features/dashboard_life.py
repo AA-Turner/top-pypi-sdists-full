@@ -5,6 +5,7 @@ mood, and saved links into a single dashboard view (JSON + HTML + chat commands)
 """
 
 import json
+import sqlite3
 import threading
 from datetime import datetime, timedelta
 from typing import Dict, Optional
@@ -17,7 +18,7 @@ _DIGEST_PATH = DATA_DIR / "digest.json"
 _db_lock = threading.Lock()
 
 
-def _get_db():
+def _get_db() -> sqlite3.Connection:
     """Get db."""
     return _connect_db(_DB_PATH, wal=False, row_factory=True, check_same_thread=False)
 

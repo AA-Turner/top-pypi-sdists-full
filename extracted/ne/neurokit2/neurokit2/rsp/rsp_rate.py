@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -89,7 +88,7 @@ def rsp_rate(
         )
 
     else:
-        raise ValueError("NeuroKit error: rsp_rate(): 'method' should be" " one of 'trough', or 'cross-correlation'.")
+        raise ValueError("NeuroKit error: rsp_rate(): 'method' should be one of 'trough', or 'cross-correlation'.")
 
     return rate
 
@@ -100,7 +99,6 @@ def rsp_rate(
 
 
 def _rsp_rate_xcorr(rsp_cleaned, sampling_rate=1000, window=10, hop_size=1, interpolation_method="monotone_cubic"):
-
     N = len(rsp_cleaned)
     # Downsample data to 10Hz
     desired_sampling_rate = 10

@@ -4,7 +4,7 @@ from . import schedule_coroutine
 # singleton publish manager
 
 
-class PublishManager(object):
+class PublishManager:
     def __init__(self):
         self.protocols = []
         self.publishCount = 0
@@ -26,7 +26,7 @@ class PublishManager(object):
     def publish(self, topic, data, client_id=None, skip_last_active_client=False):
         for protocol in self.protocols:
             # The client is unknown - we send to any client who is subscribed to the topic
-            rpcid = "publish:{0}:{1}".format(topic, self.publishCount)
+            rpcid = f"publish:{topic}:{self.publishCount}"
             protocol.network_monitor.on_enter()
             schedule_coroutine(
                 0,

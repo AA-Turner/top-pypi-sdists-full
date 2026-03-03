@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="simple_dwd_weatherforecast",
-    version="v3.2.5",
+    version="v3.2.6",
     author="Max Fermor",
     description="A simple tool to retrieve a weather forecast from DWD OpenData",
     long_description=long_description,
@@ -27,6 +27,7 @@ setuptools.setup(
         "requests",
         "Pillow",
         "arrow",
+        "stream-unzip==0.0.100",
         "httpx",
     ],
 )

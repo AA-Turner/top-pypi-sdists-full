@@ -8,13 +8,8 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def _extract_token(request: Request, credentials: Optional[HTTPAuthorizationCredentials]) -> Optional[str]:
-    if credentials and getattr(credentials, "credentials", None):
+    if credentials and credentials.credentials:
         return credentials.credentials
-    auth_header = request.headers.get("authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        return auth_header[7:].strip()
-    if auth_header.lower().startswith("apikey "):
-        return auth_header[7:].strip()
     # X-API-Key header
     key = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
     if key:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import math
 
 import numpy as np
@@ -171,10 +170,9 @@ def _complexity_lempelziv_count(symbolic):
     # Start counting
     while stop is False:
         if s[i + k] != s[j + k]:
-            if k > k_max:
-                # k_max stores the length of the longest pattern in the LA that has been matched
-                # somewhere in the SB
-                k_max = k
+            # k_max stores the length of the longest pattern in the LA that has been matched
+            # somewhere in the SB
+            k_max = max(k_max, k)
 
             # we increase i while the bit doesn't match, looking for a previous occurrence of a
             # pattern. s[i+k] is scanning the "search buffer" (SB)

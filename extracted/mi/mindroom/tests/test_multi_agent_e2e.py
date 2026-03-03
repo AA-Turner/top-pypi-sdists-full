@@ -15,6 +15,7 @@ from mindroom.config.agent import AgentConfig
 from mindroom.config.main import Config
 from mindroom.config.models import ModelConfig
 from mindroom.matrix.users import AgentMatrixUser
+from mindroom.media_inputs import MediaInputs
 from mindroom.orchestrator import MultiAgentOrchestrator
 from mindroom.teams import TeamMode
 from tests.conftest import TEST_ACCESS_TOKEN, TEST_PASSWORD
@@ -137,7 +138,7 @@ async def test_agent_processes_direct_mention(
                     room_id=test_room_id,
                     knowledge=None,
                     user_id=test_user_id,
-                    images=None,
+                    media=MediaInputs(),
                     reply_to_event_id="$test_event:localhost",
                     show_tool_calls=True,
                     run_metadata_collector=ANY,
@@ -224,7 +225,7 @@ async def test_agent_responds_in_threads_based_on_participation(  # noqa: PLR091
     with (
         patch("mindroom.bot.login_agent_user") as mock_login,
         patch("mindroom.config.main.Config.from_yaml", return_value=mock_config),
-        patch("mindroom.teams.select_team_mode", new=AsyncMock()) as mock_select_mode,
+        patch("mindroom.teams._select_team_mode", new=AsyncMock()) as mock_select_mode,
     ):
         mock_client = AsyncMock()
         mock_client.add_event_callback = MagicMock()
@@ -425,7 +426,7 @@ async def test_agent_responds_in_threads_based_on_participation(  # noqa: PLR091
                 room_id=test_room_id,
                 knowledge=None,
                 user_id=test_user_id,
-                images=None,
+                media=MediaInputs(),
                 reply_to_event_id=f"$test_event2:{domain}",
                 show_tool_calls=True,
                 tool_trace_collector=ANY,
@@ -444,7 +445,7 @@ async def test_agent_responds_in_threads_based_on_participation(  # noqa: PLR091
 @pytest.mark.timeout(10)  # Add timeout to prevent hanging on real server connection
 async def test_orchestrator_manages_multiple_agents(tmp_path: Path) -> None:
     """Test that the orchestrator manages multiple agents correctly."""
-    with patch("mindroom.matrix.users.ensure_all_agent_users") as mock_ensure:
+    with patch("mindroom.matrix.users._ensure_all_agent_users") as mock_ensure:
         # Mock agent users
         mock_agents = {
             "calculator": AgentMatrixUser(

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -217,7 +216,6 @@ def bio_analyze(data, sampling_rate=1000, method="auto", window_lengths="constan
 # Internals
 # =============================================================================
 def _bio_analyze_slicewindow(data, window_lengths, signal="ECG"):
-
     if signal in window_lengths.keys():
         start = window_lengths[signal][0]
         end = window_lengths[signal][1]

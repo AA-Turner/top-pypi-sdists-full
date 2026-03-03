@@ -84,7 +84,8 @@ def log_stderr(msg: str, *, logger_name: str):
 
     Use for log messages emitted before we have access to structlog.
     """
-    date_and_time = time.strftime(LOG_TIME_FORMAT, time.localtime())
+    # Use UTC to match agent JSON logs (which are UTC / Z) across all startup logs.
+    date_and_time = time.strftime(LOG_TIME_FORMAT, time.gmtime())
     output = LOG_FORMAT.format(
         date_and_time=date_and_time,
         logger_name=logger_name,

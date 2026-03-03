@@ -44,7 +44,8 @@ class AppConfig(object):
         'archiver_id': 'str',
         'archived_at': 'datetime',
         'is_default': 'bool',
-        'anonymous': 'bool'
+        'anonymous': 'bool',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
@@ -59,10 +60,11 @@ class AppConfig(object):
         'archiver_id': 'archiver_id',
         'archived_at': 'archived_at',
         'is_default': 'is_default',
-        'anonymous': 'anonymous'
+        'anonymous': 'anonymous',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, archiver_id=None, archived_at=None, is_default=False, anonymous=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, archiver_id=None, archived_at=None, is_default=False, anonymous=False, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """AppConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -80,6 +82,7 @@ class AppConfig(object):
         self._archived_at = None
         self._is_default = None
         self._anonymous = None
+        self._cloud_id = None
         self.discriminator = None
 
         self.id = id
@@ -100,6 +103,8 @@ class AppConfig(object):
             self.is_default = is_default
         if anonymous is not None:
             self.anonymous = anonymous
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def id(self):
@@ -388,6 +393,29 @@ class AppConfig(object):
         """
 
         self._anonymous = anonymous
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this AppConfig.  # noqa: E501
+
+        ID of the Cloud this App Config is associated with.  # noqa: E501
+
+        :return: The cloud_id of this AppConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this AppConfig.
+
+        ID of the Cloud this App Config is associated with.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this AppConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -5,7 +5,7 @@ the storage and use of dynamic data tables as part of the hdmf-common schema
 
 import re
 from collections import OrderedDict
-from typing import NamedTuple, Union
+from typing import NamedTuple
 from warnings import warn
 
 import numpy as np
@@ -17,6 +17,18 @@ from ..container import Container, Data
 from ..data_utils import DataIO, AbstractDataChunkIterator
 from ..utils import docval, getargs, ExtenderMeta, popargs, pystr, AllowPositional, check_type, is_ragged
 from ..term_set import TermSetWrapper
+
+
+def _flatten_one_ragged_level(data):
+    """Flatten one ragged nesting level with a fast path for numpy arrays."""
+    if len(data) == 0:
+        return []
+
+    all_entries_are_numpy_arrays = all(isinstance(value, np.ndarray) for value in data)
+    if all_entries_are_numpy_arrays:
+        return np.concatenate(data)
+
+    return list(itertools.chain.from_iterable(data))
 
 
 @register_class('VectorData')
@@ -78,6 +90,22 @@ class VectorData(Data):
         else:
             for i in ar:
                 self.add_row(i, **kwargs)
+
+    def get_meanings(self):
+        """Get the MeaningsTable associated with this VectorData column, if one exists.
+
+        Returns:
+            MeaningsTable: The MeaningsTable for this column, or None if this column
+                is not part of a DynamicTable or has no associated MeaningsTable.
+        """
+        parent = self.parent
+        if parent is None:
+            return None
+        try:
+            return parent.get_meanings_for_column(self.name)
+        except (KeyError, AttributeError):
+            # AttributeError if parent is not a DynamicTable
+            return None
 
 
 @register_class('VectorIndex')
@@ -217,21 +245,8 @@ class VectorIndex(VectorData):
                 indices = arg
             ret = list()
             if len(indices) > 0:
-                # Note: len(indices) == 0 for test_to_hierarchical_dataframe_empty_tables.
-                # This is an edge case test for to_hierarchical_dataframe() on empty tables.
-                # When len(indices) == 0, ret is expected to be an empty list, defined above.
-                try:
-                    data = self.target.get(slice(None),  **kwargs)
-                except IndexError:
-                    """
-                    Note: TODO: test_to_hierarchical_dataframe_indexed_dtr_on_last_level.
-                    This is the old way to get the data and not an untested feature.
-                    """
-                    for i in indices:
-                        ret.append(self.__getitem_helper(i, **kwargs))
-
-                    return ret
-
+                # Load the entire target table at once to avoid multiple I/O calls
+                data = self.target.get(slice(None),  **kwargs)
                 slices = [self.__get_slice(i) for i in indices]
                 if isinstance(data, pd.DataFrame):
                     ret = [data.iloc[s] for s in slices]
@@ -305,11 +320,16 @@ class DynamicTable(Container):
     rather than specifying them at runtime at the instance level. This is useful for defining a table structure
     that will get reused. The requirements for *\_\_columns\_\_* are the same as the requirements described above
     for specifying table columns with the *columns* argument to the DynamicTable constructor.
+
+    Note: DynamicTable does not use MultiContainerInterface for meanings_tables because MeaningsTable
+    is defined later in this module and inherits from DynamicTable, creating a circular reference that
+    MultiContainerInterface cannot handle with forward references.
     """
 
     __fields__ = (
         {'name': 'id', 'child': True},
         {'name': 'columns', 'child': True},
+        {'name': 'meanings_tables', 'child': True},
         'colnames',
         'description'
     )
@@ -353,10 +373,18 @@ class DynamicTable(Container):
                      'added to the table if it is not already present (i.e., when it is optional).'),
              'type': dict,
              'default': None},
+            {'name': 'meanings_tables',
+             'doc': ('MeaningsTable objects that provide meanings for values in VectorData columns. '
+                     'Each MeaningsTable must have a name of "{column_name}_meanings" where column_name '
+                     'is the name of the target column in this DynamicTable. The target column must '
+                     'exist in this table.'),
+             'type': (tuple, list),
+             'default': None},
             allow_positional=AllowPositional.WARNING)
     def __init__(self, **kwargs):  # noqa: C901
         id, columns, desc, colnames = popargs('id', 'columns', 'description', 'colnames', kwargs)
         target_tables = popargs('target_tables', kwargs)
+        meanings_tables = popargs('meanings_tables', kwargs)
         super().__init__(**kwargs)
         self.description = desc
 
@@ -533,6 +561,61 @@ class DynamicTable(Container):
         if target_tables:
             self._set_dtr_targets(target_tables)
 
+        # Initialize meanings_tables via setter
+        self.meanings_tables = meanings_tables
+
+    @property
+    def meanings_tables(self):
+        """Get the dict of MeaningsTable objects in this DynamicTable."""
+        return self.__meanings_tables
+
+    @meanings_tables.setter
+    @docval({'name': 'val', 'type': (tuple, list), 'doc': 'The MeaningsTable objects to set', 'default': None})
+    def meanings_tables(self, val):
+        """Set the MeaningsTable objects in this DynamicTable."""
+        self.__meanings_tables = dict()
+        if val is not None:
+            for mt in val:
+                self.add_meanings_table(mt)
+
+    @docval({'name': 'meanings_table', 'type': 'MeaningsTable',
+             'doc': 'The MeaningsTable to add. Its name must be "{column_name}_meanings" where '
+                    'column_name is the name of a column in this DynamicTable.'})
+    def add_meanings_table(self, **kwargs):
+        """Add a MeaningsTable to this DynamicTable."""
+        meanings_table = getargs('meanings_table', kwargs)
+        if meanings_table.name in self.__meanings_tables:
+            raise ValueError(f"MeaningsTable '{meanings_table.name}' already exists in this DynamicTable")
+        # Check that the target is a column of this DynamicTable
+        target_name = meanings_table.target.name
+        if target_name not in self:
+            raise ValueError(f"MeaningsTable target '{target_name}' is not a column in DynamicTable '{self.name}'")
+        if not isinstance(meanings_table.parent, Container):
+            meanings_table.parent = self
+        else:
+            self.set_modified()
+        self.__meanings_tables[meanings_table.name] = meanings_table
+
+    @docval({'name': 'name', 'type': str,
+             'doc': 'The name of the MeaningsTable to get.'},
+            returns='the MeaningsTable with the given name', rtype='MeaningsTable')
+    def get_meanings_table(self, **kwargs):
+        """Get a MeaningsTable from this DynamicTable by name."""
+        name = getargs('name', kwargs)
+        if name not in self.__meanings_tables:
+            raise KeyError(f"MeaningsTable '{name}' not found in DynamicTable '{self.name}'")
+        return self.__meanings_tables[name]
+
+    @docval({'name': 'col_name', 'type': str,
+             'doc': 'The name of the column to get the MeaningsTable for.'},
+            returns='the MeaningsTable for the given column', rtype='MeaningsTable')
+    def get_meanings_for_column(self, **kwargs):
+        """Get a MeaningsTable for a column in this DynamicTable."""
+        col_name = getargs('col_name', kwargs)
+        meanings_table_name = f"{col_name}_meanings"
+        if meanings_table_name not in self.__meanings_tables:
+            raise KeyError(f"No MeaningsTable found for column '{col_name}' in DynamicTable '{self.name}'")
+        return self.__meanings_tables[meanings_table_name]
 
     def __set_table_attr(self, col):
         if hasattr(self, col.name) and col.name not in self.__uninit_cols:
@@ -912,7 +995,7 @@ class DynamicTable(Container):
                     except TypeError as e:
                         raise ValueError("Cannot automatically construct VectorIndex for nested array. "
                                          "Invalid data array element found.") from e
-                    flatten_data = list(itertools.chain.from_iterable(flatten_data))
+                    flatten_data = _flatten_one_ragged_level(flatten_data)
                 # if our data still is an array (e.g., a list or numpy array) then warn that the index parameter
                 # may be incorrect.
                 if len(flatten_data) > 0 and isinstance(flatten_data[0], (np.ndarray, list, tuple)):
@@ -1010,12 +1093,6 @@ class DynamicTable(Container):
                 msg = 'region slice %s is out of range for this DynamicTable of length %d' % (str(region), len(self))
                 raise IndexError(msg)
             region = list(range(*region.indices(len(self))))
-        else:
-            for idx in region:
-                if idx < 0 or idx >= len(self):
-                    raise IndexError('The index ' + str(idx) +
-                                     ' is out of range for this DynamicTable of length '
-                                     + str(len(self)))
         desc = getargs('description', kwargs)
         name = getargs('name', kwargs)
         return DynamicTableRegion(name=name, data=region, description=desc, table=self)
@@ -1230,7 +1307,7 @@ class DynamicTable(Container):
         """
         link_type = NamedTuple('DynamicTableLink',
                                [('source_table', DynamicTable),
-                                ('source_column', Union[DynamicTableRegion, VectorIndex]),
+                                ('source_column', DynamicTableRegion | VectorIndex),
                                 ('target_table', DynamicTable)])
         curr_tables = [self, ]  # Set of tables
         other_tables = getargs('other_tables', kwargs)
@@ -1434,11 +1511,58 @@ class DynamicTableRegion(VectorData):
             {'name': 'description', 'type': str, 'doc': 'a description of what this region represents'},
             {'name': 'table', 'type': DynamicTable,
              'doc': 'the DynamicTable this region applies to', 'default': None},
+            {'name': 'validate_data', 'type': bool,
+             'doc': 'whether to validate the data is in bounds of the linked table', 'default': True},
             allow_positional=AllowPositional.WARNING)
     def __init__(self, **kwargs):
-        t = popargs('table', kwargs)
+        table, validate_data = popargs('table', 'validate_data', kwargs)
+        data = getargs('data', kwargs)
+        self._validate_data = validate_data
+        if self._validate_data:
+            self._validate_index_in_range(data, table)
+
         super().__init__(**kwargs)
-        self.table = t
+        if table is not None:  # set the table attribute using fields to avoid another validation in the setter
+            self.fields['table'] = table
+
+    def _check_indices_in_bounds(self, data, table):
+        """Check if data contains indices that are out of bounds.
+
+        Args:
+            data: Single index or array of indices to check
+            table: The DynamicTable to check bounds against
+
+        Returns:
+            Error message string if validation fails, None if validation passes or table is None
+        """
+        if not table:
+            return None
+
+        # Convert to numpy array for efficient checking
+        if isinstance(data, (list, tuple)):
+            data_arr = np.array(data)
+        elif np.isscalar(data):
+            data_arr = np.array([data])
+        else:
+            data_arr = data[:]
+
+        # Find indices that are out of bounds
+        violators = np.where((data_arr >= len(table)) | (data_arr < 0))[0]
+        if violators.size > 0:
+            return (
+                f"DynamicTableRegion values {data_arr[violators]} are out of bounds for "
+                f"{type(table)} '{table.name}'."
+            )
+        return None
+
+    def _validate_index_in_range(self, data, table):
+        """If data contains an index that is out of bounds, then raise an error.
+        If the object is being constructed from a file, raise a warning instead to ensure invalid data can still be
+        read.
+        """
+        error_msg = self._check_indices_in_bounds(data, table)
+        if error_msg:
+            self._error_on_new_warn_on_construct(error_msg, error_cls=IndexError)
 
     @property
     def table(self):
@@ -1446,24 +1570,49 @@ class DynamicTableRegion(VectorData):
         return self.fields.get('table')
 
     @table.setter
-    def table(self, val):
+    def table(self, table):
         """
-        Set the table this DynamicTableRegion should be pointing to
+        Set the table this DynamicTableRegion should be pointing to.
 
-        :param val: The DynamicTable this DynamicTableRegion should be pointing to
+        This will validate all data elements in this DynamicTableRegion to ensure they are within bounds if
+        validate_data was set to True.
+
+        :param table: The DynamicTable this DynamicTableRegion should be pointing to
 
         :raises: AttributeError if table is already in fields
         :raises: IndexError if the current indices are out of bounds for the new table given by val
         """
-        if val is None:
+        if table is None:
             return
         if 'table' in self.fields:
             msg = "can't set attribute 'table' -- already set"
             raise AttributeError(msg)
-        dat = self.data
-        if isinstance(dat, DataIO):
-            dat = dat.data
-        self.fields['table'] = val
+
+        self.fields['table'] = table
+        if self._validate_data:
+            self._validate_index_in_range(self.data, table)
+
+    @property
+    def validate_data(self):
+        """Whether to validate that data is in bounds of the linked table"""
+        return self._validate_data
+
+    @validate_data.setter
+    @docval({'name': 'val', 'type': bool, 'doc': 'whether to validate data is in bounds of the linked table'})
+    def validate_data(self, **kwargs):
+        """Set whether to validate data is in bounds of the linked table."""
+        val = getargs('val', kwargs)
+        self._validate_data = val
+
+    def extend(self, arg):
+        """Add all elements of the iterable arg to the end of this DynamicTableRegion.
+
+        This override uses efficient batch validation instead of validating element-by-element.
+        """
+        # Use the parent Data class extend which calls _validate_new_data for batch validation
+        # Skip VectorData.extend which would fall back to element-by-element add_row
+        from hdmf.container import Data
+        Data.extend(self, arg)
 
     def __getitem__(self, arg):
         return self.get(arg)
@@ -1607,6 +1756,26 @@ class DynamicTableRegion(VectorData):
             warn(msg, stacklevel=2)
         return super()._validate_on_set_parent()
 
+    def _validate_new_data(self, data):
+        """Validate a batch of indices before adding to this DynamicTableRegion.
+
+        Validation only occurs if validate_data was set to True (the default).
+        """
+        if self._validate_data:
+            error_msg = self._check_indices_in_bounds(data, self.table)
+            if error_msg:
+                raise IndexError(error_msg)
+
+    def _validate_new_data_element(self, arg):
+        """Validate that the new index is within bounds of the table. Raises an IndexError if not.
+
+        Validation only occurs if validate_data was set to True (the default).
+        """
+        if self._validate_data:
+            error_msg = self._check_indices_in_bounds(arg, self.table)
+            if error_msg:
+                raise IndexError(error_msg)
+
 
 def _uint_precision(elements):
     """ Calculate the uint precision needed to encode a set of elements """
@@ -1721,3 +1890,57 @@ class EnumData(VectorData):
         if not index:
             val = self.__add_term(val)
         super().append(val)
+
+
+@register_class('MeaningsTable')
+class MeaningsTable(DynamicTable):
+    """
+    A table to store information about the meanings of values in a linked VectorData object.
+
+    All possible values of the linked VectorData object should be present in the 'value' column
+    of this table, even if the value is not observed in the data. Additional columns may be
+    added to store additional metadata about each value.
+
+    The name of the MeaningsTable is automatically set to "{target.name}_meanings" based on
+    the linked VectorData object. For example, if the linked VectorData object is named
+    "stimulus_type", the MeaningsTable will be named "stimulus_type_meanings".
+    """
+
+    __fields__ = (
+        {'name': 'target', 'child': False},
+    )
+
+    __columns__ = (
+        {'name': 'value', 'description': 'The value in the linked VectorData object.', 'required': True},
+        {'name': 'meaning', 'description': 'The meaning of the value.', 'required': True},
+    )
+
+    @docval({'name': 'target', 'type': VectorData,
+             'doc': 'the VectorData object for which this table provides meanings'},
+            {'name': 'description', 'type': str,
+             'doc': 'a description of what is in this table', 'default': None},
+            {'name': 'id', 'type': ('array_data', 'data', ElementIdentifiers),
+             'doc': 'the identifiers for this table', 'default': None},
+            {'name': 'columns', 'type': (tuple, list), 'doc': 'the columns in this table', 'default': None},
+            {'name': 'colnames', 'type': 'array_data',
+             'doc': 'the ordered names of the columns in this table. columns must also be provided.',
+             'default': None},
+            allow_positional=AllowPositional.WARNING)
+    def __init__(self, **kwargs):
+        target = popargs('target', kwargs)
+        kwargs['name'] = f"{target.name}_meanings"
+        description = kwargs.get('description')
+        if description is None:
+            kwargs['description'] = f"Meanings for values in '{target.name}'"
+        super().__init__(**kwargs)
+        self.target = target
+
+    @docval({'name': 'value', 'type': None, 'doc': 'the value in the linked VectorData object'},
+            {'name': 'meaning', 'type': str, 'doc': 'the meaning of the value'},
+            {'name': 'id', 'type': int, 'doc': 'the ID for the row', 'default': None},
+            {'name': 'enforce_unique_id', 'type': bool, 'doc': 'enforce that the id in the table must be unique',
+             'default': False},
+            allow_extra=True)
+    def add_row(self, **kwargs):
+        """Add a row to the table mapping a value to its meaning."""
+        super().add_row(**kwargs)

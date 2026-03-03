@@ -19,7 +19,7 @@ import inspect
 import operator
 from functools import partial, lru_cache
 import re
-from typing import Any
+from typing import Any, NoReturn
 
 from jax._src import core
 from jax._src import config
@@ -30,8 +30,7 @@ from jax._src.tree_util import (
     generate_key_paths, broadcast_prefix, prefix_errors,
     none_leaf_registry, broadcast_flattened_prefix_with_treedef)
 from jax._src import linear_util as lu
-from jax._src.util import (safe_map, WrapKwArgs, Hashable, HashableFunction,
-                           Unhashable, safe_zip)
+from jax._src.util import safe_map, HashableFunction, Unhashable, safe_zip
 from jax._src import traceback_util
 
 traceback_util.register_exclusion(__file__)
@@ -249,35 +248,6 @@ def _ensure_inbounds(allow_invalid: bool, num_args: int, argnums: Sequence[int]
     result.append(i % num_args)  # Resolve negative
   return tuple(result)
 
-def _split_args(static_argnums, args, allow_invalid):
-  static_argnums = _ensure_inbounds(allow_invalid, len(args), static_argnums)
-  dyn_argnums = tuple(i for i in range(len(args)) if i not in static_argnums)
-  dyn_args = tuple(args[i] for i in dyn_argnums)
-  return static_argnums, dyn_argnums, dyn_args
-
-def argnums_partial_except(f: lu.WrappedFun, static_argnums: tuple[int, ...],
-                           args: tuple[Any, ...], *, allow_invalid: bool):
-  "Version of ``argnums_partial`` that checks hashability of static_argnums."
-  if not static_argnums:
-    return f, args
-  static_argnums, dyn_argnums, dyn_args = _split_args(
-      static_argnums, args, allow_invalid)
-
-  fixed_args = []
-  for i in sorted(static_argnums):
-    # TODO(shoyer): set allow_invalid=True permanently after static_argnames.
-    if allow_invalid and i >= len(args):
-      continue
-    static_arg = args[i]
-    if not is_hashable(static_arg):
-      raise ValueError(
-          "Non-hashable static arguments are not supported, as this can lead "
-          f"to unexpected cache-misses. Static argument (index {i}) of type "
-          f"{type(static_arg)} for function {f.__name__} is non-hashable.")
-    else:
-      fixed_args.append(_HashableWithStrictTypeEquality(static_arg))
-
-  return _argnums_partial(f, dyn_argnums, tuple(fixed_args)), dyn_args
 
 @lu.transformation2
 def _argnums_partial(_fun: Callable,
@@ -290,32 +260,6 @@ def _argnums_partial(_fun: Callable,
   fixed_args_ = iter(_fixed_args)
   args = [next(fixed_args_).val if x is sentinel else x for x in args]
   assert next(fixed_args_, sentinel) is sentinel
-  return _fun(*args, **kwargs)
-
-def argnames_partial_except(f: lu.WrappedFun, static_argnames: tuple[str, ...],
-                            kwargs: dict[str, Any]):
-  if not static_argnames:
-    return f, kwargs
-  dyn_kwargs = {k: v for k, v in kwargs.items() if k not in static_argnames}
-
-  fixed_kwargs: dict[str, Any] = {}
-  for k, arg in kwargs.items():
-    if k not in dyn_kwargs:
-      try:
-        hash(arg)
-      except TypeError:
-        raise ValueError(
-            "Non-hashable static arguments are not supported, as this can lead "
-            f"to unexpected cache-misses. Static argument (name {k}) of type "
-            f"{type(arg)} for function {f.__name__} is non-hashable.")
-      else:
-        fixed_kwargs[k] = Hashable(arg)
-
-  return _argnames_partial(f, WrapKwArgs(fixed_kwargs)), dyn_kwargs
-
-@lu.transformation2
-def _argnames_partial(_fun, _fixed_kwargs: WrapKwArgs, *args, **dyn_kwargs):
-  kwargs = dict({k: v.val for k, v in _fixed_kwargs.val.items()}, **dyn_kwargs)
   return _fun(*args, **kwargs)
 
 
@@ -643,7 +587,7 @@ def fun_sourceinfo(fun: Callable) -> str:
     filename = fun.__code__.co_filename
     lineno = fun.__code__.co_firstlineno
     return f"{fun.__name__} at {filename}:{lineno}"
-  except AttributeError as e:
+  except AttributeError:
     try:
       fun_str = str(fun)
     except:
@@ -747,6 +691,19 @@ def _check_no_aliased_closed_over_refs(dbg: core.DebugInfo, consts, args) -> Non
           f"passed as the argument "
           f"{dbg.safe_arg_names(len(args))[i]}" if dbg else "at flat index {i}")
 
+def check_no_transformed_refs_args(dbg_fn: Callable[[], core.DebugInfo],
+                                   args_flat) -> None:
+  from jax._src.state.types import TransformedRef
+  for i, arg in enumerate(args_flat):
+    if isinstance(arg, TransformedRef):
+      dbg = dbg_fn()
+      raise TypeError(
+        f"When tracing {dbg.func_src_info} for {dbg.traced_for}, "
+        "TransformedRefs are not allowed, but got a TransformedRef with name "
+        f"{dbg.arg_names[i] if dbg.arg_names is not None else 'unknown'}."
+        if dbg else
+        "TransformedRefs are not allowed in this context.") from None
+
 class InternalFloatingPointError(Exception):
   name: str
   ty: str
@@ -755,8 +712,9 @@ class InternalFloatingPointError(Exception):
     self.name = name
     self.ty = ty
 
-def maybe_recursive_nan_check(e: Exception, fun: Callable, args, kwargs,
-) -> None:  # always raises an exception
+def maybe_recursive_nan_check(
+    e: Exception, fun: Callable, args, kwargs
+) -> NoReturn:
   print("Invalid nan value encountered in the output of a jax.jit "
         "function. Calling the de-optimized version.")
   try:
@@ -767,7 +725,7 @@ def maybe_recursive_nan_check(e: Exception, fun: Callable, args, kwargs,
     _raise_no_nan_in_deoptimized(e)
 
 
-def _raise_no_nan_in_deoptimized(e) -> None:
+def _raise_no_nan_in_deoptimized(e) -> NoReturn:
   msg = (f"{str(e)}. Because "
         "jax_config.debug_nans.value and/or config.jax_debug_infs is set, the "
         "de-optimized function (i.e., the function as if the `jit` "

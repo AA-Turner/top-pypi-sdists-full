@@ -153,7 +153,20 @@ def apply_rewrite_policy(*, rewrite_pathlib: bool = True):
     # pytest relies heavily on pathlib and our patches wreak havoc. We enable
     # it by default but allow unit tests to disable it as necessary.
     if rewrite_pathlib:
+        orig_path = getattr(sys.modules.get("pathlib", None), "Path", None)
+        as_file = getattr(sys.modules.get("importlib.resources", None), "as_file", None)
+        as_file_for_path = (
+            as_file.dispatch(orig_path) if as_file and orig_path else None
+        )
+
         rewrite_module_functions("pathlib")
+
+        if as_file and as_file_for_path:
+            # register the rewritten __contrast_temp.pathlib.Path to call
+            # the original as_file dispatch for pathlib.Path (PYT-4028)
+            import pathlib as rewritten_pathlib
+
+            as_file.register(rewritten_pathlib.Path)(as_file_for_path)
 
     repatch_imported_modules()
 

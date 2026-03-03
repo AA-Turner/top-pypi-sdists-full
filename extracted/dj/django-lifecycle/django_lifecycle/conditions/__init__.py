@@ -3,10 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 from typing import Iterable
-from typing import Union
 
-from ..constants import NotSet
 from ..conditions.base import ChainableCondition
+from ..constants import NotSet
 
 __all__ = [
     "WhenFieldValueWas",
@@ -27,7 +26,7 @@ class WhenFieldValueWas(ChainableCondition):
     def __call__(
         self,
         instance: Any,
-        update_fields: Union[Iterable[str], None] = None,
+        update_fields: Iterable[str] | None = None,
     ) -> bool:
         return self.value in (instance.initial_value(self.field_name), "*")
 
@@ -40,7 +39,7 @@ class WhenFieldValueIs(ChainableCondition):
     def __call__(
         self,
         instance: Any,
-        update_fields: Union[Iterable[str], None] = None,
+        update_fields: Iterable[str] | None = None,
     ) -> bool:
         return self.value in (instance._current_value(self.field_name), "*")
 
@@ -53,7 +52,7 @@ class WhenFieldHasChanged(ChainableCondition):
     def __call__(
         self,
         instance: Any,
-        update_fields: Union[Iterable[str], None] = None,
+        update_fields: Iterable[str] | None = None,
     ) -> bool:
         is_partial_fields_update = update_fields is not None
         is_synced = (
@@ -73,7 +72,7 @@ class WhenFieldValueIsNot(ChainableCondition):
     value: Any = NotSet
 
     def __call__(
-        self, instance: Any, update_fields: Union[Iterable[str], None] = None
+        self, instance: Any, update_fields: Iterable[str] | None = None
     ) -> bool:
         return (
             self.value is NotSet
@@ -87,7 +86,7 @@ class WhenFieldValueWasNot(ChainableCondition):
     value: Any = NotSet
 
     def __call__(
-        self, instance: Any, update_fields: Union[Iterable[str], None] = None
+        self, instance: Any, update_fields: Iterable[str] | None = None
     ) -> bool:
         return (
             self.value is NotSet
@@ -101,7 +100,7 @@ class WhenFieldValueChangesTo(ChainableCondition):
     value: Any = NotSet
 
     def __call__(
-        self, instance: Any, update_fields: Union[Iterable[str], None] = None
+        self, instance: Any, update_fields: Iterable[str] | None = None
     ) -> bool:
         is_partial_fields_update = update_fields is not None
         is_synced = (

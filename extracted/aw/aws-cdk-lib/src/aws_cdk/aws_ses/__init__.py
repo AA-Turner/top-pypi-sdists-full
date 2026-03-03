@@ -433,11 +433,13 @@ from ..interfaces.aws_ses import (
     ConfigurationSetEventDestinationReference as _ConfigurationSetEventDestinationReference_122c29c6,
     ConfigurationSetReference as _ConfigurationSetReference_07006bc6,
     ContactListReference as _ContactListReference_5d48a523,
+    CustomVerificationEmailTemplateReference as _CustomVerificationEmailTemplateReference_e479770b,
     DedicatedIpPoolReference as _DedicatedIpPoolReference_05fca49e,
     EmailIdentityReference as _EmailIdentityReference_f9b00141,
     IConfigurationSetEventDestinationRef as _IConfigurationSetEventDestinationRef_937b7110,
     IConfigurationSetRef as _IConfigurationSetRef_c4f30d41,
     IContactListRef as _IContactListRef_1c876363,
+    ICustomVerificationEmailTemplateRef as _ICustomVerificationEmailTemplateRef_81ee24b9,
     IDedicatedIpPoolRef as _IDedicatedIpPoolRef_c0fd271c,
     IEmailIdentityRef as _IEmailIdentityRef_317356c6,
     IMailManagerAddonInstanceRef as _IMailManagerAddonInstanceRef_6d78bf1e,
@@ -3566,6 +3568,433 @@ class CfnContactListProps:
 
     def __repr__(self) -> str:
         return "CfnContactListProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ICustomVerificationEmailTemplateRef_81ee24b9, _ITaggableV2_4e6798f8)
+class CfnCustomVerificationEmailTemplate(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ses.CfnCustomVerificationEmailTemplate",
+):
+    '''Resource Type definition for AWS::SES::CustomVerificationEmailTemplate.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html
+    :cloudformationResource: AWS::SES::CustomVerificationEmailTemplate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ses as ses
+        
+        cfn_custom_verification_email_template = ses.CfnCustomVerificationEmailTemplate(self, "MyCfnCustomVerificationEmailTemplate",
+            failure_redirection_url="failureRedirectionUrl",
+            from_email_address="fromEmailAddress",
+            success_redirection_url="successRedirectionUrl",
+            template_content="templateContent",
+            template_name="templateName",
+            template_subject="templateSubject",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        failure_redirection_url: builtins.str,
+        from_email_address: builtins.str,
+        success_redirection_url: builtins.str,
+        template_content: builtins.str,
+        template_name: builtins.str,
+        template_subject: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SES::CustomVerificationEmailTemplate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param failure_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is not successfully verified.
+        :param from_email_address: The email address that the custom verification email is sent from.
+        :param success_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is successfully verified.
+        :param template_content: The content of the custom verification email. The total size of the email must be less than 10 MB. The message body may contain HTML, with some limitations.
+        :param template_name: The name of the custom verification email template.
+        :param template_subject: The subject line of the custom verification email.
+        :param tags: The tags (keys and values) associated with the tenant.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83534ed6288ed51b14238d731d7f9dfde3e00ea62f7a8340a643c5c762ad7fc8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCustomVerificationEmailTemplateProps(
+            failure_redirection_url=failure_redirection_url,
+            from_email_address=from_email_address,
+            success_redirection_url=success_redirection_url,
+            template_content=template_content,
+            template_name=template_name,
+            template_subject=template_subject,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCustomVerificationEmailTemplate")
+    @builtins.classmethod
+    def arn_for_custom_verification_email_template(
+        cls,
+        resource: "_ICustomVerificationEmailTemplateRef_81ee24b9",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d67be7170103654c15a22cc5705e4bc7ad0e14fa356b509fcde66ca1eff238d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCustomVerificationEmailTemplate", [resource]))
+
+    @jsii.member(jsii_name="fromTemplateName")
+    @builtins.classmethod
+    def from_template_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        template_name: builtins.str,
+    ) -> "_ICustomVerificationEmailTemplateRef_81ee24b9":
+        '''Creates a new ICustomVerificationEmailTemplateRef from a templateName.
+
+        :param scope: -
+        :param id: -
+        :param template_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1babb794dbd50d9889a178de40d8928433de3a06d0e660ee697ef68d834dd522)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+        return typing.cast("_ICustomVerificationEmailTemplateRef_81ee24b9", jsii.sinvoke(cls, "fromTemplateName", [scope, id, template_name]))
+
+    @jsii.member(jsii_name="isCfnCustomVerificationEmailTemplate")
+    @builtins.classmethod
+    def is_cfn_custom_verification_email_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCustomVerificationEmailTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__746a63bcb9f079383d07a768780b52e734883ae69b7182e783317547b8b41364)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCustomVerificationEmailTemplate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27ff82feeb4f00cbd90a942d6236d5c9aae8a6f9e9d9757f7d119a612c9fbc21)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca1a9e9b301d0a43a591b868b9b48780c2ad0183cdc60cf845c464a0efd2e249)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customVerificationEmailTemplateRef")
+    def custom_verification_email_template_ref(
+        self,
+    ) -> "_CustomVerificationEmailTemplateReference_e479770b":
+        '''A reference to a CustomVerificationEmailTemplate resource.'''
+        return typing.cast("_CustomVerificationEmailTemplateReference_e479770b", jsii.get(self, "customVerificationEmailTemplateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="failureRedirectionUrl")
+    def failure_redirection_url(self) -> builtins.str:
+        '''The URL that the recipient of the verification email is sent to if his or her address is not successfully verified.'''
+        return typing.cast(builtins.str, jsii.get(self, "failureRedirectionUrl"))
+
+    @failure_redirection_url.setter
+    def failure_redirection_url(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80695685785546cf2dead0df023dccb5989d381eddf429ad01138c4666a3b8cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "failureRedirectionUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="fromEmailAddress")
+    def from_email_address(self) -> builtins.str:
+        '''The email address that the custom verification email is sent from.'''
+        return typing.cast(builtins.str, jsii.get(self, "fromEmailAddress"))
+
+    @from_email_address.setter
+    def from_email_address(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__877d80dade19c134bfa0b9d146a088e725efa56236115f7d27f22f84bc053f8d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fromEmailAddress", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="successRedirectionUrl")
+    def success_redirection_url(self) -> builtins.str:
+        '''The URL that the recipient of the verification email is sent to if his or her address is successfully verified.'''
+        return typing.cast(builtins.str, jsii.get(self, "successRedirectionUrl"))
+
+    @success_redirection_url.setter
+    def success_redirection_url(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03bd0b203964fa3650400c5bdb3a3c5cafee32ec7b2b4b979d3a9c140d51fc6f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "successRedirectionUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="templateContent")
+    def template_content(self) -> builtins.str:
+        '''The content of the custom verification email.'''
+        return typing.cast(builtins.str, jsii.get(self, "templateContent"))
+
+    @template_content.setter
+    def template_content(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6183ee4a1b16fe2da12426eb16cf02a3794137ff3820737c6385632da6094ba1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateContent", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="templateName")
+    def template_name(self) -> builtins.str:
+        '''The name of the custom verification email template.'''
+        return typing.cast(builtins.str, jsii.get(self, "templateName"))
+
+    @template_name.setter
+    def template_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__074aebebfc8cd858cab48124b8e507ee23f741dca03d21bdccc8934d1891e752)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="templateSubject")
+    def template_subject(self) -> builtins.str:
+        '''The subject line of the custom verification email.'''
+        return typing.cast(builtins.str, jsii.get(self, "templateSubject"))
+
+    @template_subject.setter
+    def template_subject(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6472780b973a0319efdd5de5236dfc6756ad0c955fb92f85861cd0adda6ed212)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "templateSubject", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags (keys and values) associated with the tenant.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7df680e720153fc9fa60f06839c7f5d133e1af971b21fed62754eaeff4d7ad7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ses.CfnCustomVerificationEmailTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "failure_redirection_url": "failureRedirectionUrl",
+        "from_email_address": "fromEmailAddress",
+        "success_redirection_url": "successRedirectionUrl",
+        "template_content": "templateContent",
+        "template_name": "templateName",
+        "template_subject": "templateSubject",
+        "tags": "tags",
+    },
+)
+class CfnCustomVerificationEmailTemplateProps:
+    def __init__(
+        self,
+        *,
+        failure_redirection_url: builtins.str,
+        from_email_address: builtins.str,
+        success_redirection_url: builtins.str,
+        template_content: builtins.str,
+        template_name: builtins.str,
+        template_subject: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCustomVerificationEmailTemplate``.
+
+        :param failure_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is not successfully verified.
+        :param from_email_address: The email address that the custom verification email is sent from.
+        :param success_redirection_url: The URL that the recipient of the verification email is sent to if his or her address is successfully verified.
+        :param template_content: The content of the custom verification email. The total size of the email must be less than 10 MB. The message body may contain HTML, with some limitations.
+        :param template_name: The name of the custom verification email template.
+        :param template_subject: The subject line of the custom verification email.
+        :param tags: The tags (keys and values) associated with the tenant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ses as ses
+            
+            cfn_custom_verification_email_template_props = ses.CfnCustomVerificationEmailTemplateProps(
+                failure_redirection_url="failureRedirectionUrl",
+                from_email_address="fromEmailAddress",
+                success_redirection_url="successRedirectionUrl",
+                template_content="templateContent",
+                template_name="templateName",
+                template_subject="templateSubject",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f90246f0557bb193f785a3ef894e01c0c1875a936262e84ce03093f354bd7a94)
+            check_type(argname="argument failure_redirection_url", value=failure_redirection_url, expected_type=type_hints["failure_redirection_url"])
+            check_type(argname="argument from_email_address", value=from_email_address, expected_type=type_hints["from_email_address"])
+            check_type(argname="argument success_redirection_url", value=success_redirection_url, expected_type=type_hints["success_redirection_url"])
+            check_type(argname="argument template_content", value=template_content, expected_type=type_hints["template_content"])
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+            check_type(argname="argument template_subject", value=template_subject, expected_type=type_hints["template_subject"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "failure_redirection_url": failure_redirection_url,
+            "from_email_address": from_email_address,
+            "success_redirection_url": success_redirection_url,
+            "template_content": template_content,
+            "template_name": template_name,
+            "template_subject": template_subject,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def failure_redirection_url(self) -> builtins.str:
+        '''The URL that the recipient of the verification email is sent to if his or her address is not successfully verified.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-failureredirectionurl
+        '''
+        result = self._values.get("failure_redirection_url")
+        assert result is not None, "Required property 'failure_redirection_url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def from_email_address(self) -> builtins.str:
+        '''The email address that the custom verification email is sent from.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-fromemailaddress
+        '''
+        result = self._values.get("from_email_address")
+        assert result is not None, "Required property 'from_email_address' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def success_redirection_url(self) -> builtins.str:
+        '''The URL that the recipient of the verification email is sent to if his or her address is successfully verified.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-successredirectionurl
+        '''
+        result = self._values.get("success_redirection_url")
+        assert result is not None, "Required property 'success_redirection_url' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_content(self) -> builtins.str:
+        '''The content of the custom verification email.
+
+        The total size of the email must be less than 10 MB. The message body may contain HTML, with some limitations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-templatecontent
+        '''
+        result = self._values.get("template_content")
+        assert result is not None, "Required property 'template_content' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_name(self) -> builtins.str:
+        '''The name of the custom verification email template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-templatename
+        '''
+        result = self._values.get("template_name")
+        assert result is not None, "Required property 'template_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def template_subject(self) -> builtins.str:
+        '''The subject line of the custom verification email.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-templatesubject
+        '''
+        result = self._values.get("template_subject")
+        assert result is not None, "Required property 'template_subject' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags (keys and values) associated with the tenant.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-customverificationemailtemplate.html#cfn-ses-customverificationemailtemplate-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCustomVerificationEmailTemplateProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -20610,6 +21039,8 @@ __all__ = [
     "CfnConfigurationSetProps",
     "CfnContactList",
     "CfnContactListProps",
+    "CfnCustomVerificationEmailTemplate",
+    "CfnCustomVerificationEmailTemplateProps",
     "CfnDedicatedIpPool",
     "CfnDedicatedIpPoolProps",
     "CfnEmailIdentity",
@@ -21135,6 +21566,108 @@ def _typecheckingstub__072b7df8dc691d1a1cd6c9336ecf7d05df6b5b238b2a11c273d9ae0aa
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     topics: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContactList.TopicProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83534ed6288ed51b14238d731d7f9dfde3e00ea62f7a8340a643c5c762ad7fc8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    failure_redirection_url: builtins.str,
+    from_email_address: builtins.str,
+    success_redirection_url: builtins.str,
+    template_content: builtins.str,
+    template_name: builtins.str,
+    template_subject: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d67be7170103654c15a22cc5705e4bc7ad0e14fa356b509fcde66ca1eff238d(
+    resource: _ICustomVerificationEmailTemplateRef_81ee24b9,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1babb794dbd50d9889a178de40d8928433de3a06d0e660ee697ef68d834dd522(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    template_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__746a63bcb9f079383d07a768780b52e734883ae69b7182e783317547b8b41364(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27ff82feeb4f00cbd90a942d6236d5c9aae8a6f9e9d9757f7d119a612c9fbc21(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca1a9e9b301d0a43a591b868b9b48780c2ad0183cdc60cf845c464a0efd2e249(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80695685785546cf2dead0df023dccb5989d381eddf429ad01138c4666a3b8cd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__877d80dade19c134bfa0b9d146a088e725efa56236115f7d27f22f84bc053f8d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03bd0b203964fa3650400c5bdb3a3c5cafee32ec7b2b4b979d3a9c140d51fc6f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6183ee4a1b16fe2da12426eb16cf02a3794137ff3820737c6385632da6094ba1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__074aebebfc8cd858cab48124b8e507ee23f741dca03d21bdccc8934d1891e752(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6472780b973a0319efdd5de5236dfc6756ad0c955fb92f85861cd0adda6ed212(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7df680e720153fc9fa60f06839c7f5d133e1af971b21fed62754eaeff4d7ad7(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f90246f0557bb193f785a3ef894e01c0c1875a936262e84ce03093f354bd7a94(
+    *,
+    failure_redirection_url: builtins.str,
+    from_email_address: builtins.str,
+    success_redirection_url: builtins.str,
+    template_content: builtins.str,
+    template_name: builtins.str,
+    template_subject: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

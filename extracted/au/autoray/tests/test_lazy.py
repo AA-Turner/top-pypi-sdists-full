@@ -17,8 +17,9 @@ def assert_unary_fn_with_kwargs(fn, shapes, seed, kwargs, backend="numpy"):
     y = ar.do(fn, *args, **kwargs)
     largs = [lazy.array(arg) for arg in args]
     ly = ar.do(fn, *largs, **kwargs)
-    assert ly.shape == y.shape
-    xp.testing.assert_allclose(y, ly.compute())
+    assert xp.shape(ly) == xp.shape(y)
+    cy = ly.compute()
+    ar.do("testing.assert_allclose", xp.to_numpy(y), xp.to_numpy(cy))
 
 
 def test_manual_construct():
@@ -809,10 +810,33 @@ def test_concatenate():
         {"ord": 2, "axis": (2, 1)},
     ],
 )
-@pytest.mark.parametrize("backend", ["numpy", "torch"])
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_norm(shape_in, keepdims, kwargs, backend):
+    if backend in ("sparse",):
+        pytest.xfail(f"{backend} doesn't support all 'linalg.norm' options...")
+
+    if (backend == "dask") and (kwargs.get("ord", None) is not None):
+        pytest.xfail("Dask doesn't support ord != None yet...")
+
     fn = "linalg.norm"
     kwargs["keepdims"] = keepdims
     assert_unary_fn_with_kwargs(
         fn, [shape_in], seed=1234, kwargs=kwargs, backend=backend
     )
+
+
+def test_allclose():
+    a = ar.do("random.uniform", size=(2, 3), like="numpy")
+    b = lazy.array(a)
+    # identical arrays
+    assert ar.do("allclose", b, b).compute()
+    # small difference
+    c = b + 1e-9
+    assert ar.do("allclose", b, c).compute()
+    # large difference
+    d = b + 1.0
+    assert not ar.do("allclose", b, d).compute()
+    # custom tolerance
+    e = b + 1e-4
+    assert not ar.do("allclose", b, e).compute()
+    assert ar.do("allclose", b, e, atol=1e-3).compute()

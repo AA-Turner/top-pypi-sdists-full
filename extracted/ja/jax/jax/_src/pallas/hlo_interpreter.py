@@ -158,13 +158,10 @@ def _initialize_output_vals(
   return output_vals
 
 
-def kernel_to_hlo_jaxpr(jaxpr: jax_core.Jaxpr,
-                        consts: Sequence[Any],
-                        grid_mapping: GridMapping,
-                        backend: str | None,
-    ) -> tuple[jax_core.Jaxpr, Sequence[Any], Sequence[Any]]:
+def kernel_to_hlo_jaxpr(
+    jaxpr: jax_core.Jaxpr, consts: Sequence[Any], grid_mapping: GridMapping
+) -> tuple[jax_core.Jaxpr, Sequence[Any], Sequence[Any]]:
   """Converts a Pallas kernel jaxpr to a valid HLO jaxpr."""
-  del backend
   with grid_mapping.trace_env():
     # TODO(justinfu): Evaluate backend-specific primitives in a new pass.
     phys_jaxpr, phys_consts = resolve_physical_types(jaxpr, consts)
@@ -227,7 +224,7 @@ def eval_jaxpr_recursive(
     else:
       write(eqn.outvars[0], ans)
     jax_core.clean_up_dead_vars(eqn, env, lu)
-  return map(read, jaxpr.outvars)
+  return map(read, jaxpr.outvars)  # pyrefly: ignore[bad-return]  # pyrefly#2385
 
 # Higher-order primitive rules.
 _eval_jaxpr_hop_rules = {}
@@ -346,7 +343,6 @@ def resolve_physical_types(jaxpr: jax_core.Jaxpr, consts: Sequence[Any]):
 
 def pallas_call_hlo_interpret(
     *args,
-    backend: str | None,
     jaxpr: jax_core.Jaxpr,
     debug: bool,
     input_output_aliases: tuple[tuple[int, int], ...],
@@ -373,9 +369,9 @@ def pallas_call_hlo_interpret(
   )
   assert next(dynamic_grid_args_iter, None) is None
   discharged_jaxpr, discharged_consts, scratch_avals = kernel_to_hlo_jaxpr(
-      jaxpr, (), grid_mapping, backend=backend)
+      jaxpr, (), grid_mapping)
   if debug:
-    print(f"\nJaxpr of the the kernel in pallas_call {debug_info.func_src_info}:")
+    print(f"\nJaxpr of the kernel in pallas_call {debug_info.func_src_info}:")
     print(discharged_jaxpr)
   out = _initialize_output_vals(grid_mapping.block_mappings_output,
                                 args, input_output_aliases)
@@ -409,11 +405,9 @@ def pallas_call_hlo_interpret(
   # Pad values to evenly divide into block dimensions. This matches the
   # behavior of the non-interpret mode. We pad with NaN, to make it easier
   # to catch OOB accesses.
-  for carry_element in carry:
-    aval = carry_element.aval
 
   carry = map(_pad_to_block_dimension, carry, block_shapes)
-  carry.extend(scratch_values)
+  carry.extend(scratch_values)  # pyrefly: ignore[missing-attribute]  # pyrefly#2385
 
   num_inout_blocks = len(block_args) + len(out)
   grid_start_indices = (jnp.int32(0),) * len(grid)
@@ -436,7 +430,7 @@ def pallas_call_hlo_interpret(
       local_grid_env = grid_mapping.local_grid_env(loop_idx, grid)
     else:
       local_grid_env = tuple(
-          pallas_core.GridAxis(idx, b)
+          pallas_core.GridAxis(idx, b)  # pyrefly: ignore[bad-argument-type]
           for dim, (idx, b) in enumerate(zip(loop_idx, grid))
           if dim not in grid_mapping.vmapped_dims
       )
@@ -454,12 +448,12 @@ def pallas_call_hlo_interpret(
     blocks = map(_dynamic_slice, start_indices, block_shapes,
                  carry_consts_ins, is_squeeze_dim)
     with pallas_core.grid_env(local_grid_env):
-      assert len(discharged_jaxpr.invars) == len(scalars) + len(blocks) + len(
+      assert len(discharged_jaxpr.invars) == len(scalars) + len(blocks) + len(  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
           scratch_values
       ), (
           len(discharged_jaxpr.invars),
           len(scalars),
-          len(blocks),
+          len(blocks),  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
           len(scratch_values),
       )
 

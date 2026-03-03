@@ -1,13 +1,11 @@
-"""DB common patterns — initialization and query wrappers."""
+"""SQLite common patterns — DB 초기화, 연결 래퍼."""
 
 from __future__ import annotations
 
 import logging
+import sqlite3
 from pathlib import Path
 from typing import Optional, Union
-
-from salmalm.db.connection import get_connection
-from salmalm.db.sql_compat import adapt_sql
 
 log = logging.getLogger(__name__)
 
@@ -18,33 +16,37 @@ def connect(
     wal: bool = True,
     row_factory: bool = False,
     check_same_thread: bool = True,
-) -> object:
-    """Open a DB connection with common defaults.
+) -> sqlite3.Connection:
+    """Open a SQLite connection with common defaults.
 
     Parameters
     ----------
     path : path to the database file.
     wal : enable WAL journal mode (default True).
-    row_factory : keep dict-style rows where backend supports it.
-    check_same_thread : kept for backwards-compatibility.
+    row_factory : set ``sqlite3.Row`` as row factory.
+    check_same_thread : passed to ``sqlite3.connect``.
     """
-    conn = get_connection(Path(path))
+    conn = sqlite3.connect(str(path), check_same_thread=check_same_thread)
+    conn.execute("PRAGMA busy_timeout=5000")  # 5s wait on lock instead of immediate failure
+    if wal:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
     if row_factory:
-        setattr(conn, "row_factory", getattr(conn, "row_factory", None))
+        conn.row_factory = sqlite3.Row
     return conn
 
 
-def ensure_table(conn: object, ddl: str) -> None:
+def ensure_table(conn: sqlite3.Connection, ddl: str) -> None:
     """Execute a CREATE TABLE IF NOT EXISTS statement."""
-    conn.execute(adapt_sql(ddl))
+    conn.execute(ddl)
     conn.commit()
 
 
-def query_all(conn: object, sql: str, params: tuple = ()) -> list:
+def query_all(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> list:
     """Fetch all rows for a query."""
-    return conn.execute(adapt_sql(sql), params).fetchall()
+    return conn.execute(sql, params).fetchall()
 
 
-def query_one(conn: object, sql: str, params: tuple = ()) -> Optional[tuple]:
+def query_one(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> Optional[tuple]:
     """Fetch a single row."""
-    return conn.execute(adapt_sql(sql), params).fetchone()
+    return conn.execute(sql, params).fetchone()

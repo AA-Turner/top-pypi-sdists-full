@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -85,7 +84,6 @@ def rsp_eventrelated(epochs, silent=False):
     # Extract features and build dataframe
     data = {}  # Initialize an empty dict
     for i in epochs.keys():
-
         data[i] = {}  # Initialize empty container
 
         # Rate
@@ -114,12 +112,10 @@ def rsp_eventrelated(epochs, silent=False):
 
 
 def _rsp_eventrelated_amplitude(epoch, output={}):
-
     # Sanitize input
     if "RSP_Amplitude" not in epoch:
         warn(
-            "Input does not have an `RSP_Amplitude` column."
-            " Will skip all amplitude-related features.",
+            "Input does not have an `RSP_Amplitude` column. Will skip all amplitude-related features.",
             category=NeuroKitWarning,
         )
         return output
@@ -141,12 +137,10 @@ def _rsp_eventrelated_amplitude(epoch, output={}):
 
 
 def _rsp_eventrelated_inspiration(epoch, output={}):
-
     # Sanitize input
     if "RSP_Phase" not in epoch:
         warn(
-            "Input does not have an `RSP_Phase` column."
-            " Will not indicate whether event onset concurs with inspiration.",
+            "Input does not have an `RSP_Phase` column. Will not indicate whether event onset concurs with inspiration.",
             category=NeuroKitWarning,
         )
         return output
@@ -159,7 +153,6 @@ def _rsp_eventrelated_inspiration(epoch, output={}):
 
 
 def _rsp_eventrelated_rvt(epoch, output={}):
-
     # Sanitize input
     if "RSP_RVT" not in epoch:
         warn(
@@ -181,12 +174,10 @@ def _rsp_eventrelated_rvt(epoch, output={}):
 
 
 def _rsp_eventrelated_symmetry(epoch, output={}):
-
     # Sanitize input
     if "RSP_Symmetry_PeakTrough" not in epoch:
         warn(
-            "Input does not have an `RSP_Symmetry_PeakTrough` column."
-            + " Will skip all symmetry-related features.",
+            "Input does not have an `RSP_Symmetry_PeakTrough` column." + " Will skip all symmetry-related features.",
             category=NeuroKitWarning,
         )
         return output

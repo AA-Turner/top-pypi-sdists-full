@@ -119,6 +119,161 @@ class WebAuthMixin:
         # No vault file, no env var → first run, handled by _needs_first_run
         return True
 
+    def _get_api_auth_users(self):
+        """Get api auth users."""
+        user = extract_auth(dict(self.headers))
+        if not user or user.get("role") != "admin":
+            self._json({"error": "Admin access required"}, 403)
+        else:
+            self._json({"users": auth_manager.list_users()})
+
+    def _get_api_google_auth(self):
+        """Get api google auth."""
+        if not self._require_auth("user"):
+            return
+        client_id = vault.get("google_client_id") or ""
+        if not client_id:
+            self._json(
+                {"error": "Set google_client_id in vault first (Settings > Vault)"},
+                400,
+            )
+            return
+        import urllib.parse
+
+        import os as _os
+        port = getattr(getattr(self, "server", None), "server_address", [None, None])[1] or int(_os.environ.get("SALMALM_PORT", 18800))
+        redirect_uri = f"http://localhost:{port}/api/google/callback"
+        # CSRF protection: generate and store state token
+        state = secrets.token_urlsafe(32)
+        from salmalm.web.web import _google_oauth_pending_states
+
+        _google_oauth_pending_states[state] = time.time()
+        # Cleanup stale states on every new auth attempt (prevent unbounded growth)
+        _cutoff = time.time() - 900
+        for _k in [k for k, v in _google_oauth_pending_states.items() if v < _cutoff]:
+            _google_oauth_pending_states.pop(_k, None)
+        params = urllib.parse.urlencode(
+            {
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "scope": "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar",
+                "access_type": "offline",
+                "prompt": "consent",
+                "state": state,
+            }
+        )
+        url = f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
+        self.send_response(302)
+        self.send_header("Location", url)
+        self.end_headers()
+
+    def _post_api_users_register(self):
+        """Post api users register."""
+        body = self._body
+        # Register new user (admin or open registration)
+        from salmalm.features.users import user_manager
+
+        requester = extract_auth(dict(self.headers))
+        reg_mode = user_manager.get_registration_mode()
+        if reg_mode == "admin_only":
+            if not requester or requester.get("role") != "admin":
+                self._json(
+                    {"error": "Admin access required for registration / 관리자만 등록 가능"},
+                    403,
+                )
+                return
+        try:
+            user = auth_manager.create_user(
+                body.get("username", ""),
+                body.get("password", ""),
+                body.get("role", "user"),
+            )
+            user_manager.ensure_quota(user["id"])
+            self._json({"ok": True, "user": user})
+        except ValueError as e:
+            self._json({"error": str(e)}, 400)
+        return
+
+    def _post_api_auth_login(self):
+        """Post api auth login."""
+        body = self._body
+        username = body.get("username", "")
+        password = body.get("password", "")
+        user = auth_manager.authenticate(username, password)
+        if user:
+            token = auth_manager.create_token(user, expires_in=86400 * 30)  # 30 days — matches cookie lifetime
+            audit_log(
+                "auth_success",
+                f"user={username}",
+                detail_dict={"username": username, "ip": self._get_client_ip()},
+            )
+            self._json({"ok": True, "token": token, "user": user})
+        else:
+            audit_log(
+                "auth_failure",
+                f"user={username}",
+                detail_dict={"username": username, "ip": self._get_client_ip()},
+            )
+            self._json({"error": "Invalid credentials"}, 401)
+        return
+
+    def _post_api_auth_register(self):
+        """Post api auth register."""
+        body = self._body
+        requester = extract_auth(dict(self.headers))
+        if not requester or requester.get("role") != "admin":
+            self._json({"error": "Admin access required"}, 403)
+            return
+        try:
+            user = auth_manager.create_user(
+                body.get("username", ""),
+                body.get("password", ""),
+                body.get("role", "user"),
+            )
+            self._json({"ok": True, "user": user})
+        except ValueError as e:
+            self._json({"error": str(e)}, 400)
+        return
+
+    def _post_api_auto_unlock(self):
+        """Auto-unlock vault from .vault_auto — called by unlock page on load."""
+        if vault.is_unlocked:
+            token = secrets.token_hex(32)
+            self._json({"ok": True, "token": token})
+            return
+        ip = self._get_client_ip()
+        if ip not in ("127.0.0.1", "::1", "localhost"):
+            self._json({"ok": False}, 401)
+            return
+        # Try auto-unlock
+        if self._auto_unlock_localhost():
+            audit_log("unlock", "vault auto-unlocked from page load")
+            token = secrets.token_hex(32)
+            self._json({"ok": True, "token": token})
+            return
+        # Auto-unlock failed — do NOT destroy vault data.
+        # Prompt the user to unlock manually via the web UI.
+        log.warning("[VAULT] Auto-unlock failed — showing manual unlock screen")
+        self._json({"ok": False}, 401)
+
+    def _post_api_unlock(self):
+        """Post api unlock."""
+        body = self._body
+        password = body.get("password", "")
+        if VAULT_FILE.exists():  # noqa: F405
+            ok = vault.unlock(password, save_to_keychain=True)
+        else:
+            vault.create(password, save_to_keychain=True)
+            ok = True
+        if ok:
+            audit_log("unlock", "vault unlocked")
+            token = secrets.token_hex(32)
+            self._json({"ok": True, "token": token})
+        else:
+            audit_log("unlock_fail", "wrong password")
+            self._json({"ok": False, "error": "Wrong password"}, 401)
+
     def _security_headers(self):
         """Add security headers to all responses.
 
@@ -226,29 +381,9 @@ async def post_users_register(req: UserCreate, request: _Request):
     if reg_mode == "admin_only":
         if not requester or requester.get("role") != "admin":
             return _JSON(content={"error": "Admin access required for registration / 관리자만 등록 가능"}, status_code=403)
-    # BUG-CE fix: apply per-IP rate limiting in open registration mode to prevent
-    # bulk account creation attacks (DoS / resource exhaustion)
-    if reg_mode != "admin_only" and (not requester or requester.get("role") != "admin"):
-        from salmalm.security.security import login_limiter
-        _ip = request.client.host if request.client else "unknown"
-        _reg_key = f"reg:{_ip}"
-        _allowed, _retry_after = login_limiter.check(_reg_key)
-        if not _allowed:
-            return _JSON(
-                content={"error": f"Too many registrations. Try again in {int(_retry_after)}s."},
-                status_code=429,
-            )
-        login_limiter.record_failure(_reg_key)  # count each registration attempt
-    # BUG-BS: non-admin callers must not self-assign role="admin"
-    _is_admin_req = requester and requester.get("role") == "admin"
-    _role = req.role if _is_admin_req else "user"
     try:
-        user = auth_manager.create_user(req.username, req.password, _role)
+        user = auth_manager.create_user(req.username, req.password, req.role)
         user_manager.ensure_quota(user["id"])
-        if reg_mode != "admin_only":
-            from salmalm.security.security import login_limiter as _ll
-            _ip2 = request.client.host if request.client else "unknown"
-            _ll.record_success(f"reg:{_ip2}")  # clear on successful registration
         return _JSON(content={"ok": True, "user": user})
     except ValueError as e:
         return _JSON(content={"error": str(e)}, status_code=400)
@@ -367,24 +502,13 @@ async def post_auto_unlock(request: _Request):
 @router.post("/api/auth/logout")
 async def post_auth_logout(request: _Request):
     """Revoke the current JWT (server-side logout). Clears HttpOnly cookie."""
+    from salmalm.web.auth import extract_auth
     from salmalm.web.token_manager import token_manager
+    user = extract_auth(dict(request.headers))
     resp = _JSON(content={"ok": True, "message": "Logged out"})
-    # Extract raw token from Authorization header or cookie, then revoke it.
-    # token_manager.revoke() takes the raw token string (not a jti).
-    _raw_token = None
-    _auth_hdr = request.headers.get("authorization", "")
-    if _auth_hdr.startswith("Bearer "):
-        _raw_token = _auth_hdr[7:]
-    if not _raw_token:
-        # Fallback: try cookie
-        _cookie_hdr = request.headers.get("cookie", "")
-        for _part in _cookie_hdr.split(";"):
-            _part = _part.strip()
-            if _part.startswith("salmalm_token="):
-                _raw_token = _part[len("salmalm_token="):]
-                break
-    if _raw_token:
-        token_manager.revoke(_raw_token)
-    # Clear HttpOnly cookie
-    resp.delete_cookie(key="salmalm_token", path="/", httponly=True, samesite="lax")
+    # Revoke JTI so this token cannot be reused even if intercepted
+    if user and user.get("jti"):
+        token_manager.revoke(user["_jti"])
+    # Clear cookie
+    resp.delete_cookie(key="salmalm_token", path="/")
     return resp

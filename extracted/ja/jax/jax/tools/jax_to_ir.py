@@ -152,6 +152,7 @@ def jax_to_ir(fn, input_shapes, *, constants=None, format):
 
   if format == 'HLO':
     comp = jax.jit(ordered_wrapper).lower(*args).compiler_ir('hlo')
+    assert comp is not None
     serialized_proto = comp.as_serialized_hlo_module_proto()
     debug_txt = comp.as_hlo_text()
   else:
@@ -159,6 +160,9 @@ def jax_to_ir(fn, input_shapes, *, constants=None, format):
     if tf is None:
       raise ValueError(
           'Conversion to TF graph requires TensorFlow to be installed.')
+    if jax2tf is None:
+      raise ValueError(
+          'Conversion to TF graph requires jax.experimental.jax2tf to be importable.')
 
     f = jax2tf.convert(ordered_wrapper)
     f = tf_wrap_with_input_names(f, input_shapes)
@@ -172,6 +176,7 @@ def jax_to_ir(fn, input_shapes, *, constants=None, format):
 
 def tf_wrap_with_input_names(f, input_shapes):
   def wrapper(*args):
+    assert tf is not None  # checked in caller
     args = tuple(
         tf.identity(a, name=name) for a, (name, _) in zip(args, input_shapes))
     # NOTE: Output names already set via `jax2tf.convert(..)`.
@@ -190,12 +195,17 @@ def main(argv):
     raise app.Error('At least one of --ir_dest and '
                     '--ir_human_dest is required.')
 
-  module_name, fn_name = _FN.value.rsplit('.', 1)
+  raw_input_shapes = _INPUT_SHAPES.value
+  raw_fn_name = _FN.value
+  assert raw_input_shapes is not None  # required by set_up_flags
+  assert raw_fn_name is not None  # required by set_up_flags
+
+  module_name, fn_name = raw_fn_name.rsplit('.', 1)
   module = importlib.import_module(module_name)
   fn = getattr(module, fn_name)
 
   input_shapes = [(name, parse_shape_str(shape_str))
-                  for name, shape_str in literal_eval(_INPUT_SHAPES.value)]
+                  for name, shape_str in literal_eval(raw_input_shapes)]
 
   # Parse --constants and --evaled_constants.
   constants = {}
@@ -246,6 +256,11 @@ _DT = {
     'f16': jnp.float16, 'f32': jnp.float32, 'f64': jnp.float64,
     'c64': jnp.complex64, 'c128': jnp.complex128
 }
+
+if hasattr(jnp, 'int1'):
+  _DT['s1'] = jnp.int1
+if hasattr(jnp, 'uint1'):
+  _DT['u1'] = jnp.uint1
 
 _SHAPE_RE = re.compile(f"^({'|'.join(_DT)})\\[\\s*(\\d*[\\s*,\\d+]*)\\s*\\]$")
 

@@ -369,6 +369,11 @@ class Completions(object):
             yield chat_completion
 
     async def create_new_chat(self):  # todo 预建
+        """
+        # 关键：立即启动下一次预生成，利用处理当前请求的时间
+        self._prepare_next()
+        :return:
+        """
         payload = {
             # "title": "新建对话",
             # "models": [self.default_model],

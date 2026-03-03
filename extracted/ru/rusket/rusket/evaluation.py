@@ -53,7 +53,9 @@ def evaluate(
     import numpy as np
 
     try:
-        import pandas as pd
+        from rusket._dependencies import import_optional_dependency
+
+        pd = import_optional_dependency("pandas")
     except ImportError:
         pd = None
 
@@ -146,22 +148,11 @@ def evaluate(
     # Batch: collect predictions for all users
     all_actual: list[list[int]] = []
     all_pred: list[list[int]] = []
-    failed_users = 0
 
     for u in unique_users:
-        try:
-            r_items, _r_scores = model.recommend_items(u, n=k, exclude_seen=True)
-            all_pred.append(r_items.tolist())
-            all_actual.append(user_test_items[u])
-        except Exception:
-            failed_users += 1
-            continue
-
-    if failed_users > 0:
-        warnings.warn(
-            f"evaluate: recommend_items failed for {failed_users}/{len(unique_users)} users.",
-            stacklevel=2,
-        )
+        r_items, _r_scores = model.recommend_items(u, n=k, exclude_seen=True)
+        all_pred.append(r_items.tolist())
+        all_actual.append(user_test_items[u])
 
     n_users = len(all_actual)
     if n_users == 0:
@@ -185,3 +176,80 @@ def evaluate(
         results[m] = total / n_users
 
     return results
+
+
+def coverage_at_k(all_pred: list[list[int]], n_unique_items: int) -> float:
+    """Compute the catalog coverage at k.
+
+    Coverage is the proportion of the total item catalog that is recommended
+    to at least one user in the top-k list.
+
+    Parameters
+    ----------
+    all_pred : list of list of int
+        The top-k recommended item indices for each user.
+    n_unique_items : int
+        The total number of unique items in the catalog.
+
+    Returns
+    -------
+    float
+        The coverage at k (between 0.0 and 1.0).
+    """
+    if not all_pred or n_unique_items <= 0:
+        return 0.0
+
+    recommended_items = set()
+    for pred in all_pred:
+        recommended_items.update(pred)
+
+    return len(recommended_items) / n_unique_items
+
+
+def novelty_at_k(all_pred: list[list[int]], item_popularity: dict[int, int], total_users: int) -> float:
+    """Compute the mean novelty at k.
+
+    Novelty is calculated as the mean self-information of the recommended items.
+    Items that are rarely interacted with in the training set have higher self-information
+    (-log2(p)), indicating higher novelty.
+
+    Parameters
+    ----------
+    all_pred : list of list of int
+        The top-k recommended item indices for each user.
+    item_popularity : dict[int, int]
+        A mapping from item index to its frequency in the training set.
+    total_users : int
+        The total number of users in the training set (used to compute item probability p).
+
+    Returns
+    -------
+    float
+        The mean novelty of the recommendations.
+    """
+    import math
+
+    if not all_pred or total_users <= 0:
+        return 0.0
+
+    total_novelty = 0.0
+    valid_users = 0
+
+    for pred in all_pred:
+        if not pred:
+            continue
+
+        user_novelty = 0.0
+        for item in pred:
+            freq = item_popularity.get(item, 0)
+            # Add smoothing (1) to prevent log2(0) and p > 1
+            p = (freq + 1) / (total_users + 1)
+            user_novelty += -math.log2(p)
+
+        total_novelty += user_novelty / len(pred)
+        valid_users += 1
+
+    if valid_users == 0:
+        return 0.0
+
+    return total_novelty / valid_users

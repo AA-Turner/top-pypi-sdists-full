@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 from ..epochs.eventrelated_utils import (
@@ -102,7 +101,6 @@ def ecg_eventrelated(epochs, silent=False):
     # Extract features and build dataframe
     data = {}  # Initialize an empty dict
     for i in epochs.keys():
-
         data[i] = {}  # Initialize empty container
 
         # Rate
@@ -127,7 +125,6 @@ def ecg_eventrelated(epochs, silent=False):
 
 
 def _ecg_eventrelated_phase(epoch, output={}):
-
     # Sanitize input
     if "ECG_Phase_Atrial" not in epoch or "ECG_Phase_Ventricular" not in epoch:
         warn(
@@ -139,27 +136,21 @@ def _ecg_eventrelated_phase(epoch, output={}):
 
     # Indication of atrial systole
     output["ECG_Phase_Atrial"] = epoch["ECG_Phase_Atrial"][epoch.index > 0].iloc[0]
-    output["ECG_Phase_Completion_Atrial"] = epoch["ECG_Phase_Completion_Atrial"][
-        epoch.index > 0
-    ].iloc[0]
+    output["ECG_Phase_Completion_Atrial"] = epoch["ECG_Phase_Completion_Atrial"][epoch.index > 0].iloc[0]
 
     # Indication of ventricular systole
     output["ECG_Phase_Ventricular"] = epoch["ECG_Phase_Ventricular"][epoch.index > 0].iloc[0]
-    output["ECG_Phase_Completion_Ventricular"] = epoch["ECG_Phase_Completion_Ventricular"][
-        epoch.index > 0
-    ].iloc[0]
+    output["ECG_Phase_Completion_Ventricular"] = epoch["ECG_Phase_Completion_Ventricular"][epoch.index > 0].iloc[0]
 
     return output
 
 
 def _ecg_eventrelated_quality(epoch, output={}):
-
     # Sanitize input
     colnames = epoch.columns.values
     if len([i for i in colnames if "ECG_Quality" in i]) == 0:
         warn(
-            "Input does not have an `ECG_Quality` column."
-            " Quality of the signal is not computed.",
+            "Input does not have an `ECG_Quality` column. Quality of the signal is not computed.",
             category=NeuroKitWarning,
         )
         return output

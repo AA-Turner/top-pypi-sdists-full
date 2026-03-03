@@ -28,10 +28,8 @@ def request(
     if isinstance(data, dict):
         data = json.dumps(data).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers or {}, method=method or ("POST" if data else "GET"))
-    # BUG-CV fix: cap response read to prevent memory exhaustion from oversized responses
-    _MAX_RESPONSE = 16 * 1024 * 1024  # 16 MB
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read(_MAX_RESPONSE)
+        return resp.read()
 
 
 def request_json(

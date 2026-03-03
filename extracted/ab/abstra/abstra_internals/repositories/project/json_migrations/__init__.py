@@ -2,7 +2,6 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Type
 
 from abstra_internals.consts.filepaths import CONFIG_BACKUP_DIR_PATH
 from abstra_internals.logger import AbstraLogger
@@ -25,8 +24,9 @@ from .migration_014 import Migration014
 from .migration_015 import Migration015
 from .migration_016 import Migration016
 from .migration_017 import Migration017
+from .migration_018 import Migration018
 
-MIGRATIONS: List[Type[Migration]] = [
+MIGRATIONS: list[type[Migration]] = [
     Migration001,
     Migration002,
     Migration003,
@@ -44,6 +44,7 @@ MIGRATIONS: List[Type[Migration]] = [
     Migration015,
     Migration016,
     Migration017,
+    Migration018,
 ]
 
 

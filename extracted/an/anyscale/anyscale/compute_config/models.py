@@ -518,6 +518,27 @@ class _NodeConfig(ModelBase):
                 )
         if not isinstance(instance_type, str):
             raise TypeError("'instance_type' must be a string.")
+
+        # Reject conflicting configuration: specific instance_type with required_resources
+        # If user specifies a concrete instance type, required_resources is redundant
+        # If user wants custom resources, they should omit instance_type (defaults to "custom")
+        if instance_type != "custom" and self.required_resources is not None:
+            raise ValueError(
+                f"Cannot specify both 'instance_type: {instance_type}' and 'required_resources'. "
+                f"These are mutually exclusive options.\n"
+                f"  - Use 'instance_type' alone to select a specific cloud instance type\n"
+                f"  - Use 'required_resources' alone to define custom resource requirements "
+                f"(instance_type will default to 'custom')\n"
+                f"Example with instance_type:\n"
+                f"  head_node:\n"
+                f"    instance_type: {instance_type}\n"
+                f"Example with required_resources:\n"
+                f"  head_node:\n"
+                f"    required_resources:\n"
+                f"      CPU: 4\n"
+                f"      memory: 8Gi"
+            )
+
         return instance_type
 
     def to_dict(self, *, exclude_none: bool = True) -> Dict[str, Any]:
@@ -532,6 +553,16 @@ class _NodeConfig(ModelBase):
         ):
             del result["instance_type"]
 
+        # Filter out zero values from 'resources' dict to avoid confusing output
+        # e.g., 'CPU: 0' or 'GPU: 0' should not be shown
+        if "resources" in result and isinstance(result["resources"], dict):
+            result["resources"] = {
+                k: v for k, v in result["resources"].items() if v != 0
+            }
+            # If resources dict is now empty, remove it entirely
+            if not result["resources"]:
+                del result["resources"]
+
         return result
 
     resources: Optional[ResourceDict] = field(
@@ -544,6 +575,50 @@ class _NodeConfig(ModelBase):
 
     def _validate_resources(self, resources: Optional[ResourceDict]):
         _validate_resource_dict(resources, field_name="resources")
+
+        if resources is None:
+            return
+
+        # Cross-validate: resources should not exceed required_resources
+        if self.required_resources is not None:
+            pr = self.required_resources
+            if isinstance(pr, dict):
+                pr_cpu = pr.get("CPU") or pr.get("cpu") or 0
+                pr_memory = pr.get("memory") or pr.get("Memory") or 0
+                pr_memory_bytes = _parse_memory_string(pr_memory) if pr_memory else 0
+                pr_gpu = pr.get("GPU") or pr.get("gpu") or 0
+            else:
+                pr_cpu = pr.CPU or 0
+                pr_memory = pr.memory
+                pr_memory_bytes = _parse_memory_string(pr_memory) if pr_memory else 0
+                pr_gpu = pr.GPU or 0
+
+            res_cpu = resources.get("CPU") or resources.get("cpu") or 0
+            res_memory = resources.get("memory") or resources.get("Memory") or 0
+            res_gpu = resources.get("GPU") or resources.get("gpu") or 0
+
+            errors = []
+            if res_cpu > pr_cpu > 0:
+                errors.append(
+                    f"  - resources.CPU ({res_cpu}) > required_resources.CPU ({pr_cpu})"
+                )
+            if res_memory > pr_memory_bytes > 0:
+                res_mem_str = _format_bytes_to_memory_string(int(res_memory))
+                pr_mem_str = _format_bytes_to_memory_string(pr_memory_bytes)
+                errors.append(
+                    f"  - resources.memory ({res_mem_str}) > required_resources.memory ({pr_mem_str})"
+                )
+            if res_gpu > pr_gpu > 0:
+                errors.append(
+                    f"  - resources.GPU ({res_gpu}) > required_resources.GPU ({pr_gpu})"
+                )
+
+            if errors:
+                raise ValueError(
+                    "'resources' (logical) cannot exceed 'required_resources' (physical).\n"
+                    "You cannot report more resources than physically exist on the node.\n"
+                    + "\n".join(errors)
+                )
 
     required_resources: Optional[PhysicalResources] = field(
         default=None,
@@ -560,12 +635,95 @@ class _NodeConfig(ModelBase):
             return None
         if isinstance(required_resources, dict):
             # Convert dict to PhysicalResources object
-            return PhysicalResources.from_dict(required_resources)
-        if isinstance(required_resources, PhysicalResources):
-            return required_resources
-        raise TypeError(
-            "'required_resources' must be a PhysicalResources object or dict."
-        )
+            required_resources = PhysicalResources.from_dict(required_resources)
+        if not isinstance(required_resources, PhysicalResources):
+            raise TypeError(
+                "'required_resources' must be a PhysicalResources object or dict."
+            )
+
+        # Validate that meaningful resources are specified
+        cpu = required_resources.CPU or 0
+        memory = required_resources.memory
+        memory_bytes = _parse_memory_string(memory) if memory else 0
+
+        if cpu <= 0 and memory_bytes <= 0:
+            raise ValueError(
+                "'required_resources' must specify at least CPU > 0 or memory > 0. "
+                "A node with no CPU and no memory is not usable.\n"
+                "Example:\n"
+                "  required_resources:\n"
+                "    CPU: 4\n"
+                "    memory: 8Gi"
+            )
+
+        if cpu <= 0:
+            raise ValueError(
+                "'required_resources' must specify CPU > 0. "
+                "A node with 0 CPUs cannot run any workloads.\n"
+                "Example:\n"
+                "  required_resources:\n"
+                "    CPU: 4\n"
+                "    memory: 8Gi"
+            )
+
+        if memory_bytes <= 0:
+            raise ValueError(
+                "'required_resources' must specify memory > 0. "
+                "A node with 0 memory cannot run any workloads.\n"
+                "Example:\n"
+                "  required_resources:\n"
+                "    CPU: 4\n"
+                "    memory: 8Gi"
+            )
+
+        # Check for suspiciously small memory values (likely missing unit suffix)
+        # 1 MiB = 1048576 bytes - anything less is almost certainly a mistake
+        min_reasonable_memory = 1024 * 1024  # 1 MiB
+        if memory_bytes < min_reasonable_memory:
+            raise ValueError(
+                f"'required_resources.memory' value of {memory} ({memory_bytes} bytes) "
+                f"is suspiciously small. Did you forget the unit suffix?\n"
+                f"Memory should be specified with a unit suffix like 'Gi' or 'Mi'.\n"
+                f"Example:\n"
+                f"  required_resources:\n"
+                f"    CPU: 4\n"
+                f"    memory: 8Gi  # 8 gibibytes, not '8' (8 bytes)"
+            )
+
+        # Check for unreasonably large resource values that exceed any known instance type
+        # These limits are generous upper bounds based on current cloud offerings:
+        # - CPU: 512 vCPUs (largest instances like AWS u-24tb1.metal have ~448)
+        # - Memory: 24 TiB (largest memory-optimized instances have ~24TB)
+        # - GPU: 16 (largest GPU instances typically have 8, some configs up to 16)
+        max_cpu = 512
+        max_memory_bytes = 24 * 1024 * 1024 * 1024 * 1024  # 24 TiB
+        max_gpu = 16
+
+        if cpu > max_cpu:
+            raise ValueError(
+                f"'required_resources.CPU' value of {cpu} exceeds the maximum "
+                f"available on any known instance type ({max_cpu} vCPUs).\n"
+                f"No cloud instance type can satisfy this request."
+            )
+
+        if memory_bytes > max_memory_bytes:
+            memory_str = _format_bytes_to_memory_string(memory_bytes)
+            max_memory_str = _format_bytes_to_memory_string(max_memory_bytes)
+            raise ValueError(
+                f"'required_resources.memory' value of {memory_str} exceeds the maximum "
+                f"available on any known instance type ({max_memory_str}).\n"
+                f"No cloud instance type can satisfy this request."
+            )
+
+        gpu = required_resources.GPU or 0
+        if gpu > max_gpu:
+            raise ValueError(
+                f"'required_resources.GPU' value of {gpu} exceeds the maximum "
+                f"available on any known instance type ({max_gpu} GPUs).\n"
+                f"No cloud instance type can satisfy this request."
+            )
+
+        return required_resources
 
     labels: Optional[LabelDict] = field(
         default=None,
@@ -838,8 +996,9 @@ class _NodeConfig(ModelBase):
                 f"    CPU: 7\n"
                 f"    memory: 12Gi\n"
                 f"    TPU: 4\n"
-                f"    accelerator: TPU-V5E\n"
                 f"    tpu_hosts: 4  # Required for TPU\n"
+                f"  required_labels:\n"
+                f"    ray.io/accelerator-type: TPU-V5E\n"
                 f"For more information on TPU configuration, see: {TPU_DOCS_URL}"
             )
 
@@ -1544,38 +1703,38 @@ def compute_config_type_from_yaml(config_file: str) -> ComputeConfigType:
     """
     Parse a YAML compute config file into either a ComputeConfig or MultiResourceComputeConfig.
     """
-    error_message = f"Could not parse config file '{config_file}' as a ComputeConfig or MultiResourceComputeConfig:\n"
+    import yaml  # noqa: PLC0415
 
-    try:
-        return ComputeConfig.from_yaml(config_file)
-    except Exception as e:  # noqa: BLE001
-        error_message += f"ComputeConfig: {e}\n"
+    with open(config_file) as f:
+        config_dict = yaml.safe_load(f) or {}
 
-    try:
-        return MultiResourceComputeConfig.from_yaml(config_file)
-    except Exception as e:  # noqa: BLE001
-        error_message += f"MultiResourceComputeConfig: {e}\n"
-
-    raise TypeError(error_message.rstrip())
+    return compute_config_type_from_dict(config_dict)
 
 
 def compute_config_type_from_dict(config_dict: Dict) -> ComputeConfigType:
     """
     Parse a compute config dict into either a ComputeConfig or MultiResourceComputeConfig.
+
+    Detects the intended config type based on structure:
+    - If 'configs' key is present → MultiResourceComputeConfig
+    - Otherwise → ComputeConfig (the common case)
+
+    Only shows the error from the detected config type, not both.
     """
-    error_message = f"Could not parse config dict '{config_dict}' as a ComputeConfig or MultiResourceComputeConfig:\n"
+    # Detect which config type the user intended based on structure
+    # MultiResourceComputeConfig has a 'configs' key with a list of ComputeConfigs
+    is_multi_resource = "configs" in config_dict
 
-    try:
-        return ComputeConfig.from_dict(config_dict)
-    except Exception as e:  # noqa: BLE001
-        error_message += f"ComputeConfig: {e}\n"
-
-    try:
-        return MultiResourceComputeConfig.from_dict(config_dict)
-    except Exception as e:  # noqa: BLE001
-        error_message += f"MultiResourceComputeConfig: {e}\n"
-
-    raise TypeError(error_message.rstrip())
+    if is_multi_resource:
+        try:
+            return MultiResourceComputeConfig.from_dict(config_dict)
+        except Exception as e:  # noqa: BLE001
+            raise TypeError(str(e)) from e
+    else:
+        try:
+            return ComputeConfig.from_dict(config_dict)
+        except Exception as e:  # noqa: BLE001
+            raise TypeError(str(e)) from e
 
 
 @dataclass(frozen=True)

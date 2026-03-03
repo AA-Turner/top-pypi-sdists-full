@@ -4,6 +4,7 @@ from pytest_httpx import HTTPXMock
 from uipath.platform import UiPathApiConfig, UiPathExecutionContext
 from uipath.platform.common._base_service import BaseService
 from uipath.platform.common.constants import HEADER_USER_AGENT
+from uipath.platform.errors import EnrichedException
 
 
 @pytest.fixture
@@ -100,3 +101,196 @@ class TestBaseService:
             assert response is not None
             assert response.status_code == 200
             assert response.json() == {"test": "test"}
+
+
+class TestRetryBehavior:
+    """Integration tests for retry behavior in BaseService."""
+
+    def _url(self, base_url: str, org: str, tenant: str) -> str:
+        return f"{base_url}{org}{tenant}/endpoint"
+
+    def test_429_with_retry_after_retried(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=429, headers={"retry-after": "0"})
+        httpx_mock.add_response(url=url, status_code=200, json={"ok": True})
+
+        response = service.request("GET", "/endpoint")
+        assert response.status_code == 200
+        assert len(httpx_mock.get_requests()) == 2
+
+    def test_503_retried(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=503)
+        httpx_mock.add_response(url=url, status_code=200, json={"ok": True})
+
+        response = service.request("GET", "/endpoint")
+        assert response.status_code == 200
+        assert len(httpx_mock.get_requests()) == 2
+
+    def test_400_not_retried(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=400)
+
+        with pytest.raises(EnrichedException) as exc_info:
+            service.request("GET", "/endpoint")
+        assert exc_info.value.status_code == 400
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_404_not_retried(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=404)
+
+        with pytest.raises(EnrichedException) as exc_info:
+            service.request("GET", "/endpoint")
+        assert exc_info.value.status_code == 404
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_500_not_retried(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=500)
+
+        with pytest.raises(EnrichedException) as exc_info:
+            service.request("GET", "/endpoint")
+        assert exc_info.value.status_code == 500
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_max_retries_exhausted(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        for _ in range(5):
+            httpx_mock.add_response(
+                url=url, status_code=429, headers={"retry-after": "0"}
+            )
+
+        with pytest.raises(EnrichedException) as exc_info:
+            service.request("GET", "/endpoint")
+        assert exc_info.value.status_code == 429
+        assert len(httpx_mock.get_requests()) == 5
+
+    def test_502_retried(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=502)
+        httpx_mock.add_response(url=url, status_code=200, json={"ok": True})
+
+        response = service.request("GET", "/endpoint")
+        assert response.status_code == 200
+        assert len(httpx_mock.get_requests()) == 2
+
+    @pytest.mark.anyio
+    async def test_429_retried_async(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=429, headers={"retry-after": "0"})
+        httpx_mock.add_response(url=url, status_code=200, json={"ok": True})
+
+        response = await service.request_async("GET", "/endpoint")
+        assert response.status_code == 200
+        assert len(httpx_mock.get_requests()) == 2
+
+    @pytest.mark.anyio
+    async def test_503_retried_async(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=503)
+        httpx_mock.add_response(url=url, status_code=200, json={"ok": True})
+
+        response = await service.request_async("GET", "/endpoint")
+        assert response.status_code == 200
+        assert len(httpx_mock.get_requests()) == 2
+
+    @pytest.mark.anyio
+    async def test_400_not_retried_async(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        httpx_mock.add_response(url=url, status_code=400)
+
+        with pytest.raises(EnrichedException) as exc_info:
+            await service.request_async("GET", "/endpoint")
+        assert exc_info.value.status_code == 400
+        assert len(httpx_mock.get_requests()) == 1
+
+    @pytest.mark.anyio
+    async def test_max_retries_exhausted_async(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+    ):
+        url = self._url(base_url, org, tenant)
+        for _ in range(5):
+            httpx_mock.add_response(
+                url=url, status_code=429, headers={"retry-after": "0"}
+            )
+
+        with pytest.raises(EnrichedException) as exc_info:
+            await service.request_async("GET", "/endpoint")
+        assert exc_info.value.status_code == 429
+        assert len(httpx_mock.get_requests()) == 5

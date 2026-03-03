@@ -11,16 +11,11 @@ from conftest import (
     write_manifest,
 )
 from prefect_dbt.core._executor import DbtExecutor, ExecutionResult
-from prefect_dbt.core._orchestrator import PrefectDbtOrchestrator, _emit_log_messages
-
-
-def _make_dbt_result(success: bool = True, exception: Exception | None = None):
-    """Create a minimal object mimicking dbtRunner().invoke() return value."""
-    result = MagicMock()
-    result.success = success
-    result.exception = exception
-    return result
-
+from prefect_dbt.core._orchestrator import (
+    ExecutionMode,
+    PrefectDbtOrchestrator,
+    _emit_log_messages,
+)
 
 # =============================================================================
 # TestOrchestratorInit
@@ -76,6 +71,28 @@ class TestOrchestratorInit:
             favor_state=False,
         )
 
+    def test_retries_rejected_in_per_wave(self, tmp_path):
+        manifest = write_manifest(tmp_path, {"nodes": {}, "sources": {}})
+        with pytest.raises(ValueError, match="Retries are only supported in PER_NODE"):
+            PrefectDbtOrchestrator(
+                settings=_make_mock_settings(),
+                manifest_path=manifest,
+                executor=_make_mock_executor(),
+                execution_mode=ExecutionMode.PER_WAVE,
+                retries=1,
+            )
+
+    def test_retries_zero_allowed_in_per_wave(self, tmp_path):
+        manifest = write_manifest(tmp_path, {"nodes": {}, "sources": {}})
+        orch = PrefectDbtOrchestrator(
+            settings=_make_mock_settings(),
+            manifest_path=manifest,
+            executor=_make_mock_executor(),
+            execution_mode=ExecutionMode.PER_WAVE,
+            retries=0,
+        )
+        assert orch._retries == 0
+
 
 # =============================================================================
 # TestResolveManifestPath
@@ -93,131 +110,44 @@ class TestResolveManifestPath:
 
         assert orch._resolve_manifest_path() == manifest
 
-    def test_auto_detect_from_settings(self, tmp_path):
-        # Set up settings so project_dir/target_path/manifest.json exists
-        target_dir = tmp_path / "target"
-        target_dir.mkdir()
-        manifest = target_dir / "manifest.json"
-        manifest.write_text("{}")
-
-        settings = _make_mock_settings(
-            project_dir=tmp_path,
-            target_path=Path("target"),
-        )
-        orch = PrefectDbtOrchestrator(
-            settings=settings,
-            executor=_make_mock_executor(),
-        )
-
-        assert orch._resolve_manifest_path() == manifest
-
-    @patch("prefect_dbt.core._orchestrator.dbtRunner")
-    def test_missing_triggers_dbt_parse(self, mock_runner_cls, tmp_path):
-        target_dir = tmp_path / "target"
-        target_dir.mkdir()
-        manifest_path = target_dir / "manifest.json"
-
-        def _write_manifest(args):
-            manifest_path.write_text(json.dumps({"nodes": {}, "sources": {}}))
-            return _make_dbt_result(success=True)
-
-        mock_runner_cls.return_value.invoke.side_effect = _write_manifest
-
-        settings = _make_mock_settings(
-            project_dir=tmp_path,
-            target_path=Path("target"),
-        )
-        orch = PrefectDbtOrchestrator(
-            settings=settings,
-            executor=_make_mock_executor(),
-        )
-
-        result = orch._resolve_manifest_path()
-
-        assert result == manifest_path
-        mock_runner_cls.return_value.invoke.assert_called_once()
-        call_args = mock_runner_cls.return_value.invoke.call_args[0][0]
-        assert call_args[0] == "parse"
-
-    @patch("prefect_dbt.core._orchestrator.dbtRunner")
-    def test_missing_dbt_parse_failure_raises(self, mock_runner_cls, tmp_path):
-        target_dir = tmp_path / "target"
-        target_dir.mkdir()
-
-        mock_runner_cls.return_value.invoke.return_value = _make_dbt_result(
-            success=False, exception=RuntimeError("compilation error")
-        )
-
-        settings = _make_mock_settings(
-            project_dir=tmp_path,
-            target_path=Path("target"),
-        )
-        orch = PrefectDbtOrchestrator(
-            settings=settings,
-            executor=_make_mock_executor(),
-        )
-
-        with pytest.raises(RuntimeError, match="Failed to generate manifest"):
-            orch._resolve_manifest_path()
-
-    @patch("prefect_dbt.core._orchestrator.dbtRunner")
-    def test_missing_explicit_path_triggers_dbt_parse(self, mock_runner_cls, tmp_path):
-        manifest_path = tmp_path / "custom" / "manifest.json"
-        (tmp_path / "custom").mkdir()
-
-        def _write_manifest(args):
-            manifest_path.write_text(json.dumps({"nodes": {}, "sources": {}}))
-            return _make_dbt_result(success=True)
-
-        mock_runner_cls.return_value.invoke.side_effect = _write_manifest
-
-        orch = PrefectDbtOrchestrator(
-            settings=_make_mock_settings(),
-            manifest_path=manifest_path,
-            executor=_make_mock_executor(),
-        )
-
-        result = orch._resolve_manifest_path()
-
-        assert result == manifest_path
-        mock_runner_cls.return_value.invoke.assert_called_once()
-
-    @patch("prefect_dbt.core._orchestrator.dbtRunner")
-    def test_parse_succeeds_but_manifest_still_missing_raises(
-        self, mock_runner_cls, tmp_path
-    ):
-        target_dir = tmp_path / "target"
-        target_dir.mkdir()
-
-        mock_runner_cls.return_value.invoke.return_value = _make_dbt_result(
-            success=True
-        )
-
-        settings = _make_mock_settings(
-            project_dir=tmp_path,
-            target_path=Path("target"),
-        )
-        orch = PrefectDbtOrchestrator(
-            settings=settings,
-            executor=_make_mock_executor(),
-        )
-
-        with pytest.raises(RuntimeError, match="succeeded but manifest not found"):
-            orch._resolve_manifest_path()
-
     def test_existing_manifest_does_not_trigger_parse(self, tmp_path):
         manifest = write_manifest(tmp_path, {"nodes": {}, "sources": {}})
+        executor = _make_mock_executor()
         orch = PrefectDbtOrchestrator(
             settings=_make_mock_settings(),
             manifest_path=manifest,
-            executor=_make_mock_executor(),
+            executor=executor,
         )
 
-        with patch("prefect_dbt.core._orchestrator.dbtRunner") as mock_runner_cls:
-            result = orch._resolve_manifest_path()
+        result = orch._resolve_manifest_path()
 
         assert result == manifest
-        mock_runner_cls.return_value.invoke.assert_not_called()
+        executor.resolve_manifest_path.assert_not_called()
+
+    def test_executor_called_when_no_explicit_path(self, tmp_path):
+        target_dir = tmp_path / "target"
+        target_dir.mkdir()
+        manifest = write_manifest(target_dir, {"nodes": {}, "sources": {}})
+
+        executor = _make_mock_executor()
+        executor.resolve_manifest_path.return_value = manifest
+
+        settings = _make_mock_settings(
+            project_dir=tmp_path,
+            target_path=Path("target"),
+        )
+        orch = PrefectDbtOrchestrator(
+            settings=settings,
+            executor=executor,
+        )
+
+        result = orch._resolve_manifest_path()
+
+        assert result == manifest
+        executor.resolve_manifest_path.assert_called_once()
+        # Path and target_path should be cached
+        assert orch._manifest_path == manifest
+        assert orch._settings.target_path == manifest.parent
 
 
 # =============================================================================
@@ -503,8 +433,8 @@ class TestRunBuildFailure:
         assert error["message"] == "bad config"
         assert error["type"] == "ValueError"
 
-    def test_error_without_exception(self, tmp_path):
-        """Wave failure with no exception object still produces error info."""
+    def test_error_without_exception_no_artifacts(self, tmp_path):
+        """Wave failure with no exception and no artifacts falls back to unknown error."""
         data = {
             "nodes": {
                 "model.test.m1": {
@@ -534,6 +464,94 @@ class TestRunBuildFailure:
         assert result["model.test.m1"]["status"] == "error"
         assert result["model.test.m1"]["error"]["message"] == "unknown error"
         assert result["model.test.m1"]["error"]["type"] == "UnknownError"
+
+    def test_error_without_exception_uses_artifact_message(self, tmp_path):
+        """Wave failure with no exception extracts error from per-node artifacts."""
+        data = {
+            "nodes": {
+                "model.test.m1": {
+                    "name": "m1",
+                    "resource_type": "model",
+                    "depends_on": {"nodes": []},
+                    "config": {"materialized": "table"},
+                }
+            },
+            "sources": {},
+        }
+        manifest = write_manifest(tmp_path, data)
+
+        executor = MagicMock(spec=DbtExecutor)
+        executor.execute_wave.return_value = ExecutionResult(
+            success=False,
+            node_ids=["model.test.m1"],
+            error=None,
+            artifacts={
+                "model.test.m1": {
+                    "status": "error",
+                    "message": 'relation "raw.nonexistent_table" does not exist',
+                    "execution_time": 0.5,
+                }
+            },
+        )
+
+        orch = PrefectDbtOrchestrator(
+            settings=_make_mock_settings(),
+            manifest_path=manifest,
+            executor=executor,
+        )
+
+        result = orch.run_build()
+
+        assert result["model.test.m1"]["status"] == "error"
+        assert (
+            result["model.test.m1"]["error"]["message"]
+            == 'relation "raw.nonexistent_table" does not exist'
+        )
+
+    def test_error_artifact_message_preferred_over_exception(self, tmp_path):
+        """Per-node artifact message takes precedence over wave-level exception."""
+        data = {
+            "nodes": {
+                "model.test.m1": {
+                    "name": "m1",
+                    "resource_type": "model",
+                    "depends_on": {"nodes": []},
+                    "config": {"materialized": "table"},
+                }
+            },
+            "sources": {},
+        }
+        manifest = write_manifest(tmp_path, data)
+
+        executor = MagicMock(spec=DbtExecutor)
+        executor.execute_wave.return_value = ExecutionResult(
+            success=False,
+            node_ids=["model.test.m1"],
+            error=RuntimeError("generic wave error"),
+            artifacts={
+                "model.test.m1": {
+                    "status": "error",
+                    "message": 'Database Error: relation "raw.missing" does not exist',
+                    "execution_time": 0.3,
+                }
+            },
+        )
+
+        orch = PrefectDbtOrchestrator(
+            settings=_make_mock_settings(),
+            manifest_path=manifest,
+            executor=executor,
+        )
+
+        result = orch.run_build()
+
+        assert result["model.test.m1"]["status"] == "error"
+        assert (
+            result["model.test.m1"]["error"]["message"]
+            == 'Database Error: relation "raw.missing" does not exist'
+        )
+        # type still comes from the exception when present
+        assert result["model.test.m1"]["error"]["type"] == "RuntimeError"
 
     def test_executor_exception_caught(self, tmp_path, linear_manifest_data):
         """If execute_wave raises, the wave gets error status and downstream is skipped."""
@@ -748,11 +766,13 @@ class TestRunBuildWithSelectors:
     def test_default_target_path_from_settings(
         self, mock_resolve, tmp_path, diamond_manifest_data
     ):
-        """When no manifest_path, target_path comes from settings."""
+        """When no manifest_path, executor.resolve_manifest_path() is called and
+        target_path is updated to the manifest's parent directory."""
         # Set up so auto-detected manifest exists
         target_dir = tmp_path / "my_target"
         target_dir.mkdir()
-        (target_dir / "manifest.json").write_text(json.dumps(diamond_manifest_data))
+        manifest_path = target_dir / "manifest.json"
+        manifest_path.write_text(json.dumps(diamond_manifest_data))
         mock_resolve.return_value = {"model.test.root"}
 
         settings = _make_mock_settings(
@@ -760,6 +780,7 @@ class TestRunBuildWithSelectors:
             target_path=Path("my_target"),
         )
         executor = _make_mock_executor()
+        executor.resolve_manifest_path.return_value = manifest_path
         orch = PrefectDbtOrchestrator(
             settings=settings,
             executor=executor,
@@ -768,7 +789,7 @@ class TestRunBuildWithSelectors:
         orch.run_build(select="tag:daily")
 
         mock_resolve.assert_called_once()
-        assert mock_resolve.call_args.kwargs["target_path"] == Path("my_target")
+        assert mock_resolve.call_args.kwargs["target_path"] == target_dir
 
 
 # =============================================================================

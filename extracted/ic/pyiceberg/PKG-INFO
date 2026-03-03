@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyiceberg
-Version: 0.11.0
+Version: 0.11.1
 Summary: Apache Iceberg is an open table format for huge analytic datasets
 Author-email: Apache Software Foundation <dev@iceberg.apache.org>
 License-Expression: Apache-2.0

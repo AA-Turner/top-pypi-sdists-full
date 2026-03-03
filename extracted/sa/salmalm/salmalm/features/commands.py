@@ -526,9 +526,8 @@ class CommandRouter:
         try:
             from salmalm.security.exec_approvals import check_approval
 
-            approved, _reason, _needs_confirm = check_approval(shell_cmd)
-            if not approved:
-                return f"🚫 Exec not approved ({_reason}). Use /approve to allow."
+            if not check_approval("bash", shell_cmd):
+                return "🚫 Exec not approved. Use /approve to allow."
         except ImportError:
             return "🚫 Security module unavailable — exec denied."
         except Exception:

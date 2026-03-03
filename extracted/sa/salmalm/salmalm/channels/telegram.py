@@ -534,10 +534,8 @@ class TelegramBot(TelegramCommandsMixin, TelegramMediaMixin):
             filename = f"file_{int(time.time())}"
         url = f"https://api.telegram.org/file/bot{self.token}/{file_path}"
         req = urllib.request.Request(url)
-        # BUG-CX fix: cap download to 50MB — prevents memory exhaustion on large files
-        _MAX_DOWNLOAD = 50 * 1024 * 1024
         with urllib.request.urlopen(req, timeout=30) as resp:
-            data = resp.read(_MAX_DOWNLOAD)
+            data = resp.read()
         return data, filename
 
     async def _handle_callback_query(self, cb: dict) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: evalidate
-Version: 2.1.3
+Version: 2.1.4
 Summary: Validation and secure evaluation of untrusted python expressions
 Project-URL: Homepage, https://github.com/yaroslaff/evalidate
 Project-URL: Issues, https://github.com/yaroslaff/evalidate/issues

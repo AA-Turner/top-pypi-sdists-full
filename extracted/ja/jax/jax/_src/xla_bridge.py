@@ -116,6 +116,14 @@ FORCE_DCN_CROSS_HOST_TRANSFERS = config.bool_flag(
          "even when the plugin supports cross-host transfers."
 )
 
+SORT_DEVICES_BY_PROCESS_INDEX = config.bool_flag(
+    name="jax_sort_devices_by_process_index",
+    default=True,
+    help="Sort JAX devices by process index first, then by device id. "
+         "If False, sort devices only by device id, which preserves the "
+         "global device ordering assigned by the PJRT client."
+)
+
 CROSS_HOST_TRANSFER_SOCKET_ADDRESS = config.string_flag(
     name="jax_cross_host_transfer_socket_address",
     default="",
@@ -197,20 +205,23 @@ def make_tpu_client(
     _jax.initialize_pjrt_plugin('tpu')
   if options is None:
     options = {}
-  if jaxlib_extension_version < 397:
+  if jaxlib_extension_version >= 410:
     return _jax.get_c_api_client(
         "tpu",
         options,
         distributed.global_state.client,
         _make_transfer_server_factory(),
+        FORCE_DCN_CROSS_HOST_TRANSFERS.value,
+        SORT_DEVICES_BY_PROCESS_INDEX.value,
     )
-  return _jax.get_c_api_client(
-      "tpu",
-      options,
-      distributed.global_state.client,
-      _make_transfer_server_factory(),
-      FORCE_DCN_CROSS_HOST_TRANSFERS.value,
-  )
+  else:
+    return _jax.get_c_api_client(
+        "tpu",
+        options,
+        distributed.global_state.client,
+        _make_transfer_server_factory(),
+        FORCE_DCN_CROSS_HOST_TRANSFERS.value,
+    )
 
 
 def tpu_client_timer_callback(timer_secs: float) -> xla_client.Client | None:
@@ -286,9 +297,6 @@ _plugin_callback_lock = threading.Lock()
 # that a reasonable feature set is implemented and the plugin fails gracefully
 # for unimplemented features. Wrong outputs are not acceptable.
 _nonexperimental_plugins: set[str] = {'cuda', 'rocm'}
-
-# The set of known experimental plugins that have registrations in JAX codebase.
-_experimental_plugins: set[str] = {"METAL"}
 
 def register_backend_factory(name: str, factory: BackendFactory, *,
                              priority: int = 0,
@@ -560,20 +568,23 @@ def make_pjrt_c_api_client(
     distribute_options['partition_index'] = partition_index
   if options is not None:
     distribute_options.update(updated_options)
-  if jaxlib_extension_version < 397:
+  if jaxlib_extension_version >= 410:
     return xla_client.make_c_api_client(
         plugin_name,
         distribute_options,
         distributed.global_state.client,
         _make_transfer_server_factory(),
+        FORCE_DCN_CROSS_HOST_TRANSFERS.value,
+        SORT_DEVICES_BY_PROCESS_INDEX.value,
     )
-  return xla_client.make_c_api_client(
-      plugin_name,
-      distribute_options,
-      distributed.global_state.client,
-      _make_transfer_server_factory(),
-      FORCE_DCN_CROSS_HOST_TRANSFERS.value,
-  )
+  else:
+    return xla_client.make_c_api_client(
+        plugin_name,
+        distribute_options,
+        distributed.global_state.client,
+        _make_transfer_server_factory(),
+        FORCE_DCN_CROSS_HOST_TRANSFERS.value,
+    )
 
 
 def register_plugin(
@@ -708,7 +719,6 @@ for _platform, _alias in _platform_aliases.items():
 def known_platforms() -> set[str]:
   platforms = set()
   platforms |= set(_nonexperimental_plugins)
-  platforms |= set(_experimental_plugins)
   platforms |= set(_backend_factories.keys())
   platforms |= set(_platform_aliases.values())
   return platforms
@@ -749,9 +759,6 @@ def expand_platform_alias(platform: str) -> list[str]:
   in many respects since they share most of the same code.
   """
   return _alias_to_platforms.get(platform, [platform])
-
-def is_gpu(platform):
-  return platform in ("cuda", "rocm")
 
 
 def backends_are_initialized() -> bool:
@@ -1115,7 +1122,7 @@ def process_index(
 # TODO: remove this sometime after jax 0.2.13 is released
 def host_id(backend: str | xla_client.Client | None = None) -> int:
   warnings.warn(
-      "jax.host_id has been renamed to jax.process_index. This alias "
+      "jax.process_index has been renamed to jax.process_index. This alias "
       "will eventually be removed; please update your code.")
   return process_index(backend)
 
@@ -1132,7 +1139,7 @@ def process_count(
 # TODO: remove this sometime after jax 0.2.13 is released
 def host_count(backend: str | xla_client.Client | None = None) -> int:
   warnings.warn(
-      "jax.host_count has been renamed to jax.process_count. This alias "
+      "jax.process_count has been renamed to jax.process_count. This alias "
       "will eventually be removed; please update your code.")
   return process_count(backend)
 
@@ -1158,7 +1165,7 @@ def host_ids(
     backend: str | xla_client.Client | None = None
 ) -> list[int]:
   warnings.warn(
-      "jax.host_ids has been renamed to jax.process_indices. This alias "
+      "jax.process_indexs has been renamed to jax.process_indices. This alias "
       "will eventually be removed; please update your code.")
   return process_indices(backend)
 

@@ -1165,10 +1165,12 @@ from ..interfaces.aws_autoscaling import (
     IScalingPolicyRef as _IScalingPolicyRef_fcca0de5
 )
 from ..interfaces.aws_cloudwatch import (
+    AlarmMuteRuleReference as _AlarmMuteRuleReference_38cc9dfc,
     AlarmReference as _AlarmReference_76b2c14f,
     AnomalyDetectorReference as _AnomalyDetectorReference_11b9b19b,
     CompositeAlarmReference as _CompositeAlarmReference_bca78bf2,
     DashboardReference as _DashboardReference_71933abf,
+    IAlarmMuteRuleRef as _IAlarmMuteRuleRef_bf9ec4d2,
     IAlarmRef as _IAlarmRef_2bb0e5de,
     IAnomalyDetectorRef as _IAnomalyDetectorRef_824aa9dc,
     ICompositeAlarmRef as _ICompositeAlarmRef_fa51824d,
@@ -2908,6 +2910,686 @@ class CfnAlarm(
             return "MetricStatProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
+
+
+@jsii.implements(_IInspectable_c2943556, _IAlarmMuteRuleRef_bf9ec4d2, _ITaggableV2_4e6798f8)
+class CfnAlarmMuteRule(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmMuteRule",
+):
+    '''Resource Type definition for AWS::CloudWatch::AlarmMuteRule that allows defining a rule and targeting alarms to mute their actions during the specified window.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html
+    :cloudformationResource: AWS::CloudWatch::AlarmMuteRule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_alarm_mute_rule = cloudwatch.CfnAlarmMuteRule(self, "MyCfnAlarmMuteRule",
+            rule=cloudwatch.CfnAlarmMuteRule.RuleProperty(
+                schedule=cloudwatch.CfnAlarmMuteRule.ScheduleProperty(
+                    duration="duration",
+                    expression="expression",
+        
+                    # the properties below are optional
+                    timezone="timezone"
+                )
+            ),
+        
+            # the properties below are optional
+            description="description",
+            expire_date="expireDate",
+            mute_targets=cloudwatch.CfnAlarmMuteRule.MuteTargetsProperty(
+                alarm_names=["alarmNames"]
+            ),
+            name="name",
+            start_date="startDate",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        expire_date: typing.Optional[builtins.str] = None,
+        mute_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.MuteTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        start_date: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::AlarmMuteRule``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param rule: The rule for the mute.
+        :param description: The description of the AlarmMuteRule.
+        :param expire_date: The date, with the same timezone offset as "ScheduleTimezone" after which the alarm mute rule will be expired.
+        :param mute_targets: Targets to be muted.
+        :param name: The name of the AlarmMuteRule.
+        :param start_date: The date, with the same timezone offset as "ScheduleTimezone", after which the alarm mute rule will become active.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c215ee99182d454dd52f4be566428b858153bcfc97e5f338323b0f91a0c2e97)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAlarmMuteRuleProps(
+            rule=rule,
+            description=description,
+            expire_date=expire_date,
+            mute_targets=mute_targets,
+            name=name,
+            start_date=start_date,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAlarmMuteRule")
+    @builtins.classmethod
+    def arn_for_alarm_mute_rule(
+        cls,
+        resource: "_IAlarmMuteRuleRef_bf9ec4d2",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe099a7d25c059b9562273bad019797e289471d050012f67e516fa1ebeda778a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAlarmMuteRule", [resource]))
+
+    @jsii.member(jsii_name="isCfnAlarmMuteRule")
+    @builtins.classmethod
+    def is_cfn_alarm_mute_rule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAlarmMuteRule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5dfed2f26d753f5418fce20a45cb66b4ab6522735dfaacf375cb1ae457566383)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAlarmMuteRule", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4b6d2dfc4a201f712ecaf8c91974c00d0f0f95d7bd57c9048e32c436d2c5071)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ae46582b99e9603aa545bff45f3330b3813f8a036260af5bda9ee7d6ceb543f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmMuteRuleRef")
+    def alarm_mute_rule_ref(self) -> "_AlarmMuteRuleReference_38cc9dfc":
+        '''A reference to a AlarmMuteRule resource.'''
+        return typing.cast("_AlarmMuteRuleReference_38cc9dfc", jsii.get(self, "alarmMuteRuleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the AlarmMuteRule.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTimestamp")
+    def attr_last_updated_timestamp(self) -> builtins.str:
+        '''The last update timestamp of the alarm mute schedule.
+
+        :cloudformationAttribute: LastUpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMuteType")
+    def attr_mute_type(self) -> builtins.str:
+        '''The mute type of the alarm mute.
+
+        :cloudformationAttribute: MuteType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMuteType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the AlarmMuteRule.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rule")
+    def rule(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"]:
+        '''The rule for the mute.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"], jsii.get(self, "rule"))
+
+    @rule.setter
+    def rule(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89476ff7adb4652e60873b596820ab5489ae2968f368be3c23d664a7375f7773)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the AlarmMuteRule.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a5a183121f9a4e0aa6e399964f560ac2e8d54ad25a0c152763254f8cfdb2987)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expireDate")
+    def expire_date(self) -> typing.Optional[builtins.str]:
+        '''The date, with the same timezone offset as "ScheduleTimezone" after which the alarm mute rule will be expired.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expireDate"))
+
+    @expire_date.setter
+    def expire_date(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__370ee57900efeed106a238813eff098cbd0f275c94784bdf0039352cde0d879d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expireDate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="muteTargets")
+    def mute_targets(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]]:
+        '''Targets to be muted.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]], jsii.get(self, "muteTargets"))
+
+    @mute_targets.setter
+    def mute_targets(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1486f895eb9dd150cbd3af3855eb0a46045d8f1a06f8bcbb26d2ed030e840089)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "muteTargets", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the AlarmMuteRule.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f5173dfeb6c5dda02ee5ca6f489b32d8c27572267115e5344e1d681c34e08b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="startDate")
+    def start_date(self) -> typing.Optional[builtins.str]:
+        '''The date, with the same timezone offset as "ScheduleTimezone", after which the alarm mute rule will become active.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "startDate"))
+
+    @start_date.setter
+    def start_date(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4fbc0410d88e2f1299d48b36ee4b58db7f1cf30f3c94693bc036ecc3e3dea8d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "startDate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0ae573a6e39166514ee198bfdb2f176cc010f6cdbc3b288db93aaae6fdc51e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmMuteRule.MuteTargetsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_names": "alarmNames"},
+    )
+    class MuteTargetsProperty:
+        def __init__(self, *, alarm_names: typing.Sequence[builtins.str]) -> None:
+            '''Targets to be muted.
+
+            :param alarm_names: The alarm names to be mute by the AlarmMuteRule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-mutetargets.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                mute_targets_property = cloudwatch.CfnAlarmMuteRule.MuteTargetsProperty(
+                    alarm_names=["alarmNames"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__117edea88b67dcd6ecc02715528e016b4d39906d7b9dc1cbc0a99e1a9c50fb84)
+                check_type(argname="argument alarm_names", value=alarm_names, expected_type=type_hints["alarm_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "alarm_names": alarm_names,
+            }
+
+        @builtins.property
+        def alarm_names(self) -> typing.List[builtins.str]:
+            '''The alarm names to be mute by the AlarmMuteRule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-mutetargets.html#cfn-cloudwatch-alarmmuterule-mutetargets-alarmnames
+            '''
+            result = self._values.get("alarm_names")
+            assert result is not None, "Required property 'alarm_names' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MuteTargetsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmMuteRule.RuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"schedule": "schedule"},
+    )
+    class RuleProperty:
+        def __init__(
+            self,
+            *,
+            schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The rule for the mute.
+
+            :param schedule: Schedule for the mute to be active.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-rule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                rule_property = cloudwatch.CfnAlarmMuteRule.RuleProperty(
+                    schedule=cloudwatch.CfnAlarmMuteRule.ScheduleProperty(
+                        duration="duration",
+                        expression="expression",
+                
+                        # the properties below are optional
+                        timezone="timezone"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1c2031402cbbae993effde5b6bdf6177119f90d5b54b5a91af2b09facdc9818a)
+                check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "schedule": schedule,
+            }
+
+        @builtins.property
+        def schedule(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.ScheduleProperty"]:
+            '''Schedule for the mute to be active.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-rule.html#cfn-cloudwatch-alarmmuterule-rule-schedule
+            '''
+            result = self._values.get("schedule")
+            assert result is not None, "Required property 'schedule' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.ScheduleProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmMuteRule.ScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "duration": "duration",
+            "expression": "expression",
+            "timezone": "timezone",
+        },
+    )
+    class ScheduleProperty:
+        def __init__(
+            self,
+            *,
+            duration: builtins.str,
+            expression: builtins.str,
+            timezone: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Schedule for the mute to be active.
+
+            :param duration: The duration of the schedule when it triggers.
+            :param expression: The expression of the schedule.
+            :param timezone: The timezone of the schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-schedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                schedule_property = cloudwatch.CfnAlarmMuteRule.ScheduleProperty(
+                    duration="duration",
+                    expression="expression",
+                
+                    # the properties below are optional
+                    timezone="timezone"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4f2614a943b8467ca4e82510570c1d1a7dfac166ee9b35e1aaba6bba3d8b1d5f)
+                check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+                check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "duration": duration,
+                "expression": expression,
+            }
+            if timezone is not None:
+                self._values["timezone"] = timezone
+
+        @builtins.property
+        def duration(self) -> builtins.str:
+            '''The duration of the schedule when it triggers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-schedule.html#cfn-cloudwatch-alarmmuterule-schedule-duration
+            '''
+            result = self._values.get("duration")
+            assert result is not None, "Required property 'duration' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def expression(self) -> builtins.str:
+            '''The expression of the schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-schedule.html#cfn-cloudwatch-alarmmuterule-schedule-expression
+            '''
+            result = self._values.get("expression")
+            assert result is not None, "Required property 'expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timezone(self) -> typing.Optional[builtins.str]:
+            '''The timezone of the schedule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarmmuterule-schedule.html#cfn-cloudwatch-alarmmuterule-schedule-timezone
+            '''
+            result = self._values.get("timezone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmMuteRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "rule": "rule",
+        "description": "description",
+        "expire_date": "expireDate",
+        "mute_targets": "muteTargets",
+        "name": "name",
+        "start_date": "startDate",
+        "tags": "tags",
+    },
+)
+class CfnAlarmMuteRuleProps:
+    def __init__(
+        self,
+        *,
+        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        expire_date: typing.Optional[builtins.str] = None,
+        mute_targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarmMuteRule.MuteTargetsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        start_date: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAlarmMuteRule``.
+
+        :param rule: The rule for the mute.
+        :param description: The description of the AlarmMuteRule.
+        :param expire_date: The date, with the same timezone offset as "ScheduleTimezone" after which the alarm mute rule will be expired.
+        :param mute_targets: Targets to be muted.
+        :param name: The name of the AlarmMuteRule.
+        :param start_date: The date, with the same timezone offset as "ScheduleTimezone", after which the alarm mute rule will become active.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_alarm_mute_rule_props = cloudwatch.CfnAlarmMuteRuleProps(
+                rule=cloudwatch.CfnAlarmMuteRule.RuleProperty(
+                    schedule=cloudwatch.CfnAlarmMuteRule.ScheduleProperty(
+                        duration="duration",
+                        expression="expression",
+            
+                        # the properties below are optional
+                        timezone="timezone"
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                expire_date="expireDate",
+                mute_targets=cloudwatch.CfnAlarmMuteRule.MuteTargetsProperty(
+                    alarm_names=["alarmNames"]
+                ),
+                name="name",
+                start_date="startDate",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__590f6431c7c9e27a95df0905aa68866874ddf2ae7968ce073c525a84dcdc1b29)
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument expire_date", value=expire_date, expected_type=type_hints["expire_date"])
+            check_type(argname="argument mute_targets", value=mute_targets, expected_type=type_hints["mute_targets"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument start_date", value=start_date, expected_type=type_hints["start_date"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rule": rule,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if expire_date is not None:
+            self._values["expire_date"] = expire_date
+        if mute_targets is not None:
+            self._values["mute_targets"] = mute_targets
+        if name is not None:
+            self._values["name"] = name
+        if start_date is not None:
+            self._values["start_date"] = start_date
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def rule(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"]:
+        '''The rule for the mute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-rule
+        '''
+        result = self._values.get("rule")
+        assert result is not None, "Required property 'rule' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.RuleProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the AlarmMuteRule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expire_date(self) -> typing.Optional[builtins.str]:
+        '''The date, with the same timezone offset as "ScheduleTimezone" after which the alarm mute rule will be expired.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-expiredate
+        '''
+        result = self._values.get("expire_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def mute_targets(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]]:
+        '''Targets to be muted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-mutetargets
+        '''
+        result = self._values.get("mute_targets")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarmMuteRule.MuteTargetsProperty"]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the AlarmMuteRule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start_date(self) -> typing.Optional[builtins.str]:
+        '''The date, with the same timezone offset as "ScheduleTimezone", after which the alarm mute rule will become active.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-startdate
+        '''
+        result = self._values.get("start_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarmmuterule.html#cfn-cloudwatch-alarmmuterule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAlarmMuteRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -17143,6 +17825,8 @@ __all__ = [
     "AnomalyDetectionAlarmProps",
     "AnomalyDetectionMetricOptions",
     "CfnAlarm",
+    "CfnAlarmMuteRule",
+    "CfnAlarmMuteRuleProps",
     "CfnAlarmProps",
     "CfnAnomalyDetector",
     "CfnAnomalyDetectorProps",
@@ -17544,6 +18228,123 @@ def _typecheckingstub__1dccb5e7c21aab3526dfa08bb25fc1fac8540f50228147e0db89d426f
     period: jsii.Number,
     stat: builtins.str,
     unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c215ee99182d454dd52f4be566428b858153bcfc97e5f338323b0f91a0c2e97(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    expire_date: typing.Optional[builtins.str] = None,
+    mute_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.MuteTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    start_date: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe099a7d25c059b9562273bad019797e289471d050012f67e516fa1ebeda778a(
+    resource: _IAlarmMuteRuleRef_bf9ec4d2,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dfed2f26d753f5418fce20a45cb66b4ab6522735dfaacf375cb1ae457566383(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4b6d2dfc4a201f712ecaf8c91974c00d0f0f95d7bd57c9048e32c436d2c5071(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ae46582b99e9603aa545bff45f3330b3813f8a036260af5bda9ee7d6ceb543f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89476ff7adb4652e60873b596820ab5489ae2968f368be3c23d664a7375f7773(
+    value: typing.Union[_IResolvable_da3f097b, CfnAlarmMuteRule.RuleProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a5a183121f9a4e0aa6e399964f560ac2e8d54ad25a0c152763254f8cfdb2987(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__370ee57900efeed106a238813eff098cbd0f275c94784bdf0039352cde0d879d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1486f895eb9dd150cbd3af3855eb0a46045d8f1a06f8bcbb26d2ed030e840089(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAlarmMuteRule.MuteTargetsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f5173dfeb6c5dda02ee5ca6f489b32d8c27572267115e5344e1d681c34e08b7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4fbc0410d88e2f1299d48b36ee4b58db7f1cf30f3c94693bc036ecc3e3dea8d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0ae573a6e39166514ee198bfdb2f176cc010f6cdbc3b288db93aaae6fdc51e8(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__117edea88b67dcd6ecc02715528e016b4d39906d7b9dc1cbc0a99e1a9c50fb84(
+    *,
+    alarm_names: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c2031402cbbae993effde5b6bdf6177119f90d5b54b5a91af2b09facdc9818a(
+    *,
+    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f2614a943b8467ca4e82510570c1d1a7dfac166ee9b35e1aaba6bba3d8b1d5f(
+    *,
+    duration: builtins.str,
+    expression: builtins.str,
+    timezone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__590f6431c7c9e27a95df0905aa68866874ddf2ae7968ce073c525a84dcdc1b29(
+    *,
+    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    expire_date: typing.Optional[builtins.str] = None,
+    mute_targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarmMuteRule.MuteTargetsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    start_date: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

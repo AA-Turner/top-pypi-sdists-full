@@ -36,6 +36,7 @@ class Build(object):
         'application_template_id': 'str',
         'config_json': 'AppConfigConfigSchema',
         'containerfile': 'str',
+        'containerfile_path': 'str',
         'docker_image_name': 'str',
         'registry_login_secret': 'str',
         'ray_version': 'str',
@@ -57,6 +58,7 @@ class Build(object):
         'application_template_id': 'application_template_id',
         'config_json': 'config_json',
         'containerfile': 'containerfile',
+        'containerfile_path': 'containerfile_path',
         'docker_image_name': 'docker_image_name',
         'registry_login_secret': 'registry_login_secret',
         'ray_version': 'ray_version',
@@ -74,7 +76,7 @@ class Build(object):
         'digest': 'digest'
     }
 
-    def __init__(self, application_template_id=None, config_json=None, containerfile=None, docker_image_name=None, registry_login_secret=None, ray_version=None, id=None, application_template=None, revision=None, creator_id=None, error_message=None, status=None, created_at=None, last_modified_at=None, deleted_at=None, is_byod=None, cloud_id=None, digest=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, application_template_id=None, config_json=None, containerfile=None, containerfile_path=None, docker_image_name=None, registry_login_secret=None, ray_version=None, id=None, application_template=None, revision=None, creator_id=None, error_message=None, status=None, created_at=None, last_modified_at=None, deleted_at=None, is_byod=None, cloud_id=None, digest=None, local_vars_configuration=None):  # noqa: E501
         """Build - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,6 +85,7 @@ class Build(object):
         self._application_template_id = None
         self._config_json = None
         self._containerfile = None
+        self._containerfile_path = None
         self._docker_image_name = None
         self._registry_login_secret = None
         self._ray_version = None
@@ -105,6 +108,8 @@ class Build(object):
             self.config_json = config_json
         if containerfile is not None:
             self.containerfile = containerfile
+        if containerfile_path is not None:
+            self.containerfile_path = containerfile_path
         if docker_image_name is not None:
             self.docker_image_name = docker_image_name
         if registry_login_secret is not None:
@@ -198,6 +203,29 @@ class Build(object):
         """
 
         self._containerfile = containerfile
+
+    @property
+    def containerfile_path(self):
+        """Gets the containerfile_path of this Build.  # noqa: E501
+
+        The original file path of the containerfile.  # noqa: E501
+
+        :return: The containerfile_path of this Build.  # noqa: E501
+        :rtype: str
+        """
+        return self._containerfile_path
+
+    @containerfile_path.setter
+    def containerfile_path(self, containerfile_path):
+        """Sets the containerfile_path of this Build.
+
+        The original file path of the containerfile.  # noqa: E501
+
+        :param containerfile_path: The containerfile_path of this Build.  # noqa: E501
+        :type: str
+        """
+
+        self._containerfile_path = containerfile_path
 
     @property
     def docker_image_name(self):

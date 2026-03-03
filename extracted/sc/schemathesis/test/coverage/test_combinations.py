@@ -12,6 +12,7 @@ from schemathesis.generation.coverage import (
     CoverageContext,
     CoverageScenario,
     GeneratedValue,
+    _cover_positive_for_type,
     _positive_number,
     _positive_string,
     cover_schema_iter,
@@ -31,7 +32,10 @@ def assert_unique(values: list):
         if isinstance(value, GeneratedValue):
             value = value.value
         if isinstance(value, (dict | list)):
-            serialized = json.dumps(value, sort_keys=True)
+            try:
+                serialized = jsonschema_rs.canonical.json.to_string(value)
+            except ValueError:
+                serialized = json.dumps(value, sort_keys=True)
             key = (type(value), serialized)
         else:
             key = (type(value), value)
@@ -1909,6 +1913,72 @@ def test_not_schema_generation_modes_consistency(
     )
 
 
+@pytest.mark.parametrize(
+    ("schema", "ty"),
+    [
+        (
+            {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+            "object",
+        ),
+        (
+            {"type": "array", "items": {"type": "string"}, "minItems": 1},
+            "array",
+        ),
+        (
+            {"properties": {"name": {"type": "string"}}, "required": ["name"]},
+            None,
+        ),
+    ],
+    ids=["object", "array", "implicit-object"],
+)
+def test_cover_positive_for_type_skips_template_generation_in_negative_mode(ctx_factory, schema, ty, monkeypatch):
+    ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE])
+    calls = 0
+    original = CoverageContext.generate_from_schema
+
+    def wrapped(self, schema):
+        nonlocal calls
+        calls += 1
+        return original(self, schema)
+
+    monkeypatch.setattr(CoverageContext, "generate_from_schema", wrapped)
+
+    values = list(_cover_positive_for_type(ctx, schema, ty))
+
+    assert values == []
+    assert calls == 0
+
+
+def test_generate_from_schema_uses_cache_and_returns_fresh_copy(ctx_factory, monkeypatch):
+    ctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE])
+    calls = 0
+
+    def wrapped(self, strategy):
+        nonlocal calls
+        calls += 1
+        return {"cached": True}
+
+    monkeypatch.setattr(CoverageContext, "generate_from", wrapped)
+
+    schema_1 = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "additionalProperties": {"type": "string"},
+    }
+    schema_2 = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "additionalProperties": {"type": "string"},
+    }
+
+    first = ctx.generate_from_schema(schema_1)
+    first["mutated"] = True
+    second = ctx.generate_from_schema(schema_2)
+
+    assert calls == 1
+    assert second == {"cached": True}
+
+
 def test_items_false_with_prefix_items(pctx):
     schema = {
         "type": "array",
@@ -1973,3 +2043,129 @@ def test_negative_binary_string_type_violation(ctx_factory):
     ]
     assert len(non_string_values) > 0, "Should generate non-string type violations for binary format"
     assert_not_conform(covered, schema)
+
+
+def test_negative_oneof_with_binary_format_items(ctx_factory):
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    schema = {
+        "oneOf": [
+            {
+                "type": "array",
+                "items": {"type": "string", "format": "binary"},
+                "maxItems": 10,
+            },
+            {"type": "string"},
+        ]
+    }
+    covered = cover_schema(ctx, schema)
+    assert_unique(covered)
+
+
+def test_anyof_with_required_constraints(pctx):
+    # See GH-3520
+    schema = {
+        "type": "object",
+        "anyOf": [
+            {"required": ["name"]},
+            {"required": ["id"]},
+        ],
+        "properties": {
+            "type": {"type": "string"},
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+        },
+    }
+    covered = cover_schema(pctx, schema)
+    assert covered == [
+        {"type": "", "id": "", "name": ""},
+        {"id": "", "name": ""},
+        {"type": "", "name": ""},
+        {"name": ""},
+        {"type": "", "id": "", "name": ""},
+        {"id": "", "name": ""},
+        {"type": "", "id": ""},
+        {"id": ""},
+        {"id": "", "name": "", "type": ""},
+        {"id": "", "name": ""},
+        {"name": "", "type": ""},
+        {"name": ""},
+    ]
+    assert_conform(covered, schema)
+
+
+def test_merge_with_parent_context_bool_subschema(pctx):
+    schema = {
+        "type": "object",
+        "anyOf": [
+            True,
+            {"required": ["name"]},
+        ],
+        "properties": {
+            "name": {"type": "string"},
+        },
+    }
+    covered = cover_schema(pctx, schema)
+    object_values = [v for v in covered if isinstance(v, dict)]
+    assert len(object_values) > 0
+    assert_conform(object_values, schema)
+
+
+def test_merge_with_parent_context_merges_required_lists(pctx):
+    # Parent has `required` AND sub has `required` - the two lists get merged
+    schema = {
+        "type": "object",
+        "required": ["type"],
+        "anyOf": [
+            {"required": ["name"]},
+        ],
+        "properties": {
+            "type": {"type": "string"},
+            "name": {"type": "string"},
+        },
+    }
+    covered = cover_schema(pctx, schema)
+    assert_conform(covered, schema)
+    # The merged sub inherits "type" from parent and adds "name" from sub
+    assert all("type" in v and "name" in v for v in covered if isinstance(v, dict))
+
+
+def test_merge_with_parent_context_merges_properties_dicts(pctx):
+    # Parent has `properties` AND sub has `properties` - they get merged.
+    schema = {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string"},
+            "name": {"type": "string"},
+        },
+        "anyOf": [
+            {
+                "properties": {"id": {"type": "integer"}},
+                "required": ["name"],
+            },
+        ],
+    }
+    covered = cover_schema(pctx, schema)
+    assert_conform(covered, schema)
+    # The merged sub has access to parent's properties + sub's "id" property
+    assert any("id" in v for v in covered if isinstance(v, dict))
+
+
+def test_with_effective_required_break_when_no_extra_fields(pctx):
+    # break fires when the first dict sub-schema with `required` contributes no extra fields
+    # because all its required fields are already in the parent's required list
+    schema = {
+        "type": "object",
+        "required": ["name"],
+        "anyOf": [
+            {"required": ["name"]},  # "name" already required by parent -> extra=[] -> break
+            {"required": ["id"]},  # never reached due to break above
+        ],
+        "properties": {
+            "name": {"type": "string"},
+            "id": {"type": "string"},
+        },
+    }
+    covered = cover_schema(pctx, schema)
+    assert_conform(covered, schema)
+    # All positive values must include "name" (always required by parent)
+    assert all("name" in v for v in covered if isinstance(v, dict))

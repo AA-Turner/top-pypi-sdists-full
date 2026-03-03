@@ -2076,6 +2076,116 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def authorize_api_v2_entra_authorize_get(self, **kwargs):  # noqa: E501
+        """Authorize  # noqa: E501
+
+        Generate Microsoft Entra OAuth authorization URL.  This is the entry point for Entra OAuth flow. The frontend should redirect the user to the returned authorization_url.  Args:     organization_id: Organization ID for this OAuth flow. Optional for new user         registration; required for existing user login.  Returns:     Dictionary with authorization_url key  Raises:     HTTPException 400: If deployment is not Azure     HTTPException 500: If Entra OAuth client ID or secret is not configured  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.authorize_api_v2_entra_authorize_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: Organization ID for OAuth flow (optional for registration)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: object
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.authorize_api_v2_entra_authorize_get_with_http_info(**kwargs)  # noqa: E501
+
+    def authorize_api_v2_entra_authorize_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Authorize  # noqa: E501
+
+        Generate Microsoft Entra OAuth authorization URL.  This is the entry point for Entra OAuth flow. The frontend should redirect the user to the returned authorization_url.  Args:     organization_id: Organization ID for this OAuth flow. Optional for new user         registration; required for existing user login.  Returns:     Dictionary with authorization_url key  Raises:     HTTPException 400: If deployment is not Azure     HTTPException 500: If Entra OAuth client ID or secret is not configured  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.authorize_api_v2_entra_authorize_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str organization_id: Organization ID for OAuth flow (optional for registration)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(object, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'organization_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method authorize_api_v2_entra_authorize_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'organization_id' in local_var_params and local_var_params['organization_id'] is not None:  # noqa: E501
+            query_params.append(('organization_id', local_var_params['organization_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/entra/authorize', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='object',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def aws_marketplace_registration_api_v2_organization_billing_aws_marketplace_registration_post(self, x_amzn_marketplace_token, **kwargs):  # noqa: E501
         """Aws Marketplace Registration  # noqa: E501
 
@@ -2791,6 +2901,135 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='BatchResponseBatchedResultBulkDeleteArtifactResult',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def callback_api_v2_entra_callback_get(self, state, **kwargs):  # noqa: E501
+        """Callback  # noqa: E501
+
+        Handle OAuth callback from Microsoft Entra.  This endpoint: 1. Validates the state parameter 2. Exchanges the authorization code for tokens 3. Validates the ID token 4. Finds or creates the user 5. Creates a session and sets the session cookie 6. Redirects to the console (or to registration page with error on failure)  On authorization errors (user denied consent, etc.), Microsoft redirects here with error/error_description instead of a code (RFC 6749 §4.1.2.1).  Args:     state: State parameter for CSRF validation     code: Authorization code from Microsoft (absent on error)     error: OAuth error code (present when user denies consent or auth fails)     error_description: Human-readable error description  Returns:     Redirect to console home page on success, or registration page with error on failure  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.callback_api_v2_entra_callback_get(state, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str state: State parameter for CSRF validation (required)
+        :param str code: Authorization code from Microsoft
+        :param str error: OAuth error code from Microsoft
+        :param str error_description: OAuth error description from Microsoft
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: object
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.callback_api_v2_entra_callback_get_with_http_info(state, **kwargs)  # noqa: E501
+
+    def callback_api_v2_entra_callback_get_with_http_info(self, state, **kwargs):  # noqa: E501
+        """Callback  # noqa: E501
+
+        Handle OAuth callback from Microsoft Entra.  This endpoint: 1. Validates the state parameter 2. Exchanges the authorization code for tokens 3. Validates the ID token 4. Finds or creates the user 5. Creates a session and sets the session cookie 6. Redirects to the console (or to registration page with error on failure)  On authorization errors (user denied consent, etc.), Microsoft redirects here with error/error_description instead of a code (RFC 6749 §4.1.2.1).  Args:     state: State parameter for CSRF validation     code: Authorization code from Microsoft (absent on error)     error: OAuth error code (present when user denies consent or auth fails)     error_description: Human-readable error description  Returns:     Redirect to console home page on success, or registration page with error on failure  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.callback_api_v2_entra_callback_get_with_http_info(state, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str state: State parameter for CSRF validation (required)
+        :param str code: Authorization code from Microsoft
+        :param str error: OAuth error code from Microsoft
+        :param str error_description: OAuth error description from Microsoft
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(object, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'state',
+            'code',
+            'error',
+            'error_description'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method callback_api_v2_entra_callback_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'state' is set
+        if self.api_client.client_side_validation and ('state' not in local_var_params or  # noqa: E501
+                                                        local_var_params['state'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `state` when calling `callback_api_v2_entra_callback_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'state' in local_var_params and local_var_params['state'] is not None:  # noqa: E501
+            query_params.append(('state', local_var_params['state']))  # noqa: E501
+        if 'code' in local_var_params and local_var_params['code'] is not None:  # noqa: E501
+            query_params.append(('code', local_var_params['code']))  # noqa: E501
+        if 'error' in local_var_params and local_var_params['error'] is not None:  # noqa: E501
+            query_params.append(('error', local_var_params['error']))  # noqa: E501
+        if 'error_description' in local_var_params and local_var_params['error_description'] is not None:  # noqa: E501
+            query_params.append(('error_description', local_var_params['error_description']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/entra/callback', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='object',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -19451,6 +19690,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_job_config_api_v2_decorated_ha_jobs_production_job_id_config_get(self, production_job_id, **kwargs):  # noqa: E501
+        """Get job configuration  # noqa: E501
+
+        Returns the complete job configuration as originally submitted by the user, reconstructed from database tables.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_job_config_api_v2_decorated_ha_jobs_production_job_id_config_get(production_job_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str production_job_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: JobconfigresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_job_config_api_v2_decorated_ha_jobs_production_job_id_config_get_with_http_info(production_job_id, **kwargs)  # noqa: E501
+
+    def get_job_config_api_v2_decorated_ha_jobs_production_job_id_config_get_with_http_info(self, production_job_id, **kwargs):  # noqa: E501
+        """Get job configuration  # noqa: E501
+
+        Returns the complete job configuration as originally submitted by the user, reconstructed from database tables.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_job_config_api_v2_decorated_ha_jobs_production_job_id_config_get_with_http_info(production_job_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str production_job_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(JobconfigresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'production_job_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_job_config_api_v2_decorated_ha_jobs_production_job_id_config_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'production_job_id' is set
+        if self.api_client.client_side_validation and ('production_job_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['production_job_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `production_job_id` when calling `get_job_config_api_v2_decorated_ha_jobs_production_job_id_config_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'production_job_id' in local_var_params:
+            path_params['production_job_id'] = local_var_params['production_job_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/decorated_ha_jobs/{production_job_id}/config', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='JobconfigresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_job_events_api_v2_decorated_ha_jobs_production_job_id_events_get(self, production_job_id, **kwargs):  # noqa: E501
         """Get Job Events  # noqa: E501
 
@@ -23562,6 +23915,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param int count: the number of recent activity elements to fetch
+        :param str cloud_id: If provided, only return builds belonging to cluster environments in this cloud.
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -23587,6 +23941,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param int count: the number of recent activity elements to fetch
+        :param str cloud_id: If provided, only return builds belonging to cluster environments in this cloud.
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -23604,7 +23959,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'count'
+            'count',
+            'cloud_id'
         ]
         all_params.extend(
             [
@@ -23631,6 +23987,8 @@ class DefaultApi(object):
         query_params = []
         if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
             query_params.append(('count', local_var_params['count']))  # noqa: E501
+        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
 
         header_params = {}
 
@@ -30396,6 +30754,7 @@ class DefaultApi(object):
         :param str creator_id:
         :param str name_contains:
         :param str image_name_contains:
+        :param str cloud_id:
         :param bool include_archived: Whether to include archived cluster environments in the response.
         :param bool defaults_first: If True, we always return default cluster envs before user created cluster envs. If False, we always return default cluster envs after user created cluster envs. If absent, default to True. Note that we never intersperse default cluster envs with user created cluster envs.
         :param str paging_token:
@@ -30428,6 +30787,7 @@ class DefaultApi(object):
         :param str creator_id:
         :param str name_contains:
         :param str image_name_contains:
+        :param str cloud_id:
         :param bool include_archived: Whether to include archived cluster environments in the response.
         :param bool defaults_first: If True, we always return default cluster envs before user created cluster envs. If False, we always return default cluster envs after user created cluster envs. If absent, default to True. Note that we never intersperse default cluster envs with user created cluster envs.
         :param str paging_token:
@@ -30453,6 +30813,7 @@ class DefaultApi(object):
             'creator_id',
             'name_contains',
             'image_name_contains',
+            'cloud_id',
             'include_archived',
             'defaults_first',
             'paging_token',
@@ -30493,6 +30854,8 @@ class DefaultApi(object):
             query_params.append(('name_contains', local_var_params['name_contains']))  # noqa: E501
         if 'image_name_contains' in local_var_params and local_var_params['image_name_contains'] is not None:  # noqa: E501
             query_params.append(('image_name_contains', local_var_params['image_name_contains']))  # noqa: E501
+        if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
         if 'include_archived' in local_var_params and local_var_params['include_archived'] is not None:  # noqa: E501
             query_params.append(('include_archived', local_var_params['include_archived']))  # noqa: E501
         if 'defaults_first' in local_var_params and local_var_params['defaults_first'] is not None:  # noqa: E501

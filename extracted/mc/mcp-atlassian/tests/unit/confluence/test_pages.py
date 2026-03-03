@@ -2066,3 +2066,515 @@ class TestPageEmojiOAuth:
 
             mock_v2_adapter.set_page_emoji.assert_called_once_with(page_id, None)
             assert result is True
+
+
+class TestMovePage:
+    """Tests for the move_page method."""
+
+    @pytest.fixture
+    def pages_mixin(self, confluence_client):
+        """Create a PagesMixin instance for testing."""
+        with patch(
+            "mcp_atlassian.confluence.pages.ConfluenceClient.__init__"
+        ) as mock_init:
+            mock_init.return_value = None
+            mixin = PagesMixin()
+            mixin.confluence = confluence_client.confluence
+            mixin.config = confluence_client.config
+            mixin.preprocessor = confluence_client.preprocessor
+            return mixin
+
+    def test_move_page_to_new_parent_same_space(self, pages_mixin):
+        """Test moving a page to a new parent within the same space."""
+        page_id = "111"
+        target_parent_id = "222"
+
+        # Mock get_page_by_id to return target page with space info
+        pages_mixin.confluence.get_page_by_id.return_value = {
+            "id": target_parent_id,
+            "title": "Target Parent",
+            "space": {"key": "PROJ", "name": "Project"},
+            "version": {"number": 1},
+            "body": {"storage": {"value": "<p>Parent content</p>"}},
+        }
+
+        # Mock move_page
+        pages_mixin.confluence.move_page.return_value = {"status": "ok"}
+
+        # Mock get_page_content for the re-fetch after move
+        mock_moved_page = ConfluencePage(
+            id=page_id,
+            title="Moved Page",
+            content="Moved content",
+            space={"key": "PROJ", "name": "Project"},
+            version={"number": 2},
+        )
+        with patch.object(
+            pages_mixin, "get_page_content", return_value=mock_moved_page
+        ):
+            result = pages_mixin.move_page(
+                page_id=page_id, target_parent_id=target_parent_id
+            )
+
+        # Verify move_page was called with the correct space_key from the target
+        pages_mixin.confluence.move_page.assert_called_once_with(
+            "PROJ", page_id, target_id=target_parent_id, position="append"
+        )
+        assert isinstance(result, ConfluencePage)
+        assert result.id == page_id
+
+    def test_move_page_to_different_space_root(self, pages_mixin):
+        """Test moving a page to the root of a different space."""
+        page_id = "111"
+        target_space_key = "NEWSPACE"
+
+        # Mock move_page
+        pages_mixin.confluence.move_page.return_value = {"status": "ok"}
+
+        # Mock get_page_content for the re-fetch after move
+        mock_moved_page = ConfluencePage(
+            id=page_id,
+            title="Moved Page",
+            content="Moved content",
+            space={"key": target_space_key, "name": "New Space"},
+            version={"number": 2},
+        )
+        with patch.object(
+            pages_mixin, "get_page_content", return_value=mock_moved_page
+        ):
+            result = pages_mixin.move_page(
+                page_id=page_id, target_space_key=target_space_key
+            )
+
+        # Verify move_page was called with target_space_key and no target_id
+        pages_mixin.confluence.move_page.assert_called_once_with(
+            target_space_key, page_id, target_id=None, position="append"
+        )
+        assert isinstance(result, ConfluencePage)
+        assert result.space.key == target_space_key
+
+    def test_move_page_with_both_parent_and_space(self, pages_mixin):
+        """Test moving a page with both target_parent_id and target_space_key."""
+        page_id = "111"
+        target_parent_id = "333"
+        target_space_key = "OTHERSPACE"
+
+        # Mock move_page
+        pages_mixin.confluence.move_page.return_value = {"status": "ok"}
+
+        # Mock get_page_content for the re-fetch after move
+        mock_moved_page = ConfluencePage(
+            id=page_id,
+            title="Cross-Space Moved",
+            content="Moved content",
+            space={"key": target_space_key, "name": "Other Space"},
+            version={"number": 2},
+        )
+        with patch.object(
+            pages_mixin, "get_page_content", return_value=mock_moved_page
+        ):
+            result = pages_mixin.move_page(
+                page_id=page_id,
+                target_parent_id=target_parent_id,
+                target_space_key=target_space_key,
+            )
+
+        # When both are given, use target_space_key directly (no need to look up)
+        pages_mixin.confluence.move_page.assert_called_once_with(
+            target_space_key, page_id, target_id=target_parent_id, position="append"
+        )
+        assert isinstance(result, ConfluencePage)
+        assert result.space.key == target_space_key
+
+    def test_move_page_validation_error_neither_provided(self, pages_mixin):
+        """Test that ValueError is raised when neither target is provided."""
+        with pytest.raises(ValueError, match="At least one of"):
+            pages_mixin.move_page(page_id="111")
+
+    def test_move_page_with_above_position(self, pages_mixin):
+        """Test moving a page with 'above' position (sibling ordering)."""
+        page_id = "111"
+        target_parent_id = "222"
+
+        pages_mixin.confluence.get_page_by_id.return_value = {
+            "id": target_parent_id,
+            "title": "Target Parent",
+            "space": {"key": "PROJ", "name": "Project"},
+            "version": {"number": 1},
+            "body": {"storage": {"value": "<p>content</p>"}},
+        }
+        pages_mixin.confluence.move_page.return_value = {"status": "ok"}
+
+        mock_moved_page = ConfluencePage(
+            id=page_id,
+            title="Moved Above Page",
+            content="Content",
+            space={"key": "PROJ", "name": "Project"},
+            version={"number": 2},
+        )
+        with patch.object(
+            pages_mixin, "get_page_content", return_value=mock_moved_page
+        ):
+            result = pages_mixin.move_page(
+                page_id=page_id,
+                target_parent_id=target_parent_id,
+                position="above",
+            )
+
+        pages_mixin.confluence.move_page.assert_called_once_with(
+            "PROJ", page_id, target_id=target_parent_id, position="above"
+        )
+        assert isinstance(result, ConfluencePage)
+
+    def test_move_page_api_error(self, pages_mixin):
+        """Test that API errors are propagated correctly."""
+        page_id = "111"
+        target_space_key = "BADSPACE"
+
+        pages_mixin.confluence.move_page.side_effect = Exception(
+            "API error: space not found"
+        )
+
+        with pytest.raises(Exception, match="Failed to move page"):
+            pages_mixin.move_page(page_id=page_id, target_space_key=target_space_key)
+
+    def test_move_page_uses_v2_adapter_for_oauth(self, pages_mixin):
+        """Test that move_page uses v2 adapter for OAuth authentication."""
+        page_id = "111"
+        target_parent_id = "222"
+
+        mock_v2_adapter = MagicMock()
+        mock_v2_adapter.move_page.return_value = None
+
+        mock_moved_page = ConfluencePage(
+            id=page_id,
+            title="OAuth Moved Page",
+            content="Content",
+            space={"key": "PROJ", "name": "Project"},
+            version={"number": 2},
+        )
+
+        with (
+            patch.object(
+                type(pages_mixin),
+                "_v2_adapter",
+                new_callable=lambda: property(lambda self: mock_v2_adapter),
+            ),
+            patch.object(pages_mixin, "get_page_content", return_value=mock_moved_page),
+        ):
+            result = pages_mixin.move_page(
+                page_id=page_id,
+                target_parent_id=target_parent_id,
+            )
+
+        # v2 adapter should be called instead of confluence.move_page
+        mock_v2_adapter.move_page.assert_called_once_with(
+            page_id=page_id,
+            position="append",
+            target_id=target_parent_id,
+        )
+        pages_mixin.confluence.move_page.assert_not_called()
+        assert isinstance(result, ConfluencePage)
+
+
+class TestGetPageVersionDiff:
+    """Tests for the get_page_version_diff method."""
+
+    @pytest.fixture
+    def pages_mixin(self, confluence_client):
+        """Create a PagesMixin instance for testing."""
+        with patch(
+            "mcp_atlassian.confluence.pages.ConfluenceClient.__init__"
+        ) as mock_init:
+            mock_init.return_value = None
+            mixin = PagesMixin()
+            mixin.confluence = confluence_client.confluence
+            mixin.config = confluence_client.config
+            mixin.preprocessor = confluence_client.preprocessor
+            return mixin
+
+    def _make_page(self, content: str, title: str = "Test Page") -> ConfluencePage:
+        """Create a ConfluencePage with given content."""
+        return ConfluencePage(
+            id="12345",
+            title=title,
+            content=content,
+        )
+
+    def test_diff_shows_additions_and_removals(self, pages_mixin):
+        """Test that diff output contains expected additions and removals."""
+        old_content = "Line 1\nLine 2\nLine 3"
+        new_content = "Line 1\nLine 2 modified\nLine 3\nLine 4"
+
+        pages_mixin.get_page_history = MagicMock(
+            side_effect=lambda page_id, version, convert_to_markdown=True: (
+                self._make_page(old_content)
+                if version == 1
+                else self._make_page(new_content)
+            )
+        )
+
+        result = pages_mixin.get_page_version_diff(
+            page_id="12345", from_version=1, to_version=2
+        )
+
+        assert result["page_id"] == "12345"
+        assert result["title"] == "Test Page"
+        assert result["from_version"] == 1
+        assert result["to_version"] == 2
+        diff = result["diff"]
+        assert "-Line 2" in diff
+        assert "+Line 2 modified" in diff
+        assert "+Line 4" in diff
+
+    def test_diff_identical_content(self, pages_mixin):
+        """Test that identical content produces empty diff."""
+        content = "Same content\nOn multiple lines"
+
+        pages_mixin.get_page_history = MagicMock(return_value=self._make_page(content))
+
+        result = pages_mixin.get_page_version_diff(
+            page_id="12345", from_version=1, to_version=2
+        )
+
+        assert result["page_id"] == "12345"
+        assert result["from_version"] == 1
+        assert result["to_version"] == 2
+        assert result["diff"] == ""
+
+    def test_versions_passed_correctly(self, pages_mixin):
+        """Test that from_version and to_version are passed to get_page_history."""
+        content = "Some content"
+        pages_mixin.get_page_history = MagicMock(return_value=self._make_page(content))
+
+        pages_mixin.get_page_version_diff(page_id="99999", from_version=3, to_version=7)
+
+        calls = pages_mixin.get_page_history.call_args_list
+        assert len(calls) == 2
+        assert calls[0].kwargs["page_id"] == "99999"
+        assert calls[0].kwargs["version"] == 3
+        assert calls[1].kwargs["page_id"] == "99999"
+        assert calls[1].kwargs["version"] == 7
+
+    def test_diff_complete_replacement(self, pages_mixin):
+        """Test diff when content is completely different."""
+        old_content = "Old line 1\nOld line 2"
+        new_content = "New line 1\nNew line 2"
+
+        pages_mixin.get_page_history = MagicMock(
+            side_effect=lambda page_id, version, convert_to_markdown=True: (
+                self._make_page(old_content)
+                if version == 1
+                else self._make_page(new_content)
+            )
+        )
+
+        result = pages_mixin.get_page_version_diff(
+            page_id="12345", from_version=1, to_version=2
+        )
+
+        diff = result["diff"]
+        assert "-Old line 1" in diff
+        assert "-Old line 2" in diff
+        assert "+New line 1" in diff
+        assert "+New line 2" in diff
+
+
+class TestPageWidth:
+    """Tests for page layout width functionality."""
+
+    @pytest.fixture
+    def pages_mixin(self, confluence_client):
+        """Create a PagesMixin instance for testing."""
+        with patch(
+            "mcp_atlassian.confluence.pages.ConfluenceClient.__init__"
+        ) as mock_init:
+            mock_init.return_value = None
+            mixin = PagesMixin()
+            mixin.confluence = confluence_client.confluence
+            mixin.config = confluence_client.config
+            mixin.preprocessor = confluence_client.preprocessor
+            return mixin
+
+    def test_get_page_width_full_width(self, pages_mixin):
+        """Test getting full-width page layout."""
+        page_id = "page_full_width_123"
+
+        mock_properties = {
+            "results": [{"key": "content-appearance-published", "value": "full-width"}]
+        }
+
+        with patch.object(pages_mixin.confluence, "get_page_properties") as mock_get:
+            mock_get.return_value = mock_properties
+
+            result = pages_mixin._get_page_width(page_id)
+
+            mock_get.assert_called_once_with(page_id)
+            assert result == "full-width"
+
+    def test_get_page_width_fixed_width(self, pages_mixin):
+        """Test getting max page layout."""
+        page_id = "page_fixed_width_123"
+
+        mock_properties = {
+            "results": [{"key": "content-appearance-draft", "value": "max"}]
+        }
+
+        with patch.object(pages_mixin.confluence, "get_page_properties") as mock_get:
+            mock_get.return_value = mock_properties
+
+            result = pages_mixin._get_page_width(page_id)
+
+            mock_get.assert_called_once_with(page_id)
+            assert result == "max"
+
+    def test_get_page_width_not_set(self, pages_mixin):
+        """Test getting page width when no property is set."""
+        page_id = "page_no_width_123"
+
+        mock_properties = {"results": [{"key": "other-property", "value": "value"}]}
+
+        with patch.object(pages_mixin.confluence, "get_page_properties") as mock_get:
+            mock_get.return_value = mock_properties
+
+            result = pages_mixin._get_page_width(page_id)
+
+            assert result is None
+
+    def test_set_page_width_full_width_new_property(self, pages_mixin):
+        """Test setting page to full-width when property doesn't exist yet."""
+        page_id = "page_set_full_123"
+
+        with (
+            patch.object(
+                pages_mixin.confluence,
+                "get_page_property",
+                side_effect=Exception("Not found"),
+            ),
+            patch.object(pages_mixin.confluence, "set_page_property") as mock_set,
+        ):
+            result = pages_mixin._set_page_width(page_id, "full-width")
+
+            assert mock_set.call_count == 2
+            calls = mock_set.call_args_list
+            assert calls[0][0][0] == page_id
+            assert calls[0][0][1]["key"] == "content-appearance-published"
+            assert calls[0][0][1]["value"] == "full-width"
+            assert "version" not in calls[0][0][1]
+            assert calls[1][0][1]["key"] == "content-appearance-draft"
+            assert result is True
+
+    def test_set_page_width_full_width_existing_property(self, pages_mixin):
+        """Test setting page to full-width when property already exists."""
+        page_id = "page_set_full_existing_123"
+
+        existing_property = {
+            "key": "content-appearance-published",
+            "value": "default",
+            "version": {"number": 3},
+        }
+
+        with (
+            patch.object(
+                pages_mixin.confluence,
+                "get_page_property",
+                return_value=existing_property,
+            ),
+            patch.object(pages_mixin.confluence, "update_page_property") as mock_update,
+        ):
+            result = pages_mixin._set_page_width(page_id, "full-width")
+
+            assert mock_update.call_count == 2
+            calls = mock_update.call_args_list
+            assert calls[0][0][0] == page_id
+            assert calls[0][0][1]["key"] == "content-appearance-published"
+            assert calls[0][0][1]["value"] == "full-width"
+            assert calls[0][0][1]["version"] == {"number": 4}
+            assert result is True
+
+    def test_set_page_width_max(self, pages_mixin):
+        """Test setting page to max."""
+        page_id = "page_set_max_123"
+
+        with (
+            patch.object(
+                pages_mixin.confluence,
+                "get_page_property",
+                side_effect=Exception("Not found"),
+            ),
+            patch.object(pages_mixin.confluence, "set_page_property") as mock_set,
+        ):
+            result = pages_mixin._set_page_width(page_id, "max")
+
+            assert mock_set.call_count == 2
+            calls = mock_set.call_args_list
+            assert calls[0][0][1]["value"] == "max"
+            assert result is True
+
+    def test_set_page_width_default(self, pages_mixin):
+        """Test setting page to default width."""
+        page_id = "page_set_default_123"
+
+        with (
+            patch.object(
+                pages_mixin.confluence,
+                "get_page_property",
+                side_effect=Exception("Not found"),
+            ),
+            patch.object(pages_mixin.confluence, "set_page_property") as mock_set,
+        ):
+            result = pages_mixin._set_page_width(page_id, "default")
+
+            assert mock_set.call_count == 2
+            calls = mock_set.call_args_list
+            assert calls[0][0][1]["value"] == "default"
+            assert calls[1][0][1]["value"] == "default"
+            assert result is True
+
+    def test_set_page_width_invalid_value(self, pages_mixin):
+        """Test that invalid width values are rejected."""
+        page_id = "page_invalid_width_123"
+
+        result = pages_mixin._set_page_width(page_id, "invalid-width")
+
+        assert result is False
+
+    def test_set_page_width_remove(self, pages_mixin):
+        """Test removing page width (reset to default)."""
+        page_id = "page_remove_width_123"
+
+        with patch.object(
+            pages_mixin.confluence, "delete_page_property"
+        ) as mock_delete:
+            result = pages_mixin._set_page_width(page_id, None)
+
+            assert mock_delete.call_count == 2
+            assert result is True
+
+    def test_get_page_content_includes_width(self, pages_mixin):
+        """Test that get_page_content includes page width."""
+        page_id = "page_with_width_123"
+
+        with (
+            patch.object(pages_mixin.confluence, "get_page_by_id") as mock_get,
+            patch.object(pages_mixin, "_get_page_emoji") as mock_emoji,
+            patch.object(pages_mixin, "_get_page_width") as mock_width,
+            patch.object(
+                pages_mixin.preprocessor, "process_html_content"
+            ) as mock_process,
+        ):
+            mock_get.return_value = {
+                "id": page_id,
+                "title": "Test Page",
+                "body": {"storage": {"value": "<p>Content</p>"}},
+                "version": {"number": 1},
+                "space": {"key": "TEST"},
+            }
+            mock_emoji.return_value = "\U0001f4c4"
+            mock_width.return_value = "full-width"
+            mock_process.return_value = ("<p>Content</p>", "Content")
+
+            page = pages_mixin.get_page_content(page_id)
+
+            mock_width.assert_called_once_with(page_id)
+            assert page.page_width == "full-width"

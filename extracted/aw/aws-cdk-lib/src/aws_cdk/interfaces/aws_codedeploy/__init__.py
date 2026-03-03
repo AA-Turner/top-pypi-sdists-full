@@ -135,12 +135,21 @@ class DeploymentConfigReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_codedeploy.DeploymentGroupReference",
     jsii_struct_bases=[],
-    name_mapping={"deployment_group_name": "deploymentGroupName"},
+    name_mapping={
+        "application_name": "applicationName",
+        "deployment_group_name": "deploymentGroupName",
+    },
 )
 class DeploymentGroupReference:
-    def __init__(self, *, deployment_group_name: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        application_name: builtins.str,
+        deployment_group_name: builtins.str,
+    ) -> None:
         '''A reference to a DeploymentGroup resource.
 
+        :param application_name: The ApplicationName of the DeploymentGroup resource.
         :param deployment_group_name: The DeploymentGroupName of the DeploymentGroup resource.
 
         :exampleMetadata: fixture=_generated
@@ -152,15 +161,25 @@ class DeploymentGroupReference:
             from aws_cdk.interfaces import aws_codedeploy as interfaces_codedeploy
             
             deployment_group_reference = interfaces_codedeploy.DeploymentGroupReference(
+                application_name="applicationName",
                 deployment_group_name="deploymentGroupName"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c560dfbd151d8fb2d2f16ee5760ff9916205046ef068a01bf7cbad08a59f075f)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
             check_type(argname="argument deployment_group_name", value=deployment_group_name, expected_type=type_hints["deployment_group_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
             "deployment_group_name": deployment_group_name,
         }
+
+    @builtins.property
+    def application_name(self) -> builtins.str:
+        '''The ApplicationName of the DeploymentGroup resource.'''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def deployment_group_name(self) -> builtins.str:
@@ -343,6 +362,7 @@ def _typecheckingstub__3f5f932da1842dc9d191290d12508917bcda09a6cf6732df837bea417
 
 def _typecheckingstub__c560dfbd151d8fb2d2f16ee5760ff9916205046ef068a01bf7cbad08a59f075f(
     *,
+    application_name: builtins.str,
     deployment_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""

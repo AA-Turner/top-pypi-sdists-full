@@ -25,7 +25,8 @@ from mindroom.constants import ROUTER_AGENT_NAME
 from mindroom.error_handling import get_user_friendly_error_message
 from mindroom.logging_config import get_logger
 from mindroom.matrix.rooms import get_room_alias_from_id
-from mindroom.tool_events import (
+from mindroom.media_inputs import MediaInputs
+from mindroom.tool_system.events import (
     StructuredStreamChunk,
     ToolTraceEntry,
     complete_pending_tool_block,
@@ -34,10 +35,9 @@ from mindroom.tool_events import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Sequence
+    from collections.abc import AsyncIterator, Callable
 
     import nio
-    from agno.media import Image
     from agno.models.response import ToolExecution
 
     from mindroom.config.main import Config
@@ -60,7 +60,7 @@ class TeamMode(str, Enum):
     COLLABORATE = "collaborate"  # All members work on same task in parallel
 
 
-class TeamModeDecision(BaseModel):
+class _TeamModeDecision(BaseModel):
     """AI decision for team collaboration mode."""
 
     mode: Literal["coordinate", "collaborate"] = Field(
@@ -235,7 +235,7 @@ class TeamFormationDecision(NamedTuple):
     mode: TeamMode
 
 
-async def select_team_mode(
+async def _select_team_mode(
     message: str,
     agent_names: list[str],
     config: Config,
@@ -280,13 +280,13 @@ Return the mode and a one-sentence reason why."""
         name="TeamModeDecider",
         role="Determine team mode",
         model=model,
-        output_schema=TeamModeDecision,
+        output_schema=_TeamModeDecision,
     )
 
     try:
         response = await agent.arun(prompt, session_id="team_mode_decision")
         decision = response.content
-        if isinstance(decision, TeamModeDecision):
+        if isinstance(decision, _TeamModeDecision):
             logger.info(f"Team mode: {decision.mode} - {decision.reasoning}")
             return TeamMode.COORDINATE if decision.mode == "coordinate" else TeamMode.COLLABORATE
         # Fallback if response is unexpected
@@ -368,7 +368,7 @@ async def decide_team_formation(
     # Only do this AI call for the first agent to avoid duplication
     if use_ai_decision and message and config and is_first_agent:
         agent_names = [mid.agent_name(config) or mid.username for mid in team_agents]
-        mode = await select_team_mode(message, agent_names, config)
+        mode = await _select_team_mode(message, agent_names, config)
     else:
         # Fallback to hardcoded logic when AI decision is disabled or unavailable
         # Use COORDINATE when agents are explicitly tagged (they likely have different roles)
@@ -400,7 +400,7 @@ def _build_prompt_with_context(
     context_parts = []
     for msg in recent_messages:
         sender = msg.get("sender", "Unknown")
-        body = msg.get("content", {}).get("body", "")
+        body = msg.get("body", "")
         if body and len(body) < _MAX_CONTEXT_MESSAGE_LENGTH:
             context_parts.append(f"{sender}: {body}")
 
@@ -529,7 +529,7 @@ async def team_response(
     orchestrator: MultiAgentOrchestrator,
     thread_history: list[dict] | None = None,
     model_name: str | None = None,
-    images: Sequence[Image] | None = None,
+    media: MediaInputs | None = None,
 ) -> str:
     """Create a team and execute response."""
     agents = _get_agents_from_orchestrator(agent_names, orchestrator)
@@ -537,6 +537,7 @@ async def team_response(
     if not agents:
         return _NO_AGENTS_RESPONSE
 
+    media_inputs = media or MediaInputs()
     prompt = _build_prompt_with_context(message, thread_history)
     team = _create_team_instance(agents, agent_names, mode, orchestrator, model_name)
     agent_list = ", ".join(str(a.name) for a in agents if a.name)
@@ -545,7 +546,13 @@ async def team_response(
     logger.info(f"TEAM PROMPT: {prompt[:500]}")
 
     try:
-        response = await team.arun(prompt, images=images)
+        response = await team.arun(
+            prompt,
+            audio=media_inputs.audio,
+            images=media_inputs.images,
+            files=media_inputs.files,
+            videos=media_inputs.videos,
+        )
     except Exception as e:
         logger.exception(f"Error in team response with agents {agent_list}")
         # Return user-friendly error message
@@ -582,7 +589,7 @@ async def _team_response_stream_raw(
     orchestrator: MultiAgentOrchestrator,
     thread_history: list[dict] | None = None,
     model_name: str | None = None,
-    images: Sequence[Image] | None = None,
+    media: MediaInputs | None = None,
 ) -> AsyncIterator[Any]:
     """Yield raw team events (for structured live rendering). Falls back to a final response.
 
@@ -600,15 +607,23 @@ async def _team_response_stream_raw(
 
         return _empty()
 
+    media_inputs = media or MediaInputs()
     prompt = _build_prompt_with_context(message, thread_history)
     team = _create_team_instance(agents, agent_names, mode, orchestrator, model_name)
-
     logger.info(f"Created team with {len(agents)} agents in {mode.value} mode")
     for agent in agents:
         logger.debug(f"Team member: {agent.name}")
 
     try:
-        return team.arun(prompt, stream=True, stream_events=True, images=images)
+        return team.arun(
+            prompt,
+            stream=True,
+            stream_events=True,
+            audio=media_inputs.audio,
+            images=media_inputs.images,
+            files=media_inputs.files,
+            videos=media_inputs.videos,
+        )
     except Exception as e:
         logger.exception(f"Error in team streaming with agents {agent_names}")
         team_name = f"Team ({', '.join(agent_names)})"
@@ -627,7 +642,7 @@ async def team_response_stream(  # noqa: C901, PLR0912, PLR0915
     mode: TeamMode = TeamMode.COORDINATE,
     thread_history: list[dict] | None = None,
     model_name: str | None = None,
-    images: Sequence[Image] | None = None,
+    media: MediaInputs | None = None,
     show_tool_calls: bool = True,
 ) -> AsyncIterator[_TeamStreamChunk]:
     """Aggregate team streaming into a non-stream-style document, live.
@@ -666,7 +681,7 @@ async def team_response_stream(  # noqa: C901, PLR0912, PLR0915
         orchestrator=orchestrator,
         thread_history=thread_history,
         model_name=model_name,
-        images=images,
+        media=media,
     )
 
     def _scope_key_for_agent(agent_name: str) -> str:

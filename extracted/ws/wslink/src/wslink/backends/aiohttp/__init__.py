@@ -1,38 +1,39 @@
 from __future__ import annotations
-import os
-import logging
-import sys
-import uuid
+
 import json
+import logging
+import os
+import uuid
 from pathlib import Path
-
-from wslink.protocol import WslinkHandler, AbstractWebApp
-
 
 # Backend specific imports
 import aiohttp
 import aiohttp.web as aiohttp_web
 
+from wslink.protocol import AbstractWebApp, WslinkHandler
 
 # 4MB is the default inside aiohttp
-MSG_OVERHEAD = int(os.environ.get("WSLINK_MSG_OVERHEAD", 4096))
-MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", 4194304))
-HEART_BEAT = int(os.environ.get("WSLINK_HEART_BEAT", 30))  # 30 seconds
-HTTP_HEADERS: str | None = os.environ.get("WSLINK_HTTP_HEADERS")  # path to json file
+MSG_OVERHEAD = int(os.environ.get("WSLINK_MSG_OVERHEAD", "4096"))
+MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", "4194304"))
+HEART_BEAT = int(os.environ.get("WSLINK_HEART_BEAT", "30"))  # 30 seconds
+HTTP_HEADERS = os.environ.get("WSLINK_HTTP_HEADERS")  # path to json file
 
 if HTTP_HEADERS and Path(HTTP_HEADERS).exists():
-    HTTP_HEADERS: dict = json.loads(Path(HTTP_HEADERS).read_text())
+    HTTP_HEADERS = json.loads(Path(HTTP_HEADERS).read_text())
 
 STATE_KEY = aiohttp_web.AppKey("state", str)
 
 logger = logging.getLogger(__name__)
 
+
 def reload_settings():
-    global MSG_OVERHEAD, MAX_MSG_SIZE, HEART_BEAT, HTTP_HEADERS
+    global MSG_OVERHEAD, MAX_MSG_SIZE, HEART_BEAT, HTTP_HEADERS  # noqa:PLW0603
 
     MSG_OVERHEAD = int(os.environ.get("WSLINK_MSG_OVERHEAD", MSG_OVERHEAD))
     MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", MAX_MSG_SIZE))
-    HEART_BEAT = int(os.environ.get("WSLINK_HEART_BEAT", HEART_BEAT or 30))  # 30 seconds
+    HEART_BEAT = int(
+        os.environ.get("WSLINK_HEART_BEAT", HEART_BEAT or 30)
+    )  # 30 seconds
     HTTP_HEADERS = os.environ.get("WSLINK_HTTP_HEADERS", HTTP_HEADERS)
 
     # Allow to skip heart beat
@@ -53,7 +54,7 @@ async def _root_handler(request):
 
 def _fix_path(path):
     if not path.startswith("/"):
-        return "/{0}".format(path)
+        return f"/{path}"
     return path
 
 
@@ -93,8 +94,10 @@ class WebAppServer(AbstractWebApp):
 
         if "static" in server_config:
             static_routes = server_config["static"]
-            follow_symlinks = server_config["static_follow_symlinks"] if "static_follow_symlinks" in server_config else False
-            follow_symlinks = follow_symlinks or bool(int(os.environ.get("WSLINK_FOLLOW_SYMLINKS", 0)))
+            follow_symlinks = server_config.get("static_follow_symlinks", False)
+            follow_symlinks = follow_symlinks or bool(
+                int(os.environ.get("WSLINK_FOLLOW_SYMLINKS", "0"))
+            )
 
             routes = []
 
@@ -158,11 +161,9 @@ class WebAppServer(AbstractWebApp):
         STARTUP_MSG = os.environ.get("WSLINK_READY_MSG", "wslink: Starting factory")
         if STARTUP_MSG:
             # Emit an expected log message so launcher.py knows we've started up.
-            print(STARTUP_MSG)
-            # We've seen some issues with stdout buffering - be conservative.
-            sys.stdout.flush()
+            os.write(1, STARTUP_MSG.encode())
 
-        logger.info(f"Schedule auto shutdown with timout {self.timeout}")
+        logger.info("Schedule auto shutdown with timeout %s", self.timeout)
         self.shutdown_schedule()
 
         logger.info("awaiting running future")
@@ -206,7 +207,7 @@ class ReverseWebAppServer(AbstractWebApp):
 
 
 def create_webserver(server_config):
-    if "logging_level" in server_config and server_config["logging_level"]:
+    if server_config.get("logging_level"):
         logging.getLogger("wslink").setLevel(server_config["logging_level"])
 
     # Shortcut for reverse connection
@@ -231,7 +232,7 @@ class AioHttpWsHandler(WslinkHandler):
         logger.info("Closing client connections:")
         keys = list(self.connections.keys())
         for client_id in keys:
-            logger.info("  {0}".format(client_id))
+            logger.info("  %s", client_id)
             ws = self.connections[client_id]
             await ws.close(
                 code=aiohttp.WSCloseCode.GOING_AWAY, message="Server shutdown"
@@ -246,7 +247,7 @@ class AioHttpWsHandler(WslinkHandler):
         )
         self.connections[client_id] = current_ws
 
-        logger.info("client {0} connected".format(client_id))
+        logger.info("client %s connected", client_id)
 
         self.web_app.shutdown_cancel()
 
@@ -261,7 +262,7 @@ class AioHttpWsHandler(WslinkHandler):
             del self.connections[client_id]
             self.authentified_client_ids.discard(client_id)
 
-            logger.info("client {0} disconnected".format(client_id))
+            logger.info("client %s disconnected", client_id)
 
             if not self.connections:
                 logger.info("No more connections, scheduling shutdown")

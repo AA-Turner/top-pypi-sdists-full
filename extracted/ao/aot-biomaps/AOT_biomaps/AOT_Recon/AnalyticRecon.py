@@ -41,6 +41,9 @@ class AnalyticRecon(Recon):
         Parameters:
             analyticType: The type of analytic reconstruction to perform (default is iFOURIER).
         """
+
+
+
         if withTumor:
             AOsignal = self.experiment.AOsignal_withTumor
         else:
@@ -52,7 +55,7 @@ class AnalyticRecon(Recon):
         X_m = np.arange(0, self.experiment.params.acoustic['probe']['num_elements'])* self.experiment.params.general['dx']
         dfX = 1 / (X_m[1] - X_m[0]) / len(X_m)
         if withTumor:
-            self.AOsignal_demoldulated = self.parse_and_demodulate(withTumor=True)
+            self.AOsignal_demoldulated = self.experiment.parse_and_demodulate(withTumor=True)
             if self.analyticType == AnalyticType.iFOURIER:
                 self.reconPhantom = self._iFourierRecon(
                     R = AOsignal,

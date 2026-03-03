@@ -20,9 +20,19 @@ from typing import (
 
 import cloudpickle
 import opentelemetry.context
+import uncalled_for
 from opentelemetry import propagate, trace
 from ._telemetry import suppress_instrumentation
 from typing_extensions import Self
+
+# Re-export _signature_cache from uncalled-for so that docket and uncalled-for
+# share one cache dict.  FastMCP clears `docket.execution._signature_cache` after
+# mutating function signatures, so this must be the same object that
+# uncalled-for's get_dependency_parameters uses internally.
+from uncalled_for.introspection import (
+    _signature_cache as _signature_cache,
+    get_signature as _uncalled_for_get_signature,
+)
 
 from ._execution_progress import ExecutionProgress, ProgressEvent, StateEvent
 from .annotations import Logged
@@ -50,22 +60,8 @@ class _schedule_task(Protocol):
     ) -> str: ...  # pragma: no cover
 
 
-_signature_cache: dict[Callable[..., Any], inspect.Signature] = {}
-
-
 def get_signature(function: Callable[..., Any]) -> inspect.Signature:
-    if function in _signature_cache:
-        CACHE_SIZE.set(len(_signature_cache), {"cache": "signature"})
-        return _signature_cache[function]
-
-    signature_attr = getattr(function, "__signature__", None)
-    if isinstance(signature_attr, inspect.Signature):
-        _signature_cache[function] = signature_attr
-        CACHE_SIZE.set(len(_signature_cache), {"cache": "signature"})
-        return signature_attr
-
-    signature = inspect.signature(function)
-    _signature_cache[function] = signature
+    signature = _uncalled_for_get_signature(function)
     CACHE_SIZE.set(len(_signature_cache), {"cache": "signature"})
     return signature
 
@@ -990,13 +986,11 @@ class Execution:
 
 
 def compact_signature(signature: inspect.Signature) -> str:
-    from .dependencies import Dependency
-
     parameters: list[str] = []
     dependencies: int = 0
 
     for parameter in signature.parameters.values():
-        if isinstance(parameter.default, Dependency):
+        if isinstance(parameter.default, uncalled_for.Dependency):
             dependencies += 1
             continue
 

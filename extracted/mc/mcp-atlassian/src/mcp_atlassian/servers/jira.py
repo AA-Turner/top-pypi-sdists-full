@@ -17,12 +17,14 @@ from mcp_atlassian.models.jira import JiraAttachment
 from mcp_atlassian.models.jira.common import JiraUser
 from mcp_atlassian.servers.dependencies import get_jira_fetcher
 from mcp_atlassian.utils.decorators import check_write_access
-from mcp_atlassian.utils.media import is_image_attachment
+from mcp_atlassian.utils.media import (
+    ATTACHMENT_MAX_BYTES,
+    fetch_and_encode_attachment,
+    is_image_attachment,
+)
 
 logger = logging.getLogger(__name__)
 
-# Maximum attachment size for inline download (50 MB)
-_ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024
 
 # Regex patterns for Jira key validation.
 # Per Atlassian docs, Cloud project keys are 2-10 chars. Server/Data Center
@@ -439,6 +441,16 @@ async def search(
             default=None,
         ),
     ] = None,
+    page_token: Annotated[
+        str | None,
+        Field(
+            description=(
+                "(Optional) Pagination token from a previous search result. "
+                "Cloud only — Server/DC uses start_at for pagination."
+            ),
+            default=None,
+        ),
+    ] = None,
 ) -> str:
     """Search Jira issues using JQL (Jira Query Language).
 
@@ -450,6 +462,7 @@ async def search(
         start_at: Starting index for pagination.
         projects_filter: Comma-separated list of project keys to filter by.
         expand: Optional fields to expand.
+        page_token: Pagination token from a previous search result (Cloud only).
 
     Returns:
         JSON string representing the search results including pagination info.
@@ -466,6 +479,7 @@ async def search(
         start=start_at,
         expand=expand,
         projects_filter=projects_filter,
+        page_token=page_token,
     )
     result = search_result.to_simplified_dict()
     return json.dumps(result, indent=2, ensure_ascii=False)
@@ -508,6 +522,84 @@ async def search_fields(
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
+def _matches_contains(option: dict[str, Any], needle: str) -> bool:
+    """Check if option value contains needle (case-insensitive).
+
+    Checks both the parent option value and any child option values
+    (for cascading select fields).
+
+    Args:
+        option: Simplified option dict with 'value' and optional
+            'child_options' keys.
+        needle: Substring to search for (case-insensitive).
+
+    Returns:
+        True if the needle is found in the option or its children.
+    """
+    lower_needle = needle.lower()
+    value = option.get("value", "")
+    if isinstance(value, str) and lower_needle in value.lower():
+        return True
+    # Check children for cascading selects
+    for child in option.get("child_options", []):
+        child_value = child.get("value", "")
+        if isinstance(child_value, str) and lower_needle in child_value.lower():
+            return True
+    return False
+
+
+def _apply_option_filters(
+    options: list[dict[str, Any]],
+    contains: str | None,
+    return_limit: int | None,
+) -> list[dict[str, Any]]:
+    """Apply contains filter and limit to option list.
+
+    Args:
+        options: List of simplified option dicts.
+        contains: Case-insensitive substring filter (or None to skip).
+        return_limit: Maximum number of results (or None for no limit).
+
+    Returns:
+        Filtered and/or limited list of option dicts.
+    """
+    result = options
+    if contains:
+        result = [opt for opt in result if _matches_contains(opt, contains)]
+    if return_limit is not None:
+        result = result[:return_limit]
+    return result
+
+
+def _to_values_only_payload(options: list[dict[str, Any]]) -> list[Any]:
+    """Extract values only from options, preserving cascading structure.
+
+    For simple options: returns ``["value1", "value2"]``
+    For cascading: returns
+    ``[{"value": "parent", "children": ["child1", "child2"]}]``
+
+    Args:
+        options: List of simplified option dicts.
+
+    Returns:
+        Compact list of values or value/children structures.
+    """
+    result: list[Any] = []
+    for opt in options:
+        value = opt.get("value", "")
+        children = opt.get("child_options", [])
+        if children:
+            result.append(
+                {
+                    "value": value,
+                    "children": [c.get("value", "") for c in children],
+                }
+            )
+        else:
+            result.append(value)
+    return result
+
+
 @jira_mcp.tool(
     tags={"jira", "read", "toolset:jira_fields"},
     annotations={"title": "Get Field Options", "readOnlyHint": True},
@@ -543,6 +635,31 @@ async def get_field_options(
             default=None,
         ),
     ] = None,
+    contains: Annotated[
+        str | None,
+        Field(
+            description="Case-insensitive substring filter on option "
+            "values. Also matches child values in cascading selects.",
+            default=None,
+        ),
+    ] = None,
+    return_limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of results to return "
+            "(applied after filtering).",
+            default=None,
+            ge=1,
+        ),
+    ] = None,
+    values_only: Annotated[
+        bool,
+        Field(
+            description="If true, return only value strings in a "
+            "compact JSON format instead of full option objects.",
+            default=False,
+        ),
+    ] = False,
 ) -> str:
     """Get allowed option values for a custom field.
 
@@ -561,6 +678,9 @@ async def get_field_options(
         context_id: Field context ID (Cloud only, auto-resolved if omitted).
         project_key: Project key (required for Server/DC).
         issue_type: Issue type name (required for Server/DC).
+        contains: Case-insensitive substring filter on option values.
+        return_limit: Cap on number of results after filtering.
+        values_only: Return compact format with only value strings.
 
     Returns:
         JSON string with the list of available options.
@@ -573,6 +693,13 @@ async def get_field_options(
         issue_type=issue_type,
     )
     result = [opt.to_simplified_dict() for opt in options]
+    result = _apply_option_filters(result, contains, return_limit)
+    if values_only:
+        return json.dumps(
+            _to_values_only_payload(result),
+            indent=2,
+            ensure_ascii=False,
+        )
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
@@ -725,7 +852,7 @@ async def download_attachments(
         data_bytes: bytes = attachment["data"]
         filename = attachment["filename"]
 
-        if len(data_bytes) > _ATTACHMENT_MAX_BYTES:
+        if len(data_bytes) > ATTACHMENT_MAX_BYTES:
             failed.append(
                 {
                     "filename": filename,
@@ -851,7 +978,7 @@ async def get_issue_images(
     for att, resolved_mime in image_attachments:
         filename = att.filename or "unknown"
 
-        if att.size > _ATTACHMENT_MAX_BYTES:
+        if att.size > ATTACHMENT_MAX_BYTES:
             failed.append(
                 {
                     "filename": filename,
@@ -867,25 +994,24 @@ async def get_issue_images(
             failed.append({"filename": filename, "error": "No download URL"})
             continue
 
-        data_bytes = jira.fetch_attachment_content(att.url)
-        if data_bytes is None:
-            failed.append({"filename": filename, "error": "Fetch failed"})
+        encoded, _, fetched_bytes = fetch_and_encode_attachment(
+            fetch_fn=jira.fetch_attachment_content,
+            url=att.url,
+            filename=filename,
+            mime_type=resolved_mime,
+        )
+        if encoded is None:
+            if fetched_bytes > 0:
+                error_msg = (
+                    f"Downloaded size {fetched_bytes} bytes "
+                    "exceeds the 50 MB inline limit."
+                )
+            else:
+                error_msg = "Fetch failed"
+            failed.append({"filename": filename, "error": error_msg})
             continue
 
-        if len(data_bytes) > _ATTACHMENT_MAX_BYTES:
-            failed.append(
-                {
-                    "filename": filename,
-                    "error": (
-                        f"Downloaded size {len(data_bytes)} bytes "
-                        "exceeds the 50 MB inline limit."
-                    ),
-                }
-            )
-            continue
-
-        encoded = base64.b64encode(data_bytes).decode("ascii")
-        fetched.append({"filename": filename, "size": len(data_bytes)})
+        fetched.append({"filename": filename, "size": fetched_bytes})
         contents.append(
             ImageContent(
                 type="image",
@@ -2208,6 +2334,43 @@ async def update_sprint(
         return json.dumps(error_payload, indent=2, ensure_ascii=False)
     else:
         return json.dumps(sprint.to_simplified_dict(), indent=2, ensure_ascii=False)
+
+
+@jira_mcp.tool(
+    tags={"jira", "write", "toolset:jira_agile"},
+    annotations={"title": "Add Issues to Sprint", "readOnlyHint": False},
+)
+@check_write_access
+async def add_issues_to_sprint(
+    ctx: Context,
+    sprint_id: Annotated[str, Field(description="Sprint ID to add issues to")],
+    issue_keys: Annotated[
+        str,
+        Field(description="Comma-separated issue keys (e.g., 'PROJ-1,PROJ-2')"),
+    ],
+) -> str:
+    """Add issues to a Jira sprint.
+
+    Args:
+        ctx: The FastMCP context.
+        sprint_id: The ID of the sprint.
+        issue_keys: Comma-separated issue keys.
+
+    Returns:
+        JSON string with success message.
+
+    Raises:
+        ValueError: If in read-only mode or Jira client unavailable.
+    """
+    jira = await get_jira_fetcher(ctx)
+    keys_list = [k.strip() for k in issue_keys.split(",") if k.strip()]
+    jira.add_issues_to_sprint(sprint_id, keys_list)
+    result = {
+        "message": f"Successfully added {len(keys_list)} issue(s) to sprint",
+        "sprint_id": sprint_id,
+        "issue_keys": keys_list,
+    }
+    return json.dumps(result, indent=2, ensure_ascii=False)
 
 
 @jira_mcp.tool(

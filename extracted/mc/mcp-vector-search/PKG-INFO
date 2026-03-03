@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-vector-search
-Version: 3.0.51
+Version: 3.0.60
 Summary: CLI-first semantic code search with MCP integration and interactive D3.js visualization for exploring code relationships
 Project-URL: Homepage, https://github.com/bobmatnyc/mcp-vector-search
 Project-URL: Documentation, https://mcp-vector-search.readthedocs.io

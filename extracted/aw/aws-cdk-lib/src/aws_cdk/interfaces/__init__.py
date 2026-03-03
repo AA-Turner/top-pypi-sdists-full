@@ -256,6 +256,7 @@ __all__ = [
     "aws_codestarnotifications",
     "aws_cognito",
     "aws_comprehend",
+    "aws_computeoptimizer",
     "aws_config",
     "aws_connect",
     "aws_connectcampaigns",
@@ -273,6 +274,7 @@ __all__ = [
     "aws_devicefarm",
     "aws_devopsagent",
     "aws_devopsguru",
+    "aws_directconnect",
     "aws_directoryservice",
     "aws_dlm",
     "aws_dms",
@@ -532,6 +534,7 @@ from . import aws_codestarconnections
 from . import aws_codestarnotifications
 from . import aws_cognito
 from . import aws_comprehend
+from . import aws_computeoptimizer
 from . import aws_config
 from . import aws_connect
 from . import aws_connectcampaigns
@@ -549,6 +552,7 @@ from . import aws_detective
 from . import aws_devicefarm
 from . import aws_devopsagent
 from . import aws_devopsguru
+from . import aws_directconnect
 from . import aws_directoryservice
 from . import aws_dlm
 from . import aws_dms

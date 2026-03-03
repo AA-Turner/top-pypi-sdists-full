@@ -2575,6 +2575,7 @@ from ..aws_autoscaling import (
     BlockDevice as _BlockDevice_0cfc0568,
     CapacityDistributionStrategy as _CapacityDistributionStrategy_2393ccfe,
     CommonAutoScalingGroupProps as _CommonAutoScalingGroupProps_808bbf2d,
+    DeletionProtection as _DeletionProtection_3beb1830,
     GroupMetrics as _GroupMetrics_7cdf729b,
     HealthCheck as _HealthCheck_03a4bd5a,
     HealthChecks as _HealthChecks_b8757873,
@@ -2806,6 +2807,7 @@ class AddAutoScalingGroupCapacityOptions:
         "capacity_rebalance": "capacityRebalance",
         "cooldown": "cooldown",
         "default_instance_warmup": "defaultInstanceWarmup",
+        "deletion_protection": "deletionProtection",
         "desired_capacity": "desiredCapacity",
         "group_metrics": "groupMetrics",
         "health_check": "healthCheck",
@@ -2848,6 +2850,7 @@ class AddCapacityOptions(
         capacity_rebalance: typing.Optional[builtins.bool] = None,
         cooldown: typing.Optional["_Duration_4839e8c3"] = None,
         default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
@@ -2884,6 +2887,7 @@ class AddCapacityOptions(
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. Default: false
         :param cooldown: Default scaling cooldown for this AutoScalingGroup. Default: Duration.minutes(5)
         :param default_instance_warmup: The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics. This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics, resulting in more reliable usage data. Set this value equal to the amount of time that it takes for resource consumption to become stable after an instance reaches the InService state. To optimize the performance of scaling policies that scale continuously, such as target tracking and step scaling policies, we strongly recommend that you enable the default instance warmup, even if its value is set to 0 seconds Default instance warmup will not be added if no value is specified Default: None
+        :param deletion_protection: Deletion protection for the Auto Scaling group. Default: DeletionProtection.NONE
         :param desired_capacity: Initial amount of instances in the fleet. If this is set to a number, every deployment will reset the amount of instances to this number. It is recommended to leave this value blank. Default: minCapacity, and leave unchanged during deployment
         :param group_metrics: Enable monitoring for group metrics, these metrics describe the group rather than any of its instances. To report all group metrics use ``GroupMetrics.all()`` Group metrics are reported in a granularity of 1 minute at no additional charge. Default: - no group metrics will be reported
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
@@ -2935,6 +2939,7 @@ class AddCapacityOptions(
             check_type(argname="argument capacity_rebalance", value=capacity_rebalance, expected_type=type_hints["capacity_rebalance"])
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument default_instance_warmup", value=default_instance_warmup, expected_type=type_hints["default_instance_warmup"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument desired_capacity", value=desired_capacity, expected_type=type_hints["desired_capacity"])
             check_type(argname="argument group_metrics", value=group_metrics, expected_type=type_hints["group_metrics"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
@@ -2982,6 +2987,8 @@ class AddCapacityOptions(
             self._values["cooldown"] = cooldown
         if default_instance_warmup is not None:
             self._values["default_instance_warmup"] = default_instance_warmup
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if desired_capacity is not None:
             self._values["desired_capacity"] = desired_capacity
         if group_metrics is not None:
@@ -3165,6 +3172,17 @@ class AddCapacityOptions(
         '''
         result = self._values.get("default_instance_warmup")
         return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional["_DeletionProtection_3beb1830"]:
+        '''Deletion protection for the Auto Scaling group.
+
+        :default: DeletionProtection.NONE
+
+        :see: https://docs.aws.amazon.com/autoscaling/ec2/userguide/resource-deletion-protection.html#asg-deletion-protection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional["_DeletionProtection_3beb1830"], result)
 
     @builtins.property
     def desired_capacity(self) -> typing.Optional[jsii.Number]:
@@ -7178,6 +7196,10 @@ class CfnCapacityProvider(
         
                     # the properties below are optional
                     capacity_option_type="capacityOptionType",
+                    capacity_reservations=ecs.CfnCapacityProvider.CapacityReservationRequestProperty(
+                        reservation_group_arn="reservationGroupArn",
+                        reservation_preference="reservationPreference"
+                    ),
                     fips_enabled=False,
                     instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                         memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
@@ -7818,6 +7840,76 @@ class CfnCapacityProvider(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnCapacityProvider.CapacityReservationRequestProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "reservation_group_arn": "reservationGroupArn",
+            "reservation_preference": "reservationPreference",
+        },
+    )
+    class CapacityReservationRequestProperty:
+        def __init__(
+            self,
+            *,
+            reservation_group_arn: typing.Optional[builtins.str] = None,
+            reservation_preference: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param reservation_group_arn: 
+            :param reservation_preference: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-capacityreservationrequest.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                capacity_reservation_request_property = ecs.CfnCapacityProvider.CapacityReservationRequestProperty(
+                    reservation_group_arn="reservationGroupArn",
+                    reservation_preference="reservationPreference"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f45ab7e6c60ca52cca66f8424414b667137d9c5fddf868ed06bd33c2d05efaa7)
+                check_type(argname="argument reservation_group_arn", value=reservation_group_arn, expected_type=type_hints["reservation_group_arn"])
+                check_type(argname="argument reservation_preference", value=reservation_preference, expected_type=type_hints["reservation_preference"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if reservation_group_arn is not None:
+                self._values["reservation_group_arn"] = reservation_group_arn
+            if reservation_preference is not None:
+                self._values["reservation_preference"] = reservation_preference
+
+        @builtins.property
+        def reservation_group_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-capacityreservationrequest.html#cfn-ecs-capacityprovider-capacityreservationrequest-reservationgrouparn
+            '''
+            result = self._values.get("reservation_group_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def reservation_preference(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-capacityreservationrequest.html#cfn-ecs-capacityprovider-capacityreservationrequest-reservationpreference
+            '''
+            result = self._values.get("reservation_preference")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityReservationRequestProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnCapacityProvider.InfrastructureOptimizationProperty",
         jsii_struct_bases=[],
         name_mapping={"scale_in_after": "scaleInAfter"},
@@ -7887,6 +7979,7 @@ class CfnCapacityProvider(
             "ec2_instance_profile_arn": "ec2InstanceProfileArn",
             "network_configuration": "networkConfiguration",
             "capacity_option_type": "capacityOptionType",
+            "capacity_reservations": "capacityReservations",
             "fips_enabled": "fipsEnabled",
             "instance_requirements": "instanceRequirements",
             "monitoring": "monitoring",
@@ -7900,6 +7993,7 @@ class CfnCapacityProvider(
             ec2_instance_profile_arn: builtins.str,
             network_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.ManagedInstancesNetworkConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
             capacity_option_type: typing.Optional[builtins.str] = None,
+            capacity_reservations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.CapacityReservationRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             fips_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.InstanceRequirementsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             monitoring: typing.Optional[builtins.str] = None,
@@ -7912,6 +8006,7 @@ class CfnCapacityProvider(
             :param ec2_instance_profile_arn: The Amazon Resource Name (ARN) of the instance profile that Amazon ECS applies to Amazon ECS Managed Instances. This instance profile must include the necessary permissions for your tasks to access AWS services and resources. For more information, see `Amazon ECS instance profile for Managed Instances <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/managed-instances-instance-profile.html>`_ in the *Amazon ECS Developer Guide* .
             :param network_configuration: The network configuration for Amazon ECS Managed Instances. This specifies the subnets and security groups that instances use for network connectivity.
             :param capacity_option_type: The capacity option type. This determines whether Amazon ECS launches On-Demand or Spot Instances for your managed instance capacity provider. Valid values are: - ``ON_DEMAND`` - Launches standard On-Demand Instances. On-Demand Instances provide predictable pricing and availability. - ``SPOT`` - Launches Spot Instances that use spare Amazon EC2 capacity at reduced cost. Spot Instances can be interrupted by Amazon EC2 with a two-minute notification when the capacity is needed back. The default is On-Demand For more information about Amazon EC2 capacity options, see `Instance purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon EC2 User Guide* .
+            :param capacity_reservations: 
             :param fips_enabled: 
             :param instance_requirements: The instance requirements. You can specify:. - The instance types - Instance requirements such as vCPU count, memory, network performance, and accelerator specifications Amazon ECS automatically selects the instances that match the specified criteria.
             :param monitoring: CloudWatch provides two categories of monitoring: basic monitoring and detailed monitoring. By default, your managed instance is configured for basic monitoring. You can optionally enable detailed monitoring to help you more quickly identify and act on operational issues. You can enable or turn off detailed monitoring at launch or when the managed instance is running or stopped. For more information, see `Detailed monitoring for Amazon ECS Managed Instances <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/detailed-monitoring-managed-instances.html>`_ in the Amazon ECS Developer Guide.
@@ -7935,6 +8030,10 @@ class CfnCapacityProvider(
                 
                     # the properties below are optional
                     capacity_option_type="capacityOptionType",
+                    capacity_reservations=ecs.CfnCapacityProvider.CapacityReservationRequestProperty(
+                        reservation_group_arn="reservationGroupArn",
+                        reservation_preference="reservationPreference"
+                    ),
                     fips_enabled=False,
                     instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                         memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
@@ -8006,6 +8105,7 @@ class CfnCapacityProvider(
                 check_type(argname="argument ec2_instance_profile_arn", value=ec2_instance_profile_arn, expected_type=type_hints["ec2_instance_profile_arn"])
                 check_type(argname="argument network_configuration", value=network_configuration, expected_type=type_hints["network_configuration"])
                 check_type(argname="argument capacity_option_type", value=capacity_option_type, expected_type=type_hints["capacity_option_type"])
+                check_type(argname="argument capacity_reservations", value=capacity_reservations, expected_type=type_hints["capacity_reservations"])
                 check_type(argname="argument fips_enabled", value=fips_enabled, expected_type=type_hints["fips_enabled"])
                 check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
                 check_type(argname="argument monitoring", value=monitoring, expected_type=type_hints["monitoring"])
@@ -8016,6 +8116,8 @@ class CfnCapacityProvider(
             }
             if capacity_option_type is not None:
                 self._values["capacity_option_type"] = capacity_option_type
+            if capacity_reservations is not None:
+                self._values["capacity_reservations"] = capacity_reservations
             if fips_enabled is not None:
                 self._values["fips_enabled"] = fips_enabled
             if instance_requirements is not None:
@@ -8072,6 +8174,16 @@ class CfnCapacityProvider(
             '''
             result = self._values.get("capacity_option_type")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def capacity_reservations(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityReservationRequestProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancelaunchtemplate.html#cfn-ecs-capacityprovider-instancelaunchtemplate-capacityreservations
+            '''
+            result = self._values.get("capacity_reservations")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityReservationRequestProperty"]], result)
 
         @builtins.property
         def fips_enabled(
@@ -8794,6 +8906,10 @@ class CfnCapacityProvider(
                 
                         # the properties below are optional
                         capacity_option_type="capacityOptionType",
+                        capacity_reservations=ecs.CfnCapacityProvider.CapacityReservationRequestProperty(
+                            reservation_group_arn="reservationGroupArn",
+                            reservation_preference="reservationPreference"
+                        ),
                         fips_enabled=False,
                         instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                             memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
@@ -9665,6 +9781,10 @@ class CfnCapacityProviderProps:
             
                         # the properties below are optional
                         capacity_option_type="capacityOptionType",
+                        capacity_reservations=ecs.CfnCapacityProvider.CapacityReservationRequestProperty(
+                            reservation_group_arn="reservationGroupArn",
+                            reservation_preference="reservationPreference"
+                        ),
                         fips_enabled=False,
                         instance_requirements=ecs.CfnCapacityProvider.InstanceRequirementsRequestProperty(
                             memory_mi_b=ecs.CfnCapacityProvider.MemoryMiBRequestProperty(
@@ -48276,6 +48396,7 @@ class Cluster(
         capacity_rebalance: typing.Optional[builtins.bool] = None,
         cooldown: typing.Optional["_Duration_4839e8c3"] = None,
         default_instance_warmup: typing.Optional["_Duration_4839e8c3"] = None,
+        deletion_protection: typing.Optional["_DeletionProtection_3beb1830"] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
         group_metrics: typing.Optional[typing.Sequence["_GroupMetrics_7cdf729b"]] = None,
         health_check: typing.Optional["_HealthCheck_03a4bd5a"] = None,
@@ -48317,6 +48438,7 @@ class Cluster(
         :param capacity_rebalance: Indicates whether Capacity Rebalancing is enabled. When you turn on Capacity Rebalancing, Amazon EC2 Auto Scaling attempts to launch a Spot Instance whenever Amazon EC2 notifies that a Spot Instance is at an elevated risk of interruption. After launching a new instance, it then terminates an old instance. Default: false
         :param cooldown: Default scaling cooldown for this AutoScalingGroup. Default: Duration.minutes(5)
         :param default_instance_warmup: The amount of time, in seconds, until a newly launched instance can contribute to the Amazon CloudWatch metrics. This delay lets an instance finish initializing before Amazon EC2 Auto Scaling aggregates instance metrics, resulting in more reliable usage data. Set this value equal to the amount of time that it takes for resource consumption to become stable after an instance reaches the InService state. To optimize the performance of scaling policies that scale continuously, such as target tracking and step scaling policies, we strongly recommend that you enable the default instance warmup, even if its value is set to 0 seconds Default instance warmup will not be added if no value is specified Default: None
+        :param deletion_protection: Deletion protection for the Auto Scaling group. Default: DeletionProtection.NONE
         :param desired_capacity: Initial amount of instances in the fleet. If this is set to a number, every deployment will reset the amount of instances to this number. It is recommended to leave this value blank. Default: minCapacity, and leave unchanged during deployment
         :param group_metrics: Enable monitoring for group metrics, these metrics describe the group rather than any of its instances. To report all group metrics use ``GroupMetrics.all()`` Group metrics are reported in a granularity of 1 minute at no additional charge. Default: - no group metrics will be reported
         :param health_check: (deprecated) Configuration for health checks. Default: - HealthCheck.ec2 with no grace period
@@ -48355,6 +48477,7 @@ class Cluster(
             capacity_rebalance=capacity_rebalance,
             cooldown=cooldown,
             default_instance_warmup=default_instance_warmup,
+            deletion_protection=deletion_protection,
             desired_capacity=desired_capacity,
             group_metrics=group_metrics,
             health_check=health_check,
@@ -51942,6 +52065,7 @@ def _typecheckingstub__64f2d9b3495e3be78346f77d5ad90928968c8ce230e670b6279dc67ad
     capacity_rebalance: typing.Optional[builtins.bool] = None,
     cooldown: typing.Optional[_Duration_4839e8c3] = None,
     default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,
@@ -52348,6 +52472,14 @@ def _typecheckingstub__55f829b236ccb12cc42e7c374a47c6c0909fecf313bf4ebb779169af0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f45ab7e6c60ca52cca66f8424414b667137d9c5fddf868ed06bd33c2d05efaa7(
+    *,
+    reservation_group_arn: typing.Optional[builtins.str] = None,
+    reservation_preference: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8190745b8f3973969ec09a1b3747ebde0910102f01aadd896aee0896b3ad4be7(
     *,
     scale_in_after: typing.Optional[jsii.Number] = None,
@@ -52360,6 +52492,7 @@ def _typecheckingstub__cb545da33f3067adee24bf90d3e903b06a7562a7e6ea6b3785f5b0ae6
     ec2_instance_profile_arn: builtins.str,
     network_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.ManagedInstancesNetworkConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     capacity_option_type: typing.Optional[builtins.str] = None,
+    capacity_reservations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.CapacityReservationRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     fips_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.InstanceRequirementsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     monitoring: typing.Optional[builtins.str] = None,
@@ -56514,6 +56647,7 @@ def _typecheckingstub__63e98e008463515927d4aee3c938d64639e34ce8a2c09fa766883be6a
     capacity_rebalance: typing.Optional[builtins.bool] = None,
     cooldown: typing.Optional[_Duration_4839e8c3] = None,
     default_instance_warmup: typing.Optional[_Duration_4839e8c3] = None,
+    deletion_protection: typing.Optional[_DeletionProtection_3beb1830] = None,
     desired_capacity: typing.Optional[jsii.Number] = None,
     group_metrics: typing.Optional[typing.Sequence[_GroupMetrics_7cdf729b]] = None,
     health_check: typing.Optional[_HealthCheck_03a4bd5a] = None,

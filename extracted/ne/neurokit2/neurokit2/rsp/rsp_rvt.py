@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib.pyplot as plt
@@ -20,7 +19,7 @@ def rsp_rvt(
     iterations=10,
     show=False,
     silent=False,
-    **kwargs
+    **kwargs,
 ):
     """**Respiratory Volume per Time (RVT)**
 

@@ -156,5 +156,4 @@ class TestMultiTenant:
         status, body, _ = _req(base, "GET", "/api/sessions", cookies=None)
         # On localhost this may still pass (localhost auto-auth)
         # We just verify it doesn't crash
-        # 404 possible when FastAPI catch-all intercepts before route registration
-        assert status in (200, 401, 403, 404), f"Unexpected status: {status}"
+        assert status in (200, 401, 403), f"Unexpected status: {status}"

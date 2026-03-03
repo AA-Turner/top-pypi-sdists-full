@@ -342,10 +342,7 @@ class MCPClientConnection:
     def connect(self) -> bool:
         """Start the MCP server subprocess and initialize."""
         try:
-            # Use _sanitized_env to strip API keys / tokens from child process env.
-            # MCP server processes must not inherit secrets like ANTHROPIC_API_KEY.
-            from salmalm.tools.tools_exec import _sanitized_env
-            full_env = _sanitized_env(self.env)
+            full_env = {**os.environ, **self.env}
             self._process = subprocess.Popen(
                 self.command,
                 stdin=subprocess.PIPE,
@@ -412,22 +409,11 @@ class MCPClientConnection:
                     log.debug(f"Suppressed: {e}")
             self._process = None
 
-    # BUG-BV: cap pending responses to prevent unbounded memory accumulation
-    _MAX_PENDING_RESPONSES = 256
-    # BUG-BV: max line length to reject oversized (malformed/malicious) messages
-    _MAX_LINE_BYTES = 1 * 1024 * 1024  # 1 MB
-
     def _read_loop(self):
-        """Background thread: read JSON-RPC responses from stdout.
-
-        BUG-BV fix: evict oldest entries when _MAX_PENDING_RESPONSES is exceeded
-          so timed-out requests cannot cause unbounded memory growth.
-        BUG-BZ fix: catch RecursionError from deeply-nested JSON (json bomb)
-          to prevent silent reader-thread crash.
-        """
+        """Background thread: read JSON-RPC responses from stdout."""
         try:
             while self._process and self._process.poll() is None:
-                line = self._process.stdout.readline(self._MAX_LINE_BYTES)  # type: ignore[union-attr]
+                line = self._process.stdout.readline()  # type: ignore[union-attr]
                 if not line:
                     break
                 line = line.strip()
@@ -436,17 +422,8 @@ class MCPClientConnection:
                 try:
                     msg = json.loads(line)
                     if "id" in msg:
-                        # BUG-BV: evict oldest entry when cap is reached
-                        if len(self._rpc_responses) >= self._MAX_PENDING_RESPONSES:
-                            try:
-                                oldest_key = next(iter(self._rpc_responses))
-                                del self._rpc_responses[oldest_key]
-                                log.warning("[MCP] _rpc_responses cap hit — evicting oldest entry (%s)", self.name)
-                            except StopIteration:
-                                pass
                         self._rpc_responses[msg["id"]] = msg
-                except (json.JSONDecodeError, RecursionError):
-                    # BUG-BZ: RecursionError from deeply nested JSON → skip, do not crash thread
+                except json.JSONDecodeError:
                     continue
         except Exception as e:
             log.debug(f"Suppressed: {e}")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import ItemsView, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import jsonschema_rs
 
@@ -16,6 +16,9 @@ from schemathesis.specs.openapi.adapter.protocol import SpecificationAdapter
 from schemathesis.specs.openapi.adapter.references import maybe_resolve
 from schemathesis.specs.openapi.converter import to_json_schema
 from schemathesis.specs.openapi.utils import expand_status_code
+
+if TYPE_CHECKING:
+    from schemathesis.specs.openapi.content_keywords import SseValidator
 
 # Cache key when no Content-Type header is present
 _NO_MEDIA_TYPE = ""
@@ -60,12 +63,14 @@ class OpenApiResponse:
         "scope",
         "adapter",
         "_validation_cache",
+        "_sse_validator",
         "_headers",
         "_default_media_type",
     )
 
     def __post_init__(self) -> None:
         self._validation_cache: dict[str, CachedValidation] = {}
+        self._sse_validator: SseValidator | NotSet = NOT_SET
         self._headers: OpenApiResponseHeaders | NotSet = NOT_SET
         self._default_media_type = self._detect_default_media_type()
 
@@ -99,33 +104,33 @@ class OpenApiResponse:
         cached = self._validation_cache[cache_key]
         return ResolvedSchema(schema=cached.schema, media_type=resolved_media_type, name_to_uri=cached.name_to_uri)
 
-    def _build_validator(self, schema: JsonSchema) -> jsonschema_rs.Validator | None:
+    def _build_validator(self, schema: JsonSchema) -> jsonschema_rs.Validator:
         return self.adapter.jsonschema_validator_cls(schema, validate_formats=True)
 
-    def get_validator_for_schema(
-        self, resolved_media_type: str | None, schema: JsonSchema | None
-    ) -> jsonschema_rs.Validator | None:
-        """Get or build validator for a schema corresponding to a specific media type.
-
-        This method is primarily used by the validation logic in schemas.py.
-        Validators are cached per media type.
-        """
-        if schema is None:
-            return None
-
+    def get_validator(self, resolved_media_type: str | None, schema: JsonSchema) -> jsonschema_rs.Validator | None:
+        """Get or build a cached JSON Schema validator for a non-SSE media type."""
         cache_key = self._get_cache_key(resolved_media_type)
 
-        # Ensure cache entry exists (should already exist from get_schema call)
         if cache_key not in self._validation_cache:
             self._validation_cache[cache_key] = CachedValidation(schema=schema, validator=None, name_to_uri={})
 
         cached = self._validation_cache[cache_key]
 
-        # Build validator lazily on first access
         if cached.validator is None and cached.schema is not None:
             cached.validator = self._build_validator(cached.schema)
 
         return cached.validator
+
+    def get_sse_validator(self, resolved_media_type: str | None, schema: JsonSchema) -> SseValidator | None:
+        """Get or build a cached SSE validator. Returns None if not an SSE media type."""
+        if resolved_media_type is None or not _is_sse_media_type(resolved_media_type):
+            return None
+        if not isinstance(self._sse_validator, NotSet):
+            return self._sse_validator
+        from schemathesis.specs.openapi.content_keywords import SseValidator as _SseValidator
+
+        self._sse_validator = _SseValidator(schema, self.adapter)
+        return self._sse_validator
 
     def get_raw_schema(self) -> JsonSchema | None:
         """Raw and unresolved response schema.
@@ -279,37 +284,74 @@ def extract_raw_response_schema_v2(response: Mapping[str, Any]) -> JsonSchema | 
 
 
 def extract_response_schema_v3(
-    response: Mapping[str, Any], resolver: RefResolver, scope: str, nullable_keyword: str
+    response: Mapping[str, Any],
+    resolver: RefResolver,
+    scope: str,
+    nullable_keyword: str,
+    *,
+    upgrade_legacy_exclusive_bounds: bool = False,
 ) -> Bundle | None:
     schema = extract_raw_response_schema_v3(response)
     if schema is not None:
-        return _prepare_schema(schema, resolver, scope, nullable_keyword)
+        return _prepare_schema(
+            schema,
+            resolver,
+            scope,
+            nullable_keyword,
+            upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+        )
     return None
 
 
 def extract_raw_response_schema_v3(response: Mapping[str, Any]) -> JsonSchema | None:
-    options = iter(response.get("content", {}).values())
-    media_type = next(options, None)
-    # "schema" is an optional key in the `MediaType` object
-    if media_type is not None:
-        return media_type.get("schema")
-    return None
+    content = response.get("content", {})
+    first_schema = None
+    for media_type, media_type_object in content.items():
+        if _is_sse_media_type(media_type):
+            item_schema = media_type_object.get("itemSchema")
+            return item_schema if item_schema is not None else media_type_object.get("schema")
+        if first_schema is None:
+            first_schema = media_type_object.get("schema")
+    return first_schema
 
 
-def _prepare_schema(schema: JsonSchema, resolver: RefResolver, scope: str, nullable_keyword: str) -> Bundle:
+def _prepare_schema(
+    schema: JsonSchema,
+    resolver: RefResolver,
+    scope: str,
+    nullable_keyword: str,
+    *,
+    upgrade_legacy_exclusive_bounds: bool = False,
+) -> Bundle:
     bundled = _bundle_in_scope(schema, resolver, scope)
     # Do not clone the schema, as bundling already does it
     converted = to_json_schema(
-        bundled.schema, nullable_keyword, is_response_schema=True, update_quantifiers=False, clone=False
+        bundled.schema,
+        nullable_keyword,
+        is_response_schema=True,
+        update_quantifiers=False,
+        clone=False,
+        upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
     )
     return Bundle(schema=converted, name_to_uri=bundled.name_to_uri)
 
 
 def prepare_response_media_type_schema(
-    schema: JsonSchema, resolver: RefResolver, scope: str, nullable_keyword: str
+    schema: JsonSchema,
+    resolver: RefResolver,
+    scope: str,
+    nullable_keyword: str,
+    *,
+    upgrade_legacy_exclusive_bounds: bool = False,
 ) -> Bundle:
     """Prepare schema for a specific media type entry."""
-    return _prepare_schema(schema, resolver, scope, nullable_keyword)
+    return _prepare_schema(
+        schema,
+        resolver,
+        scope,
+        nullable_keyword,
+        upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+    )
 
 
 def get_default_response_media_type_v2(response: Mapping[str, Any]) -> str | None:
@@ -380,23 +422,52 @@ def resolve_response_media_type_v3(response: Mapping[str, Any], media_type: str 
 
 
 def extract_schema_for_media_type_v3(
-    response: Mapping[str, Any], media_type: str | None, resolver: RefResolver, scope: str, nullable_keyword: str
+    response: Mapping[str, Any],
+    media_type: str | None,
+    resolver: RefResolver,
+    scope: str,
+    nullable_keyword: str,
+    *,
+    upgrade_legacy_exclusive_bounds: bool = False,
 ) -> Bundle | None:
     """Extract schema for specific media type from OpenAPI 3.x response."""
     content = response.get("content")
     if media_type is None or not isinstance(content, dict) or not content:
         # Fall back to old behavior
-        return extract_response_schema_v3(response, resolver, scope, nullable_keyword)
+        return extract_response_schema_v3(
+            response,
+            resolver,
+            scope,
+            nullable_keyword,
+            upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+        )
 
     media_type_object = content.get(media_type)
     if not isinstance(media_type_object, dict):
         return None
 
-    schema = media_type_object.get("schema")
+    if _is_sse_media_type(media_type):
+        item_schema = media_type_object.get("itemSchema")
+        schema = item_schema if item_schema is not None else media_type_object.get("schema")
+    else:
+        schema = media_type_object.get("schema")
     if schema is None:
         return None
 
-    return prepare_response_media_type_schema(schema, resolver, scope, nullable_keyword)
+    return _prepare_schema(
+        schema,
+        resolver,
+        scope,
+        nullable_keyword,
+        upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+    )
+
+
+def _is_sse_media_type(value: str) -> bool:
+    try:
+        return media_types.is_sse(value)
+    except MalformedMediaType:
+        return False
 
 
 def _bundle_in_scope(schema: JsonSchema, resolver: RefResolver, scope: str) -> Bundle:
@@ -494,10 +565,21 @@ def extract_header_schema_v2(
 
 
 def extract_header_schema_v3(
-    header: Mapping[str, Any], resolver: RefResolver, scope: str, nullable_keyword: str
+    header: Mapping[str, Any],
+    resolver: RefResolver,
+    scope: str,
+    nullable_keyword: str,
+    *,
+    upgrade_legacy_exclusive_bounds: bool = False,
 ) -> Bundle:
     schema = header.get("schema", {})
-    return _prepare_schema(schema, resolver, scope, nullable_keyword)
+    return _prepare_schema(
+        schema,
+        resolver,
+        scope,
+        nullable_keyword,
+        upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+    )
 
 
 def iter_response_examples_v2(response: Mapping[str, Any], status_code: str) -> Iterator[tuple[str, object]]:

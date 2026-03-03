@@ -116,6 +116,8 @@ HYPOTHESIS_PROFILE = config.string_flag(
           'deterministic, interactive'),
 )
 
+# Global flag ensuring we only patch the subprocess env once per process.
+_bazel_subprocess_env_patched = False
 
 # We sanitize test names to ensure they work with "unitttest -k" and
 # "pytest -k" test filtering. pytest accepts '[' and ']' but unittest -k
@@ -227,6 +229,7 @@ def _capture_output(fp: TextIO) -> Generator[Callable[[], str], None, None]:
       f.seek(0)
       captured = f.read()
       os.dup2(original_fd, fp.fileno())
+      os.close(original_fd)
 
 
 capture_stdout = partial(_capture_output, sys.stdout)
@@ -239,7 +242,6 @@ class EventThreadLocalState(threading.local):
     self.nested_device_put_count = 0  # Number of recursive calls to device_put
 
     # Per-function counts
-    self.infer_params_fun_counts = None
     self.lower_jaxpr_to_fun_counts = None
 
     self.collect_lowered_jaxprs = None
@@ -306,16 +308,6 @@ def count_primitive_compiles():
     yield lambda: count[0]
   finally:
     count[0] = dispatch.xla_primitive_callable.cache_info().misses
-
-@contextmanager
-def count_jit_infer_params_cache_miss():
-  assert thread_local_state.infer_params_fun_counts is None
-  counts = collections.Counter()
-  thread_local_state.infer_params_fun_counts = counts
-  try:
-    yield counts
-  finally:
-    thread_local_state.infer_params_fun_counts = None
 
 @contextmanager
 def count_subjaxpr_to_hlo_conversion(fun_name):
@@ -387,8 +379,6 @@ def supported_dtypes():
              _dtypes.bfloat16, np.float16, np.float32, np.float64,
              np.complex64, np.complex128, _dtypes.float8_e4m3fn,
              _dtypes.float8_e5m2}
-  elif device_under_test() == "METAL":
-    types = {np.int32, np.uint32, np.float32}
   else:
     types = {np.bool_, _dtypes.int4, np.int8, np.int16, np.int32, np.int64,
              _dtypes.uint4, np.uint8, np.uint16, np.uint32, np.uint64,
@@ -460,6 +450,7 @@ def stablehlo_version_at_least(required_version: str):
   plugin_version = xla_bridge.backend_stablehlo_version()
   if plugin_version is None:
     return True
+  # pyrefly: ignore[missing-attribute]
   return hlo.get_smaller_version(
       ".".join(map(str, plugin_version)), required_version
   ) == plugin_version
@@ -497,8 +488,8 @@ def is_device_tpu(version: int | None = None, variant: str = "") -> bool:
   return expected_version in device_kind
 
 def pattern_search(patterns: str | Sequence[str], string: str):
-  if not isinstance(patterns, tuple):
-    patterns = (patterns,)  # type: ignore
+  if isinstance(patterns, str):
+    patterns = (patterns,)
 
   for pattern in patterns:
     if re.search(pattern, string):
@@ -509,44 +500,6 @@ def device_kind_match(device_patterns: str | Sequence[str]):
   device_kind = xla_bridge.devices()[0].device_kind
   matching_pattern = pattern_search(device_patterns, device_kind)
   return matching_pattern
-
-def skip_if_errors(
-    *,
-    error_patterns: str | Sequence[str],
-    device_patterns: str | Sequence[str],
-    reason: str | Callable[[str, str], str],
-):
-  """Skip if both error message and device kind match a corresponding pattern."""
-  def skip(test_method):
-    @functools.wraps(test_method)
-    def test_method_wrapper(self, *args, **kwargs):
-      device_kind = xla_bridge.devices()[0].device_kind
-      try:
-        return test_method(self, *args, **kwargs)
-      except Exception as e:
-        matching_error_pattern = pattern_search(error_patterns, str(e))
-        matching_device_pattern = pattern_search(device_patterns, device_kind)
-        if matching_error_pattern and matching_device_pattern:
-          if not isinstance(reason, str):
-            reason_str = reason(matching_error_pattern, matching_device_pattern)
-          else:
-            reason_str = reason
-          self.skipTest(reason_str)
-        raise
-    return test_method_wrapper
-  return skip
-
-skip_if_mosaic_gpu_exceeds_shared_memory = functools.partial(
-  skip_if_errors,
-  error_patterns="kernel exceeds available shared memory",
-  reason=lambda err, dev: f"Mosaic GPU kernel exceeds shared memory on {dev}",
-)
-
-skip_if_triton_exceeds_shared_memory = functools.partial(
-  skip_if_errors,
-  error_patterns="Shared memory size limit exceeded",
-  reason=lambda err, dev: f"Triton kernel exceeds shared memory on {dev}",
-)
 
 def get_cuda_nonportable_max_cluster_size():
   # Per-device nonportable maximum cluster sizes for Jetson Thor and DGX
@@ -584,18 +537,35 @@ def is_cuda_version_at_least(major: int, minor: int):
       and cuda_versions.cuda_runtime_get_version() >= major * 1000 + minor * 10
   )
 
+# Artificial shared memory size used for some tests. 99 KiB is the limit for compute
+# capabilities 8.6, 8.9 and 12.0. Using a smaller limit when running architecture
+# agnostic tests on all hardware helps avoid introducing architecture-specific OOM
+# errors in those tests.
+# https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/compute-capabilities.html#compute-capabilities-table-memory-information-per-compute-capability
+_SMEM_SIZE_BOUND_FOR_TESTS = 99 * 1024
 
 class CudaArchSpecificTest:
   """A mixin with methods allowing to skip arch specific tests."""
+  skipTest: Callable[[str], Any]  # must be provided via inheritance
 
   def skip_unless_sm90a(self):
     if not is_cuda_compute_capability_equal("9.0"):
       self.skipTest("Only works on GPU with capability sm90a")  # pytype: disable=attribute-error
 
-  def skip_unless_sm100a(self):
-    if not is_cuda_compute_capability_equal("10.0"):
-      self.skipTest("Only works on GPU with capability sm100a")  # pytype: disable=attribute-error
+  def skip_unless_tcgen05(self):
+    if not is_device_cuda():
+      self.skipTest("Only works on GPU")  # pytype: disable=attribute-error
+    else:
+      d, *_ = xla_bridge.local_devices(backend="gpu")
+      target_major, _ = map(int, d.compute_capability.split(".", 1))
+      if target_major not in (10, 11):
+        self.skipTest("Only works on GPU with tcgen05 instructions")  # pytype: disable=attribute-error
 
+  def skip_unless_tcgen05_int8(self):
+    self.skip_unless_tcgen05()
+    if not any(map(is_cuda_compute_capability_equal, ("10.0", "10.1", "11.0"))):
+      # https://docs.nvidia.com/cuda/parallel-thread-execution/#tcgen05-mma-instructions-mma-ws
+      self.skipTest("tcgen05 in int8 only works on GPU with capability sm100a/sm101a/sm110a")  # pytype: disable=attribute-error
 
 def _get_device_tags():
   """returns a set of tags defined for the device under test"""
@@ -603,8 +573,6 @@ def _get_device_tags():
     return {device_under_test(), "rocm"}
   elif is_device_cuda():
     return {device_under_test(), "cuda"}
-  elif device_under_test() == "METAL":
-    return {device_under_test(), "gpu"}
   else:
     return {device_under_test()}
 
@@ -619,28 +587,47 @@ def test_device_matches(device_types: Iterable[str]) -> bool:
       return True
   return False
 
-test_device_matches.__test__ = False  # This isn't a test case, pytest.
+test_device_matches.__test__ = False  # This isn't a test case, pytest.  # pyrefly: ignore[missing-attribute]
 
-def _device_filter(predicate):
+def _device_filter(predicate, skip_reason=None):
   def skip(test_method):
     @functools.wraps(test_method)
     def test_method_wrapper(self, *args, **kwargs):
       device_tags = _get_device_tags()
       if not predicate():
-        test_name = getattr(test_method, '__name__', '[unknown test]')
-        raise unittest.SkipTest(
-          f"{test_name} not supported on device with tags {device_tags}.")
+        if skip_reason:
+          raise unittest.SkipTest(skip_reason)
+        else:
+          test_name = getattr(test_method, '__name__', '[unknown test]')
+          raise unittest.SkipTest(
+            f"{test_name} not supported on device with tags {device_tags}.")
       return test_method(self, *args, **kwargs)
     return test_method_wrapper
   return skip
 
-def skip_on_devices(*disabled_devices):
-  """A decorator for test methods to skip the test on certain devices."""
-  return _device_filter(lambda: not test_device_matches(disabled_devices))
+def skip_on_devices(*disabled_devices, skip_reason=None):
+  """A decorator for test methods to skip the test on certain devices.
 
-def run_on_devices(*enabled_devices):
-  """A decorator for test methods to run the test only on certain devices."""
-  return _device_filter(lambda: test_device_matches(enabled_devices))
+  Args:
+    *disabled_devices: Device names that the test should skip on.
+    skip_reason: Optional custom skip message when test is skipped.
+  """
+  if skip_reason is None:
+    skip_reason = "Skipped on devices with tags: " + ", ".join(disabled_devices)
+  return _device_filter(lambda: not test_device_matches(disabled_devices), skip_reason)
+
+def run_on_devices(*enabled_devices, skip_reason=None):
+  """A decorator for test methods to run the test only on certain devices.
+
+  Args:
+    *enabled_devices: Device names that the test should run on.
+    skip_reason: Optional custom skip message when test is skipped.
+  """
+  if skip_reason is None:
+    skip_reason = (
+      "Skipped unless running on devices with tags: " + ", ".join(enabled_devices)
+    )
+  return _device_filter(lambda: test_device_matches(enabled_devices), skip_reason)
 
 def device_supports_buffer_donation():
   """A decorator for test methods to run the test only on devices that support
@@ -707,12 +694,6 @@ def skip_under_pytest(reason: str):
   def skip(test_method):
     return unittest.skipIf(is_running_under_pytest(), reason)(test_method)
   return skip
-
-
-def format_test_name_suffix(opname, shapes, dtypes):
-  arg_descriptions = (format_shape_dtype_string(shape, dtype)
-                      for shape, dtype in zip(shapes, dtypes))
-  return '{}_{}'.format(opname.capitalize(), '_'.join(arg_descriptions))
 
 
 # We use special symbols, represented as singleton objects, to distinguish
@@ -1162,7 +1143,8 @@ def with_config(**kwds):
     assert inspect.isclass(cls) and issubclass(cls, JaxTestCase), "@with_config can only wrap JaxTestCase class definitions."
     cls._default_thread_local_config = {}
     for b in cls.__bases__:
-      cls._default_thread_local_config.update(b._default_thread_local_config)
+      if hasattr(b, "_default_thread_local_config"):
+        cls._default_thread_local_config.update(b._default_thread_local_config)
     cls._default_thread_local_config.update(kwds)
     return cls
   return decorator
@@ -1173,7 +1155,8 @@ def with_global_config(**kwds):
     assert inspect.isclass(cls) and issubclass(cls, JaxTestCase), "@with_config can only wrap JaxTestCase class definitions."
     cls._default_global_config = {}
     for b in cls.__bases__:
-      cls._default_global_config.update(b._default_global_config)
+      if hasattr(b, "_default_global_config"):
+        cls._default_global_config.update(b._default_global_config)
     cls._default_global_config.update(kwds)
     return cls
   return decorator
@@ -1254,6 +1237,7 @@ class JaxTestCase(parameterized.TestCase):
 
   def setUp(self):
     super().setUp()
+    self._configure_subprocess_env()
     self.enterContext(assert_global_configs_unchanged())
 
     # We use the adler32 hash for two reasons.
@@ -1274,6 +1258,33 @@ class JaxTestCase(parameterized.TestCase):
       tmp_dir = self.enterContext(tempfile.TemporaryDirectory())
       self.enterContext(config.compilation_cache_dir(tmp_dir))
       self.addCleanup(compilation_cache.reset_cache)
+
+  def _configure_subprocess_env(self):
+    """
+    Propagates the current Bazel environment to subprocesses.
+
+    Note: Fix for rules_python >= 1.7.0 (Strict Hermeticity):
+    The parent process sees dependencies via sys.path, but modern rules_python
+    does not export this to PYTHONPATH by default. We must manually propagate
+    it so child workers can locate dependencies.
+    """
+    global _bazel_subprocess_env_patched
+
+    if _bazel_subprocess_env_patched:
+      return
+
+    sys_path = os.pathsep.join(sys.path)
+    pythonpath_env = os.environ.get('PYTHONPATH', '')
+
+    # Check if strict hermeticity is already satisfied
+    if sys_path in pythonpath_env:
+      _bazel_subprocess_env_patched = True
+      return
+
+    path_parts = [sys_path, pythonpath_env]
+    os.environ['PYTHONPATH'] = os.pathsep.join(p for p in path_parts if p)
+
+    _bazel_subprocess_env_patched = True
 
   def tearDown(self) -> None:
     assert core.reset_trace_state()
@@ -1386,7 +1397,7 @@ class JaxTestCase(parameterized.TestCase):
   # thread-safe warning utilities. Unlike the unittest versions these only
   # function as context managers.
   @contextmanager
-  def assertWarns(self, warning, *, msg=None):
+  def assertWarns(self, warning, *, msg=None):  # pyrefly: ignore[bad-override]
     with test_warning_util.record_warnings() as ws:
       yield
     for w in ws:
@@ -1399,7 +1410,7 @@ class JaxTestCase(parameterized.TestCase):
               f"{ws}")
 
   @contextmanager
-  def assertWarnsRegex(self, warning, regex):
+  def assertWarnsRegex(self, warning, regex):  # pyrefly: ignore[bad-override]
     if regex is not None and not isinstance(regex, re.Pattern):
         regex = re.compile(regex)
 
@@ -1498,9 +1509,9 @@ class JaxTestCase(parameterized.TestCase):
                        compilation_count())
 
 _PJIT_IMPLEMENTATION = api.jit
-_PJIT_IMPLEMENTATION._name = "jit"
+_PJIT_IMPLEMENTATION._name = "jit"  # pyrefly: ignore[missing-attribute]
 _NOOP_JIT_IMPLEMENTATION = lambda x, *args, **kwargs: x
-_NOOP_JIT_IMPLEMENTATION._name = "noop"
+_NOOP_JIT_IMPLEMENTATION._name = "noop"  # pyrefly: ignore[missing-attribute]
 
 JIT_IMPLEMENTATION = (
   _PJIT_IMPLEMENTATION,
@@ -1536,14 +1547,6 @@ def with_mesh(named_shape: MeshSpec) -> Generator[None, None, None]:
 
 def with_mesh_from_kwargs(f):
   return lambda *args, **kwargs: with_mesh(kwargs['mesh'])(f)(*args, **kwargs)
-
-def with_and_without_mesh(f):
-  return parameterized.named_parameters(
-    {"testcase_name": name, "mesh": mesh, "axis_resources": axis_resources}
-    for name, mesh, axis_resources in (
-      ('', (), ()),
-      ('Mesh', (('x', 2),), (('i', 'x'),))
-    ))(with_mesh_from_kwargs(f))
 
 def with_explicit_mesh(sizes, names, axis_types=None, iota_order=False):
   axis_types = ((mesh_lib.AxisType.Explicit,) * len(names)
@@ -1822,7 +1825,7 @@ def complex_plane_sample(dtype, size_re=10, size_im=None):
 
   def make_axis_points(size):
     prec_dps_ratio = 3.3219280948873626
-    logmin = logmax = finfo.maxexp / prec_dps_ratio
+    logmin = finfo.maxexp / prec_dps_ratio
     logtiny = finfo.minexp / prec_dps_ratio
     axis_points = np.zeros(3 + 2 * size, dtype=finfo.dtype)
 
@@ -1951,7 +1954,7 @@ class vectorize_with_mpmath(np.vectorize):
         dtype = None
       if dtype is not None:
         return np.fromiter(map(self.mptonp, x_flat), dtype=dtype).reshape(x.shape)
-    elif isinstance(x, self.mpmath.ctx_mp.mpnumeric):
+    elif isinstance(x, self.mpmath.ctx_mp_python.mpnumeric):
       ctx = x.context
       if isinstance(x, ctx.mpc):
         fp_format = self.contexts_inv[ctx]
@@ -2001,13 +2004,13 @@ class vectorize_with_mpmath(np.vectorize):
       lst = []
       for r in result:
         if ((isinstance(r, np.ndarray) and r.dtype.kind == 'O')
-            or isinstance(r, self.mpmath.ctx_mp.mpnumeric)):
+            or isinstance(r, self.mpmath.ctx_mp_python.mpnumeric)):
           r = self.mptonp(r)
         lst.append(r)
       return tuple(lst)
 
     if ((isinstance(result, np.ndarray) and result.dtype.kind == 'O')
-        or isinstance(result, self.mpmath.ctx_mp.mpnumeric)):
+        or isinstance(result, self.mpmath.ctx_mp_python.mpnumeric)):
       return self.mptonp(result)
 
     return result

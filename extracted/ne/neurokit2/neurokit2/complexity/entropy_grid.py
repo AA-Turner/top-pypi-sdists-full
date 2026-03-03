@@ -82,14 +82,12 @@ def entropy_grid(signal, delay=1, k=3, show=False, **kwargs):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     info = {"k": k, "Delay": delay}
 
     # Normalization
-    Sig_n = (signal - min(signal)) / np.ptp(signal)
+    Sig_n = (signal - np.min(signal)) / (np.max(signal) - np.min(signal))
 
     # Poincaré Plot
     Temp = np.array([Sig_n[:-delay], Sig_n[delay:]])
@@ -108,7 +106,6 @@ def entropy_grid(signal, delay=1, k=3, show=False, **kwargs):
     info["GDR"] = np.sum(hist != 0) / hist.size
 
     if show is True:
-
         gridlines = np.linspace(0, 1, k + 1)
         plt.subplots(1, 2)
         x1 = plt.subplot(121)

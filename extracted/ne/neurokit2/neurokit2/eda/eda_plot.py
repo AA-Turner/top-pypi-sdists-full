@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib.collections
@@ -48,8 +47,7 @@ def eda_plot(eda_signals, info=None, static=True):
     """
     if info is None:
         warn(
-            "'info' dict not provided. Some information might be missing."
-            + " Sampling rate will be set to 1000 Hz.",
+            "'info' dict not provided. Some information might be missing." + " Sampling rate will be set to 1000 Hz.",
             category=NeuroKitWarning,
         )
 
@@ -109,19 +107,13 @@ def eda_plot(eda_signals, info=None, static=True):
             eda_signals, ax1, x_axis, onsets, peaks, half_recovery
         )
 
-        risetime = matplotlib.collections.LineCollection(
-            risetime_coord, colors="#FFA726", linewidths=1, linestyle="dashed"
-        )
+        risetime = matplotlib.collections.LineCollection(risetime_coord, colors="#FFA726", linewidths=1, linestyle="dashed")
         ax1.add_collection(risetime)
 
-        amplitude = matplotlib.collections.LineCollection(
-            amplitude_coord, colors="#1976D2", linewidths=1, linestyle="solid"
-        )
+        amplitude = matplotlib.collections.LineCollection(amplitude_coord, colors="#1976D2", linewidths=1, linestyle="solid")
         ax1.add_collection(amplitude)
 
-        halfr = matplotlib.collections.LineCollection(
-            halfr_coord, colors="#FDD835", linewidths=1, linestyle="dashed"
-        )
+        halfr = matplotlib.collections.LineCollection(halfr_coord, colors="#FDD835", linewidths=1, linestyle="dashed")
         ax1.add_collection(halfr)
         ax1.legend(loc="upper right")
 
@@ -203,9 +195,7 @@ def eda_plot(eda_signals, info=None, static=True):
         )
 
         # Mark segments.
-        _, _, _ = _eda_plot_dashedsegments(
-            eda_signals, fig, x_axis, onsets, peaks, half_recovery, static=static
-        )
+        _, _, _ = _eda_plot_dashedsegments(eda_signals, fig, x_axis, onsets, peaks, half_recovery, static=static)
 
         # TODO add dashed segments to plotly version
 
@@ -232,9 +222,7 @@ def eda_plot(eda_signals, info=None, static=True):
 # =============================================================================
 # Internals
 # =============================================================================
-def _eda_plot_dashedsegments(
-    eda_signals, ax, x_axis, onsets, peaks, half_recovery, static=True
-):
+def _eda_plot_dashedsegments(eda_signals, ax, x_axis, onsets, peaks, half_recovery, static=True):
     # Mark onsets, peaks, and half-recovery.
     onset_x_values = x_axis[onsets]
     onset_y_values = eda_signals["EDA_Phasic"][onsets].values
@@ -243,9 +231,7 @@ def _eda_plot_dashedsegments(
     halfr_x_values = x_axis[half_recovery]
     halfr_y_values = eda_signals["EDA_Phasic"][half_recovery].values
 
-    end_onset = pd.Series(
-        eda_signals["EDA_Phasic"][onsets].values, eda_signals["EDA_Phasic"][peaks].index
-    )
+    end_onset = pd.Series(eda_signals["EDA_Phasic"][onsets].values, eda_signals["EDA_Phasic"][peaks].index)
 
     risetime_coord = []
     amplitude_coord = []

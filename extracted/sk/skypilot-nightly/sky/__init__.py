@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'a56f0bd3fca0cf5c8a2fc205a021202667d4f4ce'
+_SKYPILOT_COMMIT_SHA = '3c104058a9fdf42198656dcbd24e72eebc76bf29'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20260225'
+__version__ = '1.0.0.dev20260228'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -116,6 +116,7 @@ from sky.client.sdk import storage_ls
 from sky.client.sdk import stream_and_get
 from sky.client.sdk import tail_logs
 from sky.dag import Dag
+from sky.dag import DagExecution
 from sky.data import Storage
 from sky.data import StorageMode
 from sky.data import StoreType
@@ -196,6 +197,7 @@ __all__ = [
     'StatusRefreshMode',
     # APIs
     'Dag',
+    'DagExecution',
     'Task',
     'Resources',
     # core APIs

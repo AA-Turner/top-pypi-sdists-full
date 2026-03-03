@@ -172,6 +172,14 @@ def dev(
         bool,
         typer.Option("--verbose", "-v", help="Show detailed logs"),
     ] = False,
+    memray: Annotated[
+        bool,
+        typer.Option("--memray", help="Run world under memray memory profiler"),
+    ] = False,
+    startup_profile_out: Annotated[
+        Path | None,
+        typer.Option("--startup-profile-out", help="Write startup timing profile JSON to this path"),
+    ] = None,
 ):
     """Run world + agents on VMs with rsync hot reload."""
     from rich.logging import RichHandler
@@ -198,7 +206,13 @@ def dev(
 
     try:
         dev_config = Config.from_file(config)
-        runner = DevRunner(config=dev_config, config_path=config, verbose=verbose)
+        runner = DevRunner(
+            config=dev_config,
+            config_path=config,
+            verbose=verbose,
+            memray=memray,
+            startup_profile_out=startup_profile_out,
+        )
         asyncio.run(runner.run())
     except KeyboardInterrupt:
         raise typer.Exit(0)

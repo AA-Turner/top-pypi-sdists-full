@@ -8,10 +8,11 @@ def load_ssl_context(cert_file, pkey_file):
 
 
 def save_ssl_files(cert, pkey):
-    import atexit
-    import os
-    import tempfile
-    from cryptography.hazmat.primitives import serialization
+    import atexit  # noqa:  PLC0415
+    import os  # noqa:  PLC0415
+    import tempfile  # noqa:  PLC0415
+
+    from cryptography.hazmat.primitives import serialization  # noqa:  PLC0415
 
     cert_handle, cert_file = tempfile.mkstemp()
     pkey_handle, pkey_file = tempfile.mkstemp()
@@ -35,15 +36,15 @@ def save_ssl_files(cert, pkey):
 
 def generate_ssl_pair(host):
     try:
-        from cryptography import x509
-        from cryptography.x509.oid import NameOID
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import rsa
-        import datetime
+        import datetime  # noqa:  PLC0415
+
+        from cryptography import x509  # noqa:  PLC0415
+        from cryptography.hazmat.primitives import hashes  # noqa:  PLC0415
+        from cryptography.hazmat.primitives.asymmetric import rsa  # noqa:  PLC0415
+        from cryptography.x509.oid import NameOID  # noqa:  PLC0415
     except ImportError:
-        raise TypeError(
-            "Using ad-hoc certificates requires the cryptography library."
-        ) from None
+        msg = "Using ad-hoc certificates requires the cryptography library."
+        raise TypeError(msg) from None
     cn = f"*.{host}/CN={host}"
     pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = x509.Name(

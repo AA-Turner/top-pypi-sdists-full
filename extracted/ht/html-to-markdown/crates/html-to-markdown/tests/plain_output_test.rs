@@ -75,12 +75,7 @@ fn test_plain_blockquote_no_prefix() {
 fn test_plain_list_items_on_separate_lines() {
     let html = "<ul><li>First</li><li>Second</li><li>Third</li></ul>";
     let result = convert(html, Some(plain_options())).unwrap();
-    assert!(result.contains("First"));
-    assert!(result.contains("Second"));
-    assert!(result.contains("Third"));
-    // Items should be on separate lines
-    let lines: Vec<&str> = result.lines().filter(|l| !l.is_empty()).collect();
-    assert!(lines.len() >= 3, "Expected at least 3 lines, got: {result}");
+    assert_eq!(result, "- First\n- Second\n- Third\n");
 }
 
 #[test]
@@ -210,5 +205,63 @@ fn test_plain_pre_preserves_whitespace() {
     assert!(
         result.contains("  indented\n    more"),
         "Pre blocks should preserve whitespace, got: {result}"
+    );
+}
+
+#[test]
+fn test_plain_unordered_list_markers() {
+    let html = "<ul><li>Alpha</li><li>Beta</li><li>Gamma</li></ul>";
+    let result = convert(html, Some(plain_options())).unwrap();
+    assert_eq!(result, "- Alpha\n- Beta\n- Gamma\n");
+}
+
+#[test]
+fn test_plain_ordered_list_markers() {
+    let html = "<ol><li>First</li><li>Second</li><li>Third</li></ol>";
+    let result = convert(html, Some(plain_options())).unwrap();
+    assert_eq!(result, "1. First\n2. Second\n3. Third\n");
+}
+
+#[test]
+fn test_plain_ordered_list_custom_start() {
+    let html = r#"<ol start="42"><li>First item starting at 42</li><li>Second item</li></ol>"#;
+    let result = convert(html, Some(plain_options())).unwrap();
+    assert_eq!(result, "42. First item starting at 42\n43. Second item\n");
+}
+
+#[test]
+fn test_plain_nested_lists() {
+    let html = "<ul><li>Outer 1<ul><li>Inner A</li><li>Inner B</li></ul></li><li>Outer 2</li></ul>";
+    let result = convert(html, Some(plain_options())).unwrap();
+    // The outer items should have `- ` prefix and inner items should also have `- ` prefix
+    assert!(
+        result.contains("- Outer 1"),
+        "Expected '- Outer 1' in output, got: {result}"
+    );
+    assert!(
+        result.contains("- Inner A"),
+        "Expected '- Inner A' in output, got: {result}"
+    );
+    assert!(
+        result.contains("- Inner B"),
+        "Expected '- Inner B' in output, got: {result}"
+    );
+    assert!(
+        result.contains("- Outer 2"),
+        "Expected '- Outer 2' in output, got: {result}"
+    );
+}
+
+#[test]
+fn test_plain_ordered_list_inside_unordered() {
+    let html = "<ul><li>Bullet<ol><li>Numbered</li></ol></li></ul>";
+    let result = convert(html, Some(plain_options())).unwrap();
+    assert!(
+        result.contains("- Bullet"),
+        "Expected '- Bullet' in output, got: {result}"
+    );
+    assert!(
+        result.contains("1. Numbered"),
+        "Expected '1. Numbered' in output, got: {result}"
     );
 }

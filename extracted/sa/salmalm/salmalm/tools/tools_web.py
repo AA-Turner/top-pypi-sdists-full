@@ -109,10 +109,6 @@ def handle_http_request(args: dict) -> str:
     headers = args.get("headers", {})
     body_str = args.get("body", "")
     timeout_sec = min(args.get("timeout", 15), 60)
-    # Guard against oversized request body (LLM injection or abuse)
-    _MAX_REQUEST_BODY = 1 * 1024 * 1024  # 1MB
-    if len(body_str) > _MAX_REQUEST_BODY:
-        return f"❌ Request body too large (max 1MB, got {len(body_str):,} bytes)"
     if not url:
         return "URL is required"
     blocked, reason, final_url = _is_private_url_follow_redirects(url)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pandas as pd
 
 from .emg_eventrelated import emg_eventrelated
@@ -82,7 +81,6 @@ def emg_analyze(data, sampling_rate=1000, method="auto"):
 
     # Auto
     elif method in ["auto"]:
-
         if isinstance(data, dict):
             for i in data:
                 duration = len(data[i]) / sampling_rate

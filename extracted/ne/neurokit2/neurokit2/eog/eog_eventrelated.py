@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import numpy as np
@@ -69,7 +68,6 @@ def eog_eventrelated(epochs, silent=False):
     # Extract features and build dataframe
     data = {}  # Initialize an empty dict
     for i in epochs.keys():
-
         data[i] = {}  # Initialize an empty dict for the current epoch
 
         # Rate
@@ -92,18 +90,17 @@ def eog_eventrelated(epochs, silent=False):
 # Internals
 # =============================================================================
 def _eog_eventrelated_features(epoch, output={}):
-
     # Sanitize input
     if "EOG_Blinks" not in epoch:
         warn(
-            "Input does not have an `EOG_Blinks` column." " Unable to process blink features.",
+            "Input does not have an `EOG_Blinks` column. Unable to process blink features.",
             category=NeuroKitWarning,
         )
         return output
 
     if "EOG_Rate" not in epoch:
         warn(
-            "Input does not have an `EOG_Rate` column." " Will skip computation of EOG rate.",
+            "Input does not have an `EOG_Rate` column. Will skip computation of EOG rate.",
             category=NeuroKitWarning,
         )
         return output

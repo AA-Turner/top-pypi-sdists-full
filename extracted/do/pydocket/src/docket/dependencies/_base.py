@@ -6,13 +6,31 @@ import abc
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import timedelta
-from types import TracebackType
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, TypeVar
+
+from uncalled_for import Dependency as Dependency
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..docket import Docket
     from ..execution import Execution
     from ..worker import Worker
+
+T = TypeVar("T", covariant=True)
+
+current_docket: ContextVar[Docket] = ContextVar("current_docket")
+current_worker: ContextVar[Worker] = ContextVar("current_worker")
+current_execution: ContextVar[Execution] = ContextVar("current_execution")
+
+# Backwards compatibility: prior to 0.18, docket defined its own Dependency base
+# class with class-level ContextVars (Dependency.execution, Dependency.docket,
+# Dependency.worker).  Now that the base Dependency class comes from uncalled-for,
+# those ContextVars live at module scope above.  However, downstream consumers
+# (notably FastMCP) access them as Dependency.execution.get(), so we monkeypatch
+# them back onto the class to avoid breaking existing code.  This shim can be
+# removed once all known consumers have migrated to the module-level ContextVars.
+Dependency.execution = current_execution  # type: ignore[attr-defined]
+Dependency.docket = current_docket  # type: ignore[attr-defined]
+Dependency.worker = current_worker  # type: ignore[attr-defined]
 
 
 def format_duration(seconds: float) -> str:
@@ -37,35 +55,31 @@ class AdmissionBlocked(Exception):
 
     This is the base exception for admission control mechanisms like
     concurrency limits, rate limits, or health gates.
+
+    When ``reschedule`` is True (default), the worker re-queues the task
+    with a short delay.  When False, the task is quietly acknowledged
+    and dropped with an INFO-level log (appropriate for debounce/cooldown
+    where re-trying would just hit the same window).
+
+    ``retry_delay`` overrides the default reschedule delay when set.
     """
 
-    def __init__(self, execution: Execution, reason: str = "admission control"):
+    def __init__(
+        self,
+        execution: Execution,
+        reason: str = "admission control",
+        *,
+        reschedule: bool = True,
+        retry_delay: timedelta | None = None,
+    ):
         self.execution = execution
         self.reason = reason
+        self.reschedule = reschedule
+        self.retry_delay = retry_delay
         super().__init__(f"Task {execution.key} blocked by {reason}")
 
 
-class Dependency(abc.ABC):
-    """Base class for all dependencies."""
-
-    single: bool = False
-
-    docket: ContextVar[Docket] = ContextVar("docket")
-    worker: ContextVar[Worker] = ContextVar("worker")
-    execution: ContextVar[Execution] = ContextVar("execution")
-
-    @abc.abstractmethod
-    async def __aenter__(self) -> Any: ...  # pragma: no cover
-
-    async def __aexit__(
-        self,
-        _exc_type: type[BaseException] | None,
-        _exc_value: BaseException | None,
-        _traceback: TracebackType | None,
-    ) -> bool: ...  # pragma: no cover
-
-
-class Runtime(Dependency):
+class Runtime(Dependency[T]):
     """Base class for dependencies that control task execution.
 
     Only one Runtime dependency can be active per task (single=True).
@@ -93,7 +107,7 @@ class Runtime(Dependency):
         ...  # pragma: no cover
 
 
-class FailureHandler(Dependency):
+class FailureHandler(Dependency[T]):
     """Base class for dependencies that control what happens when a task fails.
 
     Called on exceptions. If handle_failure() returns True, the handler
@@ -120,7 +134,7 @@ class FailureHandler(Dependency):
         ...  # pragma: no cover
 
 
-class CompletionHandler(Dependency):
+class CompletionHandler(Dependency[T]):
     """Base class for dependencies that control what happens after task completion.
 
     Called after execution is truly done (success, or failure with no retry).

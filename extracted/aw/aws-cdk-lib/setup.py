@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.240.0",
+    "version": "2.241.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -94,6 +94,7 @@ kwargs = json.loads(
         "aws_cdk.aws_cognito",
         "aws_cdk.aws_cognito_identitypool",
         "aws_cdk.aws_comprehend",
+        "aws_cdk.aws_computeoptimizer",
         "aws_cdk.aws_config",
         "aws_cdk.aws_connect",
         "aws_cdk.aws_connectcampaigns",
@@ -111,6 +112,7 @@ kwargs = json.loads(
         "aws_cdk.aws_devicefarm",
         "aws_cdk.aws_devopsagent",
         "aws_cdk.aws_devopsguru",
+        "aws_cdk.aws_directconnect",
         "aws_cdk.aws_directoryservice",
         "aws_cdk.aws_dlm",
         "aws_cdk.aws_dms",
@@ -390,6 +392,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_codestarnotifications",
         "aws_cdk.interfaces.aws_cognito",
         "aws_cdk.interfaces.aws_comprehend",
+        "aws_cdk.interfaces.aws_computeoptimizer",
         "aws_cdk.interfaces.aws_config",
         "aws_cdk.interfaces.aws_connect",
         "aws_cdk.interfaces.aws_connectcampaigns",
@@ -407,6 +410,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_devicefarm",
         "aws_cdk.interfaces.aws_devopsagent",
         "aws_cdk.interfaces.aws_devopsguru",
+        "aws_cdk.interfaces.aws_directconnect",
         "aws_cdk.interfaces.aws_directoryservice",
         "aws_cdk.interfaces.aws_dlm",
         "aws_cdk.interfaces.aws_dms",
@@ -607,7 +611,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.240.0.jsii.tgz"
+            "aws-cdk-lib@2.241.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"
@@ -616,10 +620,10 @@ kwargs = json.loads(
     "python_requires": "~=3.9",
     "install_requires": [
         "aws-cdk.asset-awscli-v1==2.2.263",
-        "aws-cdk.asset-node-proxy-agent-v6>=2.1.0, <3.0.0",
-        "aws-cdk.cloud-assembly-schema>=50.3.0, <51.0.0",
+        "aws-cdk.asset-node-proxy-agent-v6>=2.1.1, <3.0.0",
+        "aws-cdk.cloud-assembly-schema>=52.1.0, <53.0.0",
         "constructs>=10.5.0, <11.0.0",
-        "jsii>=1.126.0, <2.0.0",
+        "jsii>=1.127.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],

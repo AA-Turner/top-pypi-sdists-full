@@ -358,6 +358,8 @@ from jax._src.lax.fft import (
 )
 from jax._src.lax.parallel import (
   all_gather as all_gather,
+  all_gather_start as all_gather_start,
+  all_gather_done as all_gather_done,
   pcast as pcast,
   all_gather_p as all_gather_p,
   all_to_all as all_to_all,
@@ -401,6 +403,7 @@ from jax.lax import linalg as linalg
 from jax._src.pjit import with_sharding_constraint as with_sharding_constraint
 from jax._src.pjit import sharding_constraint_p as sharding_constraint_p
 from jax._src.dispatch import device_put_p as device_put_p
+from jax._src.lax.scaled_dot import scaled_dot as scaled_dot
 
 _deprecations = {
     # Deprecated in v0.7.1; finalized in v0.9.0.

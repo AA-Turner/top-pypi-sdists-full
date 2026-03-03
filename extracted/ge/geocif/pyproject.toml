@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.150"
+version = "0.4.169"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -47,6 +47,7 @@ dependencies = [
     "palettable>=3.3.3",
     "seaborn>=0.13.2",
     "scikit-misc>=0.5.2",
+    "setuptools<81",
 ]
 
 [project.urls]

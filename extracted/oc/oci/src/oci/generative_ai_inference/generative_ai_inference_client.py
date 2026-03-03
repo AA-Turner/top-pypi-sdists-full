@@ -167,7 +167,7 @@ class GenerativeAiInferenceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/generativeaiinference/apply_guardrails.py.html>`__ to see an example of how to use apply_guardrails API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/generativeaiinference/apply_guardrails.py.html>`__ to see an example of how to use apply_guardrails API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -271,7 +271,7 @@ class GenerativeAiInferenceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/generativeaiinference/chat.py.html>`__ to see an example of how to use chat API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/generativeaiinference/chat.py.html>`__ to see an example of how to use chat API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -377,7 +377,7 @@ class GenerativeAiInferenceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/generativeaiinference/embed_text.py.html>`__ to see an example of how to use embed_text API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/generativeaiinference/embed_text.py.html>`__ to see an example of how to use embed_text API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -481,7 +481,7 @@ class GenerativeAiInferenceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/generativeaiinference/generate_text.py.html>`__ to see an example of how to use generate_text API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/generativeaiinference/generate_text.py.html>`__ to see an example of how to use generate_text API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -587,7 +587,7 @@ class GenerativeAiInferenceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/generativeaiinference/rerank_text.py.html>`__ to see an example of how to use rerank_text API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/generativeaiinference/rerank_text.py.html>`__ to see an example of how to use rerank_text API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -691,7 +691,7 @@ class GenerativeAiInferenceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.3/generativeaiinference/summarize_text.py.html>`__ to see an example of how to use summarize_text API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.168.0/generativeaiinference/summarize_text.py.html>`__ to see an example of how to use summarize_text API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []

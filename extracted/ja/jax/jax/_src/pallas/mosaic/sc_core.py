@@ -18,7 +18,6 @@ from __future__ import annotations
 import collections
 from collections.abc import Sequence
 import dataclasses
-import math
 from typing import Any, TypeAlias
 
 import jax
@@ -26,7 +25,6 @@ from jax._src import core as jax_core
 from jax._src import state
 from jax._src import tree_util
 from jax._src.pallas import core as pallas_core
-from jax._src.pallas import primitives as pallas_primitives
 from jax._src.pallas.mosaic import core as tpu_core
 from jax._src.pallas.mosaic import tpu_info
 import jax.numpy as jnp
@@ -162,35 +160,24 @@ class ScalarSubcoreMesh:
   num_cores: int
 
   @property
-  def backend(self) -> str:
-    return "mosaic_tpu"
+  def kernel_type(self) -> tpu_core.CoreType:
+    return tpu_core.CoreType.SC_SCALAR_SUBCORE
+
+  @property
+  def default_memory_space(self) -> tpu_core.MemorySpace:
+    return tpu_core.MemorySpace.HBM
 
   @property
   def shape(self):
     return collections.OrderedDict(core=self.num_cores)
 
+  @property
+  def dimension_semantics(self) -> Sequence[str]:
+    return ["core_parallel"]
+
   def discharges_effect(self, effect):
     del effect  # Unused.
     return False
-
-
-def gather_global_allocations(jaxpr):
-
-  def _gather_from_eqns(*, eqn=None, jaxpr=None):
-    if eqn is not None:
-      if eqn.primitive is pallas_primitives.get_global_p:
-        what = eqn.params["what"]
-        yield pallas_core.MemoryRef(what.inner_aval, what.memory_space)
-      for subjaxpr in jax_core.jaxprs_in_params(eqn.params):
-        yield from _gather_from_eqns(jaxpr=subjaxpr)
-    else:
-      for eqn in jaxpr.eqns:
-        yield from _gather_from_eqns(eqn=eqn)
-
-  allocations = collections.defaultdict(list)
-  for memref in _gather_from_eqns(jaxpr=jaxpr):
-    allocations[memref].append(memref)
-  return allocations
 
 
 def _scalar_subcore_mesh_discharge_rule(
@@ -224,24 +211,19 @@ def _scalar_subcore_mesh_discharge_rule(
     raise NotImplementedError(
         f"Cannot close over values in core_map: {sa_avals}"
     )
+
   return pallas_core.default_mesh_discharge_rule(
       in_avals,
       out_avals,
       *args,
       mesh=mesh,
       jaxpr=jaxpr,
-      compiler_params=dataclasses.replace(
-          compiler_params,
-          dimension_semantics=["core_parallel"],
-          kernel_type=tpu_core.KernelType.SC_SCALAR_SUBCORE,
-      ),
+      compiler_params=compiler_params,
       interpret=interpret,
       debug=debug,
       cost_estimate=cost_estimate,
       name=name,
-      memory_space=tpu_core.MemorySpace.HBM,
       metadata=metadata,
-      scratch_shapes=tree_util.tree_leaves(gather_global_allocations(jaxpr)),
   )
 
 
@@ -277,17 +259,25 @@ class VectorSubcoreMesh:
     if self.num_subcores != sc_info.num_subcores:
       raise ValueError(
           f"Mesh has {self.num_subcores} subcores, but the current TPU chip has"
-          f" only {num_expected} subcores"
+          f" only {sc_info.num_subcores} subcores"
       )
 
   @property
-  def backend(self) -> str:
-    return "mosaic_tpu"
+  def kernel_type(self) -> tpu_core.CoreType:
+    return tpu_core.CoreType.SC_VECTOR_SUBCORE
+
+  @property
+  def default_memory_space(self) -> tpu_core.MemorySpace:
+    return tpu_core.MemorySpace.HBM
 
   @property
   def shape(self):
     return collections.OrderedDict(
         core=self.num_cores, subcore=self.num_subcores)
+
+  @property
+  def dimension_semantics(self) -> Sequence[str]:
+    return ["core_parallel", "subcore_parallel"]
 
   def discharges_effect(self, effect):
     del effect  # Unused.
@@ -326,18 +316,12 @@ def _vector_subcore_mesh_discharge_rule(
       *args,
       mesh=mesh,
       jaxpr=jaxpr,
-      compiler_params=dataclasses.replace(
-          compiler_params,
-          dimension_semantics=["core_parallel", "subcore_parallel"],
-          kernel_type=tpu_core.KernelType.SC_VECTOR_SUBCORE,
-      ),
+      compiler_params=compiler_params,
       interpret=interpret,
       debug=debug,
       cost_estimate=cost_estimate,
       name=name,
-      memory_space=tpu_core.MemorySpace.HBM,
       metadata=metadata,
-      scratch_shapes=tree_util.tree_leaves(gather_global_allocations(jaxpr)),
   )
 
 
@@ -346,42 +330,14 @@ pallas_core._core_map_mesh_rules[VectorSubcoreMesh] = (
 )
 
 
-# TODO(slebedev): Only keep the shapes which do not require unrolling.
-SUPPORTED_VECTOR_SHAPES = collections.defaultdict(list)
-for dtype in [jnp.int32, jnp.uint32, jnp.float32]:
-  SUPPORTED_VECTOR_SHAPES[jnp.dtype(dtype)].extend([
-      # fmt: off
-      (8,), (16,), (32,), (64,),
-      (1, 8), (1, 16),
-      (2, 8), (2, 16),
-      (4, 8), (4, 16),
-      # fmt: on
-  ])
-for dtype in [jnp.int16, jnp.uint16, jnp.float16, jnp.bfloat16]:
-  SUPPORTED_VECTOR_SHAPES[jnp.dtype(dtype)].extend([
-      # fmt: off
-      (16,), (32,), (64,),
-      (2, 8), (2, 16),
-      # fmt: on
-  ])
-for dtype in [jnp.float16, jnp.bfloat16]:
-  SUPPORTED_VECTOR_SHAPES[jnp.dtype(dtype)].extend([
-      # fmt: off
-      (4, 8), (4, 16),
-      # fmt: on
-  ])
-for dtype in [jnp.int8, jnp.uint8]:
-  SUPPORTED_VECTOR_SHAPES[jnp.dtype(dtype)].extend([
-      # fmt: off
-      (32,), (64,),
-      (4, 8), (4, 16),
-      # fmt: on
-  ])
-
-
-# Make sure all combinations are divisible by the vector register size.
-supported_shapes: list[Any] = []
-for dtype, supported_shapes in SUPPORTED_VECTOR_SHAPES.items():
-  for shape in supported_shapes:
-    assert (math.prod(shape) * dtype.itemsize) % 32 == 0
-del dtype, supported_shapes
+def supported_shapes(dtype: jax.typing.DTypeLike) -> Sequence[tuple[int, ...]]:
+  """Returns all supported array shapes for the given dtype on SparseCore."""
+  sc_info = get_sparse_core_info()
+  num_lanes = sc_info.num_lanes
+  itemsize = jnp.dtype(dtype).itemsize
+  if itemsize > 4:
+    raise ValueError(f"Unsupported dtype: {dtype}")
+  packing_factor = 4 // itemsize
+  if packing_factor == 1:
+    return [(num_lanes,)]
+  return [(num_lanes * packing_factor,), (packing_factor, num_lanes)]

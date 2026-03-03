@@ -23,6 +23,7 @@ from anyscale.commands.util import (
     build_kv_table,
     convert_kv_strings_to_dict,
     override_env_vars,
+    parse_connections,
     parse_repeatable_tags_to_dict,
     parse_tags_kv_to_str_map,
 )
@@ -224,6 +225,18 @@ def _read_name_from_config_file(path: str):
     type=str,
     help="Unique name for the service version. This can only be used for single version deployments. For multi-version deployments, specify version names in the config files and --versions.",
 )
+@click.option(
+    "--connection",
+    "connections",
+    multiple=True,
+    required=False,
+    default=None,
+    help="[Beta] Third-party connection to associate with the service (e.g., Databricks). "
+    "Format: connection_type=TYPE,connection_name=NAME. "
+    "Example: --connection connection_type=databricks,connection_name=my-conn. "
+    "Can be repeated for multiple connections. "
+    "This feature is in beta preview. Contact support@anyscale.com to request enablement.",
+)
 def deploy(  # noqa: PLR0912, PLR0913 C901
     config_file: List[str],
     import_path: Optional[str],
@@ -247,6 +260,7 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
     versions: Optional[str],
     tags: Optional[Tuple[str]],
     version_name: Optional[str],
+    connections: Tuple[str],
 ):
     """Deploy or update a service.
 
@@ -363,6 +377,10 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
         if version_name is not None:
             config = config.options(version_name=version_name)
 
+        if connections:
+            parsed_connections = parse_connections(connections)
+            config = config.options(connections=parsed_connections)
+
         configs = config
     else:
         # When multiple versions are being deployed.
@@ -410,6 +428,11 @@ def deploy(  # noqa: PLR0912, PLR0913 C901
 
             if version_name is not None:
                 log.warning("--version-name is ignored.")
+
+            if connections:
+                log.warning(
+                    "--connection is ignored for multi-version deployments. Specify connections in each config file."
+                )
 
             configs.append(svc_config)
 

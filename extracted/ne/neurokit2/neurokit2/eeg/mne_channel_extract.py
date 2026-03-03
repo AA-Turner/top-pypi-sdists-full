@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -64,7 +63,7 @@ def mne_channel_extract(raw, what, name=None, add_firstsamples=False):
                 "check channel names in raw.info['ch_names']. "
             )
 
-    channels, __ = raw.copy().pick_channels(what, ordered=False)[:]
+    channels, __ = raw.copy().pick(what)[:]
     if len(what) > 1:
         channels = pd.DataFrame(channels.T, columns=what)
         if name is not None:
@@ -88,9 +87,7 @@ def mne_channel_extract(raw, what, name=None, add_firstsamples=False):
             fill = pd.Series(add_firstsamples, index=range(-raw.first_samp, 0))
             channels = pd.concat([fill, channels], axis=0)
         elif isinstance(channels, pd.DataFrame):
-            fill = pd.DataFrame(
-                add_firstsamples, index=range(-raw.first_samp, 0), columns=channels.columns
-            )
+            fill = pd.DataFrame(add_firstsamples, index=range(-raw.first_samp, 0), columns=channels.columns)
             channels = pd.concat([fill, channels], axis=0)
 
     return channels

@@ -92,14 +92,12 @@ class HookManager:
         if not cmds and not plugin_cbs:
             return
 
-        # Use _sanitized_env to strip API keys/tokens — hook subprocesses must
-        # not inherit ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.
-        from salmalm.tools.tools_exec import _sanitized_env
-        env = _sanitized_env({
+        env = {
+            **os.environ,
             "SALMALM_EVENT": event,
             "SALMALM_SESSION_ID": str(ctx.get("session_id", "")),
             "SALMALM_MESSAGE": str(ctx.get("message", ""))[:4096],
-        })
+        }
 
         # Fire shell commands in background threads
         for cmd in cmds:
@@ -161,17 +159,10 @@ class HookManager:
         self.fire(event, {"session_id": "test", "message": "Hook test fired"})
         return f"✅ Fired {event}: {len(cmds)} commands, {len(plugin_cbs)} plugin callbacks"
 
-    _MAX_HOOKS_PER_EVENT = 20  # Each hook spawns a subprocess on every message
-
     def add_hook(self, event: str, command: str) -> str:
         """Add a command to an event hook."""
         if event not in VALID_EVENTS:
             return f"❌ Invalid event: {event}"
-        existing = self._hooks.get(event, [])
-        if len(existing) >= self._MAX_HOOKS_PER_EVENT:
-            return f"❌ Hook limit reached ({self._MAX_HOOKS_PER_EVENT} max per event)"
-        if len(command) > 2048:
-            return f"❌ Hook command too long (max 2048 chars)"
         self._hooks.setdefault(event, []).append(command)
         self.save()
         return f"✅ Added hook for {event}: {command[:60]}"

@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from mcp_atlassian.preprocessing.confluence import ConfluencePreprocessor
@@ -1056,3 +1058,327 @@ class TestImageProcessing:
         html = "<p>Simple text</p>"
         processed_html, processed_markdown = preprocessor.process_html_content(html)
         assert "Simple text" in processed_markdown
+
+
+# Issue #1052 - {panel} blocks drop links during wiki-to-markdown conversion
+
+
+class TestPanelBlocks:
+    """Tests for {panel} block conversion and bare link handling."""
+
+    @pytest.fixture
+    def preprocessor(self):
+        return JiraPreprocessor(base_url="https://example.atlassian.net")
+
+    @pytest.mark.parametrize(
+        "test_id, input_text, expected_present, expected_absent",
+        [
+            pytest.param(
+                "panel-bare-url",
+                "{panel:title=Spec}[https://example.com]{panel}",
+                ["**Spec**", "https://example.com"],
+                ["{panel"],
+                id="panel-bare-url",
+            ),
+            pytest.param(
+                "panel-named-link",
+                "{panel:title=Spec}[Link Text|https://example.com]{panel}",
+                ["**Spec**", "[Link Text](https://example.com)"],
+                ["{panel"],
+                id="panel-named-link",
+            ),
+            pytest.param(
+                "panel-no-title",
+                "{panel}some content{panel}",
+                ["some content"],
+                ["{panel"],
+                id="panel-no-title",
+            ),
+            pytest.param(
+                "panel-extra-params",
+                "{panel:borderColor=#ccc|title=Info}text{panel}",
+                ["**Info**", "text"],
+                ["{panel"],
+                id="panel-extra-params",
+            ),
+            pytest.param(
+                "panel-multiline",
+                "{panel:title=Notes}line one\nline two{panel}",
+                ["line one", "line two"],
+                ["{panel"],
+                id="panel-multiline",
+            ),
+            pytest.param(
+                "multiple-panels",
+                "{panel:title=A}content A{panel}\n{panel:title=B}content B{panel}",
+                ["**A**", "content A", "**B**", "content B"],
+                ["{panel"],
+                id="multiple-panels",
+            ),
+        ],
+    )
+    def test_panel_conversion(
+        self,
+        preprocessor,
+        test_id: str,
+        input_text: str,
+        expected_present: list[str],
+        expected_absent: list[str],
+    ):
+        """Test {panel} block conversion to markdown."""
+        result = preprocessor.jira_to_markdown(input_text)
+        for expected in expected_present:
+            assert expected in result, f"[{test_id}] Expected '{expected}' in: {result}"
+        for absent in expected_absent:
+            assert absent not in result, (
+                f"[{test_id}] Unexpected '{absent}' in: {result}"
+            )
+
+    def test_panel_full_pipeline(self, preprocessor):
+        """Test panel with URL link through the full clean_jira_text pipeline (the reported bug)."""
+        input_text = "{panel:title=Spec}[https://example.com]{panel}"
+        result = preprocessor.clean_jira_text(input_text)
+        assert "https://example.com" in result, f"URL dropped in pipeline: {result}"
+
+    def test_bare_link_without_panel(self, preprocessor):
+        """Test bare [url] link is preserved outside panels too."""
+        result = preprocessor.jira_to_markdown("[https://example.com] more text")
+        assert "https://example.com" in result, f"URL dropped: {result}"
+
+
+# Code block placeholder protection tests
+
+
+class TestCodeBlockProtection:
+    """Tests for code block content protection via placeholder extraction."""
+
+    @pytest.fixture
+    def preprocessor(self):
+        return JiraPreprocessor(base_url="https://example.atlassian.net")
+
+    @pytest.mark.parametrize(
+        "test_id, input_text, expected_in_fence, description",
+        [
+            pytest.param(
+                "quote-in-code",
+                "{code}{quote}quoted{quote}{code}",
+                "{quote}quoted{quote}",
+                "Quote not converted inside code",
+                id="quote-in-code",
+            ),
+            pytest.param(
+                "color-in-code",
+                "{code}{color:red}text{color}{code}",
+                "{color:red}text{color}",
+                "Color not converted inside code",
+                id="color-in-code",
+            ),
+            pytest.param(
+                "panel-in-code",
+                "{code}{panel:title=X}content{panel}{code}",
+                "{panel:title=X}content{panel}",
+                "Panel not converted inside code",
+                id="panel-in-code",
+            ),
+            pytest.param(
+                "noformat-with-quote",
+                "{noformat}{quote}q{quote}{noformat}",
+                "{quote}q{quote}",
+                "Quote not converted inside noformat",
+                id="noformat-with-quote",
+            ),
+            pytest.param(
+                "code-with-lang",
+                "{code:python}{quote}q{quote}{code}",
+                "{quote}q{quote}",
+                "Language preserved, content literal",
+                id="code-with-lang",
+            ),
+            pytest.param(
+                "mixed-outside-inside",
+                "{quote}real quote{quote}\n{code}{quote}not a quote{quote}{code}",
+                "{quote}not a quote{quote}",
+                "Outside converted, inside preserved",
+                id="mixed-outside-inside",
+            ),
+        ],
+    )
+    def test_jira_to_markdown_code_block_preserves_content(
+        self,
+        preprocessor,
+        test_id: str,
+        input_text: str,
+        expected_in_fence: str,
+        description: str,
+    ):
+        """Test that markup inside {code}/{noformat} is not converted."""
+        result = preprocessor.jira_to_markdown(input_text)
+        assert "```" in result, f"[{test_id}] No code fence in: {result}"
+        fence_pattern = r"```(?:\w*)\n([\s\S]*?)\n```"
+        fence_match = re.search(fence_pattern, result)
+        assert fence_match, (
+            f"[{test_id}] Could not extract fence content from: {result}"
+        )
+        fence_content = fence_match.group(1)
+        assert expected_in_fence in fence_content, (
+            f"[{test_id}] Expected '{expected_in_fence}' "
+            f"inside fence, got: '{fence_content}'"
+        )
+
+    def test_inline_code_inside_code_block_preserved(self, preprocessor):
+        """Test that {{inline}} inside {code} blocks is preserved."""
+        input_text = "{code}use {{var}} here{code}"
+        result = preprocessor.jira_to_markdown(input_text)
+        assert "```" in result
+        # The {{var}} should appear as literal text, not
+        # converted to backtick inline code
+        fence_match = re.search(r"```\n([\s\S]*?)\n```", result)
+        assert fence_match
+        assert "{{var}}" in fence_match.group(1)
+
+    def test_round_trip_preserves_code_block(self, preprocessor):
+        """Test jira->md->jira round-trip preserves code content."""
+        jira_input = "{code:python}# comment\nprint('hi'){code}"
+        md = preprocessor.jira_to_markdown(jira_input)
+        assert "```python" in md
+        assert "# comment" in md
+        jira_output = preprocessor.markdown_to_jira(md)
+        assert "{code:python}" in jira_output
+        assert "# comment" in jira_output
+        assert "print('hi')" in jira_output
+
+    def test_quote_wrapping_code_loses_blockquote_on_inner_lines(
+        self,
+        preprocessor,
+    ):
+        """Document trade-off: {quote} around {code} loses blockquote context.
+
+        Placeholder extraction protects code content from markup
+        corruption, but the {quote} handler cannot reach inside the
+        already-extracted block.  The opening fence line may carry
+        "> " while inner code lines do not.  This is the expected
+        (intentional) behavior.
+        """
+        result = preprocessor.jira_to_markdown("{quote}{code}x = 1{code}{quote}")
+        # Code content is preserved literally
+        assert "x = 1" in result
+        # Code fence is present
+        assert "```" in result
+        # The opening fence gets blockquote prefix from {quote}
+        assert "> ```" in result
+        # Inner code line does NOT get blockquote prefix -- this
+        # is the known trade-off of placeholder-based protection.
+        lines = result.strip().splitlines()
+        code_lines = [ln for ln in lines if ln.strip() and "```" not in ln]
+        for ln in code_lines:
+            assert not ln.startswith("> "), (
+                f"Inner code line unexpectedly blockquoted: {ln!r}"
+            )
+
+
+class TestHtmlConversionCodeProtection:
+    """Tests that _convert_html_to_markdown protects code spans from HTML parsing.
+
+    When markdown code spans contain angle brackets (e.g. `<script>`),
+    BeautifulSoup must not interpret them as HTML tags.
+    """
+
+    @pytest.fixture
+    def preprocessor(self):
+        return JiraPreprocessor(base_url="https://example.atlassian.net")
+
+    # --- End-to-end tests via clean_jira_text (Jira markup → markdown) ---
+
+    @pytest.mark.parametrize(
+        "jira_input, expected_substr",
+        [
+            pytest.param(
+                "{{npm run <script>}}",
+                "`npm run <script>`",
+                id="inline-script-tag",
+            ),
+            pytest.param(
+                "{{<div>content</div>}}",
+                "`<div>content</div>`",
+                id="inline-div-tag",
+            ),
+            pytest.param(
+                "{{List<String>}}",
+                "`List<String>`",
+                id="inline-generic",
+            ),
+            pytest.param(
+                "{code:html}\n<script>alert(1)</script>\n{code}",
+                "<script>alert(1)</script>",
+                id="fenced-html",
+            ),
+            pytest.param(
+                "{{<b>not bold</b>}} and <b>real bold</b>",
+                "`<b>not bold</b>`",
+                id="mixed-code-and-html",
+            ),
+            pytest.param(
+                "{{<Tag>}} and {{<Elem>}}",
+                "`<Tag>`",
+                id="multiple-inline",
+            ),
+            pytest.param(
+                "{{npm run <script>}} entries in {{package.json}}. More content.",
+                "More content",
+                id="text-after-preserved",
+            ),
+        ],
+    )
+    def test_clean_jira_text_preserves_code_with_angle_brackets(
+        self,
+        preprocessor,
+        jira_input: str,
+        expected_substr: str,
+    ):
+        """End-to-end: Jira markup with angle brackets in code spans."""
+        result = preprocessor.clean_jira_text(jira_input)
+        assert expected_substr in result, f"Expected '{expected_substr}' in: {result!r}"
+
+    def test_mixed_code_and_html_converts_real_html(self, preprocessor):
+        """Real HTML outside code spans should still be converted."""
+        result = preprocessor.clean_jira_text(
+            "{{<b>not bold</b>}} and <b>real bold</b>"
+        )
+        assert "**real bold**" in result
+
+    # --- Direct _convert_html_to_markdown tests (markdown input) ---
+
+    @pytest.mark.parametrize(
+        "md_input, expected_substr",
+        [
+            pytest.param(
+                "`npm run <script>`",
+                "`npm run <script>`",
+                id="backtick-script",
+            ),
+            pytest.param(
+                "```html\n<script>alert(1)</script>\n```",
+                "<script>alert(1)</script>",
+                id="fenced-block-script",
+            ),
+            pytest.param(
+                "```\n<b>code</b>\n```\n<b>bold</b>",
+                "<b>code</b>",
+                id="fenced-plus-real-html",
+            ),
+            pytest.param(
+                "Hello <b>world</b>",
+                "**world**",
+                id="no-code-html-still-converted",
+            ),
+        ],
+    )
+    def test_convert_html_to_markdown_protects_code(
+        self,
+        preprocessor,
+        md_input: str,
+        expected_substr: str,
+    ):
+        """Direct test of _convert_html_to_markdown with markdown code spans."""
+        result = preprocessor._convert_html_to_markdown(md_input)
+        assert expected_substr in result, f"Expected '{expected_substr}' in: {result!r}"

@@ -20,9 +20,6 @@ class CronScheduler:
 
     def add_job(self, name: str, interval_seconds: int, callback: object, **kwargs: object) -> None:
         """Add a new cron job with the given schedule and callback."""
-        # BUG-BU: interval <= 0 causes the job to fire every scheduler tick (10s),
-        # leading to CPU saturation and runaway costs. Enforce minimum of 10 seconds.
-        interval_seconds = max(int(interval_seconds), 10)
         self.jobs.append(
             {
                 "name": name,
@@ -103,16 +100,12 @@ class HeartbeatManager:
         except Exception as e:
             log.error(f"[HEARTBEAT] Failed to save state: {e}")
 
-    _MAX_HEARTBEAT_MD = 32 * 1024  # BUG-BT: 32 KB cap — prevents OOM on oversized HEARTBEAT.md
-
     @classmethod
     def get_prompt(cls) -> str:
         """Read HEARTBEAT.md for the heartbeat checklist."""
         if cls._HEARTBEAT_FILE.exists():
             try:
-                # BUG-BT: read only up to _MAX_HEARTBEAT_MD bytes to prevent OOM
-                raw = cls._HEARTBEAT_FILE.read_bytes()[:cls._MAX_HEARTBEAT_MD]
-                content = raw.decode("utf-8", errors="replace")
+                content = cls._HEARTBEAT_FILE.read_text(encoding="utf-8", errors="replace")
                 if content.strip():
                     return content
             except Exception as e:

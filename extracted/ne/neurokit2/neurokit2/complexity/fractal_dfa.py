@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from warnings import warn
 
 import matplotlib
@@ -204,9 +203,7 @@ def fractal_dfa(
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     n = len(signal)
     scale = _fractal_dfa_findscales(n, scale)
@@ -228,7 +225,6 @@ def fractal_dfa(
 
     # Start looping over scale
     for i, window in enumerate(scale):
-
         # Get window
         segments = _fractal_dfa_getwindow(signal, n, window, overlap=overlap)
 
@@ -246,9 +242,7 @@ def fractal_dfa(
         # Find knees of fluctuations
         knee = np.repeat(len(scale), fluctuations.shape[1])
         for i in range(fluctuations.shape[1]):
-            knee[i] = find_knee(
-                y=np.log2(fluctuations[:, i]), x=np.log2(scale), show=False, verbose=False
-            )
+            knee[i] = find_knee(y=np.log2(fluctuations[:, i]), x=np.log2(scale), show=False, verbose=False)
         knee = np.exp2(np.nanmax(knee))
         # Cut fluctuations
         fluctuations = fluctuations[scale <= knee, :]
@@ -325,13 +319,9 @@ def _fractal_dfa_findscales(n, scale="default"):
         raise ValueError("NeuroKit error: more than one window is needed. Increase 'scale'.")
 
     if np.min(scale) < 2:
-        raise ValueError(
-            "NeuroKit error: there must be at least 2 data points in each window. Decrease 'scale'."
-        )
+        raise ValueError("NeuroKit error: there must be at least 2 data points in each window. Decrease 'scale'.")
     if np.max(scale) >= n:
-        raise ValueError(
-            "NeuroKit error: the window cannot contain more data points than the time series. Decrease 'scale'."
-        )
+        raise ValueError("NeuroKit error: the window cannot contain more data points than the time series. Decrease 'scale'.")
 
     return scale
 
@@ -402,7 +392,6 @@ def _fractal_dfa_trends(segments, window, order=1):
 
 
 def _fractal_dfa_fluctuation(segments, trends, q=2):
-
     # Detrend
     detrended = segments - trends
 
@@ -504,9 +493,7 @@ def _singularity_spectrum(q, slopes):
     # hFI tends to zero in high fractionation signals.
     if len(slopes) > 3:
         # Help needed to double check that!
-        out["Fluctuation"] = np.sum(np.gradient(np.gradient(out["h"])) ** 2) / (
-            2 * np.max(np.abs(q)) + 2
-        )
+        out["Fluctuation"] = np.sum(np.gradient(np.gradient(out["h"])) ** 2) / (2 * np.max(np.abs(q)) + 2)
     else:
         out["Fluctuation"] = np.nan
     # hFI tends to zero in high fractionation signals. hFI has no reference point when a set of
@@ -527,7 +514,6 @@ def _singularity_spectrum(q, slopes):
 #  Plots
 # =============================================================================
 def _fractal_dfa_plot(info, scale, fluctuations):
-
     polyfit = np.polyfit(np.log2(scale), np.log2(fluctuations), 1)
     fluctfit = 2 ** np.polyval(polyfit, np.log2(scale))
     plt.loglog(scale, fluctuations, "o", c="#90A4AE")
@@ -538,11 +524,8 @@ def _fractal_dfa_plot(info, scale, fluctuations):
     plt.legend(loc="lower right")
     plt.title("Detrended Fluctuation Analysis (DFA)")
 
-    return None
-
 
 def _fractal_mdfa_plot(info, scale, fluctuations, q):
-
     # Prepare figure
     fig = plt.figure(constrained_layout=False)
     spec = matplotlib.gridspec.GridSpec(ncols=2, nrows=2)
@@ -633,5 +616,3 @@ def _fractal_mdfa_plot(info, scale, fluctuations, q):
     ax_hq.plot(q, info["H"], "o-", c="#2196F3")
 
     fig.suptitle("Multifractal Detrended Fluctuation Analysis (MFDFA)")
-
-    return None

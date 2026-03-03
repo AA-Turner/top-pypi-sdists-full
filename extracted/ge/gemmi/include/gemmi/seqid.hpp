@@ -78,10 +78,13 @@ struct SeqId {
 
   char has_icode() const { return icode != ' '; }
 
-  std::string str() const {
+  std::string str(bool dot_before_icode=false) const {
     std::string r = num.str();
-    if (icode != ' ')
+    if (icode != ' ') {
+      if (dot_before_icode)
+        r += '.';
       r += icode;
+    }
     return r;
   }
 };
@@ -108,16 +111,21 @@ struct ResidueId {
 inline std::string atom_str(const std::string& chain_name,
                             const ResidueId& res_id,
                             const std::string& atom_name,
-                            char altloc) {
-  std::string r = chain_name;
+                            char altloc,
+                            bool as_cid=false) {
+  std::string r = as_cid ? "//" + chain_name : chain_name;
   r += '/';
-  r += res_id.name;
-  r += ' ';
-  r += res_id.seqid.str();
+  if (!as_cid) {
+    r += res_id.name;
+    r += ' ';
+  }
+  r += res_id.seqid.str(as_cid);
+  if (as_cid && atom_name == "null")
+    return r;
   r += '/';
   r += atom_name;
   if (altloc) {
-    r += '.';
+    r += as_cid ? ':' : '.';
     r += altloc;
   }
   return r;

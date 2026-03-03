@@ -28,7 +28,7 @@ import io
 import copy
 import operator as op
 import tokenize
-from typing import Any, Union, overload
+from typing import Any, TypeAlias, Union, overload
 import warnings
 
 import numpy as np
@@ -46,14 +46,14 @@ from jax._src import typing
 from jax._src import util
 
 
-DimSize = Union["_DimExpr", int]
+DimSize: TypeAlias = Union["_DimExpr", int]
 TfVal = Any
 DimVarEnv = dict[str, typing.Array]
 DType = Any
 
 # Tuples of terms and their coefficients, sorted with the largest term first.
-SortedTerms = Sequence[tuple["_DimTerm", int]]
-SortedFactors = Sequence[tuple["_DimFactor", int]]
+SortedTerms: TypeAlias = Sequence[tuple["_DimTerm", int]]
+SortedFactors: TypeAlias = Sequence[tuple["_DimFactor", int]]
 
 # Normalization rules represent the explicit constraint `t*tk == e` as
 # a mapping of `t` to `(e, tk)`.
@@ -583,14 +583,14 @@ class _DimExpr:
   @overload
   @staticmethod
   def _linear_combination_sorted_pairs(
-      e1: SortedTerms, i1: int, f1: int,
-      e2: SortedTerms, i2: int, f2: int) -> SortedTerms:  ...  # type: ignore[bad-return-type,unused-ignore]
+      pairs1: SortedTerms, i1: int, f1: int,
+      pairs2: SortedTerms, i2: int, f2: int) -> SortedTerms:  ...  # type: ignore[bad-return-type,unused-ignore]
 
   @overload
   @staticmethod
   def _linear_combination_sorted_pairs(
-      e1: SortedFactors, i1: int, f1: int,
-      e2: SortedFactors, i2: int, f2: int) -> SortedFactors:  ...  # type: ignore[bad-return-type,unused-ignore]
+      pairs1: SortedFactors, i1: int, f1: int,
+      pairs2: SortedFactors, i2: int, f2: int) -> SortedFactors:  ...  # type: ignore[bad-return-type,unused-ignore]
 
   @staticmethod
   def _linear_combination_sorted_pairs(
@@ -862,7 +862,7 @@ class _DimExpr:
   def __lt__(self, other: DimSize):
     return not _geq_decision(self, other, lambda: f"'{self}' < '{other}'")
 
-  def _divmod(self, divisor: DimSize) -> tuple[DimSize, int]:
+  def _divmod(self, divisor: DimSize) -> tuple[DimSize, DimSize]:
     """
     Floor division with remainder (divmod) generalized to expressions.
     If the `divisor` is not a constant, the remainder must be 0.
@@ -1201,9 +1201,9 @@ def _geq_decision(e1: DimSize, e2: DimSize, cmp_str: Callable[[], str]) -> bool:
 core.pytype_aval_mappings[_DimExpr] = _DimExpr._get_aval
 dtypes.register_weak_scalar_type(_DimExpr)
 
-def _convertible_to_int(p: DimSize) -> bool:
+def _convertible_to_int(p: Any) -> bool:
   try:
-    op.index(p)  # type: ignore
+    op.index(p)
     return True
   except:
     return False
@@ -1218,7 +1218,7 @@ def _ensure_poly(p: DimSize,
     return _DimExpr(((_DimTerm_one, op.index(p)),), scope)
   raise TypeError(f"Symbolic dimension {operation_name} not supported for {p}.")
 
-def _convertible_to_poly(p: DimSize) -> bool:
+def _convertible_to_poly(p: Any) -> bool:
   return isinstance(p, _DimExpr) or _convertible_to_int(p)
 
 def is_symbolic_dim(p: DimSize) -> bool:
@@ -1626,8 +1626,10 @@ class _Parser:
       tok = self.next_tok()
     elif tok.exact_type == tokenize.PLUS:
       tok = self.next_tok()
-    acc = None
+    # TODO(slebedev): Change to _DimExpr once we migrate off pytype.
+    acc: Any | None = None
     while True:
+      t: Any
       t, tok = self.term(tok)
       t_sign = - t if next_t_negated else t
       acc = acc + t_sign if acc is not None else t_sign  # type: ignore[operator]
@@ -1638,10 +1640,13 @@ class _Parser:
       tok = self.next_tok()
 
   FOLLOW_TERM = FOLLOW_EXPR + [tokenize.PLUS, tokenize.MINUS]
+
   def term(self, tok: tokenize.TokenInfo) -> tuple[DimSize, tokenize.TokenInfo]:
     # A term is product of factors. Each factor may be raised to an integer power.
-    acc = None
+    # TODO(slebedev): Change to _DimExpr once we migrate off pytype.
+    acc: Any | None = None
     while True:
+      f: Any
       f, tok = self.factor(tok)
       if tok.exact_type == tokenize.CIRCUMFLEX:
         tok = self.next_tok()

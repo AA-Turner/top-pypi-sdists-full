@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from mindroom.tool_system.metadata import ConfigField, SetupType, ToolCategory, ToolStatus, register_tool_with_metadata
 from mindroom.tools import delegate as _delegate_registration  # noqa: F401
 from mindroom.tools import memory as _memory_registration  # noqa: F401
 from mindroom.tools import self_config as _self_config_registration  # noqa: F401
@@ -15,6 +16,7 @@ from mindroom.tools.agentql import agentql_tools
 from mindroom.tools.airflow import airflow_tools
 from mindroom.tools.apify import apify_tools
 from mindroom.tools.arxiv import arxiv_tools
+from mindroom.tools.attachments import attachments_tools
 from mindroom.tools.aws_lambda import aws_lambda_tools
 from mindroom.tools.aws_ses import aws_ses_tools
 from mindroom.tools.baidusearch import baidusearch_tools
@@ -119,7 +121,6 @@ from mindroom.tools.youtube import youtube_tools
 from mindroom.tools.zendesk import zendesk_tools
 from mindroom.tools.zep import zep_tools
 from mindroom.tools.zoom import zoom_tools
-from mindroom.tools_metadata import ConfigField, SetupType, ToolCategory, ToolStatus, register_tool_with_metadata
 
 if TYPE_CHECKING:
     from agno.tools import Toolkit
@@ -130,6 +131,7 @@ __all__ = [
     "airflow_tools",
     "apify_tools",
     "arxiv_tools",
+    "attachments_tools",
     "aws_lambda_tools",
     "aws_ses_tools",
     "baidusearch_tools",
@@ -238,6 +240,22 @@ __all__ = [
 
 
 @register_tool_with_metadata(
+    name="openclaw_compat",
+    display_name="OpenClaw Compat",
+    description="Convenience bundle that implies shell, coding, browser, and other common tools",
+    category=ToolCategory.DEVELOPMENT,
+    icon="Workflow",
+    icon_color="text-orange-500",
+    helper_text="Implies: shell, coding, duckduckgo, website, browser, scheduler, subagents, matrix_message, attachments.",
+)
+def _openclaw_compat_tools() -> type[Toolkit]:
+    """Return an empty toolkit — the real tools are loaded via tool preset expansion."""
+    from agno.tools import Toolkit
+
+    return Toolkit
+
+
+@register_tool_with_metadata(
     name="homeassistant",
     display_name="Home Assistant",
     description="Control and monitor smart home devices",
@@ -267,36 +285,8 @@ __all__ = [
     ],
     docs_url="https://www.home-assistant.io/integrations/",
 )
-def homeassistant_tools() -> type[Toolkit]:
+def _homeassistant_tools() -> type[Toolkit]:
     """Return Home Assistant tools for smart home control."""
     from mindroom.custom_tools.homeassistant import HomeAssistantTools
 
     return HomeAssistantTools
-
-
-@register_tool_with_metadata(
-    name="imdb",
-    display_name="IMDb",
-    description="Movie and TV show information",
-    category=ToolCategory.ENTERTAINMENT,
-    status=ToolStatus.REQUIRES_CONFIG,
-    setup_type=SetupType.API_KEY,
-    icon="Film",
-    icon_color="text-yellow-500",
-    config_fields=[
-        ConfigField(
-            name="OMDB_API_KEY",
-            label="OMDb API Key",
-            type="password",
-            required=True,
-            placeholder="Enter your OMDb API key",
-            description="Your OMDb API key for movie and TV show information",
-        ),
-    ],
-    helper_text="Get a free API key from [OMDb API website](http://www.omdbapi.com/apikey.aspx)",
-    docs_url="http://www.omdbapi.com/",
-)
-def imdb_tools() -> type[Toolkit]:
-    """IMDb integration - coming soon."""
-    msg = "IMDb integration is coming soon"
-    raise NotImplementedError(msg)

@@ -212,12 +212,6 @@ def handle_mcp_manage(args: dict) -> str:
         cmd_str = args.get("command", "")
         if not sname or not cmd_str:
             return "❌ name and command are required"
-        # BUG-DD fix: validate MCP server command against exec allowlist.
-        # Without this, LLM could register "rm -rf /" as an MCP server command.
-        from salmalm.tools.tools_common import _is_safe_command
-        safe, reason = _is_safe_command(cmd_str)
-        if not safe:
-            return f"❌ MCP server command blocked: {reason}"
         cmd_list = cmd_str.split()
         env = args.get("env", {})
         ok = mcp_manager.add_server(sname, cmd_list, env=env)

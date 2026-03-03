@@ -3,12 +3,12 @@ from __future__ import annotations
 import base64
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from hashlib import md5, sha1, sha256
 from re import Pattern
 from string import Formatter
-from typing import Any, Callable
+from typing import Any
 
 from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
@@ -90,6 +90,12 @@ class _ReplaceFormatter(Formatter):
         try:
             return super().get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
+            # Fallback: try underscore version for nested attributes
+            # Handles case where regex captured 'data__first' but tag uses '{data.first}'
+            if "." in field_name:
+                underscore_name = field_name.replace(".", "__")
+                if underscore_name in kwargs:
+                    return kwargs[underscore_name], None
             return self.__default(field_name), None
 
     def _format_field(self, value: Any):
@@ -202,7 +208,7 @@ def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
 
 
 def _re_default(field_name):
-    field_name = field_name.split(".")[0]
+    field_name = field_name.replace(".", "__")
     return f"(?P<{field_name}>.+)?"
 
 

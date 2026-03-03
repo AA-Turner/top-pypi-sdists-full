@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -26,7 +27,7 @@ EXEC_TIMEOUT = 10  # seconds
 MAX_OUTPUT = 4096  # chars
 
 
-def _get_db(db_path: Optional[Path] = None):
+def _get_db(db_path: Optional[Path] = None) -> sqlite3.Connection:
     """Get db."""
     conn = _connect_db(db_path or PLAYGROUND_DB, wal=True)
     conn.execute("""CREATE TABLE IF NOT EXISTS play_history (
@@ -50,11 +51,11 @@ class CodePlayground:
     def __init__(self, db_path: Optional[Path] = None, timeout: int = EXEC_TIMEOUT) -> None:
         """Init  ."""
         self._db_path = db_path
-        self._conn = None
+        self._conn: Optional[sqlite3.Connection] = None
         self.timeout = timeout
 
     @property
-    def conn(self):
+    def conn(self) -> sqlite3.Connection:
         """Conn."""
         if self._conn is None:
             self._conn = _get_db(self._db_path)
@@ -77,16 +78,12 @@ class CodePlayground:
 
         try:
             start = time.monotonic()
-            # BUG-DB fix: use _sanitized_env() to strip API keys/tokens from child process.
-            # Without this, code can call os.environ["ANTHROPIC_API_KEY"] and exfiltrate secrets.
-            from salmalm.tools.tools_exec import _sanitized_env
-            _safe_env = _sanitized_env({"PYTHONDONTWRITEBYTECODE": "1"})
             result = subprocess.run(
                 [sys.executable, "-u", tmp_path],
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
-                env=_safe_env,
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
                 cwd=tempfile.gettempdir(),
             )
             elapsed = (time.monotonic() - start) * 1000  # ms
@@ -139,15 +136,11 @@ class CodePlayground:
 
         try:
             start = time.monotonic()
-            # BUG-DB fix: strip API keys/tokens from Node.js child process env.
-            from salmalm.tools.tools_exec import _sanitized_env
-            _safe_env_js = _sanitized_env()
             result = subprocess.run(
                 [node, tmp_path],
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
-                env=_safe_env_js,
                 cwd=tempfile.gettempdir(),
             )
             elapsed = (time.monotonic() - start) * 1000

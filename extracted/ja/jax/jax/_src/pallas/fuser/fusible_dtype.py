@@ -19,7 +19,7 @@ import dataclasses
 import functools
 import itertools as it
 from typing import Any, TypeVar
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import jax
 from jax._src import api_util
@@ -50,7 +50,7 @@ zip, unsafe_zip = util.safe_zip, zip
 
 T = TypeVar("T")
 
-_physicalize_rules = {}
+_physicalize_rules: dict[core.Primitive, Callable[..., Any]] = {}
 
 pack_dtype_p = core.Primitive("pack_dtype")
 
@@ -91,7 +91,7 @@ class FusibleTyRules:
   allow_conversion: bool = False
 
 
-class FusionDType(dtypes.ExtendedDType, metaclass=abc.ABCMeta):
+class FusionDType(dtypes.ExtendedDType, util.StrictABC):
   """Base class for fusible extended dtypes."""
 
   _op_registry = {}
@@ -279,6 +279,7 @@ def _phys_find_rule(primitive, avals: Sequence[core.AbstractValue]):
   if primitive in _physicalize_rules:
     return _physicalize_rules[primitive]
 
+  # pyrefly: ignore[missing-attribute]
   fusion_types = {aval.dtype for aval in avals if _is_fusion_type(aval)}  # pytype: disable=attribute-error
   if len(fusion_types) == 0:
     return None
@@ -506,8 +507,8 @@ _physicalize_rules[state_primitives.get_p] = _get_rule
 
 
 @block_spec.register_eval_rule(pack_dtype_p)
-def _pack_dtype_eval_rule(eval_ctx: block_spec.KernelEvalContext, *args, dtype):
-  return dtype.pack_eval_rule(eval_ctx, *args)
+def _pack_dtype_eval_rule(ctx: block_spec.KernelEvalContext, *args, dtype):
+  return dtype.pack_eval_rule(ctx, *args)
 
 
 @block_spec.register_pull_block_spec_rule(pack_dtype_p)
@@ -540,15 +541,16 @@ def _unpack_dtype_pull_rule(
   aval_in = ctx.avals_in[0]
   assert isinstance(aval_in, core.ShapedArray)
   assert isinstance(aval_in.dtype, FusionDType), aval_in.dtype
-  return aval_in.dtype.unpack_pull_block_spec(aval_in, *block_specs)
+  return aval_in.dtype.unpack_pull_block_spec(aval_in, *block_specs)  # pyrefly: ignore[not-iterable]
 
 
 @block_spec.register_eval_rule(unpack_dtype_p)
-def _unpack_dtype_eval_rule(eval_ctx: block_spec.KernelEvalContext, *args):
-  aval_in = eval_ctx.avals_in[0]
+def _unpack_dtype_eval_rule(ctx: block_spec.KernelEvalContext, *args):
+  assert ctx.avals_in is not None
+  aval_in = ctx.avals_in[0]
   assert isinstance(aval_in, core.ShapedArray)
   assert isinstance(aval_in.dtype, FusionDType), aval_in.dtype
-  return aval_in.dtype.unpack_eval_rule(eval_ctx, *args)
+  return aval_in.dtype.unpack_eval_rule(ctx, *args)  # pyrefly: ignore[missing-attribute]
 
 
 def _fusible_physicalize_rule(

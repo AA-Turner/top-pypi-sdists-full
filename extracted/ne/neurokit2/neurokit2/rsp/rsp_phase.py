@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
 
@@ -6,7 +5,7 @@ from ..signal import signal_phase
 from .rsp_fixpeaks import _rsp_fixpeaks_retrieve
 
 
-def rsp_phase(peaks, troughs=None, desired_length=None):
+def rsp_phase(peaks, troughs=None, desired_length=()):
     """**Compute respiratory phase (inspiration and expiration)**
 
     Finds the respiratory phase, labelled as 1 for inspiration and 0 for expiration.
@@ -63,9 +62,7 @@ def rsp_phase(peaks, troughs=None, desired_length=None):
     inspiration[peaks] = 0.0
     inspiration[troughs] = 1.0
 
-    last_element = np.where(~np.isnan(inspiration))[0][
-        -1
-    ]  # Avoid filling beyond the last peak/trough
+    last_element = np.where(~np.isnan(inspiration))[0][-1]  # Avoid filling beyond the last peak/trough
     inspiration[0:last_element] = pd.Series(inspiration).ffill().values[0:last_element]
 
     # Phase Completion

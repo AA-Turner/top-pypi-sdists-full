@@ -31,6 +31,8 @@ __all__ = ["RatesResource", "AsyncRatesResource"]
 
 
 class RatesResource(SyncAPIResource):
+    """Rate cards are used to define default pricing for products."""
+
     @cached_property
     def with_raw_response(self) -> RatesResourceWithRawResponse:
         """
@@ -138,6 +140,7 @@ class RatesResource(SyncAPIResource):
         custom_rate: Dict[str, object] | Omit = omit,
         ending_before: Union[str, datetime] | Omit = omit,
         is_prorated: bool | Omit = omit,
+        minimum_config: rate_add_params.MinimumConfig | Omit = omit,
         price: float | Omit = omit,
         pricing_group_values: Dict[str, str] | Omit = omit,
         quantity: float | Omit = omit,
@@ -177,6 +180,8 @@ class RatesResource(SyncAPIResource):
           is_prorated: Default proration configuration. Only valid for SUBSCRIPTION rate_type. Must be
               set to true.
 
+          minimum_config: Only set for TIERED_PERCENTAGE or PERCENTAGE rate_type.
+
           price: Default price. For FLAT and SUBSCRIPTION rate_type, this must be >=0. For
               PERCENTAGE rate_type, this is a decimal fraction, e.g. use 0.1 for 10%; this
               must be >=0 and <=1.
@@ -211,6 +216,7 @@ class RatesResource(SyncAPIResource):
                     "custom_rate": custom_rate,
                     "ending_before": ending_before,
                     "is_prorated": is_prorated,
+                    "minimum_config": minimum_config,
                     "price": price,
                     "pricing_group_values": pricing_group_values,
                     "quantity": quantity,
@@ -265,6 +271,8 @@ class RatesResource(SyncAPIResource):
 
 
 class AsyncRatesResource(AsyncAPIResource):
+    """Rate cards are used to define default pricing for products."""
+
     @cached_property
     def with_raw_response(self) -> AsyncRatesResourceWithRawResponse:
         """
@@ -372,6 +380,7 @@ class AsyncRatesResource(AsyncAPIResource):
         custom_rate: Dict[str, object] | Omit = omit,
         ending_before: Union[str, datetime] | Omit = omit,
         is_prorated: bool | Omit = omit,
+        minimum_config: rate_add_params.MinimumConfig | Omit = omit,
         price: float | Omit = omit,
         pricing_group_values: Dict[str, str] | Omit = omit,
         quantity: float | Omit = omit,
@@ -411,6 +420,8 @@ class AsyncRatesResource(AsyncAPIResource):
           is_prorated: Default proration configuration. Only valid for SUBSCRIPTION rate_type. Must be
               set to true.
 
+          minimum_config: Only set for TIERED_PERCENTAGE or PERCENTAGE rate_type.
+
           price: Default price. For FLAT and SUBSCRIPTION rate_type, this must be >=0. For
               PERCENTAGE rate_type, this is a decimal fraction, e.g. use 0.1 for 10%; this
               must be >=0 and <=1.
@@ -445,6 +456,7 @@ class AsyncRatesResource(AsyncAPIResource):
                     "custom_rate": custom_rate,
                     "ending_before": ending_before,
                     "is_prorated": is_prorated,
+                    "minimum_config": minimum_config,
                     "price": price,
                     "pricing_group_values": pricing_group_values,
                     "quantity": quantity,

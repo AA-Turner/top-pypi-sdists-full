@@ -73,9 +73,20 @@ def is_plain_text(value: str) -> bool:
     return parse(value) == ("text", "plain")
 
 
+def is_sse(value: str) -> bool:
+    """Detect the text/event-stream media type for Server-Sent Events."""
+    return parse(value) == ("text", "event-stream")
+
+
 def is_xml(value: str) -> bool:
     """Detect variations of the ``application/xml`` media type."""
     _, sub = parse(value)
+    return sub == "xml" or sub.endswith("+xml")
+
+
+def is_xml_parts(media_type: tuple[str, str]) -> bool:
+    """Detect variations of the ``application/xml`` media type from a parsed tuple."""
+    _, sub = media_type
     return sub == "xml" or sub.endswith("+xml")
 
 

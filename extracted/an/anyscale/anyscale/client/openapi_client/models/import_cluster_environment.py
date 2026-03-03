@@ -34,15 +34,17 @@ class ImportClusterEnvironment(object):
     """
     openapi_types = {
         'name': 'str',
-        'image_uri': 'str'
+        'image_uri': 'str',
+        'cloud_id': 'str'
     }
 
     attribute_map = {
         'name': 'name',
-        'image_uri': 'image_uri'
+        'image_uri': 'image_uri',
+        'cloud_id': 'cloud_id'
     }
 
-    def __init__(self, name=None, image_uri=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, image_uri=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
         """ImportClusterEnvironment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,10 +52,13 @@ class ImportClusterEnvironment(object):
 
         self._name = None
         self._image_uri = None
+        self._cloud_id = None
         self.discriminator = None
 
         self.name = name
         self.image_uri = image_uri
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
 
     @property
     def name(self):
@@ -104,6 +109,29 @@ class ImportClusterEnvironment(object):
             raise ValueError("Invalid value for `image_uri`, must not be `None`")  # noqa: E501
 
         self._image_uri = image_uri
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this ImportClusterEnvironment.  # noqa: E501
+
+        The cloud that this cluster environment belongs to.  # noqa: E501
+
+        :return: The cloud_id of this ImportClusterEnvironment.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this ImportClusterEnvironment.
+
+        The cloud that this cluster environment belongs to.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this ImportClusterEnvironment.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

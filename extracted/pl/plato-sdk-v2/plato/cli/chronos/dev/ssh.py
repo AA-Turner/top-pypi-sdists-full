@@ -24,7 +24,13 @@ def _get_ssh_options(job_id: str, private_key_path: Path) -> list[tuple[str, str
     sni = f"{job_id}--22.{GATEWAY_HOST}"
     proxy_cmd = f"openssl s_client -quiet -connect {GATEWAY_HOST}:443 -servername {sni} 2>/dev/null"
 
-    return [*SSH_OPTS, ("ProxyCommand", proxy_cmd)]
+    return [
+        *SSH_OPTS,
+        ("ProxyCommand", proxy_cmd),
+        ("ControlMaster", "auto"),
+        ("ControlPath", f"/tmp/plato-ssh-{job_id}"),
+        ("ControlPersist", "600"),
+    ]
 
 
 class SSHKeyPair(BaseModel):

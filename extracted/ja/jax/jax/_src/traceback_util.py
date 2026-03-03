@@ -72,7 +72,9 @@ def include_filename(filename: str) -> bool:
 def _ignore_known_hidden_frame(f: types.FrameType) -> bool:
   return 'importlib._bootstrap' in f.f_code.co_filename
 
-def _add_tracebackhide_to_hidden_frames(tb: types.TracebackType):
+def _add_tracebackhide_to_hidden_frames(tb: types.TracebackType | None):
+  if tb is None:
+    return
   for f, _lineno in traceback.walk_tb(tb):
     if not include_frame(f) and not _is_reraiser_frame(f):
       f.f_locals["__tracebackhide__"] = True
@@ -149,6 +151,7 @@ def _running_under_ipython() -> bool:
 def _ipython_supports_tracebackhide() -> bool:
   """Returns true if the IPython version supports __tracebackhide__."""
   import IPython  # pytype: disable=import-error
+  # pyrefly: ignore[unsupported-operation]  # pyrefly#896
   return IPython.version_info[:2] >= (7, 17)
 
 def _filtering_mode() -> str:
@@ -202,6 +205,8 @@ def api_boundary(
         raise
 
       tb = e.__traceback__
+      if tb is None:
+        raise TypeError("Traceback is None") from e
       try:
         e.with_traceback(filter_traceback(tb))
         if mode == "quiet_remove_frames":

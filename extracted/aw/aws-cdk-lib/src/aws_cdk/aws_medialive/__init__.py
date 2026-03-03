@@ -128,6 +128,7 @@ class CfnChannel(
         cdi_input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CdiInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         channel_class: typing.Optional[builtins.str] = None,
         channel_engine_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ChannelEngineVersionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        channel_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         dry_run: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         encoder_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -149,6 +150,7 @@ class CfnChannel(
         :param cdi_input_specification: Specification of CDI inputs for this channel.
         :param channel_class: The class for this channel. For a channel with two pipelines, the class is STANDARD. For a channel with one pipeline, the class is SINGLE_PIPELINE.
         :param channel_engine_version: 
+        :param channel_security_groups: 
         :param destinations: The settings that identify the destination for the outputs in this MediaLive output package.
         :param dry_run: 
         :param encoder_settings: The encoding configuration for the output content.
@@ -171,6 +173,7 @@ class CfnChannel(
             cdi_input_specification=cdi_input_specification,
             channel_class=channel_class,
             channel_engine_version=channel_engine_version,
+            channel_security_groups=channel_security_groups,
             destinations=destinations,
             dry_run=dry_run,
             encoder_settings=encoder_settings,
@@ -396,6 +399,21 @@ class CfnChannel(
             type_hints = typing.get_type_hints(_typecheckingstub__91ef8d94b4069de96a8aaa0571cc762a4cefc0811c1703adc15d899e72d034a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "channelEngineVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="channelSecurityGroups")
+    def channel_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "channelSecurityGroups"))
+
+    @channel_security_groups.setter
+    def channel_security_groups(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__577f01830f68c04af9618e15cb3360b6f38fd79a8df542f3ef8e0dbd61ff5e12)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "channelSecurityGroups", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="destinations")
@@ -3614,6 +3632,7 @@ class CfnChannel(
         jsii_struct_bases=[],
         name_mapping={
             "afd_signaling": "afdSignaling",
+            "bit_depth": "bitDepth",
             "bitrate": "bitrate",
             "buf_size": "bufSize",
             "color_space_settings": "colorSpaceSettings",
@@ -3643,6 +3662,7 @@ class CfnChannel(
             self,
             *,
             afd_signaling: typing.Optional[builtins.str] = None,
+            bit_depth: typing.Optional[builtins.str] = None,
             bitrate: typing.Optional[jsii.Number] = None,
             buf_size: typing.Optional[jsii.Number] = None,
             color_space_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.Av1ColorSpaceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3668,6 +3688,7 @@ class CfnChannel(
         ) -> None:
             '''
             :param afd_signaling: 
+            :param bit_depth: 
             :param bitrate: 
             :param buf_size: 
             :param color_space_settings: 
@@ -3706,6 +3727,7 @@ class CfnChannel(
                 
                 av1_settings_property = medialive.CfnChannel.Av1SettingsProperty(
                     afd_signaling="afdSignaling",
+                    bit_depth="bitDepth",
                     bitrate=123,
                     buf_size=123,
                     color_space_settings=medialive.CfnChannel.Av1ColorSpaceSettingsProperty(
@@ -3745,6 +3767,7 @@ class CfnChannel(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__1911156090a37730cd16cc0d13076f448f8b192dca9427883cf77e884bbd03df)
                 check_type(argname="argument afd_signaling", value=afd_signaling, expected_type=type_hints["afd_signaling"])
+                check_type(argname="argument bit_depth", value=bit_depth, expected_type=type_hints["bit_depth"])
                 check_type(argname="argument bitrate", value=bitrate, expected_type=type_hints["bitrate"])
                 check_type(argname="argument buf_size", value=buf_size, expected_type=type_hints["buf_size"])
                 check_type(argname="argument color_space_settings", value=color_space_settings, expected_type=type_hints["color_space_settings"])
@@ -3770,6 +3793,8 @@ class CfnChannel(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if afd_signaling is not None:
                 self._values["afd_signaling"] = afd_signaling
+            if bit_depth is not None:
+                self._values["bit_depth"] = bit_depth
             if bitrate is not None:
                 self._values["bitrate"] = bitrate
             if buf_size is not None:
@@ -3821,6 +3846,14 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-afdsignaling
             '''
             result = self._values.get("afd_signaling")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def bit_depth(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-bitdepth
+            '''
+            result = self._values.get("bit_depth")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -19483,7 +19516,9 @@ class CfnChannel(
                         username="username"
                     )],
                     srt_settings=[medialive.CfnChannel.SrtOutputDestinationSettingsProperty(
+                        connection_mode="connectionMode",
                         encryption_passphrase_secret_arn="encryptionPassphraseSecretArn",
+                        listener_port=123,
                         stream_id="streamId",
                         url="url"
                     )]
@@ -22499,7 +22534,9 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.SrtOutputDestinationSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "connection_mode": "connectionMode",
             "encryption_passphrase_secret_arn": "encryptionPassphraseSecretArn",
+            "listener_port": "listenerPort",
             "stream_id": "streamId",
             "url": "url",
         },
@@ -22508,12 +22545,16 @@ class CfnChannel(
         def __init__(
             self,
             *,
+            connection_mode: typing.Optional[builtins.str] = None,
             encryption_passphrase_secret_arn: typing.Optional[builtins.str] = None,
+            listener_port: typing.Optional[jsii.Number] = None,
             stream_id: typing.Optional[builtins.str] = None,
             url: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
+            :param connection_mode: 
             :param encryption_passphrase_secret_arn: 
+            :param listener_port: 
             :param stream_id: 
             :param url: 
 
@@ -22527,23 +22568,39 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 srt_output_destination_settings_property = medialive.CfnChannel.SrtOutputDestinationSettingsProperty(
+                    connection_mode="connectionMode",
                     encryption_passphrase_secret_arn="encryptionPassphraseSecretArn",
+                    listener_port=123,
                     stream_id="streamId",
                     url="url"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__6b18d4cb0dcca463f05b4d7bb9ed322d215c92faf8acb5ecca2210acd706eed7)
+                check_type(argname="argument connection_mode", value=connection_mode, expected_type=type_hints["connection_mode"])
                 check_type(argname="argument encryption_passphrase_secret_arn", value=encryption_passphrase_secret_arn, expected_type=type_hints["encryption_passphrase_secret_arn"])
+                check_type(argname="argument listener_port", value=listener_port, expected_type=type_hints["listener_port"])
                 check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connection_mode is not None:
+                self._values["connection_mode"] = connection_mode
             if encryption_passphrase_secret_arn is not None:
                 self._values["encryption_passphrase_secret_arn"] = encryption_passphrase_secret_arn
+            if listener_port is not None:
+                self._values["listener_port"] = listener_port
             if stream_id is not None:
                 self._values["stream_id"] = stream_id
             if url is not None:
                 self._values["url"] = url
+
+        @builtins.property
+        def connection_mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-srtoutputdestinationsettings.html#cfn-medialive-channel-srtoutputdestinationsettings-connectionmode
+            '''
+            result = self._values.get("connection_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def encryption_passphrase_secret_arn(self) -> typing.Optional[builtins.str]:
@@ -22552,6 +22609,14 @@ class CfnChannel(
             '''
             result = self._values.get("encryption_passphrase_secret_arn")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def listener_port(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-srtoutputdestinationsettings.html#cfn-medialive-channel-srtoutputdestinationsettings-listenerport
+            '''
+            result = self._values.get("listener_port")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def stream_id(self) -> typing.Optional[builtins.str]:
@@ -23927,6 +23992,7 @@ class CfnChannel(
                 video_codec_settings_property = medialive.CfnChannel.VideoCodecSettingsProperty(
                     av1_settings=medialive.CfnChannel.Av1SettingsProperty(
                         afd_signaling="afdSignaling",
+                        bit_depth="bitDepth",
                         bitrate=123,
                         buf_size=123,
                         color_space_settings=medialive.CfnChannel.Av1ColorSpaceSettingsProperty(
@@ -24270,6 +24336,7 @@ class CfnChannel(
                     codec_settings=medialive.CfnChannel.VideoCodecSettingsProperty(
                         av1_settings=medialive.CfnChannel.Av1SettingsProperty(
                             afd_signaling="afdSignaling",
+                            bit_depth="bitDepth",
                             bitrate=123,
                             buf_size=123,
                             color_space_settings=medialive.CfnChannel.Av1ColorSpaceSettingsProperty(
@@ -25565,6 +25632,7 @@ class CfnChannelPlacementGroupProps:
         "cdi_input_specification": "cdiInputSpecification",
         "channel_class": "channelClass",
         "channel_engine_version": "channelEngineVersion",
+        "channel_security_groups": "channelSecurityGroups",
         "destinations": "destinations",
         "dry_run": "dryRun",
         "encoder_settings": "encoderSettings",
@@ -25587,6 +25655,7 @@ class CfnChannelProps:
         cdi_input_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CdiInputSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         channel_class: typing.Optional[builtins.str] = None,
         channel_engine_version: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.ChannelEngineVersionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        channel_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         dry_run: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         encoder_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EncoderSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -25606,6 +25675,7 @@ class CfnChannelProps:
         :param cdi_input_specification: Specification of CDI inputs for this channel.
         :param channel_class: The class for this channel. For a channel with two pipelines, the class is STANDARD. For a channel with one pipeline, the class is SINGLE_PIPELINE.
         :param channel_engine_version: 
+        :param channel_security_groups: 
         :param destinations: The settings that identify the destination for the outputs in this MediaLive output package.
         :param dry_run: 
         :param encoder_settings: The encoding configuration for the output content.
@@ -25632,6 +25702,7 @@ class CfnChannelProps:
             check_type(argname="argument cdi_input_specification", value=cdi_input_specification, expected_type=type_hints["cdi_input_specification"])
             check_type(argname="argument channel_class", value=channel_class, expected_type=type_hints["channel_class"])
             check_type(argname="argument channel_engine_version", value=channel_engine_version, expected_type=type_hints["channel_engine_version"])
+            check_type(argname="argument channel_security_groups", value=channel_security_groups, expected_type=type_hints["channel_security_groups"])
             check_type(argname="argument destinations", value=destinations, expected_type=type_hints["destinations"])
             check_type(argname="argument dry_run", value=dry_run, expected_type=type_hints["dry_run"])
             check_type(argname="argument encoder_settings", value=encoder_settings, expected_type=type_hints["encoder_settings"])
@@ -25653,6 +25724,8 @@ class CfnChannelProps:
             self._values["channel_class"] = channel_class
         if channel_engine_version is not None:
             self._values["channel_engine_version"] = channel_engine_version
+        if channel_security_groups is not None:
+            self._values["channel_security_groups"] = channel_security_groups
         if destinations is not None:
             self._values["destinations"] = destinations
         if dry_run is not None:
@@ -25719,6 +25792,14 @@ class CfnChannelProps:
         '''
         result = self._values.get("channel_engine_version")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.ChannelEngineVersionRequestProperty"]], result)
+
+    @builtins.property
+    def channel_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-channelsecuritygroups
+        '''
+        result = self._values.get("channel_security_groups")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def destinations(
@@ -28320,7 +28401,15 @@ class CfnInput(
                     srt_listener_address="srtListenerAddress",
                     srt_listener_port="srtListenerPort",
                     stream_id="streamId"
-                )]
+                )],
+                srt_listener_settings=medialive.CfnInput.SrtListenerSettingsRequestProperty(
+                    decryption=medialive.CfnInput.SrtListenerDecryptionRequestProperty(
+                        algorithm="algorithm",
+                        passphrase_secret_arn="passphraseSecretArn"
+                    ),
+                    minimum_latency=123,
+                    stream_id="streamId"
+                )
             ),
             tags=tags,
             type="type",
@@ -30071,18 +30160,183 @@ class CfnInput(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnInput.SrtListenerDecryptionRequestProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "algorithm": "algorithm",
+            "passphrase_secret_arn": "passphraseSecretArn",
+        },
+    )
+    class SrtListenerDecryptionRequestProperty:
+        def __init__(
+            self,
+            *,
+            algorithm: typing.Optional[builtins.str] = None,
+            passphrase_secret_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param algorithm: 
+            :param passphrase_secret_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenerdecryptionrequest.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                srt_listener_decryption_request_property = medialive.CfnInput.SrtListenerDecryptionRequestProperty(
+                    algorithm="algorithm",
+                    passphrase_secret_arn="passphraseSecretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__766ab8c20a29fef94f3d1bf549d2b62973c3e539133b6ea8539f52933f742882)
+                check_type(argname="argument algorithm", value=algorithm, expected_type=type_hints["algorithm"])
+                check_type(argname="argument passphrase_secret_arn", value=passphrase_secret_arn, expected_type=type_hints["passphrase_secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if algorithm is not None:
+                self._values["algorithm"] = algorithm
+            if passphrase_secret_arn is not None:
+                self._values["passphrase_secret_arn"] = passphrase_secret_arn
+
+        @builtins.property
+        def algorithm(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenerdecryptionrequest.html#cfn-medialive-input-srtlistenerdecryptionrequest-algorithm
+            '''
+            result = self._values.get("algorithm")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def passphrase_secret_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenerdecryptionrequest.html#cfn-medialive-input-srtlistenerdecryptionrequest-passphrasesecretarn
+            '''
+            result = self._values.get("passphrase_secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SrtListenerDecryptionRequestProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnInput.SrtListenerSettingsRequestProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "decryption": "decryption",
+            "minimum_latency": "minimumLatency",
+            "stream_id": "streamId",
+        },
+    )
+    class SrtListenerSettingsRequestProperty:
+        def __init__(
+            self,
+            *,
+            decryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.SrtListenerDecryptionRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            minimum_latency: typing.Optional[jsii.Number] = None,
+            stream_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param decryption: 
+            :param minimum_latency: 
+            :param stream_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenersettingsrequest.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                srt_listener_settings_request_property = medialive.CfnInput.SrtListenerSettingsRequestProperty(
+                    decryption=medialive.CfnInput.SrtListenerDecryptionRequestProperty(
+                        algorithm="algorithm",
+                        passphrase_secret_arn="passphraseSecretArn"
+                    ),
+                    minimum_latency=123,
+                    stream_id="streamId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__faf51c8e0718da1528eb20972cda5975cd8555fc31229333c0ae22eef4ee026d)
+                check_type(argname="argument decryption", value=decryption, expected_type=type_hints["decryption"])
+                check_type(argname="argument minimum_latency", value=minimum_latency, expected_type=type_hints["minimum_latency"])
+                check_type(argname="argument stream_id", value=stream_id, expected_type=type_hints["stream_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if decryption is not None:
+                self._values["decryption"] = decryption
+            if minimum_latency is not None:
+                self._values["minimum_latency"] = minimum_latency
+            if stream_id is not None:
+                self._values["stream_id"] = stream_id
+
+        @builtins.property
+        def decryption(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtListenerDecryptionRequestProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenersettingsrequest.html#cfn-medialive-input-srtlistenersettingsrequest-decryption
+            '''
+            result = self._values.get("decryption")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtListenerDecryptionRequestProperty"]], result)
+
+        @builtins.property
+        def minimum_latency(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenersettingsrequest.html#cfn-medialive-input-srtlistenersettingsrequest-minimumlatency
+            '''
+            result = self._values.get("minimum_latency")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stream_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtlistenersettingsrequest.html#cfn-medialive-input-srtlistenersettingsrequest-streamid
+            '''
+            result = self._values.get("stream_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SrtListenerSettingsRequestProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnInput.SrtSettingsRequestProperty",
         jsii_struct_bases=[],
-        name_mapping={"srt_caller_sources": "srtCallerSources"},
+        name_mapping={
+            "srt_caller_sources": "srtCallerSources",
+            "srt_listener_settings": "srtListenerSettings",
+        },
     )
     class SrtSettingsRequestProperty:
         def __init__(
             self,
             *,
             srt_caller_sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.SrtCallerSourceRequestProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            srt_listener_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnInput.SrtListenerSettingsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param srt_caller_sources: 
+            :param srt_listener_settings: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtsettingsrequest.html
             :exampleMetadata: fixture=_generated
@@ -30103,15 +30357,26 @@ class CfnInput(
                         srt_listener_address="srtListenerAddress",
                         srt_listener_port="srtListenerPort",
                         stream_id="streamId"
-                    )]
+                    )],
+                    srt_listener_settings=medialive.CfnInput.SrtListenerSettingsRequestProperty(
+                        decryption=medialive.CfnInput.SrtListenerDecryptionRequestProperty(
+                            algorithm="algorithm",
+                            passphrase_secret_arn="passphraseSecretArn"
+                        ),
+                        minimum_latency=123,
+                        stream_id="streamId"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__1f4b72d8f4c8216704b3fd806f90e730a140d0fd89ce7ac7a7b91ce08977b73d)
                 check_type(argname="argument srt_caller_sources", value=srt_caller_sources, expected_type=type_hints["srt_caller_sources"])
+                check_type(argname="argument srt_listener_settings", value=srt_listener_settings, expected_type=type_hints["srt_listener_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if srt_caller_sources is not None:
                 self._values["srt_caller_sources"] = srt_caller_sources
+            if srt_listener_settings is not None:
+                self._values["srt_listener_settings"] = srt_listener_settings
 
         @builtins.property
         def srt_caller_sources(
@@ -30122,6 +30387,16 @@ class CfnInput(
             '''
             result = self._values.get("srt_caller_sources")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtCallerSourceRequestProperty"]]]], result)
+
+        @builtins.property
+        def srt_listener_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtListenerSettingsRequestProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-input-srtsettingsrequest.html#cfn-medialive-input-srtsettingsrequest-srtlistenersettings
+            '''
+            result = self._values.get("srt_listener_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnInput.SrtListenerSettingsRequestProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -30275,7 +30550,15 @@ class CfnInputProps:
                         srt_listener_address="srtListenerAddress",
                         srt_listener_port="srtListenerPort",
                         stream_id="streamId"
-                    )]
+                    )],
+                    srt_listener_settings=medialive.CfnInput.SrtListenerSettingsRequestProperty(
+                        decryption=medialive.CfnInput.SrtListenerDecryptionRequestProperty(
+                            algorithm="algorithm",
+                            passphrase_secret_arn="passphraseSecretArn"
+                        ),
+                        minimum_latency=123,
+                        stream_id="streamId"
+                    )
                 ),
                 tags=tags,
                 type="type",
@@ -34487,6 +34770,7 @@ def _typecheckingstub__0060427de31049849d0b954eb2d8f1219de8b4f8164b94cdfa32d6ef2
     cdi_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CdiInputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     channel_class: typing.Optional[builtins.str] = None,
     channel_engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ChannelEngineVersionRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channel_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EncoderSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -34563,6 +34847,12 @@ def _typecheckingstub__82667be050483040af27d9bf862af731a2dc4717b3497dbcd0c4f2371
 
 def _typecheckingstub__91ef8d94b4069de96a8aaa0571cc762a4cefc0811c1703adc15d899e72d034a2(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnChannel.ChannelEngineVersionRequestProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__577f01830f68c04af9618e15cb3360b6f38fd79a8df542f3ef8e0dbd61ff5e12(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34890,6 +35180,7 @@ def _typecheckingstub__fc0689af3b0f6f7131d0da1e3e64aeee57f565115f0a26ac370f2cf08
 def _typecheckingstub__1911156090a37730cd16cc0d13076f448f8b192dca9427883cf77e884bbd03df(
     *,
     afd_signaling: typing.Optional[builtins.str] = None,
+    bit_depth: typing.Optional[builtins.str] = None,
     bitrate: typing.Optional[jsii.Number] = None,
     buf_size: typing.Optional[jsii.Number] = None,
     color_space_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.Av1ColorSpaceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -36284,7 +36575,9 @@ def _typecheckingstub__ba8ad0a0892f533c35790b1f7f1b18f63626c2dfacf901809eca7fd4c
 
 def _typecheckingstub__6b18d4cb0dcca463f05b4d7bb9ed322d215c92faf8acb5ecca2210acd706eed7(
     *,
+    connection_mode: typing.Optional[builtins.str] = None,
     encryption_passphrase_secret_arn: typing.Optional[builtins.str] = None,
+    listener_port: typing.Optional[jsii.Number] = None,
     stream_id: typing.Optional[builtins.str] = None,
     url: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -36563,6 +36856,7 @@ def _typecheckingstub__b13ea4bee752af01767701d05a81e0c16839b625a40da4f298a5e05d7
     cdi_input_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CdiInputSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     channel_class: typing.Optional[builtins.str] = None,
     channel_engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ChannelEngineVersionRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    channel_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     dry_run: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     encoder_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EncoderSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -37345,9 +37639,27 @@ def _typecheckingstub__7bf119ee0f687572e2c9f413504fcb4e4104e865e6c928864a59bc0eb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__766ab8c20a29fef94f3d1bf549d2b62973c3e539133b6ea8539f52933f742882(
+    *,
+    algorithm: typing.Optional[builtins.str] = None,
+    passphrase_secret_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__faf51c8e0718da1528eb20972cda5975cd8555fc31229333c0ae22eef4ee026d(
+    *,
+    decryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.SrtListenerDecryptionRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    minimum_latency: typing.Optional[jsii.Number] = None,
+    stream_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1f4b72d8f4c8216704b3fd806f90e730a140d0fd89ce7ac7a7b91ce08977b73d(
     *,
     srt_caller_sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.SrtCallerSourceRequestProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    srt_listener_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInput.SrtListenerSettingsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

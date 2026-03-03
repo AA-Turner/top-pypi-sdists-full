@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
@@ -66,7 +65,6 @@ def _cor_methods(x, y, method="pearson"):
 
 
 def _cor_plot(x, y):
-
     # Create scatter
     plt.plot(x, y, "o")
 

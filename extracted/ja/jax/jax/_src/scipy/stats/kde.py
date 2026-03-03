@@ -14,7 +14,7 @@
 
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Callable, cast
 
 import numpy as np
 
@@ -26,7 +26,9 @@ from jax._src import random
 from jax._src.numpy.util import check_arraylike, promote_dtypes_inexact
 from jax._src.scipy import linalg, special
 from jax._src.tree_util import register_pytree_node_class
+from jax._src.typing import Array
 
+BwMethod = None | str | Array | Callable[[Any], Array]
 
 @register_pytree_node_class
 @dataclass(frozen=True, init=False)
@@ -48,7 +50,7 @@ class gaussian_kde:
   covariance: Any
   inv_cov: Any
 
-  def __init__(self, dataset, bw_method=None, weights=None):
+  def __init__(self, dataset, bw_method: BwMethod = None, weights=None):
     check_arraylike("gaussian_kde", dataset)
     dataset = jnp.atleast_2d(dataset)
     if dtypes.issubdtype(lax.dtype(dataset), np.complexfloating):
@@ -80,7 +82,7 @@ class gaussian_kde:
     elif bw_method == "silverman":
       factor = jnp.power(neff * (d + 2) / 4.0, -1. / (d + 4))
     elif jnp.isscalar(bw_method) and not isinstance(bw_method, str):
-      factor = bw_method
+      factor = cast(Array, bw_method)
     elif callable(bw_method):
       factor = bw_method(self)
     else:

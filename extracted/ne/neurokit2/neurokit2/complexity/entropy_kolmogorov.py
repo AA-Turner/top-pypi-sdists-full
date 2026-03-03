@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from .utils_complexity_embedding import complexity_embedding
 from .optim_complexity_tolerance import complexity_tolerance
+from .utils_complexity_embedding import complexity_embedding
 
 
 def entropy_kolmogorov(signal=None, delay=1, dimension=3, tolerance="sd"):
@@ -55,9 +55,7 @@ def entropy_kolmogorov(signal=None, delay=1, dimension=3, tolerance="sd"):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Store parameters
     info = {

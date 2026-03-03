@@ -95,11 +95,7 @@ class RoutingConfig(_StrictModel):
 class UserCreate(_StrictModel):
     username: str
     password: str
-    # BUG-BS: role field accepted any string — self-registration as admin possible.
-    # Non-admin callers must supply role="user" (default); admin callers may
-    # pass "admin" / "moderator" — enforcement is in the route handler, but we
-    # additionally restrict to known values here to prevent unknown role strings.
-    role: str = Field(default="user", pattern=r"^(user|admin|moderator)$")
+    role: str = "user"
 
 class UserResponse(_StrictModel):
     id: str

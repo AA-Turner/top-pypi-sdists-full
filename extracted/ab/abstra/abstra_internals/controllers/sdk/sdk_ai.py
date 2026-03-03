@@ -1,13 +1,18 @@
+from __future__ import annotations
+
+import base64
 import io
 import json
 import pathlib
-from typing import Dict, List, Optional, Union
+from typing import Any, Callable, Union
 
 import pypdfium2 as pdfium
 from PIL.Image import Image
 
-import abstra_internals.utils.b64 as b64
 from abstra_internals.contracts_generated import (
+    CloudApiCliAgentsPostRequestBodyResponse,
+    CloudApiCliAgentsPostRequestBodyStart,
+    CloudApiCliAgentsPostRequestBodyStartToolsItem,
     CloudApiCliAiV2PromptPostRequest,
     CloudApiCliAiV2PromptPostRequestMessages,
     CloudApiCliAiV2PromptPostRequestMessagesItem,
@@ -22,20 +27,21 @@ from abstra_internals.interface.sdk.forms.deprecated.widgets.response_abc import
     AbstractFileResponse as DeprecatedAbstractFileResponse,
 )
 from abstra_internals.repositories.ai import AIRepository
+from abstra_internals.utils import b64
 from abstra_internals.utils.ai import build_function_tool_call
 from abstra_internals.utils.image import constrain_image_size
 
 Prompt = Union[
     str, io.IOBase, pathlib.Path, AbstractFileResponse, DeprecatedAbstractFileResponse
 ]
-Format = Dict[str, object]
+Format = dict[str, object]
 
 
 class AiSDKController:
     def __init__(self, ai_client: AIRepository):
         self.ai_client = ai_client
 
-    def _extract_pdf_images(self, file: Prompt) -> List[io.BytesIO]:
+    def _extract_pdf_images(self, file: Prompt) -> list[io.BytesIO]:
         images = []
         for page in pdfium.PdfDocument(file):
             bitmap = page.render(
@@ -76,7 +82,7 @@ class AiSDKController:
             ],
         )
 
-    def _try_extract_images(self, input: io.IOBase) -> Optional[List[io.BytesIO]]:
+    def _try_extract_images(self, input: io.IOBase) -> list[io.BytesIO] | None:
         try:
             images = self._extract_pdf_images(input)
             return images
@@ -161,9 +167,9 @@ class AiSDKController:
 
     def prompt(
         self,
-        prompts: List[Prompt],
-        instructions: List[str],
-        format: Optional[Format],
+        prompts: list[Prompt],
+        instructions: list[str],
+        format: Format | None,
         temperature: float,
     ):
         messages: CloudApiCliAiV2PromptPostRequestMessages = []
@@ -212,9 +218,72 @@ class AiSDKController:
 
         return response["content"]
 
-    def parse_document(
-        self, document_path: Union[pathlib.Path, str], model: str
+    def run_agent(
+        self,
+        prompts: list[Prompt],
+        max_steps: int,
+        tool_callables: dict[str, Callable[..., Any]] | None = None,
+        tool_items: "list[CloudApiCliAgentsPostRequestBodyStartToolsItem] | None" = None,
     ) -> dict:
+        messages: CloudApiCliAiV2PromptPostRequestMessages = []
+        for prompt in prompts:
+            messages.extend(self._make_messages(prompt))
+
+        body = CloudApiCliAgentsPostRequestBodyStart(
+            type="start",
+            prompt=messages,
+            tools=tool_items,
+            max_steps=max_steps,
+        )
+
+        response = self.ai_client.run_agent(body=body)
+
+        while response.get("status") == "function-call":
+            print(
+                f"[Agent] requested tool call: {response['functionName']} with arguments {response.get('arguments', {})}"
+            )
+            function_name = response["functionName"]
+            arguments = response.get("arguments", {})
+            session_id = response["sessionId"]
+
+            func = (tool_callables or {}).get(function_name)
+            if func is None:
+                raise ValueError(f"Agent requested unknown tool: '{function_name}'")
+
+            def trucate(txt: str):
+                if len(txt) > 100:
+                    return txt[:100] + "..."
+                return txt
+
+            try:
+                value = func(**arguments)
+                print(f"[Agent] Tool call result: {trucate(repr(value))}")
+                result = {"status": "success", "value": value}
+            except Exception as e:
+                result = {"status": "error", "error": str(e)}
+                print(f"[Agent] Tool call error: {trucate(repr(e))}")
+
+            if result["status"] == "success" and isinstance(
+                value := result["value"], pathlib.Path
+            ):
+                response_body = CloudApiCliAgentsPostRequestBodyResponse(
+                    type="response",
+                    session_id=session_id,
+                    value=base64.b64encode(value.read_bytes()).decode("utf-8"),
+                    encoding="image/base64",
+                )
+            else:
+                response_body = CloudApiCliAgentsPostRequestBodyResponse(
+                    type="response",
+                    session_id=session_id,
+                    value=result,
+                    encoding="explicit",
+                )
+            response = self.ai_client.run_agent(body=response_body)
+
+        return response
+
+    def parse_document(self, document_path: pathlib.Path | str, model: str) -> dict:
         if isinstance(document_path, str):
             document_path = pathlib.Path(document_path)
 

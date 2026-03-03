@@ -1297,7 +1297,7 @@ class ClientBuilder:
 
     def _get_cluster_or_die(self, project_id: str, session_name: str) -> Session:
         """Query Anyscale for the given cluster's metadata."""
-        cluster_found = get_cluster(self._anyscale_sdk, project_id, session_name)
+        cluster_found = get_cluster(self._anyscale_api_client, project_id, session_name)
         if not cluster_found:
             raise RuntimeError(f"Failed to locate cluster: {session_name}")
         return cluster_found

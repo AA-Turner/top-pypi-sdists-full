@@ -141,13 +141,12 @@ class FramePreview(colab_lib.DynamicDOMElement):
         try:
           with open(filename) as fp:
             self._file_cache[filename] = fp.read()
-          source = self._file_cache[filename]
-          highlight = lineno
-          linenostart = 1
         except FileNotFoundError:
-          source = "\n".join(frame.source)
-          highlight = min(frame.offset + 1, len(frame.source) - 1)
-          linenostart = lineno - frame.offset
+          pass
+    if filename in self._file_cache:
+      source = self._file_cache[filename]
+      highlight = lineno
+      linenostart = 1
     else:
       source = "\n".join(frame.source)
       highlight = min(frame.offset + 1, len(frame.source) - 1)
@@ -230,12 +229,12 @@ class ColabDebugger(cli_debugger.CliDebugger):
     self._debugger_view = DebuggerView(self.current_frame())
     self.stdout = self.stdin = self._debugger_view  # type: ignore
 
-  def do_up(self, arg):
+  def do_up(self, arg, /):
     super().do_up(arg)
     self._debugger_view.update_frame(self.current_frame())
     return False
 
-  def do_down(self, arg):
+  def do_down(self, arg, /):
     super().do_down(arg)
     self._debugger_view.update_frame(self.current_frame())
     return False

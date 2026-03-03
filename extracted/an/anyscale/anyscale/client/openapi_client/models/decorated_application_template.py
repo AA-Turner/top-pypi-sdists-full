@@ -45,6 +45,7 @@ class DecoratedApplicationTemplate(object):
         'archived_at': 'datetime',
         'is_default': 'bool',
         'anonymous': 'bool',
+        'cloud_id': 'str',
         'creator': 'MiniUser',
         'latest_build': 'MiniBuild'
     }
@@ -62,11 +63,12 @@ class DecoratedApplicationTemplate(object):
         'archived_at': 'archived_at',
         'is_default': 'is_default',
         'anonymous': 'anonymous',
+        'cloud_id': 'cloud_id',
         'creator': 'creator',
         'latest_build': 'latest_build'
     }
 
-    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, archiver_id=None, archived_at=None, is_default=False, anonymous=False, creator=None, latest_build=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, project_id=None, organization_id=None, creator_id=None, created_at=None, last_modified_at=None, deleted_at=None, archiver_id=None, archived_at=None, is_default=False, anonymous=False, cloud_id=None, creator=None, latest_build=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedApplicationTemplate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -84,6 +86,7 @@ class DecoratedApplicationTemplate(object):
         self._archived_at = None
         self._is_default = None
         self._anonymous = None
+        self._cloud_id = None
         self._creator = None
         self._latest_build = None
         self.discriminator = None
@@ -106,6 +109,8 @@ class DecoratedApplicationTemplate(object):
             self.is_default = is_default
         if anonymous is not None:
             self.anonymous = anonymous
+        if cloud_id is not None:
+            self.cloud_id = cloud_id
         self.creator = creator
         if latest_build is not None:
             self.latest_build = latest_build
@@ -397,6 +402,29 @@ class DecoratedApplicationTemplate(object):
         """
 
         self._anonymous = anonymous
+
+    @property
+    def cloud_id(self):
+        """Gets the cloud_id of this DecoratedApplicationTemplate.  # noqa: E501
+
+        ID of the Cloud this App Config is associated with.  # noqa: E501
+
+        :return: The cloud_id of this DecoratedApplicationTemplate.  # noqa: E501
+        :rtype: str
+        """
+        return self._cloud_id
+
+    @cloud_id.setter
+    def cloud_id(self, cloud_id):
+        """Sets the cloud_id of this DecoratedApplicationTemplate.
+
+        ID of the Cloud this App Config is associated with.  # noqa: E501
+
+        :param cloud_id: The cloud_id of this DecoratedApplicationTemplate.  # noqa: E501
+        :type: str
+        """
+
+        self._cloud_id = cloud_id
 
     @property
     def creator(self):

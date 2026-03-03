@@ -1,10 +1,10 @@
 import asyncio
 import logging
+import shutil
 import uuid
 from pathlib import Path
-import shutil
 
-from wslink.protocol import WslinkHandler, AbstractWebApp
+from wslink.protocol import AbstractWebApp, WslinkHandler
 
 
 class WsConnection:
@@ -124,15 +124,17 @@ class GenericServer(AbstractWebApp):
 
 
 def startWebServer(*args, **kwargs):
-    raise NotImplementedError("Generic backend does not provide a launcher")
+    msg = "Generic backend does not provide a launcher"
+    raise NotImplementedError(msg)
 
 
 def create_webserver(server_config):
-    if "logging_level" in server_config and server_config["logging_level"]:
+    if server_config.get("logging_level"):
         logging.getLogger("wslink").setLevel(server_config["logging_level"])
 
     # Reverse connection
     if "reverse_url" in server_config:
-        raise NotImplementedError("Generic backend does not support reverse_url")
+        msg = "Generic backend does not support reverse_url"
+        raise NotImplementedError(msg)
 
     return GenericServer(server_config)

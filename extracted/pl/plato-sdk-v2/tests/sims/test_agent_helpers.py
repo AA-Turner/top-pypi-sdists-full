@@ -2,6 +2,8 @@
 
 import os
 
+import pytest
+
 from plato.sims.agent_helpers import (
     create_sim_client,
     get_available_sims,
@@ -11,6 +13,12 @@ from plato.sims.agent_helpers import (
     setup_sim_env,
 )
 from plato.sims.registry import registry
+
+# Skip entire module if no sims are installed
+pytestmark = pytest.mark.skipif(
+    not registry.list_sims(),
+    reason="No sim packages installed",
+)
 
 
 class TestSimsRegistry:

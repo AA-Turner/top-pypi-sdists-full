@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: b2sdk
-Version: 2.10.3
+Version: 2.10.4
 Summary: Backblaze B2 SDK
 Project-URL: Homepage, https://github.com/Backblaze/b2-sdk-python
 Author-email: Backblaze Inc <support@backblaze.com>

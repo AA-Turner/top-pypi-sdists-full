@@ -93,7 +93,6 @@ use crate::binding::binding::EmptyAnswer;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::FirstUse;
 use crate::binding::binding::FunctionParameter;
-use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
@@ -135,7 +134,6 @@ use crate::types::annotation::Annotation;
 use crate::types::annotation::Qualifier;
 use crate::types::callable::Callable;
 use crate::types::callable::Function;
-use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
@@ -158,7 +156,6 @@ use crate::types::type_var::TypeVar;
 use crate::types::type_var::Variance;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
-use crate::types::types::CalleeKind;
 use crate::types::types::Forallable;
 use crate::types::types::SuperObj;
 use crate::types::types::TParams;
@@ -396,18 +393,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ));
                     }
                 }
-                // Check for out-of-scope TypeVars in annotations.
-                // In-scope TypeVars are replaced with Quantified by LegacyTParamCollector,
-                // so any remaining raw TypeVars are out of scope.
                 if let Some(ty) = &ann.ty {
-                    // Consume TypeVars that are legitimately scoped inside Callables,
-                    // then check for remaining out-of-scope ones.
-                    let ty_with_callables_wrapped = self.wrap_callable_legacy_typevars(ty.clone());
-                    self.check_raw_legacy_type_variables(
-                        &ty_with_callables_wrapped,
-                        x.range(),
-                        errors,
-                    );
+                    self.check_legacy_typevar_scoping(ty, x.range(), errors);
                 }
                 Arc::new(AnnotationWithTarget {
                     target: target.clone(),
@@ -1138,7 +1125,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 seen_param_specs,
                 tparams,
             ),
-            Type::Type(t) => self.tvars_to_tparams_for_type_alias(
+            Type::Type(t) | Type::Annotated(t) => self.tvars_to_tparams_for_type_alias(
                 t,
                 seen_type_vars,
                 seen_type_var_tuples,
@@ -1161,6 +1148,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if !self.has_valid_annotation_syntax(expr, errors) {
             return TypeAlias::error(name.clone(), style);
         }
+        // Check whether the original type was Annotated before it gets rebound below.
+        // We use this later to decide whether to wrap the stored type in Annotated.
+        let original_was_annotated = matches!(ty, Type::Annotated(_));
         let untyped = self.untype_opt(ty.clone(), range, errors);
         let ty = if let Some(untyped) = untyped {
             let validated =
@@ -1184,12 +1174,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .iter()
             .map(|e| self.expr_infer(e, &self.error_swallower()))
             .collect();
-        TypeAlias::new(
-            name.clone(),
-            self.heap.mk_type_form(ty),
-            style,
-            annotated_metadata,
-        )
+        // If the original type was Annotated[T, ...], preserve the wrapper so that
+        // the alias is not callable and not assignable to type[T] in value position.
+        let stored_ty = if original_was_annotated {
+            Type::Annotated(Box::new(ty))
+        } else {
+            self.heap.mk_type_form(ty)
+        };
+        TypeAlias::new(name.clone(), stored_ty, style, annotated_metadata)
     }
 
     /// Check whether a type alias body contains a cyclic self-reference.
@@ -3071,8 +3063,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ReturnTypeKind::ShouldValidateAnnotation {
                 range,
                 annotation,
-                stub_or_impl,
-                decorators,
                 implicit_return,
                 is_generator,
                 has_explicit_return,
@@ -3081,28 +3071,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // It will result in an implicit Any type, which is reasonable, but we should
                 // at least error here.
                 let ty = self.get_idx(*annotation).annotation.get_type().clone();
-                // If the function body is stubbed out or if the function is decorated with
-                // `@abstractmethod`, we blindly accept the return type annotation.
-                if *stub_or_impl != FunctionStubOrImpl::Stub
-                    && !decorators.iter().any(|k| {
-                        let decorator = self.get_idx(*k);
-                        match decorator.ty.callee_kind() {
-                            Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => true,
-                            _ => false,
-                        }
-                    })
-                {
-                    let implicit_return = self.get_idx(*implicit_return);
-                    self.check_implicit_return_against_annotation(
-                        implicit_return,
-                        &ty,
-                        x.is_async,
-                        *is_generator,
-                        *has_explicit_return,
-                        *range,
-                        errors,
-                    );
-                }
+                let implicit_return = self.get_idx(*implicit_return);
+                self.check_implicit_return_against_annotation(
+                    implicit_return,
+                    &ty,
+                    x.is_async,
+                    *is_generator,
+                    *has_explicit_return,
+                    *range,
+                    errors,
+                );
                 self.return_type_from_annotation(ty, x.is_async, *is_generator)
             }
             ReturnTypeKind::ShouldTrustAnnotation {
@@ -3126,8 +3104,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 implicit_return,
                 yields,
                 yield_froms,
-                body_is_trivial,
-                class_metadata_key,
             } => {
                 let is_generator = !(yields.is_empty() && yield_froms.is_empty());
                 let returns = returns.iter().map(|k| self.get_idx(*k).arc_clone_ty());
@@ -3144,17 +3120,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .chain(iter::once(implicit_return.arc_clone_ty()))
                             .collect(),
                     )
-                };
-                // If this is a method with a trivial body (e.g., `raise NotImplementedError()`)
-                // in a class that extends ABC, treat it as an abstract method and return Any
-                // instead of Never. This handles transitive ABC inheritance.
-                let is_abstract_method = *body_is_trivial
-                    && return_ty.is_never()
-                    && class_metadata_key.is_some_and(|key| self.get_idx(key).extends_abc());
-                let return_ty = if is_abstract_method {
-                    self.heap.mk_any_implicit()
-                } else {
-                    return_ty
                 };
                 if is_generator {
                     let yield_ty = self.unions({
@@ -3722,14 +3687,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         finalize(&annotation.target, self.heap.mk_any_implicit())
                     })
             }
-            FunctionParameter::Unannotated(var, function_idx, target) => {
-                // It's important that we force the undecorated function binding before reading
-                // from this var. Solving the undecorated function binding pins the type of the var,
-                // either to a concrete type or to any. Without this we can have non-determinism
-                // where the reader can observe an unresolved var or a resolved type, depending on
-                // the order of solved bindings.
-                self.get_idx(*function_idx);
-                let ty = self.solver().force_var(*var);
+            FunctionParameter::Unannotated(function_idx, target, param_name) => {
+                // Get the resolved UndecoratedFunction - this ensures the function has been solved
+                // and resolved_param_types has been populated.
+                let undecorated = self.get_idx(*function_idx);
+                // Look up the type from resolved_param_types. This should always succeed since
+                // we populate it for all unannotated parameters during function solving.
+                let ty = undecorated
+                    .resolved_param_types
+                    .get(param_name)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        // Fallback to Any for safety, though this should never happen
+                        self.heap.mk_any_implicit()
+                    });
                 finalize(target, ty)
             }
         }
@@ -4333,6 +4304,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         tparams
     }
 
+    /// Check that a resolved type does not contain out-of-scope legacy TypeVars.
+    fn check_legacy_typevar_scoping(&self, ty: &Type, range: TextRange, errors: &ErrorCollector) {
+        let wrapped = self.wrap_callable_legacy_typevars(ty.clone());
+        self.check_raw_legacy_type_variables(&wrapped, range, errors);
+    }
+
     /// Check for raw legacy type variables in a resolved annotation type.
     /// Raw legacy TypeVars in annotations indicate out-of-scope usage — in-scope
     /// TypeVars are replaced with Quantified by LegacyTParamCollector.
@@ -4402,7 +4379,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // when there is no annotation, so that `mylist = list` is treated
         // like a value assignment rather than a type alias?
         match ty {
-            Type::Type(_) | Type::TypeVar(_) | Type::ParamSpec(_) | Type::TypeVarTuple(_) => true,
+            Type::Type(_)
+            | Type::TypeVar(_)
+            | Type::ParamSpec(_)
+            | Type::TypeVarTuple(_)
+            | Type::Annotated(_) => true,
             Type::TypeAlias(ta) => {
                 self.check_type_form(&self.get_type_alias(ta).as_type(), allow_none)
             }
@@ -4744,6 +4725,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<UndecoratedFunction> {
         self.undecorated_function(
             &x.def,
+            x.def_index,
             x.stub_or_impl,
             x.class_key.as_ref(),
             &x.decorators,
@@ -4977,6 +4959,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     return Some(TensorType::shapeless(cls.clone()).to_type());
                 }
+                // Normalize type[NoneType] as None
+                if let Type::ClassType(cls) = t.as_ref()
+                    && cls.has_qname("types", "NoneType")
+                {
+                    return Some(self.heap.mk_none());
+                }
                 Some(*t)
             }
             Type::None => Some(self.heap.mk_none()), // Both a value and a type
@@ -5018,6 +5006,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.canonicalize_all_class_types(Type::ClassDef(cls), range, errors);
                 self.untype_opt(canonicalized, range, errors)
             }
+            // Annotated[T, meta] in annotation/type-alias context unwraps to T
+            Type::Annotated(t) => Some(*t),
             _ => None,
         }
     }

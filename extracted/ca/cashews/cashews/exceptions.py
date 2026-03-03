@@ -14,6 +14,18 @@ class UnsupportedPicklerError(CacheError):
     """Unknown or unsupported pickle type."""
 
 
+class UnsupportedDigestmod(CacheError):
+    """Unknown or unsupported digestmod type."""
+
+
+class UnsupportedCompressorError(CacheError):
+    """Unknown or unsupported compress type."""
+
+
+class DecompressionError(CacheError):
+    """Wrong compress data"""
+
+
 class UnSecureDataError(CacheError):
     """Unsecure data in cache storage"""
 

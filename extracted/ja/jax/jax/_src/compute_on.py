@@ -175,7 +175,8 @@ def _compute_on_jvp(primals, tangents, *, jaxpr, compute_type,
 ad.primitive_jvps[compute_on_p] = _compute_on_jvp
 
 
-def _compute_on_lin(nzs, *primals, jaxpr, compute_type, out_memory_spaces):
+def _compute_on_lin(_is_vjp, nzs, *primals, jaxpr, compute_type, out_memory_spaces):
+  # TODO(mattjj): why did i do jvp + dce here, not ad.linearize_jaxpr?
   jaxpr_jvp, out_nzs = ad.jvp_jaxpr(jaxpr, nzs, False)
   lin_outs = [False] * len(out_nzs) + [True] * sum(out_nzs)
   jaxpr_lin_, used_inputs = pe.dce_jaxpr(jaxpr_jvp.jaxpr, lin_outs, False)

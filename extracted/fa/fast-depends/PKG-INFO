@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-depends
-Version: 3.0.6
+Version: 3.0.8
 Summary: FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System. Async and sync are both supported.
 Keywords: fastapi,dependency injection
 Author: Nikita Pastukhov

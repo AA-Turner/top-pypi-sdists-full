@@ -21,14 +21,14 @@ import os
 import pathlib
 import subprocess
 
-_version = "0.9.0.1"
+_version = "0.9.1"
 # The following line is overwritten by build scripts in distributions &
 # releases. Do not modify this manually, or jax/jaxlib build will fail.
-_release_version: str = '0.9.0.1'
+_release_version: str = '0.9.1'
 
 # The following line is overwritten by build scripts in distributions &
 # releases. Do not modify this manually, or jax/jaxlib build will fail.
-_git_hash: str = '470cf68044b59afde006e541731ea75c32e2a302'
+_git_hash: str = '58cb6e556c996bf0361bca9e64890a551e513280'
 
 def _get_version_string() -> str:
   # The build/source distribution for jax & jaxlib overwrites _release_version.
@@ -102,7 +102,7 @@ def _is_prerelease() -> bool:
 def _write_version(fname: str) -> None:
   """Used by setup.py to write the specified version info into the source tree."""
   release_version = _get_version_for_build()
-  old_version_string = "_release_version: str = '0.9.0.1'"
+  old_version_string = "_release_version: str = '0.9.1'"
   new_version_string = f"_release_version: str = {release_version!r}"
   fhandle = pathlib.Path(fname)
   contents = fhandle.read_text()
@@ -113,7 +113,7 @@ def _write_version(fname: str) -> None:
 
   githash = os.environ.get("JAX_GIT_HASH")
   if githash:
-    old_githash_string = "_git_hash: str = '470cf68044b59afde006e541731ea75c32e2a302'"
+    old_githash_string = "_git_hash: str = '58cb6e556c996bf0361bca9e64890a551e513280'"
     new_githash_string = f"_git_hash: str = {githash!r}"
     if contents.count(old_githash_string) != 2:
       raise RuntimeError(f"Build: could not find {old_githash_string!r} in {fname}")
@@ -128,8 +128,10 @@ def _get_cmdclass(pkg_source_path):
   class _build_py(build_py_orig):
     def run(self):
       if _release_version is None:
-        this_file_in_build_dir = os.path.join(self.build_lib, pkg_source_path,
-                                              os.path.basename(__file__))
+        this_file_in_build_dir = os.path.join(
+          self.build_lib,  # pyrefly: ignore[missing-attribute]
+          pkg_source_path,
+          os.path.basename(__file__))
         # super().run() only copies files from source -> build if they are
         # missing or outdated. Because _write_version(...) modifies the copy of
         # this file in the build tree, re-building from the same JAX directory
@@ -137,8 +139,10 @@ def _get_cmdclass(pkg_source_path):
         # would fail without this deletion. See jax-ml/jax#18252.
         if os.path.isfile(this_file_in_build_dir):
           os.unlink(this_file_in_build_dir)
+      else:
+        this_file_in_build_dir = ""
       super().run()
-      if _release_version is None:
+      if this_file_in_build_dir:
         _write_version(this_file_in_build_dir)
 
   class _sdist(sdist_orig):
@@ -152,7 +156,7 @@ def _get_cmdclass(pkg_source_path):
 
 
 __version__ = _get_version_string()
-_minimum_jaxlib_version = '0.9.0.1'
+_minimum_jaxlib_version = '0.9.1'
 
 def _version_as_tuple(version_str):
   return tuple(int(i) for i in version_str.split(".") if i.isdigit())

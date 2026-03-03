@@ -58,7 +58,7 @@ from chalk.streams.base import StreamSource
 from chalk.streams.types import StreamResolverSignature
 from chalk.utils import MachineType, notebook
 from chalk.utils.collections import get_unique_item, get_unique_item_if_exists
-from chalk.utils.duration import CronTab, Duration, parse_chalk_duration, timedelta_to_duration
+from chalk.utils.duration import CronTab, Duration, parse_chalk_duration, parse_chalk_duration_s, timedelta_to_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.string import to_snake_case
 
@@ -138,7 +138,7 @@ class IncrementalSettingsSQLFileResolver(BaseModel):
             return None
         if isinstance(value, timedelta):
             return value
-        parse_chalk_duration(value)
+        parse_chalk_duration_s(value)
         return value
 
     @validator("mode")
@@ -198,7 +198,7 @@ class CommentDict(BaseModel):
     def validate_timedelta(cls, string: Optional[str]):
         if string is None:
             return None
-        parse_chalk_duration(string)
+        parse_chalk_duration_s(string)
         return string
 
     @validator("type")

@@ -11,7 +11,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 """
 
 
-__version__ = "8.69.0"
+__version__ = "8.70.0"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 
@@ -38,7 +38,7 @@ elif board_id == ap_board.NODEMCU:
 elif board_id == ap_board.PYBOARD:
     from adafruit_blinka.board.pyboard import *
 
-elif board_id == ap_board.RASPBERRY_PI_PICO:
+elif detector.board.any_raspberry_pi_pico_id:
     from adafruit_blinka.board.raspberrypi.pico import *
 
 elif detector.board.any_raspberry_pi_5_board:
@@ -151,6 +151,9 @@ elif board_id == ap_board.ORANGE_PI_5_PRO:
 
 elif board_id == ap_board.ORANGE_PI_5_PLUS:
     from adafruit_blinka.board.orangepi.orangepi5plus import *
+
+elif board_id == ap_board.ORANGE_PI_5_ULTRA:
+    from adafruit_blinka.board.orangepi.orangepi5ultra import *
 
 elif board_id == ap_board.BANANA_PI_M2_ZERO:
     from adafruit_blinka.board.bananapi.bpim2zero import *

@@ -140,10 +140,12 @@ class PrivateImageSDK(BaseSDK):
         containerfile: str,
         ray_version: Optional[str] = None,
         anonymous: bool = False,
+        containerfile_path: Optional[str] = None,
     ) -> str:
         return self.client.get_cluster_env_build_id_from_containerfile(
             cluster_env_name=name,
             containerfile=containerfile,
+            containerfile_path=containerfile_path,
             anonymous=anonymous,
             ray_version=ray_version,
         )

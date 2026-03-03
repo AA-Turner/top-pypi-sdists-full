@@ -33,10 +33,13 @@ from jax._src import effects
 from jax._src import source_info_util
 from jax._src import traceback_util
 from jax._src import api_util
+from jax._src import custom_derivatives
 from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
+from jax._src.interpreters.remat import remat_transform
+from jax._src.hijax import VJPHiPrimitive
 from jax._src.lax import lax as lax_internal
 from jax._src.lax import convolution as lax_convolution
 from jax._src.lib.mlir.dialects import hlo
@@ -201,7 +204,7 @@ checkpoint_policies = types.SimpleNamespace(
 ### Main API
 
 @partial(api_boundary, repro_api_name="jax.checkpoint")
-def checkpoint(fun: Callable, *, prevent_cse: bool = True,
+def checkpoint(fun: Callable, *, prevent_cse: bool | Sequence[bool] = True,
                policy: Callable[..., bool] | None = None,
                static_argnums: int | tuple[int, ...] = (),
                concrete: bool | DeprecatedArg = DeprecatedArg()) -> Callable:
@@ -359,7 +362,7 @@ def checkpoint(fun: Callable, *, prevent_cse: bool = True,
 
   if isinstance(static_argnums, int):
     static_argnums = static_argnums,
-  if isinstance(prevent_cse, list):
+  if isinstance(prevent_cse, Sequence):
     prevent_cse = tuple(prevent_cse)
   if not isinstance(prevent_cse, (tuple, bool)):
     raise TypeError("prevent_cse must be a bool or tuple of bools, got "
@@ -373,6 +376,7 @@ def checkpoint(fun: Callable, *, prevent_cse: bool = True,
         args, kwargs, static_argnums=static_argnums)
     fun_, args = _remat_static_argnums(fun, static_argnums, args)
     args_flat, in_tree = tree_flatten((args, kwargs))
+    api_util.check_no_transformed_refs_args(lambda: debug, args_flat)
     in_avals = [core.shaped_abstractify(x) for x in args_flat]
     jaxpr, consts, out_tree = _trace_to_jaxpr(fun_, in_tree, tuple(in_avals), debug)
     if isinstance(prevent_cse, tuple):
@@ -505,7 +509,7 @@ def saved_residuals(f: Callable,
     return f(*args, **kwargs)
 
   debug_info = api_util.debug_info("saved_residuals", f, args, kwargs)
-  out = api.make_jaxpr(lambda *args: api.linearize(f_, *args),
+  out = api.make_jaxpr(lambda *args: api.vjp(f_, *args),
                        return_shape=True)(*in_leaves)
   assert isinstance(out, tuple)
   jaxpr_, out_shape_ = out
@@ -598,7 +602,7 @@ def remat_jvp(primals, tangents, jaxpr, prevent_cse, differentiated, policy):
       prevent_cse=prevent_cse, differentiated=differentiated, policy=policy)
   out_primals, out_tangents_ = split_list(outs, [len(jaxpr.outvars)])
   out_tangents_ = iter(out_tangents_)
-  out_tangents = [next(out_tangents_) if nz else ad_util.Zero.from_primal_value(p)
+  out_tangents = [next(out_tangents_) if nz else ad_util.p2tz(p)
                   for p, nz in zip(out_primals, out_nz)]
   return out_primals, out_tangents
 ad.primitive_jvps[remat_p] = remat_jvp
@@ -646,7 +650,7 @@ def remat_partial_eval(trace: pe.JaxprTrace, *tracers: core.Tracer,
                        for x in jaxpr_unknown.outvars]
   if isinstance(prevent_cse, tuple):
     _, prevent_cse_ = partition_list(in_used_staged, prevent_cse)
-    prevent_cse = (True,) * len(res_tracers) + tuple(prevent_cse_)
+    prevent_cse = (True,) * len(res_tracers) + tuple(prevent_cse_)  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
   new_params = dict(params, jaxpr=jaxpr_unknown, differentiated=True,
                     prevent_cse=prevent_cse)
   recipe = pe.new_eqn_recipe(trace, in_jaxpr_tracers, out_jaxpr_tracers, remat_p,
@@ -760,9 +764,9 @@ ad.fancy_transposes[remat_p] = remat_transpose
 def transpose_jaxpr(jaxpr: core.ClosedJaxpr, in_linear: bool | Sequence[bool],
                     out_zeros: bool | Sequence[bool],
                     ) -> tuple[core.ClosedJaxpr, list[bool]]:
-  if type(in_linear) is bool:
+  if isinstance(in_linear, bool):
     in_linear = (in_linear,) * len(jaxpr.in_avals)
-  if type(out_zeros) is bool:
+  if isinstance(out_zeros, bool):
     out_zeros = (out_zeros,) * len(jaxpr.out_avals)
   return _transpose_jaxpr(jaxpr, tuple(in_linear), tuple(out_zeros))
 
@@ -779,9 +783,9 @@ def _transpose_jaxpr(jaxpr: core.ClosedJaxpr,
 
     # Evaluate nonlinear parts using partial evaluation to get a linear jaxpr.
     ins_iter = iter(ins_flat)
-    in_pvals = [pe.PartialVal.unknown(aval) if lin else
-                pe.PartialVal.known(next(ins_iter))
-                for aval, lin in zip(jaxpr.in_avals, in_lin)]
+    _in_pvals = [pe.PartialVal.unknown(aval) if lin else
+                 pe.PartialVal.known(next(ins_iter))
+                 for aval, lin in zip(jaxpr.in_avals, in_lin)]
     assert next(ins_iter, None) is None
 
     # TODO(mattjj): revise not to require disabling checks
@@ -802,7 +806,7 @@ def _transpose_jaxpr(jaxpr: core.ClosedJaxpr,
     in_cts = in_cts[len(consts):]
 
     # Identify symbolic zeros in the resulting cotangents, and return nonzeros.
-    in_zeros = cell.in_cts_zero = [type(ct) is ad_util.Zero for ct in in_cts]
+    in_zeros = cell.in_cts_zero = [type(ct) is ad_util.Zero for ct in in_cts]  # type: ignore[missing-attribute]
     in_cts_nz, _ = partition_list(in_zeros, in_cts)
     return in_cts_nz
 
@@ -811,7 +815,7 @@ def _transpose_jaxpr(jaxpr: core.ClosedJaxpr,
   transposed_jaxpr_, _, consts = pe.trace_to_jaxpr_dynamic(
       transposed_wrapped, in_avals)
   transposed_jaxpr = core.ClosedJaxpr(transposed_jaxpr_, consts)
-  return transposed_jaxpr, cell.in_cts_zero  # pytype: disable=attribute-error
+  return transposed_jaxpr, cell.in_cts_zero  # type: ignore[missing-attribute]
 
 def remat_vmap(axis_data, args, dims, *, jaxpr, **params):
   assert not jaxpr.constvars
@@ -887,16 +891,32 @@ def _remat_lowering(
     barrier_op = hlo.OptimizationBarrierOp(
         mlir.flatten_ir_values(barrier_args))
     barrier_results = mlir.unflatten_ir_values_like_types(
-        barrier_op.results, map(mlir.aval_to_ir_type, barrier_avals))
+        barrier_op.results, map(mlir.aval_to_ir_type, barrier_avals))  # pyrefly: ignore[bad-argument-type]  # pyrefly#2385
     args = merge_lists(prevent_cse, other_args, barrier_results)  # type: ignore
   outs, tokens_out = mlir.jaxpr_subcomp(
       ctx.module_context, jaxpr, ctx.name_stack.extend('checkpoint'),
       ctx.tokens_in, (), *args, dim_var_values=ctx.dim_var_values,
-      const_lowering=ctx.const_lowering)
+      const_lowering=ctx.const_lowering, outer_traceback=ctx.traceback)
   ctx.set_tokens_out(tokens_out)
   return outs
 
 mlir.register_lowering(remat_p, _remat_lowering)
+
+
+def _remat_is_high(*_, jaxpr, **__) -> bool:
+  return jaxpr.is_high
+remat_p.is_high = _remat_is_high  # type: ignore
+
+
+def _remat_to_lojax(*hi_args, jaxpr, **kwds):
+  closed_lo_jaxpr = pe.lower_jaxpr(pe.close_jaxpr(jaxpr))
+  lo_args = [lo_val for aval, x in zip(jaxpr.in_aval_qdds, hi_args)
+             for lo_val in (aval.read_loval(x) if aval.has_qdd
+                            else aval.lower_val(x))]
+  lo_jaxpr = pe.convert_constvars_jaxpr(closed_lo_jaxpr.jaxpr)
+  lo_args = (*closed_lo_jaxpr.consts, *lo_args)
+  return remat_p.bind(*lo_args, jaxpr=lo_jaxpr, **kwds)
+remat_p.to_lojax = _remat_to_lojax
 
 
 def checkpoint_name(x, name):
@@ -969,3 +989,79 @@ def _remat_state_discharge_rule(
                 for a in in_avals]
   assert next(ref_vals_, None) is None
   return new_invals, out_vals
+
+
+# -------------------- Remat 3 --------------------
+
+# TODO
+#  [ ] zeros propagation (needs separate ruleset, maybe jax.vjp improvement)
+#  [ ] accum-native vjp_bwd via with_accums
+
+def checkpoint_name3(name, x):
+  return CheckpointName(name, core.typeof(x))(x)
+
+def remat3(f=None, /, policy=frozenset()):
+  return partial(partial, _remat3, policy) if f is None else partial(_remat3, policy, f)
+
+def _remat3(policy, f, *args):
+  return RematTraced(api.jit(f).trace(*args), policy)(*args)
+
+class RematTraced(VJPHiPrimitive):
+  traced: Any
+  policy: Any
+
+  def __init__(self, traced, policy):
+    self.in_avals, () = traced.in_avals
+    self.out_aval = traced.out_avals
+    self.params = dict(traced=traced, policy=policy)
+    super().__init__()
+
+  def expand(self, *args):
+    return self.traced(*args)  # type: ignore
+
+  def vjp_fwd(self, _nzs_in, *primals):
+    primals_out, fwd2 = remat_transform(self.policy, self.traced, *primals)
+    return primals_out, (primals, fwd2)
+
+  def vjp_bwd(self, res, outgrad, *arg_accums):
+    primals, fwd2 = res
+    _, bwd = api.vjp(fwd2, *api.lax.optimization_barrier(primals))
+    arg_grads = bwd(outgrad)
+    for x, ct in zip(arg_accums, arg_grads):
+      x.accum(ct)
+
+  def jvp(self, primals, tangents):
+    return api.jvp(self.traced, primals, tangents)
+
+  def lin(self, nzs_in, *primals):
+    primals_out, f_lin = api.linearize(self.traced, *primals)
+    return primals_out, primals
+
+  def linearized(self, primals, *tangents):
+    _, f_lin = api.linearize(self.traced, *primals)
+    return f_lin(*tangents)
+
+class CheckpointName(VJPHiPrimitive):
+  def __init__(self, name, aval):
+    self.in_avals = aval,
+    self.out_aval = aval
+    self.params = dict(name=name)
+    super().__init__()
+
+  def expand(self, x):
+    return x
+
+  def remat(self, policy, x):
+    saveable = self.name in policy
+    rem = partial(primal_left_tangent_right, x) if saveable else lambda x: x
+    return x, rem
+
+  # TODO all other rules too
+
+@custom_derivatives.custom_jvp
+def primal_left_tangent_right(x, _x):
+  return x
+@primal_left_tangent_right.defjvp
+def _jvp(primals, tangents):
+  (x, _), (_, t) = primals, tangents
+  return x, t

@@ -1062,6 +1062,9 @@ class CfnComputeEnvironment(
                 ),
                 minv_cpus=123,
                 placement_group="placementGroup",
+                scaling_policy=batch.CfnComputeEnvironment.ComputeScalingPolicyProperty(
+                    min_scale_down_delay_minutes=123
+                ),
                 security_group_ids=["securityGroupIds"],
                 spot_iam_fleet_role="spotIamFleetRole",
                 tags={
@@ -1407,6 +1410,7 @@ class CfnComputeEnvironment(
             "launch_template": "launchTemplate",
             "minv_cpus": "minvCpus",
             "placement_group": "placementGroup",
+            "scaling_policy": "scalingPolicy",
             "security_group_ids": "securityGroupIds",
             "spot_iam_fleet_role": "spotIamFleetRole",
             "tags": "tags",
@@ -1431,6 +1435,7 @@ class CfnComputeEnvironment(
             launch_template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComputeEnvironment.LaunchTemplateSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             minv_cpus: typing.Optional[jsii.Number] = None,
             placement_group: typing.Optional[builtins.str] = None,
+            scaling_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnComputeEnvironment.ComputeScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             spot_iam_fleet_role: typing.Optional[builtins.str] = None,
             tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1454,6 +1459,7 @@ class CfnComputeEnvironment(
             :param launch_template: The launch template to use for your compute resources. Any other compute resource parameters that you specify in a `CreateComputeEnvironment <https://docs.aws.amazon.com/batch/latest/APIReference/API_CreateComputeEnvironment.html>`_ API operation override the same parameters in the launch template. You must specify either the launch template ID or launch template name in the request, but not both. For more information, see `Launch Template Support <https://docs.aws.amazon.com/batch/latest/userguide/launch-templates.html>`_ in the ** . Removing the launch template from a compute environment will not remove the AMI specified in the launch template. In order to update the AMI specified in a launch template, the ``updateToLatestImageVersion`` parameter must be set to ``true`` . When updating a compute environment, changing the launch template requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the ** . .. epigraph:: This parameter isn't applicable to jobs running on Fargate resources, and shouldn't be specified.
             :param minv_cpus: The minimum number of vCPUs that an environment should maintain (even if the compute environment is ``DISABLED`` ). .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
             :param placement_group: The Amazon EC2 placement group to associate with your compute resources. If you intend to submit multi-node parallel jobs to your compute environment, you should consider creating a cluster placement group and associate it with your compute resources. This keeps your multi-node parallel job on a logical grouping of instances within a single Availability Zone with high network flow potential. For more information, see `Placement groups <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html>`_ in the *Amazon EC2 User Guide for Linux Instances* . When updating a compute environment, changing the placement group requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
+            :param scaling_policy: 
             :param security_group_ids: The Amazon EC2 security groups that are associated with instances launched in the compute environment. This parameter is required for Fargate compute resources, where it can contain up to 5 security groups. For Fargate compute resources, providing an empty list is handled as if this parameter wasn't specified and no change is made. For Amazon EC2 compute resources, providing an empty list removes the security groups from the compute resource. When updating a compute environment, changing the Amazon EC2 security groups requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* .
             :param spot_iam_fleet_role: The Amazon Resource Name (ARN) of the Amazon EC2 Spot Fleet IAM role applied to a ``SPOT`` compute environment. This role is required if the allocation strategy set to ``BEST_FIT`` or if the allocation strategy isn't specified. For more information, see `Amazon EC2 spot fleet role <https://docs.aws.amazon.com/batch/latest/userguide/spot_fleet_IAM_role.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it. > To tag your Spot Instances on creation, the Spot Fleet IAM role specified here must use the newer *AmazonEC2SpotFleetTaggingRole* managed policy. The previously recommended *AmazonEC2SpotFleetRole* managed policy doesn't have the required permissions to tag Spot Instances. For more information, see `Spot instances not tagged on creation <https://docs.aws.amazon.com/batch/latest/userguide/troubleshooting.html#spot-instance-no-tag>`_ in the *AWS Batch User Guide* .
             :param tags: Key-value pair tags to be applied to Amazon EC2 resources that are launched in the compute environment. For AWS Batch , these take the form of ``"String1": "String2"`` , where ``String1`` is the tag key and ``String2`` is the tag value (for example, ``{ "Name": "Batch Instance - C4OnDemand" }`` ). This is helpful for recognizing your Batch instances in the Amazon EC2 console. These tags aren't seen when using the AWS Batch ``ListTagsForResource`` API operation. When updating a compute environment, changing this setting requires an infrastructure update of the compute environment. For more information, see `Updating compute environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`_ in the *AWS Batch User Guide* . .. epigraph:: This parameter isn't applicable to jobs that are running on Fargate resources. Don't specify it.
@@ -1503,6 +1509,9 @@ class CfnComputeEnvironment(
                     ),
                     minv_cpus=123,
                     placement_group="placementGroup",
+                    scaling_policy=batch.CfnComputeEnvironment.ComputeScalingPolicyProperty(
+                        min_scale_down_delay_minutes=123
+                    ),
                     security_group_ids=["securityGroupIds"],
                     spot_iam_fleet_role="spotIamFleetRole",
                     tags={
@@ -1527,6 +1536,7 @@ class CfnComputeEnvironment(
                 check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
                 check_type(argname="argument minv_cpus", value=minv_cpus, expected_type=type_hints["minv_cpus"])
                 check_type(argname="argument placement_group", value=placement_group, expected_type=type_hints["placement_group"])
+                check_type(argname="argument scaling_policy", value=scaling_policy, expected_type=type_hints["scaling_policy"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
                 check_type(argname="argument spot_iam_fleet_role", value=spot_iam_fleet_role, expected_type=type_hints["spot_iam_fleet_role"])
                 check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -1558,6 +1568,8 @@ class CfnComputeEnvironment(
                 self._values["minv_cpus"] = minv_cpus
             if placement_group is not None:
                 self._values["placement_group"] = placement_group
+            if scaling_policy is not None:
+                self._values["scaling_policy"] = scaling_policy
             if security_group_ids is not None:
                 self._values["security_group_ids"] = security_group_ids
             if spot_iam_fleet_role is not None:
@@ -1818,6 +1830,16 @@ class CfnComputeEnvironment(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def scaling_policy(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComputeEnvironment.ComputeScalingPolicyProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computeresources.html#cfn-batch-computeenvironment-computeresources-scalingpolicy
+            '''
+            result = self._values.get("scaling_policy")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnComputeEnvironment.ComputeScalingPolicyProperty"]], result)
+
+        @builtins.property
         def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The Amazon EC2 security groups that are associated with instances launched in the compute environment.
 
@@ -1888,6 +1910,59 @@ class CfnComputeEnvironment(
 
         def __repr__(self) -> str:
             return "ComputeResourcesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_batch.CfnComputeEnvironment.ComputeScalingPolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"min_scale_down_delay_minutes": "minScaleDownDelayMinutes"},
+    )
+    class ComputeScalingPolicyProperty:
+        def __init__(
+            self,
+            *,
+            min_scale_down_delay_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param min_scale_down_delay_minutes: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computescalingpolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_batch as batch
+                
+                compute_scaling_policy_property = batch.CfnComputeEnvironment.ComputeScalingPolicyProperty(
+                    min_scale_down_delay_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2602f4ba321e47e4e0add395c937e357e72d8e8db28874255613493fda487b3f)
+                check_type(argname="argument min_scale_down_delay_minutes", value=min_scale_down_delay_minutes, expected_type=type_hints["min_scale_down_delay_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if min_scale_down_delay_minutes is not None:
+                self._values["min_scale_down_delay_minutes"] = min_scale_down_delay_minutes
+
+        @builtins.property
+        def min_scale_down_delay_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-batch-computeenvironment-computescalingpolicy.html#cfn-batch-computeenvironment-computescalingpolicy-minscaledowndelayminutes
+            '''
+            result = self._values.get("min_scale_down_delay_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComputeScalingPolicyProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2605,6 +2680,9 @@ class CfnComputeEnvironmentProps:
                     ),
                     minv_cpus=123,
                     placement_group="placementGroup",
+                    scaling_policy=batch.CfnComputeEnvironment.ComputeScalingPolicyProperty(
+                        min_scale_down_delay_minutes=123
+                    ),
                     security_group_ids=["securityGroupIds"],
                     spot_iam_fleet_role="spotIamFleetRole",
                     tags={
@@ -26340,10 +26418,18 @@ def _typecheckingstub__0e554c6eb00e2d197fa806c35d70007a7590c1c363259e3e48971f067
     launch_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeEnvironment.LaunchTemplateSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     minv_cpus: typing.Optional[jsii.Number] = None,
     placement_group: typing.Optional[builtins.str] = None,
+    scaling_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnComputeEnvironment.ComputeScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     spot_iam_fleet_role: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     update_to_latest_image_version: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2602f4ba321e47e4e0add395c937e357e72d8e8db28874255613493fda487b3f(
+    *,
+    min_scale_down_delay_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1056,6 +1056,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         containerfile: str,
         anonymous: bool,
         ray_version: Optional[str] = None,  # noqa: ARG002
+        containerfile_path: Optional[str] = None,  # noqa: ARG002
     ) -> str:
         for build in self._builds.values():
             if build.containerfile == containerfile:

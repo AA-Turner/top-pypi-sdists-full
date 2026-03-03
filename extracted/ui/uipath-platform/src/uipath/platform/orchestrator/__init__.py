@@ -14,7 +14,7 @@ from ._queues_service import QueuesService
 from .assets import Asset, UserAsset
 from .attachment import Attachment
 from .buckets import Bucket, BucketFile
-from .job import Job, JobErrorInfo
+from .job import Job, JobErrorInfo, JobState
 from .mcp import McpServer, McpServerStatus, McpServerType
 from .processes import Process
 from .queues import (
@@ -41,6 +41,7 @@ __all__ = [
     "BucketFile",
     "Job",
     "JobErrorInfo",
+    "JobState",
     "Process",
     "CommitType",
     "QueueItem",

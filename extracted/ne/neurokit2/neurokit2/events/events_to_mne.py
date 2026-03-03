@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 
 
@@ -58,9 +57,7 @@ def events_to_mne(events, event_conditions=None):
 
     # Sanity check
     if len(event_conditions) != len(events):
-        raise ValueError(
-            "NeuroKit error: events_to_mne(): 'event_conditions' argument of different length than event onsets."
-        )
+        raise ValueError("NeuroKit error: events_to_mne(): 'event_conditions' argument of different length than event onsets.")
 
     event_names = list(set(event_conditions))
     event_index = list(range(len(event_names)))

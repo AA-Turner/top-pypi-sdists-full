@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddgs
-Version: 9.10.0
+Version: 9.11.1
 Summary: Dux Distributed Global Search. A metasearch library that aggregates results from diverse web search services.
 Author: deedy5
 License-Expression: MIT
@@ -22,19 +22,23 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: click>=8.1.8
-Requires-Dist: primp>=0.15.0
+Requires-Dist: primp==1.1.2
 Requires-Dist: lxml>=4.9.4
-Requires-Dist: httpx[brotli,http2,socks]>=0.28.1
-Requires-Dist: fake-useragent>=2.2.0
 Provides-Extra: dev
 Requires-Dist: mypy>=1.17.1; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: prek; extra == "dev"
 Requires-Dist: pytest>=8.4.1; extra == "dev"
-Requires-Dist: pytest-dependency>=0.6.0; extra == "dev"
 Requires-Dist: ruff>=0.13.0; extra == "dev"
+Requires-Dist: typing-extensions>=4.15.0; extra == "dev"
 Requires-Dist: lxml-stubs; extra == "dev"
 Requires-Dist: types-Pygments; extra == "dev"
 Requires-Dist: types-pexpect; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-ujson; extra == "dev"
+Provides-Extra: api
+Requires-Dist: fastapi>=0.135.1; extra == "api"
+Requires-Dist: mcp>=1.26.0; extra == "api"
+Requires-Dist: uvicorn[standard]>=0.41.0; extra == "api"
 Dynamic: license-file
 
 ![Python >= 3.10](https://img.shields.io/badge/python->=3.10-red.svg) [![](https://badgen.net/github/release/deedy5/ddgs)](https://github.com/deedy5/ddgs/releases) [![](https://badge.fury.io/py/ddgs.svg)](https://pypi.org/project/ddgs)
@@ -46,6 +50,7 @@ A metasearch library that aggregates results from diverse web search services.
 ## Table of Contents
 * [Install](#install)
 * [CLI version](#cli-version)
+* [API Server (with MCP Integration)](#api-server-with-mcp-integration)
 * [Engines](#engines)
 * [DDGS class](#ddgs-class)
 * [1. text()](#1-text)
@@ -55,9 +60,14 @@ A metasearch library that aggregates results from diverse web search services.
 * [5. books()](#5-books)
 * [Disclaimer](#disclaimer)
 
+___
 ## Install
 ```python
+# Base install
 pip install -U ddgs
+
+# With API server support (includes fastapi, mcp, uvicorn[standard])
+pip install -U ddgs[api]
 ```
 
 ## CLI version
@@ -67,6 +77,66 @@ ddgs --help
 ```
 
 [Go To TOP](#TOP)
+___
+
+## API Server (with MCP Integration)
+
+- **CLI (after pip install)**
+```bash
+# Start server in foreground
+ddgs api
+
+# Start server in detached mode (background)
+ddgs api -d
+
+# Stop detached server
+ddgs api -s
+
+# Custom host/port
+ddgs api --host 127.0.0.1 --port 9000
+```
+
+- **Docker compose**
+```bash
+git clone https://github.com/deedy5/ddgs && cd ddgs
+docker-compose up --build
+```
+
+- **Bash script**
+```bash
+git clone https://github.com/deedy5/ddgs && cd ddgs
+chmod +x start_api.sh
+./start_api.sh
+```
+
+#### Available Endpoints
+- MCP Endpoints (for AI assistance):
+    - `http://localhost:8000/sse` - SSE transport
+- API Docs: `http://localhost:8000/docs`
+- Health Check: `http://localhost:8000/health`
+
+#### Available MCP Tools
+- `search_text` - Web text searches
+- `search_images` - Image searches
+- `search_news` - News searches
+- `search_videos` - Video searches
+- `search_books` - Book searches
+
+#### Typical configuration
+```python
+{
+  "mcpServers": {
+    "ddgs-search": {
+      "url": "http://localhost:8000/sse",
+      "disabled": false,
+      "alwaysAllow": []
+    }
+  }
+}
+```
+
+[Go To TOP](#TOP)
+___
 
 ## Engines
 

@@ -158,7 +158,7 @@ def example(
                 "max_attempts": 3,
                 "use_backtrack": True,
                 "skill_runner": {
-                    "image": "claude-code:2.1.5",
+                    "image": "claude-code",
                     "config": {"model_name": "anthropic/claude-sonnet-4-20250514", "max_turns": 100},
                 },
                 "plato_api_key": "pk_xxx",
@@ -172,7 +172,7 @@ def example(
                 "task": "Fix the bug in src/main.py",
                 "repo_url": "https://github.com/example/repo",
                 "coder": {
-                    "image": "claude-code:latest",
+                    "image": "claude-code",
                     "config": {"model_name": "anthropic/claude-sonnet-4-20250514"},
                 },
             },

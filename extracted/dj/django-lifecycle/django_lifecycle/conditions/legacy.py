@@ -2,25 +2,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-from typing import List
-from typing import Optional
 
-from ..constants import NotSet
-from ..conditions.base import ChainableCondition
-from ..conditions import WhenFieldValueChangesTo
 from ..conditions import WhenFieldHasChanged
-from ..conditions import WhenFieldValueIsNot
+from ..conditions import WhenFieldValueChangesTo
 from ..conditions import WhenFieldValueIs
+from ..conditions import WhenFieldValueIsNot
 from ..conditions import WhenFieldValueWas
 from ..conditions import WhenFieldValueWasNot
+from ..conditions.base import ChainableCondition
+from ..constants import NotSet
 
 
 @dataclass
 class When(ChainableCondition):
-    when: Optional[str] = None
+    when: str | None = None
     was: Any = "*"
     is_now: Any = "*"
-    has_changed: Optional[bool] = None
+    has_changed: bool | None = None
     is_not: Any = NotSet
     was_not: Any = NotSet
     changes_to: Any = NotSet
@@ -58,10 +56,10 @@ class When(ChainableCondition):
 
 @dataclass
 class WhenAny:
-    when_any: Optional[List[str]] = None
+    when_any: list[str] | None = None
     was: Any = "*"
     is_now: Any = "*"
-    has_changed: Optional[bool] = None
+    has_changed: bool | None = None
     is_not: Any = NotSet
     was_not: Any = NotSet
     changes_to: Any = NotSet

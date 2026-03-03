@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 
 from ..stats import rescale
-from .utils_complexity_embedding import complexity_embedding
 from .optim_complexity_tolerance import complexity_tolerance
+from .utils_complexity_embedding import complexity_embedding
 
 
 def entropy_cosinesimilarity(signal=None, delay=1, dimension=3, tolerance="sd"):
@@ -67,9 +67,7 @@ def entropy_cosinesimilarity(signal=None, delay=1, dimension=3, tolerance="sd"):
     """
     # Sanity checks
     if isinstance(signal, (np.ndarray, pd.DataFrame)) and signal.ndim > 1:
-        raise ValueError(
-            "Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet."
-        )
+        raise ValueError("Multidimensional inputs (e.g., matrices or multichannel data) are not supported yet.")
 
     # Store parameters
     info = {
@@ -111,7 +109,7 @@ def entropy_cosinesimilarity(signal=None, delay=1, dimension=3, tolerance="sd"):
     Bm = np.sum(np.triu(Pm, 1) / (N * (N - 1) / 2))
 
     # 7. Cosine similarity entropy
-    if Bm == 1 or Bm == 0:
+    if Bm in [0, 1]:
         cosien = 0
     else:
         cosien = -(Bm * np.log(Bm)) - ((1 - Bm) * np.log(1 - Bm))
