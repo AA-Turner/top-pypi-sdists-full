@@ -47,7 +47,7 @@ def zip_extension(path: Path = PATH_TO_EXTENSION, save_local: bool = False) -> B
 
 def create_extension() -> str:
     zip_data = zip_extension(save_local=True)
-    extension: Extension = bb.extensions.create(file=("extension.zip", zip_data.getvalue()))
+    extension = bb.extensions.create(file=("extension.zip", zip_data.getvalue()))
     return extension.id
 
 

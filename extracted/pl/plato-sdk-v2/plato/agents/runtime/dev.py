@@ -53,13 +53,14 @@ async def sync_dev_code(
     hostname: str,
     agent_code_path: Path | None,
     package_name: str | None = None,
-) -> None:
+) -> bool:
     """Sync SDK + agent code to VM and install in editable mode (dev mode)."""
     sdk_path = Path("/sdk")
     editable_paths: list[str] = []
+    agent_synced = False
 
     logger.debug(f"Syncing SDK: {sdk_path} -> /sdk")
-    await rsync_to(ssh_key, sdk_path, "/sdk", hostname, chown="superman:superman")
+    await rsync_to(ssh_key, sdk_path, "/sdk", hostname)
     editable_paths.append("/sdk")
 
     # Find the right agent code directory
@@ -67,14 +68,22 @@ async def sync_dev_code(
 
     if agent_code_path and agent_code_path.exists():
         logger.debug(f"Syncing agent code: {agent_code_path} -> /app")
-        await rsync_to(ssh_key, agent_code_path, "/app", hostname, chown="superman:superman")
+        await rsync_to(ssh_key, agent_code_path, "/app", hostname)
         editable_paths.append("/app")
+        agent_synced = True
+    else:
+        logger.info(
+            "No synced dev agent code found under /agents for package '%s'; "
+            "SDK will be editable-only and runtime should install production agent package.",
+            package_name or "",
+        )
 
     editables = " ".join(f"-e {p}" for p in editable_paths)
     logger.debug(f"Installing packages in editable mode: {editable_paths}")
     exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, f"uv pip install --system {editables}", timeout=300)
     if exit_code != 0:
         raise RuntimeError(f"Failed to install packages: {stderr or stdout}")
+    return agent_synced
 
 
 async def install_production_agent(
@@ -86,16 +95,6 @@ async def install_production_agent(
     """Install agent package from PyPI on VM (production mode)."""
     logger.debug(f"Installing agent package: {package_name}=={version}")
 
-    # Fix uv cache/tools ownership (may have been created by root)
-    await run_ssh(
-        ssh_key,
-        hostname,
-        "rm -rf /home/superman/.cache/uv /home/superman/.local/share/uv && "
-        "mkdir -p /home/superman/.cache/uv /home/superman/.local/share/uv /home/superman/.local/bin && "
-        "chown -R superman:superman /home/superman/.cache /home/superman/.local",
-        timeout=30,
-    )
-
     api_key = os.environ.get("PLATO_API_KEY", "")
     pypi_url = f"https://__token__:{api_key}@plato.so/api/v2/pypi/agents/simple/"
 
@@ -106,6 +105,6 @@ async def install_production_agent(
         f"--extra-index-url '{pypi_url}' "
         f"--index-strategy unsafe-best-match --prerelease allow --refresh --force"
     )
-    exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, install_cmd, user="superman", timeout=300)
+    exit_code, stdout, stderr = await run_ssh(ssh_key, hostname, install_cmd, user="root", timeout=300)
     if exit_code != 0:
         raise RuntimeError(f"Failed to install agent package: {stderr or stdout}")

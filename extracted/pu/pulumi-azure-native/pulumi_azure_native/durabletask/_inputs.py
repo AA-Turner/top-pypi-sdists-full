@@ -16,6 +16,8 @@ from .. import _utilities
 from ._enums import *
 
 __all__ = [
+    'PrivateLinkServiceConnectionStateArgs',
+    'PrivateLinkServiceConnectionStateArgsDict',
     'RetentionPolicyDetailsArgs',
     'RetentionPolicyDetailsArgsDict',
     'RetentionPolicyPropertiesArgs',
@@ -26,23 +28,92 @@ __all__ = [
     'SchedulerSkuArgsDict',
 ]
 
-MYPY = False
+class PrivateLinkServiceConnectionStateArgsDict(TypedDict):
+    """
+    A collection of information about the state of the connection between service consumer and provider.
+    """
+    actions_required: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A message indicating if changes on the service provider require any updates on the consumer.
+    """
+    description: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The reason for approval/rejection of the connection.
+    """
+    status: NotRequired[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]]
+    """
+    Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+    """
 
-if not MYPY:
-    class RetentionPolicyDetailsArgsDict(TypedDict):
+@pulumi.input_type
+class PrivateLinkServiceConnectionStateArgs:
+    def __init__(__self__, *,
+                 actions_required: Optional[pulumi.Input[_builtins.str]] = None,
+                 description: Optional[pulumi.Input[_builtins.str]] = None,
+                 status: Optional[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]] = None):
         """
-        The properties of a retention policy
+        A collection of information about the state of the connection between service consumer and provider.
+
+        :param pulumi.Input[_builtins.str] actions_required: A message indicating if changes on the service provider require any updates on the consumer.
+        :param pulumi.Input[_builtins.str] description: The reason for approval/rejection of the connection.
+        :param pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']] status: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
         """
-        retention_period_in_days: pulumi.Input[_builtins.int]
+        if actions_required is not None:
+            pulumi.set(__self__, "actions_required", actions_required)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter(name="actionsRequired")
+    def actions_required(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The retention period in days after which the orchestration will be purged automatically
+        A message indicating if changes on the service provider require any updates on the consumer.
         """
-        orchestration_state: NotRequired[pulumi.Input[Union[_builtins.str, 'PurgeableOrchestrationState']]]
+        return pulumi.get(self, "actions_required")
+
+    @actions_required.setter
+    def actions_required(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "actions_required", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The orchestration state to which this policy applies. If omitted, the policy applies to all purgeable orchestration states.
+        The reason for approval/rejection of the connection.
         """
-elif False:
-    RetentionPolicyDetailsArgsDict: TypeAlias = Mapping[str, Any]
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]]:
+        """
+        Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        """
+        return pulumi.get(self, "status")
+
+    @status.setter
+    def status(self, value: Optional[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]]):
+        pulumi.set(self, "status", value)
+
+
+class RetentionPolicyDetailsArgsDict(TypedDict):
+    """
+    The properties of a retention policy
+    """
+    retention_period_in_days: pulumi.Input[_builtins.int]
+    """
+    The retention period in days after which the orchestration will be purged automatically
+    """
+    orchestration_state: NotRequired[pulumi.Input[Union[_builtins.str, 'PurgeableOrchestrationState']]]
+    """
+    The orchestration state to which this policy applies. If omitted, the policy applies to all purgeable orchestration states.
+    """
 
 @pulumi.input_type
 class RetentionPolicyDetailsArgs:
@@ -51,6 +122,7 @@ class RetentionPolicyDetailsArgs:
                  orchestration_state: Optional[pulumi.Input[Union[_builtins.str, 'PurgeableOrchestrationState']]] = None):
         """
         The properties of a retention policy
+
         :param pulumi.Input[_builtins.int] retention_period_in_days: The retention period in days after which the orchestration will be purged automatically
         :param pulumi.Input[Union[_builtins.str, 'PurgeableOrchestrationState']] orchestration_state: The orchestration state to which this policy applies. If omitted, the policy applies to all purgeable orchestration states.
         """
@@ -83,17 +155,14 @@ class RetentionPolicyDetailsArgs:
         pulumi.set(self, "orchestration_state", value)
 
 
-if not MYPY:
-    class RetentionPolicyPropertiesArgsDict(TypedDict):
-        """
-        The retention policy settings for the resource
-        """
-        retention_policies: NotRequired[pulumi.Input[Sequence[pulumi.Input['RetentionPolicyDetailsArgsDict']]]]
-        """
-        The orchestration retention policies
-        """
-elif False:
-    RetentionPolicyPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class RetentionPolicyPropertiesArgsDict(TypedDict):
+    """
+    The retention policy settings for the resource
+    """
+    retention_policies: NotRequired[pulumi.Input[Sequence[pulumi.Input['RetentionPolicyDetailsArgsDict']]]]
+    """
+    The orchestration retention policies
+    """
 
 @pulumi.input_type
 class RetentionPolicyPropertiesArgs:
@@ -101,6 +170,7 @@ class RetentionPolicyPropertiesArgs:
                  retention_policies: Optional[pulumi.Input[Sequence[pulumi.Input['RetentionPolicyDetailsArgs']]]] = None):
         """
         The retention policy settings for the resource
+
         :param pulumi.Input[Sequence[pulumi.Input['RetentionPolicyDetailsArgs']]] retention_policies: The orchestration retention policies
         """
         if retention_policies is not None:
@@ -119,21 +189,18 @@ class RetentionPolicyPropertiesArgs:
         pulumi.set(self, "retention_policies", value)
 
 
-if not MYPY:
-    class SchedulerPropertiesArgsDict(TypedDict):
-        """
-        Details of the Scheduler
-        """
-        ip_allowlist: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
-        """
-        IP allow list for durable task scheduler. Values can be IPv4, IPv6 or CIDR
-        """
-        sku: pulumi.Input['SchedulerSkuArgsDict']
-        """
-        SKU of the durable task scheduler
-        """
-elif False:
-    SchedulerPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class SchedulerPropertiesArgsDict(TypedDict):
+    """
+    Details of the Scheduler
+    """
+    ip_allowlist: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
+    """
+    IP allow list for durable task scheduler. Values can be IPv4, IPv6 or CIDR
+    """
+    sku: pulumi.Input['SchedulerSkuArgsDict']
+    """
+    SKU of the durable task scheduler
+    """
 
 @pulumi.input_type
 class SchedulerPropertiesArgs:
@@ -142,6 +209,7 @@ class SchedulerPropertiesArgs:
                  sku: pulumi.Input['SchedulerSkuArgs']):
         """
         Details of the Scheduler
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] ip_allowlist: IP allow list for durable task scheduler. Values can be IPv4, IPv6 or CIDR
         :param pulumi.Input['SchedulerSkuArgs'] sku: SKU of the durable task scheduler
         """
@@ -173,21 +241,18 @@ class SchedulerPropertiesArgs:
         pulumi.set(self, "sku", value)
 
 
-if not MYPY:
-    class SchedulerSkuArgsDict(TypedDict):
-        """
-        The SKU (Stock Keeping Unit) assigned to this durable task scheduler
-        """
-        name: pulumi.Input[_builtins.str]
-        """
-        The name of the SKU
-        """
-        capacity: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The SKU capacity. This allows scale out/in for the resource and impacts zone redundancy
-        """
-elif False:
-    SchedulerSkuArgsDict: TypeAlias = Mapping[str, Any]
+class SchedulerSkuArgsDict(TypedDict):
+    """
+    The SKU (Stock Keeping Unit) assigned to this durable task scheduler
+    """
+    name: pulumi.Input[_builtins.str]
+    """
+    The name of the SKU
+    """
+    capacity: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The SKU capacity. This allows scale out/in for the resource and impacts zone redundancy
+    """
 
 @pulumi.input_type
 class SchedulerSkuArgs:
@@ -196,6 +261,7 @@ class SchedulerSkuArgs:
                  capacity: Optional[pulumi.Input[_builtins.int]] = None):
         """
         The SKU (Stock Keeping Unit) assigned to this durable task scheduler
+
         :param pulumi.Input[_builtins.str] name: The name of the SKU
         :param pulumi.Input[_builtins.int] capacity: The SKU capacity. This allows scale out/in for the resource and impacts zone redundancy
         """

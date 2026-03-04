@@ -36,6 +36,7 @@ class KubernetesClusterArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a KubernetesCluster resource.
+
         :param pulumi.Input['ControlPlaneNodeConfigurationArgs'] control_plane_node_configuration: The defining characteristics of the control plane for this Kubernetes Cluster.
         :param pulumi.Input['ExtendedLocationArgs'] extended_location: The extended location of the cluster associated with the resource.
         :param pulumi.Input[Sequence[pulumi.Input['InitialAgentPoolConfigurationArgs']]] initial_agent_pool_configurations: The agent pools that are created with this Kubernetes cluster for running critical system services and workloads. This data in this field is only used during creation, and the field will be empty following the creation of the Kubernetes Cluster. After creation, the management of agent pools is done using the agentPools sub-resource.
@@ -235,7 +236,8 @@ class KubernetesCluster(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -261,7 +263,8 @@ class KubernetesCluster(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param KubernetesClusterArgs args: The arguments to use to populate this resource's properties.
@@ -338,7 +341,7 @@ class KubernetesCluster(pulumi.CustomResource):
             __props__.__dict__["provisioning_state"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:KubernetesCluster")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:KubernetesCluster"), pulumi.Alias(type_="azure-native:networkcloud/v20260101preview:KubernetesCluster")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(KubernetesCluster, __self__).__init__(
             'azure-native:networkcloud:KubernetesCluster',

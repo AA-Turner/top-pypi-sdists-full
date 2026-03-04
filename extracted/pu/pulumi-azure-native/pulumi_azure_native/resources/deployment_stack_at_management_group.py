@@ -38,9 +38,10 @@ class DeploymentStackAtManagementGroupArgs:
                  template_link: Optional[pulumi.Input['DeploymentStacksTemplateLinkArgs']] = None):
         """
         The set of arguments for constructing a DeploymentStackAtManagementGroup resource.
+
         :param pulumi.Input['ActionOnUnmanageArgs'] action_on_unmanage: Defines the behavior of resources that are no longer managed after the Deployment stack is updated or deleted.
         :param pulumi.Input['DenySettingsArgs'] deny_settings: Defines how resources deployed by the stack are locked.
-        :param pulumi.Input[_builtins.str] management_group_id: The name of the management group. The name is case insensitive.
+        :param pulumi.Input[_builtins.str] management_group_id: The management group ID.
         :param pulumi.Input[_builtins.bool] bypass_stack_out_of_sync_error: Flag to bypass service errors that indicate the stack resource list is not correctly synchronized.
         :param pulumi.Input['DeploymentStacksDebugSettingArgs'] debug_setting: The debug setting of the deployment.
         :param pulumi.Input[_builtins.str] deployment_scope: The scope at which the initial deployment should be created. If a scope is not specified, it will default to the scope of the deployment stack. Valid scopes are: management group (format: '/providers/Microsoft.Management/managementGroups/{managementGroupId}'), subscription (format: '/subscriptions/{subscriptionId}'), resource group (format: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}').
@@ -107,7 +108,7 @@ class DeploymentStackAtManagementGroupArgs:
     @pulumi.getter(name="managementGroupId")
     def management_group_id(self) -> pulumi.Input[_builtins.str]:
         """
-        The name of the management group. The name is case insensitive.
+        The management group ID.
         """
         return pulumi.get(self, "management_group_id")
 
@@ -276,6 +277,7 @@ class DeploymentStackAtManagementGroup(pulumi.CustomResource):
 
         Other available API versions: 2022-08-01-preview, 2025-07-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native resources [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['ActionOnUnmanageArgs', 'ActionOnUnmanageArgsDict']] action_on_unmanage: Defines the behavior of resources that are no longer managed after the Deployment stack is updated or deleted.
@@ -286,7 +288,7 @@ class DeploymentStackAtManagementGroup(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] deployment_stack_name: Name of the deployment stack.
         :param pulumi.Input[_builtins.str] description: Deployment stack description. Max length of 4096 characters.
         :param pulumi.Input[_builtins.str] location: The geo-location where the resource lives. Required for subscription and management group scoped stacks. The location is inherited from the resource group for resource group scoped stacks.
-        :param pulumi.Input[_builtins.str] management_group_id: The name of the management group. The name is case insensitive.
+        :param pulumi.Input[_builtins.str] management_group_id: The management group ID.
         :param pulumi.Input[Mapping[str, pulumi.Input[Union['DeploymentParameterArgs', 'DeploymentParameterArgsDict']]]] parameters: Name and value pairs that define the deployment parameters for the template. Use this element when providing the parameter values directly in the request, rather than linking to an existing parameter file. Use either the parametersLink property or the parameters property, but not both.
         :param pulumi.Input[Union['DeploymentStacksParametersLinkArgs', 'DeploymentStacksParametersLinkArgsDict']] parameters_link: The URI of parameters file. Use this element to link to an existing parameters file. Use either the parametersLink property or the parameters property, but not both.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: Resource tags.
@@ -305,6 +307,7 @@ class DeploymentStackAtManagementGroup(pulumi.CustomResource):
         Uses Azure REST API version 2024-03-01. In version 2.x of the Azure Native provider, it used API version 2022-08-01-preview.
 
         Other available API versions: 2022-08-01-preview, 2025-07-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native resources [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param DeploymentStackAtManagementGroupArgs args: The arguments to use to populate this resource's properties.
@@ -517,7 +520,7 @@ class DeploymentStackAtManagementGroup(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def error(self) -> pulumi.Output[Optional['outputs.ErrorDetailResponse']]:
+    def error(self) -> pulumi.Output['outputs.ErrorDetailResponse']:
         """
         The error detail.
         """

@@ -29,6 +29,10 @@ SPECIAL_GAMUTS = {
     'macadam-limits': {
         'check': visible_spectrum.in_macadam_limits,
         'fit': visible_spectrum.fit_macadam_limits
+    },
+    'visible-spectrum': {
+        'check': visible_spectrum.in_visible_spectrum,
+        'fit': visible_spectrum.fit_visible_spectrum
     }
 }   # type: dict[str, dict[str, Callable[..., Any]]]
 
@@ -182,7 +186,7 @@ def scale_rgb(
 
     # Grab the white point and the luminance of the current gamut.
     white = mapcolor._space.WHITE
-    Y = mapcolor.luminance()
+    Y = mapcolor.luminance(white=white)
 
     # Scale the color into gamut
     rgb = cs.from_base(mapcolor[:-1]) if coerced else mapcolor[:-1]

@@ -43,7 +43,7 @@ with open(rel("dramatiq", "__init__.py"), "r") as f:
 
 extra_dependencies = {
     "gevent": [
-        "gevent>=1.1",
+        "gevent>=25.9.1",
     ],
     "memcached": [
         "pylibmc>=1.5,<2.0",
@@ -55,11 +55,10 @@ extra_dependencies = {
         "pika>=1.0,<2.0",
     ],
     "redis": [
-        "redis>=4.0,<7.0",
+        "redis>=4.0,<8.0",
     ],
     "watch": [
-        "watchdog>=4.0",
-        "watchdog_gevent>=0.2",
+        "watchdog>=6.0.0",
     ],
 }
 

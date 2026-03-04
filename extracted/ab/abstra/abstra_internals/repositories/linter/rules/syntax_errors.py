@@ -15,6 +15,7 @@ class SyntaxErrorFound(LinterIssue):
 class SyntaxErrors(LinterRule):
     label = "Syntax errors"
     type = "bug"
+    fix_with_ai = True
     error = None
 
     def find_issues(self) -> List[LinterIssue]:

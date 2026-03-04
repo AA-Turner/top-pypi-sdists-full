@@ -104,15 +104,41 @@ def _http_get(url: str, headers: Optional[Dict[str, str]] = None, timeout: int =
 _OPENROUTER_PROVIDERS = frozenset(("deepseek", "meta-llama", "mistralai", "qwen"))
 
 
+def _configured_fallback_providers(current_provider: str) -> list[str]:
+    """Build fallback candidates from all configured providers."""
+    preferred_order = (
+        "anthropic",
+        "openai",
+        "xai",
+        "google",
+        "openrouter",
+        "ollama",
+        "deepseek",
+        "meta-llama",
+        "mistralai",
+        "qwen",
+    )
+    configured = []
+    for provider in preferred_order:
+        if provider == current_provider:
+            continue
+        if _resolve_api_key(provider):
+            configured.append(provider)
+    return configured
+
+
 def _try_fallback(provider, model, messages, tools, max_tokens, t0) -> Optional[dict]:
     """Try fallback providers when primary fails. Returns result dict or None."""
-    for fb_provider in ("anthropic", "xai", "google"):
-        if fb_provider == provider:
-            continue
+    fallback_model_defaults = {
+        "openai": "gpt-4.1-mini",
+        "openrouter": "deepseek/deepseek-chat",
+        "ollama": "llama3.2",
+    }
+    for fb_provider in _configured_fallback_providers(provider):
         fb_key = _resolve_api_key(fb_provider)
         if not fb_key:
             continue
-        fb_model_id = FALLBACK_MODELS.get(fb_provider)
+        fb_model_id = FALLBACK_MODELS.get(fb_provider) or fallback_model_defaults.get(fb_provider)
         if not fb_model_id:
             continue
         from salmalm.core.engine import _fix_model_name
@@ -278,18 +304,34 @@ def _sanitize_messages_for_provider(messages: list, provider: str) -> list:
         for msg in messages:
             content = msg.get("content")
             if isinstance(content, list):
-                # Convert Anthropic content blocks to text
-                text_parts = []
+                # Convert Anthropic content blocks to OpenAI-compatible blocks.
+                out_blocks = []
                 for block in content:
                     if isinstance(block, dict):
-                        if block.get("type") == "text":
-                            text_parts.append(block.get("text", ""))
-                        elif block.get("type") == "tool_result":
-                            text_parts.append(block.get("content", ""))
+                        btype = block.get("type")
+                        if btype == "text":
+                            out_blocks.append({"type": "text", "text": block.get("text", "")})
+                        elif btype == "tool_result":
+                            out_blocks.append({"type": "text", "text": str(block.get("content", ""))})
+                        elif btype == "image":
+                            source = block.get("source") or {}
+                            media_type = source.get("media_type")
+                            data = source.get("data")
+                            if media_type and data:
+                                out_blocks.append(
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {"url": f"data:{media_type};base64,{data}"},
+                                    }
+                                )
+                        elif btype == "image_url":
+                            out_blocks.append(block)
                     elif isinstance(block, str):
-                        text_parts.append(block)
-                if text_parts:
-                    sanitized.append({**msg, "content": "\n".join(text_parts)})
+                        out_blocks.append({"type": "text", "text": block})
+                if out_blocks:
+                    sanitized.append({**msg, "content": out_blocks})
+                else:
+                    sanitized.append(msg)
             else:
                 sanitized.append(msg)
         return sanitized
@@ -326,6 +368,13 @@ def call_llm(
     except CostCapExceeded as e:
         return {"content": f"⚠️ {e}", "tool_calls": [], "usage": {"input": 0, "output": 0}, "model": model}
 
+    # Resolve alias before provider split (e.g. "sonnet" → "anthropic/claude-sonnet-4-6")
+    if model and "/" not in model:
+        try:
+            from salmalm.constants import MODEL_ALIASES as _MALI
+            model = _MALI.get(model, model)
+        except Exception:
+            pass
     provider, model_id = model.split("/", 1) if "/" in model else ("anthropic", model)
     api_key = _resolve_api_key(provider)
     if not api_key:

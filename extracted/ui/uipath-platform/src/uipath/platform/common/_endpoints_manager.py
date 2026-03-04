@@ -4,6 +4,8 @@ from enum import Enum
 
 import httpx
 
+from ._config import UiPathConfig
+from ._service_url_overrides import resolve_service_url
 from ._ssl_context import get_httpx_client_kwargs
 
 loggger = logging.getLogger(__name__)
@@ -61,7 +63,7 @@ class EndpointManager:
     unless overridden by the UIPATH_LLM_SERVICE environment variable.
     """  # noqa: D205
 
-    _base_url = os.getenv("UIPATH_URL", "")
+    _base_url = UiPathConfig.base_url or ""
     _agenthub_available: bool | None = None
     _orchestrator_available: bool | None = None
 
@@ -92,8 +94,10 @@ class EndpointManager:
         """
         try:
             with httpx.Client(**get_httpx_client_kwargs()) as http_client:
-                base_url = os.getenv("UIPATH_URL", "")
-                capabilities_url = f"{base_url.rstrip('/')}/{endpoint.value}"
+                capabilities_url = resolve_service_url(endpoint.value)
+                if not capabilities_url:
+                    base_url = UiPathConfig.base_url or ""
+                    capabilities_url = f"{base_url.rstrip('/')}/{endpoint.value}"
                 loggger.debug(
                     f"Checking {service_name} capabilities at {capabilities_url}"
                 )
@@ -159,7 +163,7 @@ class EndpointManager:
             if is_available():
                 return endpoint.value
 
-        url = os.getenv("UIPATH_URL", "")
+        url = UiPathConfig.base_url or ""
         if ".uipath.com" in url:
             return ah.value
         else:

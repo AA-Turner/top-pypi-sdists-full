@@ -260,8 +260,15 @@ class PraisonAI:
         try:
             # Check if stdin is not a terminal (i.e., has piped input)
             if not sys.stdin.isatty():
-                stdin_content = sys.stdin.read().strip()
-                return stdin_content if stdin_content else None
+                import select
+                # Non-blocking check: only read if data is actually available.
+                # Without this, sys.stdin.read() blocks forever in non-TTY
+                # environments (subprocesses, CI/CD, IDE terminals, Docker)
+                # where stdin is a pipe with no EOF.
+                if select.select([sys.stdin], [], [], 0.0)[0]:
+                    stdin_content = sys.stdin.read().strip()
+                    return stdin_content if stdin_content else None
+                return None
         except Exception:
             # If there's any error reading stdin, ignore it
             pass
@@ -831,7 +838,14 @@ class PraisonAI:
         parser.add_argument("--no-acp", action="store_true", help="Disable ACP tools (agentic file operations with plan/approve/apply)")
         parser.add_argument("--no-lsp", action="store_true", help="Disable LSP tools (code intelligence: symbols, definitions, references)")
         parser.add_argument("--save", "-s", action="store_true", help="Save research output to file (output/research/)")
-        parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output for research")
+        parser.add_argument("-v", "--verbose", action="count", default=0,
+                          help="Increase verbosity (-v=verbose, -vv=debug)")
+        parser.add_argument("-q", "--quiet", action="count", default=0,
+                          help="Decrease verbosity (-q=quiet, -qq=silent)")
+        parser.add_argument("--output", type=str, choices=["json", "jsonl", "editor"], dest="output_format",
+                          help="Output format (json, jsonl, or editor for user-friendly conversation-style)")
+        parser.add_argument("--flow", action="store_true",
+                          help="Show visual agent→tool flow chart")
         parser.add_argument("--web", "--web-search", action="store_true", help="Enable native web search (OpenAI, Gemini, Anthropic, xAI, Perplexity)")
         parser.add_argument("--web-fetch", action="store_true", help="Enable web fetch to retrieve URL content (Anthropic only)")
         parser.add_argument("--prompt-caching", action="store_true", help="Enable prompt caching to reduce costs (OpenAI, Anthropic, Bedrock, Deepseek)")
@@ -938,8 +952,19 @@ class PraisonAI:
         # Direct prompt flag - alternative to positional command
         parser.add_argument("-p", "--prompt", type=str, dest="prompt_flag", help="Direct prompt to execute (alternative to positional argument)")
         
-        # Autonomy Mode - control AI action approval
-        parser.add_argument("--autonomy", type=str, choices=["suggest", "auto_edit", "full_auto"], help="Set autonomy mode for AI actions")
+        # Autonomy Mode - full_auto by default for multi-turn autonomous execution
+        # ACP tools disabled by default for speed; use --acp to enable
+        parser.add_argument("--autonomy", type=str, choices=["suggest", "auto_edit", "full_auto", "disable"], 
+                          default=None, help="Set autonomy mode. Only use for multi-turn tasks that need iterative execution.")
+        parser.add_argument("--acp", action="store_true", 
+                          help="Enable ACP tools in autonomy mode (slower but more powerful file operations)")
+        parser.add_argument("--lsp", action="store_true", 
+                          help="Enable LSP tools in autonomy mode (slower but provides code intelligence)")
+        
+        
+        # P8/G11: Tool timeout - prevent slow tools from blocking
+        parser.add_argument("--tool-timeout", type=int, default=60,
+                          help="Timeout in seconds for each tool call (default: 60)")
         
         # Tool Approval - control tool execution approval
         parser.add_argument("--trust", action="store_true", help="Auto-approve all tool executions (skip approval prompts)")
@@ -3861,15 +3886,45 @@ Provide ONLY the commit message, no explanations."""
                 "backstory": "You are a helpful AI assistant"
             }
             
-            # Set output mode based on --verbose flag
-            # Uses consolidated 'output' param instead of deprecated 'verbose'
-            if hasattr(self, 'args') and getattr(self.args, 'verbose', False):
+            # Autonomy Mode - full_auto by default for multi-turn autonomous execution
+            # ACP tools disabled by default for speed (~3s vs 174s+); use --acp to enable
+            autonomy_mode = getattr(self.args, 'autonomy', None) if hasattr(self, 'args') else None
+            if autonomy_mode and autonomy_mode not in ('disable', None):
+                agent_config["autonomy"] = {"level": autonomy_mode, "enabled": True}
+            
+            # Set SDK output preset based on verbosity flags
+            # The display dispatcher handles CLI rendering; this controls SDK-level behavior
+            v = getattr(self.args, 'verbose', 0) if hasattr(self, 'args') else 0
+            if v >= 2:
+                agent_config["output"] = "verbose"  # SDK debug-level detail
+            elif v >= 1:
                 agent_config["output"] = "verbose"
             else:
                 agent_config["output"] = "minimal"
             
             # Load default tools (same as interactive mode) unless --no-tools is set
+            # CRITICAL: For autonomy mode, disable slow ACP and LSP tools by default
+            # ACP tools go through complex orchestration (174s+ delays)
+            # LSP tools require starting language server (176s+ delays)
+            # Use --acp or --lsp flags to explicitly enable them.
             if not getattr(self.args, 'no_tools', False):
+                # Check if autonomy mode is enabled - disable ACP/LSP by default for speed
+                is_autonomy = autonomy_mode and autonomy_mode not in ('disable', None)
+                use_acp = getattr(self.args, 'acp', False)  # Explicit --acp flag
+                use_lsp = getattr(self.args, 'lsp', False)  # Explicit --lsp flag
+                
+                if is_autonomy:
+                    if not use_acp:
+                        # Force disable ACP for autonomy mode (use basic tools only)
+                        # This makes full_auto fast (~3s vs 174s+)
+                        self.args.no_acp = True
+                        logging.debug("Autonomy mode: ACP tools disabled for speed (use --acp to enable)")
+                    if not use_lsp:
+                        # Force disable LSP for autonomy mode
+                        # LSP requires starting language server (176s+ delays)
+                        self.args.no_lsp = True
+                        logging.debug("Autonomy mode: LSP tools disabled for speed (use --lsp to enable)")
+                
                 default_tools = self._load_interactive_tools()
                 if default_tools:
                     agent_config["tools"] = default_tools
@@ -3933,6 +3988,11 @@ Provide ONLY the commit message, no explanations."""
                     
                     if getattr(self.args, 'planning_reasoning', False):
                         agent_config["planning_reasoning"] = True
+                
+                # P8/G11: Tool timeout - prevent slow tools from blocking
+                tool_timeout = getattr(self.args, 'tool_timeout', 60)
+                if tool_timeout and tool_timeout > 0:
+                    agent_config["tool_timeout"] = tool_timeout
                 
                 # Memory
                 if getattr(self.args, 'memory', False):
@@ -4211,16 +4271,181 @@ Provide ONLY the commit message, no explanations."""
                 else:
                     result = auto_rag.chat(prompt)
             else:
-                # Run with minimal status display when verbose=False
-                is_verbose = agent_config.get("verbose", False)
-                if not is_verbose:
-                    result = self._run_with_status_display(agent, prompt)
-                else:
-                    # Try start method first, fallback to chat
+                # Resolve display mode from CLI flags
+                display_mode = self._resolve_display_mode()
+                
+                if display_mode == 'silent':
+                    # -qq: No output at all, exit code only
                     if hasattr(agent, 'start'):
                         result = agent.start(prompt)
                     else:
                         result = agent.chat(prompt)
+                
+                elif display_mode == 'quiet':
+                    # -q: Result only, no spinners or status
+                    if hasattr(agent, 'start'):
+                        result = agent.start(prompt)
+                    else:
+                        result = agent.chat(prompt)
+                    if result is not None:
+                        output = getattr(result, 'output', None) or (str(result) if result else None)
+                        if output:
+                            print(output)
+                
+                elif display_mode == 'verbose':
+                    # -v: SDK StatusOutput with timestamps and metrics
+                    try:
+                        from praisonaiagents.output.status import enable_status_output, disable_status_output
+                        enable_status_output(show_timestamps=True, show_metrics=True)
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
+                        disable_status_output()
+                    except ImportError:
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
+                
+                elif display_mode == 'debug':
+                    # -vv: SDK TraceOutput with markdown rendering
+                    try:
+                        from praisonaiagents.output.trace import enable_trace_output, disable_trace_output
+                        enable_trace_output(use_markdown=True)
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
+                        disable_trace_output()
+                    except ImportError:
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
+                
+                elif display_mode == 'jsonl':
+                    # --output jsonl: JSONL structured output for CI/CD
+                    from .features.display_jsonl import JsonlDisplay
+                    from praisonaiagents.main import register_display_callback as _reg_cb
+                    
+                    jsonl = JsonlDisplay()
+                    jsonl.on_init(model=agent_config.get('llm'))
+                    _reg_cb('tool_call', jsonl.on_tool_call)
+                    _reg_cb('llm_start', jsonl.on_llm_start)
+                    _reg_cb('autonomy_iteration', jsonl.on_autonomy_iteration)
+                    _reg_cb('autonomy_stage_change', jsonl.on_autonomy_stage_change)
+                    _reg_cb('autonomy_doom_loop', jsonl.on_autonomy_doom_loop)
+                    _reg_cb('autonomy_complete', lambda **kw: jsonl.on_complete(
+                        reason=kw.get('completion_reason'),
+                        iterations=kw.get('iterations'),
+                        duration_ms=(kw.get('duration_seconds') or 0) * 1000,
+                    ))
+                    
+                    start_time = time.time()
+                    if hasattr(agent, 'start'):
+                        result = agent.start(prompt)
+                    else:
+                        result = agent.chat(prompt)
+                    
+                    # Emit final result
+                    reason = getattr(result, 'completion_reason', None) if hasattr(result, 'completion_reason') else 'complete'
+                    iters = getattr(result, 'iterations', None) if hasattr(result, 'iterations') else None
+                    jsonl.on_complete(reason=reason or 'complete', iterations=iters,
+                                     duration_ms=(time.time() - start_time) * 1000)
+                    
+                    # Print result to stdout
+                    if hasattr(result, 'output') and result.output:
+                        print(result.output)
+                    elif isinstance(result, str):
+                        print(result)
+                
+                elif display_mode == 'json':
+                    # --output json: JSON envelope output
+                    import json as json_mod
+                    start_time = time.time()
+                    if hasattr(agent, 'start'):
+                        result = agent.start(prompt)
+                    else:
+                        result = agent.chat(prompt)
+                    
+                    output = result.output if hasattr(result, 'output') else str(result)
+                    envelope = {
+                        'result': output,
+                        'model': agent_config.get('llm'),
+                        'duration_ms': round((time.time() - start_time) * 1000),
+                    }
+                    if hasattr(result, 'completion_reason'):
+                        envelope['completion_reason'] = result.completion_reason
+                    if hasattr(result, 'iterations'):
+                        envelope['iterations'] = result.iterations
+                    print(json_mod.dumps(envelope, indent=2))
+                
+                elif display_mode == 'flow':
+                    # --flow: SDK FlowDisplay - visual agent→tool chart
+                    try:
+                        from praisonaiagents.flow_display import track_workflow
+                        flow = track_workflow()
+                        flow.start()
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
+                        flow.stop()
+                    except ImportError:
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
+                
+                elif display_mode == 'editor':
+                    # --output editor: User-friendly step-by-step format
+                    # Uses SDK EditorOutput (Step 1: 📄 Creating file → ✓ Done)
+                    try:
+                        from praisonaiagents.output.editor import enable_editor_output, disable_editor_output
+                        editor = enable_editor_output(use_color=True)
+                    except ImportError:
+                        # Fallback to local module if SDK version unavailable
+                        from .features.editor_display import EditorDisplay, create_editor_callbacks
+                        from praisonaiagents.main import register_display_callback as _reg_cb
+                        editor = EditorDisplay()
+                        for event_type, cb in create_editor_callbacks(editor).items():
+                            _reg_cb(event_type, cb)
+                    
+                    # Run agent
+                    if hasattr(agent, 'start'):
+                        result = agent.start(prompt)
+                    else:
+                        result = agent.chat(prompt)
+                    
+                    # Display final result
+                    output = result.output if hasattr(result, 'output') else str(result)
+                    if output:
+                        editor.output(output) if hasattr(editor, 'output') else None
+                    
+                    # Show summary
+                    elapsed = editor.elapsed_time()
+                    editor.summary("Completed", [
+                        f"Duration: {elapsed:.1f}s",
+                        f"Blocks: {len(editor.get_blocks())}",
+                    ])
+                
+                else:
+                    # Default: SDK status output — clean inline progress
+                    # Shows: spinner + tool calls, no panels, no timestamps
+                    try:
+                        from praisonaiagents.output.status import enable_status_output, disable_status_output
+                        enable_status_output(show_timestamps=False, show_metrics=False)
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
+                        disable_status_output()
+                    except ImportError:
+                        if hasattr(agent, 'start'):
+                            result = agent.start(prompt)
+                        else:
+                            result = agent.chat(prompt)
             
             # ===== POST-PROCESSING WITH NEW FEATURES =====
             
@@ -4404,257 +4629,49 @@ Now, {final_instruction.lower()}:"""
         # Return the actual result for any downstream processing
         return result.output
 
-    def _run_with_status_display(self, agent, prompt):
+    def _resolve_display_mode(self):
+        """Map CLI flags to a display mode string.
+        
+        Priority: --output > --flow > --display (deprecated) > -v/-q > default.
+        Returns one of: 'silent', 'quiet', 'verbose', 'debug', 'json', 'jsonl', 'flow', 'status', 'cursor'.
         """
-        Run agent with minimal status display (spinner + tool/handoff updates).
+        # Machine formats take highest priority
+        output_fmt = getattr(self.args, 'output_format', None)
+        if output_fmt:
+            return output_fmt  # "json", "jsonl", or "cursor"
         
-        Shows:
-        - "Generating..." with spinner while processing
-        - Real-time tool call notifications via registered callback
-        - Agent handoff notifications
-        """
-        import threading
-        import time
-        from rich.console import Console
-        from rich.live import Live
-        from rich.text import Text
+        # --flow is an independent feature flag
+        if getattr(self.args, 'flow', False) or getattr(self.args, 'flow_display', False):
+            return 'flow'
         
-        console = Console()
-        
-        # Import callback registration from praisonaiagents
-        # Store in local variable for safe access throughout the function
-        _sync_display_callbacks = None
-        _register_display_callback = None
+        # Check Typer global state (for Typer subcommands)
         try:
-            from praisonaiagents import register_display_callback, sync_display_callbacks
-            _sync_display_callbacks = sync_display_callbacks
-            _register_display_callback = register_display_callback
-        except ImportError:
-            # Fallback if callbacks not available - just run agent directly
-            try:
-                result = agent.start(prompt)
-            except AttributeError:
-                # Try chat method if start not available
-                result = agent.chat(prompt)
-            if result:
-                console.print(result)
-            elif result == "" or result is None:
-                console.print("[dim]No response generated[/dim]")
-            return result
-        
-        # Get tool names for display
-        tool_names = []
-        if hasattr(agent, 'tools') and agent.tools:
-            for tool in agent.tools:
-                if hasattr(tool, '__name__'):
-                    tool_names.append(tool.__name__)
-                elif hasattr(tool, 'name'):
-                    tool_names.append(tool.name)
-        
-        status_info = {
-            'status': 'Generating...',
-            'tool_calls': [],
-            'handoffs': [],
-            'done': False,
-            'result': None,
-            'error': None,
-            'start_time': time.time(),
-            'available_tools': tool_names,
-            'approval_pending': False,  # Flag to pause Live display during approval
-            'live_instance': None  # Reference to Live instance for stopping
-        }
-        
-        def tool_call_callback(message):
-            """Callback triggered when a tool is called."""
-            # Extract tool name from message
-            if "Calling function:" in message:
-                # Format: "Calling function: function_name"
-                parts = message.split("Calling function:")
-                if len(parts) > 1:
-                    tool_name = parts[1].strip()
-                    if tool_name and tool_name not in status_info['tool_calls']:
-                        status_info['tool_calls'].append(tool_name)
-                        status_info['status'] = f"Using {tool_name}..."
-            elif "Function " in message and " returned:" in message:
-                # Format: "Function function_name returned: ..."
-                # Tool execution completed, update status
-                status_info['status'] = "Processing result..."
-        
-        # Register callback for tool calls (use local variable)
-        _register_display_callback('tool_call', tool_call_callback)
-        
-        def build_status_display():
-            """Build the status display text."""
-            elapsed = time.time() - status_info['start_time']
-            
-            # Main status with spinner
-            text = Text()
-            text.append("⏳ ", style="cyan")
-            text.append(f"{status_info['status']} ", style="bold")
-            text.append(f"({elapsed:.1f}s)", style="dim")
-            
-            # Show available tools on first line
-            if status_info['available_tools'] and not status_info['tool_calls']:
-                tools_str = ', '.join(status_info['available_tools'][:3])
-                if len(status_info['available_tools']) > 3:
-                    tools_str += f" +{len(status_info['available_tools']) - 3} more"
-                text.append(f"\n  🔧 Tools: {tools_str}", style="dim")
-            
-            # Show recent tool calls
-            if status_info['tool_calls']:
-                text.append("\n")
-                for tool in status_info['tool_calls'][-3:]:  # Show last 3
-                    text.append(f"  ⚙ {tool}", style="dim yellow")
-                    text.append("\n")
-            
-            # Show handoffs
-            if status_info['handoffs']:
-                for handoff in status_info['handoffs'][-2:]:  # Show last 2
-                    text.append(f"  → {handoff}", style="dim cyan")
-                    text.append("\n")
-            
-            return text
-        
-        def run_agent():
-            """Run the agent in background thread."""
-            try:
-                status_info['result'] = agent.start(prompt)
-            except Exception as e:
-                status_info['error'] = e
-            finally:
-                status_info['done'] = True
-        
-        # Set up approval callback that stops Live display before prompting
-        # Only if not using --trust (which auto-approves everything)
-        if not getattr(self.args, 'trust', False):
-            from praisonaiagents.approval import set_approval_callback, ApprovalDecision
-            from rich.prompt import Confirm
-            from rich.panel import Panel
-            
-            def cli_approval_with_live_pause(function_name, arguments, risk_level):
-                """Approval callback that stops Live display before prompting."""
-                # Signal to stop Live display
-                status_info['approval_pending'] = True
-                
-                # Wait a moment for Live to stop
-                time.sleep(0.2)
-                
-                # Now show the approval prompt
-                risk_colors = {"critical": "bold red", "high": "red", "medium": "yellow", "low": "blue"}
-                risk_color = risk_colors.get(risk_level, "white")
-                
-                tool_info = f"[bold]Function:[/] {function_name}\n"
-                tool_info += f"[bold]Risk Level:[/] [{risk_color}]{risk_level.upper()}[/{risk_color}]\n"
-                tool_info += "[bold]Arguments:[/]\n"
-                for key, value in arguments.items():
-                    str_value = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
-                    tool_info += f"  {key}: {str_value}\n"
-                
-                console.print(Panel(tool_info.strip(), title="🔒 Tool Approval Required", border_style=risk_color))
-                
-                try:
-                    approved = Confirm.ask(f"[{risk_color}]Execute this {risk_level} risk tool?[/{risk_color}]", default=False)
-                    status_info['approval_pending'] = False
-                    
-                    if approved:
-                        console.print("[green]✅ Approved[/green]")
-                        return ApprovalDecision(approved=True, reason="User approved")
-                    else:
-                        console.print("[red]❌ Denied[/red]")
-                        console.print("[dim]Tip: Use --trust to auto-approve all tools[/dim]")
-                        return ApprovalDecision(approved=False, reason="User denied")
-                except (KeyboardInterrupt, EOFError):
-                    status_info['approval_pending'] = False
-                    console.print("\n[red]❌ Cancelled[/red]")
-                    return ApprovalDecision(approved=False, reason="User cancelled")
-            
-            # Only set if not already set by --approve-level
-            if not getattr(self.args, 'approve_level', None):
-                set_approval_callback(cli_approval_with_live_pause)
-        
-        # Start agent in background thread
-        thread = threading.Thread(target=run_agent, daemon=True)
-        thread.start()
-        
-        # Show live status while processing
-        # Loop handles unlimited approval interruptions (each approval
-        # pauses the Live display, then we restart it afterwards)
-        try:
-            while not status_info['done']:
-                with Live(build_status_display(), console=console, refresh_per_second=4, transient=True) as live:
-                    status_info['live_instance'] = live
-                    while not status_info['done']:
-                        # Check if approval is pending - stop Live to show prompt
-                        if status_info['approval_pending']:
-                            break
-                        live.update(build_status_display())
-                        time.sleep(0.1)
-                
-                # If approval was pending, wait for it to complete then loop
-                # back to restart the Live display
-                while status_info['approval_pending']:
-                    time.sleep(0.1)
-        except KeyboardInterrupt:
-            console.print("\n[dim]Interrupted[/dim]")
-            # Unregister callback (use local variable with None check)
-            if _sync_display_callbacks is not None and 'tool_call' in _sync_display_callbacks:
-                del _sync_display_callbacks['tool_call']
-            return None
-        
-        # Wait for thread to complete (generous timeout for long-running tasks)
-        thread.join(timeout=5.0)
-        
-        # Unregister callback to avoid memory leaks (use local variable with None check)
-        if _sync_display_callbacks is not None and 'tool_call' in _sync_display_callbacks:
-            del _sync_display_callbacks['tool_call']
-        
-        # Handle result
-        if status_info['error']:
-            console.print(f"[red]Error: {status_info['error']}[/red]")
-            return None
-        
-        # Show tool calls that were made (if any)
-        if status_info['tool_calls']:
-            console.print(f"[dim]Tools used: {', '.join(status_info['tool_calls'])}[/dim]")
-        
-        # Get the result and print it directly here to ensure it's displayed
-        result = status_info['result']
-        
-        # Handle AutonomyResult from run_autonomous()
-        display_text = None
-        if result is not None:
-            if hasattr(result, 'output') and result.output:
-                display_text = result.output
-            elif isinstance(result, str) and result:
-                display_text = result
-            elif result:
-                display_text = str(result)
-        
-        if display_text:
-            console.print(display_text)
-        else:
-            # Last resort: extract from agent's chat history
-            extracted = None
-            if hasattr(agent, 'chat_history') and agent.chat_history:
-                for msg in reversed(agent.chat_history):
-                    if msg.get('role') == 'assistant' and msg.get('content'):
-                        extracted = msg['content']
-                        break
-            if extracted:
-                console.print(extracted)
-            elif status_info['tool_calls']:
-                console.print("[dim]Task completed (tools executed successfully)[/dim]")
-            else:
-                console.print("[dim]No response generated[/dim]")
-        
-        # Cleanup LSP/ACP runtime
-        try:
-            from .features.interactive_tools import cleanup_runtime
-            cleanup_runtime()
-        except Exception:
+            from .app import state as typer_state
+            if typer_state.quiet:
+                return 'quiet'
+            if hasattr(typer_state, 'output_format'):
+                if typer_state.output_format.value == 'json':
+                    return 'json'
+                elif typer_state.output_format.value == 'stream-json':
+                    return 'jsonl'
+            if typer_state.screen_reader:
+                return 'verbose'  # Accessible: timestamps but no spinners
+        except (ImportError, AttributeError):
             pass
         
-        return result
+        # Verbosity ladder: -v/-vv/-q/-qq
+        v = getattr(self.args, 'verbose', 0)
+        q = getattr(self.args, 'quiet', 0)
+        if q >= 2:
+            return 'silent'
+        if q >= 1:
+            return 'quiet'
+        if v >= 2:
+            return 'debug'
+        if v >= 1:
+            return 'verbose'
+        
+        return 'editor'  # Default: User-friendly editor-style output
 
     def _handle_serve_command(self, args, unknown_args):
         """

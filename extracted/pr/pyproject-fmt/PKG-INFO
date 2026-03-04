@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.18.0
+Version: 2.18.1
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -32,8 +32,8 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- ✨ feat(tox-toml-fmt): add inline table key reordering by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#264 <https://github.com/tox-dev/toml-fmt/pull/264>`_ <a id="2.17.0"></a>
+- 🐛 fix(common): panic on non-array nodes in array ops by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#266 <https://github.com/tox-dev/toml-fmt/pull/266>`_ <a id="2.18.0"></a>
 
 Philosophy
 ----------

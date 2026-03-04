@@ -116,6 +116,8 @@ class TestPlaybookRunner:
         Get all pack test playbooks
         """
         full_path = f"{folder_path}/TestPlaybooks"
+        if not Path(full_path).exists():
+            return []
         list_test_playbooks_files = os.listdir(full_path)
         list_test_playbooks_files = [
             f"{full_path}/{tpb}" for tpb in list_test_playbooks_files
@@ -172,10 +174,12 @@ class TestPlaybookRunner:
         elapsed_time = 0
         start_time = time.time()
 
+        time.sleep(1)
+
         while elapsed_time < self.timeout:
             test_playbook_result = self.get_test_playbook_results_dict(incident_id)
             if test_playbook_result["state"] == "inprogress":
-                time.sleep(10)
+                time.sleep(6)
                 elapsed_time = int(time.time() - start_time)
             else:  # the test playbook has finished running
                 break

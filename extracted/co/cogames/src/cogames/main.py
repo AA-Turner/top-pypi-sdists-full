@@ -11,7 +11,6 @@ suppress_noisy_logs()
 import importlib
 import importlib.metadata
 import importlib.util
-import json
 import logging
 import os
 import shutil
@@ -20,6 +19,7 @@ import sys
 from pathlib import Path
 from typing import Literal, Optional
 
+import httpx
 import typer
 import yaml  # type: ignore[import]
 from click.core import ParameterSource
@@ -37,18 +37,17 @@ from cogames import game, verbose
 from cogames import pickup as pickup_module
 from cogames import play as play_module
 from cogames import train as train_module
-from cogames.cli.auth import auth_app
-from cogames.cli.base import console
+from cogames.cli.auth import CoGamesAuthenticator, auth_app
+from cogames.cli.base import console, emit_json
 from cogames.cli.client import SeasonInfo, TournamentServerClient
-from cogames.cli.compat import check_compat_version
+from cogames.cli.episode import episode_app
 from cogames.cli.leaderboard import (
     leaderboard_cmd,
     parse_policy_identifier,
-    seasons_cmd,
     submissions_cmd,
 )
 from cogames.cli.login import DEFAULT_COGAMES_SERVER
-from cogames.cli.matches import matches_cmd
+from cogames.cli.matches import match_artifacts_cmd, matches_cmd
 from cogames.cli.mission import (
     describe_mission,
     get_mission_name_and_config,
@@ -65,6 +64,7 @@ from cogames.cli.policy import (
     policy_arg_example,
     policy_arg_w_proportion_example,
 )
+from cogames.cli.season import season_app
 from cogames.cli.submit import (
     DEFAULT_EPISODE_RUNNER_IMAGE,
     DEFAULT_SUBMIT_SERVER,
@@ -76,6 +76,7 @@ from cogames.cli.submit import (
 )
 from cogames.curricula import make_rotation
 from cogames.device import resolve_training_device
+from cogames.seed import seed_rollout_rng
 from mettagrid.mapgen.mapgen import MapGen
 from mettagrid.policy.loader import discover_and_register_policies
 from mettagrid.policy.policy_registry import get_policy_registry
@@ -249,6 +250,8 @@ def cogsguard_tutorial_cmd(
 
 app.add_typer(tutorial_app, name="tutorial", rich_help_panel="Tutorials")
 app.add_typer(auth_app, name="auth", rich_help_panel="Tournament")
+app.add_typer(season_app, name="season", rich_help_panel="Tournament")
+app.add_typer(episode_app, name="episode", rich_help_panel="Tournament")
 
 
 def _help_callback(ctx: typer.Context, value: bool) -> None:
@@ -398,7 +401,7 @@ def games_cmd(
         try:
             data = env_cfg.model_dump(mode="json")
             if format_ == "json":
-                console.print(json.dumps(data, indent=2))
+                emit_json(data)
             else:
                 console.print(yaml.safe_dump(data, sort_keys=False))
         except Exception as exc:  # pragma: no cover - serialization errors
@@ -645,11 +648,18 @@ def play_cmd(
         console.print("[red]Error: Use only one of --save-replay-dir or --save-replay-file.[/red]")
         raise typer.Exit(1)
 
+    explicit_steps = ctx.get_parameter_source("steps") in (
+        ParameterSource.COMMANDLINE,
+        ParameterSource.ENVIRONMENT,
+        ParameterSource.PROMPT,
+    )
+
     resolved_mission, env_cfg, mission_cfg = get_mission_name_and_config(
         ctx,
         mission,
         variants_arg=variant,
         cogs=cogs,
+        steps=steps if explicit_steps else None,
         difficulty=difficulty,
     )
 
@@ -666,15 +676,9 @@ def play_cmd(
         if isinstance(map_builder, MapGen.Config):
             map_builder.seed = map_seed
 
+    seed_rollout_rng(seed)
     resolved_device = resolve_training_device(console, device)
     policy_spec = get_policy_spec(ctx, policy, device=str(resolved_device))
-
-    if ctx.get_parameter_source("steps") in (
-        ParameterSource.COMMANDLINE,
-        ParameterSource.ENVIRONMENT,
-        ParameterSource.PROMPT,
-    ):
-        env_cfg.game.max_steps = steps
 
     console.print(f"[cyan]Playing {resolved_mission}[/cyan]")
     console.print(f"Max Steps: {env_cfg.game.max_steps}, Render: {render}")
@@ -1533,8 +1537,6 @@ def pickup_cmd(
         rich_help_panel="Other",
     ),
 ) -> None:
-    import httpx  # noqa: PLC0415
-
     if policy is None:
         console.print(ctx.get_help())
         console.print("[yellow]Missing: --policy / -p[/yellow]\n")
@@ -1551,10 +1553,9 @@ def pickup_cmd(
         mission,
         variants_arg=variant,
         cogs=cogs,
+        steps=steps,
         difficulty=difficulty,
     )
-    if steps is not None:
-        env_cfg.game.max_steps = steps
 
     candidate_label = policy
     pool_labels = pool
@@ -1687,13 +1688,6 @@ app.command(
 )(submissions_cmd)
 
 app.command(
-    name="seasons",
-    help="List currently running tournament seasons.",
-    rich_help_panel="Tournament",
-    add_help_option=False,
-)(seasons_cmd)
-
-app.command(
     name="leaderboard",
     help="Show tournament leaderboard for a season.",
     rich_help_panel="Tournament",
@@ -1719,6 +1713,18 @@ app.command(
     add_help_option=False,
 )(matches_cmd)
 
+app.command(
+    name="match-artifacts",
+    help="Retrieve artifacts for a match (logs, etc.).",
+    rich_help_panel="Tournament",
+    epilog="""[dim]Examples:[/dim]
+
+[cyan]cogames match-artifacts <match-id>[/cyan]                     Get match logs
+
+[cyan]cogames match-artifacts <match-id> logs -o out.txt[/cyan]     Save to file""",
+    add_help_option=False,
+)(match_artifacts_cmd)
+
 
 app.command(
     name="diagnose",
@@ -1737,9 +1743,11 @@ app.command(
 )(diagnose_module.diagnose_cmd)
 
 
-def _resolve_season(server: str, season_name: str | None = None) -> SeasonInfo:
+def _resolve_season(server: str, login_server: str | None = None, season_name: str | None = None) -> SeasonInfo:
+    auth_token = CoGamesAuthenticator().load_token(login_server) if login_server else None
+
     try:
-        with TournamentServerClient(server_url=server) as client:
+        with TournamentServerClient(server_url=server, token=auth_token, login_server=login_server) as client:
             if season_name is None:
                 season_name = client.get_default_season().name
             info = client.get_season(season_name)
@@ -1871,7 +1879,7 @@ def validate_bundle_cmd(
 ) -> None:
     ensure_docker_daemon_access()
 
-    season_info = _resolve_season(server, season)
+    season_info = _resolve_season(server, season_name=season)
     entry_pool_info = next((p for p in season_info.pools if p.name == season_info.entry_pool), None)
     if not entry_pool_info or not entry_pool_info.config_id:
         console.print("[red]No entry config found for season[/red]")
@@ -2022,9 +2030,7 @@ def upload_cmd(
         console.print("[red]Policy name must be at most 64 characters[/red]")
         raise typer.Exit(1)
 
-    season_info = _resolve_season(server, season)
-
-    check_compat_version(season_info)
+    season_info = _resolve_season(server, login_server, season)
 
     init_kwargs: dict[str, str] = {}
     if init_kwarg:
@@ -2032,6 +2038,7 @@ def upload_cmd(
             key, val = _parse_init_kwarg(kv)
             init_kwargs[key] = val
 
+    submitting = not no_submit
     result = upload_policy(
         ctx=ctx,
         policy=policy,
@@ -2043,7 +2050,7 @@ def upload_cmd(
         skip_validation=skip_validation,
         init_kwargs=init_kwargs if init_kwargs else None,
         setup_script=setup_script,
-        season=season_info.name if not no_submit else None,
+        season=season_info.name if submitting else None,
         image=image,
     )
 
@@ -2107,8 +2114,7 @@ def submit_cmd(
 ) -> None:
     import httpx  # noqa: PLC0415
 
-    season_info = _resolve_season(server, season)
-    check_compat_version(season_info)
+    season_info = _resolve_season(server, login_server, season)
     season_name = season_info.name
 
     client = TournamentServerClient.from_login(server_url=server, login_server=login_server)
@@ -2152,6 +2158,151 @@ def submit_cmd(
         console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
     console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
     console.print(f"[dim]CLI:[/dim] cogames leaderboard --season {season_name}")
+
+
+@app.command(
+    name="ship",
+    help="Bundle, validate, upload, and submit a policy in one command.",
+    rich_help_panel="Tournament",
+    epilog="""[dim]Examples:[/dim]
+
+[cyan]cogames ship -p ./train_dir/my_run -n my-policy[/cyan]            Ship and submit
+
+[cyan]cogames ship -p ./run -n my-policy --dry-run[/cyan]               Validate only""",
+    add_help_option=False,
+)
+def ship_cmd(
+    ctx: typer.Context,
+    name: str = typer.Option(
+        ...,
+        "--name",
+        "-n",
+        metavar="NAME",
+        help="Name for your uploaded policy.",
+        rich_help_panel="Upload",
+    ),
+    policy: str = typer.Option(
+        ...,
+        "--policy",
+        "-p",
+        metavar="POLICY",
+        help=f"Policy specification: {policy_arg_example}.",
+        rich_help_panel="Policy",
+    ),
+    init_kwarg: Optional[list[str]] = typer.Option(  # noqa: B008
+        None,
+        "--init-kwarg",
+        "-k",
+        metavar="KEY=VAL",
+        help="Policy init kwargs (can be repeated).",
+        rich_help_panel="Policy",
+    ),
+    include_files: Optional[list[str]] = typer.Option(  # noqa: B008
+        None,
+        "--include-files",
+        "-f",
+        metavar="PATH",
+        help="Files or directories to include (can be repeated).",
+        rich_help_panel="Files",
+    ),
+    setup_script: Optional[str] = typer.Option(
+        None,
+        "--setup-script",
+        metavar="PATH",
+        help="Python setup script to run before loading the policy.",
+        rich_help_panel="Files",
+    ),
+    season: Optional[str] = typer.Option(
+        None,
+        "--season",
+        metavar="SEASON",
+        help="Tournament season (default: server's default season).",
+        rich_help_panel="Tournament",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Run validation only without uploading.",
+        rich_help_panel="Validation",
+    ),
+    skip_validation: bool = typer.Option(
+        False,
+        "--skip-validation",
+        help="Skip policy validation in Docker.",
+        rich_help_panel="Validation",
+    ),
+    image: str = typer.Option(
+        DEFAULT_EPISODE_RUNNER_IMAGE,
+        "--image",
+        help="Docker image for container validation.",
+        rich_help_panel="Validation",
+    ),
+    login_server: str = typer.Option(
+        DEFAULT_COGAMES_SERVER,
+        "--login-server",
+        metavar="URL",
+        help="Authentication server URL.",
+        rich_help_panel="Server",
+    ),
+    server: str = typer.Option(
+        DEFAULT_SUBMIT_SERVER,
+        "--server",
+        metavar="URL",
+        help="Tournament server URL.",
+        rich_help_panel="Server",
+    ),
+    _help: bool = typer.Option(
+        False,
+        "--help",
+        "-h",
+        help="Show this message and exit.",
+        is_eager=True,
+        callback=_help_callback,
+        rich_help_panel="Other",
+    ),
+) -> None:
+    if ":" in name:
+        console.print("[red]Policy name must not contain ':'[/red]")
+        raise typer.Exit(1)
+    if len(name) > 64:
+        console.print("[red]Policy name must be at most 64 characters[/red]")
+        raise typer.Exit(1)
+
+    season_info = _resolve_season(server, login_server, season)
+
+    init_kwargs: dict[str, str] = {}
+    if init_kwarg:
+        for kv in init_kwarg:
+            key, val = _parse_init_kwarg(kv)
+            init_kwargs[key] = val
+
+    result = upload_policy(
+        ctx=ctx,
+        policy=policy,
+        name=name,
+        include_files=include_files,
+        login_server=login_server,
+        server=server,
+        dry_run=dry_run,
+        skip_validation=skip_validation,
+        init_kwargs=init_kwargs if init_kwargs else None,
+        setup_script=setup_script,
+        season=season_info.name,
+        image=image,
+    )
+
+    if not result:
+        return
+
+    console.print(f"[green]Shipped: {result.name}:v{result.version}[/green]")
+    if result.pools:
+        console.print(f"[dim]Added to pools: {', '.join(result.pools)}[/dim]")
+
+    if dry_run:
+        console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
+        return
+
+    console.print(f"[dim]Results:[/dim] {RESULTS_URL}")
 
 
 @app.command(

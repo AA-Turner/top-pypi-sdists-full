@@ -27,6 +27,7 @@ class HciEdgeDeviceArgs:
                  properties: Optional[pulumi.Input['HciEdgeDevicePropertiesArgs']] = None):
         """
         The set of arguments for constructing a HciEdgeDevice resource.
+
         :param pulumi.Input[_builtins.str] kind: Edge device kind.
                Expected value is 'HCI'.
         :param pulumi.Input[_builtins.str] resource_uri: The fully qualified Azure Resource manager identifier of the resource.
@@ -106,6 +107,7 @@ class HciEdgeDevice(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-04-01. In version 2.x of the Azure Native provider, it used API version 2023-08-01-preview.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] edge_device_name: Name of Device
@@ -124,6 +126,7 @@ class HciEdgeDevice(pulumi.CustomResource):
         Arc-enabled edge device with HCI OS.
 
         Uses Azure REST API version 2024-04-01. In version 2.x of the Azure Native provider, it used API version 2023-08-01-preview.
+
 
         :param str resource_name: The name of the resource.
         :param HciEdgeDeviceArgs args: The arguments to use to populate this resource's properties.
@@ -165,7 +168,7 @@ class HciEdgeDevice(pulumi.CustomResource):
             __props__.__dict__["name"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:azurestackhci/v20230801preview:EdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20230801preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20231101preview:EdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20231101preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240101:EdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240101:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240215preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240401:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240901preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20241201preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20250201preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20250915preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20251001:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20251101preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20251201preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20260201:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci:EdgeDevice")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:azurestackhci/v20230801preview:EdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20230801preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20231101preview:EdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20231101preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240101:EdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240101:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240215preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240401:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20240901preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20241201preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20250201preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20250915preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20251001:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20251101preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20251201preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20260201:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20260215preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci/v20260301preview:HciEdgeDevice"), pulumi.Alias(type_="azure-native:azurestackhci:EdgeDevice")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(HciEdgeDevice, __self__).__init__(
             'azure-native:azurestackhci:HciEdgeDevice',

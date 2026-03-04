@@ -28,6 +28,7 @@ from label_studio_sdk._legacy.exceptions import (
 from .base import LabelStudioTag
 from .control_tags import (
     ChatMessageTag,
+    ReactCodeTag,
     ControlTag,
     ChoicesTag,
     LabelsTag,
@@ -608,6 +609,17 @@ class LabelInterface:
 
         variables = []
 
+        # Self-referencing tags: tags where from_name == to_name (e.g. Chat,
+        # ReactCode).  They need both a control and an object entry, but the
+        # XML may supply only one side (toName → control, value → object, or
+        # neither).  We collect them by name during parsing and fill in the
+        # missing side afterwards.
+        # To add a new self-referencing tag, add an entry to this mapping.
+        _SELF_REFERENCING_TAGS = {
+            'chat': ChatMessageTag,
+            'reactcode': ReactCodeTag,
+        }
+
         for tag in xml_tree.iter():
             if tag.attrib and "indexFlag" in tag.attrib:
                 variables.append(tag.attrib["indexFlag"])
@@ -618,6 +630,17 @@ class LabelInterface:
             elif ObjectTag.validate_node(tag):
                 objects[tag.attrib["name"]] = ObjectTag.parse_node(tag, tags_mapping=self._tags_mapping)
 
+            elif tag.attrib.get("name") and tag.tag.lower() in _SELF_REFERENCING_TAGS:
+                # Self-referencing tag without standard ControlTag/ObjectTag
+                # attributes (no toName, no value).  Park it in objects so
+                # the post-loop block can create the control side.
+                objects[tag.attrib["name"]] = ObjectTag(
+                    tag=tag.tag,
+                    attr=dict(tag.attrib),
+                    name=tag.attrib.get("name"),
+                    value=tag.attrib.get('valueList', tag.attrib.get('value')),
+                )
+
             elif LabelTag.validate_node(tag):
                 lb = LabelTag.parse_node(tag, controls)
                 # This case is hit when Label tag is missing `value` and `alias`
@@ -625,17 +648,28 @@ class LabelInterface:
                 if lb:
                     labels[lb.parent_name][lb.value] = lb
 
-        # Special handling: auto-create ChatMessage control for each Chat object
-        chat_object_names = [name for name, obj in objects.items() if getattr(obj, 'tag', '').lower() == 'chat']
-        for name in chat_object_names:
+        # Ensure every self-referencing tag has both a control and an object.
+        # The tag may have been parsed as only one (or neither) depending on
+        # which XML attributes were present.
+        all_parsed = {**objects, **controls}
+        for name, parsed_tag in all_parsed.items():
+            tag_lower = getattr(parsed_tag, 'tag', '').lower()
+            if tag_lower not in _SELF_REFERENCING_TAGS:
+                continue
             if name not in controls:
-                controls[name] = ChatMessageTag(
-                    tag='ChatMessage',
+                control_class = _SELF_REFERENCING_TAGS[tag_lower]
+                controls[name] = control_class(
                     name=name,
                     to_name=[name],
-                    attr={"name": name, "toName": name}
+                    attr={"name": name, "toName": name},
                 )
-
+            if name not in objects:
+                objects[name] = ObjectTag(
+                    tag=parsed_tag.tag,
+                    attr=dict(parsed_tag.attr),
+                    name=name,
+                    value=parsed_tag.attr.get('valueList', parsed_tag.attr.get('value')),
+                )
 
         return controls, objects, labels, xml_tree
 
@@ -684,12 +718,23 @@ class LabelInterface:
 
     def _unique_names_validation(self, config_string):
         """ """
-        # unique names in config # FIXME: 'name =' (with spaces) won't work
-        all_names = re.findall(r'name="([^"]*)"', config_string)
+        # unique names in config: match name="..." but not toname="..." (require
+        # start or non-word char before "name")
+        all_names = re.findall(r'(?:^|[^\w])name="([^"]*)"', config_string)
         if len(set(all_names)) != len(all_names):
             raise LabelStudioValidationErrorSentryIgnored(
-                "Label config contains non-unique names"
+                "Label config contains non-unique names: " + ", ".join(all_names)
             )
+
+    def _tag_attribute_validation(self):
+        """Validate tag-specific attribute values (e.g. Video playback speed)."""
+        errors: List[str] = []
+        if self._objects:
+            for obj in self._objects.values():
+                if hasattr(obj, "validate_config"):
+                    errors.extend(obj.validate_config())
+        if errors:
+            raise LabelStudioValidationErrorSentryIgnored("\n".join(errors))
 
     @property
     def is_valid(self):
@@ -718,6 +763,7 @@ class LabelInterface:
         self._schema_validation(config_string)
         self._unique_names_validation(config_string)
         self._to_name_validation(config_string)
+        self._tag_attribute_validation()
 
     @classmethod
     def validate_with_data(cls, config):
@@ -797,7 +843,10 @@ class LabelInterface:
                     continue
 
                 if region.get('type') != "relation":
-                    region_errors = self.validate_region(region, return_errors=True, region_index=i)
+                    region_errors = self.validate_region(
+                        region, return_errors=True, region_index=i,
+                        context={'result': result, 'region': region},
+                    )
                     errors.extend(region_errors)
                     if not region_errors:  # Only add to regions if no errors
                         regions.append(region)
@@ -851,12 +900,14 @@ class LabelInterface:
         """
         return self._validate_object(prediction, return_errors)
 
-    def _validate_region_logic(self, region, region_index=0) -> Tuple[bool, List[str]]:
+    def _validate_region_logic(self, region, region_index=0, context=None) -> Tuple[bool, List[str]]:
         """Helper method to perform region validation logic.
 
         Args:
             region (dict): The region to be validated.
             region_index (int): Index of the region for error reporting.
+            context (dict, optional): Additional context forwarded to
+                ``control.validate_value()``.
 
         Returns:
             tuple: (is_valid, errors) where is_valid is bool and errors is list of strings.
@@ -899,7 +950,7 @@ class LabelInterface:
 
         # Validate the value using control's validate_value method
         try:
-            if not control.validate_value(region["value"]):
+            if not control.validate_value(region["value"], context=context):
                 # Prefer a clearer message for rectangle geometry bounds
                 tag_lower = getattr(control, 'tag', '').lower()
                 if tag_lower in ('rectangle', 'rectanglelabels'):
@@ -950,7 +1001,7 @@ class LabelInterface:
         except Exception:
             return "unknown validation rules"
 
-    def validate_region(self, region, return_errors=False, region_index=0):
+    def validate_region(self, region, return_errors=False, region_index=0, context=None):
         """Validates a region from the annotation against the current
         configuration.
 
@@ -964,12 +1015,16 @@ class LabelInterface:
             region (dict): The region to be validated.
             return_errors (bool): If True, returns a list of error messages instead of boolean
             region_index (int): Index of the region for error reporting (used when return_errors=True)
+            context (dict, optional): Additional context passed through to
+                ``control.validate_value()``.  May contain ``result`` (the
+                full result list) and ``region`` (the current region dict)
+                so that control tags can inspect sibling regions.
 
         Returns:
             Union[bool, List[str]]: If return_errors=False, returns True/False.
                                    If return_errors=True, returns list of error messages.
         """
-        is_valid, errors = self._validate_region_logic(region, region_index)
+        is_valid, errors = self._validate_region_logic(region, region_index, context=context)
 
         if return_errors:
             return errors

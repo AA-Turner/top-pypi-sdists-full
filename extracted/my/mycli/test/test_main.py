@@ -1,7 +1,9 @@
 # type: ignore
 
 from collections import namedtuple
+from contextlib import redirect_stdout
 import csv
+import io
 import os
 import shutil
 from tempfile import NamedTemporaryFile
@@ -42,7 +44,7 @@ CLI_ARGS = [
 
 
 @dbtest
-def test_binary_display_hex(executor, capsys):
+def test_binary_display_hex(executor):
     m = MyCli()
     m.sqlexecute = SQLExecute(
         None,
@@ -63,26 +65,25 @@ def test_binary_display_hex(executor, capsys):
     )
     m.explicit_pager = False
     sqlresult = next(m.sqlexecute.run("select b'01101010' AS binary_test"))
-    formatted = m.format_output(
-        sqlresult.title,
-        sqlresult.results,
-        sqlresult.headers,
-        sqlresult.postamble,
-        False,
-        False,
-        "<null>",
-        "right",
-        "hex",
-        None,
+    formatted = m.format_sqlresult(
+        sqlresult,
+        is_expanded=False,
+        is_redirected=False,
+        null_string="<null>",
+        numeric_alignment="right",
+        binary_display="hex",
+        max_width=None,
     )
-    m.output(formatted, sqlresult.status)
+    f = io.StringIO()
+    with redirect_stdout(f):
+        m.output(formatted, sqlresult.status)
     expected = " 0x6a "
-    stdout = capsys.readouterr().out
-    assert expected in stdout
+    output = f.getvalue()
+    assert expected in output
 
 
 @dbtest
-def test_binary_display_utf8(executor, capsys):
+def test_binary_display_utf8(executor):
     m = MyCli()
     m.sqlexecute = SQLExecute(
         None,
@@ -103,22 +104,21 @@ def test_binary_display_utf8(executor, capsys):
     )
     m.explicit_pager = False
     sqlresult = next(m.sqlexecute.run("select b'01101010' AS binary_test"))
-    formatted = m.format_output(
-        sqlresult.title,
-        sqlresult.results,
-        sqlresult.headers,
-        sqlresult.postamble,
-        False,
-        False,
-        "<null>",
-        "right",
-        "utf8",
-        None,
+    formatted = m.format_sqlresult(
+        sqlresult,
+        is_expanded=False,
+        is_redirected=False,
+        null_string="<null>",
+        numeric_alignment="right",
+        binary_display="utf8",
+        max_width=None,
     )
-    m.output(formatted, sqlresult.status)
+    f = io.StringIO()
+    with redirect_stdout(f):
+        m.output(formatted, sqlresult.status)
     expected = " j "
-    stdout = capsys.readouterr().out
-    assert expected in stdout
+    output = f.getvalue()
+    assert expected in output
 
 
 @dbtest
@@ -230,7 +230,7 @@ def test_reconnect_database_is_selected(executor, capsys):
         raise e
     m.reconnect()
     try:
-        next(m.sqlexecute.run("show tables")).results.fetchall()
+        next(m.sqlexecute.run("show tables")).rows.fetchall()
     except Exception as e:
         raise e
 
@@ -335,7 +335,7 @@ def test_prompt_no_host_only_socket(executor):
     mycli.sqlexecute.user = "root"
     mycli.sqlexecute.dbname = "mysql"
     mycli.sqlexecute.port = "3306"
-    prompt = mycli.get_prompt(mycli.prompt_format)
+    prompt = mycli.get_prompt(mycli.prompt_format, 0)
     assert prompt == "MySQL root@localhost:mysql> "
 
 
@@ -350,7 +350,7 @@ def test_prompt_socket_overrides_port(executor):
     mycli.sqlexecute.user = "root"
     mycli.sqlexecute.dbname = "mysql"
     mycli.sqlexecute.port = "3306"
-    prompt = mycli.get_prompt(mycli.prompt_format)
+    prompt = mycli.get_prompt(mycli.prompt_format, 0)
     assert prompt == "MySQL root@localhost:mysqld.sock mysql> "
 
 

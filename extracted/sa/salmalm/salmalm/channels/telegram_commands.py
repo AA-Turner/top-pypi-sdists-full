@@ -3,8 +3,9 @@
 import json
 import textwrap
 
-from salmalm.constants import VERSION
+from salmalm.constants import VERSION, APP_NAME
 from salmalm.core.core import router
+from salmalm.core import get_session
 
 
 class TelegramCommandsMixin:
@@ -547,12 +548,18 @@ class TelegramCommandsMixin:
 
     async def _cmd_export(self, chat_id, text: str, tenant_user=None) -> None:
         """Handle /export command."""
+        from salmalm.features.users import user_manager
+        if user_manager.multi_tenant_enabled:
+            if not tenant_user or tenant_user.get("role") != "admin":
+                self.send_message(chat_id, "⛔ 관리자만 사용 가능합니다. / Admin only.")
+                return
         self.send_typing(chat_id)
         try:
             from salmalm.utils.migration import export_agent, export_filename
 
             parts = text.split()
-            include_vault = "--vault" in parts
+            # Non-admin can never export vault even if check above was bypassed
+            include_vault = "--vault" in parts and (not tenant_user or tenant_user.get("role") == "admin")
             zip_bytes = export_agent(include_vault=include_vault)
             fname = export_filename()
             # Send as document
@@ -580,6 +587,11 @@ class TelegramCommandsMixin:
             sync_json = json.dumps(data, ensure_ascii=False, indent=2)
             self.send_message(chat_id, f"📋 Quick Sync Export\n```json\n{sync_json[:3500]}\n```")
         elif sub.startswith("import"):
+            from salmalm.features.users import user_manager
+            if user_manager.multi_tenant_enabled:
+                if not tenant_user or tenant_user.get("role") != "admin":
+                    self.send_message(chat_id, "⛔ 관리자만 사용 가능합니다. / Admin only.")
+                    return
             json_str = sub[len("import") :].strip()
             if not json_str:
                 self.send_message(chat_id, "❌ Usage: /sync import <json>")

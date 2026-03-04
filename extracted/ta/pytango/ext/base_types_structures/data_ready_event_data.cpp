@@ -6,6 +6,7 @@
 
 #include "common_header.h"
 #include "convertors/type_casters.h"
+#include "pyutils.h"
 
 struct PyDataReadyEventData {
     static std::shared_ptr<Tango::DataReadyEventData> makeDataReadyEventData() {
@@ -75,4 +76,5 @@ void export_data_ready_event_data(py::module &m) {
 
                 New in PyTango 7.0.0)doc",
              py::return_value_policy::reference_internal);
+    fix_dynamic_attr_dealloc<Tango::DataReadyEventData>();
 }

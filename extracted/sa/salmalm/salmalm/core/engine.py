@@ -193,11 +193,13 @@ If the answer is insufficient, improve it now. If satisfactory, return it as-is.
         """Init  ."""
         self._tool_executor = _MODULE_TOOL_EXECUTOR  # Shared singleton — no thread leak
 
-    def _get_tools_for_provider(self, provider: str, intent: str = None, user_message: str = "") -> list:
+    def _get_tools_for_provider(
+        self, provider: str, intent: str = None, user_message: str = "", power_user: bool = False
+    ) -> list:
         """Get tools for provider."""
         from salmalm.core.tool_selector import get_tools_for_provider
 
-        return get_tools_for_provider(provider, intent, user_message)
+        return get_tools_for_provider(provider, intent, user_message, power_user=power_user)
 
     # Max chars per tool result sent to LLM context (default + per-type overrides)
     MAX_TOOL_RESULT_CHARS = 8_000  # 20K was excessive for unknown tools
@@ -284,8 +286,7 @@ If the answer is insufficient, improve it now. If satisfactory, return it as-is.
                 if summary.get("content"):
                     return f"[Pre-summarized — original {len(result)} chars]\n\n{summary['content']}"
             except Exception as _exc:
-                log.debug(f"Suppressed: {_exc}")
-                pass  # Fall through to normal truncation
+                log.debug("[ENGINE] pre-summary failed: %s", _exc, exc_info=True)
         limit = self._TOOL_TRUNCATE_LIMITS.get(tool_name, self.MAX_TOOL_RESULT_CHARS)
         if len(result) > limit:
             return (
@@ -623,8 +624,18 @@ If the answer is insufficient, improve it now. If satisfactory, return it as-is.
 
         loop_msg = check_loop_detection(result.get("tool_calls", []), recent_tool_calls)
         if loop_msg:
-            session.add_assistant(loop_msg)
-            return loop_msg, consecutive_errors
+            # Include last tool result in the final answer so user sees the computed value
+            _last_result = ""
+            for _tc in result.get("tool_calls", []):
+                _tid = _tc.get("id", "")
+                if _tid and _tid in tool_outputs:
+                    _last_result = str(tool_outputs[_tid])[:500]
+            if _last_result:
+                final_ans = f"{_last_result}"
+            else:
+                final_ans = loop_msg
+            session.add_assistant(final_ans)
+            return final_ans, consecutive_errors
 
         self._append_tool_results(session, provider, result, result["tool_calls"], tool_outputs)
         return None, consecutive_errors
@@ -640,6 +651,7 @@ If the answer is insufficient, improve it now. If satisfactory, return it as-is.
         classification: dict,
         iteration: int,
         failover_warn,
+        response_budget_tokens: int,
     ) -> str:
         """Finalize LLM response: empty retry, reflection, logging."""
         from salmalm.core.loop_helpers import handle_empty_response, finalize_response, is_truncated, auto_log_conversation
@@ -650,19 +662,39 @@ If the answer is insufficient, improve it now. If satisfactory, return it as-is.
 
         # Auto-continuation: if response was truncated, ask LLM to continue (up to 2 times)
         _continuation_count = 0
+        total_output_tokens = int((result.get("usage") or {}).get("output", 0) or 0)
         while is_truncated(result) and _continuation_count < 2:
+            remaining_budget = max(0, int(response_budget_tokens) - total_output_tokens)
+            if remaining_budget < 256:
+                response = (
+                    response.rstrip()
+                    + "\n\n⚠️ Output truncated due to token budget. Ask for a follow-up to continue."
+                )
+                log.info(
+                    "[AI] Skipping continuation due to low remaining budget (%d/%d used)",
+                    total_output_tokens,
+                    response_budget_tokens,
+                )
+                break
             _continuation_count += 1
-            log.info(f"[AI] Response truncated, auto-continuing ({_continuation_count}/2)...")
+            continuation_max_tokens = min(4096, remaining_budget)
+            log.info(
+                "[AI] Response truncated, auto-continuing (%d/2, max_tokens=%d, remaining_budget=%d)",
+                _continuation_count,
+                continuation_max_tokens,
+                remaining_budget,
+            )
             _cont_msgs = list(pruned_messages) + [
                 {"role": "assistant", "content": response},
                 {"role": "user", "content": "Continue from where you left off. Do not repeat what you already said."},
             ]
             result, _ = await self._call_with_failover(
-                _cont_msgs, model=model, tools=None, max_tokens=4096, thinking=False,
+                _cont_msgs, model=model, tools=None, max_tokens=continuation_max_tokens, thinking=False,
             )
             _cont = result.get("content", "")
             if _cont and _cont.strip():
                 response += _cont
+                total_output_tokens += int((result.get("usage") or {}).get("output", 0) or 0)
             else:
                 break
 
@@ -733,8 +765,16 @@ If the answer is insufficient, improve it now. If satisfactory, return it as-is.
             provider = model.split("/")[0] if "/" in model else "anthropic"
 
             # Tools
+            _is_power_user = bool(
+                getattr(session, "metadata", {}).get("power_user")
+                or getattr(session, "power_user", False)
+                or getattr(session, "user_id", None) in (None, 0)
+            )
             tools = self._get_tools_for_provider(
-                provider, intent=classification["intent"], user_message=user_message or ""
+                provider,
+                intent=classification["intent"],
+                user_message=user_message or "",
+                power_user=_is_power_user,
             )
 
             # Thinking mode — pass level string instead of bool
@@ -830,6 +870,7 @@ If the answer is insufficient, improve it now. If satisfactory, return it as-is.
                 classification,
                 iteration,
                 _failover_warn,
+                _dynamic_max_tokens,
             )
 
         # Loop exhausted (result is initialized to {} above so this is always safe)

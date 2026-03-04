@@ -6,17 +6,12 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Generator
+from importlib import metadata
 from pathlib import Path
+from typing import Literal, overload
 
 import pytest
 import virtualenv as _virtualenv
-
-if sys.version_info < (3, 8):
-    import importlib_metadata as metadata
-    from typing_extensions import Literal, overload
-else:
-    from importlib import metadata
-    from typing import Literal, overload
 
 HAS_SETUPTOOLS_SCM = importlib.util.find_spec("setuptools_scm") is not None
 
@@ -29,7 +24,7 @@ pytest.register_assert_rewrite("tests.pytest_helpers")
 
 @pytest.fixture(scope="session")
 def pep518_wheelhouse(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    numpy = ["numpy"] if sys.version_info < (3, 13) else []
+    numpy = ["numpy"] if sys.version_info < (3, 15) and sys.platform != "cygwin" else []
     wheelhouse = tmp_path_factory.mktemp("wheelhouse")
     subprocess.run(
         [
@@ -147,14 +142,14 @@ class VEnv:
         self.module("pip", "install", *args)
 
 
-@pytest.fixture()
+@pytest.fixture
 def pep518(pep518_wheelhouse, monkeypatch):
     monkeypatch.setenv("PIP_FIND_LINKS", str(pep518_wheelhouse))
     monkeypatch.setenv("PIP_NO_INDEX", "true")
     return pep518_wheelhouse
 
 
-@pytest.fixture()
+@pytest.fixture
 def isolated(tmp_path: Path, pep518_wheelhouse: Path) -> Generator[VEnv, None, None]:
     path = tmp_path / "venv"
     try:

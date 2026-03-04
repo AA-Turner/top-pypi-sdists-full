@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: browserbase
-Version: 1.4.0
+Version: 1.5.0
 Summary: The official Python library for the Browserbase API
 Project-URL: Homepage, https://github.com/browserbase/sdk-python
 Project-URL: Repository, https://github.com/browserbase/sdk-python
@@ -13,27 +13,32 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Browserbase Python API library
 
-[![PyPI version](https://img.shields.io/pypi/v/browserbase.svg)](https://pypi.org/project/browserbase/)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/browserbase.svg?label=pypi%20(stable))](https://pypi.org/project/browserbase/)
 
-The Browserbase Python library provides convenient access to the Browserbase REST API from any Python 3.8+
+The Browserbase Python library provides convenient access to the Browserbase REST API from any Python 3.9+
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
@@ -47,7 +52,7 @@ The REST API documentation can be found on [docs.browserbase.com](https://docs.b
 
 ```sh
 # install from PyPI
-pip install browserbase
+pip install '--pre browserbase'
 ```
 
 ## Usage
@@ -70,7 +75,7 @@ client = Browserbase(
 session = client.sessions.create(
     project_id=BROWSERBASE_PROJECT_ID,
 )
-print(session.id)
+```
 
 
 def run(playwright: Playwright) -> None:
@@ -112,6 +117,39 @@ rye run example playwright_basic # replace with the example you want to run
 > [!NOTE]
 > Make sure you have a `.env` file that matches the [.env.example](https://github.com/browserbase/sdk-python/tree/main/.env.example) file in the root of this repository.
 
+### With aiohttp
+
+By default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.
+
+You can enable this by installing `aiohttp`:
+
+```sh
+# install from PyPI
+pip install '--pre browserbase[aiohttp]'
+```
+
+Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
+
+```python
+import os
+import asyncio
+from browserbase import DefaultAioHttpClient
+from browserbase import AsyncBrowserbase
+
+
+async def main() -> None:
+    async with AsyncBrowserbase(
+        api_key=os.environ.get("BROWSERBASE_API_KEY"),  # This is the default and can be omitted
+        http_client=DefaultAioHttpClient(),
+    ) as client:
+        session = await client.sessions.create(
+            project_id="your_project_id",
+        )
+
+
+asyncio.run(main())
+```
+
 ## Using types
 
 Nested request parameters are [TypedDicts](https://docs.python.org/3/library/typing.html#typing.TypedDict). Responses are [Pydantic models](https://docs.pydantic.dev) which also provide helper methods for things like:
@@ -131,38 +169,7 @@ from browserbase import Browserbase
 client = Browserbase()
 
 session = client.sessions.create(
-    project_id="projectId",
-    browser_settings={
-        "advanced_stealth": True,
-        "block_ads": True,
-        "captcha_image_selector": "captchaImageSelector",
-        "captcha_input_selector": "captchaInputSelector",
-        "context": {
-            "id": "id",
-            "persist": True,
-        },
-        "extension_id": "extensionId",
-        "fingerprint": {
-            "browsers": ["chrome"],
-            "devices": ["desktop"],
-            "http_version": "1",
-            "locales": ["string"],
-            "operating_systems": ["android"],
-            "screen": {
-                "max_height": 0,
-                "max_width": 0,
-                "min_height": 0,
-                "min_width": 0,
-            },
-        },
-        "log_session": True,
-        "record_session": True,
-        "solve_captchas": True,
-        "viewport": {
-            "height": 0,
-            "width": 0,
-        },
-    },
+    browser_settings={},
 )
 print(session.browser_settings)
 ```
@@ -253,7 +260,7 @@ client.with_options(max_retries=5).sessions.create(
 ### Timeouts
 
 By default requests time out after 1 minute. You can configure this with a `timeout` option,
-which accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/#fine-tuning-the-configuration) object:
+which accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration) object:
 
 ```python
 from browserbase import Browserbase
@@ -319,7 +326,7 @@ response = client.sessions.with_raw_response.create(
 print(response.headers.get('X-My-Header'))
 
 session = response.parse()  # get the object that `sessions.create()` would have returned
-print(session.id)
+print(session)
 ```
 
 These methods return an [`APIResponse`](https://github.com/browserbase/sdk-python/tree/main/src/browserbase/_response.py) object.
@@ -445,7 +452,7 @@ print(browserbase.__version__)
 
 ## Requirements
 
-Python 3.8 or higher.
+Python 3.9 or higher.
 
 ## Contributing
 

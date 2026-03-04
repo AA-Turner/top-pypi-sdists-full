@@ -2249,10 +2249,6 @@ class Widget(DOMNode):
     def region(self) -> Region:
         """The region occupied by this widget, relative to the Screen.
 
-        Raises:
-            NoScreen: If there is no screen.
-            errors.NoWidget: If the widget is not on the screen.
-
         Returns:
             Region within screen occupied by widget.
         """

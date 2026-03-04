@@ -40,6 +40,8 @@ class WebGatewayMixin:
 
     def _post_api_gateway_register(self):
         """Post api gateway register."""
+        if not self._require_auth("admin"):
+            return
         body = self._body
         from salmalm.features.nodes import gateway
 
@@ -59,6 +61,8 @@ class WebGatewayMixin:
 
     def _post_api_gateway_heartbeat(self):
         """Post api gateway heartbeat."""
+        if not self._require_auth("admin"):
+            return
         body = self._body
         from salmalm.features.nodes import gateway
 
@@ -85,6 +89,8 @@ class WebGatewayMixin:
 
     def _post_api_gateway_unregister(self):
         """Post api gateway unregister."""
+        if not self._require_auth("admin"):
+            return
         body = self._body
         from salmalm.features.nodes import gateway
 
@@ -179,8 +185,10 @@ async def post_config_telegram(request: _Request, _u=_Depends(_auth)):
     return _JSON(content={"ok": True, "message": "Telegram config saved. Restart required."})
 
 @router.post("/api/gateway/register")
-async def post_gateway_register(request: _Request):
+async def post_gateway_register(request: _Request, _u=_Depends(_auth)):
     from salmalm.features.nodes import gateway
+    if _u.get("role") not in ("admin", "owner"):
+        return _JSON(content={"error": "Admin access required"}, status_code=403)
     body = await request.json()
     node_id = body.get("node_id", "")
     url = body.get("url", "")
@@ -191,14 +199,18 @@ async def post_gateway_register(request: _Request):
     return _JSON(content=result)
 
 @router.post("/api/gateway/heartbeat")
-async def post_gateway_heartbeat(request: _Request):
+async def post_gateway_heartbeat(request: _Request, _u=_Depends(_auth)):
     from salmalm.features.nodes import gateway
+    if _u.get("role") not in ("admin", "owner"):
+        return _JSON(content={"error": "Admin access required"}, status_code=403)
     body = await request.json()
     return _JSON(content=gateway.heartbeat(body.get("node_id", "")))
 
 @router.post("/api/gateway/unregister")
-async def post_gateway_unregister(request: _Request):
+async def post_gateway_unregister(request: _Request, _u=_Depends(_auth)):
     from salmalm.features.nodes import gateway
+    if _u.get("role") not in ("admin", "owner"):
+        return _JSON(content={"error": "Admin access required"}, status_code=403)
     body = await request.json()
     return _JSON(content=gateway.unregister(body.get("node_id", "")))
 

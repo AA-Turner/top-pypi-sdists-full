@@ -41,12 +41,12 @@ try:
 except ImportError:
     from scipy.io.matlab.miobase import get_matfile_version as matfile_version
 
-from .utils import _hdf5todict, _import_h5py, _parse_scipy_mat_dict
+from .utils import _hdf5todict, _import_h5py, _parse_scipy_mat_dict, _whosmat_hdf5
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-__all__ = ['read_mat']
+__all__ = ['read_mat', 'whosmat']
 
 
 def read_mat(
@@ -106,3 +106,38 @@ def read_mat(
         h5py = _import_h5py()
         with h5py.File(filename, 'r') as hdf5_file:
             return _hdf5todict(hdf5_file, variable_names=variable_names, ignore_fields=ignore_fields)
+
+
+def whosmat(
+    filename: str | Path,
+) -> list[tuple[str, tuple[int, ...], str]]:
+    """List variables in a MATLAB file without loading data.
+
+    Works for all MATLAB file versions (v4 through v7.3). For older formats
+    this delegates to :func:`scipy.io.whosmat`; for v7.3 (HDF5) files it
+    inspects the HDF5 metadata directly.
+
+    Parameters
+    ----------
+    filename : str | Path
+        Path to the ``.mat`` file.
+
+    Returns
+    -------
+    list of (name, shape, class) tuples
+        Each tuple contains the variable name, its shape as a tuple of ints,
+        and its MATLAB class as a string (e.g. ``'double'``, ``'char'``,
+        ``'sparse'``).
+    """
+    filepath = Path(filename)
+    if not filepath.exists():
+        raise OSError(f'The file {filename} does not exist.')
+
+    try:
+        with filepath.open('rb') as fid:
+            matfile_version(fid)
+            return scipy.io.whosmat(fid)
+    except NotImplementedError:
+        h5py = _import_h5py()
+        with h5py.File(filepath, 'r') as hdf5_file:
+            return _whosmat_hdf5(hdf5_file)

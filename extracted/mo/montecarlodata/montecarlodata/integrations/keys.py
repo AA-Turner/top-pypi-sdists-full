@@ -26,6 +26,7 @@ class IntegrationKeyScope(Enum):
     SCIM_v2 = "SCIM_v2"
     AzureDevopsWebhook = "azure_devops_webhook"
     MCP = "mcp"
+    Ingestion = "ingestion"
 
     @classmethod
     def values(cls) -> List[str]:

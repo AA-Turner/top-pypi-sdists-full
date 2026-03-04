@@ -559,9 +559,10 @@ def test_linalg_solve(backend, dtype):
     A = gen_rand((4, 4), backend, dtype)
     b = gen_rand((4, 1), backend, dtype)
     x = ar.do("linalg.solve", A, b)
-    assert ar.do(
-        "allclose", ar.to_numpy(A @ x), ar.to_numpy(b), rtol=1e-3, atol=1e-6
-    )
+
+    Ax = ar.to_numpy(A @ x)
+    b = ar.to_numpy(b)
+    np.testing.assert_allclose(Ax, b, rtol=1e-3, atol=1e-6)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -631,6 +632,27 @@ def test_register_function(backend):
     # then check we can wrap the old (previous) function
     ar.register_function(backend, "test_register", wrap_fn, wrap=True)
     assert ar.do("test_register", x) == 2
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_register_function_decorator(backend):
+    x = ar.do("ones", shape=(2, 3), like=backend)
+
+    @ar.register_function(backend, "test_register_decorator")
+    def test_register_decorator(x):
+        return 1
+
+    assert ar.do("test_register_decorator", x) == 1
+
+    @ar.register_function(backend, "test_register_decorator", wrap=True)
+    def wrap_fn(fn):
+        def new_fn(*args, **kwargs):
+            res = fn(*args, **kwargs)
+            return res + 1
+
+        return new_fn
+
+    assert ar.do("test_register_decorator", x) == 2
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -710,6 +732,72 @@ def test_einsum(backend):
         == ar.infer_backend(C4)
         == backend
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_trace(backend):
+    if backend == "sparse":
+        pytest.xfail("sparse doesn't support trace yet")
+
+    x = gen_rand((4, 4), backend)
+    tr = ar.do("trace", x)
+    assert shape(tr) == ()
+    assert ar.infer_backend(tr) == backend
+
+    x = gen_rand((3, 5, 5), backend)
+    tr = ar.do("trace", x, axis1=1, axis2=2)
+    assert shape(tr) == (3,)
+    assert ar.infer_backend(tr) == backend
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moveaxis(backend):
+    x = gen_rand((2, 3, 4), backend)
+    xn = ar.to_numpy(x)
+
+    # single axis, positive and negative index
+    y = ar.do("moveaxis", x, 0, -1)
+    assert shape(y) == (3, 4, 2)
+    assert ar.infer_backend(y) == backend
+    assert ar.do("allclose", ar.to_numpy(y), ar.do("moveaxis", xn, 0, -1))
+
+    y = ar.do("moveaxis", x, 2, 0)
+    assert shape(y) == (4, 2, 3)
+    assert ar.infer_backend(y) == backend
+    assert ar.do("allclose", ar.to_numpy(y), ar.do("moveaxis", xn, 2, 0))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moveaxis_multiple(backend):
+    x = gen_rand((2, 3, 4, 5), backend)
+    xn = ar.to_numpy(x)
+
+    y = ar.do("moveaxis", x, [0, 1], [-1, -2])
+    assert shape(y) == (4, 5, 3, 2)
+    assert ar.infer_backend(y) == backend
+    assert ar.do(
+        "allclose", ar.to_numpy(y), ar.do("moveaxis", xn, [0, 1], [-1, -2])
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_swapaxes(backend):
+    if backend == "sparse":
+        pytest.xfail("sparse doesn't support 'swapaxes'")
+
+    x = gen_rand((2, 3, 4), backend)
+    xn = ar.to_numpy(x)
+
+    y = ar.do("swapaxes", x, 0, 2)
+    assert shape(y) == (4, 3, 2)
+    assert ar.infer_backend(y) == backend
+    assert ar.do("allclose", ar.to_numpy(y), ar.do("swapaxes", xn, 0, 2))
+
+    # negative indices
+    y = ar.do("swapaxes", x, -1, -3)
+    assert shape(y) == (4, 3, 2)
+    assert ar.infer_backend(y) == backend
+    assert ar.do("allclose", ar.to_numpy(y), ar.do("swapaxes", xn, -1, -3))
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

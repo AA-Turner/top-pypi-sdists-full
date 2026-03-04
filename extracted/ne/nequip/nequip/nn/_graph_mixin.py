@@ -1,6 +1,5 @@
 # This file is a part of the `nequip` package. Please see LICENSE and README at the root for information on using it.
-import random
-from typing import Dict, Any, Sequence, Union, Optional
+from typing import Dict, Any, Sequence, Union, Optional, Final
 from collections import OrderedDict
 
 import torch
@@ -16,12 +15,15 @@ class GraphModuleMixin:
     All such classes should call ``_init_irreps`` in their ``__init__`` functions with information on the data fields they expect, require, and produce, as well as their corresponding irreps.
     """
 
+    _is_graph_module_mixin: Final[bool] = True
+    # ^ to identify `GraphModuleMixin` types from `torch.package`d models (see https://pytorch.org/docs/stable/package.html#torch-package-sharp-edges)
+
     def _init_irreps(
         self,
-        irreps_in: Dict[str, Any] = {},
-        my_irreps_in: Dict[str, Any] = {},
-        required_irreps_in: Sequence[str] = [],
-        irreps_out: Dict[str, Any] = {},
+        irreps_in: Optional[Dict[str, Any]] = None,
+        my_irreps_in: Optional[Dict[str, Any]] = None,
+        required_irreps_in: Optional[Sequence[str]] = None,
+        irreps_out: Optional[Dict[str, Any]] = None,
     ):
         """Setup the expected data fields and their irreps for this graph module.
 
@@ -37,8 +39,12 @@ class GraphModuleMixin:
             irreps_out (dict): mapping names of fields that are modified/output by
                 this graph module to their irreps.
         """
-        # Coerce
+        # pattern to handle mutable defaults
         irreps_in = {} if irreps_in is None else irreps_in
+        my_irreps_in = {} if my_irreps_in is None else my_irreps_in
+        required_irreps_in = () if required_irreps_in is None else required_irreps_in
+        irreps_out = {} if irreps_out is None else irreps_out
+
         irreps_in = AtomicDataDict._fix_irreps_dict(irreps_in)
 
         # positions are *always* 1o, and always present
@@ -119,27 +125,6 @@ class GraphModuleMixin:
             Dict[str, str]: Metadata key-value pairs. Can override static config values (e.g., per_edge_type_cutoff) or add new keys.
         """
         return {}
-
-    def _make_tracing_inputs(self, n):
-        # We impliment this to be able to trace graph modules
-        out = []
-        for _ in range(n):
-            batch = random.randint(1, 4)
-            # TODO: handle None case
-            # TODO: do only required inputs
-            # TODO: dummy input if empty?
-            out.append(
-                {
-                    "forward": (
-                        {
-                            k: i.randn(batch, -1)
-                            for k, i in self.irreps_in.items()
-                            if i is not None
-                        },
-                    )
-                }
-            )
-        return out
 
 
 class SequentialGraphNetwork(GraphModuleMixin, torch.nn.Sequential):

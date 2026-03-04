@@ -60,6 +60,7 @@ void export_ensure_omni_thread(py::module_ &m);
 void export_telemetry_helpers(py::module_ &m);
 void export_coverage_helper(py::module_ &m);
 void export_complicated_types(py::module_ &m);
+void export_mem_leak_helper(py::module_ &m);
 
 PYBIND11_MODULE(_tango, m) {
     init_numpy();
@@ -109,4 +110,5 @@ PYBIND11_MODULE(_tango, m) {
     export_ensure_omni_thread(m);
     export_telemetry_helpers(m);
     export_coverage_helper(m);
+    export_mem_leak_helper(m);
 }

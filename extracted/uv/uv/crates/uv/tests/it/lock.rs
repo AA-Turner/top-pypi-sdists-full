@@ -13815,14 +13815,14 @@ fn lock_no_sources_package() -> Result<()> {
     )?;
 
     // Lock with sources disabled only for anyio
-    uv_snapshot!(context.filters(), context.lock().arg("--no-sources-package").arg("anyio"), @r###"
+    uv_snapshot!(context.filters(), context.lock().arg("--no-sources-package").arg("anyio"), @"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
     Resolved 5 packages in [TIME]
-    "###);
+    ");
 
     let lock = context.read("uv.lock");
 
@@ -13922,14 +13922,14 @@ fn lock_no_sources_package_multiple() -> Result<()> {
     )?;
 
     // Lock with sources disabled for two packages
-    uv_snapshot!(context.filters(), context.lock().arg("--no-sources-package").arg("anyio typing-extensions"), @r###"
+    uv_snapshot!(context.filters(), context.lock().arg("--no-sources-package").arg("anyio typing-extensions"), @"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
     Resolved 6 packages in [TIME]
-    "###);
+    ");
 
     let lock = context.read("uv.lock");
 
@@ -14039,14 +14039,14 @@ fn lock_no_sources_with_no_sources_package() -> Result<()> {
 
     // Lock with both --no-sources and --no-sources-package
     // --no-sources should take precedence and disable all sources
-    uv_snapshot!(context.filters(), context.lock().arg("--no-sources").arg("--no-sources-package").arg("iniconfig"), @r###"
+    uv_snapshot!(context.filters(), context.lock().arg("--no-sources").arg("--no-sources-package").arg("iniconfig"), @"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
     Resolved 5 packages in [TIME]
-    "###);
+    ");
 
     let lock = context.read("uv.lock");
 
@@ -14148,14 +14148,14 @@ fn lock_no_sources_package_env_var() -> Result<()> {
     )?;
 
     // Lock with UV_NO_SOURCES_PACKAGE environment variable
-    uv_snapshot!(context.filters(), context.lock().env("UV_NO_SOURCES_PACKAGE", "anyio iniconfig"), @r###"
+    uv_snapshot!(context.filters(), context.lock().env("UV_NO_SOURCES_PACKAGE", "anyio iniconfig"), @"
     success: true
     exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
     Resolved 5 packages in [TIME]
-    "###);
+    ");
 
     let lock = context.read("uv.lock");
 
@@ -18940,6 +18940,7 @@ fn lock_explicit_default_index() -> Result<()> {
       Existing: {Requirement { name: PackageName("iniconfig"), extras: [], groups: [], marker: true, source: Registry { specifier: VersionSpecifiers([VersionSpecifier { operator: Equal, version: "2.0.0" }]), index: Some(IndexMetadata { url: Url(VerbatimUrl { url: DisplaySafeUrl { scheme: "https", cannot_be_a_base: false, username: "", password: None, host: Some(Domain("test.pypi.org")), port: None, path: "/simple", query: None, fragment: None }, given: None }), format: Simple }), conflict: None }, origin: None }}
     DEBUG Solving with installed Python version: 3.12.[X]
     DEBUG Solving with target Python version: >=3.12
+    DEBUG Solving with exclude-newer: global: 2024-03-25T00:00:00Z
     DEBUG Adding direct dependency: project*
     DEBUG Searching for a compatible version of project @ file://[TEMP_DIR]/ (*)
     DEBUG Adding direct dependency: anyio*
@@ -19012,7 +19013,7 @@ fn lock_unnamed_explicit_index() -> Result<()> {
         "#,
     )?;
 
-    uv_snapshot!(context.filters(), context.lock(), @r#"
+    uv_snapshot!(context.filters(), context.lock(), @"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -19031,7 +19032,7 @@ fn lock_unnamed_explicit_index() -> Result<()> {
     8 |         [[tool.uv.index]]
       |         ^^^^^^^^^^^^^^^^^
     An index with `explicit = true` requires a `name`: https://test.pypi.org/simple
-    "#);
+    ");
 
     Ok(())
 }
@@ -19507,7 +19508,7 @@ fn lock_multiple_default_indexes() -> Result<()> {
         "#,
     )?;
 
-    uv_snapshot!(context.filters(), context.lock(), @r###"
+    uv_snapshot!(context.filters(), context.lock(), @"
     success: false
     exit_code: 2
     ----- stdout -----
@@ -19519,7 +19520,7 @@ fn lock_multiple_default_indexes() -> Result<()> {
     8 |         [[tool.uv.index]]
       |         ^^^^^^^^^^^^^^^^^
     found multiple indexes with `default = true`; only one index may be marked as default
-    "###);
+    ");
 
     Ok(())
 }
@@ -32485,6 +32486,43 @@ fn lock_exclude_newer_package() -> Result<()> {
     Ok(())
 }
 
+/// Test that the resolver emits a hint when all versions are excluded by `--exclude-newer`.
+///
+/// See: <https://github.com/astral-sh/uv/issues/18014>
+#[test]
+fn lock_exclude_newer_hint() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context
+        .lock()
+        .env_remove(EnvVars::UV_EXCLUDE_NEWER)
+        .arg("--exclude-newer")
+        .arg("2000-01-01T00:00:00Z"), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because there are no versions of iniconfig and your project depends on iniconfig, we can conclude that your project's requirements are unsatisfiable.
+
+          hint: `iniconfig` was filtered by `exclude-newer` to only include packages uploaded before 2000-01-01T00:00:00Z. Consider using `exclude-newer-package` to override the cutoff for this package.
+    ");
+
+    Ok(())
+}
+
 /// Test that lockfile validation includes explicit indexes from path dependencies.
 /// <https://github.com/astral-sh/uv/issues/11419>
 #[tokio::test]
@@ -32802,6 +32840,66 @@ fn lock_path_dependency_no_index() -> Result<()> {
     ----- stderr -----
     Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
     Resolved 7 packages in [TIME]
+    ");
+
+    Ok(())
+}
+
+/// Lock a project with a local path dependency gated behind a Python version marker, where the
+/// child's `requires-python` is stricter than the root but compatible with the marker.
+///
+/// See: <https://github.com/astral-sh/uv/issues/18199>
+#[test]
+fn lock_path_dependency_marker_gated_requires_python() -> Result<()> {
+    // Use Python 3.9 as the interpreter to reproduce the issue: the installed Python (3.9)
+    // does not satisfy the child's `requires-python = ">=3.12"`, but the child is gated
+    // behind `python_version >= '3.12'`, so it should still resolve.
+    let context = uv_test::test_context!("3.9");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.9"
+        dependencies = ["child; python_version >= '3.12'"]
+
+        [tool.uv.sources]
+        child = { path = "./child" }
+        "#,
+    )?;
+
+    let child = context.temp_dir.child("child");
+    child.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "child"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["iniconfig"]
+        "#,
+    )?;
+
+    // The lock should succeed: the child is only required for Python >= 3.12, so its
+    // `requires-python = ">=3.12"` is compatible with the fork.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Re-lock with `--refresh` should also succeed.
+    uv_snapshot!(context.filters(), context.lock().arg("--refresh"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
     ");
 
     Ok(())

@@ -28,6 +28,7 @@ class SchemaVersionArgs:
                  schema_version_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a SchemaVersion resource.
+
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[_builtins.str] schema_content: Schema content.
         :param pulumi.Input[_builtins.str] schema_name: Schema name parameter.
@@ -135,7 +136,8 @@ class SchemaVersion(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-09-01-preview. In version 2.x of the Azure Native provider, it used API version 2024-09-01-preview.
 
-        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview, 2026-03-01-preview, 2026-04-01, 2026-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -157,7 +159,8 @@ class SchemaVersion(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-09-01-preview. In version 2.x of the Azure Native provider, it used API version 2024-09-01-preview.
 
-        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview, 2026-03-01-preview, 2026-04-01, 2026-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param SchemaVersionArgs args: The arguments to use to populate this resource's properties.
@@ -210,7 +213,7 @@ class SchemaVersion(pulumi.CustomResource):
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
             __props__.__dict__["uuid"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:deviceregistry/v20240901preview:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20250701preview:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20251001:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20251101preview:SchemaVersion")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:deviceregistry/v20240901preview:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20250701preview:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20251001:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20251101preview:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20260301preview:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20260401:SchemaVersion"), pulumi.Alias(type_="azure-native:deviceregistry/v20261101preview:SchemaVersion")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(SchemaVersion, __self__).__init__(
             'azure-native:deviceregistry:SchemaVersion',

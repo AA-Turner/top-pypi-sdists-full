@@ -85,6 +85,9 @@ class BaseRecord(PartialModelMixin, BaseStep):
     annotation_aggregates: Dict[UUID4, AnnotationAggregate] = Field(
         default_factory=dict, description="Annotation aggregate information keyed by template ID"
     )
+    annotation_queue_ids: List[UUID4] = Field(
+        default_factory=list, description="IDs of annotation queues this record is in"
+    )
 
     def to_record_ids_with_metrics(self) -> RecordIdsWithMetrics:
         return RecordIdsWithMetrics(

@@ -265,10 +265,16 @@ def stream_anthropic(
     # Only Anthropic supports our streaming implementation
     if provider != "anthropic":
         # Fallback: non-streaming call, yield as single chunk
-        result = call_llm(messages, model=model, tools=tools, max_tokens=max_tokens, thinking=thinking)
-        if result.get("content"):
-            yield {"type": "text_delta", "text": result["content"]}
-        yield {"type": "message_end", **result}
+        try:
+            from salmalm.core.llm.common import call_llm
+
+            result = call_llm(messages, model=model, tools=tools, max_tokens=max_tokens, thinking=thinking)
+            if result.get("content"):
+                yield {"type": "text_delta", "text": result["content"]}
+            yield {"type": "message_end", **result}
+        except Exception as e:
+            log.error("[STREAM] non-anthropic fallback failed: %s", e, exc_info=True)
+            yield {"type": "error", "error": str(e)[:200]}
         return
 
     api_key = vault.get("anthropic_api_key")

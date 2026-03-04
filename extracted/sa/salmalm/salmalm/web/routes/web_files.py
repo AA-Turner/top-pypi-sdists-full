@@ -10,6 +10,7 @@ from salmalm.core import audit_log
 from salmalm.security.crypto import vault, log
 
 _RE_SESSION_EXPORT = re.compile(r"^/api/sessions/([^/]+)/export")
+_IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".webp"})
 
 
 def _populate_export_zip(zf, inc_sessions, inc_data, inc_vault, export_user, _json, datetime) -> None:
@@ -136,8 +137,10 @@ class WebFilesMixin:
 
     def _post_api_upload(self):
         """Post api upload."""
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
+        _uid_str = str(_u.get("id") or _u.get("uid") or "anon")
         length = self._content_length
         if not vault.is_unlocked:
             self._json({"error": "Vault locked"}, 403)
@@ -174,14 +177,31 @@ class WebFilesMixin:
                 file_data = part.get_payload(decode=True)
                 if not file_data:
                     continue
+                _ext = Path(fname).suffix.lower()
+                if _ext in _IMAGE_EXTENSIONS:
+                    _magic_ok = False
+                    if _ext in (".jpg", ".jpeg"):
+                        _magic_ok = file_data.startswith(b"\xff\xd8\xff")
+                    elif _ext == ".png":
+                        _magic_ok = file_data.startswith(b"\x89PNG\r\n\x1a\n")
+                    elif _ext == ".gif":
+                        _magic_ok = file_data.startswith((b"GIF87a", b"GIF89a"))
+                    elif _ext == ".webp":
+                        _magic_ok = file_data.startswith(b"RIFF") and file_data[8:12] == b"WEBP"
+                    if not _magic_ok:
+                        self._json({"error": f"File content does not match image extension {_ext}"}, 400)
+                        return
                 # Size limit: 50MB
                 if len(file_data) > 50 * 1024 * 1024:
                     self._json({"error": "File too large (max 50MB)"}, 413)
                     return
                 # Save
-                save_dir = WORKSPACE_DIR / "uploads"  # noqa: F405
-                save_dir.mkdir(exist_ok=True)
-                save_path = save_dir / fname
+                save_dir = WORKSPACE_DIR / "uploads" / _uid_str  # noqa: F405
+                save_dir.mkdir(parents=True, exist_ok=True)
+                save_path = (save_dir / fname).resolve()
+                if not str(save_path).startswith(str(save_dir.resolve())):
+                    self._json({"error": "Invalid file path"}, 400)
+                    return
                 save_path.write_bytes(file_data)  # type: ignore[arg-type]
                 size_kb = len(file_data) / 1024
                 is_image = any(
@@ -208,7 +228,10 @@ class WebFilesMixin:
                     )
                 )
                 is_pdf = fname.lower().endswith(".pdf")
-                info = f"[{'🖼️ Image' if is_image else '📎 File'} uploaded: uploads/{fname} ({size_kb:.1f}KB)]"
+                info = (
+                    f"[{'🖼️ Image' if is_image else '📎 File'} uploaded: "
+                    f"uploads/{_uid_str}/{fname} ({size_kb:.1f}KB)]"
+                )
                 if is_pdf:
                     # PDF text extraction (Open WebUI style)
                     try:
@@ -258,7 +281,8 @@ class WebFilesMixin:
 
     def _get_api_sessions_export(self) -> None:
         """Handle GET /api/sessions/ routes."""
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
         import urllib.parse
 
@@ -273,9 +297,10 @@ class WebFilesMixin:
         from salmalm.core import _get_db
 
         conn = _get_db()
+        uid = _u.get("id") or _u.get("uid") or _u.get("username")
         row = conn.execute(
-            "SELECT messages, updated_at FROM session_store WHERE session_id=?",
-            (sid,),
+            "SELECT messages, updated_at FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+            (sid, uid),
         ).fetchone()
         if not row:
             self._json({"error": "Session not found"}, 404)
@@ -460,13 +485,15 @@ class WebFilesMixin:
 
     def _get_uploads(self) -> None:
         """Handle GET /uploads/ routes."""
-        # Serve uploaded files (images, audio) — basename-only to prevent traversal
-        fname = Path(self.path.split("/uploads/", 1)[-1]).name
-        if not fname:
+        _u = self._require_auth("user")
+        if not _u:
+            return
+        rel_path = self.path.split("/uploads/", 1)[-1].lstrip("/")
+        if not rel_path:
             self.send_error(400)
             return
         upload_dir = (WORKSPACE_DIR / "uploads").resolve()  # noqa: F405
-        fpath = (upload_dir / fname).resolve()
+        fpath = (upload_dir / rel_path).resolve()
         if not fpath.is_relative_to(upload_dir) or not fpath.exists():
             self.send_error(404)
             return
@@ -511,7 +538,11 @@ async def get_session_export(request: _Request, session_id: str, format: str = _
     import json as _json
     from salmalm.core import _get_db
     conn = _get_db()
-    row = conn.execute("SELECT messages, updated_at FROM session_store WHERE session_id=?", (session_id,)).fetchone()
+    uid = _u.get("id") or _u.get("uid") or _u.get("username")
+    row = conn.execute(
+        "SELECT messages, updated_at FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        (session_id, uid),
+    ).fetchone()
     if not row:
         return _JSON(content={"error": "Session not found"}, status_code=404)
     msgs = _json.loads(row[0])
@@ -613,14 +644,14 @@ async def get_agent_export(request: _Request, vault_export: int = _Query(0, alia
                              "Content-Length": str(len(data_bytes))})
 
 @router.get("/uploads/{file_path:path}")
-async def get_uploads(file_path: str):
+async def get_uploads(file_path: str, _u=_Depends(_auth)):
     from pathlib import Path
     from salmalm.constants import WORKSPACE_DIR
-    fname = Path(file_path).name
-    if not fname:
+    rel_path = file_path.lstrip("/")
+    if not rel_path:
         return _Response(status_code=400)
     upload_dir = (WORKSPACE_DIR / "uploads").resolve()
-    fpath = (upload_dir / fname).resolve()
+    fpath = (upload_dir / rel_path).resolve()
     if not fpath.is_relative_to(upload_dir) or not fpath.exists():
         return _Response(status_code=404)
     mime_map = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
@@ -656,9 +687,38 @@ async def post_agent_import_preview(request: _Request, _u=_Depends(_auth)):
         zf = zipfile.ZipFile(io.BytesIO(zip_data))
         manifest = _json.loads(zf.read("manifest.json")) if "manifest.json" in zf.namelist() else {}
         preview = {"files": zf.namelist(), "manifest": manifest, "size": len(zip_data)}
-        return _JSON(content={"ok": True, "preview": preview})
+        # Spread preview keys to top level — frontend reads d.manifest, d.size_bytes, etc. directly
+        return _JSON(content=preview)
     except Exception as e:
         return _JSON(content={"ok": False, "error": str(e)}, status_code=400)
+
+
+@router.post("/api/agent/import")
+async def post_agent_import(request: _Request, _u=_Depends(_auth)):
+    """POST /api/agent/import — perform actual agent state import."""
+    from salmalm.utils.migration import AgentImporter
+
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" not in content_type:
+        return _JSON({"error": "Expected multipart/form-data"}, status_code=400)
+    try:
+        form = await request.form()
+        file = form.get("file")
+        if not file:
+            return _JSON({"error": "Missing file field"}, status_code=400)
+
+        data = await file.read()
+        conflict_mode = str(form.get("conflict_mode", "skip"))
+        includes_raw = str(form.get("includes", ""))
+        includes = [s.strip() for s in includes_raw.split(",") if s.strip()] if includes_raw else None
+        uid = (_u.get("id") or _u.get("uid") or _u.get("username")) if _u else None
+        importer = AgentImporter(conflict_mode=conflict_mode, includes=includes, user_id=uid)
+        result = importer.import_agent(data)
+        return _JSON({"ok": True, "result": result.__dict__})
+    except Exception as e:
+        log.exception("[IMPORT] Agent import failed")
+        return _JSON({"error": str(e)}, status_code=500)
+
 
 @router.post("/api/upload")
 async def post_upload(request: _Request, _u=_Depends(_auth)):
@@ -669,6 +729,7 @@ async def post_upload(request: _Request, _u=_Depends(_auth)):
     from salmalm.security.crypto import vault, log
     if not vault.is_unlocked:
         return _JSON(content={"error": "Vault locked"}, status_code=403)
+    _uid_str = str(_u.get("id") or _u.get("uid") or "anon")
     content_type = request.headers.get("content-type", "")
     if "multipart/form-data" not in content_type:
         return _JSON(content={"error": "multipart required"}, status_code=400)
@@ -690,16 +751,32 @@ async def post_upload(request: _Request, _u=_Depends(_auth)):
             file_data = part.get_payload(decode=True)
             if not file_data:
                 continue
+            _ext = Path(fname).suffix.lower()
+            if _ext in _IMAGE_EXTENSIONS:
+                _magic_ok = False
+                if _ext in (".jpg", ".jpeg"):
+                    _magic_ok = file_data.startswith(b"\xff\xd8\xff")
+                elif _ext == ".png":
+                    _magic_ok = file_data.startswith(b"\x89PNG\r\n\x1a\n")
+                elif _ext == ".gif":
+                    _magic_ok = file_data.startswith((b"GIF87a", b"GIF89a"))
+                elif _ext == ".webp":
+                    _magic_ok = file_data.startswith(b"RIFF") and file_data[8:12] == b"WEBP"
+                if not _magic_ok:
+                    return _JSON(content={"error": f"File content does not match image extension {_ext}"}, status_code=400)
             if len(file_data) > 50 * 1024 * 1024:
                 return _JSON(content={"error": "File too large (max 50MB)"}, status_code=413)
-            save_dir = WORKSPACE_DIR / "uploads"
-            save_dir.mkdir(exist_ok=True)
-            (save_dir / fname).write_bytes(file_data)
+            save_dir = WORKSPACE_DIR / "uploads" / _uid_str
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = (save_dir / fname).resolve()
+            if not str(save_path).startswith(str(save_dir.resolve())):
+                return _JSON(content={"error": "Invalid file path"}, status_code=400)
+            save_path.write_bytes(file_data)
             size_kb = len(file_data) / 1024
             is_image = any(fname.lower().endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"))
             is_text = any(fname.lower().endswith(ext) for ext in (".txt", ".md", ".py", ".js", ".json", ".csv", ".log", ".html", ".css", ".sh", ".bat", ".yaml", ".yml", ".xml", ".sql"))
             is_pdf = fname.lower().endswith(".pdf")
-            info = f"[{'🖼️ Image' if is_image else '📎 File'} uploaded: uploads/{fname} ({size_kb:.1f}KB)]"
+            info = f"[{'🖼️ Image' if is_image else '📎 File'} uploaded: uploads/{_uid_str}/{fname} ({size_kb:.1f}KB)]"
             if is_pdf or is_text:
                 try:
                     from salmalm.features.edge_cases import process_uploaded_file

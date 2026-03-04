@@ -29,7 +29,7 @@ async def split_document() -> None:
             },
         ],
         document_input={"type": "file_id", "value": file_id},
-        splitting_strategy={"allow_uncategorized": True},
+        splitting_strategy={"allow_uncategorized": "include"},
     )
 
     print(f"Created split job: {job.id}")

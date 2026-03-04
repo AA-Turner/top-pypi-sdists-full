@@ -4,15 +4,9 @@ import logging
 import os
 import signal
 
+# Note: importing watchdog may fail (it is an optional dependency). Code importing this module should handle that.
 import watchdog.events
 import watchdog.observers.polling
-
-try:
-    import watchdog_gevent
-
-    EVENTED_OBSERVER = watchdog_gevent.Observer
-except ImportError:
-    EVENTED_OBSERVER = watchdog.observers.Observer
 
 
 def setup_file_watcher(path, use_polling=False, include_patterns=None, exclude_patterns=None):
@@ -23,7 +17,7 @@ def setup_file_watcher(path, use_polling=False, include_patterns=None, exclude_p
     if use_polling:
         observer_class = watchdog.observers.polling.PollingObserver
     else:
-        observer_class = EVENTED_OBSERVER
+        observer_class = watchdog.observers.Observer
 
     if include_patterns is None:
         include_patterns = ["*.py"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-instrumentation
-Version: 0.4.2
+Version: 0.4.3
 Summary: Instrumentation and Observability for LlamaIndex
 Project-URL: Homepage, https://llamaindex.ai
 Project-URL: Repository, https://github.com/run-llama/llama_index/tree/main/llama-index-instrumentation

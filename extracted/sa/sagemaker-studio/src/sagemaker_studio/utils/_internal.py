@@ -131,7 +131,7 @@ class InternalUtils:
                 return project_s3_path
 
             raise RuntimeError(
-                f"Encountered an error getting the S3 path for project '{project_name}' in domain '{domain_id}'",
+                f"Encountered an error getting the S3 path for project '{project_id}' in domain '{domain_id}'",
                 e,
             )
 

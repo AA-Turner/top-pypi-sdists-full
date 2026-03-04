@@ -107,7 +107,9 @@ class RAGIndexerMixin:
                 files.append((name, p))
         uploads = WORKSPACE_DIR / "uploads"
         if uploads.exists():
-            for f in uploads.glob("*"):
+            for f in uploads.glob("**/*"):
+                if not f.is_file():
+                    continue
                 if f.suffix.lower() in (
                     ".txt",
                     ".md",
@@ -128,7 +130,7 @@ class RAGIndexerMixin:
                     ".cfg",
                     ".ini",
                 ):
-                    files.append((f"uploads/{f.name}", f))
+                    files.append((f"uploads/{f.relative_to(uploads)}", f))
         skills = WORKSPACE_DIR / "skills"
         if skills.exists():
             for f in skills.glob("**/*.md"):

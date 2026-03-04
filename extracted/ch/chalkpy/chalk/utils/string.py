@@ -4,16 +4,11 @@ import re
 from datetime import timedelta
 from typing import Collection, Iterable, List
 
-_snake_sub_1 = re.compile("(.)([A-Z][a-z]+)")
-_snake_sub_2 = re.compile("__([A-Z])")
-_snake_sub_3 = re.compile("([a-z0-9])([A-Z])")
+from chalk_rs import to_snake_case as _rs_to_snake_case
 
 
 def to_snake_case(name: str):
-    name = _snake_sub_1.sub(r"\1_\2", name)
-    name = _snake_sub_2.sub(r"_\1", name)
-    name = _snake_sub_3.sub(r"\1_\2", name)
-    return name.lower()
+    return _rs_to_snake_case(name)
 
 
 def comma_whitespace_split(value: str):

@@ -90,6 +90,8 @@ __all__ = [
     'FullTextPathArgsDict',
     'FullTextPolicyArgs',
     'FullTextPolicyArgsDict',
+    'GarnetClusterResourcePropertiesArgs',
+    'GarnetClusterResourcePropertiesArgsDict',
     'GraphAPIComputeServiceResourceCreateUpdatePropertiesArgs',
     'GraphAPIComputeServiceResourceCreateUpdatePropertiesArgsDict',
     'GraphResourceArgs',
@@ -182,19 +184,14 @@ __all__ = [
     'VirtualNetworkRuleArgsDict',
 ]
 
-MYPY = False
-
-if not MYPY:
-    class AnalyticalStorageConfigurationArgsDict(TypedDict):
-        """
-        Analytical storage specific properties.
-        """
-        schema_type: NotRequired[pulumi.Input[Union[_builtins.str, 'AnalyticalStorageSchemaType']]]
-        """
-        Describes the types of schema for analytical storage.
-        """
-elif False:
-    AnalyticalStorageConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+class AnalyticalStorageConfigurationArgsDict(TypedDict):
+    """
+    Analytical storage specific properties.
+    """
+    schema_type: NotRequired[pulumi.Input[Union[_builtins.str, 'AnalyticalStorageSchemaType']]]
+    """
+    Describes the types of schema for analytical storage.
+    """
 
 @pulumi.input_type
 class AnalyticalStorageConfigurationArgs:
@@ -202,6 +199,7 @@ class AnalyticalStorageConfigurationArgs:
                  schema_type: Optional[pulumi.Input[Union[_builtins.str, 'AnalyticalStorageSchemaType']]] = None):
         """
         Analytical storage specific properties.
+
         :param pulumi.Input[Union[_builtins.str, 'AnalyticalStorageSchemaType']] schema_type: Describes the types of schema for analytical storage.
         """
         if schema_type is not None:
@@ -220,14 +218,11 @@ class AnalyticalStorageConfigurationArgs:
         pulumi.set(self, "schema_type", value)
 
 
-if not MYPY:
-    class ApiPropertiesArgsDict(TypedDict):
-        server_version: NotRequired[pulumi.Input[Union[_builtins.str, 'ServerVersion']]]
-        """
-        Describes the version of the MongoDB account.
-        """
-elif False:
-    ApiPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class ApiPropertiesArgsDict(TypedDict):
+    server_version: NotRequired[pulumi.Input[Union[_builtins.str, 'ServerVersion']]]
+    """
+    Describes the version of the MongoDB account.
+    """
 
 @pulumi.input_type
 class ApiPropertiesArgs:
@@ -252,42 +247,39 @@ class ApiPropertiesArgs:
         pulumi.set(self, "server_version", value)
 
 
-if not MYPY:
-    class AuthenticationMethodLdapPropertiesArgsDict(TypedDict):
-        """
-        Ldap authentication method properties. This feature is in preview.
-        """
-        connection_timeout_in_ms: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Timeout for connecting to the LDAP server in miliseconds. The default is 5000 ms.
-        """
-        search_base_distinguished_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Distinguished name of the object to start the recursive search of users from.
-        """
-        search_filter_template: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Template to use for searching. Defaults to (cn=%s) where %s will be replaced by the username used to login.
-        """
-        server_certificates: NotRequired[pulumi.Input[Sequence[pulumi.Input['CertificateArgsDict']]]]
-        server_hostname: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Hostname of the LDAP server.
-        """
-        server_port: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Port of the LDAP server.
-        """
-        service_user_distinguished_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Distinguished name of the look up user account, who can look up user details on authentication.
-        """
-        service_user_password: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Password of the look up user.
-        """
-elif False:
-    AuthenticationMethodLdapPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class AuthenticationMethodLdapPropertiesArgsDict(TypedDict):
+    """
+    Ldap authentication method properties. This feature is in preview.
+    """
+    connection_timeout_in_ms: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Timeout for connecting to the LDAP server in miliseconds. The default is 5000 ms.
+    """
+    search_base_distinguished_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Distinguished name of the object to start the recursive search of users from.
+    """
+    search_filter_template: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Template to use for searching. Defaults to (cn=%s) where %s will be replaced by the username used to login.
+    """
+    server_certificates: NotRequired[pulumi.Input[Sequence[pulumi.Input['CertificateArgsDict']]]]
+    server_hostname: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Hostname of the LDAP server.
+    """
+    server_port: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Port of the LDAP server.
+    """
+    service_user_distinguished_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Distinguished name of the look up user account, who can look up user details on authentication.
+    """
+    service_user_password: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Password of the look up user.
+    """
 
 @pulumi.input_type
 class AuthenticationMethodLdapPropertiesArgs:
@@ -302,6 +294,7 @@ class AuthenticationMethodLdapPropertiesArgs:
                  service_user_password: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Ldap authentication method properties. This feature is in preview.
+
         :param pulumi.Input[_builtins.int] connection_timeout_in_ms: Timeout for connecting to the LDAP server in miliseconds. The default is 5000 ms.
         :param pulumi.Input[_builtins.str] search_base_distinguished_name: Distinguished name of the object to start the recursive search of users from.
         :param pulumi.Input[_builtins.str] search_filter_template: Template to use for searching. Defaults to (cn=%s) where %s will be replaced by the username used to login.
@@ -421,14 +414,11 @@ class AuthenticationMethodLdapPropertiesArgs:
         pulumi.set(self, "service_user_password", value)
 
 
-if not MYPY:
-    class AutoscaleSettingsArgsDict(TypedDict):
-        max_throughput: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Represents maximum throughput, the resource can scale up to.
-        """
-elif False:
-    AutoscaleSettingsArgsDict: TypeAlias = Mapping[str, Any]
+class AutoscaleSettingsArgsDict(TypedDict):
+    max_throughput: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Represents maximum throughput, the resource can scale up to.
+    """
 
 @pulumi.input_type
 class AutoscaleSettingsArgs:
@@ -453,25 +443,22 @@ class AutoscaleSettingsArgs:
         pulumi.set(self, "max_throughput", value)
 
 
-if not MYPY:
-    class BackupPolicyMigrationStateArgsDict(TypedDict):
-        """
-        The object representing the state of the migration between the backup policies.
-        """
-        start_time: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Time at which the backup policy migration started (ISO-8601 format).
-        """
-        status: NotRequired[pulumi.Input[Union[_builtins.str, 'BackupPolicyMigrationStatus']]]
-        """
-        Describes the status of migration between backup policy types.
-        """
-        target_type: NotRequired[pulumi.Input[Union[_builtins.str, 'BackupPolicyType']]]
-        """
-        Describes the target backup policy type of the backup policy migration.
-        """
-elif False:
-    BackupPolicyMigrationStateArgsDict: TypeAlias = Mapping[str, Any]
+class BackupPolicyMigrationStateArgsDict(TypedDict):
+    """
+    The object representing the state of the migration between the backup policies.
+    """
+    start_time: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Time at which the backup policy migration started (ISO-8601 format).
+    """
+    status: NotRequired[pulumi.Input[Union[_builtins.str, 'BackupPolicyMigrationStatus']]]
+    """
+    Describes the status of migration between backup policy types.
+    """
+    target_type: NotRequired[pulumi.Input[Union[_builtins.str, 'BackupPolicyType']]]
+    """
+    Describes the target backup policy type of the backup policy migration.
+    """
 
 @pulumi.input_type
 class BackupPolicyMigrationStateArgs:
@@ -481,6 +468,7 @@ class BackupPolicyMigrationStateArgs:
                  target_type: Optional[pulumi.Input[Union[_builtins.str, 'BackupPolicyType']]] = None):
         """
         The object representing the state of the migration between the backup policies.
+
         :param pulumi.Input[_builtins.str] start_time: Time at which the backup policy migration started (ISO-8601 format).
         :param pulumi.Input[Union[_builtins.str, 'BackupPolicyMigrationStatus']] status: Describes the status of migration between backup policy types.
         :param pulumi.Input[Union[_builtins.str, 'BackupPolicyType']] target_type: Describes the target backup policy type of the backup policy migration.
@@ -529,17 +517,14 @@ class BackupPolicyMigrationStateArgs:
         pulumi.set(self, "target_type", value)
 
 
-if not MYPY:
-    class CapabilityArgsDict(TypedDict):
-        """
-        Cosmos DB capability object
-        """
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Name of the Cosmos DB capability. For example, "name": "EnableCassandra". Current values also include "EnableTable" and "EnableGremlin".
-        """
-elif False:
-    CapabilityArgsDict: TypeAlias = Mapping[str, Any]
+class CapabilityArgsDict(TypedDict):
+    """
+    Cosmos DB capability object
+    """
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Name of the Cosmos DB capability. For example, "name": "EnableCassandra". Current values also include "EnableTable" and "EnableGremlin".
+    """
 
 @pulumi.input_type
 class CapabilityArgs:
@@ -547,6 +532,7 @@ class CapabilityArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Cosmos DB capability object
+
         :param pulumi.Input[_builtins.str] name: Name of the Cosmos DB capability. For example, "name": "EnableCassandra". Current values also include "EnableTable" and "EnableGremlin".
         """
         if name is not None:
@@ -565,17 +551,14 @@ class CapabilityArgs:
         pulumi.set(self, "name", value)
 
 
-if not MYPY:
-    class CapacityArgsDict(TypedDict):
-        """
-        The object that represents all properties related to capacity enforcement on an account.
-        """
-        total_throughput_limit: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The total throughput limit imposed on the account. A totalThroughputLimit of 2000 imposes a strict limit of max throughput that can be provisioned on that account to be 2000. A totalThroughputLimit of -1 indicates no limits on provisioning of throughput.
-        """
-elif False:
-    CapacityArgsDict: TypeAlias = Mapping[str, Any]
+class CapacityArgsDict(TypedDict):
+    """
+    The object that represents all properties related to capacity enforcement on an account.
+    """
+    total_throughput_limit: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The total throughput limit imposed on the account. A totalThroughputLimit of 2000 imposes a strict limit of max throughput that can be provisioned on that account to be 2000. A totalThroughputLimit of -1 indicates no limits on provisioning of throughput.
+    """
 
 @pulumi.input_type
 class CapacityArgs:
@@ -583,6 +566,7 @@ class CapacityArgs:
                  total_throughput_limit: Optional[pulumi.Input[_builtins.int]] = None):
         """
         The object that represents all properties related to capacity enforcement on an account.
+
         :param pulumi.Input[_builtins.int] total_throughput_limit: The total throughput limit imposed on the account. A totalThroughputLimit of 2000 imposes a strict limit of max throughput that can be provisioned on that account to be 2000. A totalThroughputLimit of -1 indicates no limits on provisioning of throughput.
         """
         if total_throughput_limit is not None:
@@ -601,26 +585,23 @@ class CapacityArgs:
         pulumi.set(self, "total_throughput_limit", value)
 
 
-if not MYPY:
-    class CassandraErrorArgsDict(TypedDict):
-        additional_error_info: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Additional information about the error.
-        """
-        code: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The code of error that occurred.
-        """
-        message: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The message of the error.
-        """
-        target: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The target resource of the error.
-        """
-elif False:
-    CassandraErrorArgsDict: TypeAlias = Mapping[str, Any]
+class CassandraErrorArgsDict(TypedDict):
+    additional_error_info: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Additional information about the error.
+    """
+    code: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The code of error that occurred.
+    """
+    message: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The message of the error.
+    """
+    target: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The target resource of the error.
+    """
 
 @pulumi.input_type
 class CassandraErrorArgs:
@@ -693,17 +674,14 @@ class CassandraErrorArgs:
         pulumi.set(self, "target", value)
 
 
-if not MYPY:
-    class CassandraKeyspaceResourceArgsDict(TypedDict):
-        """
-        Cosmos DB Cassandra keyspace id object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB Cassandra keyspace
-        """
-elif False:
-    CassandraKeyspaceResourceArgsDict: TypeAlias = Mapping[str, Any]
+class CassandraKeyspaceResourceArgsDict(TypedDict):
+    """
+    Cosmos DB Cassandra keyspace id object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB Cassandra keyspace
+    """
 
 @pulumi.input_type
 class CassandraKeyspaceResourceArgs:
@@ -711,6 +689,7 @@ class CassandraKeyspaceResourceArgs:
                  id: pulumi.Input[_builtins.str]):
         """
         Cosmos DB Cassandra keyspace id object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB Cassandra keyspace
         """
         pulumi.set(__self__, "id", id)
@@ -728,17 +707,14 @@ class CassandraKeyspaceResourceArgs:
         pulumi.set(self, "id", value)
 
 
-if not MYPY:
-    class CassandraPartitionKeyArgsDict(TypedDict):
-        """
-        Cosmos DB Cassandra table partition key
-        """
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Name of the Cosmos DB Cassandra table partition key
-        """
-elif False:
-    CassandraPartitionKeyArgsDict: TypeAlias = Mapping[str, Any]
+class CassandraPartitionKeyArgsDict(TypedDict):
+    """
+    Cosmos DB Cassandra table partition key
+    """
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Name of the Cosmos DB Cassandra table partition key
+    """
 
 @pulumi.input_type
 class CassandraPartitionKeyArgs:
@@ -746,6 +722,7 @@ class CassandraPartitionKeyArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Cosmos DB Cassandra table partition key
+
         :param pulumi.Input[_builtins.str] name: Name of the Cosmos DB Cassandra table partition key
         """
         if name is not None:
@@ -764,25 +741,22 @@ class CassandraPartitionKeyArgs:
         pulumi.set(self, "name", value)
 
 
-if not MYPY:
-    class CassandraSchemaArgsDict(TypedDict):
-        """
-        Cosmos DB Cassandra table schema
-        """
-        cluster_keys: NotRequired[pulumi.Input[Sequence[pulumi.Input['ClusterKeyArgsDict']]]]
-        """
-        List of cluster key.
-        """
-        columns: NotRequired[pulumi.Input[Sequence[pulumi.Input['ColumnArgsDict']]]]
-        """
-        List of Cassandra table columns.
-        """
-        partition_keys: NotRequired[pulumi.Input[Sequence[pulumi.Input['CassandraPartitionKeyArgsDict']]]]
-        """
-        List of partition key.
-        """
-elif False:
-    CassandraSchemaArgsDict: TypeAlias = Mapping[str, Any]
+class CassandraSchemaArgsDict(TypedDict):
+    """
+    Cosmos DB Cassandra table schema
+    """
+    cluster_keys: NotRequired[pulumi.Input[Sequence[pulumi.Input['ClusterKeyArgsDict']]]]
+    """
+    List of cluster key.
+    """
+    columns: NotRequired[pulumi.Input[Sequence[pulumi.Input['ColumnArgsDict']]]]
+    """
+    List of Cassandra table columns.
+    """
+    partition_keys: NotRequired[pulumi.Input[Sequence[pulumi.Input['CassandraPartitionKeyArgsDict']]]]
+    """
+    List of partition key.
+    """
 
 @pulumi.input_type
 class CassandraSchemaArgs:
@@ -792,6 +766,7 @@ class CassandraSchemaArgs:
                  partition_keys: Optional[pulumi.Input[Sequence[pulumi.Input['CassandraPartitionKeyArgs']]]] = None):
         """
         Cosmos DB Cassandra table schema
+
         :param pulumi.Input[Sequence[pulumi.Input['ClusterKeyArgs']]] cluster_keys: List of cluster key.
         :param pulumi.Input[Sequence[pulumi.Input['ColumnArgs']]] columns: List of Cassandra table columns.
         :param pulumi.Input[Sequence[pulumi.Input['CassandraPartitionKeyArgs']]] partition_keys: List of partition key.
@@ -840,29 +815,26 @@ class CassandraSchemaArgs:
         pulumi.set(self, "partition_keys", value)
 
 
-if not MYPY:
-    class CassandraTableResourceArgsDict(TypedDict):
-        """
-        Cosmos DB Cassandra table id object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB Cassandra table
-        """
-        analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Analytical TTL.
-        """
-        default_ttl: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Time to live of the Cosmos DB Cassandra table
-        """
-        schema: NotRequired[pulumi.Input['CassandraSchemaArgsDict']]
-        """
-        Schema of the Cosmos DB Cassandra table
-        """
-elif False:
-    CassandraTableResourceArgsDict: TypeAlias = Mapping[str, Any]
+class CassandraTableResourceArgsDict(TypedDict):
+    """
+    Cosmos DB Cassandra table id object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB Cassandra table
+    """
+    analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Analytical TTL.
+    """
+    default_ttl: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Time to live of the Cosmos DB Cassandra table
+    """
+    schema: NotRequired[pulumi.Input['CassandraSchemaArgsDict']]
+    """
+    Schema of the Cosmos DB Cassandra table
+    """
 
 @pulumi.input_type
 class CassandraTableResourceArgs:
@@ -873,6 +845,7 @@ class CassandraTableResourceArgs:
                  schema: Optional[pulumi.Input['CassandraSchemaArgs']] = None):
         """
         Cosmos DB Cassandra table id object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB Cassandra table
         :param pulumi.Input[_builtins.int] analytical_storage_ttl: Analytical TTL.
         :param pulumi.Input[_builtins.int] default_ttl: Time to live of the Cosmos DB Cassandra table
@@ -935,21 +908,18 @@ class CassandraTableResourceArgs:
         pulumi.set(self, "schema", value)
 
 
-if not MYPY:
-    class CassandraViewResourceArgsDict(TypedDict):
-        """
-        Cosmos DB Cassandra view resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB Cassandra view
-        """
-        view_definition: pulumi.Input[_builtins.str]
-        """
-        View Definition of the Cosmos DB Cassandra view
-        """
-elif False:
-    CassandraViewResourceArgsDict: TypeAlias = Mapping[str, Any]
+class CassandraViewResourceArgsDict(TypedDict):
+    """
+    Cosmos DB Cassandra view resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB Cassandra view
+    """
+    view_definition: pulumi.Input[_builtins.str]
+    """
+    View Definition of the Cosmos DB Cassandra view
+    """
 
 @pulumi.input_type
 class CassandraViewResourceArgs:
@@ -958,6 +928,7 @@ class CassandraViewResourceArgs:
                  view_definition: pulumi.Input[_builtins.str]):
         """
         Cosmos DB Cassandra view resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB Cassandra view
         :param pulumi.Input[_builtins.str] view_definition: View Definition of the Cosmos DB Cassandra view
         """
@@ -989,14 +960,11 @@ class CassandraViewResourceArgs:
         pulumi.set(self, "view_definition", value)
 
 
-if not MYPY:
-    class CertificateArgsDict(TypedDict):
-        pem: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        PEM formatted public key.
-        """
-elif False:
-    CertificateArgsDict: TypeAlias = Mapping[str, Any]
+class CertificateArgsDict(TypedDict):
+    pem: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    PEM formatted public key.
+    """
 
 @pulumi.input_type
 class CertificateArgs:
@@ -1021,29 +989,26 @@ class CertificateArgs:
         pulumi.set(self, "pem", value)
 
 
-if not MYPY:
-    class ClientEncryptionIncludedPathArgsDict(TypedDict):
-        """
-        .
-        """
-        client_encryption_key_id: pulumi.Input[_builtins.str]
-        """
-        The identifier of the Client Encryption Key to be used to encrypt the path.
-        """
-        encryption_algorithm: pulumi.Input[_builtins.str]
-        """
-        The encryption algorithm which will be used. Eg - AEAD_AES_256_CBC_HMAC_SHA256.
-        """
-        encryption_type: pulumi.Input[_builtins.str]
-        """
-        The type of encryption to be performed. Eg - Deterministic, Randomized.
-        """
-        path: pulumi.Input[_builtins.str]
-        """
-        Path that needs to be encrypted.
-        """
-elif False:
-    ClientEncryptionIncludedPathArgsDict: TypeAlias = Mapping[str, Any]
+class ClientEncryptionIncludedPathArgsDict(TypedDict):
+    """
+    .
+    """
+    client_encryption_key_id: pulumi.Input[_builtins.str]
+    """
+    The identifier of the Client Encryption Key to be used to encrypt the path.
+    """
+    encryption_algorithm: pulumi.Input[_builtins.str]
+    """
+    The encryption algorithm which will be used. Eg - AEAD_AES_256_CBC_HMAC_SHA256.
+    """
+    encryption_type: pulumi.Input[_builtins.str]
+    """
+    The type of encryption to be performed. Eg - Deterministic, Randomized.
+    """
+    path: pulumi.Input[_builtins.str]
+    """
+    Path that needs to be encrypted.
+    """
 
 @pulumi.input_type
 class ClientEncryptionIncludedPathArgs:
@@ -1054,6 +1019,7 @@ class ClientEncryptionIncludedPathArgs:
                  path: pulumi.Input[_builtins.str]):
         """
         .
+
         :param pulumi.Input[_builtins.str] client_encryption_key_id: The identifier of the Client Encryption Key to be used to encrypt the path.
         :param pulumi.Input[_builtins.str] encryption_algorithm: The encryption algorithm which will be used. Eg - AEAD_AES_256_CBC_HMAC_SHA256.
         :param pulumi.Input[_builtins.str] encryption_type: The type of encryption to be performed. Eg - Deterministic, Randomized.
@@ -1113,21 +1079,18 @@ class ClientEncryptionIncludedPathArgs:
         pulumi.set(self, "path", value)
 
 
-if not MYPY:
-    class ClientEncryptionPolicyArgsDict(TypedDict):
-        """
-        Cosmos DB client encryption policy.
-        """
-        included_paths: pulumi.Input[Sequence[pulumi.Input['ClientEncryptionIncludedPathArgsDict']]]
-        """
-        Paths of the item that need encryption along with path-specific settings.
-        """
-        policy_format_version: pulumi.Input[_builtins.int]
-        """
-        Version of the client encryption policy definition. Supported versions are 1 and 2. Version 2 supports id and partition key path encryption. 
-        """
-elif False:
-    ClientEncryptionPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class ClientEncryptionPolicyArgsDict(TypedDict):
+    """
+    Cosmos DB client encryption policy.
+    """
+    included_paths: pulumi.Input[Sequence[pulumi.Input['ClientEncryptionIncludedPathArgsDict']]]
+    """
+    Paths of the item that need encryption along with path-specific settings.
+    """
+    policy_format_version: pulumi.Input[_builtins.int]
+    """
+    Version of the client encryption policy definition. Supported versions are 1 and 2. Version 2 supports id and partition key path encryption. 
+    """
 
 @pulumi.input_type
 class ClientEncryptionPolicyArgs:
@@ -1136,6 +1099,7 @@ class ClientEncryptionPolicyArgs:
                  policy_format_version: pulumi.Input[_builtins.int]):
         """
         Cosmos DB client encryption policy.
+
         :param pulumi.Input[Sequence[pulumi.Input['ClientEncryptionIncludedPathArgs']]] included_paths: Paths of the item that need encryption along with path-specific settings.
         :param pulumi.Input[_builtins.int] policy_format_version: Version of the client encryption policy definition. Supported versions are 1 and 2. Version 2 supports id and partition key path encryption. 
         """
@@ -1167,21 +1131,18 @@ class ClientEncryptionPolicyArgs:
         pulumi.set(self, "policy_format_version", value)
 
 
-if not MYPY:
-    class ClusterKeyArgsDict(TypedDict):
-        """
-        Cosmos DB Cassandra table cluster key
-        """
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Name of the Cosmos DB Cassandra table cluster key
-        """
-        order_by: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Order of the Cosmos DB Cassandra table cluster key, only support "Asc" and "Desc"
-        """
-elif False:
-    ClusterKeyArgsDict: TypeAlias = Mapping[str, Any]
+class ClusterKeyArgsDict(TypedDict):
+    """
+    Cosmos DB Cassandra table cluster key
+    """
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Name of the Cosmos DB Cassandra table cluster key
+    """
+    order_by: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Order of the Cosmos DB Cassandra table cluster key, only support "Asc" and "Desc"
+    """
 
 @pulumi.input_type
 class ClusterKeyArgs:
@@ -1190,6 +1151,7 @@ class ClusterKeyArgs:
                  order_by: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Cosmos DB Cassandra table cluster key
+
         :param pulumi.Input[_builtins.str] name: Name of the Cosmos DB Cassandra table cluster key
         :param pulumi.Input[_builtins.str] order_by: Order of the Cosmos DB Cassandra table cluster key, only support "Asc" and "Desc"
         """
@@ -1223,176 +1185,122 @@ class ClusterKeyArgs:
         pulumi.set(self, "order_by", value)
 
 
-if not MYPY:
-    class ClusterResourcePropertiesArgsDict(TypedDict):
-        """
-        Properties of a Garnet cache cluster.
-        """
-        allocation_state: NotRequired[pulumi.Input[Union[_builtins.str, 'AllocationState']]]
-        """
-        Allocation state of the cluster and data center resources. Active implies the virtual machines of the cluster are allocated, deallocated implies virtual machines and resources are deallocated.
-        """
-        authentication_method: NotRequired[pulumi.Input[Union[_builtins.str, 'AuthenticationMethod']]]
-        """
-        Which authentication method Cassandra should use to authenticate clients. 'None' turns off authentication, so should not be used except in emergencies. 'Cassandra' is the default password based authentication. The default is 'Cassandra'.
-        """
-        availability_zone: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the garnet cluster virtual machines.
-        """
-        azure_connection_method: NotRequired[pulumi.Input[Union[_builtins.str, 'AzureConnectionType']]]
-        """
-        How to connect to the azure services needed for running the cluster
-        """
-        cassandra_audit_logging_enabled: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Whether Cassandra audit logging is enabled
-        """
-        cassandra_version: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Which version of Cassandra should this cluster converge to running (e.g., 3.11). When updated, the cluster may take some time to migrate to the new version.
-        """
-        client_certificates: NotRequired[pulumi.Input[Sequence[pulumi.Input['CertificateArgsDict']]]]
-        """
-        List of TLS certificates used to authorize clients connecting to the cluster. All connections are TLS encrypted whether clientCertificates is set or not, but if clientCertificates is set, the managed Cassandra cluster will reject all connections not bearing a TLS client certificate that can be validated from one or more of the public certificates in this property.
-        """
-        cluster_name_override: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        If you need to set the clusterName property in cassandra.yaml to something besides the resource name of the cluster, set the value to use on this property.
-        """
-        cluster_type: NotRequired[pulumi.Input[Union[_builtins.str, 'ClusterType']]]
-        """
-        Type of the cluster. If set to Production, some operations might not be permitted on cluster.
-        """
-        deallocated: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Whether the cluster and associated data centers has been deallocated.
-        """
-        delegated_management_subnet_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
-        """
-        extensions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        Extensions to be added or updated on cluster.
-        """
-        external_gossip_certificates: NotRequired[pulumi.Input[Sequence[pulumi.Input['CertificateArgsDict']]]]
-        """
-        List of TLS certificates used to authorize gossip from unmanaged data centers. The TLS certificates of all nodes in unmanaged data centers must be verifiable using one of the certificates provided in this property.
-        """
-        external_seed_nodes: NotRequired[pulumi.Input[Sequence[pulumi.Input['SeedNodeArgsDict']]]]
-        """
-        List of IP addresses of seed nodes in unmanaged data centers. These will be added to the seed node lists of all managed nodes.
-        """
-        hours_between_backups: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        (Deprecated) Number of hours to wait between taking a backup of the cluster.
-        """
-        initial_cassandra_admin_password: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Initial password for clients connecting as admin to the cluster. Should be changed after cluster creation. Returns null on GET. This field only applies when the authenticationMethod field is 'Cassandra'.
-        """
-        node_count: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Number of nodes
-        """
-        node_sku: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Virtual Machine SKU used for clusters. Default value is Standard_DS14_v2
-        """
-        prometheus_endpoint: NotRequired[pulumi.Input['SeedNodeArgsDict']]
-        """
-        Hostname or IP address where the Prometheus endpoint containing data about the managed Cassandra nodes can be reached.
-        """
-        provision_error: NotRequired[pulumi.Input['CassandraErrorArgsDict']]
-        """
-        Error related to resource provisioning.
-        """
-        provisioning_state: NotRequired[pulumi.Input[Union[_builtins.str, 'ManagedCassandraProvisioningState']]]
-        """
-        The status of the resource at the time the operation was called.
-        """
-        repair_enabled: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Should automatic repairs run on this cluster? If omitted, this is true, and should stay true unless you are running a hybrid cluster where you are already doing your own repairs.
-        """
-        replication_factor: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Number of copies of data maintained by the cluster
-        """
-        restore_from_backup_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        To create an empty cluster, omit this field or set it to null. To restore a backup into a new cluster, set this field to the resource id of the backup.
-        """
-        subnet_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
-        """
-elif False:
-    ClusterResourcePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class ClusterResourcePropertiesArgsDict(TypedDict):
+    """
+    Properties of a managed Cassandra cluster.
+    """
+    authentication_method: NotRequired[pulumi.Input[Union[_builtins.str, 'AuthenticationMethod']]]
+    """
+    Which authentication method Cassandra should use to authenticate clients. 'None' turns off authentication, so should not be used except in emergencies. 'Cassandra' is the default password based authentication. The default is 'Cassandra'.
+    """
+    azure_connection_method: NotRequired[pulumi.Input[Union[_builtins.str, 'AzureConnectionType']]]
+    """
+    How to connect to the azure services needed for running the cluster
+    """
+    cassandra_audit_logging_enabled: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Whether Cassandra audit logging is enabled
+    """
+    cassandra_version: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Which version of Cassandra should this cluster converge to running (e.g., 3.11). When updated, the cluster may take some time to migrate to the new version.
+    """
+    client_certificates: NotRequired[pulumi.Input[Sequence[pulumi.Input['CertificateArgsDict']]]]
+    """
+    List of TLS certificates used to authorize clients connecting to the cluster. All connections are TLS encrypted whether clientCertificates is set or not, but if clientCertificates is set, the managed Cassandra cluster will reject all connections not bearing a TLS client certificate that can be validated from one or more of the public certificates in this property.
+    """
+    cluster_name_override: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    If you need to set the clusterName property in cassandra.yaml to something besides the resource name of the cluster, set the value to use on this property.
+    """
+    deallocated: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Whether the cluster and associated data centers has been deallocated.
+    """
+    delegated_management_subnet_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
+    """
+    external_gossip_certificates: NotRequired[pulumi.Input[Sequence[pulumi.Input['CertificateArgsDict']]]]
+    """
+    List of TLS certificates used to authorize gossip from unmanaged data centers. The TLS certificates of all nodes in unmanaged data centers must be verifiable using one of the certificates provided in this property.
+    """
+    external_seed_nodes: NotRequired[pulumi.Input[Sequence[pulumi.Input['SeedNodeArgsDict']]]]
+    """
+    List of IP addresses of seed nodes in unmanaged data centers. These will be added to the seed node lists of all managed nodes.
+    """
+    hours_between_backups: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    (Deprecated) Number of hours to wait between taking a backup of the cluster.
+    """
+    initial_cassandra_admin_password: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Initial password for clients connecting as admin to the cluster. Should be changed after cluster creation. Returns null on GET. This field only applies when the authenticationMethod field is 'Cassandra'.
+    """
+    prometheus_endpoint: NotRequired[pulumi.Input['SeedNodeArgsDict']]
+    """
+    Hostname or IP address where the Prometheus endpoint containing data about the managed Cassandra nodes can be reached.
+    """
+    provision_error: NotRequired[pulumi.Input['CassandraErrorArgsDict']]
+    """
+    Error related to resource provisioning.
+    """
+    provisioning_state: NotRequired[pulumi.Input[Union[_builtins.str, 'ManagedCassandraProvisioningState']]]
+    """
+    The status of the resource at the time the operation was called.
+    """
+    repair_enabled: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Should automatic repairs run on this cluster? If omitted, this is true, and should stay true unless you are running a hybrid cluster where you are already doing your own repairs.
+    """
+    restore_from_backup_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    To create an empty cluster, omit this field or set it to null. To restore a backup into a new cluster, set this field to the resource id of the backup.
+    """
 
 @pulumi.input_type
 class ClusterResourcePropertiesArgs:
     def __init__(__self__, *,
-                 allocation_state: Optional[pulumi.Input[Union[_builtins.str, 'AllocationState']]] = None,
                  authentication_method: Optional[pulumi.Input[Union[_builtins.str, 'AuthenticationMethod']]] = None,
-                 availability_zone: Optional[pulumi.Input[_builtins.bool]] = None,
                  azure_connection_method: Optional[pulumi.Input[Union[_builtins.str, 'AzureConnectionType']]] = None,
                  cassandra_audit_logging_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  cassandra_version: Optional[pulumi.Input[_builtins.str]] = None,
                  client_certificates: Optional[pulumi.Input[Sequence[pulumi.Input['CertificateArgs']]]] = None,
                  cluster_name_override: Optional[pulumi.Input[_builtins.str]] = None,
-                 cluster_type: Optional[pulumi.Input[Union[_builtins.str, 'ClusterType']]] = None,
                  deallocated: Optional[pulumi.Input[_builtins.bool]] = None,
                  delegated_management_subnet_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 extensions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  external_gossip_certificates: Optional[pulumi.Input[Sequence[pulumi.Input['CertificateArgs']]]] = None,
                  external_seed_nodes: Optional[pulumi.Input[Sequence[pulumi.Input['SeedNodeArgs']]]] = None,
                  hours_between_backups: Optional[pulumi.Input[_builtins.int]] = None,
                  initial_cassandra_admin_password: Optional[pulumi.Input[_builtins.str]] = None,
-                 node_count: Optional[pulumi.Input[_builtins.int]] = None,
-                 node_sku: Optional[pulumi.Input[_builtins.str]] = None,
                  prometheus_endpoint: Optional[pulumi.Input['SeedNodeArgs']] = None,
                  provision_error: Optional[pulumi.Input['CassandraErrorArgs']] = None,
                  provisioning_state: Optional[pulumi.Input[Union[_builtins.str, 'ManagedCassandraProvisioningState']]] = None,
                  repair_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 replication_factor: Optional[pulumi.Input[_builtins.int]] = None,
-                 restore_from_backup_id: Optional[pulumi.Input[_builtins.str]] = None,
-                 subnet_id: Optional[pulumi.Input[_builtins.str]] = None):
+                 restore_from_backup_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        Properties of a Garnet cache cluster.
-        :param pulumi.Input[Union[_builtins.str, 'AllocationState']] allocation_state: Allocation state of the cluster and data center resources. Active implies the virtual machines of the cluster are allocated, deallocated implies virtual machines and resources are deallocated.
+        Properties of a managed Cassandra cluster.
+
         :param pulumi.Input[Union[_builtins.str, 'AuthenticationMethod']] authentication_method: Which authentication method Cassandra should use to authenticate clients. 'None' turns off authentication, so should not be used except in emergencies. 'Cassandra' is the default password based authentication. The default is 'Cassandra'.
-        :param pulumi.Input[_builtins.bool] availability_zone: If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the garnet cluster virtual machines.
         :param pulumi.Input[Union[_builtins.str, 'AzureConnectionType']] azure_connection_method: How to connect to the azure services needed for running the cluster
         :param pulumi.Input[_builtins.bool] cassandra_audit_logging_enabled: Whether Cassandra audit logging is enabled
         :param pulumi.Input[_builtins.str] cassandra_version: Which version of Cassandra should this cluster converge to running (e.g., 3.11). When updated, the cluster may take some time to migrate to the new version.
         :param pulumi.Input[Sequence[pulumi.Input['CertificateArgs']]] client_certificates: List of TLS certificates used to authorize clients connecting to the cluster. All connections are TLS encrypted whether clientCertificates is set or not, but if clientCertificates is set, the managed Cassandra cluster will reject all connections not bearing a TLS client certificate that can be validated from one or more of the public certificates in this property.
         :param pulumi.Input[_builtins.str] cluster_name_override: If you need to set the clusterName property in cassandra.yaml to something besides the resource name of the cluster, set the value to use on this property.
-        :param pulumi.Input[Union[_builtins.str, 'ClusterType']] cluster_type: Type of the cluster. If set to Production, some operations might not be permitted on cluster.
         :param pulumi.Input[_builtins.bool] deallocated: Whether the cluster and associated data centers has been deallocated.
         :param pulumi.Input[_builtins.str] delegated_management_subnet_id: Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] extensions: Extensions to be added or updated on cluster.
         :param pulumi.Input[Sequence[pulumi.Input['CertificateArgs']]] external_gossip_certificates: List of TLS certificates used to authorize gossip from unmanaged data centers. The TLS certificates of all nodes in unmanaged data centers must be verifiable using one of the certificates provided in this property.
         :param pulumi.Input[Sequence[pulumi.Input['SeedNodeArgs']]] external_seed_nodes: List of IP addresses of seed nodes in unmanaged data centers. These will be added to the seed node lists of all managed nodes.
         :param pulumi.Input[_builtins.int] hours_between_backups: (Deprecated) Number of hours to wait between taking a backup of the cluster.
         :param pulumi.Input[_builtins.str] initial_cassandra_admin_password: Initial password for clients connecting as admin to the cluster. Should be changed after cluster creation. Returns null on GET. This field only applies when the authenticationMethod field is 'Cassandra'.
-        :param pulumi.Input[_builtins.int] node_count: Number of nodes
-        :param pulumi.Input[_builtins.str] node_sku: Virtual Machine SKU used for clusters. Default value is Standard_DS14_v2
         :param pulumi.Input['SeedNodeArgs'] prometheus_endpoint: Hostname or IP address where the Prometheus endpoint containing data about the managed Cassandra nodes can be reached.
         :param pulumi.Input['CassandraErrorArgs'] provision_error: Error related to resource provisioning.
         :param pulumi.Input[Union[_builtins.str, 'ManagedCassandraProvisioningState']] provisioning_state: The status of the resource at the time the operation was called.
         :param pulumi.Input[_builtins.bool] repair_enabled: Should automatic repairs run on this cluster? If omitted, this is true, and should stay true unless you are running a hybrid cluster where you are already doing your own repairs.
-        :param pulumi.Input[_builtins.int] replication_factor: Number of copies of data maintained by the cluster
         :param pulumi.Input[_builtins.str] restore_from_backup_id: To create an empty cluster, omit this field or set it to null. To restore a backup into a new cluster, set this field to the resource id of the backup.
-        :param pulumi.Input[_builtins.str] subnet_id: Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
         """
-        if allocation_state is not None:
-            pulumi.set(__self__, "allocation_state", allocation_state)
         if authentication_method is not None:
             pulumi.set(__self__, "authentication_method", authentication_method)
-        if availability_zone is not None:
-            pulumi.set(__self__, "availability_zone", availability_zone)
         if azure_connection_method is not None:
             pulumi.set(__self__, "azure_connection_method", azure_connection_method)
         if cassandra_audit_logging_enabled is not None:
@@ -1403,14 +1311,10 @@ class ClusterResourcePropertiesArgs:
             pulumi.set(__self__, "client_certificates", client_certificates)
         if cluster_name_override is not None:
             pulumi.set(__self__, "cluster_name_override", cluster_name_override)
-        if cluster_type is not None:
-            pulumi.set(__self__, "cluster_type", cluster_type)
         if deallocated is not None:
             pulumi.set(__self__, "deallocated", deallocated)
         if delegated_management_subnet_id is not None:
             pulumi.set(__self__, "delegated_management_subnet_id", delegated_management_subnet_id)
-        if extensions is not None:
-            pulumi.set(__self__, "extensions", extensions)
         if external_gossip_certificates is not None:
             pulumi.set(__self__, "external_gossip_certificates", external_gossip_certificates)
         if external_seed_nodes is not None:
@@ -1419,10 +1323,6 @@ class ClusterResourcePropertiesArgs:
             pulumi.set(__self__, "hours_between_backups", hours_between_backups)
         if initial_cassandra_admin_password is not None:
             pulumi.set(__self__, "initial_cassandra_admin_password", initial_cassandra_admin_password)
-        if node_count is not None:
-            pulumi.set(__self__, "node_count", node_count)
-        if node_sku is not None:
-            pulumi.set(__self__, "node_sku", node_sku)
         if prometheus_endpoint is not None:
             pulumi.set(__self__, "prometheus_endpoint", prometheus_endpoint)
         if provision_error is not None:
@@ -1431,24 +1331,8 @@ class ClusterResourcePropertiesArgs:
             pulumi.set(__self__, "provisioning_state", provisioning_state)
         if repair_enabled is not None:
             pulumi.set(__self__, "repair_enabled", repair_enabled)
-        if replication_factor is not None:
-            pulumi.set(__self__, "replication_factor", replication_factor)
         if restore_from_backup_id is not None:
             pulumi.set(__self__, "restore_from_backup_id", restore_from_backup_id)
-        if subnet_id is not None:
-            pulumi.set(__self__, "subnet_id", subnet_id)
-
-    @_builtins.property
-    @pulumi.getter(name="allocationState")
-    def allocation_state(self) -> Optional[pulumi.Input[Union[_builtins.str, 'AllocationState']]]:
-        """
-        Allocation state of the cluster and data center resources. Active implies the virtual machines of the cluster are allocated, deallocated implies virtual machines and resources are deallocated.
-        """
-        return pulumi.get(self, "allocation_state")
-
-    @allocation_state.setter
-    def allocation_state(self, value: Optional[pulumi.Input[Union[_builtins.str, 'AllocationState']]]):
-        pulumi.set(self, "allocation_state", value)
 
     @_builtins.property
     @pulumi.getter(name="authenticationMethod")
@@ -1461,18 +1345,6 @@ class ClusterResourcePropertiesArgs:
     @authentication_method.setter
     def authentication_method(self, value: Optional[pulumi.Input[Union[_builtins.str, 'AuthenticationMethod']]]):
         pulumi.set(self, "authentication_method", value)
-
-    @_builtins.property
-    @pulumi.getter(name="availabilityZone")
-    def availability_zone(self) -> Optional[pulumi.Input[_builtins.bool]]:
-        """
-        If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the garnet cluster virtual machines.
-        """
-        return pulumi.get(self, "availability_zone")
-
-    @availability_zone.setter
-    def availability_zone(self, value: Optional[pulumi.Input[_builtins.bool]]):
-        pulumi.set(self, "availability_zone", value)
 
     @_builtins.property
     @pulumi.getter(name="azureConnectionMethod")
@@ -1535,18 +1407,6 @@ class ClusterResourcePropertiesArgs:
         pulumi.set(self, "cluster_name_override", value)
 
     @_builtins.property
-    @pulumi.getter(name="clusterType")
-    def cluster_type(self) -> Optional[pulumi.Input[Union[_builtins.str, 'ClusterType']]]:
-        """
-        Type of the cluster. If set to Production, some operations might not be permitted on cluster.
-        """
-        return pulumi.get(self, "cluster_type")
-
-    @cluster_type.setter
-    def cluster_type(self, value: Optional[pulumi.Input[Union[_builtins.str, 'ClusterType']]]):
-        pulumi.set(self, "cluster_type", value)
-
-    @_builtins.property
     @pulumi.getter
     def deallocated(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -1569,18 +1429,6 @@ class ClusterResourcePropertiesArgs:
     @delegated_management_subnet_id.setter
     def delegated_management_subnet_id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "delegated_management_subnet_id", value)
-
-    @_builtins.property
-    @pulumi.getter
-    def extensions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
-        """
-        Extensions to be added or updated on cluster.
-        """
-        return pulumi.get(self, "extensions")
-
-    @extensions.setter
-    def extensions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
-        pulumi.set(self, "extensions", value)
 
     @_builtins.property
     @pulumi.getter(name="externalGossipCertificates")
@@ -1631,30 +1479,6 @@ class ClusterResourcePropertiesArgs:
         pulumi.set(self, "initial_cassandra_admin_password", value)
 
     @_builtins.property
-    @pulumi.getter(name="nodeCount")
-    def node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
-        """
-        Number of nodes
-        """
-        return pulumi.get(self, "node_count")
-
-    @node_count.setter
-    def node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
-        pulumi.set(self, "node_count", value)
-
-    @_builtins.property
-    @pulumi.getter(name="nodeSku")
-    def node_sku(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        Virtual Machine SKU used for clusters. Default value is Standard_DS14_v2
-        """
-        return pulumi.get(self, "node_sku")
-
-    @node_sku.setter
-    def node_sku(self, value: Optional[pulumi.Input[_builtins.str]]):
-        pulumi.set(self, "node_sku", value)
-
-    @_builtins.property
     @pulumi.getter(name="prometheusEndpoint")
     def prometheus_endpoint(self) -> Optional[pulumi.Input['SeedNodeArgs']]:
         """
@@ -1703,18 +1527,6 @@ class ClusterResourcePropertiesArgs:
         pulumi.set(self, "repair_enabled", value)
 
     @_builtins.property
-    @pulumi.getter(name="replicationFactor")
-    def replication_factor(self) -> Optional[pulumi.Input[_builtins.int]]:
-        """
-        Number of copies of data maintained by the cluster
-        """
-        return pulumi.get(self, "replication_factor")
-
-    @replication_factor.setter
-    def replication_factor(self, value: Optional[pulumi.Input[_builtins.int]]):
-        pulumi.set(self, "replication_factor", value)
-
-    @_builtins.property
     @pulumi.getter(name="restoreFromBackupId")
     def restore_from_backup_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1726,34 +1538,19 @@ class ClusterResourcePropertiesArgs:
     def restore_from_backup_id(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "restore_from_backup_id", value)
 
-    @_builtins.property
-    @pulumi.getter(name="subnetId")
-    def subnet_id(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
-        """
-        return pulumi.get(self, "subnet_id")
 
-    @subnet_id.setter
-    def subnet_id(self, value: Optional[pulumi.Input[_builtins.str]]):
-        pulumi.set(self, "subnet_id", value)
-
-
-if not MYPY:
-    class ColumnArgsDict(TypedDict):
-        """
-        Cosmos DB Cassandra table column
-        """
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Name of the Cosmos DB Cassandra table column
-        """
-        type: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Type of the Cosmos DB Cassandra table column
-        """
-elif False:
-    ColumnArgsDict: TypeAlias = Mapping[str, Any]
+class ColumnArgsDict(TypedDict):
+    """
+    Cosmos DB Cassandra table column
+    """
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Name of the Cosmos DB Cassandra table column
+    """
+    type: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Type of the Cosmos DB Cassandra table column
+    """
 
 @pulumi.input_type
 class ColumnArgs:
@@ -1762,6 +1559,7 @@ class ColumnArgs:
                  type: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Cosmos DB Cassandra table column
+
         :param pulumi.Input[_builtins.str] name: Name of the Cosmos DB Cassandra table column
         :param pulumi.Input[_builtins.str] type: Type of the Cosmos DB Cassandra table column
         """
@@ -1795,18 +1593,15 @@ class ColumnArgs:
         pulumi.set(self, "type", value)
 
 
-if not MYPY:
-    class CompositePathArgsDict(TypedDict):
-        order: NotRequired[pulumi.Input[Union[_builtins.str, 'CompositePathSortOrder']]]
-        """
-        Sort order for composite paths.
-        """
-        path: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
-        """
-elif False:
-    CompositePathArgsDict: TypeAlias = Mapping[str, Any]
+class CompositePathArgsDict(TypedDict):
+    order: NotRequired[pulumi.Input[Union[_builtins.str, 'CompositePathSortOrder']]]
+    """
+    Sort order for composite paths.
+    """
+    path: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
+    """
 
 @pulumi.input_type
 class CompositePathArgs:
@@ -1847,21 +1642,18 @@ class CompositePathArgs:
         pulumi.set(self, "path", value)
 
 
-if not MYPY:
-    class ComputedPropertyArgsDict(TypedDict):
-        """
-        The definition of a computed property
-        """
-        name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of a computed property, for example - "cp_lowerName"
-        """
-        query: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The query that evaluates the value for computed property, for example - "SELECT VALUE LOWER(c.name) FROM c"
-        """
-elif False:
-    ComputedPropertyArgsDict: TypeAlias = Mapping[str, Any]
+class ComputedPropertyArgsDict(TypedDict):
+    """
+    The definition of a computed property
+    """
+    name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of a computed property, for example - "cp_lowerName"
+    """
+    query: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The query that evaluates the value for computed property, for example - "SELECT VALUE LOWER(c.name) FROM c"
+    """
 
 @pulumi.input_type
 class ComputedPropertyArgs:
@@ -1870,6 +1662,7 @@ class ComputedPropertyArgs:
                  query: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The definition of a computed property
+
         :param pulumi.Input[_builtins.str] name: The name of a computed property, for example - "cp_lowerName"
         :param pulumi.Input[_builtins.str] query: The query that evaluates the value for computed property, for example - "SELECT VALUE LOWER(c.name) FROM c"
         """
@@ -1903,25 +1696,22 @@ class ComputedPropertyArgs:
         pulumi.set(self, "query", value)
 
 
-if not MYPY:
-    class ConflictResolutionPolicyArgsDict(TypedDict):
-        """
-        The conflict resolution policy for the container.
-        """
-        conflict_resolution_path: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The conflict resolution path in the case of LastWriterWins mode.
-        """
-        conflict_resolution_procedure: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The procedure to resolve conflicts in the case of custom mode.
-        """
-        mode: NotRequired[pulumi.Input[Union[_builtins.str, 'ConflictResolutionMode']]]
-        """
-        Indicates the conflict resolution mode.
-        """
-elif False:
-    ConflictResolutionPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class ConflictResolutionPolicyArgsDict(TypedDict):
+    """
+    The conflict resolution policy for the container.
+    """
+    conflict_resolution_path: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The conflict resolution path in the case of LastWriterWins mode.
+    """
+    conflict_resolution_procedure: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The procedure to resolve conflicts in the case of custom mode.
+    """
+    mode: NotRequired[pulumi.Input[Union[_builtins.str, 'ConflictResolutionMode']]]
+    """
+    Indicates the conflict resolution mode.
+    """
 
 @pulumi.input_type
 class ConflictResolutionPolicyArgs:
@@ -1931,6 +1721,7 @@ class ConflictResolutionPolicyArgs:
                  mode: Optional[pulumi.Input[Union[_builtins.str, 'ConflictResolutionMode']]] = None):
         """
         The conflict resolution policy for the container.
+
         :param pulumi.Input[_builtins.str] conflict_resolution_path: The conflict resolution path in the case of LastWriterWins mode.
         :param pulumi.Input[_builtins.str] conflict_resolution_procedure: The procedure to resolve conflicts in the case of custom mode.
         :param pulumi.Input[Union[_builtins.str, 'ConflictResolutionMode']] mode: Indicates the conflict resolution mode.
@@ -1981,25 +1772,22 @@ class ConflictResolutionPolicyArgs:
         pulumi.set(self, "mode", value)
 
 
-if not MYPY:
-    class ConsistencyPolicyArgsDict(TypedDict):
-        """
-        The consistency policy for the Cosmos DB database account.
-        """
-        default_consistency_level: pulumi.Input['DefaultConsistencyLevel']
-        """
-        The default consistency level and configuration settings of the Cosmos DB account.
-        """
-        max_interval_in_seconds: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        When used with the Bounded Staleness consistency level, this value represents the time amount of staleness (in seconds) tolerated. Accepted range for this value is 5 - 86400. Required when defaultConsistencyPolicy is set to 'BoundedStaleness'.
-        """
-        max_staleness_prefix: NotRequired[pulumi.Input[_builtins.float]]
-        """
-        When used with the Bounded Staleness consistency level, this value represents the number of stale requests tolerated. Accepted range for this value is 1 – 2,147,483,647. Required when defaultConsistencyPolicy is set to 'BoundedStaleness'.
-        """
-elif False:
-    ConsistencyPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class ConsistencyPolicyArgsDict(TypedDict):
+    """
+    The consistency policy for the Cosmos DB database account.
+    """
+    default_consistency_level: pulumi.Input['DefaultConsistencyLevel']
+    """
+    The default consistency level and configuration settings of the Cosmos DB account.
+    """
+    max_interval_in_seconds: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    When used with the Bounded Staleness consistency level, this value represents the time amount of staleness (in seconds) tolerated. Accepted range for this value is 5 - 86400. Required when defaultConsistencyPolicy is set to 'BoundedStaleness'.
+    """
+    max_staleness_prefix: NotRequired[pulumi.Input[_builtins.float]]
+    """
+    When used with the Bounded Staleness consistency level, this value represents the number of stale requests tolerated. Accepted range for this value is 1 – 2,147,483,647. Required when defaultConsistencyPolicy is set to 'BoundedStaleness'.
+    """
 
 @pulumi.input_type
 class ConsistencyPolicyArgs:
@@ -2009,6 +1797,7 @@ class ConsistencyPolicyArgs:
                  max_staleness_prefix: Optional[pulumi.Input[_builtins.float]] = None):
         """
         The consistency policy for the Cosmos DB database account.
+
         :param pulumi.Input['DefaultConsistencyLevel'] default_consistency_level: The default consistency level and configuration settings of the Cosmos DB account.
         :param pulumi.Input[_builtins.int] max_interval_in_seconds: When used with the Bounded Staleness consistency level, this value represents the time amount of staleness (in seconds) tolerated. Accepted range for this value is 5 - 86400. Required when defaultConsistencyPolicy is set to 'BoundedStaleness'.
         :param pulumi.Input[_builtins.float] max_staleness_prefix: When used with the Bounded Staleness consistency level, this value represents the number of stale requests tolerated. Accepted range for this value is 1 – 2,147,483,647. Required when defaultConsistencyPolicy is set to 'BoundedStaleness'.
@@ -2056,25 +1845,22 @@ class ConsistencyPolicyArgs:
         pulumi.set(self, "max_staleness_prefix", value)
 
 
-if not MYPY:
-    class ContainerPartitionKeyArgsDict(TypedDict):
-        """
-        The configuration of the partition key to be used for partitioning data into multiple partitions
-        """
-        kind: NotRequired[pulumi.Input[Union[_builtins.str, 'PartitionKind']]]
-        """
-        Indicates the kind of algorithm used for partitioning. For MultiHash, multiple partition keys (upto three maximum) are supported for container create
-        """
-        paths: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        List of paths using which data within the container can be partitioned
-        """
-        version: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Indicates the version of the partition key definition
-        """
-elif False:
-    ContainerPartitionKeyArgsDict: TypeAlias = Mapping[str, Any]
+class ContainerPartitionKeyArgsDict(TypedDict):
+    """
+    The configuration of the partition key to be used for partitioning data into multiple partitions
+    """
+    kind: NotRequired[pulumi.Input[Union[_builtins.str, 'PartitionKind']]]
+    """
+    Indicates the kind of algorithm used for partitioning. For MultiHash, multiple partition keys (upto three maximum) are supported for container create
+    """
+    paths: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    List of paths using which data within the container can be partitioned
+    """
+    version: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Indicates the version of the partition key definition
+    """
 
 @pulumi.input_type
 class ContainerPartitionKeyArgs:
@@ -2084,6 +1870,7 @@ class ContainerPartitionKeyArgs:
                  version: Optional[pulumi.Input[_builtins.int]] = None):
         """
         The configuration of the partition key to be used for partitioning data into multiple partitions
+
         :param pulumi.Input[Union[_builtins.str, 'PartitionKind']] kind: Indicates the kind of algorithm used for partitioning. For MultiHash, multiple partition keys (upto three maximum) are supported for container create
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] paths: List of paths using which data within the container can be partitioned
         :param pulumi.Input[_builtins.int] version: Indicates the version of the partition key definition
@@ -2134,26 +1921,23 @@ class ContainerPartitionKeyArgs:
         pulumi.set(self, "version", value)
 
 
-if not MYPY:
-    class ContinuousModeBackupPolicyArgsDict(TypedDict):
-        """
-        The object representing continuous mode backup policy.
-        """
-        type: pulumi.Input[_builtins.str]
-        """
-        Describes the mode of backups.
-        Expected value is 'Continuous'.
-        """
-        continuous_mode_properties: NotRequired[pulumi.Input['ContinuousModePropertiesArgsDict']]
-        """
-        Configuration values for continuous mode backup
-        """
-        migration_state: NotRequired[pulumi.Input['BackupPolicyMigrationStateArgsDict']]
-        """
-        The object representing the state of the migration between the backup policies.
-        """
-elif False:
-    ContinuousModeBackupPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class ContinuousModeBackupPolicyArgsDict(TypedDict):
+    """
+    The object representing continuous mode backup policy.
+    """
+    type: pulumi.Input[_builtins.str]
+    """
+    Describes the mode of backups.
+    Expected value is 'Continuous'.
+    """
+    continuous_mode_properties: NotRequired[pulumi.Input['ContinuousModePropertiesArgsDict']]
+    """
+    Configuration values for continuous mode backup
+    """
+    migration_state: NotRequired[pulumi.Input['BackupPolicyMigrationStateArgsDict']]
+    """
+    The object representing the state of the migration between the backup policies.
+    """
 
 @pulumi.input_type
 class ContinuousModeBackupPolicyArgs:
@@ -2163,6 +1947,7 @@ class ContinuousModeBackupPolicyArgs:
                  migration_state: Optional[pulumi.Input['BackupPolicyMigrationStateArgs']] = None):
         """
         The object representing continuous mode backup policy.
+
         :param pulumi.Input[_builtins.str] type: Describes the mode of backups.
                Expected value is 'Continuous'.
         :param pulumi.Input['ContinuousModePropertiesArgs'] continuous_mode_properties: Configuration values for continuous mode backup
@@ -2212,17 +1997,14 @@ class ContinuousModeBackupPolicyArgs:
         pulumi.set(self, "migration_state", value)
 
 
-if not MYPY:
-    class ContinuousModePropertiesArgsDict(TypedDict):
-        """
-        Configuration values for periodic mode backup
-        """
-        tier: NotRequired[pulumi.Input[Union[_builtins.str, 'ContinuousTier']]]
-        """
-        Enum to indicate type of Continuous backup mode
-        """
-elif False:
-    ContinuousModePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class ContinuousModePropertiesArgsDict(TypedDict):
+    """
+    Configuration values for periodic mode backup
+    """
+    tier: NotRequired[pulumi.Input[Union[_builtins.str, 'ContinuousTier']]]
+    """
+    Enum to indicate type of Continuous backup mode
+    """
 
 @pulumi.input_type
 class ContinuousModePropertiesArgs:
@@ -2230,6 +2012,7 @@ class ContinuousModePropertiesArgs:
                  tier: Optional[pulumi.Input[Union[_builtins.str, 'ContinuousTier']]] = None):
         """
         Configuration values for periodic mode backup
+
         :param pulumi.Input[Union[_builtins.str, 'ContinuousTier']] tier: Enum to indicate type of Continuous backup mode
         """
         if tier is not None:
@@ -2248,33 +2031,30 @@ class ContinuousModePropertiesArgs:
         pulumi.set(self, "tier", value)
 
 
-if not MYPY:
-    class CorsPolicyArgsDict(TypedDict):
-        """
-        The CORS policy for the Cosmos DB database account.
-        """
-        allowed_origins: pulumi.Input[_builtins.str]
-        """
-        The origin domains that are permitted to make a request against the service via CORS.
-        """
-        allowed_headers: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The request headers that the origin domain may specify on the CORS request.
-        """
-        allowed_methods: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The methods (HTTP request verbs) that the origin domain may use for a CORS request.
-        """
-        exposed_headers: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The response headers that may be sent in the response to the CORS request and exposed by the browser to the request issuer.
-        """
-        max_age_in_seconds: NotRequired[pulumi.Input[_builtins.float]]
-        """
-        The maximum amount time that a browser should cache the preflight OPTIONS request.
-        """
-elif False:
-    CorsPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class CorsPolicyArgsDict(TypedDict):
+    """
+    The CORS policy for the Cosmos DB database account.
+    """
+    allowed_origins: pulumi.Input[_builtins.str]
+    """
+    The origin domains that are permitted to make a request against the service via CORS.
+    """
+    allowed_headers: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The request headers that the origin domain may specify on the CORS request.
+    """
+    allowed_methods: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The methods (HTTP request verbs) that the origin domain may use for a CORS request.
+    """
+    exposed_headers: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The response headers that may be sent in the response to the CORS request and exposed by the browser to the request issuer.
+    """
+    max_age_in_seconds: NotRequired[pulumi.Input[_builtins.float]]
+    """
+    The maximum amount time that a browser should cache the preflight OPTIONS request.
+    """
 
 @pulumi.input_type
 class CorsPolicyArgs:
@@ -2286,6 +2066,7 @@ class CorsPolicyArgs:
                  max_age_in_seconds: Optional[pulumi.Input[_builtins.float]] = None):
         """
         The CORS policy for the Cosmos DB database account.
+
         :param pulumi.Input[_builtins.str] allowed_origins: The origin domains that are permitted to make a request against the service via CORS.
         :param pulumi.Input[_builtins.str] allowed_headers: The request headers that the origin domain may specify on the CORS request.
         :param pulumi.Input[_builtins.str] allowed_methods: The methods (HTTP request verbs) that the origin domain may use for a CORS request.
@@ -2363,21 +2144,18 @@ class CorsPolicyArgs:
         pulumi.set(self, "max_age_in_seconds", value)
 
 
-if not MYPY:
-    class CreateUpdateOptionsArgsDict(TypedDict):
-        """
-        CreateUpdateOptions are a list of key-value pairs that describe the resource. Supported keys are "If-Match", "If-None-Match", "Session-Token" and "Throughput"
-        """
-        autoscale_settings: NotRequired[pulumi.Input['AutoscaleSettingsArgsDict']]
-        """
-        Specifies the Autoscale settings. Note: Either throughput or autoscaleSettings is required, but not both.
-        """
-        throughput: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Request Units per second. For example, "throughput": 10000.
-        """
-elif False:
-    CreateUpdateOptionsArgsDict: TypeAlias = Mapping[str, Any]
+class CreateUpdateOptionsArgsDict(TypedDict):
+    """
+    CreateUpdateOptions are a list of key-value pairs that describe the resource. Supported keys are "If-Match", "If-None-Match", "Session-Token" and "Throughput"
+    """
+    autoscale_settings: NotRequired[pulumi.Input['AutoscaleSettingsArgsDict']]
+    """
+    Specifies the Autoscale settings. Note: Either throughput or autoscaleSettings is required, but not both.
+    """
+    throughput: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Request Units per second. For example, "throughput": 10000.
+    """
 
 @pulumi.input_type
 class CreateUpdateOptionsArgs:
@@ -2386,6 +2164,7 @@ class CreateUpdateOptionsArgs:
                  throughput: Optional[pulumi.Input[_builtins.int]] = None):
         """
         CreateUpdateOptions are a list of key-value pairs that describe the resource. Supported keys are "If-Match", "If-None-Match", "Session-Token" and "Throughput"
+
         :param pulumi.Input['AutoscaleSettingsArgs'] autoscale_settings: Specifies the Autoscale settings. Note: Either throughput or autoscaleSettings is required, but not both.
         :param pulumi.Input[_builtins.int] throughput: Request Units per second. For example, "throughput": 10000.
         """
@@ -2419,73 +2198,70 @@ class CreateUpdateOptionsArgs:
         pulumi.set(self, "throughput", value)
 
 
-if not MYPY:
-    class DataCenterResourcePropertiesArgsDict(TypedDict):
-        """
-        Properties of a managed Cassandra data center.
-        """
-        authentication_method_ldap_properties: NotRequired[pulumi.Input['AuthenticationMethodLdapPropertiesArgsDict']]
-        """
-        Ldap authentication method properties. This feature is in preview.
-        """
-        availability_zone: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the cassandra data center virtual machines.
-        """
-        backup_storage_customer_key_uri: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Indicates the Key Uri of the customer key to use for encryption of the backup storage account.
-        """
-        base64_encoded_cassandra_yaml_fragment: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        A fragment of a cassandra.yaml configuration file to be included in the cassandra.yaml for all nodes in this data center. The fragment should be Base64 encoded, and only a subset of keys are allowed.
-        """
-        data_center_location: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The region this data center should be created in.
-        """
-        deallocated: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Whether the data center has been deallocated.
-        """
-        delegated_subnet_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Resource id of a subnet the nodes in this data center should have their network interfaces connected to. The subnet must be in the same region specified in 'dataCenterLocation' and must be able to route to the subnet specified in the cluster's 'delegatedManagementSubnetId' property. This resource id will be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'.
-        """
-        disk_capacity: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Number of disks attached to each node. Default is 4.
-        """
-        disk_sku: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Disk SKU used for data centers. Default value is P30.
-        """
-        managed_disk_customer_key_uri: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Key uri to use for encryption of managed disks. Ensure the system assigned identity of the cluster has been assigned appropriate permissions(key get/wrap/unwrap permissions) on the key.
-        """
-        node_count: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The number of nodes the data center should have. This is the desired number. After it is set, it may take some time for the data center to be scaled to match. To monitor the number of nodes and their status, use the fetchNodeStatus method on the cluster.
-        """
-        private_endpoint_ip_address: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Ip of the VPN Endpoint for this data center.
-        """
-        provision_error: NotRequired[pulumi.Input['CassandraErrorArgsDict']]
-        """
-        Error related to resource provisioning.
-        """
-        provisioning_state: NotRequired[pulumi.Input[Union[_builtins.str, 'ManagedCassandraProvisioningState']]]
-        """
-        The status of the resource at the time the operation was called.
-        """
-        sku: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Virtual Machine SKU used for data centers. Default value is Standard_DS14_v2
-        """
-elif False:
-    DataCenterResourcePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class DataCenterResourcePropertiesArgsDict(TypedDict):
+    """
+    Properties of a managed Cassandra data center.
+    """
+    authentication_method_ldap_properties: NotRequired[pulumi.Input['AuthenticationMethodLdapPropertiesArgsDict']]
+    """
+    Ldap authentication method properties. This feature is in preview.
+    """
+    availability_zone: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the cassandra data center virtual machines.
+    """
+    backup_storage_customer_key_uri: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Indicates the Key Uri of the customer key to use for encryption of the backup storage account.
+    """
+    base64_encoded_cassandra_yaml_fragment: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A fragment of a cassandra.yaml configuration file to be included in the cassandra.yaml for all nodes in this data center. The fragment should be Base64 encoded, and only a subset of keys are allowed.
+    """
+    data_center_location: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The region this data center should be created in.
+    """
+    deallocated: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Whether the data center has been deallocated.
+    """
+    delegated_subnet_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Resource id of a subnet the nodes in this data center should have their network interfaces connected to. The subnet must be in the same region specified in 'dataCenterLocation' and must be able to route to the subnet specified in the cluster's 'delegatedManagementSubnetId' property. This resource id will be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'.
+    """
+    disk_capacity: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Number of disks attached to each node. Default is 4.
+    """
+    disk_sku: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Disk SKU used for data centers. Default value is P30.
+    """
+    managed_disk_customer_key_uri: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Key uri to use for encryption of managed disks. Ensure the system assigned identity of the cluster has been assigned appropriate permissions(key get/wrap/unwrap permissions) on the key.
+    """
+    node_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The number of nodes the data center should have. This is the desired number. After it is set, it may take some time for the data center to be scaled to match. To monitor the number of nodes and their status, use the fetchNodeStatus method on the cluster.
+    """
+    private_endpoint_ip_address: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Ip of the VPN Endpoint for this data center.
+    """
+    provision_error: NotRequired[pulumi.Input['CassandraErrorArgsDict']]
+    """
+    Error related to resource provisioning.
+    """
+    provisioning_state: NotRequired[pulumi.Input[Union[_builtins.str, 'ManagedCassandraProvisioningState']]]
+    """
+    The status of the resource at the time the operation was called.
+    """
+    sku: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Virtual Machine SKU used for data centers. Default value is Standard_DS14_v2
+    """
 
 @pulumi.input_type
 class DataCenterResourcePropertiesArgs:
@@ -2507,6 +2283,7 @@ class DataCenterResourcePropertiesArgs:
                  sku: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Properties of a managed Cassandra data center.
+
         :param pulumi.Input['AuthenticationMethodLdapPropertiesArgs'] authentication_method_ldap_properties: Ldap authentication method properties. This feature is in preview.
         :param pulumi.Input[_builtins.bool] availability_zone: If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the cassandra data center virtual machines.
         :param pulumi.Input[_builtins.str] backup_storage_customer_key_uri: Indicates the Key Uri of the customer key to use for encryption of the backup storage account.
@@ -2735,26 +2512,23 @@ class DataCenterResourcePropertiesArgs:
         pulumi.set(self, "sku", value)
 
 
-if not MYPY:
-    class DataTransferServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
-        """
-        Properties for Create or Update request for DataTransferServiceResource
-        """
-        service_type: pulumi.Input[_builtins.str]
-        """
-        ServiceType for the service.
-        Expected value is 'DataTransfer'.
-        """
-        instance_count: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Instance count for the service.
-        """
-        instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
-        """
-        Instance type for the service.
-        """
-elif False:
-    DataTransferServiceResourceCreateUpdatePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class DataTransferServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
+    """
+    Properties for Create or Update request for DataTransferServiceResource
+    """
+    service_type: pulumi.Input[_builtins.str]
+    """
+    ServiceType for the service.
+    Expected value is 'DataTransfer'.
+    """
+    instance_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Instance count for the service.
+    """
+    instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
+    """
+    Instance type for the service.
+    """
 
 @pulumi.input_type
 class DataTransferServiceResourceCreateUpdatePropertiesArgs:
@@ -2764,6 +2538,7 @@ class DataTransferServiceResourceCreateUpdatePropertiesArgs:
                  instance_size: Optional[pulumi.Input[Union[_builtins.str, 'ServiceSize']]] = None):
         """
         Properties for Create or Update request for DataTransferServiceResource
+
         :param pulumi.Input[_builtins.str] service_type: ServiceType for the service.
                Expected value is 'DataTransfer'.
         :param pulumi.Input[_builtins.int] instance_count: Instance count for the service.
@@ -2813,21 +2588,18 @@ class DataTransferServiceResourceCreateUpdatePropertiesArgs:
         pulumi.set(self, "instance_size", value)
 
 
-if not MYPY:
-    class DatabaseRestoreResourceArgsDict(TypedDict):
-        """
-        Specific Databases to restore.
-        """
-        collection_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        The names of the collections available for restore.
-        """
-        database_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the database available for restore.
-        """
-elif False:
-    DatabaseRestoreResourceArgsDict: TypeAlias = Mapping[str, Any]
+class DatabaseRestoreResourceArgsDict(TypedDict):
+    """
+    Specific Databases to restore.
+    """
+    collection_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    The names of the collections available for restore.
+    """
+    database_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the database available for restore.
+    """
 
 @pulumi.input_type
 class DatabaseRestoreResourceArgs:
@@ -2836,6 +2608,7 @@ class DatabaseRestoreResourceArgs:
                  database_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Specific Databases to restore.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] collection_names: The names of the collections available for restore.
         :param pulumi.Input[_builtins.str] database_name: The name of the database available for restore.
         """
@@ -2869,14 +2642,11 @@ class DatabaseRestoreResourceArgs:
         pulumi.set(self, "database_name", value)
 
 
-if not MYPY:
-    class ExcludedPathArgsDict(TypedDict):
-        path: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
-        """
-elif False:
-    ExcludedPathArgsDict: TypeAlias = Mapping[str, Any]
+class ExcludedPathArgsDict(TypedDict):
+    path: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
+    """
 
 @pulumi.input_type
 class ExcludedPathArgs:
@@ -2901,21 +2671,18 @@ class ExcludedPathArgs:
         pulumi.set(self, "path", value)
 
 
-if not MYPY:
-    class FleetspaceAccountPropertiesGlobalDatabaseAccountPropertiesArgsDict(TypedDict):
-        """
-        Configuration for fleetspace Account in the fleetspace.
-        """
-        arm_location: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The location of  global database account in the Fleetspace Account.
-        """
-        resource_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The resource identifier of global database account in the Fleetspace Account.
-        """
-elif False:
-    FleetspaceAccountPropertiesGlobalDatabaseAccountPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class FleetspaceAccountPropertiesGlobalDatabaseAccountPropertiesArgsDict(TypedDict):
+    """
+    Configuration for fleetspace Account in the fleetspace.
+    """
+    arm_location: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The location of  global database account in the Fleetspace Account.
+    """
+    resource_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The resource identifier of global database account in the Fleetspace Account.
+    """
 
 @pulumi.input_type
 class FleetspaceAccountPropertiesGlobalDatabaseAccountPropertiesArgs:
@@ -2924,6 +2691,7 @@ class FleetspaceAccountPropertiesGlobalDatabaseAccountPropertiesArgs:
                  resource_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Configuration for fleetspace Account in the fleetspace.
+
         :param pulumi.Input[_builtins.str] arm_location: The location of  global database account in the Fleetspace Account.
         :param pulumi.Input[_builtins.str] resource_id: The resource identifier of global database account in the Fleetspace Account.
         """
@@ -2957,21 +2725,18 @@ class FleetspaceAccountPropertiesGlobalDatabaseAccountPropertiesArgs:
         pulumi.set(self, "resource_id", value)
 
 
-if not MYPY:
-    class FleetspacePropertiesThroughputPoolConfigurationArgsDict(TypedDict):
-        """
-        Configuration for throughput pool in the fleetspace.
-        """
-        max_throughput: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Maximum throughput for the pool.
-        """
-        min_throughput: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Minimum throughput for the pool.
-        """
-elif False:
-    FleetspacePropertiesThroughputPoolConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+class FleetspacePropertiesThroughputPoolConfigurationArgsDict(TypedDict):
+    """
+    Configuration for throughput pool in the fleetspace.
+    """
+    max_throughput: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Maximum throughput for the pool.
+    """
+    min_throughput: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Minimum throughput for the pool.
+    """
 
 @pulumi.input_type
 class FleetspacePropertiesThroughputPoolConfigurationArgs:
@@ -2980,6 +2745,7 @@ class FleetspacePropertiesThroughputPoolConfigurationArgs:
                  min_throughput: Optional[pulumi.Input[_builtins.int]] = None):
         """
         Configuration for throughput pool in the fleetspace.
+
         :param pulumi.Input[_builtins.int] max_throughput: Maximum throughput for the pool.
         :param pulumi.Input[_builtins.int] min_throughput: Minimum throughput for the pool.
         """
@@ -3013,17 +2779,14 @@ class FleetspacePropertiesThroughputPoolConfigurationArgs:
         pulumi.set(self, "min_throughput", value)
 
 
-if not MYPY:
-    class FullTextIndexPathArgsDict(TypedDict):
-        """
-        Represents the full text index path.
-        """
-        path: pulumi.Input[_builtins.str]
-        """
-        The path to the full text field in the document.
-        """
-elif False:
-    FullTextIndexPathArgsDict: TypeAlias = Mapping[str, Any]
+class FullTextIndexPathArgsDict(TypedDict):
+    """
+    Represents the full text index path.
+    """
+    path: pulumi.Input[_builtins.str]
+    """
+    The path to the full text field in the document.
+    """
 
 @pulumi.input_type
 class FullTextIndexPathArgs:
@@ -3031,6 +2794,7 @@ class FullTextIndexPathArgs:
                  path: pulumi.Input[_builtins.str]):
         """
         Represents the full text index path.
+
         :param pulumi.Input[_builtins.str] path: The path to the full text field in the document.
         """
         pulumi.set(__self__, "path", path)
@@ -3048,21 +2812,18 @@ class FullTextIndexPathArgs:
         pulumi.set(self, "path", value)
 
 
-if not MYPY:
-    class FullTextPathArgsDict(TypedDict):
-        """
-        Represents the full text path specification.
-        """
-        path: pulumi.Input[_builtins.str]
-        """
-        The path to the full text field in the document.
-        """
-        language: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The language of the full text field in the document.
-        """
-elif False:
-    FullTextPathArgsDict: TypeAlias = Mapping[str, Any]
+class FullTextPathArgsDict(TypedDict):
+    """
+    Represents the full text path specification.
+    """
+    path: pulumi.Input[_builtins.str]
+    """
+    The path to the full text field in the document.
+    """
+    language: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The language of the full text field in the document.
+    """
 
 @pulumi.input_type
 class FullTextPathArgs:
@@ -3071,6 +2832,7 @@ class FullTextPathArgs:
                  language: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Represents the full text path specification.
+
         :param pulumi.Input[_builtins.str] path: The path to the full text field in the document.
         :param pulumi.Input[_builtins.str] language: The language of the full text field in the document.
         """
@@ -3103,21 +2865,18 @@ class FullTextPathArgs:
         pulumi.set(self, "language", value)
 
 
-if not MYPY:
-    class FullTextPolicyArgsDict(TypedDict):
-        """
-        Cosmos DB FullText Policy
-        """
-        default_language: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The default language for a full text paths.
-        """
-        full_text_paths: NotRequired[pulumi.Input[Sequence[pulumi.Input['FullTextPathArgsDict']]]]
-        """
-        List of FullText Paths
-        """
-elif False:
-    FullTextPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class FullTextPolicyArgsDict(TypedDict):
+    """
+    Cosmos DB FullText Policy
+    """
+    default_language: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The default language for a full text paths.
+    """
+    full_text_paths: NotRequired[pulumi.Input[Sequence[pulumi.Input['FullTextPathArgsDict']]]]
+    """
+    List of FullText Paths
+    """
 
 @pulumi.input_type
 class FullTextPolicyArgs:
@@ -3126,6 +2885,7 @@ class FullTextPolicyArgs:
                  full_text_paths: Optional[pulumi.Input[Sequence[pulumi.Input['FullTextPathArgs']]]] = None):
         """
         Cosmos DB FullText Policy
+
         :param pulumi.Input[_builtins.str] default_language: The default language for a full text paths.
         :param pulumi.Input[Sequence[pulumi.Input['FullTextPathArgs']]] full_text_paths: List of FullText Paths
         """
@@ -3159,26 +2919,197 @@ class FullTextPolicyArgs:
         pulumi.set(self, "full_text_paths", value)
 
 
-if not MYPY:
-    class GraphAPIComputeServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
+class GarnetClusterResourcePropertiesArgsDict(TypedDict):
+    """
+    Properties of a Garnet cache cluster.
+    """
+    allocation_state: NotRequired[pulumi.Input[Union[_builtins.str, 'AllocationState']]]
+    """
+    Allocation state of the cluster and data center resources. Active implies the virtual machines of the cluster are allocated, deallocated implies virtual machines and resources are deallocated.
+    """
+    availability_zone: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the garnet cluster virtual machines.
+    """
+    cluster_type: NotRequired[pulumi.Input[Union[_builtins.str, 'ClusterType']]]
+    """
+    Type of the cluster. If set to Production, some operations might not be permitted on cluster.
+    """
+    extensions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    Extensions to be added or updated on cluster.
+    """
+    node_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Number of nodes
+    """
+    node_sku: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Virtual Machine SKU used for clusters. Default value is Standard_DS14_v2
+    """
+    replication_factor: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Number of copies of data maintained by the cluster
+    """
+    subnet_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
+    """
+
+@pulumi.input_type
+class GarnetClusterResourcePropertiesArgs:
+    def __init__(__self__, *,
+                 allocation_state: Optional[pulumi.Input[Union[_builtins.str, 'AllocationState']]] = None,
+                 availability_zone: Optional[pulumi.Input[_builtins.bool]] = None,
+                 cluster_type: Optional[pulumi.Input[Union[_builtins.str, 'ClusterType']]] = None,
+                 extensions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 node_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 node_sku: Optional[pulumi.Input[_builtins.str]] = None,
+                 replication_factor: Optional[pulumi.Input[_builtins.int]] = None,
+                 subnet_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
-        Properties for Create or Update request for GraphAPIComputeServiceResource
+        Properties of a Garnet cache cluster.
+
+        :param pulumi.Input[Union[_builtins.str, 'AllocationState']] allocation_state: Allocation state of the cluster and data center resources. Active implies the virtual machines of the cluster are allocated, deallocated implies virtual machines and resources are deallocated.
+        :param pulumi.Input[_builtins.bool] availability_zone: If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the garnet cluster virtual machines.
+        :param pulumi.Input[Union[_builtins.str, 'ClusterType']] cluster_type: Type of the cluster. If set to Production, some operations might not be permitted on cluster.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] extensions: Extensions to be added or updated on cluster.
+        :param pulumi.Input[_builtins.int] node_count: Number of nodes
+        :param pulumi.Input[_builtins.str] node_sku: Virtual Machine SKU used for clusters. Default value is Standard_DS14_v2
+        :param pulumi.Input[_builtins.int] replication_factor: Number of copies of data maintained by the cluster
+        :param pulumi.Input[_builtins.str] subnet_id: Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
         """
-        service_type: pulumi.Input[_builtins.str]
+        if allocation_state is not None:
+            pulumi.set(__self__, "allocation_state", allocation_state)
+        if availability_zone is not None:
+            pulumi.set(__self__, "availability_zone", availability_zone)
+        if cluster_type is not None:
+            pulumi.set(__self__, "cluster_type", cluster_type)
+        if extensions is not None:
+            pulumi.set(__self__, "extensions", extensions)
+        if node_count is not None:
+            pulumi.set(__self__, "node_count", node_count)
+        if node_sku is not None:
+            pulumi.set(__self__, "node_sku", node_sku)
+        if replication_factor is not None:
+            pulumi.set(__self__, "replication_factor", replication_factor)
+        if subnet_id is not None:
+            pulumi.set(__self__, "subnet_id", subnet_id)
+
+    @_builtins.property
+    @pulumi.getter(name="allocationState")
+    def allocation_state(self) -> Optional[pulumi.Input[Union[_builtins.str, 'AllocationState']]]:
         """
-        ServiceType for the service.
-        Expected value is 'GraphAPICompute'.
+        Allocation state of the cluster and data center resources. Active implies the virtual machines of the cluster are allocated, deallocated implies virtual machines and resources are deallocated.
         """
-        instance_count: NotRequired[pulumi.Input[_builtins.int]]
+        return pulumi.get(self, "allocation_state")
+
+    @allocation_state.setter
+    def allocation_state(self, value: Optional[pulumi.Input[Union[_builtins.str, 'AllocationState']]]):
+        pulumi.set(self, "allocation_state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="availabilityZone")
+    def availability_zone(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Instance count for the service.
+        If the data center has Availability Zone support, apply it to the Virtual Machine ScaleSet that host the garnet cluster virtual machines.
         """
-        instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
+        return pulumi.get(self, "availability_zone")
+
+    @availability_zone.setter
+    def availability_zone(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "availability_zone", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clusterType")
+    def cluster_type(self) -> Optional[pulumi.Input[Union[_builtins.str, 'ClusterType']]]:
         """
-        Instance type for the service.
+        Type of the cluster. If set to Production, some operations might not be permitted on cluster.
         """
-elif False:
-    GraphAPIComputeServiceResourceCreateUpdatePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+        return pulumi.get(self, "cluster_type")
+
+    @cluster_type.setter
+    def cluster_type(self, value: Optional[pulumi.Input[Union[_builtins.str, 'ClusterType']]]):
+        pulumi.set(self, "cluster_type", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def extensions(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Extensions to be added or updated on cluster.
+        """
+        return pulumi.get(self, "extensions")
+
+    @extensions.setter
+    def extensions(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "extensions", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodeCount")
+    def node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of nodes
+        """
+        return pulumi.get(self, "node_count")
+
+    @node_count.setter
+    def node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "node_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="nodeSku")
+    def node_sku(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Virtual Machine SKU used for clusters. Default value is Standard_DS14_v2
+        """
+        return pulumi.get(self, "node_sku")
+
+    @node_sku.setter
+    def node_sku(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "node_sku", value)
+
+    @_builtins.property
+    @pulumi.getter(name="replicationFactor")
+    def replication_factor(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Number of copies of data maintained by the cluster
+        """
+        return pulumi.get(self, "replication_factor")
+
+    @replication_factor.setter
+    def replication_factor(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "replication_factor", value)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetId")
+    def subnet_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Resource id of a subnet that this cluster's management service should have its network interface attached to. The subnet must be routable to all subnets that will be delegated to data centers. The resource id must be of the form '/subscriptions/<subscription id>/resourceGroups/<resource group>/providers/Microsoft.Network/virtualNetworks/<virtual network>/subnets/<subnet>'
+        """
+        return pulumi.get(self, "subnet_id")
+
+    @subnet_id.setter
+    def subnet_id(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "subnet_id", value)
+
+
+class GraphAPIComputeServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
+    """
+    Properties for Create or Update request for GraphAPIComputeServiceResource
+    """
+    service_type: pulumi.Input[_builtins.str]
+    """
+    ServiceType for the service.
+    Expected value is 'GraphAPICompute'.
+    """
+    instance_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Instance count for the service.
+    """
+    instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
+    """
+    Instance type for the service.
+    """
 
 @pulumi.input_type
 class GraphAPIComputeServiceResourceCreateUpdatePropertiesArgs:
@@ -3188,6 +3119,7 @@ class GraphAPIComputeServiceResourceCreateUpdatePropertiesArgs:
                  instance_size: Optional[pulumi.Input[Union[_builtins.str, 'ServiceSize']]] = None):
         """
         Properties for Create or Update request for GraphAPIComputeServiceResource
+
         :param pulumi.Input[_builtins.str] service_type: ServiceType for the service.
                Expected value is 'GraphAPICompute'.
         :param pulumi.Input[_builtins.int] instance_count: Instance count for the service.
@@ -3237,17 +3169,14 @@ class GraphAPIComputeServiceResourceCreateUpdatePropertiesArgs:
         pulumi.set(self, "instance_size", value)
 
 
-if not MYPY:
-    class GraphResourceArgsDict(TypedDict):
-        """
-        Cosmos DB Graph resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB Graph
-        """
-elif False:
-    GraphResourceArgsDict: TypeAlias = Mapping[str, Any]
+class GraphResourceArgsDict(TypedDict):
+    """
+    Cosmos DB Graph resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB Graph
+    """
 
 @pulumi.input_type
 class GraphResourceArgs:
@@ -3255,6 +3184,7 @@ class GraphResourceArgs:
                  id: pulumi.Input[_builtins.str]):
         """
         Cosmos DB Graph resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB Graph
         """
         pulumi.set(__self__, "id", id)
@@ -3272,25 +3202,22 @@ class GraphResourceArgs:
         pulumi.set(self, "id", value)
 
 
-if not MYPY:
-    class GremlinDatabaseResourceArgsDict(TypedDict):
-        """
-        Cosmos DB Gremlin database resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB Gremlin database
-        """
-        create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
-        """
-        Enum to indicate the mode of resource creation.
-        """
-        restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
-        """
-        Parameters to indicate the information about the restore
-        """
-elif False:
-    GremlinDatabaseResourceArgsDict: TypeAlias = Mapping[str, Any]
+class GremlinDatabaseResourceArgsDict(TypedDict):
+    """
+    Cosmos DB Gremlin database resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB Gremlin database
+    """
+    create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
+    """
+    Enum to indicate the mode of resource creation.
+    """
+    restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
+    """
+    Parameters to indicate the information about the restore
+    """
 
 @pulumi.input_type
 class GremlinDatabaseResourceArgs:
@@ -3300,6 +3227,7 @@ class GremlinDatabaseResourceArgs:
                  restore_parameters: Optional[pulumi.Input['ResourceRestoreParametersArgs']] = None):
         """
         Cosmos DB Gremlin database resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB Gremlin database
         :param pulumi.Input[Union[_builtins.str, 'CreateMode']] create_mode: Enum to indicate the mode of resource creation.
         :param pulumi.Input['ResourceRestoreParametersArgs'] restore_parameters: Parameters to indicate the information about the restore
@@ -3347,21 +3275,18 @@ class GremlinDatabaseResourceArgs:
         pulumi.set(self, "restore_parameters", value)
 
 
-if not MYPY:
-    class GremlinDatabaseRestoreResourceArgsDict(TypedDict):
-        """
-        Specific Gremlin Databases to restore.
-        """
-        database_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the gremlin database available for restore.
-        """
-        graph_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        The names of the graphs available for restore.
-        """
-elif False:
-    GremlinDatabaseRestoreResourceArgsDict: TypeAlias = Mapping[str, Any]
+class GremlinDatabaseRestoreResourceArgsDict(TypedDict):
+    """
+    Specific Gremlin Databases to restore.
+    """
+    database_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the gremlin database available for restore.
+    """
+    graph_names: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    The names of the graphs available for restore.
+    """
 
 @pulumi.input_type
 class GremlinDatabaseRestoreResourceArgs:
@@ -3370,6 +3295,7 @@ class GremlinDatabaseRestoreResourceArgs:
                  graph_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Specific Gremlin Databases to restore.
+
         :param pulumi.Input[_builtins.str] database_name: The name of the gremlin database available for restore.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] graph_names: The names of the graphs available for restore.
         """
@@ -3403,49 +3329,46 @@ class GremlinDatabaseRestoreResourceArgs:
         pulumi.set(self, "graph_names", value)
 
 
-if not MYPY:
-    class GremlinGraphResourceArgsDict(TypedDict):
-        """
-        Cosmos DB Gremlin graph resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB Gremlin graph
-        """
-        analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.float]]
-        """
-        Analytical TTL.
-        """
-        conflict_resolution_policy: NotRequired[pulumi.Input['ConflictResolutionPolicyArgsDict']]
-        """
-        The conflict resolution policy for the graph.
-        """
-        create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
-        """
-        Enum to indicate the mode of resource creation.
-        """
-        default_ttl: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Default time to live
-        """
-        indexing_policy: NotRequired[pulumi.Input['IndexingPolicyArgsDict']]
-        """
-        The configuration of the indexing policy. By default, the indexing is automatic for all document paths within the graph
-        """
-        partition_key: NotRequired[pulumi.Input['ContainerPartitionKeyArgsDict']]
-        """
-        The configuration of the partition key to be used for partitioning data into multiple partitions
-        """
-        restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
-        """
-        Parameters to indicate the information about the restore
-        """
-        unique_key_policy: NotRequired[pulumi.Input['UniqueKeyPolicyArgsDict']]
-        """
-        The unique key policy configuration for specifying uniqueness constraints on documents in the collection in the Azure Cosmos DB service.
-        """
-elif False:
-    GremlinGraphResourceArgsDict: TypeAlias = Mapping[str, Any]
+class GremlinGraphResourceArgsDict(TypedDict):
+    """
+    Cosmos DB Gremlin graph resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB Gremlin graph
+    """
+    analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.float]]
+    """
+    Analytical TTL.
+    """
+    conflict_resolution_policy: NotRequired[pulumi.Input['ConflictResolutionPolicyArgsDict']]
+    """
+    The conflict resolution policy for the graph.
+    """
+    create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
+    """
+    Enum to indicate the mode of resource creation.
+    """
+    default_ttl: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Default time to live
+    """
+    indexing_policy: NotRequired[pulumi.Input['IndexingPolicyArgsDict']]
+    """
+    The configuration of the indexing policy. By default, the indexing is automatic for all document paths within the graph
+    """
+    partition_key: NotRequired[pulumi.Input['ContainerPartitionKeyArgsDict']]
+    """
+    The configuration of the partition key to be used for partitioning data into multiple partitions
+    """
+    restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
+    """
+    Parameters to indicate the information about the restore
+    """
+    unique_key_policy: NotRequired[pulumi.Input['UniqueKeyPolicyArgsDict']]
+    """
+    The unique key policy configuration for specifying uniqueness constraints on documents in the collection in the Azure Cosmos DB service.
+    """
 
 @pulumi.input_type
 class GremlinGraphResourceArgs:
@@ -3461,6 +3384,7 @@ class GremlinGraphResourceArgs:
                  unique_key_policy: Optional[pulumi.Input['UniqueKeyPolicyArgs']] = None):
         """
         Cosmos DB Gremlin graph resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB Gremlin graph
         :param pulumi.Input[_builtins.float] analytical_storage_ttl: Analytical TTL.
         :param pulumi.Input['ConflictResolutionPolicyArgs'] conflict_resolution_policy: The conflict resolution policy for the graph.
@@ -3598,21 +3522,18 @@ class GremlinGraphResourceArgs:
         pulumi.set(self, "unique_key_policy", value)
 
 
-if not MYPY:
-    class IncludedPathArgsDict(TypedDict):
-        """
-        The paths that are included in indexing
-        """
-        indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['IndexesArgsDict']]]]
-        """
-        List of indexes for this path
-        """
-        path: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
-        """
-elif False:
-    IncludedPathArgsDict: TypeAlias = Mapping[str, Any]
+class IncludedPathArgsDict(TypedDict):
+    """
+    The paths that are included in indexing
+    """
+    indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['IndexesArgsDict']]]]
+    """
+    List of indexes for this path
+    """
+    path: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
+    """
 
 @pulumi.input_type
 class IncludedPathArgs:
@@ -3621,6 +3542,7 @@ class IncludedPathArgs:
                  path: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The paths that are included in indexing
+
         :param pulumi.Input[Sequence[pulumi.Input['IndexesArgs']]] indexes: List of indexes for this path
         :param pulumi.Input[_builtins.str] path: The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
         """
@@ -3654,25 +3576,22 @@ class IncludedPathArgs:
         pulumi.set(self, "path", value)
 
 
-if not MYPY:
-    class IndexesArgsDict(TypedDict):
-        """
-        The indexes for the path.
-        """
-        data_type: NotRequired[pulumi.Input[Union[_builtins.str, 'DataType']]]
-        """
-        The datatype for which the indexing behavior is applied to.
-        """
-        kind: NotRequired[pulumi.Input[Union[_builtins.str, 'IndexKind']]]
-        """
-        Indicates the type of index.
-        """
-        precision: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The precision of the index. -1 is maximum precision.
-        """
-elif False:
-    IndexesArgsDict: TypeAlias = Mapping[str, Any]
+class IndexesArgsDict(TypedDict):
+    """
+    The indexes for the path.
+    """
+    data_type: NotRequired[pulumi.Input[Union[_builtins.str, 'DataType']]]
+    """
+    The datatype for which the indexing behavior is applied to.
+    """
+    kind: NotRequired[pulumi.Input[Union[_builtins.str, 'IndexKind']]]
+    """
+    Indicates the type of index.
+    """
+    precision: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The precision of the index. -1 is maximum precision.
+    """
 
 @pulumi.input_type
 class IndexesArgs:
@@ -3682,6 +3601,7 @@ class IndexesArgs:
                  precision: Optional[pulumi.Input[_builtins.int]] = None):
         """
         The indexes for the path.
+
         :param pulumi.Input[Union[_builtins.str, 'DataType']] data_type: The datatype for which the indexing behavior is applied to.
         :param pulumi.Input[Union[_builtins.str, 'IndexKind']] kind: Indicates the type of index.
         :param pulumi.Input[_builtins.int] precision: The precision of the index. -1 is maximum precision.
@@ -3734,45 +3654,42 @@ class IndexesArgs:
         pulumi.set(self, "precision", value)
 
 
-if not MYPY:
-    class IndexingPolicyArgsDict(TypedDict):
-        """
-        Cosmos DB indexing policy
-        """
-        automatic: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Indicates if the indexing policy is automatic
-        """
-        composite_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input[Sequence[pulumi.Input['CompositePathArgsDict']]]]]]
-        """
-        List of composite path list
-        """
-        excluded_paths: NotRequired[pulumi.Input[Sequence[pulumi.Input['ExcludedPathArgsDict']]]]
-        """
-        List of paths to exclude from indexing
-        """
-        full_text_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['FullTextIndexPathArgsDict']]]]
-        """
-        List of paths to include in the full text indexing
-        """
-        included_paths: NotRequired[pulumi.Input[Sequence[pulumi.Input['IncludedPathArgsDict']]]]
-        """
-        List of paths to include in the indexing
-        """
-        indexing_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'IndexingMode']]]
-        """
-        Indicates the indexing mode.
-        """
-        spatial_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['SpatialSpecArgsDict']]]]
-        """
-        List of spatial specifics
-        """
-        vector_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['VectorIndexArgsDict']]]]
-        """
-        List of paths to include in the vector indexing
-        """
-elif False:
-    IndexingPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class IndexingPolicyArgsDict(TypedDict):
+    """
+    Cosmos DB indexing policy
+    """
+    automatic: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Indicates if the indexing policy is automatic
+    """
+    composite_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input[Sequence[pulumi.Input['CompositePathArgsDict']]]]]]
+    """
+    List of composite path list
+    """
+    excluded_paths: NotRequired[pulumi.Input[Sequence[pulumi.Input['ExcludedPathArgsDict']]]]
+    """
+    List of paths to exclude from indexing
+    """
+    full_text_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['FullTextIndexPathArgsDict']]]]
+    """
+    List of paths to include in the full text indexing
+    """
+    included_paths: NotRequired[pulumi.Input[Sequence[pulumi.Input['IncludedPathArgsDict']]]]
+    """
+    List of paths to include in the indexing
+    """
+    indexing_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'IndexingMode']]]
+    """
+    Indicates the indexing mode.
+    """
+    spatial_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['SpatialSpecArgsDict']]]]
+    """
+    List of spatial specifics
+    """
+    vector_indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['VectorIndexArgsDict']]]]
+    """
+    List of paths to include in the vector indexing
+    """
 
 @pulumi.input_type
 class IndexingPolicyArgs:
@@ -3787,6 +3704,7 @@ class IndexingPolicyArgs:
                  vector_indexes: Optional[pulumi.Input[Sequence[pulumi.Input['VectorIndexArgs']]]] = None):
         """
         Cosmos DB indexing policy
+
         :param pulumi.Input[_builtins.bool] automatic: Indicates if the indexing policy is automatic
         :param pulumi.Input[Sequence[pulumi.Input[Sequence[pulumi.Input['CompositePathArgs']]]]] composite_indexes: List of composite path list
         :param pulumi.Input[Sequence[pulumi.Input['ExcludedPathArgs']]] excluded_paths: List of paths to exclude from indexing
@@ -3912,17 +3830,14 @@ class IndexingPolicyArgs:
         pulumi.set(self, "vector_indexes", value)
 
 
-if not MYPY:
-    class IpAddressOrRangeArgsDict(TypedDict):
-        """
-        IpAddressOrRange object
-        """
-        ip_address_or_range: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        A single IPv4 address or a single IPv4 address range in CIDR format. Provided IPs must be well-formatted and cannot be contained in one of the following ranges: 10.0.0.0/8, 100.64.0.0/10, 172.16.0.0/12, 192.168.0.0/16, since these are not enforceable by the IP address filter. Example of valid inputs: “23.40.210.245” or “23.40.210.0/8”.
-        """
-elif False:
-    IpAddressOrRangeArgsDict: TypeAlias = Mapping[str, Any]
+class IpAddressOrRangeArgsDict(TypedDict):
+    """
+    IpAddressOrRange object
+    """
+    ip_address_or_range: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A single IPv4 address or a single IPv4 address range in CIDR format. Provided IPs must be well-formatted and cannot be contained in one of the following ranges: 10.0.0.0/8, 100.64.0.0/10, 172.16.0.0/12, 192.168.0.0/16, since these are not enforceable by the IP address filter. Example of valid inputs: “23.40.210.245” or “23.40.210.0/8”.
+    """
 
 @pulumi.input_type
 class IpAddressOrRangeArgs:
@@ -3930,6 +3845,7 @@ class IpAddressOrRangeArgs:
                  ip_address_or_range: Optional[pulumi.Input[_builtins.str]] = None):
         """
         IpAddressOrRange object
+
         :param pulumi.Input[_builtins.str] ip_address_or_range: A single IPv4 address or a single IPv4 address range in CIDR format. Provided IPs must be well-formatted and cannot be contained in one of the following ranges: 10.0.0.0/8, 100.64.0.0/10, 172.16.0.0/12, 192.168.0.0/16, since these are not enforceable by the IP address filter. Example of valid inputs: “23.40.210.245” or “23.40.210.0/8”.
         """
         if ip_address_or_range is not None:
@@ -3948,25 +3864,22 @@ class IpAddressOrRangeArgs:
         pulumi.set(self, "ip_address_or_range", value)
 
 
-if not MYPY:
-    class LocationArgsDict(TypedDict):
-        """
-        A region in which the Azure Cosmos DB database account is deployed.
-        """
-        failover_priority: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The failover priority of the region. A failover priority of 0 indicates a write region. The maximum value for a failover priority = (total number of regions - 1). Failover priority values must be unique for each of the regions in which the database account exists.
-        """
-        is_zone_redundant: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Flag to indicate whether or not this region is an AvailabilityZone region
-        """
-        location_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the region.
-        """
-elif False:
-    LocationArgsDict: TypeAlias = Mapping[str, Any]
+class LocationArgsDict(TypedDict):
+    """
+    A region in which the Azure Cosmos DB database account is deployed.
+    """
+    failover_priority: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The failover priority of the region. A failover priority of 0 indicates a write region. The maximum value for a failover priority = (total number of regions - 1). Failover priority values must be unique for each of the regions in which the database account exists.
+    """
+    is_zone_redundant: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Flag to indicate whether or not this region is an AvailabilityZone region
+    """
+    location_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the region.
+    """
 
 @pulumi.input_type
 class LocationArgs:
@@ -3976,6 +3889,7 @@ class LocationArgs:
                  location_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         A region in which the Azure Cosmos DB database account is deployed.
+
         :param pulumi.Input[_builtins.int] failover_priority: The failover priority of the region. A failover priority of 0 indicates a write region. The maximum value for a failover priority = (total number of regions - 1). Failover priority values must be unique for each of the regions in which the database account exists.
         :param pulumi.Input[_builtins.bool] is_zone_redundant: Flag to indicate whether or not this region is an AvailabilityZone region
         :param pulumi.Input[_builtins.str] location_name: The name of the region.
@@ -4024,17 +3938,14 @@ class LocationArgs:
         pulumi.set(self, "location_name", value)
 
 
-if not MYPY:
-    class ManagedCassandraManagedServiceIdentityArgsDict(TypedDict):
-        """
-        Identity for the resource.
-        """
-        type: NotRequired[pulumi.Input[Union[_builtins.str, 'ManagedCassandraResourceIdentityType']]]
-        """
-        The type of the resource.
-        """
-elif False:
-    ManagedCassandraManagedServiceIdentityArgsDict: TypeAlias = Mapping[str, Any]
+class ManagedCassandraManagedServiceIdentityArgsDict(TypedDict):
+    """
+    Identity for the resource.
+    """
+    type: NotRequired[pulumi.Input[Union[_builtins.str, 'ManagedCassandraResourceIdentityType']]]
+    """
+    The type of the resource.
+    """
 
 @pulumi.input_type
 class ManagedCassandraManagedServiceIdentityArgs:
@@ -4042,6 +3953,7 @@ class ManagedCassandraManagedServiceIdentityArgs:
                  type: Optional[pulumi.Input[Union[_builtins.str, 'ManagedCassandraResourceIdentityType']]] = None):
         """
         Identity for the resource.
+
         :param pulumi.Input[Union[_builtins.str, 'ManagedCassandraResourceIdentityType']] type: The type of the resource.
         """
         if type is not None:
@@ -4060,21 +3972,18 @@ class ManagedCassandraManagedServiceIdentityArgs:
         pulumi.set(self, "type", value)
 
 
-if not MYPY:
-    class ManagedServiceIdentityArgsDict(TypedDict):
-        """
-        Identity for the resource.
-        """
-        type: NotRequired[pulumi.Input['ResourceIdentityType']]
-        """
-        The type of identity used for the resource. The type 'SystemAssigned,UserAssigned' includes both an implicitly created identity and a set of user assigned identities. The type 'None' will remove any identities from the service.
-        """
-        user_assigned_identities: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        The list of user identities associated with resource. The user identity dictionary key references will be ARM resource ids in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.
-        """
-elif False:
-    ManagedServiceIdentityArgsDict: TypeAlias = Mapping[str, Any]
+class ManagedServiceIdentityArgsDict(TypedDict):
+    """
+    Identity for the resource.
+    """
+    type: NotRequired[pulumi.Input['ResourceIdentityType']]
+    """
+    The type of identity used for the resource. The type 'SystemAssigned,UserAssigned' includes both an implicitly created identity and a set of user assigned identities. The type 'None' will remove any identities from the service.
+    """
+    user_assigned_identities: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    The list of user identities associated with resource. The user identity dictionary key references will be ARM resource ids in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.
+    """
 
 @pulumi.input_type
 class ManagedServiceIdentityArgs:
@@ -4083,6 +3992,7 @@ class ManagedServiceIdentityArgs:
                  user_assigned_identities: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Identity for the resource.
+
         :param pulumi.Input['ResourceIdentityType'] type: The type of identity used for the resource. The type 'SystemAssigned,UserAssigned' includes both an implicitly created identity and a set of user assigned identities. The type 'None' will remove any identities from the service.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] user_assigned_identities: The list of user identities associated with resource. The user identity dictionary key references will be ARM resource ids in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.
         """
@@ -4116,26 +4026,23 @@ class ManagedServiceIdentityArgs:
         pulumi.set(self, "user_assigned_identities", value)
 
 
-if not MYPY:
-    class MaterializedViewsBuilderServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
-        """
-        Properties for Create or Update request for MaterializedViewsBuilderServiceResource
-        """
-        service_type: pulumi.Input[_builtins.str]
-        """
-        ServiceType for the service.
-        Expected value is 'MaterializedViewsBuilder'.
-        """
-        instance_count: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Instance count for the service.
-        """
-        instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
-        """
-        Instance type for the service.
-        """
-elif False:
-    MaterializedViewsBuilderServiceResourceCreateUpdatePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class MaterializedViewsBuilderServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
+    """
+    Properties for Create or Update request for MaterializedViewsBuilderServiceResource
+    """
+    service_type: pulumi.Input[_builtins.str]
+    """
+    ServiceType for the service.
+    Expected value is 'MaterializedViewsBuilder'.
+    """
+    instance_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Instance count for the service.
+    """
+    instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
+    """
+    Instance type for the service.
+    """
 
 @pulumi.input_type
 class MaterializedViewsBuilderServiceResourceCreateUpdatePropertiesArgs:
@@ -4145,6 +4052,7 @@ class MaterializedViewsBuilderServiceResourceCreateUpdatePropertiesArgs:
                  instance_size: Optional[pulumi.Input[Union[_builtins.str, 'ServiceSize']]] = None):
         """
         Properties for Create or Update request for MaterializedViewsBuilderServiceResource
+
         :param pulumi.Input[_builtins.str] service_type: ServiceType for the service.
                Expected value is 'MaterializedViewsBuilder'.
         :param pulumi.Input[_builtins.int] instance_count: Instance count for the service.
@@ -4194,21 +4102,18 @@ class MaterializedViewsBuilderServiceResourceCreateUpdatePropertiesArgs:
         pulumi.set(self, "instance_size", value)
 
 
-if not MYPY:
-    class MongoClusterRestoreParametersArgsDict(TypedDict):
-        """
-        Parameters used for restore operations
-        """
-        point_in_time_utc: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        UTC point in time to restore a mongo cluster
-        """
-        source_resource_id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Resource ID to locate the source cluster to restore
-        """
-elif False:
-    MongoClusterRestoreParametersArgsDict: TypeAlias = Mapping[str, Any]
+class MongoClusterRestoreParametersArgsDict(TypedDict):
+    """
+    Parameters used for restore operations
+    """
+    point_in_time_utc: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    UTC point in time to restore a mongo cluster
+    """
+    source_resource_id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Resource ID to locate the source cluster to restore
+    """
 
 @pulumi.input_type
 class MongoClusterRestoreParametersArgs:
@@ -4217,6 +4122,7 @@ class MongoClusterRestoreParametersArgs:
                  source_resource_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Parameters used for restore operations
+
         :param pulumi.Input[_builtins.str] point_in_time_utc: UTC point in time to restore a mongo cluster
         :param pulumi.Input[_builtins.str] source_resource_id: Resource ID to locate the source cluster to restore
         """
@@ -4250,37 +4156,34 @@ class MongoClusterRestoreParametersArgs:
         pulumi.set(self, "source_resource_id", value)
 
 
-if not MYPY:
-    class MongoDBCollectionResourceArgsDict(TypedDict):
-        """
-        Cosmos DB MongoDB collection resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB MongoDB collection
-        """
-        analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Analytical TTL.
-        """
-        create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
-        """
-        Enum to indicate the mode of resource creation.
-        """
-        indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['MongoIndexArgsDict']]]]
-        """
-        List of index keys
-        """
-        restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
-        """
-        Parameters to indicate the information about the restore
-        """
-        shard_key: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
-        """
-        A key-value pair of shard keys to be applied for the request.
-        """
-elif False:
-    MongoDBCollectionResourceArgsDict: TypeAlias = Mapping[str, Any]
+class MongoDBCollectionResourceArgsDict(TypedDict):
+    """
+    Cosmos DB MongoDB collection resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB MongoDB collection
+    """
+    analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Analytical TTL.
+    """
+    create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
+    """
+    Enum to indicate the mode of resource creation.
+    """
+    indexes: NotRequired[pulumi.Input[Sequence[pulumi.Input['MongoIndexArgsDict']]]]
+    """
+    List of index keys
+    """
+    restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
+    """
+    Parameters to indicate the information about the restore
+    """
+    shard_key: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
+    """
+    A key-value pair of shard keys to be applied for the request.
+    """
 
 @pulumi.input_type
 class MongoDBCollectionResourceArgs:
@@ -4293,6 +4196,7 @@ class MongoDBCollectionResourceArgs:
                  shard_key: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         Cosmos DB MongoDB collection resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB MongoDB collection
         :param pulumi.Input[_builtins.int] analytical_storage_ttl: Analytical TTL.
         :param pulumi.Input[Union[_builtins.str, 'CreateMode']] create_mode: Enum to indicate the mode of resource creation.
@@ -4385,25 +4289,22 @@ class MongoDBCollectionResourceArgs:
         pulumi.set(self, "shard_key", value)
 
 
-if not MYPY:
-    class MongoDBDatabaseResourceArgsDict(TypedDict):
-        """
-        Cosmos DB MongoDB database resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB MongoDB database
-        """
-        create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
-        """
-        Enum to indicate the mode of resource creation.
-        """
-        restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
-        """
-        Parameters to indicate the information about the restore
-        """
-elif False:
-    MongoDBDatabaseResourceArgsDict: TypeAlias = Mapping[str, Any]
+class MongoDBDatabaseResourceArgsDict(TypedDict):
+    """
+    Cosmos DB MongoDB database resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB MongoDB database
+    """
+    create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
+    """
+    Enum to indicate the mode of resource creation.
+    """
+    restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
+    """
+    Parameters to indicate the information about the restore
+    """
 
 @pulumi.input_type
 class MongoDBDatabaseResourceArgs:
@@ -4413,6 +4314,7 @@ class MongoDBDatabaseResourceArgs:
                  restore_parameters: Optional[pulumi.Input['ResourceRestoreParametersArgs']] = None):
         """
         Cosmos DB MongoDB database resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB MongoDB database
         :param pulumi.Input[Union[_builtins.str, 'CreateMode']] create_mode: Enum to indicate the mode of resource creation.
         :param pulumi.Input['ResourceRestoreParametersArgs'] restore_parameters: Parameters to indicate the information about the restore
@@ -4460,17 +4362,14 @@ class MongoDBDatabaseResourceArgs:
         pulumi.set(self, "restore_parameters", value)
 
 
-if not MYPY:
-    class MongoIndexKeysArgsDict(TypedDict):
-        """
-        Cosmos DB MongoDB collection resource object
-        """
-        keys: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        List of keys for each MongoDB collection in the Azure Cosmos DB service
-        """
-elif False:
-    MongoIndexKeysArgsDict: TypeAlias = Mapping[str, Any]
+class MongoIndexKeysArgsDict(TypedDict):
+    """
+    Cosmos DB MongoDB collection resource object
+    """
+    keys: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    List of keys for each MongoDB collection in the Azure Cosmos DB service
+    """
 
 @pulumi.input_type
 class MongoIndexKeysArgs:
@@ -4478,6 +4377,7 @@ class MongoIndexKeysArgs:
                  keys: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Cosmos DB MongoDB collection resource object
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] keys: List of keys for each MongoDB collection in the Azure Cosmos DB service
         """
         if keys is not None:
@@ -4496,21 +4396,18 @@ class MongoIndexKeysArgs:
         pulumi.set(self, "keys", value)
 
 
-if not MYPY:
-    class MongoIndexOptionsArgsDict(TypedDict):
-        """
-        Cosmos DB MongoDB collection index options
-        """
-        expire_after_seconds: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Expire after seconds
-        """
-        unique: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Is unique or not
-        """
-elif False:
-    MongoIndexOptionsArgsDict: TypeAlias = Mapping[str, Any]
+class MongoIndexOptionsArgsDict(TypedDict):
+    """
+    Cosmos DB MongoDB collection index options
+    """
+    expire_after_seconds: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Expire after seconds
+    """
+    unique: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Is unique or not
+    """
 
 @pulumi.input_type
 class MongoIndexOptionsArgs:
@@ -4519,6 +4416,7 @@ class MongoIndexOptionsArgs:
                  unique: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Cosmos DB MongoDB collection index options
+
         :param pulumi.Input[_builtins.int] expire_after_seconds: Expire after seconds
         :param pulumi.Input[_builtins.bool] unique: Is unique or not
         """
@@ -4552,21 +4450,18 @@ class MongoIndexOptionsArgs:
         pulumi.set(self, "unique", value)
 
 
-if not MYPY:
-    class MongoIndexArgsDict(TypedDict):
-        """
-        Cosmos DB MongoDB collection index key
-        """
-        key: NotRequired[pulumi.Input['MongoIndexKeysArgsDict']]
-        """
-        Cosmos DB MongoDB collection index keys
-        """
-        options: NotRequired[pulumi.Input['MongoIndexOptionsArgsDict']]
-        """
-        Cosmos DB MongoDB collection index key options
-        """
-elif False:
-    MongoIndexArgsDict: TypeAlias = Mapping[str, Any]
+class MongoIndexArgsDict(TypedDict):
+    """
+    Cosmos DB MongoDB collection index key
+    """
+    key: NotRequired[pulumi.Input['MongoIndexKeysArgsDict']]
+    """
+    Cosmos DB MongoDB collection index keys
+    """
+    options: NotRequired[pulumi.Input['MongoIndexOptionsArgsDict']]
+    """
+    Cosmos DB MongoDB collection index key options
+    """
 
 @pulumi.input_type
 class MongoIndexArgs:
@@ -4575,6 +4470,7 @@ class MongoIndexArgs:
                  options: Optional[pulumi.Input['MongoIndexOptionsArgs']] = None):
         """
         Cosmos DB MongoDB collection index key
+
         :param pulumi.Input['MongoIndexKeysArgs'] key: Cosmos DB MongoDB collection index keys
         :param pulumi.Input['MongoIndexOptionsArgs'] options: Cosmos DB MongoDB collection index key options
         """
@@ -4608,33 +4504,30 @@ class MongoIndexArgs:
         pulumi.set(self, "options", value)
 
 
-if not MYPY:
-    class NodeGroupSpecArgsDict(TypedDict):
-        """
-        Specification for a node group.
-        """
-        disk_size_gb: NotRequired[pulumi.Input[_builtins.float]]
-        """
-        The disk storage size for the node group in GB. Example values: 128, 256, 512, 1024.
-        """
-        enable_ha: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Whether high availability is enabled on the node group.
-        """
-        kind: NotRequired[pulumi.Input[Union[_builtins.str, 'NodeKind']]]
-        """
-        The node type deployed in the node group.
-        """
-        node_count: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The number of nodes in the node group.
-        """
-        sku: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The resource sku for the node group. This defines the size of CPU and memory that is provisioned for each node. Example values: 'M30', 'M40'.
-        """
-elif False:
-    NodeGroupSpecArgsDict: TypeAlias = Mapping[str, Any]
+class NodeGroupSpecArgsDict(TypedDict):
+    """
+    Specification for a node group.
+    """
+    disk_size_gb: NotRequired[pulumi.Input[_builtins.float]]
+    """
+    The disk storage size for the node group in GB. Example values: 128, 256, 512, 1024.
+    """
+    enable_ha: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Whether high availability is enabled on the node group.
+    """
+    kind: NotRequired[pulumi.Input[Union[_builtins.str, 'NodeKind']]]
+    """
+    The node type deployed in the node group.
+    """
+    node_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The number of nodes in the node group.
+    """
+    sku: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The resource sku for the node group. This defines the size of CPU and memory that is provisioned for each node. Example values: 'M30', 'M40'.
+    """
 
 @pulumi.input_type
 class NodeGroupSpecArgs:
@@ -4646,6 +4539,7 @@ class NodeGroupSpecArgs:
                  sku: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Specification for a node group.
+
         :param pulumi.Input[_builtins.float] disk_size_gb: The disk storage size for the node group in GB. Example values: 128, 256, 512, 1024.
         :param pulumi.Input[_builtins.bool] enable_ha: Whether high availability is enabled on the node group.
         :param pulumi.Input[Union[_builtins.str, 'NodeKind']] kind: The node type deployed in the node group.
@@ -4724,26 +4618,23 @@ class NodeGroupSpecArgs:
         pulumi.set(self, "sku", value)
 
 
-if not MYPY:
-    class PeriodicModeBackupPolicyArgsDict(TypedDict):
-        """
-        The object representing periodic mode backup policy.
-        """
-        type: pulumi.Input[_builtins.str]
-        """
-        Describes the mode of backups.
-        Expected value is 'Periodic'.
-        """
-        migration_state: NotRequired[pulumi.Input['BackupPolicyMigrationStateArgsDict']]
-        """
-        The object representing the state of the migration between the backup policies.
-        """
-        periodic_mode_properties: NotRequired[pulumi.Input['PeriodicModePropertiesArgsDict']]
-        """
-        Configuration values for periodic mode backup
-        """
-elif False:
-    PeriodicModeBackupPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class PeriodicModeBackupPolicyArgsDict(TypedDict):
+    """
+    The object representing periodic mode backup policy.
+    """
+    type: pulumi.Input[_builtins.str]
+    """
+    Describes the mode of backups.
+    Expected value is 'Periodic'.
+    """
+    migration_state: NotRequired[pulumi.Input['BackupPolicyMigrationStateArgsDict']]
+    """
+    The object representing the state of the migration between the backup policies.
+    """
+    periodic_mode_properties: NotRequired[pulumi.Input['PeriodicModePropertiesArgsDict']]
+    """
+    Configuration values for periodic mode backup
+    """
 
 @pulumi.input_type
 class PeriodicModeBackupPolicyArgs:
@@ -4753,6 +4644,7 @@ class PeriodicModeBackupPolicyArgs:
                  periodic_mode_properties: Optional[pulumi.Input['PeriodicModePropertiesArgs']] = None):
         """
         The object representing periodic mode backup policy.
+
         :param pulumi.Input[_builtins.str] type: Describes the mode of backups.
                Expected value is 'Periodic'.
         :param pulumi.Input['BackupPolicyMigrationStateArgs'] migration_state: The object representing the state of the migration between the backup policies.
@@ -4802,25 +4694,22 @@ class PeriodicModeBackupPolicyArgs:
         pulumi.set(self, "periodic_mode_properties", value)
 
 
-if not MYPY:
-    class PeriodicModePropertiesArgsDict(TypedDict):
-        """
-        Configuration values for periodic mode backup
-        """
-        backup_interval_in_minutes: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        An integer representing the interval in minutes between two backups
-        """
-        backup_retention_interval_in_hours: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        An integer representing the time (in hours) that each backup is retained
-        """
-        backup_storage_redundancy: NotRequired[pulumi.Input[Union[_builtins.str, 'BackupStorageRedundancy']]]
-        """
-        Enum to indicate type of backup residency
-        """
-elif False:
-    PeriodicModePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class PeriodicModePropertiesArgsDict(TypedDict):
+    """
+    Configuration values for periodic mode backup
+    """
+    backup_interval_in_minutes: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    An integer representing the interval in minutes between two backups
+    """
+    backup_retention_interval_in_hours: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    An integer representing the time (in hours) that each backup is retained
+    """
+    backup_storage_redundancy: NotRequired[pulumi.Input[Union[_builtins.str, 'BackupStorageRedundancy']]]
+    """
+    Enum to indicate type of backup residency
+    """
 
 @pulumi.input_type
 class PeriodicModePropertiesArgs:
@@ -4830,6 +4719,7 @@ class PeriodicModePropertiesArgs:
                  backup_storage_redundancy: Optional[pulumi.Input[Union[_builtins.str, 'BackupStorageRedundancy']]] = None):
         """
         Configuration values for periodic mode backup
+
         :param pulumi.Input[_builtins.int] backup_interval_in_minutes: An integer representing the interval in minutes between two backups
         :param pulumi.Input[_builtins.int] backup_retention_interval_in_hours: An integer representing the time (in hours) that each backup is retained
         :param pulumi.Input[Union[_builtins.str, 'BackupStorageRedundancy']] backup_storage_redundancy: Enum to indicate type of backup residency
@@ -4878,25 +4768,22 @@ class PeriodicModePropertiesArgs:
         pulumi.set(self, "backup_storage_redundancy", value)
 
 
-if not MYPY:
-    class PermissionArgsDict(TypedDict):
-        """
-        The set of data plane operations permitted through this Role Definition.
-        """
-        data_actions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of data actions that are allowed.
-        """
-        id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The id for the permission.
-        """
-        not_data_actions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of data actions that are denied.
-        """
-elif False:
-    PermissionArgsDict: TypeAlias = Mapping[str, Any]
+class PermissionArgsDict(TypedDict):
+    """
+    The set of data plane operations permitted through this Role Definition.
+    """
+    data_actions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of data actions that are allowed.
+    """
+    id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The id for the permission.
+    """
+    not_data_actions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of data actions that are denied.
+    """
 
 @pulumi.input_type
 class PermissionArgs:
@@ -4906,6 +4793,7 @@ class PermissionArgs:
                  not_data_actions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of data plane operations permitted through this Role Definition.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] data_actions: An array of data actions that are allowed.
         :param pulumi.Input[_builtins.str] id: The id for the permission.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] not_data_actions: An array of data actions that are denied.
@@ -4954,17 +4842,14 @@ class PermissionArgs:
         pulumi.set(self, "not_data_actions", value)
 
 
-if not MYPY:
-    class PrivateEndpointPropertyArgsDict(TypedDict):
-        """
-        Private endpoint which the connection belongs to.
-        """
-        id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Resource id of the private endpoint.
-        """
-elif False:
-    PrivateEndpointPropertyArgsDict: TypeAlias = Mapping[str, Any]
+class PrivateEndpointPropertyArgsDict(TypedDict):
+    """
+    Private endpoint which the connection belongs to.
+    """
+    id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Resource id of the private endpoint.
+    """
 
 @pulumi.input_type
 class PrivateEndpointPropertyArgs:
@@ -4972,6 +4857,7 @@ class PrivateEndpointPropertyArgs:
                  id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Private endpoint which the connection belongs to.
+
         :param pulumi.Input[_builtins.str] id: Resource id of the private endpoint.
         """
         if id is not None:
@@ -4990,21 +4876,18 @@ class PrivateEndpointPropertyArgs:
         pulumi.set(self, "id", value)
 
 
-if not MYPY:
-    class PrivateLinkServiceConnectionStatePropertyArgsDict(TypedDict):
-        """
-        Connection State of the Private Endpoint Connection.
-        """
-        description: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The private link service connection description.
-        """
-        status: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The private link service connection status.
-        """
-elif False:
-    PrivateLinkServiceConnectionStatePropertyArgsDict: TypeAlias = Mapping[str, Any]
+class PrivateLinkServiceConnectionStatePropertyArgsDict(TypedDict):
+    """
+    Connection State of the Private Endpoint Connection.
+    """
+    description: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The private link service connection description.
+    """
+    status: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The private link service connection status.
+    """
 
 @pulumi.input_type
 class PrivateLinkServiceConnectionStatePropertyArgs:
@@ -5013,6 +4896,7 @@ class PrivateLinkServiceConnectionStatePropertyArgs:
                  status: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Connection State of the Private Endpoint Connection.
+
         :param pulumi.Input[_builtins.str] description: The private link service connection description.
         :param pulumi.Input[_builtins.str] status: The private link service connection status.
         """
@@ -5046,21 +4930,18 @@ class PrivateLinkServiceConnectionStatePropertyArgs:
         pulumi.set(self, "status", value)
 
 
-if not MYPY:
-    class PrivilegeResourceArgsDict(TypedDict):
-        """
-        An Azure Cosmos DB Mongo DB Resource.
-        """
-        collection: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The collection name the role is applied.
-        """
-        db: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The database name the role is applied.
-        """
-elif False:
-    PrivilegeResourceArgsDict: TypeAlias = Mapping[str, Any]
+class PrivilegeResourceArgsDict(TypedDict):
+    """
+    An Azure Cosmos DB Mongo DB Resource.
+    """
+    collection: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The collection name the role is applied.
+    """
+    db: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The database name the role is applied.
+    """
 
 @pulumi.input_type
 class PrivilegeResourceArgs:
@@ -5069,6 +4950,7 @@ class PrivilegeResourceArgs:
                  db: Optional[pulumi.Input[_builtins.str]] = None):
         """
         An Azure Cosmos DB Mongo DB Resource.
+
         :param pulumi.Input[_builtins.str] collection: The collection name the role is applied.
         :param pulumi.Input[_builtins.str] db: The database name the role is applied.
         """
@@ -5102,21 +4984,18 @@ class PrivilegeResourceArgs:
         pulumi.set(self, "db", value)
 
 
-if not MYPY:
-    class PrivilegeArgsDict(TypedDict):
-        """
-        The set of data plane operations permitted through this Role Definition.
-        """
-        actions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        An array of actions that are allowed.
-        """
-        resource: NotRequired[pulumi.Input['PrivilegeResourceArgsDict']]
-        """
-        An Azure Cosmos DB Mongo DB Resource.
-        """
-elif False:
-    PrivilegeArgsDict: TypeAlias = Mapping[str, Any]
+class PrivilegeArgsDict(TypedDict):
+    """
+    The set of data plane operations permitted through this Role Definition.
+    """
+    actions: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    An array of actions that are allowed.
+    """
+    resource: NotRequired[pulumi.Input['PrivilegeResourceArgsDict']]
+    """
+    An Azure Cosmos DB Mongo DB Resource.
+    """
 
 @pulumi.input_type
 class PrivilegeArgs:
@@ -5125,6 +5004,7 @@ class PrivilegeArgs:
                  resource: Optional[pulumi.Input['PrivilegeResourceArgs']] = None):
         """
         The set of data plane operations permitted through this Role Definition.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] actions: An array of actions that are allowed.
         :param pulumi.Input['PrivilegeResourceArgs'] resource: An Azure Cosmos DB Mongo DB Resource.
         """
@@ -5158,25 +5038,22 @@ class PrivilegeArgs:
         pulumi.set(self, "resource", value)
 
 
-if not MYPY:
-    class ResourceRestoreParametersArgsDict(TypedDict):
-        """
-        Parameters to indicate the information about the restore.
-        """
-        restore_source: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The id of the restorable database account from which the restore has to be initiated. For example: /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}
-        """
-        restore_timestamp_in_utc: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Time to which the account has to be restored (ISO-8601 format).
-        """
-        restore_with_ttl_disabled: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Specifies whether the restored account will have Time-To-Live disabled upon the successful restore.
-        """
-elif False:
-    ResourceRestoreParametersArgsDict: TypeAlias = Mapping[str, Any]
+class ResourceRestoreParametersArgsDict(TypedDict):
+    """
+    Parameters to indicate the information about the restore.
+    """
+    restore_source: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The id of the restorable database account from which the restore has to be initiated. For example: /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}
+    """
+    restore_timestamp_in_utc: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Time to which the account has to be restored (ISO-8601 format).
+    """
+    restore_with_ttl_disabled: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Specifies whether the restored account will have Time-To-Live disabled upon the successful restore.
+    """
 
 @pulumi.input_type
 class ResourceRestoreParametersArgs:
@@ -5186,6 +5063,7 @@ class ResourceRestoreParametersArgs:
                  restore_with_ttl_disabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Parameters to indicate the information about the restore.
+
         :param pulumi.Input[_builtins.str] restore_source: The id of the restorable database account from which the restore has to be initiated. For example: /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}
         :param pulumi.Input[_builtins.str] restore_timestamp_in_utc: Time to which the account has to be restored (ISO-8601 format).
         :param pulumi.Input[_builtins.bool] restore_with_ttl_disabled: Specifies whether the restored account will have Time-To-Live disabled upon the successful restore.
@@ -5234,45 +5112,42 @@ class ResourceRestoreParametersArgs:
         pulumi.set(self, "restore_with_ttl_disabled", value)
 
 
-if not MYPY:
-    class RestoreParametersArgsDict(TypedDict):
-        """
-        Parameters to indicate the information about the restore.
-        """
-        databases_to_restore: NotRequired[pulumi.Input[Sequence[pulumi.Input['DatabaseRestoreResourceArgsDict']]]]
-        """
-        List of specific databases available for restore.
-        """
-        gremlin_databases_to_restore: NotRequired[pulumi.Input[Sequence[pulumi.Input['GremlinDatabaseRestoreResourceArgsDict']]]]
-        """
-        List of specific gremlin databases available for restore.
-        """
-        restore_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'RestoreMode']]]
-        """
-        Describes the mode of the restore.
-        """
-        restore_source: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The id of the restorable database account from which the restore has to be initiated. For example: /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}
-        """
-        restore_timestamp_in_utc: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Time to which the account has to be restored (ISO-8601 format).
-        """
-        restore_with_ttl_disabled: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Specifies whether the restored account will have Time-To-Live disabled upon the successful restore.
-        """
-        source_backup_location: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The source backup location for restore.
-        """
-        tables_to_restore: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        List of specific tables available for restore.
-        """
-elif False:
-    RestoreParametersArgsDict: TypeAlias = Mapping[str, Any]
+class RestoreParametersArgsDict(TypedDict):
+    """
+    Parameters to indicate the information about the restore.
+    """
+    databases_to_restore: NotRequired[pulumi.Input[Sequence[pulumi.Input['DatabaseRestoreResourceArgsDict']]]]
+    """
+    List of specific databases available for restore.
+    """
+    gremlin_databases_to_restore: NotRequired[pulumi.Input[Sequence[pulumi.Input['GremlinDatabaseRestoreResourceArgsDict']]]]
+    """
+    List of specific gremlin databases available for restore.
+    """
+    restore_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'RestoreMode']]]
+    """
+    Describes the mode of the restore.
+    """
+    restore_source: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The id of the restorable database account from which the restore has to be initiated. For example: /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}
+    """
+    restore_timestamp_in_utc: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Time to which the account has to be restored (ISO-8601 format).
+    """
+    restore_with_ttl_disabled: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Specifies whether the restored account will have Time-To-Live disabled upon the successful restore.
+    """
+    source_backup_location: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The source backup location for restore.
+    """
+    tables_to_restore: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    List of specific tables available for restore.
+    """
 
 @pulumi.input_type
 class RestoreParametersArgs:
@@ -5287,6 +5162,7 @@ class RestoreParametersArgs:
                  tables_to_restore: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         Parameters to indicate the information about the restore.
+
         :param pulumi.Input[Sequence[pulumi.Input['DatabaseRestoreResourceArgs']]] databases_to_restore: List of specific databases available for restore.
         :param pulumi.Input[Sequence[pulumi.Input['GremlinDatabaseRestoreResourceArgs']]] gremlin_databases_to_restore: List of specific gremlin databases available for restore.
         :param pulumi.Input[Union[_builtins.str, 'RestoreMode']] restore_mode: Describes the mode of the restore.
@@ -5410,21 +5286,18 @@ class RestoreParametersArgs:
         pulumi.set(self, "tables_to_restore", value)
 
 
-if not MYPY:
-    class RoleArgsDict(TypedDict):
-        """
-        The set of roles permitted through this Role Definition.
-        """
-        db: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The database name the role is applied.
-        """
-        role: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The role name.
-        """
-elif False:
-    RoleArgsDict: TypeAlias = Mapping[str, Any]
+class RoleArgsDict(TypedDict):
+    """
+    The set of roles permitted through this Role Definition.
+    """
+    db: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The database name the role is applied.
+    """
+    role: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The role name.
+    """
 
 @pulumi.input_type
 class RoleArgs:
@@ -5433,6 +5306,7 @@ class RoleArgs:
                  role: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of roles permitted through this Role Definition.
+
         :param pulumi.Input[_builtins.str] db: The database name the role is applied.
         :param pulumi.Input[_builtins.str] role: The role name.
         """
@@ -5466,14 +5340,11 @@ class RoleArgs:
         pulumi.set(self, "role", value)
 
 
-if not MYPY:
-    class SeedNodeArgsDict(TypedDict):
-        ip_address: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        IP address of this seed node.
-        """
-elif False:
-    SeedNodeArgsDict: TypeAlias = Mapping[str, Any]
+class SeedNodeArgsDict(TypedDict):
+    ip_address: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    IP address of this seed node.
+    """
 
 @pulumi.input_type
 class SeedNodeArgs:
@@ -5498,18 +5369,15 @@ class SeedNodeArgs:
         pulumi.set(self, "ip_address", value)
 
 
-if not MYPY:
-    class SpatialSpecArgsDict(TypedDict):
-        path: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
-        """
-        types: NotRequired[pulumi.Input[Sequence[pulumi.Input[Union[_builtins.str, 'SpatialType']]]]]
-        """
-        List of path's spatial type
-        """
-elif False:
-    SpatialSpecArgsDict: TypeAlias = Mapping[str, Any]
+class SpatialSpecArgsDict(TypedDict):
+    path: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The path for which the indexing behavior applies to. Index paths typically start with root and end with wildcard (/path/*)
+    """
+    types: NotRequired[pulumi.Input[Sequence[pulumi.Input[Union[_builtins.str, 'SpatialType']]]]]
+    """
+    List of path's spatial type
+    """
 
 @pulumi.input_type
 class SpatialSpecArgs:
@@ -5550,65 +5418,62 @@ class SpatialSpecArgs:
         pulumi.set(self, "types", value)
 
 
-if not MYPY:
-    class SqlContainerResourceArgsDict(TypedDict):
-        """
-        Cosmos DB SQL container resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB SQL container
-        """
-        analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.float]]
-        """
-        Analytical TTL.
-        """
-        client_encryption_policy: NotRequired[pulumi.Input['ClientEncryptionPolicyArgsDict']]
-        """
-        The client encryption policy for the container.
-        """
-        computed_properties: NotRequired[pulumi.Input[Sequence[pulumi.Input['ComputedPropertyArgsDict']]]]
-        """
-        List of computed properties
-        """
-        conflict_resolution_policy: NotRequired[pulumi.Input['ConflictResolutionPolicyArgsDict']]
-        """
-        The conflict resolution policy for the container.
-        """
-        create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
-        """
-        Enum to indicate the mode of resource creation.
-        """
-        default_ttl: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Default time to live
-        """
-        full_text_policy: NotRequired[pulumi.Input['FullTextPolicyArgsDict']]
-        """
-        The FullText policy for the container.
-        """
-        indexing_policy: NotRequired[pulumi.Input['IndexingPolicyArgsDict']]
-        """
-        The configuration of the indexing policy. By default, the indexing is automatic for all document paths within the container
-        """
-        partition_key: NotRequired[pulumi.Input['ContainerPartitionKeyArgsDict']]
-        """
-        The configuration of the partition key to be used for partitioning data into multiple partitions
-        """
-        restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
-        """
-        Parameters to indicate the information about the restore
-        """
-        unique_key_policy: NotRequired[pulumi.Input['UniqueKeyPolicyArgsDict']]
-        """
-        The unique key policy configuration for specifying uniqueness constraints on documents in the collection in the Azure Cosmos DB service.
-        """
-        vector_embedding_policy: NotRequired[pulumi.Input['VectorEmbeddingPolicyArgsDict']]
-        """
-        The vector embedding policy for the container.
-        """
-elif False:
-    SqlContainerResourceArgsDict: TypeAlias = Mapping[str, Any]
+class SqlContainerResourceArgsDict(TypedDict):
+    """
+    Cosmos DB SQL container resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB SQL container
+    """
+    analytical_storage_ttl: NotRequired[pulumi.Input[_builtins.float]]
+    """
+    Analytical TTL.
+    """
+    client_encryption_policy: NotRequired[pulumi.Input['ClientEncryptionPolicyArgsDict']]
+    """
+    The client encryption policy for the container.
+    """
+    computed_properties: NotRequired[pulumi.Input[Sequence[pulumi.Input['ComputedPropertyArgsDict']]]]
+    """
+    List of computed properties
+    """
+    conflict_resolution_policy: NotRequired[pulumi.Input['ConflictResolutionPolicyArgsDict']]
+    """
+    The conflict resolution policy for the container.
+    """
+    create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
+    """
+    Enum to indicate the mode of resource creation.
+    """
+    default_ttl: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Default time to live
+    """
+    full_text_policy: NotRequired[pulumi.Input['FullTextPolicyArgsDict']]
+    """
+    The FullText policy for the container.
+    """
+    indexing_policy: NotRequired[pulumi.Input['IndexingPolicyArgsDict']]
+    """
+    The configuration of the indexing policy. By default, the indexing is automatic for all document paths within the container
+    """
+    partition_key: NotRequired[pulumi.Input['ContainerPartitionKeyArgsDict']]
+    """
+    The configuration of the partition key to be used for partitioning data into multiple partitions
+    """
+    restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
+    """
+    Parameters to indicate the information about the restore
+    """
+    unique_key_policy: NotRequired[pulumi.Input['UniqueKeyPolicyArgsDict']]
+    """
+    The unique key policy configuration for specifying uniqueness constraints on documents in the collection in the Azure Cosmos DB service.
+    """
+    vector_embedding_policy: NotRequired[pulumi.Input['VectorEmbeddingPolicyArgsDict']]
+    """
+    The vector embedding policy for the container.
+    """
 
 @pulumi.input_type
 class SqlContainerResourceArgs:
@@ -5628,6 +5493,7 @@ class SqlContainerResourceArgs:
                  vector_embedding_policy: Optional[pulumi.Input['VectorEmbeddingPolicyArgs']] = None):
         """
         Cosmos DB SQL container resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB SQL container
         :param pulumi.Input[_builtins.float] analytical_storage_ttl: Analytical TTL.
         :param pulumi.Input['ClientEncryptionPolicyArgs'] client_encryption_policy: The client encryption policy for the container.
@@ -5825,25 +5691,22 @@ class SqlContainerResourceArgs:
         pulumi.set(self, "vector_embedding_policy", value)
 
 
-if not MYPY:
-    class SqlDatabaseResourceArgsDict(TypedDict):
-        """
-        Cosmos DB SQL database resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB SQL database
-        """
-        create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
-        """
-        Enum to indicate the mode of resource creation.
-        """
-        restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
-        """
-        Parameters to indicate the information about the restore
-        """
-elif False:
-    SqlDatabaseResourceArgsDict: TypeAlias = Mapping[str, Any]
+class SqlDatabaseResourceArgsDict(TypedDict):
+    """
+    Cosmos DB SQL database resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB SQL database
+    """
+    create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
+    """
+    Enum to indicate the mode of resource creation.
+    """
+    restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
+    """
+    Parameters to indicate the information about the restore
+    """
 
 @pulumi.input_type
 class SqlDatabaseResourceArgs:
@@ -5853,6 +5716,7 @@ class SqlDatabaseResourceArgs:
                  restore_parameters: Optional[pulumi.Input['ResourceRestoreParametersArgs']] = None):
         """
         Cosmos DB SQL database resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB SQL database
         :param pulumi.Input[Union[_builtins.str, 'CreateMode']] create_mode: Enum to indicate the mode of resource creation.
         :param pulumi.Input['ResourceRestoreParametersArgs'] restore_parameters: Parameters to indicate the information about the restore
@@ -5900,30 +5764,27 @@ class SqlDatabaseResourceArgs:
         pulumi.set(self, "restore_parameters", value)
 
 
-if not MYPY:
-    class SqlDedicatedGatewayServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
-        """
-        Properties for Create or Update request for SqlDedicatedGatewayServiceResource
-        """
-        service_type: pulumi.Input[_builtins.str]
-        """
-        ServiceType for the service.
-        Expected value is 'SqlDedicatedGateway'.
-        """
-        dedicated_gateway_type: NotRequired[pulumi.Input[Union[_builtins.str, 'DedicatedGatewayType']]]
-        """
-        DedicatedGatewayType for the service.
-        """
-        instance_count: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Instance count for the service.
-        """
-        instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
-        """
-        Instance type for the service.
-        """
-elif False:
-    SqlDedicatedGatewayServiceResourceCreateUpdatePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class SqlDedicatedGatewayServiceResourceCreateUpdatePropertiesArgsDict(TypedDict):
+    """
+    Properties for Create or Update request for SqlDedicatedGatewayServiceResource
+    """
+    service_type: pulumi.Input[_builtins.str]
+    """
+    ServiceType for the service.
+    Expected value is 'SqlDedicatedGateway'.
+    """
+    dedicated_gateway_type: NotRequired[pulumi.Input[Union[_builtins.str, 'DedicatedGatewayType']]]
+    """
+    DedicatedGatewayType for the service.
+    """
+    instance_count: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Instance count for the service.
+    """
+    instance_size: NotRequired[pulumi.Input[Union[_builtins.str, 'ServiceSize']]]
+    """
+    Instance type for the service.
+    """
 
 @pulumi.input_type
 class SqlDedicatedGatewayServiceResourceCreateUpdatePropertiesArgs:
@@ -5934,6 +5795,7 @@ class SqlDedicatedGatewayServiceResourceCreateUpdatePropertiesArgs:
                  instance_size: Optional[pulumi.Input[Union[_builtins.str, 'ServiceSize']]] = None):
         """
         Properties for Create or Update request for SqlDedicatedGatewayServiceResource
+
         :param pulumi.Input[_builtins.str] service_type: ServiceType for the service.
                Expected value is 'SqlDedicatedGateway'.
         :param pulumi.Input[Union[_builtins.str, 'DedicatedGatewayType']] dedicated_gateway_type: DedicatedGatewayType for the service.
@@ -5998,21 +5860,18 @@ class SqlDedicatedGatewayServiceResourceCreateUpdatePropertiesArgs:
         pulumi.set(self, "instance_size", value)
 
 
-if not MYPY:
-    class SqlStoredProcedureResourceArgsDict(TypedDict):
-        """
-        Cosmos DB SQL storedProcedure resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB SQL storedProcedure
-        """
-        body: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Body of the Stored Procedure
-        """
-elif False:
-    SqlStoredProcedureResourceArgsDict: TypeAlias = Mapping[str, Any]
+class SqlStoredProcedureResourceArgsDict(TypedDict):
+    """
+    Cosmos DB SQL storedProcedure resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB SQL storedProcedure
+    """
+    body: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Body of the Stored Procedure
+    """
 
 @pulumi.input_type
 class SqlStoredProcedureResourceArgs:
@@ -6021,6 +5880,7 @@ class SqlStoredProcedureResourceArgs:
                  body: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Cosmos DB SQL storedProcedure resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB SQL storedProcedure
         :param pulumi.Input[_builtins.str] body: Body of the Stored Procedure
         """
@@ -6053,29 +5913,26 @@ class SqlStoredProcedureResourceArgs:
         pulumi.set(self, "body", value)
 
 
-if not MYPY:
-    class SqlTriggerResourceArgsDict(TypedDict):
-        """
-        Cosmos DB SQL trigger resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB SQL trigger
-        """
-        body: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Body of the Trigger
-        """
-        trigger_operation: NotRequired[pulumi.Input[Union[_builtins.str, 'TriggerOperation']]]
-        """
-        The operation the trigger is associated with
-        """
-        trigger_type: NotRequired[pulumi.Input[Union[_builtins.str, 'TriggerType']]]
-        """
-        Type of the Trigger
-        """
-elif False:
-    SqlTriggerResourceArgsDict: TypeAlias = Mapping[str, Any]
+class SqlTriggerResourceArgsDict(TypedDict):
+    """
+    Cosmos DB SQL trigger resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB SQL trigger
+    """
+    body: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Body of the Trigger
+    """
+    trigger_operation: NotRequired[pulumi.Input[Union[_builtins.str, 'TriggerOperation']]]
+    """
+    The operation the trigger is associated with
+    """
+    trigger_type: NotRequired[pulumi.Input[Union[_builtins.str, 'TriggerType']]]
+    """
+    Type of the Trigger
+    """
 
 @pulumi.input_type
 class SqlTriggerResourceArgs:
@@ -6086,6 +5943,7 @@ class SqlTriggerResourceArgs:
                  trigger_type: Optional[pulumi.Input[Union[_builtins.str, 'TriggerType']]] = None):
         """
         Cosmos DB SQL trigger resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB SQL trigger
         :param pulumi.Input[_builtins.str] body: Body of the Trigger
         :param pulumi.Input[Union[_builtins.str, 'TriggerOperation']] trigger_operation: The operation the trigger is associated with
@@ -6148,21 +6006,18 @@ class SqlTriggerResourceArgs:
         pulumi.set(self, "trigger_type", value)
 
 
-if not MYPY:
-    class SqlUserDefinedFunctionResourceArgsDict(TypedDict):
-        """
-        Cosmos DB SQL userDefinedFunction resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB SQL userDefinedFunction
-        """
-        body: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Body of the User Defined Function
-        """
-elif False:
-    SqlUserDefinedFunctionResourceArgsDict: TypeAlias = Mapping[str, Any]
+class SqlUserDefinedFunctionResourceArgsDict(TypedDict):
+    """
+    Cosmos DB SQL userDefinedFunction resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB SQL userDefinedFunction
+    """
+    body: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Body of the User Defined Function
+    """
 
 @pulumi.input_type
 class SqlUserDefinedFunctionResourceArgs:
@@ -6171,6 +6026,7 @@ class SqlUserDefinedFunctionResourceArgs:
                  body: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Cosmos DB SQL userDefinedFunction resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB SQL userDefinedFunction
         :param pulumi.Input[_builtins.str] body: Body of the User Defined Function
         """
@@ -6203,25 +6059,22 @@ class SqlUserDefinedFunctionResourceArgs:
         pulumi.set(self, "body", value)
 
 
-if not MYPY:
-    class TableResourceArgsDict(TypedDict):
-        """
-        Cosmos DB table resource object
-        """
-        id: pulumi.Input[_builtins.str]
-        """
-        Name of the Cosmos DB table
-        """
-        create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
-        """
-        Enum to indicate the mode of resource creation.
-        """
-        restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
-        """
-        Parameters to indicate the information about the restore
-        """
-elif False:
-    TableResourceArgsDict: TypeAlias = Mapping[str, Any]
+class TableResourceArgsDict(TypedDict):
+    """
+    Cosmos DB table resource object
+    """
+    id: pulumi.Input[_builtins.str]
+    """
+    Name of the Cosmos DB table
+    """
+    create_mode: NotRequired[pulumi.Input[Union[_builtins.str, 'CreateMode']]]
+    """
+    Enum to indicate the mode of resource creation.
+    """
+    restore_parameters: NotRequired[pulumi.Input['ResourceRestoreParametersArgsDict']]
+    """
+    Parameters to indicate the information about the restore
+    """
 
 @pulumi.input_type
 class TableResourceArgs:
@@ -6231,6 +6084,7 @@ class TableResourceArgs:
                  restore_parameters: Optional[pulumi.Input['ResourceRestoreParametersArgs']] = None):
         """
         Cosmos DB table resource object
+
         :param pulumi.Input[_builtins.str] id: Name of the Cosmos DB table
         :param pulumi.Input[Union[_builtins.str, 'CreateMode']] create_mode: Enum to indicate the mode of resource creation.
         :param pulumi.Input['ResourceRestoreParametersArgs'] restore_parameters: Parameters to indicate the information about the restore
@@ -6278,17 +6132,14 @@ class TableResourceArgs:
         pulumi.set(self, "restore_parameters", value)
 
 
-if not MYPY:
-    class UniqueKeyPolicyArgsDict(TypedDict):
-        """
-        The unique key policy configuration for specifying uniqueness constraints on documents in the collection in the Azure Cosmos DB service.
-        """
-        unique_keys: NotRequired[pulumi.Input[Sequence[pulumi.Input['UniqueKeyArgsDict']]]]
-        """
-        List of unique keys on that enforces uniqueness constraint on documents in the collection in the Azure Cosmos DB service.
-        """
-elif False:
-    UniqueKeyPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class UniqueKeyPolicyArgsDict(TypedDict):
+    """
+    The unique key policy configuration for specifying uniqueness constraints on documents in the collection in the Azure Cosmos DB service.
+    """
+    unique_keys: NotRequired[pulumi.Input[Sequence[pulumi.Input['UniqueKeyArgsDict']]]]
+    """
+    List of unique keys on that enforces uniqueness constraint on documents in the collection in the Azure Cosmos DB service.
+    """
 
 @pulumi.input_type
 class UniqueKeyPolicyArgs:
@@ -6296,6 +6147,7 @@ class UniqueKeyPolicyArgs:
                  unique_keys: Optional[pulumi.Input[Sequence[pulumi.Input['UniqueKeyArgs']]]] = None):
         """
         The unique key policy configuration for specifying uniqueness constraints on documents in the collection in the Azure Cosmos DB service.
+
         :param pulumi.Input[Sequence[pulumi.Input['UniqueKeyArgs']]] unique_keys: List of unique keys on that enforces uniqueness constraint on documents in the collection in the Azure Cosmos DB service.
         """
         if unique_keys is not None:
@@ -6314,17 +6166,14 @@ class UniqueKeyPolicyArgs:
         pulumi.set(self, "unique_keys", value)
 
 
-if not MYPY:
-    class UniqueKeyArgsDict(TypedDict):
-        """
-        The unique key on that enforces uniqueness constraint on documents in the collection in the Azure Cosmos DB service.
-        """
-        paths: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        List of paths must be unique for each document in the Azure Cosmos DB service
-        """
-elif False:
-    UniqueKeyArgsDict: TypeAlias = Mapping[str, Any]
+class UniqueKeyArgsDict(TypedDict):
+    """
+    The unique key on that enforces uniqueness constraint on documents in the collection in the Azure Cosmos DB service.
+    """
+    paths: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    List of paths must be unique for each document in the Azure Cosmos DB service
+    """
 
 @pulumi.input_type
 class UniqueKeyArgs:
@@ -6332,6 +6181,7 @@ class UniqueKeyArgs:
                  paths: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The unique key on that enforces uniqueness constraint on documents in the collection in the Azure Cosmos DB service.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] paths: List of paths must be unique for each document in the Azure Cosmos DB service
         """
         if paths is not None:
@@ -6350,17 +6200,14 @@ class UniqueKeyArgs:
         pulumi.set(self, "paths", value)
 
 
-if not MYPY:
-    class VectorEmbeddingPolicyArgsDict(TypedDict):
-        """
-        Cosmos DB Vector Embedding Policy
-        """
-        vector_embeddings: NotRequired[pulumi.Input[Sequence[pulumi.Input['VectorEmbeddingArgsDict']]]]
-        """
-        List of vector embeddings
-        """
-elif False:
-    VectorEmbeddingPolicyArgsDict: TypeAlias = Mapping[str, Any]
+class VectorEmbeddingPolicyArgsDict(TypedDict):
+    """
+    Cosmos DB Vector Embedding Policy
+    """
+    vector_embeddings: NotRequired[pulumi.Input[Sequence[pulumi.Input['VectorEmbeddingArgsDict']]]]
+    """
+    List of vector embeddings
+    """
 
 @pulumi.input_type
 class VectorEmbeddingPolicyArgs:
@@ -6368,6 +6215,7 @@ class VectorEmbeddingPolicyArgs:
                  vector_embeddings: Optional[pulumi.Input[Sequence[pulumi.Input['VectorEmbeddingArgs']]]] = None):
         """
         Cosmos DB Vector Embedding Policy
+
         :param pulumi.Input[Sequence[pulumi.Input['VectorEmbeddingArgs']]] vector_embeddings: List of vector embeddings
         """
         if vector_embeddings is not None:
@@ -6386,29 +6234,26 @@ class VectorEmbeddingPolicyArgs:
         pulumi.set(self, "vector_embeddings", value)
 
 
-if not MYPY:
-    class VectorEmbeddingArgsDict(TypedDict):
-        """
-        Represents a vector embedding. A vector embedding is used to define a vector field in the documents.
-        """
-        data_type: pulumi.Input[Union[_builtins.str, 'VectorDataType']]
-        """
-        Indicates the data type of vector.
-        """
-        dimensions: pulumi.Input[_builtins.int]
-        """
-        The number of dimensions in the vector.
-        """
-        distance_function: pulumi.Input[Union[_builtins.str, 'DistanceFunction']]
-        """
-        The distance function to use for distance calculation in between vectors.
-        """
-        path: pulumi.Input[_builtins.str]
-        """
-        The path to the vector field in the document.
-        """
-elif False:
-    VectorEmbeddingArgsDict: TypeAlias = Mapping[str, Any]
+class VectorEmbeddingArgsDict(TypedDict):
+    """
+    Represents a vector embedding. A vector embedding is used to define a vector field in the documents.
+    """
+    data_type: pulumi.Input[Union[_builtins.str, 'VectorDataType']]
+    """
+    Indicates the data type of vector.
+    """
+    dimensions: pulumi.Input[_builtins.int]
+    """
+    The number of dimensions in the vector.
+    """
+    distance_function: pulumi.Input[Union[_builtins.str, 'DistanceFunction']]
+    """
+    The distance function to use for distance calculation in between vectors.
+    """
+    path: pulumi.Input[_builtins.str]
+    """
+    The path to the vector field in the document.
+    """
 
 @pulumi.input_type
 class VectorEmbeddingArgs:
@@ -6419,6 +6264,7 @@ class VectorEmbeddingArgs:
                  path: pulumi.Input[_builtins.str]):
         """
         Represents a vector embedding. A vector embedding is used to define a vector field in the documents.
+
         :param pulumi.Input[Union[_builtins.str, 'VectorDataType']] data_type: Indicates the data type of vector.
         :param pulumi.Input[_builtins.int] dimensions: The number of dimensions in the vector.
         :param pulumi.Input[Union[_builtins.str, 'DistanceFunction']] distance_function: The distance function to use for distance calculation in between vectors.
@@ -6478,30 +6324,27 @@ class VectorEmbeddingArgs:
         pulumi.set(self, "path", value)
 
 
-if not MYPY:
-    class VectorIndexArgsDict(TypedDict):
-        path: pulumi.Input[_builtins.str]
-        """
-        The path to the vector field in the document.
-        """
-        type: pulumi.Input[Union[_builtins.str, 'VectorIndexType']]
-        """
-        The index type of the vector. Currently, flat, diskANN, and quantizedFlat are supported.
-        """
-        indexing_search_list_size: NotRequired[pulumi.Input[_builtins.float]]
-        """
-        This is the size of the candidate list of approximate neighbors stored while building the DiskANN index as part of the optimization processes. Large values may improve recall at the expense of latency. This is only applicable for the diskANN vector index type.
-        """
-        quantization_byte_size: NotRequired[pulumi.Input[_builtins.float]]
-        """
-        The number of bytes used in product quantization of the vectors. A larger value may result in better recall for vector searches at the expense of latency. This is only applicable for the quantizedFlat and diskANN vector index types.
-        """
-        vector_index_shard_key: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
-        """
-        Array of shard keys for the vector index. This is only applicable for the quantizedFlat and diskANN vector index types.
-        """
-elif False:
-    VectorIndexArgsDict: TypeAlias = Mapping[str, Any]
+class VectorIndexArgsDict(TypedDict):
+    path: pulumi.Input[_builtins.str]
+    """
+    The path to the vector field in the document.
+    """
+    type: pulumi.Input[Union[_builtins.str, 'VectorIndexType']]
+    """
+    The index type of the vector. Currently, flat, diskANN, and quantizedFlat are supported.
+    """
+    indexing_search_list_size: NotRequired[pulumi.Input[_builtins.float]]
+    """
+    This is the size of the candidate list of approximate neighbors stored while building the DiskANN index as part of the optimization processes. Large values may improve recall at the expense of latency. This is only applicable for the diskANN vector index type.
+    """
+    quantization_byte_size: NotRequired[pulumi.Input[_builtins.float]]
+    """
+    The number of bytes used in product quantization of the vectors. A larger value may result in better recall for vector searches at the expense of latency. This is only applicable for the quantizedFlat and diskANN vector index types.
+    """
+    vector_index_shard_key: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    Array of shard keys for the vector index. This is only applicable for the quantizedFlat and diskANN vector index types.
+    """
 
 @pulumi.input_type
 class VectorIndexArgs:
@@ -6590,21 +6433,18 @@ class VectorIndexArgs:
         pulumi.set(self, "vector_index_shard_key", value)
 
 
-if not MYPY:
-    class VirtualNetworkRuleArgsDict(TypedDict):
-        """
-        Virtual Network ACL Rule object
-        """
-        id: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Resource ID of a subnet, for example: /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}.
-        """
-        ignore_missing_v_net_service_endpoint: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        Create firewall rule before the virtual network has vnet service endpoint enabled.
-        """
-elif False:
-    VirtualNetworkRuleArgsDict: TypeAlias = Mapping[str, Any]
+class VirtualNetworkRuleArgsDict(TypedDict):
+    """
+    Virtual Network ACL Rule object
+    """
+    id: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Resource ID of a subnet, for example: /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}.
+    """
+    ignore_missing_v_net_service_endpoint: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    Create firewall rule before the virtual network has vnet service endpoint enabled.
+    """
 
 @pulumi.input_type
 class VirtualNetworkRuleArgs:
@@ -6613,6 +6453,7 @@ class VirtualNetworkRuleArgs:
                  ignore_missing_v_net_service_endpoint: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Virtual Network ACL Rule object
+
         :param pulumi.Input[_builtins.str] id: Resource ID of a subnet, for example: /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}.
         :param pulumi.Input[_builtins.bool] ignore_missing_v_net_service_endpoint: Create firewall rule before the virtual network has vnet service endpoint enabled.
         """

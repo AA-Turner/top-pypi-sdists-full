@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: files_com
-Version: 1.6.319
+Version: 1.6.320
 Summary: Python bindings for the Files.com API
 License: MIT
 Requires-Python: >=3.5
@@ -675,6 +675,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`InvalidPriorityColorError`|  `ProcessingFailureError` |
 |`InvalidRangeError`|  `ProcessingFailureError` |
 |`InvalidSiteError`|  `ProcessingFailureError` |
+|`InvalidZipFileError`|  `ProcessingFailureError` |
 |`MetadataNotSupportedOnRemotesError`|  `ProcessingFailureError` |
 |`ModelSaveErrorError`|  `ProcessingFailureError` |
 |`MultipleProcessingErrorsError`|  `ProcessingFailureError` |

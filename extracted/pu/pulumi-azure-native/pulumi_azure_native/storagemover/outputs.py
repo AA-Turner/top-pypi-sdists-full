@@ -21,6 +21,7 @@ __all__ = [
     'AzureKeyVaultSmbCredentialsResponse',
     'AzureStorageBlobContainerEndpointPropertiesResponse',
     'AzureStorageSmbFileShareEndpointPropertiesResponse',
+    'ConnectionPropertiesResponse',
     'NfsMountEndpointPropertiesResponse',
     'SmbMountEndpointPropertiesResponse',
     'SystemDataResponse',
@@ -90,6 +91,7 @@ class AzureKeyVaultSmbCredentialsResponse(dict):
                  username_uri: Optional[_builtins.str] = None):
         """
         The Azure Key Vault secret URIs which store the credentials.
+
         :param _builtins.str type: The Credentials type.
                Expected value is 'AzureKeyVaultSmb'.
         :param _builtins.str password_uri: The Azure Key Vault secret URI which stores the password. Use empty string to clean-up existing value.
@@ -163,6 +165,7 @@ class AzureStorageBlobContainerEndpointPropertiesResponse(dict):
                  description: Optional[_builtins.str] = None):
         """
         The properties of Azure Storage blob container endpoint.
+
         :param _builtins.str blob_container_name: The name of the Storage blob container that is the target destination.
         :param _builtins.str endpoint_type: The Endpoint resource type.
                Expected value is 'AzureStorageBlobContainer'.
@@ -255,6 +258,7 @@ class AzureStorageSmbFileShareEndpointPropertiesResponse(dict):
                  description: Optional[_builtins.str] = None):
         """
         The properties of Azure Storage SMB file share endpoint.
+
         :param _builtins.str endpoint_type: The Endpoint resource type.
                Expected value is 'AzureStorageSmbFileShare'.
         :param _builtins.str file_share_name: The name of the Azure Storage file share.
@@ -312,6 +316,124 @@ class AzureStorageSmbFileShareEndpointPropertiesResponse(dict):
 
 
 @pulumi.output_type
+class ConnectionPropertiesResponse(dict):
+    """
+    Properties of the Connection resource.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "connectionStatus":
+            suggest = "connection_status"
+        elif key == "privateEndpointName":
+            suggest = "private_endpoint_name"
+        elif key == "privateEndpointResourceId":
+            suggest = "private_endpoint_resource_id"
+        elif key == "privateLinkServiceId":
+            suggest = "private_link_service_id"
+        elif key == "provisioningState":
+            suggest = "provisioning_state"
+        elif key == "jobList":
+            suggest = "job_list"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ConnectionPropertiesResponse. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ConnectionPropertiesResponse.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ConnectionPropertiesResponse.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 connection_status: _builtins.str,
+                 private_endpoint_name: _builtins.str,
+                 private_endpoint_resource_id: _builtins.str,
+                 private_link_service_id: _builtins.str,
+                 provisioning_state: _builtins.str,
+                 description: Optional[_builtins.str] = None,
+                 job_list: Optional[Sequence[_builtins.str]] = None):
+        """
+        Properties of the Connection resource.
+
+        :param _builtins.str connection_status: The connection status.
+        :param _builtins.str private_endpoint_name: The PrivateEndpointName associated with the connection.
+        :param _builtins.str private_endpoint_resource_id: The privateEndpoint resource Id
+        :param _builtins.str private_link_service_id: The PrivateLinkServiceId for the connection.
+        :param _builtins.str provisioning_state: The provisioning state of this resource.
+        :param _builtins.str description: A description for the Connection.
+        :param Sequence[_builtins.str] job_list: List of job definitions associated with this connection.
+        """
+        pulumi.set(__self__, "connection_status", connection_status)
+        pulumi.set(__self__, "private_endpoint_name", private_endpoint_name)
+        pulumi.set(__self__, "private_endpoint_resource_id", private_endpoint_resource_id)
+        pulumi.set(__self__, "private_link_service_id", private_link_service_id)
+        pulumi.set(__self__, "provisioning_state", provisioning_state)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+        if job_list is not None:
+            pulumi.set(__self__, "job_list", job_list)
+
+    @_builtins.property
+    @pulumi.getter(name="connectionStatus")
+    def connection_status(self) -> _builtins.str:
+        """
+        The connection status.
+        """
+        return pulumi.get(self, "connection_status")
+
+    @_builtins.property
+    @pulumi.getter(name="privateEndpointName")
+    def private_endpoint_name(self) -> _builtins.str:
+        """
+        The PrivateEndpointName associated with the connection.
+        """
+        return pulumi.get(self, "private_endpoint_name")
+
+    @_builtins.property
+    @pulumi.getter(name="privateEndpointResourceId")
+    def private_endpoint_resource_id(self) -> _builtins.str:
+        """
+        The privateEndpoint resource Id
+        """
+        return pulumi.get(self, "private_endpoint_resource_id")
+
+    @_builtins.property
+    @pulumi.getter(name="privateLinkServiceId")
+    def private_link_service_id(self) -> _builtins.str:
+        """
+        The PrivateLinkServiceId for the connection.
+        """
+        return pulumi.get(self, "private_link_service_id")
+
+    @_builtins.property
+    @pulumi.getter(name="provisioningState")
+    def provisioning_state(self) -> _builtins.str:
+        """
+        The provisioning state of this resource.
+        """
+        return pulumi.get(self, "provisioning_state")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        A description for the Connection.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="jobList")
+    def job_list(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of job definitions associated with this connection.
+        """
+        return pulumi.get(self, "job_list")
+
+
+@pulumi.output_type
 class NfsMountEndpointPropertiesResponse(dict):
     """
     The properties of NFS share endpoint.
@@ -346,6 +468,7 @@ class NfsMountEndpointPropertiesResponse(dict):
                  nfs_version: Optional[_builtins.str] = None):
         """
         The properties of NFS share endpoint.
+
         :param _builtins.str endpoint_type: The Endpoint resource type.
                Expected value is 'NfsMount'.
         :param _builtins.str export: The directory being exported from the server.
@@ -448,6 +571,7 @@ class SmbMountEndpointPropertiesResponse(dict):
                  description: Optional[_builtins.str] = None):
         """
         The properties of SMB share endpoint.
+
         :param _builtins.str endpoint_type: The Endpoint resource type.
                Expected value is 'SmbMount'.
         :param _builtins.str host: The host name or IP address of the server exporting the file system.
@@ -556,6 +680,7 @@ class SystemDataResponse(dict):
                  last_modified_by_type: Optional[_builtins.str] = None):
         """
         Metadata pertaining to creation and last modification of the resource.
+
         :param _builtins.str created_at: The timestamp of resource creation (UTC).
         :param _builtins.str created_by: The identity that created the resource.
         :param _builtins.str created_by_type: The type of identity that created the resource.
@@ -635,6 +760,7 @@ class TimeResponse(dict):
                  minute: Optional[_builtins.float] = None):
         """
         The time of day.
+
         :param _builtins.int hour: The hour element of the time. Allowed values range from 0 (start of the selected day) to 24 (end of the selected day). Hour value 24 cannot be combined with any other minute value but 0.
         :param _builtins.float minute: The minute element of the time. Allowed values are 0 and 30. If not specified, its value defaults to 0.
         """
@@ -687,6 +813,7 @@ class UploadLimitScheduleResponse(dict):
                  weekly_recurrences: Optional[Sequence['outputs.UploadLimitWeeklyRecurrenceResponse']] = None):
         """
         The WAN-link upload limit schedule. Overlapping recurrences are not allowed.
+
         :param Sequence['UploadLimitWeeklyRecurrenceResponse'] weekly_recurrences: The set of weekly repeating recurrences of the WAN-link upload limit schedule.
         """
         if weekly_recurrences is not None:
@@ -734,6 +861,7 @@ class UploadLimitWeeklyRecurrenceResponse(dict):
                  start_time: 'outputs.TimeResponse'):
         """
         The weekly recurrence of the WAN-link upload limit schedule. The start time must be earlier in the day than the end time. The recurrence must not span across multiple days.
+
         :param Sequence[_builtins.str] days: The set of days of week for the schedule recurrence. A day must not be specified more than once in a recurrence.
         :param 'TimeResponse' end_time: The end time of the schedule recurrence. Full hour and 30-minute intervals are supported.
         :param _builtins.int limit_in_mbps: The WAN-link upload bandwidth (maximum data transfer rate) in megabits per second. Value of 0 indicates no throughput is allowed and any running migration job is effectively paused for the duration of this recurrence. Only data plane operations are governed by this limit. Control plane operations ensure seamless functionality. The agent may exceed this limit with control messages, if necessary.

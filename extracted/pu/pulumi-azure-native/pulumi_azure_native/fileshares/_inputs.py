@@ -24,59 +24,56 @@ __all__ = [
     'FileShareSnapshotPropertiesArgsDict',
     'NfsProtocolPropertiesArgs',
     'NfsProtocolPropertiesArgsDict',
+    'PrivateLinkServiceConnectionStateArgs',
+    'PrivateLinkServiceConnectionStateArgsDict',
     'PublicAccessPropertiesArgs',
     'PublicAccessPropertiesArgsDict',
 ]
 
-MYPY = False
-
-if not MYPY:
-    class FileSharePropertiesArgsDict(TypedDict):
-        """
-        File share properties
-        """
-        media_tier: NotRequired[pulumi.Input[Union[_builtins.str, 'MediaTier']]]
-        """
-        The storage media tier of the file share.
-        """
-        mount_name: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the file share as seen by the end user when mounting the share, such as in a URI or UNC format in their operating system.
-        """
-        nfs_protocol_properties: NotRequired[pulumi.Input['NfsProtocolPropertiesArgsDict']]
-        """
-        Protocol settings specific NFS.
-        """
-        protocol: NotRequired[pulumi.Input[Union[_builtins.str, 'Protocol']]]
-        """
-        The file sharing protocol for this file share.
-        """
-        provisioned_io_per_sec: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The provisioned IO / sec of the share.
-        """
-        provisioned_storage_gi_b: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The provisioned storage size of the share in GiB (1 GiB is 1024^3 bytes or 1073741824 bytes). A component of the file share's bill is the provisioned storage, regardless of the amount of used storage.
-        """
-        provisioned_throughput_mi_b_per_sec: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The provisioned throughput / sec of the share.
-        """
-        public_access_properties: NotRequired[pulumi.Input['PublicAccessPropertiesArgsDict']]
-        """
-        The set of properties for control public access.
-        """
-        public_network_access: NotRequired[pulumi.Input[Union[_builtins.str, 'PublicNetworkAccess']]]
-        """
-        Gets or sets allow or disallow public network access to azure managed file share
-        """
-        redundancy: NotRequired[pulumi.Input[Union[_builtins.str, 'Redundancy']]]
-        """
-        The chosen redundancy level of the file share.
-        """
-elif False:
-    FileSharePropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class FileSharePropertiesArgsDict(TypedDict):
+    """
+    File share properties
+    """
+    media_tier: NotRequired[pulumi.Input[Union[_builtins.str, 'MediaTier']]]
+    """
+    The storage media tier of the file share.
+    """
+    mount_name: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the file share as seen by the end user when mounting the share, such as in a URI or UNC format in their operating system.
+    """
+    nfs_protocol_properties: NotRequired[pulumi.Input['NfsProtocolPropertiesArgsDict']]
+    """
+    Protocol settings specific NFS.
+    """
+    protocol: NotRequired[pulumi.Input[Union[_builtins.str, 'Protocol']]]
+    """
+    The file sharing protocol for this file share.
+    """
+    provisioned_io_per_sec: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The provisioned IO / sec of the share.
+    """
+    provisioned_storage_gi_b: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The provisioned storage size of the share in GiB (1 GiB is 1024^3 bytes or 1073741824 bytes). A component of the file share's bill is the provisioned storage, regardless of the amount of used storage.
+    """
+    provisioned_throughput_mi_b_per_sec: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The provisioned throughput / sec of the share.
+    """
+    public_access_properties: NotRequired[pulumi.Input['PublicAccessPropertiesArgsDict']]
+    """
+    The set of properties for control public access.
+    """
+    public_network_access: NotRequired[pulumi.Input[Union[_builtins.str, 'PublicNetworkAccess']]]
+    """
+    Gets or sets allow or disallow public network access to azure managed file share
+    """
+    redundancy: NotRequired[pulumi.Input[Union[_builtins.str, 'Redundancy']]]
+    """
+    The chosen redundancy level of the file share.
+    """
 
 @pulumi.input_type
 class FileSharePropertiesArgs:
@@ -93,6 +90,7 @@ class FileSharePropertiesArgs:
                  redundancy: Optional[pulumi.Input[Union[_builtins.str, 'Redundancy']]] = None):
         """
         File share properties
+
         :param pulumi.Input[Union[_builtins.str, 'MediaTier']] media_tier: The storage media tier of the file share.
         :param pulumi.Input[_builtins.str] mount_name: The name of the file share as seen by the end user when mounting the share, such as in a URI or UNC format in their operating system.
         :param pulumi.Input['NfsProtocolPropertiesArgs'] nfs_protocol_properties: Protocol settings specific NFS.
@@ -246,17 +244,14 @@ class FileSharePropertiesArgs:
         pulumi.set(self, "redundancy", value)
 
 
-if not MYPY:
-    class FileShareProvisioningRecommendationInputDict(TypedDict):
-        """
-        File share provisioning parameters recommendation API input structure.
-        """
-        provisioned_storage_gi_b: _builtins.int
-        """
-        The desired provisioned storage size of the share in GiB. Will be use to calculate the values of remaining provisioning parameters.
-        """
-elif False:
-    FileShareProvisioningRecommendationInputDict: TypeAlias = Mapping[str, Any]
+class FileShareProvisioningRecommendationInputDict(TypedDict):
+    """
+    File share provisioning parameters recommendation API input structure.
+    """
+    provisioned_storage_gi_b: _builtins.int
+    """
+    The desired provisioned storage size of the share in GiB. Will be use to calculate the values of remaining provisioning parameters.
+    """
 
 @pulumi.input_type
 class FileShareProvisioningRecommendationInput:
@@ -264,6 +259,7 @@ class FileShareProvisioningRecommendationInput:
                  provisioned_storage_gi_b: _builtins.int):
         """
         File share provisioning parameters recommendation API input structure.
+
         :param _builtins.int provisioned_storage_gi_b: The desired provisioned storage size of the share in GiB. Will be use to calculate the values of remaining provisioning parameters.
         """
         pulumi.set(__self__, "provisioned_storage_gi_b", provisioned_storage_gi_b)
@@ -281,17 +277,14 @@ class FileShareProvisioningRecommendationInput:
         pulumi.set(self, "provisioned_storage_gi_b", value)
 
 
-if not MYPY:
-    class FileShareSnapshotPropertiesArgsDict(TypedDict):
-        """
-        FileShareSnapshot properties
-        """
-        metadata: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
-        """
-        The metadata
-        """
-elif False:
-    FileShareSnapshotPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class FileShareSnapshotPropertiesArgsDict(TypedDict):
+    """
+    FileShareSnapshot properties
+    """
+    metadata: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
+    """
+    The metadata
+    """
 
 @pulumi.input_type
 class FileShareSnapshotPropertiesArgs:
@@ -299,6 +292,7 @@ class FileShareSnapshotPropertiesArgs:
                  metadata: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         FileShareSnapshot properties
+
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] metadata: The metadata
         """
         if metadata is not None:
@@ -317,17 +311,14 @@ class FileShareSnapshotPropertiesArgs:
         pulumi.set(self, "metadata", value)
 
 
-if not MYPY:
-    class NfsProtocolPropertiesArgsDict(TypedDict):
-        """
-        Properties specific to the NFS protocol.
-        """
-        root_squash: NotRequired[pulumi.Input[Union[_builtins.str, 'ShareRootSquash']]]
-        """
-        Root squash defines how root users on clients are mapped to the NFS share.
-        """
-elif False:
-    NfsProtocolPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+class NfsProtocolPropertiesArgsDict(TypedDict):
+    """
+    Properties specific to the NFS protocol.
+    """
+    root_squash: NotRequired[pulumi.Input[Union[_builtins.str, 'ShareRootSquash']]]
+    """
+    Root squash defines how root users on clients are mapped to the NFS share.
+    """
 
 @pulumi.input_type
 class NfsProtocolPropertiesArgs:
@@ -335,6 +326,7 @@ class NfsProtocolPropertiesArgs:
                  root_squash: Optional[pulumi.Input[Union[_builtins.str, 'ShareRootSquash']]] = None):
         """
         Properties specific to the NFS protocol.
+
         :param pulumi.Input[Union[_builtins.str, 'ShareRootSquash']] root_squash: Root squash defines how root users on clients are mapped to the NFS share.
         """
         if root_squash is not None:
@@ -353,17 +345,88 @@ class NfsProtocolPropertiesArgs:
         pulumi.set(self, "root_squash", value)
 
 
-if not MYPY:
-    class PublicAccessPropertiesArgsDict(TypedDict):
+class PrivateLinkServiceConnectionStateArgsDict(TypedDict):
+    """
+    A collection of information about the state of the connection between service consumer and provider.
+    """
+    actions_required: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A message indicating if changes on the service provider require any updates on the consumer.
+    """
+    description: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The reason for approval/rejection of the connection.
+    """
+    status: NotRequired[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]]
+    """
+    Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+    """
+
+@pulumi.input_type
+class PrivateLinkServiceConnectionStateArgs:
+    def __init__(__self__, *,
+                 actions_required: Optional[pulumi.Input[_builtins.str]] = None,
+                 description: Optional[pulumi.Input[_builtins.str]] = None,
+                 status: Optional[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]] = None):
         """
-        The set of properties for control public access.
+        A collection of information about the state of the connection between service consumer and provider.
+
+        :param pulumi.Input[_builtins.str] actions_required: A message indicating if changes on the service provider require any updates on the consumer.
+        :param pulumi.Input[_builtins.str] description: The reason for approval/rejection of the connection.
+        :param pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']] status: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
         """
-        allowed_subnets: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        if actions_required is not None:
+            pulumi.set(__self__, "actions_required", actions_required)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter(name="actionsRequired")
+    def actions_required(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The allowed set of subnets when access is restricted.
+        A message indicating if changes on the service provider require any updates on the consumer.
         """
-elif False:
-    PublicAccessPropertiesArgsDict: TypeAlias = Mapping[str, Any]
+        return pulumi.get(self, "actions_required")
+
+    @actions_required.setter
+    def actions_required(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "actions_required", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The reason for approval/rejection of the connection.
+        """
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]]:
+        """
+        Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        """
+        return pulumi.get(self, "status")
+
+    @status.setter
+    def status(self, value: Optional[pulumi.Input[Union[_builtins.str, 'PrivateEndpointServiceConnectionStatus']]]):
+        pulumi.set(self, "status", value)
+
+
+class PublicAccessPropertiesArgsDict(TypedDict):
+    """
+    The set of properties for control public access.
+    """
+    allowed_subnets: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+    """
+    The allowed set of subnets when access is restricted.
+    """
 
 @pulumi.input_type
 class PublicAccessPropertiesArgs:
@@ -371,6 +434,7 @@ class PublicAccessPropertiesArgs:
                  allowed_subnets: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
         """
         The set of properties for control public access.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowed_subnets: The allowed set of subnets when access is restricted.
         """
         if allowed_subnets is not None:

@@ -45,6 +45,40 @@ def test_conflicting_base_python_factor() -> None:
         Python.extract_base_python(name)
 
 
+def test_conflicting_base_python_factor_explicit_version() -> None:
+    with pytest.raises(ValueError, match=r"conflicting factors 3\.10, 3\.11 in 3\.10-3\.11"):
+        Python.extract_base_python("3.10-3.11")
+
+
+def test_conflicting_base_python_factor_mixed_style() -> None:
+    with pytest.raises(ValueError, match=r"conflicting factors py310, 3\.11 in py310-3\.11"):
+        Python.extract_base_python("py310-3.11")
+
+
+def test_conflicting_base_python_factor_ignore(tox_project: ToxProjectCreator) -> None:
+    ini = "[tox]\nenv_list=unit-py3.10-2.16\nignore_base_python_conflict=true\n[testenv]\npackage=skip\n"
+    project = tox_project({"tox.ini": ini})
+    result = project.run("c", "-e", "unit-py3.10-2.16", "-k", "base_python")
+    result.assert_success()
+
+
+def test_conflicting_base_python_factor_no_ignore(tox_project: ToxProjectCreator) -> None:
+    ini = "[tox]\nenv_list=unit-py3.10-2.16\n[testenv]\npackage=skip\n"
+    project = tox_project({"tox.ini": ini})
+    result = project.run("c", "-e", "unit-py3.10-2.16", "-k", "base_python", raise_on_config_fail=False)
+    result.assert_failed(code=-1)
+
+
+def test_validate_base_python_conflicting_factors_ignore() -> None:
+    result = Python._validate_base_python("unit-py3.10-2.16", ["python3"], ignore_base_python_conflict=True)  # noqa: SLF001
+    assert result == ["python3"]
+
+
+def test_validate_base_python_conflicting_factors_no_ignore() -> None:
+    with pytest.raises(ValueError, match=r"conflicting factors py3\.10, 2\.16 in unit-py3\.10-2\.16"):
+        Python._validate_base_python("unit-py3.10-2.16", ["python3"], ignore_base_python_conflict=False)  # noqa: SLF001
+
+
 def test_build_wheel_in_non_base_pkg_env(
     tox_project: ToxProjectCreator,
     patch_prev_py: Callable[[bool], tuple[str, str]],
@@ -142,6 +176,11 @@ def test_diff_msg_no_diff() -> None:
         ("2.7t", "2.7t"),
         ("pypy-3.10", "pypy3.10"),
         ("pypy-3.10t", "pypy3.10t"),
+        ("3.10-tests", "3.10"),
+        ("3.10t-tests", "3.10t"),
+        ("tests-3.10", "3.10"),
+        ("tests-3.10t", "3.10t"),
+        ("foo-3.14-bar", "3.14"),
     ],
     ids=lambda a: "|".join(a) if isinstance(a, list) else str(a),
 )

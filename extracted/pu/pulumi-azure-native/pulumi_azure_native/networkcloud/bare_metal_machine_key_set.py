@@ -36,6 +36,7 @@ class BareMetalMachineKeySetArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a BareMetalMachineKeySet resource.
+
         :param pulumi.Input[_builtins.str] azure_group_id: The object ID of Azure Active Directory group that all users in the list must be in for access to be granted. Users that are not in the group will not have access.
         :param pulumi.Input[_builtins.str] cluster_name: The name of the cluster.
         :param pulumi.Input[_builtins.str] expiration: The date and time after which the users in this key set will be removed from the bare metal machines.
@@ -233,7 +234,8 @@ class BareMetalMachineKeySet(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -259,7 +261,8 @@ class BareMetalMachineKeySet(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param BareMetalMachineKeySetArgs args: The arguments to use to populate this resource's properties.
@@ -335,7 +338,7 @@ class BareMetalMachineKeySet(pulumi.CustomResource):
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
             __props__.__dict__["user_list_status"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:BareMetalMachineKeySet")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:BareMetalMachineKeySet"), pulumi.Alias(type_="azure-native:networkcloud/v20260101preview:BareMetalMachineKeySet")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(BareMetalMachineKeySet, __self__).__init__(
             'azure-native:networkcloud:BareMetalMachineKeySet',

@@ -1,6 +1,8 @@
 use crate::anthropic::request::PostMessagesRequest;
-use crate::anthropic::response::MessageResponse;
-use crate::spans::utils::{is_gzip_encoded, parse_span_id, parse_sse_events, parse_trace_id};
+use crate::anthropic::response::{self, MessageResponse};
+use crate::spans::utils::{
+    bytes_to_uuid_like_string, decompress_if_gzip, parse_span_id, parse_sse_events, parse_trace_id,
+};
 use crate::spans::{
     CompletedSpawningToolSpan, CompletedToolSpan, NestedContext, RegistrationContext,
     ResponseFailure, ResponseInfo, SpanProcessor, build_tool_span_request, create_span_request,
@@ -211,18 +213,16 @@ where
 
         // Parse the response - handle both streaming and non-streaming
         let parsed_response: Option<MessageResponse> = parsed_request.as_ref().and_then(|req| {
+            let response_str =
+                decompress_if_gzip(response_bytes.as_slice(), has_gzip_content_encoding)
+                    .map_err(|e| eprintln!("Failed to parse gzipped response: {}", e))
+                    .unwrap_or(String::from_utf8_lossy(&response_bytes).to_string());
             if req.stream {
                 // Streaming response: parse SSE events
-                let response_str = String::from_utf8_lossy(&response_bytes);
                 let events = parse_sse_events(&response_str);
                 MessageResponse::try_from_stream_events(events).ok()
             } else {
-                // Non-streaming response: may be gzip-encoded
-                if is_gzip_encoded(&response_bytes, has_gzip_content_encoding) {
-                    return None;
-                }
-                let string_response_body = String::from_utf8_lossy(&response_bytes).to_string();
-                serde_json::from_str(&string_response_body).ok()
+                serde_json::from_str(&response_str).ok()
             }
         });
 
@@ -292,7 +292,6 @@ where
             join_set.spawn(async move {
                 if let Some(trace) = trace {
                     // If in subagent context, use the Task's span as parent for LLM spans
-                    use crate::spans::utils::bytes_to_uuid_like_string;
                     let (effective_parent_span_id, effective_span_ids_path, effective_span_path): (
                         String,
                         Vec<String>,
@@ -405,6 +404,7 @@ async fn handle_health()
             .boxed(),
     )?)
 }
+
 async fn handle_span_context(
     req: Request<Incoming>,
     state: SharedState,
@@ -605,7 +605,7 @@ async fn forward_request(
             let proxy_req = Request::from_parts(parts_clone, new_body);
             client.request(proxy_req).await?
         } else {
-            eprintln!("Inferring scheme for target URL: {}", target_url);
+            // eprintln!("Inferring scheme for target URL: {}", target_url);
             // Need to infer the scheme
             let (inferred_scheme, resp) = try_infer_scheme(
                 parts.clone(),
@@ -619,7 +619,7 @@ async fn forward_request(
             // Cache the inferred scheme (only if not already cached to avoid race conditions)
             // Use entry().or_insert() to ensure first successful inference wins
             let state_guard = state.lock();
-            if let Ok(mut state) = state_guard {
+            if let Ok(state) = state_guard {
                 state
                     .inferred_schemes
                     .entry(target_url.clone())

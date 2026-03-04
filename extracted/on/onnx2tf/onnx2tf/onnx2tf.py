@@ -24,6 +24,7 @@ warnings.simplefilter(action='ignore', category=Warning)
 warnings.simplefilter(action='ignore', category=DeprecationWarning)
 warnings.simplefilter(action='ignore', category=RuntimeWarning)
 import subprocess
+import time
 import random
 random.seed(0)
 import numpy as np
@@ -130,8 +131,10 @@ _SIZE_WITH_UNIT_PATTERN = re.compile(
 _TEMP_MICROSOFT_DOMAIN_OPS = {
     'FusedConv',
     'FusedMatMul',
+    'Gelu',
     'GroupNorm',
     'Inverse',
+    'MultiHeadAttention',
     'QGemm',
     'QLinearAdd',
     'QLinearAveragePool',
@@ -181,6 +184,189 @@ def _supplement_microsoft_domain_for_selected_ops(
     return rewritten_counts
 
 
+def _collect_onnx_tensor_shape_map(
+    *,
+    onnx_model: onnx.ModelProto,
+) -> Dict[str, List[Optional[int]]]:
+    shape_map: Dict[str, List[Optional[int]]] = {}
+    if onnx_model is None or onnx_model.graph is None:
+        return shape_map
+
+    for initializer in onnx_model.graph.initializer:
+        try:
+            shape_map[str(initializer.name)] = [int(v) for v in list(initializer.dims)]
+        except Exception:
+            continue
+
+    value_infos = (
+        list(onnx_model.graph.input)
+        + list(onnx_model.graph.value_info)
+        + list(onnx_model.graph.output)
+    )
+    for value_info in value_infos:
+        try:
+            tensor_type = value_info.type.tensor_type
+            if not tensor_type.HasField('shape'):
+                continue
+            dims: List[Optional[int]] = []
+            for dim in tensor_type.shape.dim:
+                if dim.HasField('dim_value'):
+                    dims.append(int(dim.dim_value))
+                else:
+                    dims.append(None)
+            shape_map[str(value_info.name)] = dims
+        except Exception:
+            continue
+    return shape_map
+
+
+def _rewrite_conv_same_auto_pad_with_explicit_pads_for_runtime(
+    *,
+    onnx_model: onnx.ModelProto,
+) -> int:
+    """
+    Rewrite Conv(auto_pad=SAME_UPPER/SAME_LOWER) to explicit pads when possible.
+
+    ONNX Runtime can fail on some backends when dilation is used together with
+    SAME_* auto_pad. Explicit pads preserve semantics and avoid that limitation.
+    """
+    if onnx_model is None or onnx_model.graph is None:
+        return 0
+
+    shape_map = _collect_onnx_tensor_shape_map(onnx_model=onnx_model)
+    rewritten = 0
+
+    for node in onnx_model.graph.node:
+        if str(node.op_type) != 'Conv' or len(node.input) < 2:
+            continue
+
+        attrs: Dict[str, Any] = {}
+        for attr in node.attribute:
+            try:
+                attrs[str(attr.name)] = onnx.helper.get_attribute_value(attr)
+            except Exception:
+                continue
+
+        auto_pad_raw = attrs.get('auto_pad', 'NOTSET')
+        if isinstance(auto_pad_raw, (bytes, bytearray)):
+            auto_pad = auto_pad_raw.decode('utf-8', errors='ignore').upper()
+        else:
+            auto_pad = str(auto_pad_raw).upper()
+        if auto_pad not in {'SAME_UPPER', 'SAME_LOWER'}:
+            continue
+
+        x_shape = shape_map.get(str(node.input[0]), None)
+        w_shape = shape_map.get(str(node.input[1]), None)
+        if x_shape is None or w_shape is None or len(w_shape) < 3:
+            continue
+
+        spatial_rank = int(len(w_shape) - 2)
+        if len(x_shape) != int(spatial_rank + 2):
+            continue
+
+        kernel_shape_attr = attrs.get('kernel_shape', None)
+        kernel_raw = (
+            list(w_shape[2:])
+            if kernel_shape_attr is None
+            else list(kernel_shape_attr)
+        )
+        kernel: List[int] = []
+        valid_kernel = True
+        for v in kernel_raw:
+            if v is None:
+                valid_kernel = False
+                break
+            v_int = int(v)
+            if v_int <= 0:
+                valid_kernel = False
+                break
+            kernel.append(v_int)
+        if not valid_kernel:
+            continue
+
+        strides_raw = list(attrs.get('strides', [1] * spatial_rank))
+        strides: List[int] = []
+        valid_strides = True
+        for v in strides_raw:
+            if v is None:
+                valid_strides = False
+                break
+            v_int = int(v)
+            if v_int <= 0:
+                valid_strides = False
+                break
+            strides.append(v_int)
+        if not valid_strides:
+            continue
+
+        dilations_raw = list(attrs.get('dilations', [1] * spatial_rank))
+        dilations: List[int] = []
+        valid_dilations = True
+        for v in dilations_raw:
+            if v is None:
+                valid_dilations = False
+                break
+            v_int = int(v)
+            if v_int <= 0:
+                valid_dilations = False
+                break
+            dilations.append(v_int)
+        if not valid_dilations:
+            continue
+        if len(kernel) != spatial_rank or len(strides) != spatial_rank or len(dilations) != spatial_rank:
+            continue
+
+        input_spatial_raw = x_shape[2:]
+        input_spatial: List[int] = []
+        valid_input_spatial = True
+        for v in input_spatial_raw:
+            if v is None:
+                valid_input_spatial = False
+                break
+            v_int = int(v)
+            if v_int <= 0:
+                valid_input_spatial = False
+                break
+            input_spatial.append(v_int)
+        if not valid_input_spatial:
+            continue
+
+        pads_begin: List[int] = []
+        pads_end: List[int] = []
+        valid = True
+        for i in range(spatial_rank):
+            in_dim = int(input_spatial[i])
+            k = int(kernel[i])
+            s = int(strides[i])
+            d = int(dilations[i])
+            if in_dim <= 0 or k <= 0 or s <= 0 or d <= 0:
+                valid = False
+                break
+            effective_kernel = int((k - 1) * d + 1)
+            out_dim = int((in_dim + s - 1) // s)  # ceil(in_dim / stride)
+            total_pad = int(max((out_dim - 1) * s + effective_kernel - in_dim, 0))
+            if auto_pad == 'SAME_UPPER':
+                pad_begin = int(total_pad // 2)
+                pad_end = int(total_pad - pad_begin)
+            else:  # SAME_LOWER
+                pad_end = int(total_pad // 2)
+                pad_begin = int(total_pad - pad_end)
+            pads_begin.append(pad_begin)
+            pads_end.append(pad_end)
+        if not valid:
+            continue
+
+        explicit_pads = [int(v) for v in list(pads_begin + pads_end)]
+        preserved_attrs = [a for a in node.attribute if str(a.name) not in {'auto_pad', 'pads'}]
+        del node.attribute[:]
+        node.attribute.extend(preserved_attrs)
+        node.attribute.append(onnx.helper.make_attribute('auto_pad', 'NOTSET'))
+        node.attribute.append(onnx.helper.make_attribute('pads', explicit_pads))
+        rewritten += 1
+
+    return int(rewritten)
+
+
 def _prepare_onnx_graph_for_runtime_checks(
     *,
     source_onnx_graph: Optional[onnx.ModelProto],
@@ -215,8 +401,17 @@ def _prepare_onnx_graph_for_runtime_checks(
         _supplement_microsoft_domain_for_selected_ops(
             onnx_model=prepared,
         )
+        _rewrite_conv_same_auto_pad_with_explicit_pads_for_runtime(
+            onnx_model=prepared,
+        )
         if preserved_metadata_props:
             prepared.metadata_props.extend(preserved_metadata_props)
+    except Exception:
+        pass
+    try:
+        _rewrite_conv_same_auto_pad_with_explicit_pads_for_runtime(
+            onnx_model=prepared,
+        )
     except Exception:
         pass
     return prepared
@@ -1348,9 +1543,8 @@ def convert(
         and accuracy errors are more likely to occur. Strict mode is enabled by default.
 
     onnxruntime_output_memmap: Optional[bool]
-        Use onnxruntime IOBinding with np.memmap for dummy inference outputs when\n
-        the estimated output tensor size exceeds available RAM. This avoids OOM\n
-        but increases disk I/O and may slow down validation.
+        Use onnxruntime IOBinding with np.memmap for dummy inference outputs.\n
+        This reduces peak RAM at the cost of disk I/O and slower validation.
 
     onnxruntime_output_memmap_dir: Optional[str]
         Directory for memmap files used by onnxruntime_output_memmap.\n
@@ -1727,11 +1921,21 @@ def convert(
         *,
         tflite_paths: Dict[str, str],
         source_label: str,
+        contains_custom_ops: bool = False,
     ) -> None:
         if not run_onnx_tflite_output_check:
             return
         explicit_eval = bool(eval_with_onnx)
         required = bool(explicit_eval)
+        if contains_custom_ops and not explicit_eval:
+            info(
+                Color.YELLOW(
+                    'ONNX/TFLite output check was skipped because generated TFLite includes '
+                    'CUSTOM ops from auto custom-op retry. '
+                    f'source={source_label}'
+                )
+            )
+            return
         report_path = os.path.join(
             output_folder_path,
             f'{output_file_name}_accuracy_report.json',
@@ -1739,6 +1943,21 @@ def convert(
         eval_in_process = str(
             os.environ.get('ONNX2TF_EVAL_IN_PROCESS', '0')
         ).strip().lower() in {'1', 'true', 'yes', 'on'}
+        eval_timeout_default_sec = 600 if explicit_eval else 180
+        eval_timeout_sec = int(eval_timeout_default_sec)
+        eval_timeout_env = str(
+            os.environ.get('ONNX2TF_EVAL_TIMEOUT_SEC', '')
+        ).strip()
+        if eval_timeout_env != '':
+            try:
+                parsed_eval_timeout = int(eval_timeout_env)
+                if parsed_eval_timeout > 0:
+                    eval_timeout_sec = int(parsed_eval_timeout)
+            except Exception:
+                warn(
+                    'Invalid ONNX2TF_EVAL_TIMEOUT_SEC value was ignored. '
+                    f'value={eval_timeout_env}'
+                )
         try:
             if eval_in_process:
                 from onnx2tf.tflite_builder.accuracy_evaluator import (
@@ -1786,17 +2005,24 @@ def convert(
             )
             if onnx_graph_for_eval is None:
                 raise RuntimeError('ONNX graph is unavailable for evaluation.')
+            eval_kwargs = {
+                'onnx_graph': onnx_graph_for_eval,
+                'tflite_path': tflite_path,
+                'output_report_path': report_path,
+                'num_samples': eval_num_samples_local,
+                'seed': 0,
+                'custom_input_op_name_np_data_path': custom_input_op_name_np_data_path,
+                'rtol': eval_rtol,
+                'atol': eval_atol,
+                'compare_mode': eval_compare_mode,
+                'fail_on_threshold': eval_fail_on_threshold_local,
+                'onnxruntime_output_memmap': onnxruntime_output_memmap,
+                'onnxruntime_output_memmap_dir': onnxruntime_output_memmap_dir,
+            }
+            if not eval_in_process:
+                eval_kwargs['timeout_sec'] = int(eval_timeout_sec)
             report = evaluate_onnx_tflite_outputs_impl(
-                onnx_graph=onnx_graph_for_eval,
-                tflite_path=tflite_path,
-                output_report_path=report_path,
-                num_samples=eval_num_samples_local,
-                seed=0,
-                custom_input_op_name_np_data_path=custom_input_op_name_np_data_path,
-                rtol=eval_rtol,
-                atol=eval_atol,
-                compare_mode=eval_compare_mode,
-                fail_on_threshold=eval_fail_on_threshold_local,
+                **eval_kwargs,
             )
         except Exception as ex:
             ex_str = str(ex)
@@ -1856,12 +2082,21 @@ def convert(
         *,
         tflite_path: Optional[str],
         tensor_correspondence_report_path: Optional[str] = None,
+        contains_custom_ops: bool = False,
     ) -> None:
         if not run_flatbuffer_direct_op_error_report:
             return
         if tflite_path is None or not os.path.exists(str(tflite_path)):
             warn(
                 'OP error report generation was skipped because float32 TFLite output is unavailable.'
+            )
+            return
+        if contains_custom_ops:
+            info(
+                Color.YELLOW(
+                    'OP error report generation was skipped because generated TFLite includes '
+                    'CUSTOM ops and per-op built-in comparison is not supported.'
+                )
             )
             return
 
@@ -1928,7 +2163,36 @@ def convert(
                 '0.0',
                 '--atol',
                 '1e-4',
+                '--seed',
+                '0',
             ]
+            if custom_input_op_name_np_data_path is not None:
+                for param in custom_input_op_name_np_data_path:
+                    if not isinstance(param, (list, tuple)) or len(param) < 2:
+                        continue
+                    input_name = str(param[0])
+                    numpy_file_path = str(param[1])
+                    if input_name == '' or numpy_file_path == '':
+                        continue
+                    command.extend(
+                        [
+                            '--custom_input_op_name_np_data_path',
+                            input_name,
+                            numpy_file_path,
+                        ]
+                    )
+            if not bool(onnxruntime_output_memmap):
+                command.append('--disable_onnxruntime_output_memmap')
+            if (
+                onnxruntime_output_memmap_dir is not None
+                and str(onnxruntime_output_memmap_dir).strip() != ''
+            ):
+                command.extend(
+                    [
+                        '--onnxruntime_output_memmap_dir',
+                        str(onnxruntime_output_memmap_dir),
+                    ]
+                )
             if (
                 tensor_correspondence_report_path is not None
                 and str(tensor_correspondence_report_path).strip() != ''
@@ -1940,17 +2204,66 @@ def convert(
                     ]
                 )
 
-            completed = subprocess.run(
+            spinner_interval_sec = 0.2
+            spinner_interval_env = str(
+                os.environ.get('ONNX2TF_OP_ERROR_REPORT_SPINNER_SEC', '')
+            ).strip()
+            if spinner_interval_env != '':
+                try:
+                    parsed_spinner_interval = float(spinner_interval_env)
+                    if parsed_spinner_interval > 0:
+                        spinner_interval_sec = float(parsed_spinner_interval)
+                except Exception:
+                    warn(
+                        'Invalid ONNX2TF_OP_ERROR_REPORT_SPINNER_SEC value was ignored. '
+                        f'value={spinner_interval_env}'
+                    )
+
+            started_at = time.monotonic()
+            spinner_frames = ['|', '/', '-', '\\']
+            spinner_index = 0
+            use_spinner = bool(getattr(sys.stdout, 'isatty', lambda: False)())
+            process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                check=False,
-                timeout=600,
             )
-            return_code = int(completed.returncode)
-            helper_stdout = str(completed.stdout or '').strip()
-            helper_stderr = str(completed.stderr or '').strip()
+            if use_spinner:
+                sys.stdout.write(
+                    '\rOP error report generation in progress... [|] elapsed=0s'
+                )
+                sys.stdout.flush()
+            while True:
+                try:
+                    process.wait(timeout=float(spinner_interval_sec))
+                    break
+                except subprocess.TimeoutExpired:
+                    if use_spinner:
+                        elapsed_sec = int(max(0.0, time.monotonic() - started_at))
+                        spinner_frame = spinner_frames[
+                            spinner_index % len(spinner_frames)
+                        ]
+                        spinner_index += 1
+                        sys.stdout.write(
+                            '\r'
+                            'OP error report generation in progress... '
+                            f'[{spinner_frame}] elapsed={elapsed_sec}s'
+                        )
+                        sys.stdout.flush()
+            if use_spinner:
+                elapsed_sec = int(max(0.0, time.monotonic() - started_at))
+                sys.stdout.write(
+                    '\r'
+                    'OP error report generation in progress... '
+                    f'[done] elapsed={elapsed_sec}s\n'
+                )
+                sys.stdout.flush()
+
+            helper_stdout_raw, helper_stderr_raw = process.communicate()
+            return_code = int(process.returncode)
+            helper_stdout = str(helper_stdout_raw or '').strip()
+            helper_stderr = str(helper_stderr_raw or '').strip()
             helper_message = helper_stderr if helper_stderr != '' else helper_stdout
 
             if return_code != 0:
@@ -1987,7 +2300,7 @@ def convert(
                     report_payload = json.load(f)
             except Exception:
                 report_payload = {}
-            summary = report_payload.get('summary', {})
+            summary: Dict = report_payload.get('summary', {})
             info(
                 Color.GREEN(
                     'OP error report output complete! '
@@ -2004,10 +2317,6 @@ def convert(
                     'OP error CSV output complete! '
                     f'({output_csv_path})'
                 )
-            )
-        except subprocess.TimeoutExpired:
-            warn(
-                'OP error report generation was skipped because helper process timed out.'
             )
         except Exception as ex:
             ex_str = str(ex)
@@ -2027,6 +2336,59 @@ def convert(
         finally:
             if temp_onnx_path and os.path.exists(temp_onnx_path):
                 os.remove(temp_onnx_path)
+
+    def _log_flatbuffer_direct_custom_op_summary(
+        *,
+        direct_outputs: Dict[str, Any],
+        source_label: str = 'flatbuffer_direct',
+    ) -> None:
+        custom_op_count = int(direct_outputs.get('custom_op_count', 0))
+        if custom_op_count <= 0:
+            return
+        custom_ops_used_raw = direct_outputs.get('custom_ops_used', [])
+        custom_ops_used: List[str] = []
+        if isinstance(custom_ops_used_raw, (list, tuple, set)):
+            custom_ops_used = [
+                str(v).strip()
+                for v in custom_ops_used_raw
+                if str(v).strip() != ''
+            ]
+        elif custom_ops_used_raw is not None:
+            v = str(custom_ops_used_raw).strip()
+            if v != '':
+                custom_ops_used = [v]
+        custom_ops_display = ', '.join(custom_ops_used) if len(custom_ops_used) > 0 else '(unknown)'
+
+        custom_op_nodes_raw = direct_outputs.get('custom_op_nodes', [])
+        onnx_ops: List[str] = []
+        onnx_nodes: List[str] = []
+        if isinstance(custom_op_nodes_raw, (list, tuple)):
+            for node_info in custom_op_nodes_raw:
+                if not isinstance(node_info, dict):
+                    continue
+                onnx_op = str(node_info.get('onnx_op', '')).strip()
+                onnx_node_name = str(node_info.get('onnx_node_name', '')).strip()
+                if onnx_op != '' and onnx_op not in onnx_ops:
+                    onnx_ops.append(onnx_op)
+                if onnx_node_name != '' and onnx_node_name not in onnx_nodes:
+                    onnx_nodes.append(onnx_node_name)
+        onnx_ops_display = ', '.join(onnx_ops) if len(onnx_ops) > 0 else ''
+        onnx_nodes_display = ', '.join(onnx_nodes) if len(onnx_nodes) > 0 else ''
+        onnx_suffix = ''
+        if onnx_ops_display != '':
+            onnx_suffix += f' onnx_ops=[{onnx_ops_display}]'
+        if onnx_nodes_display != '':
+            onnx_suffix += f' onnx_nodes=[{onnx_nodes_display}]'
+
+        info(
+            Color.YELLOW(
+                'Custom ops lowered: '
+                f'source={source_label} '
+                f'count={custom_op_count} '
+                f'op_types=[{custom_ops_display}]'
+                f'{onnx_suffix}'
+            )
+        )
 
     if flatbuffer_direct_custom_op_allowlist is not None and not flatbuffer_direct_allow_custom_ops:
         error(
@@ -3077,6 +3439,8 @@ def convert(
                             switch_nms_version=switch_nms_version,
                             tflite_split_max_bytes=tflite_split_max_bytes,
                             tflite_split_target_bytes=tflite_split_target_bytes,
+                            number_of_dimensions_after_flextranspose_compression=number_of_dimensions_after_flextranspose_compression,
+                            number_of_dimensions_after_flexstridedslice_compression=number_of_dimensions_after_flexstridedslice_compression,
                         )
                         if direct_output_nms_with_argmax and not output_nms_with_argmax:
                             info(
@@ -3259,12 +3623,18 @@ def convert(
                 info(
                     'Input/Output tensor names are directly written from ONNX graph in flatbuffer_direct backend.'
                 )
+            direct_contains_custom_ops = int(direct_outputs.get('custom_op_count', 0)) > 0
+            _log_flatbuffer_direct_custom_op_summary(
+                direct_outputs=direct_outputs,
+                source_label='flatbuffer_direct',
+            )
             _run_flatbuffer_direct_op_error_report(
                 tflite_path=direct_outputs.get('float32_tflite_path', None),
                 tensor_correspondence_report_path=direct_outputs.get(
                     'tensor_correspondence_report_path',
                     None,
                 ),
+                contains_custom_ops=direct_contains_custom_ops,
             )
             direct_eval_paths = {}
             if 'float32_tflite_path' in direct_outputs:
@@ -3284,6 +3654,7 @@ def convert(
             _run_onnx_tflite_output_check(
                 tflite_paths=direct_eval_paths,
                 source_label='flatbuffer_direct',
+                contains_custom_ops=direct_contains_custom_ops,
             )
             if eval_split_models:
                 if 'split_manifest_path' not in direct_outputs:
@@ -3801,6 +4172,8 @@ def convert(
                                     switch_nms_version=switch_nms_version,
                                     tflite_split_max_bytes=tflite_split_max_bytes,
                                     tflite_split_target_bytes=tflite_split_target_bytes,
+                                    number_of_dimensions_after_flextranspose_compression=number_of_dimensions_after_flextranspose_compression,
+                                    number_of_dimensions_after_flexstridedslice_compression=number_of_dimensions_after_flexstridedslice_compression,
                                 )
                                 if direct_output_nms_with_argmax and not output_nms_with_argmax:
                                     info(
@@ -3854,12 +4227,18 @@ def convert(
                     if direct_error is not None:
                         raise direct_error
                     if direct_outputs is not None:
+                        direct_contains_custom_ops = int(direct_outputs.get('custom_op_count', 0)) > 0
+                        _log_flatbuffer_direct_custom_op_summary(
+                            direct_outputs=direct_outputs,
+                            source_label='flatbuffer_direct',
+                        )
                         _run_flatbuffer_direct_op_error_report(
                             tflite_path=direct_outputs.get('float32_tflite_path', None),
                             tensor_correspondence_report_path=direct_outputs.get(
                                 'tensor_correspondence_report_path',
                                 None,
                             ),
+                            contains_custom_ops=direct_contains_custom_ops,
                         )
                         direct_eval_paths = {}
                         if 'float32_tflite_path' in direct_outputs:
@@ -3879,6 +4258,7 @@ def convert(
                         _run_onnx_tflite_output_check(
                             tflite_paths=direct_eval_paths,
                             source_label='flatbuffer_direct',
+                            contains_custom_ops=direct_contains_custom_ops,
                         )
                     return None
                 except Exception as direct_ex:
@@ -4217,6 +4597,8 @@ def convert(
                                 switch_nms_version=switch_nms_version,
                                 tflite_split_max_bytes=tflite_split_max_bytes,
                                 tflite_split_target_bytes=tflite_split_target_bytes,
+                                number_of_dimensions_after_flextranspose_compression=number_of_dimensions_after_flextranspose_compression,
+                                number_of_dimensions_after_flexstridedslice_compression=number_of_dimensions_after_flexstridedslice_compression,
                             )
                             if direct_output_nms_with_argmax and not output_nms_with_argmax:
                                 info(
@@ -4351,13 +4733,6 @@ def convert(
                             f'({direct_outputs["tensor_correspondence_report_path"]})'
                         )
                     )
-                if int(direct_outputs.get('custom_op_count', 0)) > 0:
-                    info(
-                        Color.YELLOW(
-                            f'Custom ops lowered: count={direct_outputs["custom_op_count"]} '
-                            f'codes={direct_outputs.get("custom_ops_used", [])}'
-                        )
-                    )
                 if output_dynamic_range_quantized_tflite:
                     if 'dynamic_range_quant_tflite_path' not in direct_outputs:
                         raise RuntimeError(
@@ -4414,12 +4789,18 @@ def convert(
                     info(
                         'Input/Output tensor names are directly written from ONNX graph in flatbuffer_direct backend.'
                     )
+                direct_contains_custom_ops = int(direct_outputs.get('custom_op_count', 0)) > 0
+                _log_flatbuffer_direct_custom_op_summary(
+                    direct_outputs=direct_outputs,
+                    source_label='flatbuffer_direct',
+                )
                 _run_flatbuffer_direct_op_error_report(
                     tflite_path=direct_outputs.get('float32_tflite_path', None),
                     tensor_correspondence_report_path=direct_outputs.get(
                         'tensor_correspondence_report_path',
                         None,
                     ),
+                    contains_custom_ops=direct_contains_custom_ops,
                 )
                 direct_eval_paths = {}
                 if 'float32_tflite_path' in direct_outputs:
@@ -4439,6 +4820,7 @@ def convert(
                 _run_onnx_tflite_output_check(
                     tflite_paths=direct_eval_paths,
                     source_label='flatbuffer_direct',
+                    contains_custom_ops=direct_contains_custom_ops,
                 )
                 if eval_split_models:
                     if 'split_manifest_path' not in direct_outputs:
@@ -6026,9 +6408,9 @@ def main():
         help=\
             'Disable onnxruntime output memmap. \n' +
             'By default, onnx2tf uses onnxruntime IOBinding with np.memmap for dummy inference \n' +
-            'outputs only when the estimated output tensor size exceeds available RAM. \n' +
+            'outputs. \n' +
             'Use this flag to force the standard in-memory output path instead. \n' +
-            'Default: disabled (memmap enabled when needed).'
+            'Default: disabled (memmap enabled).'
     )
     parser.set_defaults(disable_onnxruntime_output_memmap=False)
     parser.add_argument(

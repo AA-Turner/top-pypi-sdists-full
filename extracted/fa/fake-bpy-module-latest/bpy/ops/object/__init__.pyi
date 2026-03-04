@@ -4066,7 +4066,7 @@ def transform_axis_target(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Interactively point cameras and lights to a location (Ctrl translates)
+    """Interactively point cameras and lights to the surface under the pointer (Ctrl to translate)
 
     :return: Result of the operator call.
     """

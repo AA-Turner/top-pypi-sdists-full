@@ -4,7 +4,7 @@ import contextlib
 import warnings
 from contextvars import ContextVar
 
-from chalk.utils.string import to_snake_case
+from chalk_rs import build_namespaced_name as _rs_build_namespaced_name
 
 _CHALK_NAMESPACE: ContextVar[str] = ContextVar("_CHALK_NAMESPACE")
 
@@ -43,7 +43,4 @@ def build_namespaced_name(*, namespace: str | None = None, name: str | None = No
     """Prepend the namespace, with an extra separator token, onto the postfix. If the namespace is None, then the contextual namespace will be used"""
     if namespace is None:
         namespace = _CHALK_NAMESPACE.get("")
-    if name is None:
-        name = ""
-    parts = (*(to_snake_case(x) for x in namespace.split(_NAMESPACE_SEP) if len(x) > 0), name)
-    return _NAMESPACE_SEP.join(x for x in parts if len(x) > 0)
+    return _rs_build_namespaced_name(namespace=namespace, name=name)

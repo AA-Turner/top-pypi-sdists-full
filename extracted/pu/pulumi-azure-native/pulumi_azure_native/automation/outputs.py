@@ -68,6 +68,7 @@ class AdvancedScheduleMonthlyOccurrenceResponse(dict):
                  occurrence: Optional[_builtins.int] = None):
         """
         The properties of the create advanced schedule monthly occurrence.
+
         :param _builtins.str day: Day of the occurrence. Must be one of monday, tuesday, wednesday, thursday, friday, saturday, sunday.
         :param _builtins.int occurrence: Occurrence of the week within the month. Must be between 1 and 5
         """
@@ -125,6 +126,7 @@ class AdvancedScheduleResponse(dict):
                  week_days: Optional[Sequence[_builtins.str]] = None):
         """
         The properties of the create Advanced Schedule.
+
         :param Sequence[_builtins.int] month_days: Days of the month that the job should execute on. Must be between 1 and 31.
         :param Sequence['AdvancedScheduleMonthlyOccurrenceResponse'] monthly_occurrences: Occurrences of days within a month.
         :param Sequence[_builtins.str] week_days: Days of the week that the job should execute on.
@@ -189,6 +191,7 @@ class AzureQueryPropertiesResponse(dict):
                  tag_settings: Optional['outputs.TagSettingsPropertiesResponse'] = None):
         """
         Azure query for the update configuration.
+
         :param Sequence[_builtins.str] locations: List of locations to scope the query to.
         :param Sequence[_builtins.str] scope: List of Subscription or Resource Group ARM Ids.
         :param 'TagSettingsPropertiesResponse' tag_settings: Tag settings for the VM.
@@ -234,6 +237,7 @@ class ConnectionTypeAssociationPropertyResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         The connection type property associated with the entity.
+
         :param _builtins.str name: Gets or sets the name of the connection type.
         """
         if name is not None:
@@ -258,6 +262,7 @@ class ContentHashResponse(dict):
                  value: _builtins.str):
         """
         Definition of the runbook property type.
+
         :param _builtins.str algorithm: Gets or sets the content hash algorithm used to hash the content.
         :param _builtins.str value: Gets or sets expected hash value of the content.
         """
@@ -309,6 +314,7 @@ class ContentLinkResponse(dict):
                  version: Optional[_builtins.str] = None):
         """
         Definition of the content link.
+
         :param 'ContentHashResponse' content_hash: Gets or sets the hash.
         :param _builtins.str uri: Gets or sets the uri of content.
         :param _builtins.str version: Gets or sets the version of the content.
@@ -357,6 +363,7 @@ class ContentSourceResponse(dict):
                  version: Optional[_builtins.str] = None):
         """
         Definition of the content source.
+
         :param 'ContentHashResponse' hash: Gets or sets the hash.
         :param _builtins.str type: Gets or sets the content source type.
         :param _builtins.str value: Gets or sets the value of the content. This is based on the content source type.
@@ -421,6 +428,7 @@ class DeletedRunbookResponse(dict):
                  runtime_environment: Optional[_builtins.str] = None):
         """
         Definition of deleted runbook.
+
         :param _builtins.str creation_time: Gets or sets the creation time.
         :param _builtins.str deletion_time: Gets or sets the last modified time.
         :param _builtins.str id: The resource id.
@@ -532,6 +540,7 @@ class DscConfigurationAssociationPropertyResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         The Dsc configuration property associated with the entity.
+
         :param _builtins.str name: Gets or sets the name of the Dsc configuration.
         """
         if name is not None:
@@ -577,6 +586,7 @@ class DscConfigurationParameterResponse(dict):
                  type: Optional[_builtins.str] = None):
         """
         Definition of the configuration parameter type.
+
         :param _builtins.str default_value: Gets or sets the default value of parameter.
         :param _builtins.bool is_mandatory: Gets or sets a Boolean value to indicate whether the parameter is mandatory or not.
         :param _builtins.int position: Get or sets the position of the parameter.
@@ -654,6 +664,7 @@ class EncryptionPropertiesResponse(dict):
                  key_vault_properties: Optional['outputs.KeyVaultPropertiesResponse'] = None):
         """
         The encryption settings for automation account
+
         :param 'EncryptionPropertiesResponseIdentity' identity: User identity used for CMK.
         :param _builtins.str key_source: Encryption Key Source
         :param 'KeyVaultPropertiesResponse' key_vault_properties: Key vault properties.
@@ -716,6 +727,7 @@ class EncryptionPropertiesResponseIdentity(dict):
                  user_assigned_identity: Optional[Any] = None):
         """
         User identity used for CMK.
+
         :param Any user_assigned_identity: The user identity used for CMK. It will be an ARM resource id in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.
         """
         if user_assigned_identity is not None:
@@ -740,6 +752,7 @@ class ErrorResponseResponse(dict):
                  message: Optional[_builtins.str] = None):
         """
         Error response of an operation failure
+
         :param _builtins.str code: Error code
         :param _builtins.str message: Error message indicating why the operation failed.
         """
@@ -795,6 +808,7 @@ class FieldDefinitionResponse(dict):
                  is_optional: Optional[_builtins.bool] = None):
         """
         Definition of the connection fields.
+
         :param _builtins.str type: Gets or sets the type of the connection field definition.
         :param _builtins.bool is_encrypted: Gets or sets the isEncrypted flag of the connection field definition.
         :param _builtins.bool is_optional: Gets or sets the isOptional flag of the connection field definition.
@@ -863,7 +877,8 @@ class IdentityResponse(dict):
                  user_assigned_identities: Optional[Mapping[str, 'outputs.UserAssignedIdentitiesPropertiesResponse']] = None):
         """
         Identity for the resource.
-        :param _builtins.str principal_id: The principal ID of resource identity.
+
+        :param _builtins.str principal_id: The principal ID of resource identity. The value must be an UUID.
         :param _builtins.str tenant_id: The tenant ID of resource.
         :param _builtins.str type: The identity type.
         :param Mapping[str, 'UserAssignedIdentitiesPropertiesResponse'] user_assigned_identities: The list of user identities associated with the resource. The user identity dictionary key references will be ARM resource ids in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.
@@ -879,7 +894,7 @@ class IdentityResponse(dict):
     @pulumi.getter(name="principalId")
     def principal_id(self) -> _builtins.str:
         """
-        The principal ID of resource identity.
+        The principal ID of resource identity. The value must be an UUID.
         """
         return pulumi.get(self, "principal_id")
 
@@ -919,6 +934,7 @@ class KeyResponse(dict):
                  value: _builtins.str):
         """
         Automation key which is used to register a DSC Node
+
         :param _builtins.str key_name: Automation key name.
         :param _builtins.str permissions: Automation key permissions.
         :param _builtins.str value: Value of the Automation Key used for registration.
@@ -984,6 +1000,7 @@ class KeyVaultPropertiesResponse(dict):
                  keyvault_uri: Optional[_builtins.str] = None):
         """
         Settings concerning key vault encryption for a configuration store.
+
         :param _builtins.str key_name: The name of key used to encrypt data.
         :param _builtins.str key_version: The key version of the key used to encrypt data.
         :param _builtins.str keyvault_uri: The URI of the key vault key used to encrypt data.
@@ -1055,6 +1072,7 @@ class LinuxPropertiesResponse(dict):
                  reboot_setting: Optional[_builtins.str] = None):
         """
         Linux specific update configuration.
+
         :param Sequence[_builtins.str] excluded_package_name_masks: packages excluded from the software update configuration.
         :param _builtins.str included_package_classifications: Update classifications included in the software update configuration.
         :param Sequence[_builtins.str] included_package_name_masks: packages included from the software update configuration.
@@ -1112,8 +1130,9 @@ class ModuleErrorInfoResponse(dict):
                  message: Optional[_builtins.str] = None):
         """
         Definition of the module error info type.
-        :param _builtins.str code: Gets the error code.
-        :param _builtins.str message: Gets the error message.
+
+        :param _builtins.str code: Gets or sets the error code.
+        :param _builtins.str message: Gets or sets the error message.
         """
         if code is not None:
             pulumi.set(__self__, "code", code)
@@ -1124,7 +1143,7 @@ class ModuleErrorInfoResponse(dict):
     @pulumi.getter
     def code(self) -> Optional[_builtins.str]:
         """
-        Gets the error code.
+        Gets or sets the error code.
         """
         return pulumi.get(self, "code")
 
@@ -1132,7 +1151,7 @@ class ModuleErrorInfoResponse(dict):
     @pulumi.getter
     def message(self) -> Optional[_builtins.str]:
         """
-        Gets the error message.
+        Gets or sets the error message.
         """
         return pulumi.get(self, "message")
 
@@ -1166,6 +1185,7 @@ class NonAzureQueryPropertiesResponse(dict):
                  workspace_id: Optional[_builtins.str] = None):
         """
         Non Azure query for the update configuration.
+
         :param _builtins.str function_alias: Log Analytics Saved Search name.
         :param _builtins.str workspace_id: Workspace Id for Log Analytics in which the saved Search is resided.
         """
@@ -1201,6 +1221,7 @@ class PackageErrorInfoResponse(dict):
                  message: Optional[_builtins.str] = None):
         """
         Definition of the package error info type.
+
         :param _builtins.str code: Package import error code.
         :param _builtins.str message: Package import error message.
         """
@@ -1234,7 +1255,9 @@ class PrivateEndpointConnectionResponse(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "groupIds":
+        if key == "systemData":
+            suggest = "system_data"
+        elif key == "groupIds":
             suggest = "group_ids"
         elif key == "privateEndpoint":
             suggest = "private_endpoint"
@@ -1255,21 +1278,25 @@ class PrivateEndpointConnectionResponse(dict):
     def __init__(__self__, *,
                  id: _builtins.str,
                  name: _builtins.str,
+                 system_data: 'outputs.SystemDataResponse',
                  type: _builtins.str,
                  group_ids: Optional[Sequence[_builtins.str]] = None,
                  private_endpoint: Optional['outputs.PrivateEndpointPropertyResponse'] = None,
                  private_link_service_connection_state: Optional['outputs.PrivateLinkServiceConnectionStatePropertyResponse'] = None):
         """
         A private endpoint connection
-        :param _builtins.str id: Fully qualified resource Id for the resource
+
+        :param _builtins.str id: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         :param _builtins.str name: The name of the resource
-        :param _builtins.str type: The type of the resource.
+        :param 'SystemDataResponse' system_data: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+        :param _builtins.str type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         :param Sequence[_builtins.str] group_ids: Gets the groupIds.
         :param 'PrivateEndpointPropertyResponse' private_endpoint: Private endpoint which the connection belongs to.
         :param 'PrivateLinkServiceConnectionStatePropertyResponse' private_link_service_connection_state: Connection State of the Private Endpoint Connection.
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "system_data", system_data)
         pulumi.set(__self__, "type", type)
         if group_ids is not None:
             pulumi.set(__self__, "group_ids", group_ids)
@@ -1282,7 +1309,7 @@ class PrivateEndpointConnectionResponse(dict):
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        Fully qualified resource Id for the resource
+        Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         """
         return pulumi.get(self, "id")
 
@@ -1295,10 +1322,18 @@ class PrivateEndpointConnectionResponse(dict):
         return pulumi.get(self, "name")
 
     @_builtins.property
+    @pulumi.getter(name="systemData")
+    def system_data(self) -> 'outputs.SystemDataResponse':
+        """
+        Azure Resource Manager metadata containing createdBy and modifiedBy information.
+        """
+        return pulumi.get(self, "system_data")
+
+    @_builtins.property
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of the resource.
+        The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         """
         return pulumi.get(self, "type")
 
@@ -1336,6 +1371,7 @@ class PrivateEndpointPropertyResponse(dict):
                  id: Optional[_builtins.str] = None):
         """
         Private endpoint which the connection belongs to.
+
         :param _builtins.str id: Resource id of the private endpoint.
         """
         if id is not None:
@@ -1378,6 +1414,7 @@ class PrivateLinkServiceConnectionStatePropertyResponse(dict):
                  status: Optional[_builtins.str] = None):
         """
         Connection State of the Private Endpoint Connection.
+
         :param _builtins.str actions_required: Any action that is required beyond basic workflow (approve/ reject/ disconnect)
         :param _builtins.str description: The private link service connection description.
         :param _builtins.str status: The private link service connection status.
@@ -1422,6 +1459,7 @@ class RunAsCredentialAssociationPropertyResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         Definition of RunAs credential to use for hybrid worker.
+
         :param _builtins.str name: Gets or sets the name of the credential.
         """
         if name is not None:
@@ -1445,6 +1483,7 @@ class RunbookAssociationPropertyResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         The runbook property associated with the entity.
+
         :param _builtins.str name: Gets or sets the name of the runbook.
         """
         if name is not None:
@@ -1466,6 +1505,8 @@ class RunbookDraftResponse(dict):
         suggest = None
         if key == "creationTime":
             suggest = "creation_time"
+        elif key == "draftContentLink":
+            suggest = "draft_content_link"
         elif key == "inEdit":
             suggest = "in_edit"
         elif key == "lastModifiedTime":
@@ -1486,12 +1527,14 @@ class RunbookDraftResponse(dict):
 
     def __init__(__self__, *,
                  creation_time: Optional[_builtins.str] = None,
+                 draft_content_link: Optional['outputs.ContentLinkResponse'] = None,
                  in_edit: Optional[_builtins.bool] = None,
                  last_modified_time: Optional[_builtins.str] = None,
                  output_types: Optional[Sequence[_builtins.str]] = None,
                  parameters: Optional[Mapping[str, 'outputs.RunbookParameterResponse']] = None):
         """
         :param _builtins.str creation_time: Gets or sets the creation time of the runbook draft.
+        :param 'ContentLinkResponse' draft_content_link: Gets or sets the draft runbook content link.
         :param _builtins.bool in_edit: Gets or sets whether runbook is in edit mode.
         :param _builtins.str last_modified_time: Gets or sets the last modified time of the runbook draft.
         :param Sequence[_builtins.str] output_types: Gets or sets the runbook output types.
@@ -1499,6 +1542,8 @@ class RunbookDraftResponse(dict):
         """
         if creation_time is not None:
             pulumi.set(__self__, "creation_time", creation_time)
+        if draft_content_link is not None:
+            pulumi.set(__self__, "draft_content_link", draft_content_link)
         if in_edit is not None:
             pulumi.set(__self__, "in_edit", in_edit)
         if last_modified_time is not None:
@@ -1515,6 +1560,14 @@ class RunbookDraftResponse(dict):
         Gets or sets the creation time of the runbook draft.
         """
         return pulumi.get(self, "creation_time")
+
+    @_builtins.property
+    @pulumi.getter(name="draftContentLink")
+    def draft_content_link(self) -> Optional['outputs.ContentLinkResponse']:
+        """
+        Gets or sets the draft runbook content link.
+        """
+        return pulumi.get(self, "draft_content_link")
 
     @_builtins.property
     @pulumi.getter(name="inEdit")
@@ -1580,6 +1633,7 @@ class RunbookParameterResponse(dict):
                  type: Optional[_builtins.str] = None):
         """
         Definition of the runbook parameter type.
+
         :param _builtins.str default_value: Gets or sets the default value of parameter.
         :param _builtins.bool is_mandatory: Gets or sets a Boolean value to indicate whether the parameter is mandatory or not.
         :param _builtins.int position: Get or sets the position of the parameter.
@@ -1686,6 +1740,7 @@ class SUCSchedulePropertiesResponse(dict):
                  time_zone: Optional[_builtins.str] = None):
         """
         Definition of schedule parameters.
+
         :param _builtins.float start_time_offset_minutes: Gets the start time's offset in minutes.
         :param 'AdvancedScheduleResponse' advanced_schedule: Gets or sets the advanced schedule.
         :param _builtins.str creation_time: Gets or sets the creation time.
@@ -1853,6 +1908,7 @@ class ScheduleAssociationPropertyResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         The schedule property associated with the entity.
+
         :param _builtins.str name: Gets or sets the name of the Schedule.
         """
         if name is not None:
@@ -1878,6 +1934,7 @@ class SkuResponse(dict):
                  family: Optional[_builtins.str] = None):
         """
         The account SKU.
+
         :param _builtins.str name: Gets or sets the SKU name of the account.
         :param _builtins.int capacity: Gets or sets the SKU capacity.
         :param _builtins.str family: Gets or sets the SKU family.
@@ -1942,6 +1999,7 @@ class SoftwareUpdateConfigurationTasksResponse(dict):
                  pre_task: Optional['outputs.TaskPropertiesResponse'] = None):
         """
         Task properties of the software update configuration.
+
         :param 'TaskPropertiesResponse' post_task: Post task properties.
         :param 'TaskPropertiesResponse' pre_task: Pre task properties.
         """
@@ -2008,6 +2066,7 @@ class SystemDataResponse(dict):
                  last_modified_by_type: Optional[_builtins.str] = None):
         """
         Metadata pertaining to creation and last modification of the resource.
+
         :param _builtins.str created_at: The timestamp of resource creation (UTC).
         :param _builtins.str created_by: The identity that created the resource.
         :param _builtins.str created_by_type: The type of identity that created the resource.
@@ -2104,6 +2163,7 @@ class TagSettingsPropertiesResponse(dict):
                  tags: Optional[Mapping[str, Sequence[_builtins.str]]] = None):
         """
         Tag filter information for the VM.
+
         :param _builtins.str filter_operator: Filter VMs by Any or All specified tags.
         :param Mapping[str, Sequence[_builtins.str]] tags: Dictionary of tags with its list of values.
         """
@@ -2158,6 +2218,7 @@ class TargetPropertiesResponse(dict):
                  non_azure_queries: Optional[Sequence['outputs.NonAzureQueryPropertiesResponse']] = None):
         """
         Group specific to the update configuration.
+
         :param Sequence['AzureQueryPropertiesResponse'] azure_queries: List of Azure queries in the software update configuration.
         :param Sequence['NonAzureQueryPropertiesResponse'] non_azure_queries: List of non Azure queries in the software update configuration.
         """
@@ -2193,6 +2254,7 @@ class TaskPropertiesResponse(dict):
                  source: Optional[_builtins.str] = None):
         """
         Task properties of the software update configuration.
+
         :param Mapping[str, _builtins.str] parameters: Gets or sets the parameters of the task.
         :param _builtins.str source: Gets or sets the name of the runbook.
         """
@@ -2254,6 +2316,7 @@ class UpdateConfigurationResponse(dict):
                  windows: Optional['outputs.WindowsPropertiesResponse'] = None):
         """
         Update specific properties of the software update configuration.
+
         :param _builtins.str operating_system: operating system of target machines
         :param Sequence[_builtins.str] azure_virtual_machines: List of azure resource Ids for azure virtual machines targeted by the software update configuration.
         :param _builtins.str duration: Maximum time allowed for the software update configuration run. Duration needs to be specified using the format PT[n]H[n]M[n]S as per ISO8601
@@ -2416,6 +2479,7 @@ class WindowsPropertiesResponse(dict):
                  reboot_setting: Optional[_builtins.str] = None):
         """
         Windows specific update configuration.
+
         :param Sequence[_builtins.str] excluded_kb_numbers: KB numbers excluded from the software update configuration.
         :param Sequence[_builtins.str] included_kb_numbers: KB numbers included from the software update configuration.
         :param _builtins.str included_update_classifications: Update classification included in the software update configuration. A comma separated string with required values

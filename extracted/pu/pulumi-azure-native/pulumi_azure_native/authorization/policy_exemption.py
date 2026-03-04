@@ -35,6 +35,7 @@ class PolicyExemptionArgs:
                  resource_selectors: Optional[pulumi.Input[Sequence[pulumi.Input['ResourceSelectorArgs']]]] = None):
         """
         The set of arguments for constructing a PolicyExemption resource.
+
         :param pulumi.Input[Union[_builtins.str, 'ExemptionCategory']] exemption_category: The policy exemption category. Possible values are Waiver and Mitigated.
         :param pulumi.Input[_builtins.str] policy_assignment_id: The ID of the policy assignment that is being exempted.
         :param pulumi.Input[_builtins.str] scope: The scope of the policy exemption. Valid scopes are: management group (format: '/providers/Microsoft.Management/managementGroups/{managementGroup}'), subscription (format: '/subscriptions/{subscriptionId}'), resource group (format: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}', or resource (format: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/[{parentResourcePath}/]{resourceType}/{resourceName}'
@@ -225,7 +226,8 @@ class PolicyExemption(pulumi.CustomResource):
 
         Uses Azure REST API version 2022-07-01-preview. In version 2.x of the Azure Native provider, it used API version 2022-07-01-preview.
 
-        Other available API versions: 2020-07-01-preview, 2024-12-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native authorization [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2020-07-01-preview, 2024-12-01-preview, 2025-12-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native authorization [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -252,7 +254,8 @@ class PolicyExemption(pulumi.CustomResource):
 
         Uses Azure REST API version 2022-07-01-preview. In version 2.x of the Azure Native provider, it used API version 2022-07-01-preview.
 
-        Other available API versions: 2020-07-01-preview, 2024-12-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native authorization [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2020-07-01-preview, 2024-12-01-preview, 2025-12-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native authorization [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param PolicyExemptionArgs args: The arguments to use to populate this resource's properties.
@@ -312,7 +315,7 @@ class PolicyExemption(pulumi.CustomResource):
             __props__.__dict__["name"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:authorization/v20200701preview:PolicyExemption"), pulumi.Alias(type_="azure-native:authorization/v20220701preview:PolicyExemption"), pulumi.Alias(type_="azure-native:authorization/v20241201preview:PolicyExemption")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:authorization/v20200701preview:PolicyExemption"), pulumi.Alias(type_="azure-native:authorization/v20220701preview:PolicyExemption"), pulumi.Alias(type_="azure-native:authorization/v20241201preview:PolicyExemption"), pulumi.Alias(type_="azure-native:authorization/v20251201preview:PolicyExemption")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(PolicyExemption, __self__).__init__(
             'azure-native:authorization:PolicyExemption',

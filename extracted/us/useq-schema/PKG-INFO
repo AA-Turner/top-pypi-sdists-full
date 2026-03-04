@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: useq-schema
-Version: 0.8.2
+Version: 0.8.4
 Summary: Schema for multi-dimensional microscopy experiments
 Project-URL: Source, https://github.com/pymmcore-plus/useq-schema
 Project-URL: Tracker, https://github.com/pymmcore-plus/useq-schema/issues
@@ -31,9 +31,8 @@ Requires-Dist: numpy>=1.25.2
 Requires-Dist: numpy>=1.26.0; python_version >= '3.12'
 Requires-Dist: numpy>=2.1.0; python_version >= '3.13'
 Requires-Dist: numpy>=2.3.2; python_version >= '3.14'
+Requires-Dist: pydantic>=2.10
 Requires-Dist: pydantic>=2.12; python_version >= '3.14'
-Requires-Dist: pydantic>=2.6
-Requires-Dist: pydantic>=2.8; python_version >= '3.13'
 Requires-Dist: shapely>=2.0.7
 Requires-Dist: shapely>=2.1.2; python_version >= '3.14'
 Requires-Dist: typing-extensions>=4

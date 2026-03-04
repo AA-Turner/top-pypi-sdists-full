@@ -25,6 +25,8 @@ from typing import Callable, Dict, Optional, Set
 from fastapi import WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
+from salmalm.config_manager import ConfigManager
+
 log = logging.getLogger(__name__)
 
 # ── Legacy constants (kept for backward compatibility with tests/callers) ──
@@ -45,18 +47,30 @@ class WSConnectionManager:
 
     def __init__(self) -> None:
         self._connections: Dict[str, WebSocket] = {}  # session_id → WebSocket
+        self._session_users: Dict[str, str] = {}  # session_id -> user_id string
+        self._user_connections: Dict[str, Set[WebSocket]] = {}  # user_id string -> sockets
         self._all: Set[WebSocket] = set()
         self._lock = asyncio.Lock()
 
-    async def connect(self, ws: WebSocket, session_id: str = "web") -> None:
+    async def connect(self, ws: WebSocket, session_id: str = "web", user_id: Optional[int] = None) -> None:
         await ws.accept()
         async with self._lock:
             self._connections[session_id] = ws
+            if user_id is not None:
+                uid = str(user_id)
+                self._session_users[session_id] = uid
+                self._user_connections.setdefault(uid, set()).add(ws)
             self._all.add(ws)
 
     async def disconnect(self, ws: WebSocket, session_id: str = "web") -> None:
         async with self._lock:
             self._connections.pop(session_id, None)
+            uid = self._session_users.pop(session_id, None)
+            if uid:
+                conns = self._user_connections.get(uid, set())
+                conns.discard(ws)
+                if not conns:
+                    self._user_connections.pop(uid, None)
             self._all.discard(ws)
 
     async def send_json(self, ws: WebSocket, data: dict) -> None:
@@ -87,6 +101,29 @@ class WSConnectionManager:
                     sid = next((k for k, v in self._connections.items() if v is ws), None)
                     if sid:
                         self._connections.pop(sid, None)
+                        uid = self._session_users.pop(sid, None)
+                        if uid:
+                            conns = self._user_connections.get(uid, set())
+                            conns.discard(ws)
+                            if not conns:
+                                self._user_connections.pop(uid, None)
+
+    async def broadcast_to_user(self, data: dict, owner_user_id: int) -> None:
+        uid = str(owner_user_id)
+        targets = list(self._user_connections.get(uid, set()))
+        dead: Set[WebSocket] = set()
+        for ws in targets:
+            try:
+                await self.send_json(ws, data)
+            except Exception:
+                dead.add(ws)
+        if dead:
+            async with self._lock:
+                conns = self._user_connections.get(uid, set())
+                conns -= dead
+                if not conns:
+                    self._user_connections.pop(uid, None)
+                self._all -= dead
 
 
 # ── Client adapter (presents old WSClient interface) ──────────────────────
@@ -95,11 +132,23 @@ class WSConnectionManager:
 class _WSClientAdapter:
     """Thin wrapper over Starlette WebSocket that mimics the old WSClient API."""
 
-    def __init__(self, ws: WebSocket, session_id: str = "web") -> None:
+    def __init__(
+        self,
+        ws: WebSocket,
+        session_id: str = "web",
+        user: Optional[dict] = None,
+    ) -> None:
         self._ws = ws
         self.session_id = session_id
         self.connected_at = time.time()
         self.connected = True  # legacy compat
+        self.user = user or {}
+        # Normalize uid across JWT (uid) and API-key (id) schemas.
+        self.user_id: Optional[int] = None
+        try:
+            self.user_id = int((user or {}).get("id") or (user or {}).get("uid") or 0) or None
+        except Exception:
+            self.user_id = None
 
     async def send_json(self, data: dict) -> None:
         try:
@@ -139,6 +188,15 @@ class WebSocketServer:
         self.port = port
         self.host = host
 
+    @staticmethod
+    def _allow_local_bypass() -> bool:
+        """Allow unauthenticated local WS only when explicitly enabled."""
+        try:
+            cfg = ConfigManager.load("ws", defaults={"allow_local_bypass": False})
+            return bool(cfg.get("allow_local_bypass", False))
+        except Exception:
+            return False
+
     # ── Public API ────────────────────────────────────────────────────────
 
     @property
@@ -172,6 +230,9 @@ class WebSocketServer:
     async def broadcast(self, data: dict, session_id: Optional[str] = None) -> None:
         await self._manager.broadcast(data, session_id)
 
+    async def broadcast_to_user(self, data: dict, owner_user_id: int) -> None:
+        await self._manager.broadcast_to_user(data, owner_user_id)
+
     # ── FastAPI route handler ─────────────────────────────────────────────
 
     async def handle_connection(self, websocket: WebSocket) -> None:
@@ -181,7 +242,7 @@ class WebSocketServer:
         # query-param token as the primary auth mechanism.
         token = (
             websocket.query_params.get("token")
-            or websocket.cookies.get("token")
+            or websocket.cookies.get("salmalm_token")
         )
         if token:
             from salmalm.web.auth import auth_manager
@@ -192,15 +253,24 @@ class WebSocketServer:
         # Reject unauthenticated connections unless server is in single-user
         # localhost-only mode (vault auto-unlock implies local deployment).
         _client_ip = websocket.client.host if websocket.client else "unknown"
-        _is_local = _client_ip in ("127.0.0.1", "::1", "localhost")
-        if not _user and not _is_local:
+        _allow_local = self._allow_local_bypass()
+        _is_local = _client_ip == "127.0.0.1"
+        if not _user and not (_allow_local and _is_local):
             await websocket.close(code=4001, reason="Unauthorized")
             return
+        if not _user and _allow_local and _is_local:
+            _user = {"id": "local_bypass", "role": "admin", "username": "local_bypass"}
 
         session_id = websocket.query_params.get("session", "web")
-        client = _WSClientAdapter(websocket, session_id)
+        client = _WSClientAdapter(websocket, session_id, user=_user)
 
-        await self._manager.connect(websocket, session_id)
+        _uid = None
+        if isinstance(_user, dict):
+            try:
+                _uid = int(((_user or {}).get("uid") or (_user or {}).get("id") or 0)) or None
+            except Exception:
+                _uid = None
+        await self._manager.connect(websocket, session_id, user_id=_uid)
 
         for handler in self._connect_handlers:
             try:
@@ -230,9 +300,23 @@ class WebSocketServer:
                 if data.get("type") == "abort":
                     try:
                         from salmalm.features.edge_cases import abort_controller
+                        from salmalm.core import _get_db
+
                         sid = data.get("session", session_id)
-                        abort_controller.set_abort(sid)
-                        await websocket.send_json({"type": "aborted", "session": sid})
+                        ws_user_id = str((_user or {}).get("id") or (_user or {}).get("uid") or (_user or {}).get("username") or "")
+                        row = _get_db().execute(
+                            "SELECT user_id FROM session_store WHERE session_id=?",
+                            (sid,),
+                        ).fetchone()
+                        session_user_id = str(row[0]) if row and row[0] is not None else ""
+                        if session_user_id and session_user_id == ws_user_id:
+                            abort_controller.set_abort(sid)
+                            await websocket.send_json({"type": "aborted", "session": sid})
+                        else:
+                            log.warning(
+                                "[WS] Ignored abort for non-owned session sid=%s ws_user_id=%s session_user_id=%s",
+                                sid, ws_user_id, session_user_id or "<null>",
+                            )
                     except Exception as e:
                         log.warning(f"[WS] abort error: {e}")
                     continue

@@ -39,10 +39,12 @@ async def checkpoint(
     if interval_s > 0:
 
         async def _periodic():
+            counter = 0
             while True:
                 await asyncio.sleep(interval_s)
+                counter += 1
                 try:
-                    await fn(f"{label}.auto")
+                    await fn(f"{label}.auto.{counter}")
                 except Exception:
                     logger.exception("background checkpoint failed")
 

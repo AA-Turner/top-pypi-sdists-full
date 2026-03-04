@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: browserstack-local
-Version: 1.2.12
+Version: 1.2.14
 Summary: Python bindings for Browserstack Local
 Home-page: https://github.com/browserstack/browserstack-local-python
 Download-URL: https://github.com/browserstack/browserstack-local-python/archive/master.zip
@@ -10,6 +10,16 @@ Keywords: BrowserStack,Local,selenium,testing
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: psutil
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # browserstack-local-python
 

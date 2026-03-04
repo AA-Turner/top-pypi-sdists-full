@@ -280,7 +280,7 @@ def solve_bisect(
     low: float,
     high: float,
     f: Callable[..., float],
-    args: tuple[Any] | tuple[()] = (),
+    args: tuple[Any, ...] | tuple[()] = (),
     start: float | None = None,
     maxiter: int = 50,
     rtol: float = RTOL,
@@ -304,12 +304,10 @@ def solve_bisect(
             high = t
         else:
             low = t
+
         t = (high + low) * 0.5
 
-        if math.isclose(low, high, rel_tol=rtol, abs_tol=atol):  # pragma: no cover
-            break
-
-    return t, abs(x) < atol  # pragma: no cover
+    return t, math.isclose(x, 0, rel_tol=rtol, abs_tol=atol)  # pragma: no cover
 
 
 def _solve_quadratic(poly: Vector) -> Vector:
@@ -454,7 +452,7 @@ def solve_newton(
     f0: Callable[..., float],
     dx: Callable[..., float],
     dx2: Callable[..., float] | None = None,
-    args: tuple[Any] | tuple[()] = (),
+    args: tuple[Any, ...] | tuple[()] = (),
     maxiter: int = 50,
     rtol: float = RTOL,
     atol: float = ATOL,
@@ -4471,7 +4469,7 @@ def svd(
     This differs from Numpy in that it returns `U, S, V` instead of `U, S, V^T`.
 
     There are far more efficient and modern algorithms than what we have implemented here.
-    This approach is not recommended for very large matrices as it will be too slow, While
+    This approach is not recommended for very large matrices as it will be too slow. While
     it is sufficient for computing smaller matrices, it is not practical for very large
     matrices, such as compressing images with thousands of pixels. If you are doing serious
     computations with very large matrices, Numpy or SciPy should be strongly considered.
@@ -4915,7 +4913,7 @@ def pinv(a: TensorLike) -> Tensor:
 
 def pinv(a: MatrixLike | TensorLike) -> Matrix | Tensor:
     """
-    Compute the (Moore-Penrose) pseudo-inverse of a matrix use SVD.
+    Compute the (Moore-Penrose) pseudo-inverse of a matrix using SVD.
 
     Negative results can be returned, use `fnnls` for a non-negative solution (if possible).
     """

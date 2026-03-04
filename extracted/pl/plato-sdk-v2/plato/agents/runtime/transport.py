@@ -177,7 +177,7 @@ class RsyncTransport(Transport):
             workspace_path,
             remote,
             hostname,
-            chown="superman:superman",
+            chown=None,
         )
 
     async def sync_back(self, agent_env: Environment, hostname: str) -> None:

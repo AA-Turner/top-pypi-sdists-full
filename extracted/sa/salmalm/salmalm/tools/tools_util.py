@@ -15,6 +15,19 @@ import urllib.request
 import urllib.parse
 
 
+def _current_user_key(args: dict = None) -> str:
+    """Resolve user key from tool execution context."""
+    try:
+        from salmalm.core.core import get_current_user_id
+
+        uid = get_current_user_id()
+    except Exception:
+        uid = None
+    if uid is None and isinstance(args, dict):
+        uid = args.get("_user_id")
+    return f"user_{uid}" if uid is not None else "default"
+
+
 @register("hash_text")
 def handle_hash_text(args: dict) -> str:
     """Handle hash text."""
@@ -157,6 +170,7 @@ def handle_clipboard(args: dict) -> str:
     """Handle clipboard."""
     action = args.get("action", "list")
     slot = args.get("slot", "default")
+    user_key = _current_user_key(args)
 
     if len(slot) > 100:
         return "❌ Slot name must be under 100 characters"
@@ -165,9 +179,14 @@ def handle_clipboard(args: dict) -> str:
 
     with _clipboard_lock:
         try:
-            clips = json.loads(clip_file.read_text()) if clip_file.exists() else {}
+            clips_by_user = json.loads(clip_file.read_text()) if clip_file.exists() else {}
+            if not isinstance(clips_by_user, dict):
+                clips_by_user = {}
         except Exception as e:  # noqa: broad-except
-            clips = {}
+            clips_by_user = {}
+        if "content" in clips_by_user:
+            clips_by_user = {"default": clips_by_user}
+        clips = clips_by_user.setdefault(user_key, {})
 
         if action == "copy":
             content = args.get("content", "")
@@ -180,7 +199,7 @@ def handle_clipboard(args: dict) -> str:
                 "created": datetime.now(KST).isoformat(),
                 "size": len(content[:50000]),
             }
-            clip_file.write_text(json.dumps(clips, ensure_ascii=False, indent=2))
+            clip_file.write_text(json.dumps(clips_by_user, ensure_ascii=False, indent=2))
             return f"📋 [{slot}] saved ({len(content[:50000])} chars)"
         elif action == "paste":
             if slot not in clips:
@@ -197,7 +216,8 @@ def handle_clipboard(args: dict) -> str:
                 lines.append(f'  [{slot_name}] {data["size"]} chars — "{preview}"')
             return "\n".join(lines)
         elif action == "clear":
-            clip_file.write_text("{}")
+            clips_by_user[user_key] = {}
+            clip_file.write_text(json.dumps(clips_by_user, ensure_ascii=False, indent=2))
             return "🗑️ Clipboard cleared"
         return f"❌ Unknown action: {action}"
 

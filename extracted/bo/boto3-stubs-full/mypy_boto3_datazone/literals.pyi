@@ -62,6 +62,7 @@ __all__ = (
     "GlueConnectionTypeType",
     "GovernanceTypeType",
     "GovernedEntityTypeType",
+    "GraphEntityTypeType",
     "GroupProfileStatusType",
     "GroupSearchTypeType",
     "HyperPodOrchestratorType",
@@ -118,8 +119,11 @@ __all__ = (
     "ProjectDesignationType",
     "ProjectStatusType",
     "ProtocolType",
+    "QueryGraphPaginatorName",
     "RegionName",
     "RejectRuleBehaviorType",
+    "RelationDirectionType",
+    "RelationTypeType",
     "ResolutionStrategyType",
     "ResourceServiceName",
     "ResourceTagSourceType",
@@ -289,6 +293,7 @@ GlueConnectionTypeType = Literal[
 ]
 GovernanceTypeType = Literal["AWS_MANAGED", "USER_MANAGED"]
 GovernedEntityTypeType = Literal["ASSET"]
+GraphEntityTypeType = Literal["LINEAGE_NODE"]
 GroupProfileStatusType = Literal["ASSIGNED", "NOT_ASSIGNED"]
 GroupSearchTypeType = Literal["DATAZONE_SSO_GROUP", "SSO_GROUP"]
 HyperPodOrchestratorType = Literal["EKS", "SLURM"]
@@ -382,7 +387,10 @@ ProjectStatusType = Literal[
 ProtocolType = Literal[
     "ATHENA", "GLUE_INTERACTIVE_SESSION", "HTTPS", "JDBC", "LIVY", "ODBC", "PRISM"
 ]
+QueryGraphPaginatorName = Literal["query_graph"]
 RejectRuleBehaviorType = Literal["ALL", "NONE"]
+RelationDirectionType = Literal["IN", "OUT"]
+RelationTypeType = Literal["LINEAGE"]
 ResolutionStrategyType = Literal["MANUAL"]
 ResourceTagSourceType = Literal["PROJECT", "PROJECT_PROFILE"]
 RuleActionType = Literal["CREATE_LISTING_CHANGE_SET", "CREATE_SUBSCRIPTION_REQUEST"]
@@ -972,6 +980,7 @@ PaginatorName = Literal[
     "list_subscription_targets",
     "list_subscriptions",
     "list_time_series_data_points",
+    "query_graph",
     "search",
     "search_group_profiles",
     "search_listings",

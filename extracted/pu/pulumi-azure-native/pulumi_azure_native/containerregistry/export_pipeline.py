@@ -31,6 +31,7 @@ class ExportPipelineArgs:
                  options: Optional[pulumi.Input[Sequence[pulumi.Input[Union[_builtins.str, 'PipelineOptions']]]]] = None):
         """
         The set of arguments for constructing a ExportPipeline resource.
+
         :param pulumi.Input[_builtins.str] registry_name: The name of the container registry.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input['ExportPipelineTargetPropertiesArgs'] target: The target properties of the export pipeline.
@@ -155,7 +156,8 @@ class ExportPipeline(pulumi.CustomResource):
 
         Uses Azure REST API version 2023-01-01-preview. In version 2.x of the Azure Native provider, it used API version 2023-01-01-preview.
 
-        Other available API versions: 2019-12-01-preview, 2020-11-01-preview, 2021-06-01-preview, 2021-08-01-preview, 2021-12-01-preview, 2022-02-01-preview, 2023-06-01-preview, 2023-08-01-preview, 2023-11-01-preview, 2024-11-01-preview, 2025-03-01-preview, 2025-05-01-preview, 2025-06-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native containerregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2019-12-01-preview, 2020-11-01-preview, 2021-06-01-preview, 2021-08-01-preview, 2021-12-01-preview, 2022-02-01-preview, 2023-06-01-preview, 2023-08-01-preview, 2023-11-01-preview, 2024-11-01-preview, 2025-03-01-preview, 2025-05-01-preview, 2025-06-01-preview, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native containerregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -178,7 +180,8 @@ class ExportPipeline(pulumi.CustomResource):
 
         Uses Azure REST API version 2023-01-01-preview. In version 2.x of the Azure Native provider, it used API version 2023-01-01-preview.
 
-        Other available API versions: 2019-12-01-preview, 2020-11-01-preview, 2021-06-01-preview, 2021-08-01-preview, 2021-12-01-preview, 2022-02-01-preview, 2023-06-01-preview, 2023-08-01-preview, 2023-11-01-preview, 2024-11-01-preview, 2025-03-01-preview, 2025-05-01-preview, 2025-06-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native containerregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2019-12-01-preview, 2020-11-01-preview, 2021-06-01-preview, 2021-08-01-preview, 2021-12-01-preview, 2022-02-01-preview, 2023-06-01-preview, 2023-08-01-preview, 2023-11-01-preview, 2024-11-01-preview, 2025-03-01-preview, 2025-05-01-preview, 2025-06-01-preview, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native containerregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param ExportPipelineArgs args: The arguments to use to populate this resource's properties.
@@ -229,7 +232,7 @@ class ExportPipeline(pulumi.CustomResource):
             __props__.__dict__["provisioning_state"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:containerregistry/v20191201preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20201101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20210601preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20210801preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20211201preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20220201preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20230101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20230601preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20230801preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20231101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20241101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20250301preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20250501preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20250601preview:ExportPipeline")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:containerregistry/v20191201preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20201101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20210601preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20210801preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20211201preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20220201preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20230101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20230601preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20230801preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20231101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20241101preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20250301preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20250501preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20250601preview:ExportPipeline"), pulumi.Alias(type_="azure-native:containerregistry/v20260101preview:ExportPipeline")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ExportPipeline, __self__).__init__(
             'azure-native:containerregistry:ExportPipeline',

@@ -191,6 +191,21 @@ class TestParseResponse:
         assert result.cost == 0.0
         assert result.text == "Hello"
 
+    def test_structured_content_not_truncated(self):
+        """Structured message content is flattened without truncation."""
+        raw = _make_mock_response(content="")
+        raw.choices[0].message.content = [
+            {"type": "text", "text": "first part "},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+            {"type": "text", "text": "second part"},
+        ]
+
+        with patch("plato.llm.litellm") as mock_litellm:
+            mock_litellm.completion_cost.return_value = 0.0
+            result = _parse_response(raw, "test-model")
+
+        assert result.text == "first part second part"
+
 
 # =============================================================================
 # Test ATIF span emission
@@ -287,6 +302,26 @@ class TestEmitLLMSpan:
         assert len(tool_calls_json) == 1
         assert tool_calls_json[0]["function_name"] == "search"
         assert tool_calls_json[0]["arguments"] == {"q": "hello"}
+
+    def test_message_not_truncated(self):
+        """Span message uses full response text without SDK-side truncation."""
+        mock_span = MagicMock()
+        mock_context = MagicMock()
+        mock_context.__enter__ = MagicMock(return_value=mock_span)
+        mock_context.__exit__ = MagicMock(return_value=False)
+
+        mock_tracer = MagicMock()
+        mock_tracer.start_as_current_span.return_value = mock_context
+
+        long_text = "x" * 5000
+        response = LLMResponse(text=long_text, model="m")
+
+        with patch("plato.llm.get_tracer", return_value=mock_tracer):
+            _emit_llm_span("m", [], response, 0)
+
+        calls = [c for c in mock_span.set_attribute.call_args_list if c.args[0] == "atif.step.message"]
+        assert len(calls) == 1
+        assert calls[0].args[1] == long_text
 
 
 # =============================================================================

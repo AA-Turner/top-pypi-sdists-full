@@ -1026,7 +1026,7 @@ class Color(metaclass=ColorMeta):
 
         # Handle special gamut requests
         if space in gamut.SPECIAL_GAMUTS:
-            return cast(Self, gamut.SPECIAL_GAMUTS[space]['fit'](self))
+            return cast(Self, gamut.SPECIAL_GAMUTS[space]['fit'](self, **kwargs))
 
         # If within gamut, just normalize hue range by calling clip.
         if self.in_gamut(space, tolerance=0):
@@ -1049,15 +1049,18 @@ class Color(metaclass=ColorMeta):
         mapping.fit(self, target, **kwargs)
         return self
 
-    def in_gamut(self, space: str | None = None, *, tolerance: float = util.DEF_FIT_TOLERANCE) -> bool:
+    def in_gamut(self, space: str | None = None, *, tolerance: float | None = None, **kwargs: Any) -> bool:
         """Check if current color is in gamut."""
 
         if space is None:
             space = self.space()
 
+        if tolerance is None:
+            tolerance = util.DEF_FIT_TOLERANCE
+
         # Handle special gamut requests
         if space in gamut.SPECIAL_GAMUTS:
-            return cast(bool, gamut.SPECIAL_GAMUTS[space]['check'](self, tolerance=tolerance))
+            return cast(bool, gamut.SPECIAL_GAMUTS[space]['check'](self, tolerance=tolerance, **kwargs))
 
         # Check if gamut is in the provided space
         c = self.convert(space, norm=False) if space is not None and space != self.space() else self
@@ -1226,6 +1229,7 @@ class Color(metaclass=ColorMeta):
         space: str | None = None,
         out_space: str | None = None,
         premultiplied: bool = True,
+        carryforward: bool | None = False,
         **kwargs: Any
     ) -> Self:
         """Average the colors."""
@@ -1241,7 +1245,8 @@ class Color(metaclass=ColorMeta):
             colors,
             weights,
             space,
-            premultiplied
+            premultiplied,
+            carryforward if carryforward is not None else cls.CARRYFORWARD
         ).convert(out_space, in_place=True)
 
     def filter(  # noqa: A003

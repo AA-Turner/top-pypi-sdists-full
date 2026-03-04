@@ -198,18 +198,34 @@ class PlatoVMRuntime(Runtime):
 
     async def _sync_code(self, ctx: AgentContext, agent_env: Environment, hostname: str) -> None:
         """Sync workspaces and install agent code on VM."""
+        import time
+
+        t0 = time.monotonic()
         for ws in self._all_workspaces():
+            ws_t0 = time.monotonic()
             await ws.setup_agent(agent_env, hostname)
+            logger.info("Workspace '%s' setup_agent took %.1fs", ws.path, time.monotonic() - ws_t0)
+        logger.info("All workspace setup_agent took %.1fs", time.monotonic() - t0)
 
         if not self.ssh_key_path:
             raise RuntimeError("ssh_key_path required for code sync")
 
+        t1 = time.monotonic()
         if Path("/sdk").exists():
             package_name, _ = self._parse_image_url(ctx.image)
-            await sync_dev_code(self.ssh_key_path, hostname, ctx.agent_code_path, package_name)
+            synced_agent_code = await sync_dev_code(self.ssh_key_path, hostname, ctx.agent_code_path, package_name)
+            if not synced_agent_code:
+                _, version = self._parse_image_url(ctx.image)
+                logger.info(
+                    "Falling back to production agent install for %s==%s (no synced dev agent code found).",
+                    package_name,
+                    version,
+                )
+                await install_production_agent(self.ssh_key_path, hostname, package_name, version)
         else:
             package_name, version = self._parse_image_url(ctx.image)
             await install_production_agent(self.ssh_key_path, hostname, package_name, version)
+        logger.info("Agent code sync/install took %.1fs", time.monotonic() - t1)
 
     async def _run_ssh(
         self,
@@ -258,10 +274,6 @@ class PlatoVMRuntime(Runtime):
 
         # Build environment variables
         env_vars = [
-            "HOME=/home/superman",
-            "USER=superman",
-            "NVM_DIR=/home/superman/.nvm",
-            "PATH=/home/superman/.local/bin:/usr/local/bin:/usr/bin:/bin",
             f"AGENT_CONFIG_B64={ctx.config_b64}",
             f"JOB_ID={agent_env.job_id}",
         ]
@@ -269,11 +281,11 @@ class PlatoVMRuntime(Runtime):
             env_vars.append(f"AGENT_RUNTIME_B64={ctx.runtime_b64}")
 
         logger.info(f"Agent config keys: {list(ctx.config.keys())}")
-        logger.info("Executing agent command on VM via SSH as 'superman' user...")
+        logger.info("Executing agent command on VM via SSH as root...")
 
         tracer = trace.get_tracer(__name__)
         with tracer.start_as_current_span("agent.execution.output") as span:
-            span.set_attribute("agent.user", "superman")
+            span.set_attribute("agent.user", "root")
             span.set_attribute("agent.hostname", hostname)
 
             # Capture OTel context inside the span so the agent VM
@@ -292,7 +304,7 @@ class PlatoVMRuntime(Runtime):
                 self.ssh_key_path,
                 hostname,
                 agent_cmd,
-                user="superman",
+                user="root",
                 extra_opts=_VM_SSH_EXTRA_OPTS,
             )
 

@@ -33,6 +33,8 @@ __all__ = [
     'ResourceModelWithAllowedPropertySetResponseSku',
     'ScalingHostPoolReferenceResponse',
     'ScalingScheduleResponse',
+    'SessionHostHealthCheckFailureDetailsResponse',
+    'SessionHostHealthCheckReportResponse',
     'SystemDataResponse',
     'TimeResponse',
 ]
@@ -70,6 +72,7 @@ class AgentUpdatePropertiesResponse(dict):
                  use_session_host_local_time: Optional[_builtins.bool] = None):
         """
         The session host configuration for updating agent, monitoring agent, and stack component.
+
         :param _builtins.str maintenance_window_time_zone: Time zone for maintenance as defined in https://docs.microsoft.com/en-us/dotnet/api/system.timezoneinfo.findsystemtimezonebyid?view=net-5.0. Must be set if useLocalTime is true.
         :param Sequence['MaintenanceWindowPropertiesResponse'] maintenance_windows: List of maintenance windows. Maintenance windows are 2 hours long.
         :param _builtins.str type: The type of maintenance for session host components.
@@ -186,6 +189,7 @@ class AppAttachPackageInfoPropertiesResponse(dict):
                  version: Optional[_builtins.str] = None):
         """
         Schema for Import Package Information properties.
+
         :param _builtins.str certificate_expiry: Date certificate expires, found in the appxmanifest.xml. 
         :param _builtins.str certificate_name: Certificate name found in the appxmanifest.xml. 
         :param _builtins.str display_name: User friendly Name to be displayed in the portal. 
@@ -401,6 +405,7 @@ class AppAttachPackagePropertiesResponse(dict):
                  key_vault_url: Optional[_builtins.str] = None):
         """
         Schema for App Attach Package properties.
+
         :param _builtins.str provisioning_state: The provisioning state of the App Attach Package.
         :param _builtins.str fail_health_check_on_staging_failure: Parameter indicating how the health check should behave if this package fails staging
         :param Sequence[_builtins.str] host_pool_references: List of Hostpool resource Ids.
@@ -485,6 +490,7 @@ class MaintenanceWindowPropertiesResponse(dict):
                  hour: Optional[_builtins.int] = None):
         """
         Maintenance window starting hour and day of week.
+
         :param _builtins.str day_of_week: Day of the week.
         :param _builtins.int hour: The update start hour of the day. (0 - 23)
         """
@@ -552,6 +558,7 @@ class MsixPackageApplicationsResponse(dict):
                  raw_png: Optional[_builtins.str] = None):
         """
         Schema for MSIX Package Application properties.
+
         :param _builtins.str app_id: Package Application Id, found in appxmanifest.xml.
         :param _builtins.str app_user_model_id: Used to activate Package Application. Consists of Package Name and ApplicationID. Found in appxmanifest.xml.
         :param _builtins.str description: Description of Package Application.
@@ -662,6 +669,7 @@ class MsixPackageDependenciesResponse(dict):
                  publisher: Optional[_builtins.str] = None):
         """
         Schema for MSIX Package Dependencies properties.
+
         :param _builtins.str dependency_name: Name of package dependency.
         :param _builtins.str min_version: Dependency version required.
         :param _builtins.str publisher: Name of dependency publisher.
@@ -739,6 +747,7 @@ class PrivateEndpointConnectionResponse(dict):
                  private_endpoint: Optional['outputs.PrivateEndpointResponse'] = None):
         """
         The private endpoint connection resource.
+
         :param Sequence[_builtins.str] group_ids: The group ids for the private endpoint resource.
         :param _builtins.str id: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         :param _builtins.str name: The name of the resource
@@ -832,6 +841,7 @@ class PrivateEndpointResponse(dict):
                  id: _builtins.str):
         """
         The private endpoint resource.
+
         :param _builtins.str id: The ARM identifier for private endpoint.
         """
         pulumi.set(__self__, "id", id)
@@ -873,6 +883,7 @@ class PrivateLinkServiceConnectionStateResponse(dict):
                  status: Optional[_builtins.str] = None):
         """
         A collection of information about the state of the connection between service consumer and provider.
+
         :param _builtins.str actions_required: A message indicating if changes on the service provider require any updates on the consumer.
         :param _builtins.str description: The reason for approval/rejection of the connection.
         :param _builtins.str status: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
@@ -939,6 +950,7 @@ class RegistrationInfoResponse(dict):
                  token: Optional[_builtins.str] = None):
         """
         Represents a RegistrationInfo definition.
+
         :param _builtins.str expiration_time: Expiration time of registration token.
         :param _builtins.str registration_token_operation: The type of resetting the token.
         :param _builtins.str token: The registration token base64 encoded string.
@@ -985,6 +997,7 @@ class RegistrationTokenMinimalResponse(dict):
                  token: Optional[_builtins.str] = None):
         """
         Represents a Minimal set of properties for RegistrationToken definition.
+
         :param _builtins.str expiration_time: Expiration time of registration token.
         :param _builtins.str token: The registration token base64 encoded string.
         """
@@ -1246,6 +1259,7 @@ class ScalingHostPoolReferenceResponse(dict):
                  scaling_plan_enabled: Optional[_builtins.bool] = None):
         """
         Scaling plan reference to hostpool.
+
         :param _builtins.str host_pool_arm_path: Arm path of referenced hostpool.
         :param _builtins.bool scaling_plan_enabled: Is the scaling plan enabled for this hostpool.
         """
@@ -1346,6 +1360,7 @@ class ScalingScheduleResponse(dict):
                  ramp_up_start_time: Optional['outputs.TimeResponse'] = None):
         """
         A ScalingPlanPooledSchedule.
+
         :param Sequence[_builtins.str] days_of_week: Set of days of the week on which this schedule is active.
         :param _builtins.str name: Name of the ScalingPlanPooledSchedule.
         :param _builtins.str off_peak_load_balancing_algorithm: Load balancing algorithm for off-peak period.
@@ -1548,6 +1563,136 @@ class ScalingScheduleResponse(dict):
 
 
 @pulumi.output_type
+class SessionHostHealthCheckFailureDetailsResponse(dict):
+    """
+    Contains details on the failure.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "errorCode":
+            suggest = "error_code"
+        elif key == "lastHealthCheckDateTime":
+            suggest = "last_health_check_date_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SessionHostHealthCheckFailureDetailsResponse. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SessionHostHealthCheckFailureDetailsResponse.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SessionHostHealthCheckFailureDetailsResponse.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 error_code: _builtins.int,
+                 last_health_check_date_time: _builtins.str,
+                 message: _builtins.str):
+        """
+        Contains details on the failure.
+
+        :param _builtins.int error_code: Error code corresponding for the failure.
+        :param _builtins.str last_health_check_date_time: The timestamp of the last update.
+        :param _builtins.str message: Failure message: hints on what is wrong and how to recover.
+        """
+        pulumi.set(__self__, "error_code", error_code)
+        pulumi.set(__self__, "last_health_check_date_time", last_health_check_date_time)
+        pulumi.set(__self__, "message", message)
+
+    @_builtins.property
+    @pulumi.getter(name="errorCode")
+    def error_code(self) -> _builtins.int:
+        """
+        Error code corresponding for the failure.
+        """
+        return pulumi.get(self, "error_code")
+
+    @_builtins.property
+    @pulumi.getter(name="lastHealthCheckDateTime")
+    def last_health_check_date_time(self) -> _builtins.str:
+        """
+        The timestamp of the last update.
+        """
+        return pulumi.get(self, "last_health_check_date_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> _builtins.str:
+        """
+        Failure message: hints on what is wrong and how to recover.
+        """
+        return pulumi.get(self, "message")
+
+
+@pulumi.output_type
+class SessionHostHealthCheckReportResponse(dict):
+    """
+    The report for session host information.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "additionalFailureDetails":
+            suggest = "additional_failure_details"
+        elif key == "healthCheckName":
+            suggest = "health_check_name"
+        elif key == "healthCheckResult":
+            suggest = "health_check_result"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SessionHostHealthCheckReportResponse. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SessionHostHealthCheckReportResponse.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SessionHostHealthCheckReportResponse.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 additional_failure_details: 'outputs.SessionHostHealthCheckFailureDetailsResponse',
+                 health_check_name: _builtins.str,
+                 health_check_result: _builtins.str):
+        """
+        The report for session host information.
+
+        :param 'SessionHostHealthCheckFailureDetailsResponse' additional_failure_details: Additional detailed information on the failure.
+        :param _builtins.str health_check_name: Represents the name of the health check operation performed.
+        :param _builtins.str health_check_result: Represents the Health state of the health check we performed.
+        """
+        pulumi.set(__self__, "additional_failure_details", additional_failure_details)
+        pulumi.set(__self__, "health_check_name", health_check_name)
+        pulumi.set(__self__, "health_check_result", health_check_result)
+
+    @_builtins.property
+    @pulumi.getter(name="additionalFailureDetails")
+    def additional_failure_details(self) -> 'outputs.SessionHostHealthCheckFailureDetailsResponse':
+        """
+        Additional detailed information on the failure.
+        """
+        return pulumi.get(self, "additional_failure_details")
+
+    @_builtins.property
+    @pulumi.getter(name="healthCheckName")
+    def health_check_name(self) -> _builtins.str:
+        """
+        Represents the name of the health check operation performed.
+        """
+        return pulumi.get(self, "health_check_name")
+
+    @_builtins.property
+    @pulumi.getter(name="healthCheckResult")
+    def health_check_result(self) -> _builtins.str:
+        """
+        Represents the Health state of the health check we performed.
+        """
+        return pulumi.get(self, "health_check_result")
+
+
+@pulumi.output_type
 class SystemDataResponse(dict):
     """
     Metadata pertaining to creation and last modification of the resource.
@@ -1588,6 +1733,7 @@ class SystemDataResponse(dict):
                  last_modified_by_type: Optional[_builtins.str] = None):
         """
         Metadata pertaining to creation and last modification of the resource.
+
         :param _builtins.str created_at: The timestamp of resource creation (UTC).
         :param _builtins.str created_by: The identity that created the resource.
         :param _builtins.str created_by_type: The type of identity that created the resource.
@@ -1667,6 +1813,7 @@ class TimeResponse(dict):
                  minute: _builtins.int):
         """
         The time for a scaling action to occur.
+
         :param _builtins.int hour: The hour.
         :param _builtins.int minute: The minute.
         """

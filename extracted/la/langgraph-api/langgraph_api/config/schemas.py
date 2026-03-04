@@ -1,7 +1,8 @@
 import os
 import re
-from typing import Annotated, Literal
+from typing import Annotated, Literal, NotRequired, Required
 
+from pydantic import Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import TypedDict
 
@@ -254,13 +255,25 @@ class SerdeConfig(TypedDict, total=False):
     Defaults to True if not configured."""
 
 
-class CheckpointerConfig(TypedDict, total=False):
-    """Configuration for the built-in checkpointer, which handles checkpointing of state.
+class DefaultCheckpointerConfig(TypedDict):
+    """Configuration for the default built-in checkpointer backend."""
 
-    If omitted, no checkpointer is set up (the object store will still be present, however).
+    backend: Literal["default"]
+    ttl: NotRequired[ThreadTTLConfig | None]
+    """Optional. Defines the TTL (time-to-live) behavior configuration.
+    
+    If provided, the checkpointer will apply TTL settings according to the configuration.
+    If omitted, no TTL behavior is configured.
     """
+    serde: NotRequired[SerdeConfig | None]
+    """Optional. Defines the configuration for how checkpoints are serialized."""
 
-    path: str
+
+class CustomCheckpointerConfig(TypedDict):
+    """Configuration for a custom checkpointer loaded from Python import path."""
+
+    backend: Literal["custom"]
+    path: Required[str]
     """Import path to a custom `BaseCheckpointSaver` or a callable returning one.
 
     Examples:
@@ -269,15 +282,28 @@ class CheckpointerConfig(TypedDict, total=False):
 
     When provided, this replaces the default checkpointer.
     """
-
-    ttl: ThreadTTLConfig | None
+    ttl: NotRequired[ThreadTTLConfig | None]
     """Optional. Defines the TTL (time-to-live) behavior configuration.
     
     If provided, the checkpointer will apply TTL settings according to the configuration.
     If omitted, no TTL behavior is configured.
     """
-    serde: SerdeConfig | None
+    serde: NotRequired[SerdeConfig | None]
     """Optional. Defines the configuration for how checkpoints are serialized."""
+
+
+class MongoCheckpointerConfig(TypedDict):
+    """Configuration for the MongoDB checkpointer backend."""
+
+    backend: Literal["mongo"]
+    uri: str
+    ttl: NotRequired[ThreadTTLConfig | None]
+
+
+CheckpointerConfig = Annotated[
+    MongoCheckpointerConfig | CustomCheckpointerConfig | DefaultCheckpointerConfig,
+    Field(discriminator="backend"),
+]
 
 
 class SecurityConfig(TypedDict, total=False):

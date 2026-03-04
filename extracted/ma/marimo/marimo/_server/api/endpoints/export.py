@@ -463,11 +463,20 @@ async def export_as_pdf(*, request: Request) -> Response:
             detail="File must have a name before exporting",
         )
 
-    pdf_data = Exporter().export_as_pdf(
-        app=session.app_file_manager.app,
-        session_view=session.session_view,
-        webpdf=body.webpdf,
-    )
+    exporter = Exporter()
+    if body.preset == "slides":
+        pdf_data = await exporter.export_as_slides_pdf(
+            app=session.app_file_manager.app,
+            session_view=session.session_view,
+            include_inputs=body.include_inputs,
+        )
+    else:
+        pdf_data = exporter.export_as_pdf(
+            app=session.app_file_manager.app,
+            session_view=session.session_view,
+            webpdf=body.webpdf,
+            include_inputs=body.include_inputs,
+        )
     if pdf_data is None:
         raise HTTPException(
             status_code=HTTPStatus.SERVER_ERROR, detail="Failed to export PDF"

@@ -31,6 +31,7 @@ class SendTaskWithoutTransitionFound(LinterIssue):
 class SendTaskWithoutTransition(LinterRule):
     label: str = "send_task calls should have a matching transition"
     type: str = "info"
+    fix_with_ai: bool = True
 
     def find_issues(self) -> List[LinterIssue]:
         project = LocalProjectRepository().load()

@@ -6,6 +6,7 @@ from pydantic import TypeAdapter
 from typing_extensions import TypeForm
 
 from langgraph_api.config.schemas import (
+    CheckpointerConfig,
     ThreadTTLConfig,
 )
 
@@ -16,6 +17,8 @@ def parse_json(json: str | None, schema: TypeAdapter | None = None) -> dict | No
     if not json:
         return None
     parsed = schema.validate_json(json) if schema else orjson.loads(json)
+    if hasattr(parsed, "model_dump"):
+        parsed = parsed.model_dump(exclude_none=True)
     return parsed or None
 
 
@@ -26,11 +29,8 @@ def parse_schema(
         return cast("TD | None", parse_json(json, schema=TypeAdapter(schema)))
 
     # This just gives a nicer error message if the user provides an incompatible value
-    if get_origin(schema) is Annotated:
-        schema_type = get_args(schema)[0]
-        composed.__name__ = schema_type.__name__
-    else:
-        composed.__name__ = schema.__name__  # type: ignore
+    schema_type = get_args(schema)[0] if get_origin(schema) is Annotated else schema
+    composed.__name__ = getattr(schema_type, "__name__", repr(schema_type))
     return composed
 
 
@@ -56,3 +56,22 @@ def parse_thread_ttl(value: str | None) -> ThreadTTLConfig | None:
         "sweep_interval_minutes": 5.1,
         "sweep_limit": 1000,  # Default max threads per sweep iteration
     }
+
+
+def parse_checkpointer(value: str | None) -> CheckpointerConfig | None:
+    if not value:
+        return None
+
+    raw = orjson.loads(value)
+    if not isinstance(raw, dict):
+        raise ValueError("CheckpointerConfig must be a JSON object")
+
+    # Handle backend defaults.
+    if "backend" not in raw:
+        if "path" in raw:
+            raw = {**raw, "backend": "custom"}
+        else:
+            raw = {**raw, "backend": "default"}
+
+    parsed = TypeAdapter(CheckpointerConfig).validate_python(raw)
+    return cast("CheckpointerConfig | None", parsed or None)

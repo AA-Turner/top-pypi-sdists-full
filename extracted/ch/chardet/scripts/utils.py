@@ -1,0 +1,210 @@
+"""Shared utilities for scripts and tests."""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+_TEST_DATA_REPO = "https://github.com/chardet/test-data.git"
+_COMMIT_HASH_FILE = ".commit-hash"
+
+
+def _cache_is_stale(local_data: Path) -> bool:
+    """Return True if the cached test data is outdated."""
+    hash_file = local_data / _COMMIT_HASH_FILE
+    if not hash_file.is_file():
+        return False
+    local_hash = hash_file.read_text().strip()
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", _TEST_DATA_REPO, "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+    remote_hash = result.stdout.split()[0] if result.stdout.strip() else ""
+    return local_hash != remote_hash
+
+
+def _clone_test_data(local_data: Path) -> None:
+    """Shallow-clone the test-data repo into *local_data* and record the commit hash."""
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(
+            ["git", "clone", "--depth=1", _TEST_DATA_REPO, tmp],
+            check=True,
+            capture_output=True,
+        )
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmp,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        src = Path(tmp)
+        local_data.mkdir(parents=True, exist_ok=True)
+        for item in src.iterdir():
+            if not item.is_dir() or item.name.startswith("."):
+                continue
+            dest = local_data / item.name
+            shutil.copytree(item, dest, dirs_exist_ok=True)
+        (local_data / _COMMIT_HASH_FILE).write_text(head.stdout.strip() + "\n")
+
+
+def get_data_dir() -> Path:
+    """Get the test data directory, cloning from GitHub if needed.
+
+    If ``tests/data`` is a symlink (e.g. to a local ``chardet/test-data``
+    checkout), it is used as-is — no staleness check or clone is performed.
+    """
+    repo_root = Path(__file__).parent.parent
+    local_data = repo_root / "tests" / "data"
+    if local_data.is_symlink():
+        return local_data.resolve()
+    if local_data.is_dir() and any(local_data.iterdir()):
+        if _cache_is_stale(local_data):
+            shutil.rmtree(local_data)
+            _clone_test_data(local_data)
+        return local_data
+    _clone_test_data(local_data)
+    return local_data
+
+
+def find_chardet_so_files() -> list[Path]:
+    """Return any mypyc .so/.pyd files under the chardet package directory."""
+    import chardet
+
+    pkg_dir = Path(chardet.__file__).parent
+    return sorted(
+        p for p in pkg_dir.rglob("*") if p.suffix in (".so", ".pyd") and p.is_file()
+    )
+
+
+def abort_if_mypyc_compiled() -> None:
+    """Exit with an error if chardet has mypyc .so/.pyd files present.
+
+    Called when ``--pure`` is passed to ensure benchmarks measure
+    pure-Python performance only.
+    """
+    so_files = find_chardet_so_files()
+    if so_files:
+        print(
+            "ERROR: --pure flag set but mypyc compiled extensions detected:",
+            file=sys.stderr,
+        )
+        for p in so_files:
+            print(f"  {p}", file=sys.stderr)
+        print(
+            "\nRemove these .so/.pyd files before benchmarking pure Python.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def format_bytes(n: int) -> str:
+    """Format byte count as human-readable string."""
+    if n >= 1 << 20:
+        return f"{n / (1 << 20):.1f} MiB"
+    if n >= 1 << 10:
+        return f"{n / (1 << 10):.1f} KiB"
+    return f"{n} B"
+
+
+ISO_TO_LANGUAGE: dict[str, str] = {
+    "ar": "arabic",
+    "be": "belarusian",
+    "bg": "bulgarian",
+    "br": "breton",
+    "cs": "czech",
+    "cy": "welsh",
+    "da": "danish",
+    "de": "german",
+    "el": "greek",
+    "eo": "esperanto",
+    "es": "spanish",
+    "et": "estonian",
+    "fa": "farsi",
+    "fi": "finnish",
+    "fr": "french",
+    "ga": "irish",
+    "gd": "gaelic",
+    "he": "hebrew",
+    "hr": "croatian",
+    "hu": "hungarian",
+    "id": "indonesian",
+    "is": "icelandic",
+    "it": "italian",
+    "ja": "japanese",
+    "kk": "kazakh",
+    "ko": "korean",
+    "lt": "lithuanian",
+    "lv": "latvian",
+    "mk": "macedonian",
+    "ms": "malay",
+    "mt": "maltese",
+    "nl": "dutch",
+    "no": "norwegian",
+    "pl": "polish",
+    "pt": "portuguese",
+    "ro": "romanian",
+    "ru": "russian",
+    "sk": "slovak",
+    "sl": "slovene",
+    "sr": "serbian",
+    "sv": "swedish",
+    "tg": "tajik",
+    "th": "thai",
+    "tr": "turkish",
+    "uk": "ukrainian",
+    "ur": "urdu",
+    "vi": "vietnamese",
+    "zh": "chinese",
+}
+
+
+def normalize_language(detected_language: str | None) -> str | None:
+    """Map ISO 639-1 code to the English name used in test data directories."""
+    if detected_language is None:
+        return None
+    return ISO_TO_LANGUAGE.get(detected_language.lower(), detected_language.lower())
+
+
+def collect_test_files(
+    data_dir: Path,
+) -> list[tuple[str | None, str | None, Path]]:
+    """Collect (encoding, language, filepath) tuples from test data.
+
+    Directory name format: "{encoding}-{language}" e.g. "utf-8-english",
+    "iso-8859-1-french", "hz-gb-2312-chinese".
+
+    Since all language names are single words (no hyphens), we can reliably
+    split on the last hyphen to separate encoding from language.
+
+    The binary test directory is named "None-None"; its encoding and language
+    are returned as Python ``None`` rather than the string ``"None"``.
+    """
+    test_files: list[tuple[str | None, str | None, Path]] = []
+    for encoding_dir in sorted(data_dir.iterdir()):
+        if not encoding_dir.is_dir():
+            continue
+        parts = encoding_dir.name.rsplit("-", 1)
+        if len(parts) != 2:
+            continue
+        encoding_name: str | None = parts[0]
+        language: str | None = parts[1]
+        if encoding_name == "None":
+            encoding_name = None
+        if language == "None":
+            language = None
+        test_files.extend(
+            (encoding_name, language, filepath)
+            for filepath in sorted(encoding_dir.iterdir())
+            if filepath.is_file()
+        )
+    return test_files

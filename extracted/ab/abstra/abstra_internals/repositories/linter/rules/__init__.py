@@ -11,6 +11,7 @@ from .duplicate_package_in_requirements import DuplicatePackagesInRequirements
 from .env_in_bundle import EnvInBundle
 from .file_outside_project import FileOutsideProjectRoot
 from .invalid_package_in_requirements import InvalidPackageInRequirements
+from .local_package_in_requirements import LocalPackageInRequirements
 from .missing_abstra_in_requirements import MissingAbstraInRequirements
 from .missing_entrypoint import MissingEntrypoint
 from .missing_env import MissingEnv
@@ -33,6 +34,7 @@ core_rules: List[LinterRule] = [
     MissingAbstraInRequirements(),
     DuplicatePackagesInRequirements(),
     InvalidPackageInRequirements(),
+    LocalPackageInRequirements(),
     MissingEnv(),
     ConflictingPath(),
     Psycopg2MustBeBinary(),

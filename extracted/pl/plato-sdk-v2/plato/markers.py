@@ -99,17 +99,36 @@ class WorkspaceMarker:
     Usage:
         output: Annotated[Path, WorkspaceMarker(description="Build output")]
         cache: Annotated[Path, WorkspaceMarker(description="LLM cache", tracked=False)]
-        code: Annotated[Path, WorkspaceMarker(description="Code dir", mount="/workspace")]
+        code: Annotated[Path, WorkspaceMarker(description="Code dir", mount_path="/workspace")]
+        code: Annotated[Path, WorkspaceMarker(description="Code", dvcignore=["dist"])]
 
     Args:
         description: Human-readable description.
         tracked: If True (default), workspace is backed up and versioned with DVC.
-        mount: Mount path on agent VMs. Defaults to the resolved host path.
-            Use this when agents expect files at a specific location (e.g. "/workspace").
+        mount_path: Mount path on agent VMs. Defaults to the workspace content path.
+            Use this when agents expect files at a specific location (e.g. "/workspace/code").
+        dvcignore: Extra patterns to add to .dvcignore (merged with DEFAULT_DVCIGNORE).
     """
 
-    def __init__(self, description: str = "", tracked: bool = True, mount: str = ""):
+    DEFAULT_DVCIGNORE: tuple[str, ...] = (
+        "node_modules",
+        "__pycache__",
+        ".next",
+        ".venv",
+        "*.pyc",
+        ".cache",
+        ".turbo",
+    )
+
+    def __init__(
+        self,
+        description: str = "",
+        tracked: bool = True,
+        mount_path: str | None = None,
+        dvcignore: list[str] | None = None,
+    ):
         self.kind = "workspace"
         self.description = description
         self.tracked = tracked
-        self.mount = mount  # agent-side mount path
+        self.mount_path = mount_path
+        self.dvcignore = dvcignore

@@ -46,6 +46,7 @@ class VirtualMachineArgs:
                  vm_image_repository_credentials: Optional[pulumi.Input['ImageRepositoryCredentialsArgs']] = None):
         """
         The set of arguments for constructing a VirtualMachine resource.
+
         :param pulumi.Input[_builtins.str] admin_username: The name of the administrator to which the ssh public keys will be added into the authorized keys.
         :param pulumi.Input['NetworkAttachmentArgs'] cloud_services_network_attachment: The cloud service network that provides platform-level services for the virtual machine.
         :param pulumi.Input[_builtins.float] cpu_cores: The number of CPU cores in the virtual machine.
@@ -411,7 +412,8 @@ class VirtualMachine(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -447,7 +449,8 @@ class VirtualMachine(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param VirtualMachineArgs args: The arguments to use to populate this resource's properties.
@@ -554,7 +557,7 @@ class VirtualMachine(pulumi.CustomResource):
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
             __props__.__dict__["volumes"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:VirtualMachine")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:VirtualMachine"), pulumi.Alias(type_="azure-native:networkcloud/v20260101preview:VirtualMachine")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(VirtualMachine, __self__).__init__(
             'azure-native:networkcloud:VirtualMachine',

@@ -11,7 +11,7 @@ from langgraph.managed.base import ManagedValueMapping
 from langgraph.pregel import Pregel
 from langgraph.store.base import BaseStore
 from langgraph.types import CacheKey, PregelExecutableTask
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from xxhash import xxh3_128_hexdigest
 
 from langgraph_grpc_common.conversion._compat import (
@@ -40,6 +40,7 @@ from langgraph_grpc_common.conversion._compat import (
 )
 from langgraph_grpc_common.conversion.checkpoint import pending_writes_from_proto
 from langgraph_grpc_common.conversion.config import config_from_proto
+from langgraph_grpc_common.conversion.exception import UserCodeExecutionErrorException
 from langgraph_grpc_common.conversion.value import value_from_proto, value_to_proto
 from langgraph_grpc_common.proto import engine_common_pb2
 from langgraph_grpc_common.sanitize import encoded_str
@@ -141,14 +142,25 @@ def pregel_executable_task_from_proto(
             del task_proto.pending_writes[:]
 
         if task_path[0] == PULL:
-            val = _proc_input(
-                proc,
-                managed,
-                channels,
-                for_execution=True,
-                scratchpad=scratchpad,
-                input_cache=None,
-            )
+            try:
+                val = _proc_input(
+                    proc,
+                    managed,
+                    channels,
+                    for_execution=True,
+                    scratchpad=scratchpad,
+                    input_cache=None,
+                )
+            except ValidationError as e:
+                # _proc_input applies proc.mapper (e.g. _coerce_state) which
+                # constructs the user's pydantic state schema. A ValidationError
+                # here means the channel data doesn't satisfy the node's input
+                # schema — a user error (schema mismatch), not an internal failure.
+                # The only source of ValidationError in _proc_input is proc.mapper;
+                # channel reads (.get()) do not validate.
+                raise UserCodeExecutionErrorException(
+                    e, node_name=task_proto.name
+                ) from e
         elif task_path[0] == PUSH:
             tasks_channel = channels.get(TASKS)
             if tasks_channel is None:
@@ -216,8 +228,8 @@ def pregel_executable_task_from_proto(
             writers=proc.flat_writers,
             subgraphs=proc.subgraphs,
         )
-    except Exception as e:
-        raise e
+    except UserCodeExecutionErrorException:
+        raise
 
     return task
 

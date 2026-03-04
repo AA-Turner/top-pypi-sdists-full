@@ -60,6 +60,11 @@ class OutputControl(FormattedTextControl):
             self.scroll_up(3)
         elif mouse_event.event_type == MouseEventType.SCROLL_DOWN:
             self.scroll_down(3)
+        else:
+            return
+        from prompt_toolkit.application import get_app
+
+        get_app().invalidate()
 
     def _get_output_fragments(self) -> list[tuple[str, str]]:
         return self._output_fragments
@@ -303,6 +308,7 @@ class AnteroomLayout:
         self._footer_fn = footer_fn
         self._input_buffer = input_buffer
         self._status_fragments: list[tuple[str, str]] = []
+        self._mouse_mode: bool = True  # True = scroll capture, False = text selection
 
         # Picker overlay state
         self._picker_visible: bool = False
@@ -525,17 +531,39 @@ class AnteroomLayout:
         return False  # do not append to history
 
     def _scroll_indicator_text(self) -> list[tuple[str, str]]:
-        """Build bottom separator fragments with scroll offset indicator."""
+        """Build bottom separator fragments with scroll offset and mouse mode indicator."""
         offset = self._output._scroll_offset
-        if offset <= 0:
+        parts: list[tuple[str, str]] = []
+        # Mouse mode indicator (right-aligned)
+        if not self._mouse_mode:
+            mode_label = " SELECT MODE (Ctrl-S to exit) "
+        else:
+            mode_label = ""
+        # Scroll offset indicator (centered)
+        if offset > 0:
+            scroll_label = f" \u2191 {offset} lines below "
+        else:
+            scroll_label = ""
+        if not scroll_label and not mode_label:
             return [("class:separator", "\u2500" * 80)]
-        label = f" \u2191 {offset} lines below "
-        pad = max(0, (80 - len(label)) // 2)
-        return [
-            ("class:separator", "\u2500" * pad),
-            ("class:scroll.indicator", label),
-            ("class:separator", "\u2500" * pad),
-        ]
+        content_len = len(scroll_label) + len(mode_label)
+        remaining = max(0, 80 - content_len)
+        if scroll_label and mode_label:
+            left_pad = remaining // 2
+            right_pad = remaining - left_pad
+            parts.append(("class:separator", "\u2500" * left_pad))
+            parts.append(("class:scroll.indicator", scroll_label))
+            parts.append(("class:separator", "\u2500" * right_pad))
+            parts.append(("class:select.indicator", mode_label))
+        elif scroll_label:
+            pad = remaining // 2
+            parts.append(("class:separator", "\u2500" * pad))
+            parts.append(("class:scroll.indicator", scroll_label))
+            parts.append(("class:separator", "\u2500" * (remaining - pad)))
+        else:
+            parts.append(("class:separator", "\u2500" * remaining))
+            parts.append(("class:select.indicator", mode_label))
+        return parts
 
     # -- Public API --------------------------------------------------------
 
@@ -720,7 +748,7 @@ class AnteroomLayout:
         """Append ANSI-encoded text (e.g. from Rich console) to the output."""
         from prompt_toolkit.formatted_text import ANSI, to_formatted_text
 
-        fragments = _strip_bg(to_formatted_text(ANSI(ansi_text)))
+        fragments = _strip_bg(list(to_formatted_text(ANSI(ansi_text))))  # type: ignore[arg-type]
         self._output.append(fragments)
 
     def scroll_output_up(self, lines: int = 10) -> None:
@@ -738,6 +766,10 @@ class AnteroomLayout:
     def scroll_output_to_bottom(self) -> None:
         """Reset scroll to show latest content."""
         self._output.scroll_to_bottom()
+
+    def set_mouse_mode(self, enabled: bool) -> None:
+        """Toggle mouse capture mode. Off enables native text selection."""
+        self._mouse_mode = enabled
 
     def clear_output(self) -> None:
         """Remove all content from the output pane."""
@@ -813,7 +845,7 @@ class OutputPaneWriter:
         text = re.sub(r" +$", "", text, flags=re.MULTILINE)
         from prompt_toolkit.formatted_text import ANSI, to_formatted_text
 
-        fragments = _strip_bg(to_formatted_text(ANSI(text)))
+        fragments = _strip_bg(list(to_formatted_text(ANSI(text))))  # type: ignore[arg-type]
         self._output.append(fragments)
         self._invalidate()
 
@@ -915,6 +947,7 @@ def create_anteroom_style() -> Style:
             "tool.detail": "#6b7280",
             # Scroll indicator
             "scroll.indicator": "#C5A059",
+            "select.indicator": "#CD6B6B bold",
             # Approval mode prompts
             "prompt.auto": "#C5A059 bold",
             "prompt.safe": "#4EC9B0 bold",

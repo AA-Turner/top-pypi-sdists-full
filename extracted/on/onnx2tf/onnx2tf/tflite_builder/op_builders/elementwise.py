@@ -384,6 +384,51 @@ def build_max_op(node: Any, ctx: Any) -> None:
         output_tensor.shape_signature = [int(v) for v in output_signature]
 
 
+def build_sum_op(node: Any, ctx: Any) -> None:
+    input_names = [i.name for i in node.inputs]
+    output_name = node.outputs[0].name
+    if len(input_names) < 2:
+        raise NotImplementedError(
+            f"Sum requires at least 2 inputs in flatbuffer_direct. op={node.name}"
+        )
+    for name in input_names:
+        ctx.ensure_tensor(name)
+    ctx.ensure_tensor(output_name)
+    _propagate_shape(ctx, input_names[0], output_name)
+
+    output_dtype = str(ctx.get_tensor_dtype(output_name)).upper()
+    output_shape = [int(v) for v in ctx.get_tensor_shape(output_name)]
+    output_tensor = ctx.model_ir.tensors.get(output_name, None)
+    output_signature = (
+        [int(v) for v in list(output_tensor.shape_signature)]
+        if output_tensor is not None and output_tensor.shape_signature is not None
+        else [int(v) for v in output_shape]
+    )
+
+    current_name = input_names[0]
+    for idx, rhs_name in enumerate(input_names[1:], start=1):
+        is_last = idx == int(len(input_names) - 1)
+        add_output_name = output_name
+        if not is_last:
+            add_output_name = ctx.add_intermediate_tensor(
+                f"{output_name}_sum_{idx}",
+                dtype=output_dtype,
+                shape=output_shape,
+            )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="ADD",
+                inputs=[current_name, rhs_name],
+                outputs=[add_output_name],
+                options={"fusedActivationFunction": "NONE"},
+            )
+        )
+        current_name = add_output_name
+
+    if output_tensor is not None:
+        output_tensor.shape_signature = [int(v) for v in output_signature]
+
+
 def build_pow_op(node: Any, ctx: Any) -> None:
     input_names = [i.name for i in node.inputs]
     output_name = node.outputs[0].name
@@ -1472,9 +1517,10 @@ def build_where_op(node: Any, ctx: Any) -> None:
         )
         return
 
+    select_op_type = "SELECT" if len(cond_shape) <= 1 else "SELECT_V2"
     ctx.add_operator(
         OperatorIR(
-            op_type="SELECT",
+            op_type=select_op_type,
             inputs=[cond_bool_name, x_name, y_name],
             outputs=[output_name],
         )
@@ -2377,6 +2423,12 @@ def build_selu_op(node: Any, ctx: Any) -> None:
     compute_input_name, compute_output_name, output_name, output_dtype, compute_dtype, out_shape = (
         _prepare_float_compute(node, ctx, tag="selu")
     )
+    compute_input_tensor = ctx.model_ir.tensors.get(compute_input_name, None)
+    compute_signature = (
+        [int(v) for v in list(compute_input_tensor.shape_signature)]
+        if compute_input_tensor is not None and compute_input_tensor.shape_signature is not None
+        else [int(v) for v in list(out_shape)]
+    )
     alpha = float(node.attrs.get("alpha", 1.6732631921768188))
     gamma = float(node.attrs.get("gamma", 1.0507009873554805))
     alpha_name = _add_scalar_const(ctx, f"{output_name}_selu_alpha", alpha, compute_dtype)
@@ -2413,6 +2465,17 @@ def build_selu_op(node: Any, ctx: Any) -> None:
         dtype=compute_dtype,
         shape=out_shape,
     )
+    for tensor_name in (
+        pos_name,
+        neg_name,
+        exp_neg_name,
+        exp_neg_minus_one_name,
+        scaled_neg_name,
+        elu_alpha_name,
+    ):
+        tensor = ctx.model_ir.tensors.get(tensor_name, None)
+        if tensor is not None:
+            tensor.shape_signature = [int(v) for v in list(compute_signature)]
     ctx.add_operator(OperatorIR(op_type="MAXIMUM", inputs=[compute_input_name, zero_name], outputs=[pos_name]))
     ctx.add_operator(OperatorIR(op_type="MINIMUM", inputs=[compute_input_name, zero_name], outputs=[neg_name]))
     ctx.add_operator(OperatorIR(op_type="EXP", inputs=[neg_name], outputs=[exp_neg_name]))

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: great-tables
-Version: 0.20.0
+Version: 0.21.0
 Summary: Easily generate information-rich, publication-quality tables from Python.
 Author-email: Richard Iannone <rich@posit.co>, Michael Chow <michael.chow@posit.co>
 License: MIT License
         
-        Copyright (c) 2022-2024 Posit Software, PBC
+        Copyright (c) 2022-2026 Posit Software, PBC
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -72,6 +72,7 @@ Requires-Dist: ruff==0.8.0; extra == "dev-no-pandas"
 Requires-Dist: jupyter; extra == "dev-no-pandas"
 Requires-Dist: quartodoc>=0.11.0; python_version >= "3.9" and extra == "dev-no-pandas"
 Requires-Dist: griffe==0.38.1; extra == "dev-no-pandas"
+Requires-Dist: gt-extras>=0.0.7; extra == "dev-no-pandas"
 Requires-Dist: polars; extra == "dev-no-pandas"
 Requires-Dist: pre-commit==2.15.0; extra == "dev-no-pandas"
 Requires-Dist: pyarrow; extra == "dev-no-pandas"

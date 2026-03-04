@@ -2,18 +2,22 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import sys
-import tempfile
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal, Union
 
 from abstra_internals.constants import ABSTRA_LOGO_URL, get_project_url
+from abstra_internals.consts.filepaths import (
+    ABSTRA_JSON_TEMP_DIR_PATH,
+    CONFIG_BACKUP_DIR_PATH,
+)
 from abstra_internals.contracts_generated import (
     CommonAbstraJsonV18,
     CommonAbstraJsonV18DefinitionsComponentStage,
@@ -1856,8 +1860,49 @@ class ProjectRepository:
     def exists(self):
         return self.get_file_path().exists()
 
+    def _backup(self, abstra_json_path: Path) -> None:
+        if not abstra_json_path.exists():
+            return
+        backup_dir = Settings.root_path / CONFIG_BACKUP_DIR_PATH
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        backup_path = backup_dir / f"abstra.json.{timestamp}.bak"
+        backup_path.write_bytes(abstra_json_path.read_bytes())
+
+    def _restore_from_backup(self, abstra_json_path: Path) -> dict:
+        backup_dir = Settings.root_path / CONFIG_BACKUP_DIR_PATH
+        if not backup_dir.exists():
+            raise RuntimeError(
+                "abstra.json is corrupted and no backup directory exists"
+            )
+        backups = sorted(
+            backup_dir.glob("abstra.json.*.bak"),
+            key=lambda p: p.name,
+            reverse=True,
+        )
+        if not backups:
+            raise RuntimeError("abstra.json is corrupted and no backups were found")
+        temp_dir = Settings.root_path / ABSTRA_JSON_TEMP_DIR_PATH
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        for backup in backups:
+            try:
+                content = backup.read_bytes()
+                data = json.loads(content)
+                temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
+                temp_file.write_bytes(content)
+                os.rename(str(temp_file), abstra_json_path)
+                AbstraLogger.warning(
+                    f"abstra.json was corrupted — restored from backup: {backup.name}"
+                )
+                return data
+            except (json.JSONDecodeError, OSError):
+                backup.unlink(missing_ok=True)
+                continue
+        raise RuntimeError("abstra.json is corrupted and no valid backup was found")
+
     def save(self, project: Project):
-        temp_file = Path(tempfile.mkdtemp()) / "abstra.json"
+        temp_dir = Settings.root_path / ABSTRA_JSON_TEMP_DIR_PATH
+        temp_dir.mkdir(parents=True, exist_ok=True)
 
         project_dto = project.to_abstra_json_dto()
         data = project_dto.to_dict()
@@ -1865,8 +1910,11 @@ class ProjectRepository:
         data = Project._deduplicate_stages(data)
         data = Project._deduplicate_transitions(data)
 
-        with temp_file.open("w") as f:
-            json.dump(data, f, indent=2, sort_keys=True)
+        serialized = json.dumps(data, indent=2, sort_keys=True)
+        json.loads(serialized)
+
+        temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
+        temp_file.write_text(serialized, encoding="utf-8")
 
         abstra_json_path = (
             project.abstra_json_path
@@ -1875,8 +1923,41 @@ class ProjectRepository:
         )
 
         with self.lock:
-            shutil.move(str(temp_file), abstra_json_path)
-            Path.rmdir(temp_file.parent)
+            self._backup(abstra_json_path)
+            os.rename(str(temp_file), abstra_json_path)
+
+    @contextmanager
+    def atomic(self) -> Generator["Project", None, None]:
+        """Context manager for atomic load, modify and save under a single lock.
+
+        Holds the lock for the entire block. On exit, validates and saves only
+        if no exception was raised — corrupted state is never persisted.
+        """
+        abstra_json_path = self.get_file_path()
+        temp_dir = Settings.root_path / ABSTRA_JSON_TEMP_DIR_PATH
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        with self.lock:
+            try:
+                data = json.loads(abstra_json_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, ValueError):
+                data = self._restore_from_backup(abstra_json_path)
+            project = Project.from_dict(data)
+
+            yield project
+
+            project_dto = project.to_abstra_json_dto()
+            new_data = project_dto.to_dict()
+            new_data = Project._deduplicate_stages(new_data)
+            new_data = Project._deduplicate_transitions(new_data)
+
+            serialized = json.dumps(new_data, indent=2, sort_keys=True)
+            json.loads(serialized)
+
+            self._backup(abstra_json_path)
+            temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
+            temp_file.write_text(serialized, encoding="utf-8")
+            os.rename(str(temp_file), abstra_json_path)
 
     def migrate_config_file(self, verbose=True):
         if not self.exists():
@@ -1898,7 +1979,10 @@ class ProjectRepository:
         file_path = self.get_file_path()
 
         with self.lock:
-            data = json.loads(file_path.read_text(encoding="utf-8"))
+            try:
+                data = json.loads(file_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, ValueError):
+                data = self._restore_from_backup(file_path)
             if data["version"] == "v13.0":
                 CommonAbstraJsonV18.from_dict(data)
             return Project.from_dict(data)
@@ -1922,7 +2006,10 @@ class ProductionProjectRepository(ProjectRepository):
         file_path = self.get_file_path()
 
         with self.lock:
-            data = json.loads(file_path.read_text(encoding="utf-8"))
+            try:
+                data = json.loads(file_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, ValueError):
+                data = self._restore_from_backup(file_path)
             if data["version"] == "v13.0":
                 CommonAbstraJsonV18.from_dict(data)
 

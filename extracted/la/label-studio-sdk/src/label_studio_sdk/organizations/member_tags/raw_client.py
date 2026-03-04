@@ -3,20 +3,21 @@
 import typing
 from json.decoder import JSONDecodeError
 
+from ... import core
 from ...core.api_error import ApiError
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.jsonable_encoder import jsonable_encoder
 from ...core.request_options import RequestOptions
-from ...core.serialization import convert_and_respect_annotation_metadata
 from ...core.unchecked_base_model import construct_type
 from ...errors.bad_request_error import BadRequestError
 from ...errors.forbidden_error import ForbiddenError
 from ...errors.not_found_error import NotFoundError
 from ...types.organization_member_tag import OrganizationMemberTag
-from ...types.organization_member_tag_assignment_request import OrganizationMemberTagAssignmentRequest
+from ...types.organization_member_tag_import_status import OrganizationMemberTagImportStatus
 from ...types.paginated_organization_member_tag_list import PaginatedOrganizationMemberTagList
 from .types.assign_member_tags_response import AssignMemberTagsResponse
+from .types.import_member_tags_response import ImportMemberTagsResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -30,7 +31,9 @@ class RawMemberTagsClient:
         self,
         id: int,
         *,
+        ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PaginatedOrganizationMemberTagList]:
@@ -48,8 +51,14 @@ class RawMemberTagsClient:
         id : int
             A unique integer value identifying this organization.
 
+        ordering : typing.Optional[str]
+            Which field to use when ordering the results.
+
         page : typing.Optional[int]
             A page number within the paginated result set.
+
+        page_size : typing.Optional[int]
+            Number of results per page (default: 30, max: 100).
 
         search : typing.Optional[str]
             Search tags by label (case-insensitive).
@@ -66,7 +75,9 @@ class RawMemberTagsClient:
             f"api/organizations/{jsonable_encoder(id)}/member-tags",
             method="GET",
             params={
+                "ordering": ordering,
                 "page": page,
+                "page_size": page_size,
                 "search": search,
             },
             request_options=request_options,
@@ -104,6 +115,7 @@ class RawMemberTagsClient:
             A unique integer value identifying this organization.
 
         label : str
+            Label
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -166,8 +178,18 @@ class RawMemberTagsClient:
         self,
         id: int,
         *,
-        assignments: typing.Sequence[OrganizationMemberTagAssignmentRequest],
+        all_: bool,
+        exclude_project_id: typing.Optional[float] = None,
+        exclude_workspace_id: typing.Optional[float] = None,
+        is_deleted: typing.Optional[bool] = None,
+        role: typing.Optional[str] = None,
+        tags: typing.Optional[str] = None,
+        user_last_activity_gte: typing.Optional[str] = None,
+        user_last_activity_lte: typing.Optional[str] = None,
+        excluded: typing.Optional[typing.Sequence[int]] = OMIT,
+        included: typing.Optional[typing.Sequence[int]] = OMIT,
         overwrite: typing.Optional[bool] = OMIT,
+        bulk_organization_member_tag_assignment_request_tags: typing.Optional[typing.Sequence[int]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AssignMemberTagsResponse]:
         """
@@ -184,11 +206,41 @@ class RawMemberTagsClient:
         id : int
             A unique integer value identifying this organization.
 
-        assignments : typing.Sequence[OrganizationMemberTagAssignmentRequest]
-            List of member tag assignments to assign.
+        all_ : bool
+            If true, assign tags to all organization members. If false, assign tags to the provided users.
+
+        exclude_project_id : typing.Optional[float]
+            Filter exclude_project_id by exact match
+
+        exclude_workspace_id : typing.Optional[float]
+            Filter exclude_workspace_id by exact match
+
+        is_deleted : typing.Optional[bool]
+            Filter is_deleted by exact match
+
+        role : typing.Optional[str]
+            Filter role by in list (comma-separated values)
+
+        tags : typing.Optional[str]
+            Filter tags by in list (comma-separated values)
+
+        user_last_activity_gte : typing.Optional[str]
+            Filter user__last_activity by greater than or equal to
+
+        user_last_activity_lte : typing.Optional[str]
+            Filter user__last_activity by less than or equal to
+
+        excluded : typing.Optional[typing.Sequence[int]]
+            List of user IDs to exclude from the assignment.
+
+        included : typing.Optional[typing.Sequence[int]]
+            List of user IDs to include in the assignment.
 
         overwrite : typing.Optional[bool]
             If true, replace all existing tag assignments for each user with the provided ones. If false, only add new assignments.
+
+        bulk_organization_member_tag_assignment_request_tags : typing.Optional[typing.Sequence[int]]
+            List of tag IDs to assign.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -201,13 +253,21 @@ class RawMemberTagsClient:
         _response = self._client_wrapper.httpx_client.request(
             f"api/organizations/{jsonable_encoder(id)}/member-tags/assignments",
             method="POST",
+            params={
+                "exclude_project_id": exclude_project_id,
+                "exclude_workspace_id": exclude_workspace_id,
+                "is_deleted": is_deleted,
+                "role": role,
+                "tags": tags,
+                "user__last_activity__gte": user_last_activity_gte,
+                "user__last_activity__lte": user_last_activity_lte,
+            },
             json={
-                "assignments": convert_and_respect_annotation_metadata(
-                    object_=assignments,
-                    annotation=typing.Sequence[OrganizationMemberTagAssignmentRequest],
-                    direction="write",
-                ),
+                "all": all_,
+                "excluded": excluded,
+                "included": included,
                 "overwrite": overwrite,
+                "tags": bulk_organization_member_tag_assignment_request_tags,
             },
             headers={
                 "content-type": "application/json",
@@ -238,6 +298,164 @@ class RawMemberTagsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def import_(
+        self, id: int, *, bulk_tags: str, file: core.File, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ImportMemberTagsResponse]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Upload a CSV file to bulk import member tags and assign them to organization members.
+
+        The CSV file must contain `email` and `tags` columns. The `tags` column should contain comma-separated tag labels (quoted if they contain commas). Tags that do not exist will be created.
+
+        Optionally, you can specify `bulk_tags` as a comma-separated list of tags to apply to all users in the CSV file.
+
+        The import runs asynchronously. Use the returned import job ID to check the status.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this organization.
+
+        bulk_tags : str
+
+        file : core.File
+            See core.File for more documentation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ImportMemberTagsResponse]
+            Import job created successfully
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/organizations/{jsonable_encoder(id)}/member-tags/imports",
+            method="POST",
+            data={
+                "bulk_tags": bulk_tags,
+            },
+            files={
+                "file": file,
+            },
+            request_options=request_options,
+            omit=OMIT,
+            force_multipart=True,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ImportMemberTagsResponse,
+                    construct_type(
+                        type_=ImportMemberTagsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_import(
+        self, id: int, import_pk: int, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[OrganizationMemberTagImportStatus]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Retrieve the status and results of a member tag import job.
+
+        The response includes the current status (created, in_progress, completed, failed), timestamps, and counts of tags created, assignments made, and users skipped.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this organization.
+
+        import_pk : int
+            A unique integer value identifying this import job.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[OrganizationMemberTagImportStatus]
+
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/organizations/{jsonable_encoder(id)}/member-tags/imports/{jsonable_encoder(import_pk)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    OrganizationMemberTagImportStatus,
+                    construct_type(
+                        type_=OrganizationMemberTagImportStatus,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -399,6 +617,7 @@ class RawMemberTagsClient:
             A unique integer value identifying this member tag.
 
         label : typing.Optional[str]
+            Label
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -477,7 +696,9 @@ class AsyncRawMemberTagsClient:
         self,
         id: int,
         *,
+        ordering: typing.Optional[str] = None,
         page: typing.Optional[int] = None,
+        page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PaginatedOrganizationMemberTagList]:
@@ -495,8 +716,14 @@ class AsyncRawMemberTagsClient:
         id : int
             A unique integer value identifying this organization.
 
+        ordering : typing.Optional[str]
+            Which field to use when ordering the results.
+
         page : typing.Optional[int]
             A page number within the paginated result set.
+
+        page_size : typing.Optional[int]
+            Number of results per page (default: 30, max: 100).
 
         search : typing.Optional[str]
             Search tags by label (case-insensitive).
@@ -513,7 +740,9 @@ class AsyncRawMemberTagsClient:
             f"api/organizations/{jsonable_encoder(id)}/member-tags",
             method="GET",
             params={
+                "ordering": ordering,
                 "page": page,
+                "page_size": page_size,
                 "search": search,
             },
             request_options=request_options,
@@ -551,6 +780,7 @@ class AsyncRawMemberTagsClient:
             A unique integer value identifying this organization.
 
         label : str
+            Label
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -613,8 +843,18 @@ class AsyncRawMemberTagsClient:
         self,
         id: int,
         *,
-        assignments: typing.Sequence[OrganizationMemberTagAssignmentRequest],
+        all_: bool,
+        exclude_project_id: typing.Optional[float] = None,
+        exclude_workspace_id: typing.Optional[float] = None,
+        is_deleted: typing.Optional[bool] = None,
+        role: typing.Optional[str] = None,
+        tags: typing.Optional[str] = None,
+        user_last_activity_gte: typing.Optional[str] = None,
+        user_last_activity_lte: typing.Optional[str] = None,
+        excluded: typing.Optional[typing.Sequence[int]] = OMIT,
+        included: typing.Optional[typing.Sequence[int]] = OMIT,
         overwrite: typing.Optional[bool] = OMIT,
+        bulk_organization_member_tag_assignment_request_tags: typing.Optional[typing.Sequence[int]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AssignMemberTagsResponse]:
         """
@@ -631,11 +871,41 @@ class AsyncRawMemberTagsClient:
         id : int
             A unique integer value identifying this organization.
 
-        assignments : typing.Sequence[OrganizationMemberTagAssignmentRequest]
-            List of member tag assignments to assign.
+        all_ : bool
+            If true, assign tags to all organization members. If false, assign tags to the provided users.
+
+        exclude_project_id : typing.Optional[float]
+            Filter exclude_project_id by exact match
+
+        exclude_workspace_id : typing.Optional[float]
+            Filter exclude_workspace_id by exact match
+
+        is_deleted : typing.Optional[bool]
+            Filter is_deleted by exact match
+
+        role : typing.Optional[str]
+            Filter role by in list (comma-separated values)
+
+        tags : typing.Optional[str]
+            Filter tags by in list (comma-separated values)
+
+        user_last_activity_gte : typing.Optional[str]
+            Filter user__last_activity by greater than or equal to
+
+        user_last_activity_lte : typing.Optional[str]
+            Filter user__last_activity by less than or equal to
+
+        excluded : typing.Optional[typing.Sequence[int]]
+            List of user IDs to exclude from the assignment.
+
+        included : typing.Optional[typing.Sequence[int]]
+            List of user IDs to include in the assignment.
 
         overwrite : typing.Optional[bool]
             If true, replace all existing tag assignments for each user with the provided ones. If false, only add new assignments.
+
+        bulk_organization_member_tag_assignment_request_tags : typing.Optional[typing.Sequence[int]]
+            List of tag IDs to assign.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -648,13 +918,21 @@ class AsyncRawMemberTagsClient:
         _response = await self._client_wrapper.httpx_client.request(
             f"api/organizations/{jsonable_encoder(id)}/member-tags/assignments",
             method="POST",
+            params={
+                "exclude_project_id": exclude_project_id,
+                "exclude_workspace_id": exclude_workspace_id,
+                "is_deleted": is_deleted,
+                "role": role,
+                "tags": tags,
+                "user__last_activity__gte": user_last_activity_gte,
+                "user__last_activity__lte": user_last_activity_lte,
+            },
             json={
-                "assignments": convert_and_respect_annotation_metadata(
-                    object_=assignments,
-                    annotation=typing.Sequence[OrganizationMemberTagAssignmentRequest],
-                    direction="write",
-                ),
+                "all": all_,
+                "excluded": excluded,
+                "included": included,
                 "overwrite": overwrite,
+                "tags": bulk_organization_member_tag_assignment_request_tags,
             },
             headers={
                 "content-type": "application/json",
@@ -685,6 +963,164 @@ class AsyncRawMemberTagsClient:
                 )
             if _response.status_code == 403:
                 raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def import_(
+        self, id: int, *, bulk_tags: str, file: core.File, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ImportMemberTagsResponse]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Upload a CSV file to bulk import member tags and assign them to organization members.
+
+        The CSV file must contain `email` and `tags` columns. The `tags` column should contain comma-separated tag labels (quoted if they contain commas). Tags that do not exist will be created.
+
+        Optionally, you can specify `bulk_tags` as a comma-separated list of tags to apply to all users in the CSV file.
+
+        The import runs asynchronously. Use the returned import job ID to check the status.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this organization.
+
+        bulk_tags : str
+
+        file : core.File
+            See core.File for more documentation
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ImportMemberTagsResponse]
+            Import job created successfully
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/organizations/{jsonable_encoder(id)}/member-tags/imports",
+            method="POST",
+            data={
+                "bulk_tags": bulk_tags,
+            },
+            files={
+                "file": file,
+            },
+            request_options=request_options,
+            omit=OMIT,
+            force_multipart=True,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ImportMemberTagsResponse,
+                    construct_type(
+                        type_=ImportMemberTagsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_import(
+        self, id: int, import_pk: int, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[OrganizationMemberTagImportStatus]:
+        """
+        <Card href="https://humansignal.com/goenterprise">
+                <img style="pointer-events: none; margin-left: 0px; margin-right: 0px;" src="https://docs.humansignal.com/images/badge.svg" alt="Label Studio Enterprise badge"/>
+                <p style="margin-top: 10px; font-size: 14px;">
+                    This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
+                </p>
+            </Card>
+        Retrieve the status and results of a member tag import job.
+
+        The response includes the current status (created, in_progress, completed, failed), timestamps, and counts of tags created, assignments made, and users skipped.
+
+        Parameters
+        ----------
+        id : int
+            A unique integer value identifying this organization.
+
+        import_pk : int
+            A unique integer value identifying this import job.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[OrganizationMemberTagImportStatus]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/organizations/{jsonable_encoder(id)}/member-tags/imports/{jsonable_encoder(import_pk)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    OrganizationMemberTagImportStatus,
+                    construct_type(
+                        type_=OrganizationMemberTagImportStatus,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Any,
@@ -846,6 +1282,7 @@ class AsyncRawMemberTagsClient:
             A unique integer value identifying this member tag.
 
         label : typing.Optional[str]
+            Label
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

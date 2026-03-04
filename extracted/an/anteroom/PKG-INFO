@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.93.2
+Version: 1.95.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -67,6 +67,7 @@ Requires-Dist: pytest-cov>=6.1.1; extra == "dev"
 Requires-Dist: httpx>=0.25.0; extra == "dev"
 Requires-Dist: ruff>=0.15.4; extra == "dev"
 Requires-Dist: mypy>=1.15.0; extra == "dev"
+Requires-Dist: types-PyYAML>=6.0.0; extra == "dev"
 Requires-Dist: pip-audit>=2.9.0; extra == "dev"
 Requires-Dist: semgrep>=1.152.0; extra == "dev"
 Dynamic: license-file
@@ -161,6 +162,7 @@ Anteroom threads the needle:
 pip install anteroom
 aroom init          # interactive setup wizard
 aroom               # web UI at http://127.0.0.1:8080
+aroom start         # or run in the background — no terminal needed
 ```
 
 That's it. No Docker. No database server. No config files required.
@@ -170,6 +172,7 @@ Or use the CLI directly:
 ```bash
 aroom chat                              # interactive REPL
 aroom exec "summarize this PR" --json   # one-shot for scripts
+aroom status                            # check if the server is running
 ```
 
 <br>

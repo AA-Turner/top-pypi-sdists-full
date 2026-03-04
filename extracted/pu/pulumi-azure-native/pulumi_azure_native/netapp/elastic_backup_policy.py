@@ -30,6 +30,7 @@ class ElasticBackupPolicyArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a ElasticBackupPolicy resource.
+
         :param pulumi.Input[_builtins.str] account_name: The name of the ElasticAccount
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[_builtins.str] backup_policy_name: The name of the ElasticBackupPolicy
@@ -139,6 +140,9 @@ class ElasticBackupPolicy(pulumi.CustomResource):
 
         Uses Azure REST API version 2025-09-01-preview.
 
+        Other available API versions: 2025-12-15-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native netapp [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_name: The name of the ElasticAccount
@@ -158,6 +162,9 @@ class ElasticBackupPolicy(pulumi.CustomResource):
         NetApp Elastic Backup Policy resource
 
         Uses Azure REST API version 2025-09-01-preview.
+
+        Other available API versions: 2025-12-15-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native netapp [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param ElasticBackupPolicyArgs args: The arguments to use to populate this resource's properties.
@@ -204,7 +211,7 @@ class ElasticBackupPolicy(pulumi.CustomResource):
             __props__.__dict__["name"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:netapp/v20250901preview:ElasticBackupPolicy")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:netapp/v20250901preview:ElasticBackupPolicy"), pulumi.Alias(type_="azure-native:netapp/v20251215preview:ElasticBackupPolicy")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ElasticBackupPolicy, __self__).__init__(
             'azure-native:netapp:ElasticBackupPolicy',

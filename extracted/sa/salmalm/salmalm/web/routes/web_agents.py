@@ -18,6 +18,7 @@ def _task_record(
     task_id: str,
     description: str,
     model: str,
+    owner_uid: str = "",
     status: str = "pending",
     output: str = "",
     result_preview: str = "",
@@ -33,10 +34,11 @@ def _task_record(
         "elapsed_ms": elapsed_ms,
         "result_preview": result_preview,
         "output": output,
+        "owner_uid": owner_uid,
     }
 
 
-def _run_task(task_id: str, description: str, model: str) -> None:
+def _run_task(task_id: str, description: str, model: str, owner_uid: str = "") -> None:
     """Run an agent task in a background thread."""
     import asyncio as _asyncio
 
@@ -71,6 +73,7 @@ def _run_task(task_id: str, description: str, model: str) -> None:
                 session_id,
                 description,
                 model_override=model_override,
+                user_id=int(owner_uid) if owner_uid.isdigit() else None,
             )
         ) or ""
 
@@ -90,10 +93,10 @@ def _spawn_task(args: str, model: str) -> Dict[str, Any]:
     if not args:
         return {"ok": False, "result": "Usage: $task <description>"}
     task_id = uuid.uuid4().hex[:12]
-    rec = _task_record(task_id, args, model)
+    rec = _task_record(task_id, args, model, owner_uid="")
     with _tasks_lock:
         _tasks[task_id] = rec
-    threading.Thread(target=_run_task, args=(task_id, args, model), daemon=True).start()
+    threading.Thread(target=_run_task, args=(task_id, args, model, ""), daemon=True).start()
     return {
         "ok": True,
         "type": "task",
@@ -246,7 +249,8 @@ class AgentsMixin:
 
     def _post_api_agent_task(self) -> None:
         """POST /api/agent/task — create and spawn a new agent task."""
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
         if not vault.is_unlocked:
             self._json({"error": "Vault locked"}, 403)
@@ -264,11 +268,12 @@ class AgentsMixin:
             return
 
         task_id = uuid.uuid4().hex[:12]
-        rec = _task_record(task_id, description, model)
+        owner_uid = str(_u.get("id") or _u.get("uid") or "")
+        rec = _task_record(task_id, description, model, owner_uid=owner_uid)
         with _tasks_lock:
             _tasks[task_id] = rec
 
-        t = threading.Thread(target=_run_task, args=(task_id, description, model), daemon=True)
+        t = threading.Thread(target=_run_task, args=(task_id, description, model, owner_uid), daemon=True)
         t.start()
 
         log.info(f"[AGENT] Task {task_id} spawned: {description[:60]}")
@@ -276,36 +281,56 @@ class AgentsMixin:
 
     def _get_api_agent_tasks(self) -> None:
         """GET /api/agent/tasks — list all tasks."""
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
+        uid = str(_u.get("id") or _u.get("uid") or "")
+        is_admin = _u.get("role") in ("admin", "owner")
         with _tasks_lock:
-            tasks = list(_tasks.values())
+            if is_admin:
+                tasks = list(_tasks.values())
+            else:
+                tasks = [t for t in _tasks.values() if t.get("owner_uid", "") == uid]
         tasks.sort(key=lambda t: (t["status"] != "running", -t["created_at"]))
         self._json({"tasks": tasks})
 
     def _delete_api_agent_task(self) -> None:
         """DELETE /api/agent/task — cancel/delete a task."""
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
         body = self._body
         task_id = body.get("task_id") or self.path.rstrip("/").split("/")[-1]
         if not task_id:
             self._json({"error": "task_id required"}, 400)
             return
+        uid = str(_u.get("id") or _u.get("uid") or "")
+        is_admin = _u.get("role") in ("admin", "owner")
         with _tasks_lock:
             if task_id not in _tasks:
                 self._json({"error": "Task not found"}, 404)
+                return
+            task = _tasks[task_id]
+            if not is_admin and task.get("owner_uid", "") != uid:
+                self._json({"error": "Access denied"}, 403)
                 return
             _tasks[task_id]["status"] = "cancelled"
         self._json({"ok": True})
 
     def _post_api_agent_tasks_clear(self) -> None:
         """POST /api/agent/tasks/clear — remove all completed/failed/cancelled tasks."""
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
         _DONE_STATUSES = {"done", "failed", "cancelled"}
+        uid = str(_u.get("id") or _u.get("uid") or "")
+        is_admin = _u.get("role") in ("admin", "owner")
         with _tasks_lock:
-            to_remove = [tid for tid, t in _tasks.items() if t.get("status") in _DONE_STATUSES]
+            to_remove = [
+                tid for tid, t in _tasks.items()
+                if t.get("status") in _DONE_STATUSES
+                and (is_admin or t.get("owner_uid", "") == uid)
+            ]
             for tid in to_remove:
                 del _tasks[tid]
         self._json({"ok": True, "removed": len(to_remove)})
@@ -330,8 +355,13 @@ router = _APIRouter()
 
 @router.get("/api/agent/tasks")
 async def get_agent_tasks(_u=_Depends(_auth)):
+    uid = str(_u.get("id") or _u.get("uid") or "")
+    is_admin = _u.get("role") in ("admin", "owner")
     with _tasks_lock:
-        tasks = list(_tasks.values())
+        if is_admin:
+            tasks = list(_tasks.values())
+        else:
+            tasks = [t for t in _tasks.values() if t.get("owner_uid", "") == uid]
     tasks.sort(key=lambda t: (t["status"] != "running", -t["created_at"]))
     return _JSON(content={"tasks": tasks})
 
@@ -347,10 +377,11 @@ async def post_agent_task(request: _Request, _u=_Depends(_auth)):
     if len(description) > 4000:
         return _JSON(content={"error": "description too long (max 4000 chars)"}, status_code=400)
     task_id = uuid.uuid4().hex[:12]
-    rec = _task_record(task_id, description, model)
+    owner_uid = str(_u.get("id") or _u.get("uid") or "")
+    rec = _task_record(task_id, description, model, owner_uid=owner_uid)
     with _tasks_lock:
         _tasks[task_id] = rec
-    threading.Thread(target=_run_task, args=(task_id, description, model), daemon=True).start()
+    threading.Thread(target=_run_task, args=(task_id, description, model, owner_uid), daemon=True).start()
     return _JSON(content={"ok": True, "task_id": task_id})
 
 @router.post("/api/agent/task/cancel")
@@ -359,17 +390,28 @@ async def post_agent_task_cancel(request: _Request, _u=_Depends(_auth)):
     task_id = body.get("task_id", "")
     if not task_id:
         return _JSON(content={"error": "task_id required"}, status_code=400)
+    uid = str(_u.get("id") or _u.get("uid") or "")
+    is_admin = _u.get("role") in ("admin", "owner")
     with _tasks_lock:
         if task_id not in _tasks:
             return _JSON(content={"error": "Task not found"}, status_code=404)
+        task = _tasks[task_id]
+        if not is_admin and task.get("owner_uid", "") != uid:
+            return _JSON(content={"error": "Access denied"}, status_code=403)
         _tasks[task_id]["status"] = "cancelled"
     return _JSON(content={"ok": True})
 
 @router.post("/api/agent/tasks/clear")
 async def post_agent_tasks_clear(_u=_Depends(_auth)):
     _DONE_STATUSES = {"done", "failed", "cancelled"}
+    uid = str(_u.get("id") or _u.get("uid") or "")
+    is_admin = _u.get("role") in ("admin", "owner")
     with _tasks_lock:
-        to_remove = [tid for tid, t in _tasks.items() if t.get("status") in _DONE_STATUSES]
+        to_remove = [
+            tid for tid, t in _tasks.items()
+            if t.get("status") in _DONE_STATUSES
+            and (is_admin or t.get("owner_uid", "") == uid)
+        ]
         for tid in to_remove:
             del _tasks[tid]
     return _JSON(content={"ok": True, "removed": len(to_remove)})

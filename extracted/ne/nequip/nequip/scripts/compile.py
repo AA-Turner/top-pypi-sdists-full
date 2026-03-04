@@ -10,6 +10,12 @@ from nequip.train.lightning import _SOLE_MODEL_KEY
 from nequip.data import AtomicDataDict
 from nequip.utils.logger import RankedLogger
 from nequip.utils.global_state import set_global_state, get_latest_global_state
+from nequip.utils.versions import _TORCH_GE_2_10
+from nequip.utils.aoti_metadata import (
+    NEQUIP_AOTI_INPUTS_KEY,
+    NEQUIP_AOTI_OUTPUTS_KEY,
+    serialize_aoti_keys,
+)
 from omegaconf import OmegaConf
 import hydra
 
@@ -167,6 +173,14 @@ def main(args=None):
 
     set_workflow_state("compile")
 
+    # === check for deprecated torchscript mode ===
+    if args.mode == "torchscript" and _TORCH_GE_2_10:
+        raise ValueError(
+            "TorchScript compilation is deprecated and not supported in PyTorch >= 2.10. "
+            "Please use `--mode aotinductor` instead. "
+            "See https://pytorch.org/blog/pytorch-2-10-release-blog/ for more information."
+        )
+
     # === initialize global state ===
     set_global_state(allow_tf32=args.tf32)
 
@@ -287,6 +301,8 @@ def main(args=None):
 
         # we use the metadata key to keep our own metadata
         assert _AOT_METADATA_KEY not in inductor_configs
+        metadata[NEQUIP_AOTI_INPUTS_KEY] = serialize_aoti_keys(input_fields)
+        metadata[NEQUIP_AOTI_OUTPUTS_KEY] = serialize_aoti_keys(output_fields)
         metadata = {k: str(v) for k, v in metadata.items()}
         inductor_configs[_AOT_METADATA_KEY] = metadata
 

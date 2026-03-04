@@ -286,12 +286,12 @@ class WebAuthMixin:
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Permissions-Policy", "camera=(), microphone=(self), geolocation=()")
-        # CSP: unsafe-inline by default (setup/unlock templates use inline scripts).
-        # Set SALMALM_CSP_STRICT=1 to use nonce-based script-src instead.
-        if os.environ.get("SALMALM_CSP_STRICT"):
-            script_src = f"'self' 'nonce-{self._csp_nonce}'"
-        else:
+        # CSP: nonce-based script-src by default (strict mode).
+        # Set SALMALM_CSP_COMPAT=1 to fall back to 'unsafe-inline' for compatibility.
+        if os.environ.get("SALMALM_CSP_COMPAT"):
             script_src = "'self' 'unsafe-inline'"
+        else:
+            script_src = f"'self' 'nonce-{self._csp_nonce}'"
         self.send_header(
             "Content-Security-Policy",
             f"default-src 'self'; "
@@ -381,8 +381,10 @@ async def post_users_register(req: UserCreate, request: _Request):
     if reg_mode == "admin_only":
         if not requester or requester.get("role") != "admin":
             return _JSON(content={"error": "Admin access required for registration / 관리자만 등록 가능"}, status_code=403)
+    is_admin_requester = requester and requester.get("role") == "admin"
+    effective_role = req.role if is_admin_requester else "user"
     try:
-        user = auth_manager.create_user(req.username, req.password, req.role)
+        user = auth_manager.create_user(req.username, req.password, effective_role)
         user_manager.ensure_quota(user["id"])
         return _JSON(content={"ok": True, "user": user})
     except ValueError as e:
@@ -390,17 +392,25 @@ async def post_users_register(req: UserCreate, request: _Request):
 
 @router.post("/api/auth/login")
 async def post_auth_login(req: LoginRequest, request: _Request):
-    from salmalm.web.auth import auth_manager
+    from salmalm.web.auth import auth_manager, rate_limiter, ip_ban_list, RateLimitExceeded
     from salmalm.core import audit_log
-    import os as _os_login
+    ip = request.client.host if request.client else "unknown"
+    try:
+        rate_limiter.check(f"login:{ip}", "anonymous")
+    except RateLimitExceeded as e:
+        ip_ban_list.record_violation(ip)
+        return _JSON(
+            content={"error": "Too many login attempts. Try again later."},
+            status_code=429,
+            headers={"Retry-After": str(int(e.retry_after))},
+        )
     username = req.username
     password = req.password
-    user = auth_manager.authenticate(username, password)
-    ip = request.client.host if request.client else "unknown"
+    user = auth_manager.authenticate(username, password, ip=ip)
     if user:
         token = auth_manager.create_token(user)
         audit_log("auth_success", f"user={username}", detail_dict={"username": username, "ip": ip})
-        resp = _JSON(content={"ok": True, "token": token, "user": user}, headers={"Cache-Control": "no-store, no-cache", "Pragma": "no-cache"})
+        resp = _JSON(content={"ok": True, "user": user}, headers={"Cache-Control": "no-store, no-cache", "Pragma": "no-cache"})
         # Also set HttpOnly + SameSite cookie for XSS-resistant auth
         # Secure flag set when not on loopback (HTTPS environments)
         _is_local = ip in ("127.0.0.1", "::1", "localhost")
@@ -502,13 +512,17 @@ async def post_auto_unlock(request: _Request):
 @router.post("/api/auth/logout")
 async def post_auth_logout(request: _Request):
     """Revoke the current JWT (server-side logout). Clears HttpOnly cookie."""
-    from salmalm.web.auth import extract_auth
     from salmalm.web.token_manager import token_manager
-    user = extract_auth(dict(request.headers))
+
+    raw_token = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        raw_token = auth_header[7:].strip()
+    if not raw_token:
+        raw_token = request.cookies.get("salmalm_token")
+
     resp = _JSON(content={"ok": True, "message": "Logged out"})
-    # Revoke JTI so this token cannot be reused even if intercepted
-    if user and user.get("jti"):
-        token_manager.revoke(user["_jti"])
-    # Clear cookie
+    if raw_token:
+        token_manager.revoke(raw_token)
     resp.delete_cookie(key="salmalm_token", path="/")
     return resp

@@ -79,13 +79,15 @@ else
 	STORE_CONFIG := {"index": {"dims": 500, "embed": "./tests/graphs/test_utils/embeddings.py:embeddings"}}
 endif
 
-LANGGRAPH_CHECKPOINTER ?= ""
+LANGGRAPH_CHECKPOINTER ?=
 ifeq ($(LANGGRAPH_CHECKPOINTER),custom)
 	CHECKPOINTER_CONFIG := {"path": "./tests/graphs/custom_checkpointer.py:generate_checkpointer"}
 else ifeq ($(LANGGRAPH_CHECKPOINTER),redis)
 	CHECKPOINTER_CONFIG := {"path": "./tests/graphs/custom_redis_checkpointer.py:generate_checkpointer"}
-else
+else ifeq ($(strip $(LANGGRAPH_CHECKPOINTER)),)
 	CHECKPOINTER_CONFIG :=
+else
+	CHECKPOINTER_CONFIG := $(LANGGRAPH_CHECKPOINTER)
 endif
 
 REVISION ?= $(shell git rev-parse --short HEAD)

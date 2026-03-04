@@ -6,13 +6,18 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .user_simple import UserSimple
 
 
 class OrganizationMemberTag(UncheckedBaseModel):
     created_at: typing.Optional[dt.datetime] = None
-    created_by: typing.Optional[int] = None
+    created_by: typing.Optional[UserSimple] = None
     id: typing.Optional[int] = None
-    label: str
+    label: str = pydantic.Field()
+    """
+    Label
+    """
+
     member_count: typing.Optional[int] = None
     organization: typing.Optional[int] = None
     updated_at: typing.Optional[dt.datetime] = None

@@ -6,6 +6,7 @@
 
 #include "common_header.h"
 #include "function_call_macros.h"
+#include "pyutils.h"
 
 #include "convertors/type_casters.h"
 
@@ -274,4 +275,6 @@ void export_callback(py::module &m) {
         .def("push_event", py::overload_cast<Tango::AttrConfEventData *>(&Tango::CallBack::push_event))
         .def("push_event", py::overload_cast<Tango::DataReadyEventData *>(&Tango::CallBack::push_event))
         .def("push_event", py::overload_cast<Tango::DevIntrChangeEventData *>(&Tango::CallBack::push_event));
+    fix_dynamic_attr_dealloc<PyCallBackAutoDie>();
+    fix_dynamic_attr_dealloc<PyEventCallBack>();
 }

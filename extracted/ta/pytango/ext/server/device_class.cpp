@@ -5,6 +5,7 @@
  */
 
 #include "common_header.h"
+#include "pyutils.h"
 #include "convertors/type_casters.h"
 
 #include "server/device_class.h"
@@ -518,4 +519,5 @@ void export_device_class(py::module &m) {
 
                 :returns: the instance of the :class:`tango.MultiClassAttribute` for the class
                 :rtype: :class:`tango.MultiClassAttribute`)doc");
+    fix_dynamic_attr_dealloc<Tango::DeviceClass>();
 }

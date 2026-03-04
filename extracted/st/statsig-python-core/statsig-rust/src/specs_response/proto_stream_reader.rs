@@ -40,7 +40,10 @@ impl<'a> ProtoStreamReader<'a> {
                     self.buf.extend_from_slice(&self.scratch[..n]);
                 }
                 Err(e) => {
-                    return Err(new_parse_err(e));
+                    return Err(StatsigErr::ProtobufParseError(
+                        "BrotliDecompressorRead".to_string(),
+                        e.to_string(),
+                    ));
                 }
             }
         }
@@ -48,30 +51,47 @@ impl<'a> ProtoStreamReader<'a> {
         Ok(self.buf.split_to(required_len))
     }
 
-    fn read_length_delimiter(&mut self) -> Result<usize, StatsigErr> {
-        let len_buf = &mut [0u8; 10];
-
-        let read_len = self
-            .brotli_decompressor
-            .read(len_buf)
-            .map_err(new_parse_err)?;
-
-        if read_len > 0 {
-            self.buf.extend_from_slice(&len_buf[..read_len]);
-        }
-
-        let data_len = prost::decode_length_delimiter(self.buf.as_ref()).map_err(new_parse_err)?;
-        let required_len = prost::length_delimiter_len(data_len) + data_len;
-
-        Ok(required_len)
+    pub fn sample_current_buf(&self) -> String {
+        let len = std::cmp::min(self.buf.len(), 100);
+        let slice = &self.buf.as_ref()[..len];
+        String::from_utf8(slice.to_vec()).unwrap_or_default()
     }
-}
 
-fn new_parse_err<E>(err_string: E) -> StatsigErr
-where
-    E: std::fmt::Display,
-{
-    StatsigErr::ProtobufParseError("BrotliDecompressor".to_string(), err_string.to_string())
+    fn read_length_delimiter(&mut self) -> Result<usize, StatsigErr> {
+        loop {
+            match prost::decode_length_delimiter(self.buf.as_ref()) {
+                Ok(data_len) => {
+                    return Ok(prost::length_delimiter_len(data_len) + data_len);
+                }
+                Err(e) if self.buf.len() >= 10 => {
+                    return Err(StatsigErr::ProtobufParseError(
+                        "DecodeLengthDelimiter".to_string(),
+                        e.to_string(),
+                    ));
+                }
+                Err(_) => {
+                    let read_len =
+                        self.brotli_decompressor
+                            .read(&mut self.scratch)
+                            .map_err(|e| {
+                                StatsigErr::ProtobufParseError(
+                                    "ReadLengthDelimiter".to_string(),
+                                    e.to_string(),
+                                )
+                            })?;
+
+                    if read_len == 0 {
+                        return Err(StatsigErr::ProtobufParseError(
+                            "ReadLengthDelimiter".to_string(),
+                            "unexpected EOF while reading length delimiter".to_string(),
+                        ));
+                    }
+
+                    self.buf.extend_from_slice(&self.scratch[..read_len]);
+                }
+            }
+        }
+    }
 }
 
 struct StreamBorrower<'a> {

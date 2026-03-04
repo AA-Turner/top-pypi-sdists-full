@@ -6,6 +6,7 @@
 
 #include "common_header.h"
 #include "convertors/type_casters.h"
+#include "pyutils.h"
 
 #include "client/device_attribute.h"
 
@@ -121,4 +122,7 @@ void export_group_reply(py::module &m) {
     Return     : (DeviceAttribute) Whatever is stored there, or None.
 
         )doc");
+    fix_dynamic_attr_dealloc<Tango::GroupReply>();
+    fix_dynamic_attr_dealloc<Tango::GroupCmdReply>();
+    fix_dynamic_attr_dealloc<Tango::GroupAttrReply>();
 }

@@ -63,6 +63,7 @@ use crate::settings::{
 };
 
 pub(crate) mod add;
+pub(crate) mod audit;
 pub(crate) mod environment;
 pub(crate) mod export;
 pub(crate) mod format;
@@ -2826,11 +2827,22 @@ pub(crate) fn script_specification(
             .map_ok(LoweredRequirement::into_inner)
         })
         .collect::<Result<Vec<_>, _>>()?;
+    let excludes = script
+        .metadata()
+        .tool
+        .as_ref()
+        .and_then(|tool| tool.uv.as_ref())
+        .and_then(|uv| uv.exclude_dependencies.as_ref())
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
 
-    Ok(Some(RequirementsSpecification::from_overrides(
+    Ok(Some(RequirementsSpecification::from_excludes(
         requirements,
         constraints,
         overrides,
+        excludes,
     )))
 }
 

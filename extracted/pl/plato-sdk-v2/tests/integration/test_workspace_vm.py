@@ -186,6 +186,23 @@ def vm():
                 )
             )
 
+        # pyfuse3 must be installed BEFORE the world process starts, because
+        # lazy_dvc.py does a hard `import pyfuse3` at module level.
+        loop.run_until_complete(
+            v.exec_ok(
+                "apt-get update -qq && apt-get install -y -qq libfuse3-dev fuse3 pkg-config gcc python3-dev",
+                timeout=120,
+            )
+        )
+        loop.run_until_complete(
+            v.exec_ok(
+                "uv pip install --system pyfuse3",
+                timeout=120,
+            )
+        )
+        # Verify pyfuse3 is importable — fail fast if build was broken
+        loop.run_until_complete(v.exec_ok("python3 -c 'import pyfuse3; print(pyfuse3.__version__)'", timeout=10))
+
         yield v
     finally:
         loop.run_until_complete(v.close())

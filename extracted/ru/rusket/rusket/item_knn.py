@@ -81,16 +81,19 @@ class ItemKNN(ImplicitRecommender):
         bm25_k1: float = 1.2,
         bm25_b: float = 0.75,
         verbose: int = 0,
-        use_gpu: bool = False,
+        use_cuda: bool | None = None,
         **kwargs: Any,
     ):
+        _use_cuda = kwargs.pop("use_gpu", use_cuda)  # backward compat
         super().__init__()
         self.method = method
         self.k = k
         self.bm25_k1 = bm25_k1
         self.bm25_b = bm25_b
         self.verbose = verbose
-        self.use_gpu = use_gpu
+        from ._config import _resolve_cuda
+
+        self.use_cuda = _resolve_cuda(_use_cuda)
 
         self.w_indptr: np.ndarray | None = None
         self.w_indices: np.ndarray | None = None
@@ -202,6 +205,11 @@ class ItemKNN(ImplicitRecommender):
 
         if user_id < 0 or user_id >= self._n_users:
             raise ValueError(f"user_id {user_id} is out of bounds for model with {self._n_users} users.")
+
+        if self.use_cuda:
+            # KNN similarity matrices are sparse × sparse — CUDA acceleration
+            # for sparse×sparse is not beneficial. Fall through to Rust path.
+            pass
 
         if (
             exclude_seen

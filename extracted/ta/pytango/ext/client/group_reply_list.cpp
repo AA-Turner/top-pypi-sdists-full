@@ -6,6 +6,7 @@
 
 #include "common_header.h"
 #include "convertors/type_casters.h"
+#include "pyutils.h"
 
 template <typename ListType, typename ItemType>
 void bindGroupReplyList(py::module &m, const char *py_name) {
@@ -34,4 +35,7 @@ void export_group_reply_list(py::module &m) {
     bindGroupReplyList<Tango::GroupReplyList, Tango::GroupReply>(m, "GroupReplyList");
     bindGroupReplyList<Tango::GroupCmdReplyList, Tango::GroupCmdReply>(m, "GroupCmdReplyList");
     bindGroupReplyList<Tango::GroupAttrReplyList, Tango::GroupAttrReply>(m, "GroupAttrReplyList");
+    fix_dynamic_attr_dealloc<Tango::GroupReplyList>();
+    fix_dynamic_attr_dealloc<Tango::GroupCmdReplyList>();
+    fix_dynamic_attr_dealloc<Tango::GroupAttrReplyList>();
 }

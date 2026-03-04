@@ -5,6 +5,7 @@
  */
 
 #include "common_header.h"
+#include "pyutils.h"
 #include "base_types_structures/exception.h"
 #include "convertors/object_casters.h"
 #include "convertors/type_casters.h"
@@ -1677,4 +1678,10 @@ void export_device_impl(py::module &m) {
         .def("write_attr_hardware", &Tango::Device_6Impl::write_attr_hardware)
         .def("dev_state", &Tango::Device_6Impl::dev_state)
         .def("dev_status", &Tango::Device_6Impl::dev_status);
+    fix_dynamic_attr_dealloc<Tango::DeviceImpl>();
+    fix_dynamic_attr_dealloc<Tango::Device_2Impl>();
+    fix_dynamic_attr_dealloc<Tango::Device_3Impl>();
+    fix_dynamic_attr_dealloc<Tango::Device_4Impl>();
+    fix_dynamic_attr_dealloc<Tango::Device_5Impl>();
+    fix_dynamic_attr_dealloc<Tango::Device_6Impl>();
 }

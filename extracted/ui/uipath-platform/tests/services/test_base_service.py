@@ -294,3 +294,90 @@ class TestRetryBehavior:
             await service.request_async("GET", "/endpoint")
         assert exc_info.value.status_code == 429
         assert len(httpx_mock.get_requests()) == 5
+
+
+class TestServiceUrlOverride:
+    def test_request_uses_override_url(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        monkeypatch: pytest.MonkeyPatch,
+        version: str,
+    ) -> None:
+        monkeypatch.setenv("UIPATH_SERVICE_URL_AGENTHUB", "http://localhost:5200")
+        monkeypatch.setenv("UIPATH_TENANT_ID", "tenant-123")
+        monkeypatch.setenv("UIPATH_ORGANIZATION_ID", "org-456")
+
+        httpx_mock.add_response(
+            url="http://localhost:5200/llm/api/chat/completions",
+            status_code=200,
+            json={"result": "ok"},
+        )
+
+        response = service.request("POST", "/agenthub_/llm/api/chat/completions")
+
+        sent_request = httpx_mock.get_request()
+        assert sent_request is not None
+        assert str(sent_request.url) == "http://localhost:5200/llm/api/chat/completions"
+        assert sent_request.headers["X-UiPath-Internal-TenantId"] == "tenant-123"
+        assert sent_request.headers["X-UiPath-Internal-AccountId"] == "org-456"
+        assert response.status_code == 200
+
+    def test_request_no_override_uses_normal_scoping(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        version: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("UIPATH_SERVICE_URL_ORCHESTRATOR", raising=False)
+
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/orchestrator_/odata/Buckets",
+            status_code=200,
+            json={"value": []},
+        )
+
+        response = service.request("GET", "/orchestrator_/odata/Buckets")
+
+        sent_request = httpx_mock.get_request()
+        assert sent_request is not None
+        assert (
+            str(sent_request.url)
+            == f"{base_url}{org}{tenant}/orchestrator_/odata/Buckets"
+        )
+        assert response.status_code == 200
+
+
+class TestServiceUrlOverrideAsync:
+    @pytest.mark.anyio
+    async def test_request_async_uses_override_url(
+        self,
+        httpx_mock: HTTPXMock,
+        service: BaseService,
+        monkeypatch: pytest.MonkeyPatch,
+        version: str,
+    ) -> None:
+        monkeypatch.setenv("UIPATH_SERVICE_URL_AGENTHUB", "http://localhost:5200")
+        monkeypatch.setenv("UIPATH_TENANT_ID", "tenant-123")
+        monkeypatch.setenv("UIPATH_ORGANIZATION_ID", "org-456")
+
+        httpx_mock.add_response(
+            url="http://localhost:5200/llm/api/chat/completions",
+            status_code=200,
+            json={"result": "ok"},
+        )
+
+        response = await service.request_async(
+            "POST", "/agenthub_/llm/api/chat/completions"
+        )
+
+        sent_request = httpx_mock.get_request()
+        assert sent_request is not None
+        assert str(sent_request.url) == "http://localhost:5200/llm/api/chat/completions"
+        assert sent_request.headers["X-UiPath-Internal-TenantId"] == "tenant-123"
+        assert sent_request.headers["X-UiPath-Internal-AccountId"] == "org-456"
+        assert response.status_code == 200

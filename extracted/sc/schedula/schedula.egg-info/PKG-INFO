@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: schedula
-Version: 1.6.11
+Version: 1.6.13
 Summary: Produce a plan that dispatches calls based on a graph of functions, satisfying data dependencies.
 Home-page: https://github.com/vinci1it2000/schedula
-Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.11
+Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.13
 Author: Vincenzo Arcidiacono
 Author-email: vinci1it2000@gmail.com
 License: EUPL 1.1+
@@ -73,6 +73,7 @@ Requires-Dist: flask-mail; extra == "form"
 Requires-Dist: flask-security[common]>=5.6.0; extra == "form"
 Requires-Dist: boto3; extra == "form"
 Requires-Dist: casbin; extra == "form"
+Requires-Dist: celery; extra == "form"
 Requires-Dist: sqlalchemy_adapter; extra == "form"
 Requires-Dist: pydash; extra == "form"
 Requires-Dist: apprise; extra == "form"
@@ -101,6 +102,7 @@ Requires-Dist: apprise; extra == "all"
 Requires-Dist: asteval; extra == "all"
 Requires-Dist: boto3; extra == "all"
 Requires-Dist: casbin; extra == "all"
+Requires-Dist: celery; extra == "all"
 Requires-Dist: click; extra == "all"
 Requires-Dist: click_log; extra == "all"
 Requires-Dist: dill!=0.2.7; extra == "all"
@@ -141,6 +143,7 @@ Requires-Dist: apprise; extra == "dev"
 Requires-Dist: asteval; extra == "dev"
 Requires-Dist: boto3; extra == "dev"
 Requires-Dist: casbin; extra == "dev"
+Requires-Dist: celery; extra == "dev"
 Requires-Dist: click; extra == "dev"
 Requires-Dist: click_log; extra == "dev"
 Requires-Dist: dill!=0.2.7; extra == "dev"

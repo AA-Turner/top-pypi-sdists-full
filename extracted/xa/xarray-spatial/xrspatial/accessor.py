@@ -115,6 +115,24 @@ class XrsSpatialDataArrayAccessor:
         from .hand import hand
         return hand(self._obj, flow_accum, elevation, **kwargs)
 
+    # ---- Flood ----
+
+    def flood_depth(self, water_level, **kwargs):
+        from .flood import flood_depth
+        return flood_depth(self._obj, water_level, **kwargs)
+
+    def inundation(self, water_level, **kwargs):
+        from .flood import inundation
+        return inundation(self._obj, water_level, **kwargs)
+
+    def curve_number_runoff(self, curve_number, **kwargs):
+        from .flood import curve_number_runoff
+        return curve_number_runoff(self._obj, curve_number, **kwargs)
+
+    def travel_time(self, slope_agg, mannings_n, **kwargs):
+        from .flood import travel_time
+        return travel_time(self._obj, slope_agg, mannings_n, **kwargs)
+
     def viewshed(self, x, y, **kwargs):
         from .viewshed import viewshed
         return viewshed(self._obj, x, y, **kwargs)
@@ -238,6 +256,36 @@ class XrsSpatialDataArrayAccessor:
     def polygonize(self, **kwargs):
         from .polygonize import polygonize
         return polygonize(self._obj, **kwargs)
+
+    # ---- Fire ----
+
+    def dnbr(self, post_nbr_agg, **kwargs):
+        from .fire import dnbr
+        return dnbr(self._obj, post_nbr_agg, **kwargs)
+
+    def rdnbr(self, pre_nbr_agg, **kwargs):
+        from .fire import rdnbr
+        return rdnbr(self._obj, pre_nbr_agg, **kwargs)
+
+    def burn_severity_class(self, **kwargs):
+        from .fire import burn_severity_class
+        return burn_severity_class(self._obj, **kwargs)
+
+    def fireline_intensity(self, spread_rate_agg, **kwargs):
+        from .fire import fireline_intensity
+        return fireline_intensity(self._obj, spread_rate_agg, **kwargs)
+
+    def flame_length(self, **kwargs):
+        from .fire import flame_length
+        return flame_length(self._obj, **kwargs)
+
+    def rate_of_spread(self, wind_speed_agg, fuel_moisture_agg, **kwargs):
+        from .fire import rate_of_spread
+        return rate_of_spread(self._obj, wind_speed_agg, fuel_moisture_agg, **kwargs)
+
+    def kbdi(self, max_temp_agg, precip_agg, annual_precip, **kwargs):
+        from .fire import kbdi
+        return kbdi(self._obj, max_temp_agg, precip_agg, annual_precip, **kwargs)
 
     # ---- Multispectral (self = NIR band) ----
 
@@ -373,6 +421,24 @@ class XrsSpatialDatasetAccessor:
         from .hand import hand
         return hand(self._obj, flow_accum, elevation, **kwargs)
 
+    # ---- Flood ----
+
+    def flood_depth(self, water_level, **kwargs):
+        from .flood import flood_depth
+        return flood_depth(self._obj, water_level, **kwargs)
+
+    def inundation(self, water_level, **kwargs):
+        from .flood import inundation
+        return inundation(self._obj, water_level, **kwargs)
+
+    def curve_number_runoff(self, curve_number, **kwargs):
+        from .flood import curve_number_runoff
+        return curve_number_runoff(self._obj, curve_number, **kwargs)
+
+    def travel_time(self, slope_agg, mannings_n, **kwargs):
+        from .flood import travel_time
+        return travel_time(self._obj, slope_agg, mannings_n, **kwargs)
+
     # ---- Classification ----
 
     def natural_breaks(self, **kwargs):
@@ -434,6 +500,16 @@ class XrsSpatialDatasetAccessor:
     def surface_direction(self, elevation, **kwargs):
         from .surface_distance import surface_direction
         return surface_direction(self._obj, elevation, **kwargs)
+
+    # ---- Fire ----
+
+    def burn_severity_class(self, **kwargs):
+        from .fire import burn_severity_class
+        return burn_severity_class(self._obj, **kwargs)
+
+    def flame_length(self, **kwargs):
+        from .fire import flame_length
+        return flame_length(self._obj, **kwargs)
 
     # ---- Multispectral (band mapping via kwargs) ----
 

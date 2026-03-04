@@ -138,39 +138,20 @@ class AgentRunner:
     async def run(
         self,
         instruction: str,
-        workspace: Transport | str | None = None,
-        mount_path: str | None = None,
-        workspaces: list[Transport] | None = None,
     ) -> str:
         """Run the agent: prepare → hooks → execute (with optional continuation loop) → cleanup.
 
         Args:
             instruction: Task instruction for the agent.
-            workspace: Primary workspace. Accepts a Transport object or a host path string.
-            mount_path: Where to mount the primary workspace on the agent VM.
-                Defaults to the same path as on the host.
-            workspaces: Additional workspaces to mount on the agent VM.
-                Each workspace's mount_path determines where it appears on the agent.
 
         Returns the agent_id (container name or VM job ID).
         """
         ws = self._workspace
-        if workspace is not None:
-            if isinstance(workspace, str):
-                if self._workspace is not None:
-                    ws = self._workspace.with_path(workspace)
-                else:
-                    raise RuntimeError("No transport configured — cannot create workspace from path string")
-            else:
-                ws = workspace
-        if mount_path and ws:
-            ws.mount_path = mount_path
 
         # Set workspaces on VM runtime
-        all_workspaces = workspaces or self._default_workspaces
         if isinstance(self._runtime, PlatoVMRuntime):
             self._runtime.workspace = ws
-            self._runtime.workspaces = all_workspaces
+            self._runtime.workspaces = self._default_workspaces
 
         # Derive string path for ctx.workspace (used by DockerRuntime)
         workspace_path = ws.path if ws else None

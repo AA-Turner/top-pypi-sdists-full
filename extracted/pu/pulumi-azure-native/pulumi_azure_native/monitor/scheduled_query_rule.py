@@ -46,6 +46,7 @@ class ScheduledQueryRuleArgs:
                  window_size: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a ScheduledQueryRule resource.
+
         :param pulumi.Input['ScheduledQueryRuleCriteriaArgs'] criteria: The rule criteria that defines the conditions of the scheduled query rule.
         :param pulumi.Input[_builtins.bool] enabled: The flag which indicates whether this scheduled query rule is enabled. Value should be true or false
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
@@ -409,7 +410,8 @@ class ScheduledQueryRule(pulumi.CustomResource):
 
         Uses Azure REST API version 2025-01-01-preview.
 
-        Other available API versions: 2023-12-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native monitor [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-12-01, 2026-03-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native monitor [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -447,7 +449,8 @@ class ScheduledQueryRule(pulumi.CustomResource):
 
         Uses Azure REST API version 2025-01-01-preview.
 
-        Other available API versions: 2023-12-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native monitor [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-12-01, 2026-03-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native monitor [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param ScheduledQueryRuleArgs args: The arguments to use to populate this resource's properties.
@@ -533,7 +536,7 @@ class ScheduledQueryRule(pulumi.CustomResource):
             __props__.__dict__["name"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:insights/v20180416:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20200501preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20220801preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20230315preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20231201:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20240101preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20180416:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20200501preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20210201preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20210801:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20220615:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20220801preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20230315preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20231201:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20250101preview:ScheduledQueryRule")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:insights/v20180416:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20200501preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20220801preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20230315preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20231201:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights/v20240101preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:insights:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20180416:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20200501preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20210201preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20210801:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20220615:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20220801preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20230315preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20231201:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20250101preview:ScheduledQueryRule"), pulumi.Alias(type_="azure-native:monitor/v20260301:ScheduledQueryRule")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ScheduledQueryRule, __self__).__init__(
             'azure-native:monitor:ScheduledQueryRule',

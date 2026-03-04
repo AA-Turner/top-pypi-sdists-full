@@ -1644,7 +1644,7 @@ class EncryptionIdentity(_Model):
      authenticate with key vault. Applicable if identity.type has 'UserAssigned'. It should match
      key of identity.userAssignedIdentities.
     :vartype user_assigned_identity: str
-    :ivar federated_client_id: ClientId of the multi-tenant AAD Application. Used to access
+    :ivar federated_client_id: ClientId of the multi-tenant Entra ID Application. Used to access
      cross-tenant keyvaults.
     :vartype federated_client_id: str
     """
@@ -1660,7 +1660,7 @@ class EncryptionIdentity(_Model):
     federated_client_id: Optional[str] = rest_field(
         name="federatedClientId", visibility=["read", "create", "update", "delete", "query"]
     )
-    """ClientId of the multi-tenant AAD Application. Used to access cross-tenant keyvaults."""
+    """ClientId of the multi-tenant Entra ID Application. Used to access cross-tenant keyvaults."""
 
     @overload
     def __init__(
@@ -2300,6 +2300,68 @@ class LdapSearchScopeOpt(_Model):
         super().__init__(*args, **kwargs)
 
 
+class ListQuotaReportResponse(_Model):
+    """Quota Report for volume.
+
+    :ivar quota_report_records: List of quota reports.
+    :vartype quota_report_records: list[~azure.mgmt.netapp.models.QuotaReport]
+    """
+
+    quota_report_records: Optional[list["_models.QuotaReport"]] = rest_field(
+        name="quotaReportRecords", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """List of quota reports."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        quota_report_records: Optional[list["_models.QuotaReport"]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class ListQuotaReportResult(_Model):
+    """
+
+    * Result of ListQuotaReportResponse.
+
+    :ivar properties: Represents the properties of the ListQuotaReport.
+    :vartype properties: ~azure.mgmt.netapp.models.ListQuotaReportResponse
+    """
+
+    properties: Optional["_models.ListQuotaReportResponse"] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Represents the properties of the ListQuotaReport."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        properties: Optional["_models.ListQuotaReportResponse"] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
 class ListReplicationsRequest(_Model):
     """Body for the list replications endpoint. If supplied, the body will be used as a filter for
     example to exclude deleted replications. If omitted, the endpoint returns all replications.
@@ -2896,16 +2958,16 @@ class NetworkSiblingSet(_Model):
 
 
 class NicInfo(_Model):
-    """NIC information and list of volumes for which the NIC has the primary mount ip address.
+    """NIC information and list of volumes for which the NIC has the primary mount IP Address.
 
-    :ivar ip_address: ipAddress.
+    :ivar ip_address: IP Address.
     :vartype ip_address: str
     :ivar volume_resource_ids: Volume resource Ids.
     :vartype volume_resource_ids: list[str]
     """
 
     ip_address: Optional[str] = rest_field(name="ipAddress", visibility=["read"])
-    """ipAddress."""
+    """IP Address."""
     volume_resource_ids: Optional[list[str]] = rest_field(
         name="volumeResourceIds", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -3482,6 +3544,380 @@ class QuotaItemProperties(_Model):
     """The usage quota value."""
 
 
+class QuotaReport(_Model):
+    """Quota report record properties.
+
+    :ivar quota_type: Type of quota. Known values are: "DefaultUserQuota", "DefaultGroupQuota",
+     "IndividualUserQuota", and "IndividualGroupQuota".
+    :vartype quota_type: str or ~azure.mgmt.netapp.models.QuotaType
+    :ivar quota_target: UserID/GroupID/SID based on the quota target type. UserID and groupID can
+     be found by running ‘id’ or ‘getent’ command for the user or group and SID can be found by
+     running <wmic useraccount where name='user-name' get sid>.
+    :vartype quota_target: str
+    :ivar quota_limit_used_in_ki_bs: Specifies the current usage in kibibytes for the user/group
+     quota.
+    :vartype quota_limit_used_in_ki_bs: int
+    :ivar quota_limit_total_in_ki_bs: Specifies the total size limit in kibibytes for the
+     user/group quota.
+    :vartype quota_limit_total_in_ki_bs: int
+    :ivar percentage_used: Percentage of used size compared to total size.
+    :vartype percentage_used: float
+    :ivar is_derived_quota: Flag to indicate whether the quota is derived from default quota.
+    :vartype is_derived_quota: bool
+    """
+
+    quota_type: Optional[Union[str, "_models.QuotaType"]] = rest_field(
+        name="quotaType", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Type of quota. Known values are: \"DefaultUserQuota\", \"DefaultGroupQuota\",
+     \"IndividualUserQuota\", and \"IndividualGroupQuota\"."""
+    quota_target: Optional[str] = rest_field(
+        name="quotaTarget", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """UserID/GroupID/SID based on the quota target type. UserID and groupID can be found by running
+     ‘id’ or ‘getent’ command for the user or group and SID can be found by running <wmic
+     useraccount where name='user-name' get sid>."""
+    quota_limit_used_in_ki_bs: Optional[int] = rest_field(
+        name="quotaLimitUsedInKiBs", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Specifies the current usage in kibibytes for the user/group quota."""
+    quota_limit_total_in_ki_bs: Optional[int] = rest_field(
+        name="quotaLimitTotalInKiBs", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Specifies the total size limit in kibibytes for the user/group quota."""
+    percentage_used: Optional[float] = rest_field(
+        name="percentageUsed", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Percentage of used size compared to total size."""
+    is_derived_quota: Optional[bool] = rest_field(
+        name="isDerivedQuota", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Flag to indicate whether the quota is derived from default quota."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        quota_type: Optional[Union[str, "_models.QuotaType"]] = None,
+        quota_target: Optional[str] = None,
+        quota_limit_used_in_ki_bs: Optional[int] = None,
+        quota_limit_total_in_ki_bs: Optional[int] = None,
+        percentage_used: Optional[float] = None,
+        is_derived_quota: Optional[bool] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class QuotaReportFilterRequest(_Model):
+    """Quota report filters. When filtering by quotaType or quotaTarget, both properties must be
+    supplied together. This constraint is enforced by the service/API at runtime, and requests
+    violating this rule will return a validation error. The usageThresholdPercentage filter is
+    independent and can be used alone or in combination with quotaType and quotaTarget to further
+    refine results.
+
+    :ivar quota_type: Type of quota. If provided, quotaTarget must also be specified. The quotaType
+     and quotaTarget properties are optional, but when filtering by quota type, quotaType and
+     quotaTarget must be supplied together. Service/API will return an error if only one is
+     provided. Known values are: "DefaultUserQuota", "DefaultGroupQuota", "IndividualUserQuota", and
+     "IndividualGroupQuota".
+    :vartype quota_type: str or ~azure.mgmt.netapp.models.QuotaType
+    :ivar quota_target: UserID/GroupID/SID based on the quota target type. UserID and groupID can
+     be found by running 'id' or 'getent' command for the user or group and SID can be found by
+     running <wmic useraccount where name='user-name' get sid>. If provided, quotaType must also be
+     specified. The quotaType and quotaTarget properties are optional, but when filtering by quota
+     target, quotaType and quotaTarget must be supplied together. Service/API will return an error
+     if only one is provided.
+    :vartype quota_target: str
+    :ivar usage_threshold_percentage: The usageThresholdPercentage filter takes the usage threshold
+     percentage and returns records where the usage is greater than or equal to the input value.
+     This is an optional property.
+    :vartype usage_threshold_percentage: int
+    """
+
+    quota_type: Optional[Union[str, "_models.QuotaType"]] = rest_field(
+        name="quotaType", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Type of quota. If provided, quotaTarget must also be specified. The quotaType and quotaTarget
+     properties are optional, but when filtering by quota type, quotaType and quotaTarget must be
+     supplied together. Service/API will return an error if only one is provided. Known values are:
+     \"DefaultUserQuota\", \"DefaultGroupQuota\", \"IndividualUserQuota\", and
+     \"IndividualGroupQuota\"."""
+    quota_target: Optional[str] = rest_field(
+        name="quotaTarget", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """UserID/GroupID/SID based on the quota target type. UserID and groupID can be found by running
+     'id' or 'getent' command for the user or group and SID can be found by running <wmic
+     useraccount where name='user-name' get sid>. If provided, quotaType must also be specified. The
+     quotaType and quotaTarget properties are optional, but when filtering by quota target,
+     quotaType and quotaTarget must be supplied together. Service/API will return an error if only
+     one is provided."""
+    usage_threshold_percentage: Optional[int] = rest_field(
+        name="usageThresholdPercentage", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The usageThresholdPercentage filter takes the usage threshold percentage and returns records
+     where the usage is greater than or equal to the input value. This is an optional property."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        quota_type: Optional[Union[str, "_models.QuotaType"]] = None,
+        quota_target: Optional[str] = None,
+        usage_threshold_percentage: Optional[int] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class RansomwareProtectionPatchSettings(_Model):
+    """Advanced Ransomware Protection reports (ARP) updatable settings.
+
+    :ivar desired_ransomware_protection_state: The desired value of the ARP feature state available
+     to the volume. Known values are: "Disabled" and "Enabled".
+    :vartype desired_ransomware_protection_state: str or
+     ~azure.mgmt.netapp.models.DesiredRansomwareProtectionState
+    """
+
+    desired_ransomware_protection_state: Optional[Union[str, "_models.DesiredRansomwareProtectionState"]] = rest_field(
+        name="desiredRansomwareProtectionState", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The desired value of the ARP feature state available to the volume. Known values are:
+     \"Disabled\" and \"Enabled\"."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        desired_ransomware_protection_state: Optional[Union[str, "_models.DesiredRansomwareProtectionState"]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class RansomwareProtectionSettings(_Model):
+    """Advanced Ransomware Protection reports (ARP) settings.
+
+    :ivar desired_ransomware_protection_state: The desired value of the Advanced Ransomware
+     Protection feature state available to the volume. Known values are: "Disabled" and "Enabled".
+    :vartype desired_ransomware_protection_state: str or
+     ~azure.mgmt.netapp.models.DesiredRansomwareProtectionState
+    :ivar actual_ransomware_protection_state: The actual state of the Advanced Ransomware
+     Protection feature currently active on the volume. Known values are: "Disabled", "Enabled",
+     "Learning", and "Paused".
+    :vartype actual_ransomware_protection_state: str or
+     ~azure.mgmt.netapp.models.ActualRansomwareProtectionState
+    """
+
+    desired_ransomware_protection_state: Optional[Union[str, "_models.DesiredRansomwareProtectionState"]] = rest_field(
+        name="desiredRansomwareProtectionState", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """The desired value of the Advanced Ransomware Protection feature state available to the volume.
+     Known values are: \"Disabled\" and \"Enabled\"."""
+    actual_ransomware_protection_state: Optional[Union[str, "_models.ActualRansomwareProtectionState"]] = rest_field(
+        name="actualRansomwareProtectionState", visibility=["read"]
+    )
+    """The actual state of the Advanced Ransomware Protection feature currently active on the volume.
+     Known values are: \"Disabled\", \"Enabled\", \"Learning\", and \"Paused\"."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        desired_ransomware_protection_state: Optional[Union[str, "_models.DesiredRansomwareProtectionState"]] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class RansomwareReport(ProxyResource):
+    """Advanced Ransomware Protection (ARP) report Get details of the specified Advanced Ransomware
+    Protection report (ARP). ARP reports are created with a list of suspected files when it detects
+    any combination of high data entropy, abnormal volume activity with data encryption, and
+    unusual file extensions. ARP creates snapshots named Anti_ransomware_backup when it detects a
+    potential ransomware threat. You can use one of these ARP snapshots or another snapshot of your
+    volume to restore data.
+
+    :ivar id: Fully qualified resource ID for the resource. Ex -
+     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
+    :vartype id: str
+    :ivar name: The name of the resource.
+    :vartype name: str
+    :ivar type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or
+     "Microsoft.Storage/storageAccounts".
+    :vartype type: str
+    :ivar system_data: Azure Resource Manager metadata containing createdBy and modifiedBy
+     information.
+    :vartype system_data: ~azure.mgmt.netapp.models.SystemData
+    :ivar properties: Advanced Ransomware Protection reports Properties.
+    :vartype properties: ~azure.mgmt.netapp.models.RansomwareReportProperties
+    """
+
+    properties: Optional["_models.RansomwareReportProperties"] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Advanced Ransomware Protection reports Properties."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        properties: Optional["_models.RansomwareReportProperties"] = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class RansomwareReportProperties(_Model):
+    """Advanced Ransomware Protection (ARP) report properties.
+
+    Evaluate the report to determine whether the activity is acceptable (false positive) or whether
+    an attack seems malicious using the ClearSuspects operation.
+
+    Advanced Ransomware Protection (ARP) creates snapshots named Anti_ransomware_backup when it
+    detects a potential ransomware threat. You can use one of the ARP snapshots or another snapshot
+    of your volume to restore data.
+
+    :ivar event_time: The creation date and time of the report.
+    :vartype event_time: ~datetime.datetime
+    :ivar state: State of the Advanced Ransomware Protection (ARP) report. Known values are:
+     "Active" and "Resolved".
+    :vartype state: str or ~azure.mgmt.netapp.models.RansomwareReportState
+    :ivar severity: Severity of the Advanced Ransomware Protection (ARP) report. Known values are:
+     "None", "Low", "Moderate", and "High".
+    :vartype severity: str or ~azure.mgmt.netapp.models.RansomwareReportSeverity
+    :ivar cleared_count: The number of cleared suspects identified by the ARP report.
+    :vartype cleared_count: int
+    :ivar reported_count: The number of suspects identified by the ARP report.
+    :vartype reported_count: int
+    :ivar suspects: Suspects identified in an ARP report.
+    :vartype suspects: list[~azure.mgmt.netapp.models.RansomwareSuspects]
+    :ivar provisioning_state: Azure lifecycle management.
+    :vartype provisioning_state: str
+    """
+
+    event_time: Optional[datetime.datetime] = rest_field(name="eventTime", visibility=["read"], format="rfc3339")
+    """The creation date and time of the report."""
+    state: Optional[Union[str, "_models.RansomwareReportState"]] = rest_field(visibility=["read"])
+    """State of the Advanced Ransomware Protection (ARP) report. Known values are: \"Active\" and
+     \"Resolved\"."""
+    severity: Optional[Union[str, "_models.RansomwareReportSeverity"]] = rest_field(visibility=["read"])
+    """Severity of the Advanced Ransomware Protection (ARP) report. Known values are: \"None\",
+     \"Low\", \"Moderate\", and \"High\"."""
+    cleared_count: Optional[int] = rest_field(name="clearedCount", visibility=["read"])
+    """The number of cleared suspects identified by the ARP report."""
+    reported_count: Optional[int] = rest_field(name="reportedCount", visibility=["read"])
+    """The number of suspects identified by the ARP report."""
+    suspects: Optional[list["_models.RansomwareSuspects"]] = rest_field(visibility=["read"])
+    """Suspects identified in an ARP report."""
+    provisioning_state: Optional[str] = rest_field(name="provisioningState", visibility=["read"])
+    """Azure lifecycle management."""
+
+
+class RansomwareSuspects(_Model):
+    """List of suspects identified in an Advanced Ransomware Protection (ARP) report.
+
+    :ivar extension: Suspect File extension.
+    :vartype extension: str
+    :ivar resolution: ARP report suspect resolution. Known values are: "PotentialThreat" and
+     "FalsePositive".
+    :vartype resolution: str or ~azure.mgmt.netapp.models.RansomwareSuspectResolution
+    :ivar file_count: The number of suspect files at the time of ARP report, this number can change
+     as files get created and report status progresses.
+    :vartype file_count: int
+    :ivar suspect_files: Suspect files.
+    :vartype suspect_files: list[~azure.mgmt.netapp.models.SuspectFile]
+    """
+
+    extension: Optional[str] = rest_field(visibility=["read"])
+    """Suspect File extension."""
+    resolution: Optional[Union[str, "_models.RansomwareSuspectResolution"]] = rest_field(visibility=["read"])
+    """ARP report suspect resolution. Known values are: \"PotentialThreat\" and \"FalsePositive\"."""
+    file_count: Optional[int] = rest_field(name="fileCount", visibility=["read"])
+    """The number of suspect files at the time of ARP report, this number can change as files get
+     created and report status progresses."""
+    suspect_files: Optional[list["_models.SuspectFile"]] = rest_field(name="suspectFiles", visibility=["read"])
+    """Suspect files."""
+
+
+class RansomwareSuspectsClearRequest(_Model):
+    """Clear suspects for Advanced Ransomware Protection (ARP) report.
+
+    :ivar resolution: ARP report suspect resolution. Required. Known values are: "PotentialThreat"
+     and "FalsePositive".
+    :vartype resolution: str or ~azure.mgmt.netapp.models.RansomwareSuspectResolution
+    :ivar extensions: List of file extensions resolved (PotentialThreat or FalsePositive).
+     Required.
+    :vartype extensions: list[str]
+    """
+
+    resolution: Union[str, "_models.RansomwareSuspectResolution"] = rest_field(
+        visibility=["read", "create", "update", "delete", "query"]
+    )
+    """ARP report suspect resolution. Required. Known values are: \"PotentialThreat\" and
+     \"FalsePositive\"."""
+    extensions: list[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
+    """List of file extensions resolved (PotentialThreat or FalsePositive). Required."""
+
+    @overload
+    def __init__(
+        self,
+        *,
+        resolution: Union[str, "_models.RansomwareSuspectResolution"],
+        extensions: list[str],
+    ) -> None: ...
+
+    @overload
+    def __init__(self, mapping: Mapping[str, Any]) -> None:
+        """
+        :param mapping: raw JSON to initialize the model.
+        :type mapping: Mapping[str, Any]
+        """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
+
 class ReestablishReplicationRequest(_Model):
     """Re-establish request object supplied in the body of the operation.
 
@@ -3732,7 +4168,7 @@ class Replication(_Model):
     :vartype endpoint_type: str or ~azure.mgmt.netapp.models.EndpointType
     :ivar replication_schedule: Schedule. Known values are: "_10minutely", "hourly", and "daily".
     :vartype replication_schedule: str or ~azure.mgmt.netapp.models.ReplicationSchedule
-    :ivar remote_volume_resource_id: The resource ID of the remote volume. Required.
+    :ivar remote_volume_resource_id: The resource ID of the remote volume.
     :vartype remote_volume_resource_id: str
     :ivar remote_volume_region: The remote region for the other end of the Volume Replication.
     :vartype remote_volume_region: str
@@ -3756,10 +4192,10 @@ class Replication(_Model):
         name="replicationSchedule", visibility=["read", "create", "update", "delete", "query"]
     )
     """Schedule. Known values are: \"_10minutely\", \"hourly\", and \"daily\"."""
-    remote_volume_resource_id: str = rest_field(
+    remote_volume_resource_id: Optional[str] = rest_field(
         name="remoteVolumeResourceId", visibility=["read", "create", "update", "delete", "query"]
     )
-    """The resource ID of the remote volume. Required."""
+    """The resource ID of the remote volume."""
     remote_volume_region: Optional[str] = rest_field(
         name="remoteVolumeRegion", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -3782,9 +4218,9 @@ class Replication(_Model):
     def __init__(
         self,
         *,
-        remote_volume_resource_id: str,
         endpoint_type: Optional[Union[str, "_models.EndpointType"]] = None,
         replication_schedule: Optional[Union[str, "_models.ReplicationSchedule"]] = None,
+        remote_volume_resource_id: Optional[str] = None,
         remote_volume_region: Optional[str] = None,
     ) -> None: ...
 
@@ -4771,6 +5207,23 @@ class SubvolumeProperties(_Model):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+
+
+class SuspectFile(_Model):
+    """Suspect file information.
+
+    :ivar suspect_file_name: Suspect filename.
+    :vartype suspect_file_name: str
+    :ivar file_timestamp: The creation date and time of the file.
+    :vartype file_timestamp: ~datetime.datetime
+    """
+
+    suspect_file_name: Optional[str] = rest_field(name="suspectFileName", visibility=["read"])
+    """Suspect filename."""
+    file_timestamp: Optional[datetime.datetime] = rest_field(
+        name="fileTimestamp", visibility=["read"], format="rfc3339"
+    )
+    """The creation date and time of the file."""
 
 
 class SvmPeerCommandResponse(_Model):
@@ -5819,13 +6272,11 @@ class VolumePatchProperties(_Model):
     :vartype coolness_period: int
     :ivar cool_access_retrieval_policy: coolAccessRetrievalPolicy determines the data retrieval
      behavior from the cool tier to standard storage based on the read pattern for cool access
-     enabled volumes. The possible values for this field are:
-     Default - Data will be pulled from cool tier to standard storage on random reads. This policy
-     is the default.
-     OnRead - All client-driven data read is pulled from cool tier to standard storage on both
-     sequential and random reads.
-     Never - No client-driven data is pulled from cool tier to standard storage. Known values are:
-     "Default", "OnRead", and "Never".
+     enabled volumes. The possible values for this field are: Default - Data will be pulled from
+     cool tier to standard storage on random reads. This policy is the default. OnRead - All
+     client-driven data read is pulled from cool tier to standard storage on both sequential and
+     random reads. Never - No client-driven data is pulled from cool tier to standard storage. Known
+     values are: "Default", "OnRead", and "Never".
     :vartype cool_access_retrieval_policy: str or
      ~azure.mgmt.netapp.models.CoolAccessRetrievalPolicy
     :ivar cool_access_tiering_policy: coolAccessTieringPolicy determines which cold data blocks are
@@ -5912,13 +6363,10 @@ class VolumePatchProperties(_Model):
     )
     """coolAccessRetrievalPolicy determines the data retrieval behavior from the cool tier to standard
      storage based on the read pattern for cool access enabled volumes. The possible values for this
-     field are:
-     Default - Data will be pulled from cool tier to standard storage on random reads. This policy
-     is the default.
-     OnRead - All client-driven data read is pulled from cool tier to standard storage on both
-     sequential and random reads.
-     Never - No client-driven data is pulled from cool tier to standard storage. Known values are:
-     \"Default\", \"OnRead\", and \"Never\"."""
+     field are: Default - Data will be pulled from cool tier to standard storage on random reads.
+     This policy is the default. OnRead - All client-driven data read is pulled from cool tier to
+     standard storage on both sequential and random reads. Never - No client-driven data is pulled
+     from cool tier to standard storage. Known values are: \"Default\", \"OnRead\", and \"Never\"."""
     cool_access_tiering_policy: Optional[Union[str, "_models.CoolAccessTieringPolicy"]] = rest_field(
         name="coolAccessTieringPolicy", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -5984,6 +6432,8 @@ class VolumePatchPropertiesDataProtection(_Model):
     :vartype backup: ~azure.mgmt.netapp.models.VolumeBackupProperties
     :ivar snapshot: Snapshot properties.
     :vartype snapshot: ~azure.mgmt.netapp.models.VolumeSnapshotProperties
+    :ivar ransomware_protection: Advanced Ransomware Protection updatable settings.
+    :vartype ransomware_protection: ~azure.mgmt.netapp.models.RansomwareProtectionPatchSettings
     """
 
     backup: Optional["_models.VolumeBackupProperties"] = rest_field(
@@ -5994,6 +6444,10 @@ class VolumePatchPropertiesDataProtection(_Model):
         visibility=["read", "create", "update", "delete", "query"]
     )
     """Snapshot properties."""
+    ransomware_protection: Optional["_models.RansomwareProtectionPatchSettings"] = rest_field(
+        name="ransomwareProtection", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Advanced Ransomware Protection updatable settings."""
 
     @overload
     def __init__(
@@ -6001,6 +6455,7 @@ class VolumePatchPropertiesDataProtection(_Model):
         *,
         backup: Optional["_models.VolumeBackupProperties"] = None,
         snapshot: Optional["_models.VolumeSnapshotProperties"] = None,
+        ransomware_protection: Optional["_models.RansomwareProtectionPatchSettings"] = None,
     ) -> None: ...
 
     @overload
@@ -6158,13 +6613,11 @@ class VolumeProperties(_Model):
     :vartype coolness_period: int
     :ivar cool_access_retrieval_policy: coolAccessRetrievalPolicy determines the data retrieval
      behavior from the cool tier to standard storage based on the read pattern for cool access
-     enabled volumes. The possible values for this field are:
-     Default - Data will be pulled from cool tier to standard storage on random reads. This policy
-     is the default.
-     OnRead - All client-driven data read is pulled from cool tier to standard storage on both
-     sequential and random reads.
-     Never - No client-driven data is pulled from cool tier to standard storage. Known values are:
-     "Default", "OnRead", and "Never".
+     enabled volumes. The possible values for this field are: Default - Data will be pulled from
+     cool tier to standard storage on random reads. This policy is the default. OnRead - All
+     client-driven data read is pulled from cool tier to standard storage on both sequential and
+     random reads. Never - No client-driven data is pulled from cool tier to standard storage. Known
+     values are: "Default", "OnRead", and "Never".
     :vartype cool_access_retrieval_policy: str or
      ~azure.mgmt.netapp.models.CoolAccessRetrievalPolicy
     :ivar cool_access_tiering_policy: coolAccessTieringPolicy determines which cold data blocks are
@@ -6379,13 +6832,10 @@ class VolumeProperties(_Model):
     )
     """coolAccessRetrievalPolicy determines the data retrieval behavior from the cool tier to standard
      storage based on the read pattern for cool access enabled volumes. The possible values for this
-     field are:
-     Default - Data will be pulled from cool tier to standard storage on random reads. This policy
-     is the default.
-     OnRead - All client-driven data read is pulled from cool tier to standard storage on both
-     sequential and random reads.
-     Never - No client-driven data is pulled from cool tier to standard storage. Known values are:
-     \"Default\", \"OnRead\", and \"Never\"."""
+     field are: Default - Data will be pulled from cool tier to standard storage on random reads.
+     This policy is the default. OnRead - All client-driven data read is pulled from cool tier to
+     standard storage on both sequential and random reads. Never - No client-driven data is pulled
+     from cool tier to standard storage. Known values are: \"Default\", \"OnRead\", and \"Never\"."""
     cool_access_tiering_policy: Optional[Union[str, "_models.CoolAccessTieringPolicy"]] = rest_field(
         name="coolAccessTieringPolicy", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -6543,6 +6993,8 @@ class VolumePropertiesDataProtection(_Model):
     :vartype snapshot: ~azure.mgmt.netapp.models.VolumeSnapshotProperties
     :ivar volume_relocation: VolumeRelocation properties.
     :vartype volume_relocation: ~azure.mgmt.netapp.models.VolumeRelocationProperties
+    :ivar ransomware_protection: Advanced Ransomware Protection settings.
+    :vartype ransomware_protection: ~azure.mgmt.netapp.models.RansomwareProtectionSettings
     """
 
     backup: Optional["_models.VolumeBackupProperties"] = rest_field(
@@ -6561,6 +7013,10 @@ class VolumePropertiesDataProtection(_Model):
         name="volumeRelocation", visibility=["read", "create", "update", "delete", "query"]
     )
     """VolumeRelocation properties."""
+    ransomware_protection: Optional["_models.RansomwareProtectionSettings"] = rest_field(
+        name="ransomwareProtection", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Advanced Ransomware Protection settings."""
 
     @overload
     def __init__(
@@ -6570,6 +7026,7 @@ class VolumePropertiesDataProtection(_Model):
         replication: Optional["_models.ReplicationObject"] = None,
         snapshot: Optional["_models.VolumeSnapshotProperties"] = None,
         volume_relocation: Optional["_models.VolumeRelocationProperties"] = None,
+        ransomware_protection: Optional["_models.RansomwareProtectionSettings"] = None,
     ) -> None: ...
 
     @overload
@@ -6746,7 +7203,7 @@ class VolumeQuotaRulesProperties(_Model):
     :vartype quota_size_in_ki_bs: int
     :ivar quota_type: Type of quota. Known values are: "DefaultUserQuota", "DefaultGroupQuota",
      "IndividualUserQuota", and "IndividualGroupQuota".
-    :vartype quota_type: str or ~azure.mgmt.netapp.models.Type
+    :vartype quota_type: str or ~azure.mgmt.netapp.models.QuotaType
     :ivar quota_target: UserID/GroupID/SID based on the quota target type. UserID and groupID can
      be found by running ‘id’ or ‘getent’ command for the user or group and SID can be found by
      running <wmic useraccount where name='user-name' get sid>.
@@ -6763,7 +7220,7 @@ class VolumeQuotaRulesProperties(_Model):
         name="quotaSizeInKiBs", visibility=["read", "create", "update", "delete", "query"]
     )
     """Size of quota."""
-    quota_type: Optional[Union[str, "_models.Type"]] = rest_field(name="quotaType", visibility=["read", "create"])
+    quota_type: Optional[Union[str, "_models.QuotaType"]] = rest_field(name="quotaType", visibility=["read", "create"])
     """Type of quota. Known values are: \"DefaultUserQuota\", \"DefaultGroupQuota\",
      \"IndividualUserQuota\", and \"IndividualGroupQuota\"."""
     quota_target: Optional[str] = rest_field(name="quotaTarget", visibility=["read", "create"])
@@ -6776,7 +7233,7 @@ class VolumeQuotaRulesProperties(_Model):
         self,
         *,
         quota_size_in_ki_bs: Optional[int] = None,
-        quota_type: Optional[Union[str, "_models.Type"]] = None,
+        quota_type: Optional[Union[str, "_models.QuotaType"]] = None,
         quota_target: Optional[str] = None,
     ) -> None: ...
 

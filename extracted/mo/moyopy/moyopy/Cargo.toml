@@ -17,7 +17,7 @@ name = "moyopy"
 crate-type = ["cdylib"]
 
 [dependencies]
-moyo = { path = "../moyo", version = "0.7.7" }
+moyo = { path = "../moyo", version = "0.7.9" }
 nalgebra.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -25,9 +25,9 @@ approx.workspace = true
 log.workspace = true
 itertools.workspace = true
 pyo3-log = "0.13"
-pythonize = "0.27"
+pythonize = "0.28"
 
 
 [dependencies.pyo3]
-version = "0.27"
-features = ["abi3-py39"]
+version = "0.28"
+features = ["abi3-py310"]

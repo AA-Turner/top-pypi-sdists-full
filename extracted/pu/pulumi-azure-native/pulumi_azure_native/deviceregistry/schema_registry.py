@@ -33,6 +33,7 @@ class SchemaRegistryArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a SchemaRegistry resource.
+
         :param pulumi.Input[_builtins.str] namespace: Schema registry namespace. Uniquely identifies a schema registry within a tenant.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[_builtins.str] storage_account_container_url: The Storage Account's Container URL where schemas will be stored.
@@ -189,7 +190,8 @@ class SchemaRegistry(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-09-01-preview. In version 2.x of the Azure Native provider, it used API version 2024-09-01-preview.
 
-        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview, 2026-03-01-preview, 2026-04-01, 2026-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -214,7 +216,8 @@ class SchemaRegistry(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-09-01-preview. In version 2.x of the Azure Native provider, it used API version 2024-09-01-preview.
 
-        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2025-07-01-preview, 2025-10-01, 2025-11-01-preview, 2026-03-01-preview, 2026-04-01, 2026-11-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native deviceregistry [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param SchemaRegistryArgs args: The arguments to use to populate this resource's properties.
@@ -270,7 +273,7 @@ class SchemaRegistry(pulumi.CustomResource):
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
             __props__.__dict__["uuid"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:deviceregistry/v20240901preview:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20250701preview:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20251001:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20251101preview:SchemaRegistry")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:deviceregistry/v20240901preview:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20250701preview:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20251001:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20251101preview:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20260301preview:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20260401:SchemaRegistry"), pulumi.Alias(type_="azure-native:deviceregistry/v20261101preview:SchemaRegistry")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(SchemaRegistry, __self__).__init__(
             'azure-native:deviceregistry:SchemaRegistry',

@@ -331,11 +331,31 @@ def _convert_tools_to_openai_format(tools: list[dict]) -> list[dict]:
 
 def _parse_response(raw_response: Any, model: str) -> LLMResponse:
     """Parse a litellm ModelResponse into our LLMResponse."""
+
+    def _extract_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                    continue
+                if not isinstance(item, dict):
+                    continue
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+            return "".join(parts)
+        return str(content)
+
     # Extract text
     text = ""
     choice = raw_response.choices[0] if raw_response.choices else None
     if choice and choice.message:
-        text = choice.message.content or ""
+        text = _extract_text(choice.message.content)
 
     # Extract tool calls
     tool_calls = []
@@ -428,7 +448,7 @@ def _emit_llm_span(
     with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
         span.set_attribute("atif.step.id", step_id)
         span.set_attribute("atif.step.source", "agent")
-        span.set_attribute("atif.step.message", response.text[:2000] if response.text else last_user_msg)
+        span.set_attribute("atif.step.message", response.text if response.text else last_user_msg)
         span.set_attribute("atif.step.model_name", model)
 
         if response.usage.prompt_tokens:

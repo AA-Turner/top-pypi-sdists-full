@@ -7,7 +7,7 @@ import urllib.request
 from sky.utils import directory_utils
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'a7380a514fd8dad6c3050130ec0fafb3d5930372'
+_SKYPILOT_COMMIT_SHA = 'b94dad74fec6c4f84793ced25eb21ed3f13a01d5'
 
 
 def _get_git_commit():
@@ -37,7 +37,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '0.11.1'
+__version__ = '0.11.2'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -140,8 +140,10 @@ Cudo = clouds.Cudo
 GCP = clouds.GCP
 Lambda = clouds.Lambda
 SCP = clouds.SCP
+Slurm = clouds.Slurm
 Kubernetes = clouds.Kubernetes
 K8s = Kubernetes
+SSH = clouds.SSH
 OCI = clouds.OCI
 Paperspace = clouds.Paperspace
 PrimeIntellect = clouds.PrimeIntellect
@@ -163,6 +165,7 @@ __all__ = [
     'IBM',
     'Kubernetes',
     'K8s',
+    'SSH',
     'Lambda',
     'OCI',
     'Paperspace',
@@ -170,6 +173,7 @@ __all__ = [
     'RunPod',
     'Vast',
     'SCP',
+    'Slurm',
     'Vsphere',
     'Fluidstack',
     'Nebius',

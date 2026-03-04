@@ -174,7 +174,7 @@
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
     class AcePlotView extends layout_1.HTMLBoxView {
         connect_signals() {
@@ -332,7 +332,7 @@
         });
     })();
 },
-"9b11ce01a3": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
+"dab42e6dad": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.set_size = set_size;
     const dom_1 = require("@bokehjs/core/dom");
@@ -438,6 +438,9 @@
                     case "scale_both": {
                         width_policy = "max";
                         height_policy = "max";
+                        break;
+                    }
+                    case "inherit": {
                         break;
                     }
                     default: {
@@ -959,7 +962,7 @@ export default {render}`;
     const types_1 = require("@bokehjs/core/util/types");
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
     const esm_css_1 = tslib_1.__importDefault(require("727a14f76b") /* ../styles/models/esm.css */);
     const MODULE_CACHE = new Map();
@@ -18090,7 +18093,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const object_1 = require("@bokehjs/core/util/object");
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const util_1 = require("a3669a897a") /* ./util */;
     const html_css_1 = tslib_1.__importDefault(require("9b8139e439") /* ../styles/models/html.css */);
@@ -18356,7 +18359,7 @@ ${namesToRegister
 "fd59c985b3": /* models/audio.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class AudioView extends layout_1.HTMLBoxView {
         initialize() {
             super.initialize();
@@ -19887,7 +19890,7 @@ ${namesToRegister
     const debounce_1 = require("99a25e6992") /* debounce */;
     const comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
     const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
     const tabulator_css_1 = tslib_1.__importDefault(require("3d732ff91f") /* ../styles/models/tabulator.css */);
     class TableEditEvent extends bokeh_events_1.ModelEvent {
@@ -24437,8 +24440,8 @@ ${namesToRegister
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
     const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
-    const lumagl_1 = require("a49afbffe9") /* ./lumagl */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const lumagl_1 = require("16d69e2b49") /* ./lumagl */;
     const tooltips_1 = require("f8f8ea4284") /* ./tooltips */;
     function extractClasses() {
         // Get classes for registration from standalone deck.gl
@@ -24750,12 +24753,11 @@ ${namesToRegister
         });
     })();
 },
-"a49afbffe9": /* models/lumagl.js */ function _(require, module, exports, __esModule, __esExport) {
+"16d69e2b49": /* models/lumagl.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     // luma.gl
     // SPDX-License-Identifier: MIT
     // Copyright (c) vis.gl contributors
-    /* eslint-disable key-spacing, max-len, no-inline-comments, camelcase */
     /**
      * Standard WebGL, WebGL2 and extension constants (OpenGL constants)
      * @note (Most) of these constants are also defined on the WebGLRenderingContext interface.
@@ -26409,7 +26411,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
     const mouse_events = [
         "click", "dblclick", "mousedown", "mousemove", "mouseup", "mouseover", "mouseout",
@@ -27316,7 +27318,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const Jupyter = window.Jupyter;
     class IPyWidgetView extends layout_1.HTMLBoxView {
         initialize() {
@@ -27405,7 +27407,7 @@ ${namesToRegister
     const kinds_1 = require("@bokehjs/core/kinds");
     const markup_1 = require("@bokehjs/models/widgets/markup");
     const json_formatter_js_1 = tslib_1.__importDefault(require("ec9d1ffc2e") /* json-formatter-js */);
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class JSONView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -27562,7 +27564,7 @@ ${namesToRegister
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class JSONEditEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
             super();
@@ -27667,7 +27669,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class KaTeXView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -27824,7 +27826,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class MathJaxView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -28027,7 +28029,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const html_1 = require("4c04683fdc") /* ./html */;
     class PDFView extends layout_1.PanelMarkupView {
         connect_signals() {
@@ -28091,7 +28093,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const perspective_css_1 = tslib_1.__importDefault(require("2e2913ea54") /* ../styles/models/perspective.css */);
     const THEMES = {
         "pro-dark": "Pro Dark",
@@ -28428,7 +28430,7 @@ ${namesToRegister
     const eq_1 = require("@bokehjs/core/util/eq");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
     const plotly_css_1 = tslib_1.__importDefault(require("3d56c75186") /* ../styles/models/plotly.css */);
     class PlotlyEvent extends bokeh_events_1.ModelEvent {
@@ -28889,7 +28891,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class ProgressView extends layout_1.HTMLBoxView {
         connect_signals() {
             super.connect_signals();
@@ -28969,7 +28971,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class QuillInputView extends layout_1.HTMLBoxView {
         connect_signals() {
             super.connect_signals();
@@ -29885,7 +29887,7 @@ ${compiled}`;
     const data_1 = require("be689f0377") /* ./data */;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const util_1 = require("a3669a897a") /* ./util */;
     function serialize_attrs(attrs) {
         const serialized = {};
@@ -30958,7 +30960,7 @@ ${compiled}`;
 "5ac2cab0ab": /* models/speech_to_text.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const iconStarted = `<svg xmlns="http://www.w3.org/2000/svg" height="22px" style="vertical-align: middle;" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
   <path fill-rule="evenodd" d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
   <path fill-rule="evenodd" d="M10 8V3a2 2 0 1 0-4 0v5a2 2 0 1 0 4 0zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
@@ -31391,7 +31393,7 @@ ${compiled}`;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class KeystrokeEvent extends bokeh_events_1.ModelEvent {
         constructor(key) {
             super();
@@ -31562,7 +31564,7 @@ ${compiled}`;
 "a04eb51988": /* models/text_to_speech.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     function toVoicesList(voices) {
         const voicesList = [];
         for (const voice of voices) {
@@ -31877,7 +31879,7 @@ ${compiled}`;
 "29d55a28a9": /* models/trend.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const build_views_1 = require("@bokehjs/core/build_views");
     const plots_1 = require("@bokehjs/models/plots");
     const glyphs_1 = require("@bokehjs/models/glyphs");
@@ -32101,7 +32103,7 @@ ${compiled}`;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const types_1 = require("@bokehjs/core/util/types");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const debounce_1 = require("99a25e6992") /* debounce */;
     class VegaEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
@@ -32287,7 +32289,7 @@ ${compiled}`;
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     const video_css_1 = tslib_1.__importDefault(require("dfe21e6f1b") /* ../styles/models/video.css */);
     class VideoView extends layout_1.HTMLBoxView {
         constructor() {
@@ -32452,7 +32454,7 @@ ${compiled}`;
 "f8afc4e661": /* models/videostream.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class VideoStreamView extends layout_1.HTMLBoxView {
         constructor() {
             super(...arguments);
@@ -32577,7 +32579,7 @@ ${compiled}`;
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("9b11ce01a3") /* ./layout */;
+    const layout_1 = require("dab42e6dad") /* ./layout */;
     class VizzuEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
             super();
@@ -32850,7 +32852,7 @@ ${compiled}`;
     const object_1 = require("@bokehjs/core/util/object");
     const color_mapper_1 = require("@bokehjs/models/mappers/color_mapper");
     const kinds_1 = require("@bokehjs/core/kinds");
-    const layout_1 = require("9b11ce01a3") /* ../layout */;
+    const layout_1 = require("dab42e6dad") /* ../layout */;
     const util_1 = require("df9946ff52") /* ./util */;
     const vtkcolorbar_1 = require("b1d68776a9") /* ./vtkcolorbar */;
     const vtkaxes_1 = require("0379dcf1cd") /* ./vtkaxes */;
@@ -41068,5 +41070,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"78ccb7a2c5","models/layout":"9b11ce01a3","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"e27ba47db3","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"3684eee729","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"03df1ee2df","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"5b9fdb9011","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"413c9b5023","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"78ccb7a2c5","models/layout":"dab42e6dad","models/util":"a3669a897a","models/anywidget_component":"1f663ffe94","models/reactive_esm":"e27ba47db3","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"3684eee729","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"03df1ee2df","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"1da56f3c52","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"5b9fdb9011","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"413c9b5023","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

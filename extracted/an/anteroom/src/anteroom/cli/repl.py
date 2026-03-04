@@ -539,8 +539,32 @@ def _expand_file_references(text: str, working_dir: str, file_max_chars: int = 1
     @file.py      -> includes file contents inline
     @src/          -> includes directory listing
     @"path with spaces/file.py" -> handles quoted paths
+
+    Binary files (PPTX, XLSX, PDF, etc.) are routed through
+    document_extractor for text extraction instead of raw UTF-8 reads.
     """
+    import mimetypes
+
     from ..tools.security import validate_path as _validate_ref_path
+
+    text_mime_prefixes = ("text/",)
+    text_mime_extras = frozenset(
+        {
+            "application/json",
+            "application/javascript",
+            "application/x-yaml",
+            "application/yaml",
+            "application/toml",
+            "application/xml",
+        }
+    )
+
+    def _is_text_mime(mime: str | None) -> bool:
+        if mime is None:
+            return True  # Unknown MIME — try as text
+        if any(mime.startswith(p) for p in text_mime_prefixes):
+            return True
+        return mime in text_mime_extras
 
     def _replace(match: re.Match[str]) -> str:
         raw_path = match.group(1).strip("\"'")
@@ -550,13 +574,34 @@ def _expand_file_references(text: str, working_dir: str, file_max_chars: int = 1
         resolved = Path(validated)
 
         if resolved.is_file():
-            try:
-                content = resolved.read_text(encoding="utf-8", errors="replace")
-                if len(content) > file_max_chars:
-                    content = content[:file_max_chars] + "\n... (truncated)"
-                return f'\n<file path="{raw_path}">\n{content}\n</file>\n'
-            except OSError:
-                return match.group(0)
+            mime, _ = mimetypes.guess_type(str(resolved))
+            if _is_text_mime(mime):
+                try:
+                    content = resolved.read_text(encoding="utf-8", errors="replace")
+                    if len(content) > file_max_chars:
+                        content = content[:file_max_chars] + "\n... (truncated)"
+                    return f'\n<file path="{raw_path}">\n{content}\n</file>\n'
+                except OSError:
+                    return match.group(0)
+            else:
+                try:
+                    from ..services.document_extractor import EXTRACTABLE_MIME_TYPES, extract_text
+
+                    if mime in EXTRACTABLE_MIME_TYPES:
+                        file_data = resolved.read_bytes()
+                        extracted = extract_text(file_data, mime)
+                        if extracted:
+                            if len(extracted) > file_max_chars:
+                                extracted = extracted[:file_max_chars] + "\n... (truncated)"
+                            return f'\n<file path="{raw_path}">\n{extracted}\n</file>\n'
+                    return (
+                        f'\n<file path="{raw_path}">'
+                        f"\n[Binary file: {resolved.name} ({mime})"
+                        f" — use tools to read this file]"
+                        f"\n</file>\n"
+                    )
+                except OSError:
+                    return match.group(0)
         elif resolved.is_dir():
             try:
                 entries = sorted(resolved.iterdir())
@@ -1400,11 +1445,11 @@ async def run_cli(
                 rl_v = _rate_limiter.check(tool_name)
                 if rl_v and rl_v.exceeded and _rate_limiter.config.action == "block":
                     return {"error": rl_v.reason, "safety_blocked": True, "rate_limited": True}
-            result = await mcp_manager.call_tool(tool_name, arguments)
+            mcp_result: dict[str, Any] = await mcp_manager.call_tool(tool_name, arguments)
             if _rate_limiter:
-                _rate_limiter.record_call(success="error" not in result)
-            _audit_tool_call(audit_writer, tool_name, arguments, result, conversation_id)
-            return result
+                _rate_limiter.record_call(success="error" not in mcp_result)
+            _audit_tool_call(audit_writer, tool_name, arguments, mcp_result, conversation_id)
+            return mcp_result
         raise ValueError(f"Unknown tool: {tool_name}")
 
     # Build unified tool list (exclude canvas tools — they require web UI context)
@@ -2270,7 +2315,7 @@ async def _run_repl(
             mcp_statuses=mcp_manager.get_server_statuses() if mcp_manager else None,
         )
 
-    def _bottom_toolbar() -> list[tuple[str, str]]:
+    def _bottom_toolbar() -> list[tuple[str, str] | tuple[str, str, Any]]:
         if len(ai_messages) != _toolbar_msg_count[0] or not _toolbar_cache:
             _toolbar_refresh()
         return _toolbar_cache
@@ -2393,7 +2438,7 @@ async def _run_repl(
             _git_branch_pending[0] = False
         _fs_app.invalidate()
 
-    def _header_fn() -> list[tuple[str, str]]:
+    def _header_fn() -> list[tuple[str, str] | tuple[str, str, Any]]:
         """Build header fragments from current session state."""
         # Schedule background git branch refresh when cache is stale
         now = time.monotonic()
@@ -2432,12 +2477,23 @@ async def _run_repl(
 
     _use_fullscreen = sys.stdout.isatty() and sys.stdin.isatty()
 
+    # Mouse support toggle: ON by default for scroll wheel, Ctrl-S to disable
+    # for native text selection (like Gemini CLI). When off, the terminal handles
+    # selection/copy natively but scroll wheel falls through to terminal scrollback.
+    _mouse_enabled: list[bool] = [True]
+
+    from prompt_toolkit.filters import Condition
+
+    @Condition
+    def _mouse_filter() -> bool:
+        return _mouse_enabled[0]
+
     _fs_app: Application[None] = Application(
         layout=_anteroom_layout.layout,
         key_bindings=kb,
         style=create_anteroom_style(),
         full_screen=_use_fullscreen,
-        mouse_support=False,  # disabled so terminal handles text selection + copy
+        mouse_support=_mouse_filter,
     )
 
     # Set approval mode for prompt coloring
@@ -2751,6 +2807,13 @@ async def _run_repl(
     @kb.add("end")
     def _scroll_to_bottom(event: Any) -> None:
         _anteroom_layout.scroll_output_to_bottom()
+        _fs_app.invalidate()
+
+    @kb.add("c-s")
+    def _toggle_mouse(event: Any) -> None:
+        """Toggle mouse capture on/off. Off = native terminal text selection."""
+        _mouse_enabled[0] = not _mouse_enabled[0]
+        _anteroom_layout.set_mouse_mode(_mouse_enabled[0])
         _fs_app.invalidate()
 
     @kb.add("tab")
@@ -3724,7 +3787,7 @@ async def _run_repl(
                         if not target:
                             renderer.console.print(f"[{CHROME}]Usage: /space switch <name>[/{CHROME}]\n")
                             continue
-                        sp = await _resolve_space(target)
+                        sp: dict[str, Any] | None = await _resolve_space(target)
                         if not sp:
                             renderer.render_error(f"Space '{target}' not found. Run /spaces to list available spaces.")
                             continue
@@ -3741,7 +3804,7 @@ async def _run_repl(
                         if not target:
                             renderer.console.print(f"[{CHROME}]Usage: /space show <name>[/{CHROME}]\n")
                             continue
-                        sp = await _resolve_space(target)
+                        sp = await _resolve_space(target)  # type: ignore[assignment]
                         if not sp:
                             renderer.render_error(f"Space '{target}' not found.")
                             continue
@@ -3949,9 +4012,9 @@ async def _run_repl(
                             renderer.render_error(f"Not a directory: {_map_path}")
                             continue
                         try:
-                            existing = _get_sp_paths2(db, _active_space[0]["id"])
-                            existing.append({"local_path": str(_map_path), "repo_url": ""})
-                            _sync_sp_paths(db, _active_space[0]["id"], existing)
+                            existing_paths: list[dict[str, Any]] = _get_sp_paths2(db, _active_space[0]["id"])
+                            existing_paths.append({"local_path": str(_map_path), "repo_url": ""})
+                            _sync_sp_paths(db, _active_space[0]["id"], existing_paths)
                             renderer.console.print(
                                 f"[green]Mapped[/green] {_map_path} to space {_active_space[0]['name']}\n"
                             )
@@ -4033,14 +4096,15 @@ async def _run_repl(
                                 for err in errors:
                                     renderer.console.print(f"[red]  {err}[/red]")
                                 continue
-                            result = packs_service.install_pack(db, manifest, pack_path)
+                            install_result: dict[str, Any] = packs_service.install_pack(db, manifest, pack_path)
                             renderer.console.print(
                                 f"[green]Installed[/green] @{manifest.namespace}/{manifest.name}"
-                                f" v{manifest.version} ({result.get('artifact_count', 0)} artifacts)"
+                                f" v{manifest.version} ({install_result.get('artifact_count', 0)} artifacts)"
                             )
-                            if _artifact_registry is not None:  # noqa: F821
-                                _artifact_registry.load_from_db(db)  # noqa: F821
-                                skill_registry.load_from_artifacts(_artifact_registry)  # noqa: F821
+                            if _artifact_registry is not None:  # noqa: F821  # type: ignore[name-defined]
+                                _artifact_registry.load_from_db(db)  # noqa: F821  # type: ignore[name-defined]
+                                if skill_registry is not None:
+                                    skill_registry.load_from_artifacts(_artifact_registry)  # noqa: F821  # type: ignore[name-defined]
                         except ValueError as exc:
                             renderer.console.print(f"[red]{exc}[/red]")
                         renderer.console.print()
@@ -4224,10 +4288,10 @@ async def _run_repl(
                                 for err in errors:
                                     renderer.console.print(f"[red]  {err}[/red]")
                                 continue
-                            result = packs_service.update_pack(db, manifest, pack_path)
+                            update_result: dict[str, Any] = packs_service.update_pack(db, manifest, pack_path)
                             renderer.console.print(
                                 f"[green]Updated[/green] @{manifest.namespace}/{manifest.name}"
-                                f" v{manifest.version} ({result.get('artifact_count', 0)} artifacts)"
+                                f" v{manifest.version} ({update_result.get('artifact_count', 0)} artifacts)"
                             )
                         except ValueError as exc:
                             renderer.console.print(f"[red]{exc}[/red]")
@@ -4332,7 +4396,8 @@ async def _run_repl(
                 elif cmd == "/artifact-check":
                     from ..services import artifact_health
 
-                    _ahc_report = artifact_health.run_health_check(db, project_dir=working_dir)
+                    _proj_dir = Path(working_dir) if working_dir else None
+                    _ahc_report = artifact_health.run_health_check(db, project_dir=_proj_dir)
                     renderer.console.print()
                     renderer.console.print("[bold]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/bold]")
                     renderer.console.print("[bold]  🏥 Artifact Health Check[/bold]")
@@ -4567,7 +4632,7 @@ async def _run_repl(
                         if renderer.is_fullscreen() and renderer.get_fullscreen_layout() is not None:
                             convs = storage.list_conversations(db, limit=20)
                             if not convs:
-                                renderer.render_info("No conversations found.")
+                                renderer.console.print("[dim]No conversations found.[/dim]")
                                 continue
                             for c in convs:
                                 title = (c.get("title") or "Untitled")[:35]

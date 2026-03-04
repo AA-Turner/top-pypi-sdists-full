@@ -32,6 +32,7 @@ class WatcherArgs:
                  watcher_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Watcher resource.
+
         :param pulumi.Input[_builtins.str] automation_account_name: The name of the automation account.
         :param pulumi.Input[_builtins.str] resource_group_name: Name of an Azure Resource group.
         :param pulumi.Input[_builtins.str] description: Gets or sets the description.
@@ -203,9 +204,10 @@ class Watcher(pulumi.CustomResource):
         """
         Definition of the watcher type.
 
-        Uses Azure REST API version 2023-05-15-preview. In version 2.x of the Azure Native provider, it used API version 2020-01-13-preview.
+        Uses Azure REST API version 2024-10-23. In version 2.x of the Azure Native provider, it used API version 2020-01-13-preview.
 
-        Other available API versions: 2015-10-31, 2019-06-01, 2020-01-13-preview, 2024-10-23. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2015-10-31, 2019-06-01, 2020-01-13-preview, 2023-05-15-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -229,9 +231,10 @@ class Watcher(pulumi.CustomResource):
         """
         Definition of the watcher type.
 
-        Uses Azure REST API version 2023-05-15-preview. In version 2.x of the Azure Native provider, it used API version 2020-01-13-preview.
+        Uses Azure REST API version 2024-10-23. In version 2.x of the Azure Native provider, it used API version 2020-01-13-preview.
 
-        Other available API versions: 2015-10-31, 2019-06-01, 2020-01-13-preview, 2024-10-23. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2015-10-31, 2019-06-01, 2020-01-13-preview, 2023-05-15-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param WatcherArgs args: The arguments to use to populate this resource's properties.

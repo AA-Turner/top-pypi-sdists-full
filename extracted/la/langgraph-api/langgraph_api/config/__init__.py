@@ -265,10 +265,11 @@ MAX_STREAM_CHUNK_SIZE_BYTES = env(
 
 
 CHECKPOINTER_CONFIG: CheckpointerConfig | None = env(
-    "LANGGRAPH_CHECKPOINTER", cast=_parse.parse_schema(CheckpointerConfig), default=None
+    "LANGGRAPH_CHECKPOINTER", cast=_parse.parse_checkpointer, default=None
 )
 USE_CUSTOM_CHECKPOINTER = bool(
     CHECKPOINTER_CONFIG is not None
+    and CHECKPOINTER_CONFIG.get("backend") == "custom"
     and "path" in CHECKPOINTER_CONFIG
     and CHECKPOINTER_CONFIG["path"].strip()
 )

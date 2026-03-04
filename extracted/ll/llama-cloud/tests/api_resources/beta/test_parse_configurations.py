@@ -20,7 +20,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestParseConfigurations:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.create(
@@ -30,7 +30,7 @@ class TestParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_create_with_all_params(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.create(
@@ -135,6 +135,7 @@ class TestParseConfigurations:
                 "specialized_image_parsing": True,
                 "spreadsheet_extract_sub_tables": True,
                 "spreadsheet_force_formula_computation": True,
+                "spreadsheet_include_hidden_sheets": True,
                 "strict_mode_buggy_font": True,
                 "strict_mode_image_extraction": True,
                 "strict_mode_image_ocr": True,
@@ -171,7 +172,7 @@ class TestParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_create(self, client: LlamaCloud) -> None:
         response = client.beta.parse_configurations.with_raw_response.create(
@@ -185,7 +186,7 @@ class TestParseConfigurations:
         parse_configuration = response.parse()
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_create(self, client: LlamaCloud) -> None:
         with client.beta.parse_configurations.with_streaming_response.create(
@@ -201,7 +202,7 @@ class TestParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.update(
@@ -209,7 +210,7 @@ class TestParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update_with_all_params(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.update(
@@ -316,6 +317,7 @@ class TestParseConfigurations:
                 "specialized_image_parsing": True,
                 "spreadsheet_extract_sub_tables": True,
                 "spreadsheet_force_formula_computation": True,
+                "spreadsheet_include_hidden_sheets": True,
                 "strict_mode_buggy_font": True,
                 "strict_mode_image_extraction": True,
                 "strict_mode_image_ocr": True,
@@ -346,7 +348,7 @@ class TestParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_update(self, client: LlamaCloud) -> None:
         response = client.beta.parse_configurations.with_raw_response.update(
@@ -358,7 +360,7 @@ class TestParseConfigurations:
         parse_configuration = response.parse()
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_update(self, client: LlamaCloud) -> None:
         with client.beta.parse_configurations.with_streaming_response.update(
@@ -372,7 +374,7 @@ class TestParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_update(self, client: LlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `config_id` but received ''"):
@@ -380,13 +382,13 @@ class TestParseConfigurations:
                 config_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_list(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.list()
         assert_matches_type(SyncPaginatedCursor[ParseConfiguration], parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_list_with_all_params(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.list(
@@ -400,7 +402,7 @@ class TestParseConfigurations:
         )
         assert_matches_type(SyncPaginatedCursor[ParseConfiguration], parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_list(self, client: LlamaCloud) -> None:
         response = client.beta.parse_configurations.with_raw_response.list()
@@ -410,7 +412,7 @@ class TestParseConfigurations:
         parse_configuration = response.parse()
         assert_matches_type(SyncPaginatedCursor[ParseConfiguration], parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_list(self, client: LlamaCloud) -> None:
         with client.beta.parse_configurations.with_streaming_response.list() as response:
@@ -422,7 +424,7 @@ class TestParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.delete(
@@ -430,7 +432,7 @@ class TestParseConfigurations:
         )
         assert parse_configuration is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete_with_all_params(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.delete(
@@ -440,7 +442,7 @@ class TestParseConfigurations:
         )
         assert parse_configuration is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_delete(self, client: LlamaCloud) -> None:
         response = client.beta.parse_configurations.with_raw_response.delete(
@@ -452,7 +454,7 @@ class TestParseConfigurations:
         parse_configuration = response.parse()
         assert parse_configuration is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_delete(self, client: LlamaCloud) -> None:
         with client.beta.parse_configurations.with_streaming_response.delete(
@@ -466,7 +468,7 @@ class TestParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_delete(self, client: LlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `config_id` but received ''"):
@@ -474,7 +476,7 @@ class TestParseConfigurations:
                 config_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_get(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.get(
@@ -482,7 +484,7 @@ class TestParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_get_with_all_params(self, client: LlamaCloud) -> None:
         parse_configuration = client.beta.parse_configurations.get(
@@ -492,7 +494,7 @@ class TestParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_get(self, client: LlamaCloud) -> None:
         response = client.beta.parse_configurations.with_raw_response.get(
@@ -504,7 +506,7 @@ class TestParseConfigurations:
         parse_configuration = response.parse()
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_get(self, client: LlamaCloud) -> None:
         with client.beta.parse_configurations.with_streaming_response.get(
@@ -518,7 +520,7 @@ class TestParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_get(self, client: LlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `config_id` but received ''"):
@@ -532,7 +534,7 @@ class TestAsyncParseConfigurations:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.create(
@@ -542,7 +544,7 @@ class TestAsyncParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.create(
@@ -647,6 +649,7 @@ class TestAsyncParseConfigurations:
                 "specialized_image_parsing": True,
                 "spreadsheet_extract_sub_tables": True,
                 "spreadsheet_force_formula_computation": True,
+                "spreadsheet_include_hidden_sheets": True,
                 "strict_mode_buggy_font": True,
                 "strict_mode_image_extraction": True,
                 "strict_mode_image_ocr": True,
@@ -683,7 +686,7 @@ class TestAsyncParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.parse_configurations.with_raw_response.create(
@@ -697,7 +700,7 @@ class TestAsyncParseConfigurations:
         parse_configuration = await response.parse()
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.parse_configurations.with_streaming_response.create(
@@ -713,7 +716,7 @@ class TestAsyncParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.update(
@@ -721,7 +724,7 @@ class TestAsyncParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.update(
@@ -828,6 +831,7 @@ class TestAsyncParseConfigurations:
                 "specialized_image_parsing": True,
                 "spreadsheet_extract_sub_tables": True,
                 "spreadsheet_force_formula_computation": True,
+                "spreadsheet_include_hidden_sheets": True,
                 "strict_mode_buggy_font": True,
                 "strict_mode_image_extraction": True,
                 "strict_mode_image_ocr": True,
@@ -858,7 +862,7 @@ class TestAsyncParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.parse_configurations.with_raw_response.update(
@@ -870,7 +874,7 @@ class TestAsyncParseConfigurations:
         parse_configuration = await response.parse()
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.parse_configurations.with_streaming_response.update(
@@ -884,7 +888,7 @@ class TestAsyncParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncLlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `config_id` but received ''"):
@@ -892,13 +896,13 @@ class TestAsyncParseConfigurations:
                 config_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_list(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.list()
         assert_matches_type(AsyncPaginatedCursor[ParseConfiguration], parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.list(
@@ -912,7 +916,7 @@ class TestAsyncParseConfigurations:
         )
         assert_matches_type(AsyncPaginatedCursor[ParseConfiguration], parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.parse_configurations.with_raw_response.list()
@@ -922,7 +926,7 @@ class TestAsyncParseConfigurations:
         parse_configuration = await response.parse()
         assert_matches_type(AsyncPaginatedCursor[ParseConfiguration], parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.parse_configurations.with_streaming_response.list() as response:
@@ -934,7 +938,7 @@ class TestAsyncParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.delete(
@@ -942,7 +946,7 @@ class TestAsyncParseConfigurations:
         )
         assert parse_configuration is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.delete(
@@ -952,7 +956,7 @@ class TestAsyncParseConfigurations:
         )
         assert parse_configuration is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.parse_configurations.with_raw_response.delete(
@@ -964,7 +968,7 @@ class TestAsyncParseConfigurations:
         parse_configuration = await response.parse()
         assert parse_configuration is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.parse_configurations.with_streaming_response.delete(
@@ -978,7 +982,7 @@ class TestAsyncParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncLlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `config_id` but received ''"):
@@ -986,7 +990,7 @@ class TestAsyncParseConfigurations:
                 config_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_get(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.get(
@@ -994,7 +998,7 @@ class TestAsyncParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_get_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         parse_configuration = await async_client.beta.parse_configurations.get(
@@ -1004,7 +1008,7 @@ class TestAsyncParseConfigurations:
         )
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.parse_configurations.with_raw_response.get(
@@ -1016,7 +1020,7 @@ class TestAsyncParseConfigurations:
         parse_configuration = await response.parse()
         assert_matches_type(ParseConfiguration, parse_configuration, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.parse_configurations.with_streaming_response.get(
@@ -1030,7 +1034,7 @@ class TestAsyncParseConfigurations:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_get(self, async_client: AsyncLlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `config_id` but received ''"):

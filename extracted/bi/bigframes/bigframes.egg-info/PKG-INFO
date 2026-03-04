@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigframes
-Version: 2.36.0
+Version: 2.37.0
 Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
 Home-page: https://dataframes.bigquery.dev
 Download-URL: https://github.com/googleapis/python-bigquery-dataframes/releases
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.10
@@ -101,10 +102,9 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-:orphan:
-
 BigQuery DataFrames (BigFrames)
 ===============================
+
 
 |GA| |pypi| |versions|
 

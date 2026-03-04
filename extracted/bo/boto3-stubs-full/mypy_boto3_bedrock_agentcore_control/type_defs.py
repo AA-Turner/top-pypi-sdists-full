@@ -397,6 +397,7 @@ __all__ = (
     "PolicyDefinitionTypeDef",
     "PolicyEngineTypeDef",
     "PolicyGenerationAssetTypeDef",
+    "PolicyGenerationDetailsTypeDef",
     "PolicyGenerationTypeDef",
     "PolicyTypeDef",
     "ProtocolConfigurationTypeDef",
@@ -414,6 +415,7 @@ __all__ = (
     "RuleOutputTypeDef",
     "RuleTypeDef",
     "RuleUnionTypeDef",
+    "RuntimeMetadataConfigurationTypeDef",
     "S3ConfigurationTypeDef",
     "S3LocationTypeDef",
     "SalesforceOauth2ProviderConfigInputTypeDef",
@@ -484,6 +486,7 @@ __all__ = (
     "UpdatePolicyResponseTypeDef",
     "UpdateWorkloadIdentityRequestTypeDef",
     "UpdateWorkloadIdentityResponseTypeDef",
+    "UpdatedDescriptionTypeDef",
     "UserPreferenceConsolidationOverrideTypeDef",
     "UserPreferenceExtractionOverrideTypeDef",
     "UserPreferenceMemoryStrategyInputTypeDef",
@@ -744,6 +747,8 @@ class CreatePolicyEngineRequestTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     clientToken: NotRequired[str]
+    encryptionKeyArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class CreateWorkloadIdentityRequestTypeDef(TypedDict):
@@ -994,6 +999,10 @@ class GetAgentRuntimeRequestTypeDef(TypedDict):
 
 class RequestHeaderConfigurationOutputTypeDef(TypedDict):
     requestHeaderAllowlist: NotRequired[list[str]]
+
+
+class RuntimeMetadataConfigurationTypeDef(TypedDict):
+    requireMMDSV2: bool
 
 
 class GetApiKeyCredentialProviderRequestTypeDef(TypedDict):
@@ -1259,6 +1268,7 @@ class PolicyEngineTypeDef(TypedDict):
     status: PolicyEngineStatusType
     statusReasons: list[str]
     description: NotRequired[str]
+    encryptionKeyArn: NotRequired[str]
 
 
 class ListPolicyGenerationAssetsRequestTypeDef(TypedDict):
@@ -1375,6 +1385,11 @@ class SlackOauth2ProviderConfigInputTypeDef(TypedDict):
     clientSecret: str
 
 
+class PolicyGenerationDetailsTypeDef(TypedDict):
+    policyGenerationId: str
+    policyGenerationAssetId: str
+
+
 class PutResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
     policy: str
@@ -1458,9 +1473,8 @@ class UpdateApiKeyCredentialProviderRequestTypeDef(TypedDict):
     apiKey: str
 
 
-class UpdatePolicyEngineRequestTypeDef(TypedDict):
-    policyEngineId: str
-    description: NotRequired[str]
+class UpdatedDescriptionTypeDef(TypedDict):
+    optionalValue: NotRequired[str]
 
 
 class UpdateWorkloadIdentityRequestTypeDef(TypedDict):
@@ -1533,10 +1547,6 @@ class CodeInterpreterNetworkConfigurationTypeDef(TypedDict):
 class NetworkConfigurationTypeDef(TypedDict):
     networkMode: NetworkModeType
     networkModeConfig: NotRequired[VpcConfigTypeDef]
-
-
-class PolicyDefinitionTypeDef(TypedDict):
-    cedar: NotRequired[CedarPolicyTypeDef]
 
 
 class DataSourceConfigOutputTypeDef(TypedDict):
@@ -1612,6 +1622,7 @@ class CreatePolicyEngineResponseTypeDef(TypedDict):
     policyEngineArn: str
     status: PolicyEngineStatusType
     statusReasons: list[str]
+    encryptionKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1702,6 +1713,7 @@ class DeletePolicyEngineResponseTypeDef(TypedDict):
     policyEngineArn: str
     status: PolicyEngineStatusType
     statusReasons: list[str]
+    encryptionKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1747,6 +1759,7 @@ class GetPolicyEngineResponseTypeDef(TypedDict):
     policyEngineArn: str
     status: PolicyEngineStatusType
     statusReasons: list[str]
+    encryptionKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1854,6 +1867,7 @@ class UpdatePolicyEngineResponseTypeDef(TypedDict):
     policyEngineArn: str
     status: PolicyEngineStatusType
     statusReasons: list[str]
+    encryptionKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2278,6 +2292,13 @@ class Oauth2DiscoveryOutputTypeDef(TypedDict):
 Oauth2AuthorizationServerMetadataUnionTypeDef = Union[
     Oauth2AuthorizationServerMetadataTypeDef, Oauth2AuthorizationServerMetadataOutputTypeDef
 ]
+
+
+class PolicyDefinitionTypeDef(TypedDict):
+    cedar: NotRequired[CedarPolicyTypeDef]
+    policyGeneration: NotRequired[PolicyGenerationDetailsTypeDef]
+
+
 RequestHeaderConfigurationUnionTypeDef = Union[
     RequestHeaderConfigurationTypeDef, RequestHeaderConfigurationOutputTypeDef
 ]
@@ -2307,6 +2328,11 @@ class TriggerConditionTypeDef(TypedDict):
     messageBasedTrigger: NotRequired[MessageBasedTriggerTypeDef]
     tokenBasedTrigger: NotRequired[TokenBasedTriggerTypeDef]
     timeBasedTrigger: NotRequired[TimeBasedTriggerTypeDef]
+
+
+class UpdatePolicyEngineRequestTypeDef(TypedDict):
+    policyEngineId: str
+    description: NotRequired[UpdatedDescriptionTypeDef]
 
 
 class ApiGatewayTargetConfigurationOutputTypeDef(TypedDict):
@@ -2364,101 +2390,6 @@ CodeInterpreterNetworkConfigurationUnionTypeDef = Union[
 NetworkConfigurationUnionTypeDef = Union[
     NetworkConfigurationTypeDef, NetworkConfigurationOutputTypeDef
 ]
-
-
-class CreatePolicyRequestTypeDef(TypedDict):
-    name: str
-    definition: PolicyDefinitionTypeDef
-    policyEngineId: str
-    description: NotRequired[str]
-    validationMode: NotRequired[PolicyValidationModeType]
-    clientToken: NotRequired[str]
-
-
-class CreatePolicyResponseTypeDef(TypedDict):
-    policyId: str
-    name: str
-    policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
-    createdAt: datetime
-    updatedAt: datetime
-    policyArn: str
-    status: PolicyStatusType
-    statusReasons: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeletePolicyResponseTypeDef(TypedDict):
-    policyId: str
-    name: str
-    policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
-    createdAt: datetime
-    updatedAt: datetime
-    policyArn: str
-    status: PolicyStatusType
-    statusReasons: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetPolicyResponseTypeDef(TypedDict):
-    policyId: str
-    name: str
-    policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
-    createdAt: datetime
-    updatedAt: datetime
-    policyArn: str
-    status: PolicyStatusType
-    statusReasons: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class PolicyGenerationAssetTypeDef(TypedDict):
-    policyGenerationAssetId: str
-    rawTextFragment: str
-    findings: list[FindingTypeDef]
-    definition: NotRequired[PolicyDefinitionTypeDef]
-
-
-class PolicyTypeDef(TypedDict):
-    policyId: str
-    name: str
-    policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    createdAt: datetime
-    updatedAt: datetime
-    policyArn: str
-    status: PolicyStatusType
-    statusReasons: list[str]
-    description: NotRequired[str]
-
-
-class UpdatePolicyRequestTypeDef(TypedDict):
-    policyEngineId: str
-    policyId: str
-    definition: PolicyDefinitionTypeDef
-    description: NotRequired[str]
-    validationMode: NotRequired[PolicyValidationModeType]
-
-
-class UpdatePolicyResponseTypeDef(TypedDict):
-    policyId: str
-    name: str
-    policyEngineId: str
-    definition: PolicyDefinitionTypeDef
-    description: str
-    createdAt: datetime
-    updatedAt: datetime
-    policyArn: str
-    status: PolicyStatusType
-    statusReasons: list[str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 DataSourceConfigUnionTypeDef = Union[DataSourceConfigTypeDef, DataSourceConfigOutputTypeDef]
 
 
@@ -2622,6 +2553,99 @@ class Oauth2DiscoveryTypeDef(TypedDict):
     authorizationServerMetadata: NotRequired[Oauth2AuthorizationServerMetadataUnionTypeDef]
 
 
+class CreatePolicyRequestTypeDef(TypedDict):
+    name: str
+    definition: PolicyDefinitionTypeDef
+    policyEngineId: str
+    description: NotRequired[str]
+    validationMode: NotRequired[PolicyValidationModeType]
+    clientToken: NotRequired[str]
+
+
+class CreatePolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeletePolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PolicyGenerationAssetTypeDef(TypedDict):
+    policyGenerationAssetId: str
+    rawTextFragment: str
+    findings: list[FindingTypeDef]
+    definition: NotRequired[PolicyDefinitionTypeDef]
+
+
+class PolicyTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    description: NotRequired[str]
+
+
+class UpdatePolicyRequestTypeDef(TypedDict):
+    policyEngineId: str
+    policyId: str
+    description: NotRequired[UpdatedDescriptionTypeDef]
+    definition: NotRequired[PolicyDefinitionTypeDef]
+    validationMode: NotRequired[PolicyValidationModeType]
+
+
+class UpdatePolicyResponseTypeDef(TypedDict):
+    policyId: str
+    name: str
+    policyEngineId: str
+    definition: PolicyDefinitionTypeDef
+    description: str
+    createdAt: datetime
+    updatedAt: datetime
+    policyArn: str
+    status: PolicyStatusType
+    statusReasons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ToolSchemaOutputTypeDef(TypedDict):
     s3: NotRequired[S3ConfigurationTypeDef]
     inlinePayload: NotRequired[list[ToolDefinitionOutputTypeDef]]
@@ -2698,18 +2722,6 @@ class CreateCodeInterpreterRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
-class ListPolicyGenerationAssetsResponseTypeDef(TypedDict):
-    policyGenerationAssets: list[PolicyGenerationAssetTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListPoliciesResponseTypeDef(TypedDict):
-    policies: list[PolicyTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
 class AgentRuntimeArtifactOutputTypeDef(TypedDict):
     containerConfiguration: NotRequired[ContainerConfigurationTypeDef]
     codeConfiguration: NotRequired[CodeConfigurationOutputTypeDef]
@@ -2758,6 +2770,18 @@ class Oauth2ProviderConfigOutputTypeDef(TypedDict):
 
 
 Oauth2DiscoveryUnionTypeDef = Union[Oauth2DiscoveryTypeDef, Oauth2DiscoveryOutputTypeDef]
+
+
+class ListPolicyGenerationAssetsResponseTypeDef(TypedDict):
+    policyGenerationAssets: list[PolicyGenerationAssetTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListPoliciesResponseTypeDef(TypedDict):
+    policies: list[PolicyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class McpLambdaTargetConfigurationOutputTypeDef(TypedDict):
@@ -2979,6 +3003,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     environmentVariables: dict[str, str]
     authorizerConfiguration: AuthorizerConfigurationOutputTypeDef
     requestHeaderConfiguration: RequestHeaderConfigurationOutputTypeDef
+    metadataConfiguration: RuntimeMetadataConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3141,6 +3166,7 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
     protocolConfiguration: NotRequired[ProtocolConfigurationTypeDef]
     lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
+    metadataConfiguration: NotRequired[RuntimeMetadataConfigurationTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
 

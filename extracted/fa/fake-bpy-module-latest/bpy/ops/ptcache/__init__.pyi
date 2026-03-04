@@ -34,7 +34,7 @@ def bake_all(
     *,
     bake: bool | None = True,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Bake all physics
+    """Bake all physics simulations in the current scene
 
     :param bake: Bake, (optional)
     :return: Result of the operator call.

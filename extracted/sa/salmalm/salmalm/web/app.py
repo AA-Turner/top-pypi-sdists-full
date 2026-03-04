@@ -60,6 +60,19 @@ _LLM_PATHS: frozenset = frozenset(
     }
 )
 
+
+def _normalize_principal(user: dict | None) -> dict | None:
+    """Normalize auth principal to a consistent schema regardless of token type."""
+    if not user:
+        return None
+    return {
+        "id": user.get("id") or user.get("uid"),
+        "username": user.get("username") or user.get("usr"),
+        "role": user.get("role", "anonymous"),
+        "jti": user.get("jti"),
+    }
+
+
 # ── FastAPI app ─────────────────────────────────────────────────────────────
 app = FastAPI(title="SalmAlm", version=VERSION, docs_url=None, redoc_url=None)
 
@@ -94,7 +107,28 @@ async def _abuse_guard(request: Request) -> Response | None:
     """Return a Response if the request should be blocked, else None."""
     xff = request.headers.get("x-forwarded-for", "")
     if xff and os.environ.get("SALMALM_TRUST_PROXY"):
-        client_ip = xff.split(",")[0].strip()
+        # Only trust XFF if direct peer is from known proxy/private subnet.
+        direct_ip = (request.client.host if request.client else None) or ""
+        _TRUSTED_SUBNETS = (
+            "127.",
+            "::1",
+            "10.",
+            "172.16.",
+            "172.17.",
+            "172.18.",
+            "172.19.",
+            "172.2",
+            "172.30.",
+            "172.31.",
+            "192.168.",
+        )
+        if any(direct_ip.startswith(s) for s in _TRUSTED_SUBNETS):
+            hops = [h.strip() for h in xff.split(",")]
+            while hops and any(hops[-1].startswith(s) for s in _TRUSTED_SUBNETS):
+                hops.pop()
+            client_ip = hops[-1] if hops else direct_ip
+        else:
+            client_ip = direct_ip
     else:
         client_ip = (request.client.host if request.client else None) or "unknown"
 
@@ -109,9 +143,9 @@ async def _abuse_guard(request: Request) -> Response | None:
 
     # 2. Extract auth for role-based limiting
     auth_headers = {k.lower(): v for k, v in request.headers.items()}
-    auth_user = extract_auth(auth_headers)
+    auth_user = _normalize_principal(extract_auth(auth_headers))
     role = auth_user.get("role", "anonymous") if auth_user else "anonymous"
-    uid_key = str(auth_user["id"]) if auth_user else f"ip:{client_ip}"
+    uid_key = str(auth_user["id"]) if auth_user and auth_user.get("id") else f"ip:{client_ip}"
 
     # 3. Global IP rate limit
     try:
@@ -318,8 +352,12 @@ def _register_all_routes() -> None:
     # Each entry is (prefix, method_name, suffix_or_None).
     # We register as /{full_path:path} catch-all for these prefix patterns.
     # FastAPI route specificity: explicit routes above take priority.
+    _LEGACY_PREFIX_SKIP: set[str] = {"/api/sessions/"}
+
     prefix_handlers: dict[str, str] = {}
     for prefix, method_name, _suffix in WebHandler._GET_PREFIX_ROUTES:
+        if prefix in _LEGACY_PREFIX_SKIP:
+            continue
         prefix_handlers.setdefault(prefix, method_name)
 
     for prefix, method_name in prefix_handlers.items():
@@ -385,9 +423,46 @@ def _register_all_routes() -> None:
         return await _dispatch(request, request.method)
 
 
+def _patch_app_js() -> None:
+    """Inject chat/subagent_done handlers into _wsHandleMessage in app.js."""
+    _js = Path(__file__).parent.parent / "static" / "app.js"
+    if not _js.exists():
+        return
+    _src = _js.read_text(encoding="utf-8")
+    if "data.type==='chat'" in _src:
+        return
+    _old = "}else if(data.type==='shutdown'){"
+    _new = (
+        "}else if(data.type==='chat'){"
+        "if(typingEl)typingEl.remove();"
+        "if(data.content&&typeof addMsg==='function')addMsg('assistant',data.content);"
+        "}else if(data.type==='subagent_done'){"
+        "var _sd=data.task||{};"
+        "if(_sd.status==='completed'&&_sd.result&&typeof addMsg==='function')"
+        "addMsg('assistant','[subagent done]\\n\\n'+_sd.result.substring(0,500));"
+        "else if(_sd.status==='failed'&&typeof addMsg==='function')"
+        "addMsg('assistant','[subagent failed]: '+(_sd.error||''));"
+        "}else if(data.type==='shutdown'){"
+    )
+    _changed = False
+    if _old in _src:
+        _src = _src.replace(_old, _new, 1)
+        _changed = True
+    if ":18801" in _src:
+        _src = _src.replace("return proto+'//'+host+':18801';", "return proto+'//'+host+':'+(port||'18800')+'/ws';")
+        _src = _src.replace("WS on port 18801", "WS on same port")
+        _changed = True
+    if _changed:
+        _js.write_text(_src, encoding="utf-8")
+        import logging as _log
+        _log.getLogger("salmalm").info("[STARTUP] app.js patched (chat handler + WS URL)")
+
+
+
 @app.on_event("startup")
 async def _on_startup() -> None:  # noqa: D401
     _register_all_routes()
+    _patch_app_js()
     # Capture main event loop for LLMCronManager._execute_job (daemon thread dispatch)
     import asyncio as _aio_startup
     try:

@@ -1083,4 +1083,5 @@ void export_util(py::module_ &m) {
              py::arg("dev"),
              py::arg("cmd_name"),
              py::arg("data"));
+    fix_dynamic_attr_dealloc<Tango::Util>();
 }

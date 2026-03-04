@@ -399,10 +399,38 @@ async def _handle_ws_msg(client, data: dict) -> None:
     text = data.get("text", "").strip()
     session_id = data.get("session") or client.session_id or "web"
     image_b64 = data.get("image")
+
+    # Validate image MIME type
+    _ALLOWED_WS_IMAGE_MIMES = frozenset({
+        "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"
+    })
     image_mime = data.get("image_mime", "image/png")
+    if image_mime not in _ALLOWED_WS_IMAGE_MIMES:
+        image_mime = "image/png"
+
     if not text and not image_b64:
         await client.send_json({"type": "error", "error": "Empty message"})
         return
+
+    # Quota and rate-limit check (WS bypasses HTTP middleware — must check here)
+    _ws_uid = getattr(client, "user_id", None)
+    _ws_user = getattr(client, "user", {}) or {}
+    _ws_role = _ws_user.get("role", "anonymous") if _ws_user else "anonymous"
+    _uid_key = str(_ws_uid) if _ws_uid else f"ws:anon"
+    try:
+        from salmalm.web.auth import rate_limiter, RateLimitExceeded
+        from salmalm.web.auth import daily_quota, DailyQuotaExceeded
+        rate_limiter.check(_uid_key, _ws_role)
+        daily_quota.check(_uid_key, _ws_role)
+    except Exception as _qe:
+        _qe_name = type(_qe).__name__
+        if "RateLimit" in _qe_name or "Quota" in _qe_name or "DailyQuota" in _qe_name:
+            await client.send_json({"type": "error", "error": str(_qe)[:200]})
+            return
+        # Other import errors: log and continue (don't block WS on missing module)
+        import logging as _log_mod
+        _log_mod.getLogger("salmalm").warning(f"[WS] Quota check error: {_qe}")
+
     stream = StreamingResponse(client)
     await client.send_json({"type": "typing", "status": "typing"})
 
@@ -419,7 +447,7 @@ async def _handle_ws_msg(client, data: dict) -> None:
         from salmalm.core import get_session as _gs_ws
 
         image_data = (image_b64, image_mime) if image_b64 else None
-        _sess_ws = _gs_ws(session_id)
+        _sess_ws = _gs_ws(session_id, user_id=_ws_uid)
         _model_ov_ws = getattr(_sess_ws, "model_override", None)
         if _model_ov_ws == "auto":
             _model_ov_ws = None
@@ -430,6 +458,7 @@ async def _handle_ws_msg(client, data: dict) -> None:
             model_override=_model_ov_ws,
             on_tool=on_tool,
             on_status=on_status,
+            user_id=_ws_uid,
         )
         await stream.send_done(response)
     except Exception as e:
@@ -469,7 +498,8 @@ async def _setup_services(host: str, port: int, _httpd, server_thread, url: str)
     # ── Phase 8: MCP (Model Context Protocol) ──
     try:
         mcp_manager.load_config()
-        from salmalm.tools import TOOL_DEFINITIONS, execute_tool
+        from salmalm.tools.tool_handlers import execute_tool
+        from salmalm.tools.tool_registry import get_all_tools as TOOL_DEFINITIONS
 
         async def mcp_tool_executor(name: str, args):
             """Mcp tool executor."""
@@ -488,6 +518,15 @@ async def _setup_services(host: str, port: int, _httpd, server_thread, url: str)
     from salmalm.core import audit_log_cleanup
 
     cron.add_job("audit_cleanup", 86400, audit_log_cleanup, days=30)
+
+    # Schedule LLM cron tick (every 60s — runs user-defined AI cron jobs)
+    async def _llm_cron_tick_wrapper():
+        try:
+            await llm_cron.tick()
+        except Exception as _e:
+            log.warning(f"[CRON] LLM cron tick error: {_e}")
+
+    cron.add_job("llm_cron_tick", 60, _llm_cron_tick_wrapper)
 
     # ── Phase 10: Self-test, Nodes, Plugins, Cron start ──
     selftest = health_monitor.startup_selftest()

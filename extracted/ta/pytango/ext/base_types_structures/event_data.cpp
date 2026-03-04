@@ -6,6 +6,7 @@
 
 #include "common_header.h"
 #include "convertors/type_casters.h"
+#include "pyutils.h"
 
 namespace PyEventData {
 static std::shared_ptr<Tango::EventData> makeEventData() {
@@ -85,4 +86,5 @@ void export_event_data(py::module &m) {
         // later in callback.cpp (PyEventCallBack::fill_py_event) save extracted value
 
         .attr("attr_value") = py::none();
+    fix_dynamic_attr_dealloc<Tango::EventData>();
 }

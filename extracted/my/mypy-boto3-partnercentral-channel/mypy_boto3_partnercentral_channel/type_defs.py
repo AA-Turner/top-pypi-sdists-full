@@ -3,7 +3,7 @@ Type annotations for partnercentral-channel service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -91,8 +91,8 @@ __all__ = (
     "RejectChannelHandshakeResponseTypeDef",
     "RelationshipDetailTypeDef",
     "RelationshipSummaryTypeDef",
-    "ResoldBusinessTypeDef",
     "ResoldEnterpriseTypeDef",
+    "ResoldUnifiedOperationsTypeDef",
     "ResponseMetadataTypeDef",
     "RevokeServicePeriodHandshakeDetailTypeDef",
     "RevokeServicePeriodPayloadTypeDef",
@@ -352,11 +352,13 @@ class RejectChannelHandshakeRequestTypeDef(TypedDict):
     identifier: str
 
 
-class ResoldBusinessTypeDef(TypedDict):
-    coverage: CoverageType
-
-
 class ResoldEnterpriseTypeDef(TypedDict):
+    coverage: CoverageType
+    tamLocation: str
+    chargeAccountId: NotRequired[str]
+
+
+class ResoldUnifiedOperationsTypeDef(TypedDict):
     coverage: CoverageType
     tamLocation: str
     chargeAccountId: NotRequired[str]
@@ -528,9 +530,9 @@ class RejectChannelHandshakeResponseTypeDef(TypedDict):
 
 
 class SupportPlanTypeDef(TypedDict):
-    resoldBusiness: NotRequired[ResoldBusinessTypeDef]
     resoldEnterprise: NotRequired[ResoldEnterpriseTypeDef]
     partnerLedSupport: NotRequired[PartnerLedSupportTypeDef]
+    resoldUnifiedOperations: NotRequired[ResoldUnifiedOperationsTypeDef]
 
 
 class StartServicePeriodPayloadTypeDef(TypedDict):

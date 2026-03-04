@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bfcl_eval
-Version: 2026.2.9
+Version: 2026.3.3
 Summary: Berkeley Function Calling Leaderboard (BFCL)
 Author-email: Huanzhi Mao <huanzhimao@eecs.berkeley.edu>, Shishir Patil <shishirpatil@eecs.berkeley.edu>, Sky Computing Lab <sky@cs.berkeley.edu>
 License: Apache 2.0

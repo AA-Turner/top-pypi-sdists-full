@@ -4,7 +4,6 @@ import contextlib
 import math
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -18,6 +17,7 @@ from pydantic import Field, PrivateAttr, field_validator, model_validator
 from shapely import Polygon, box, prepared
 from typing_extensions import Self
 
+from useq._enums import RelativeTo, Shape
 from useq._point_visiting import OrderMode, TraversalOrder
 from useq._position import (
     AbsolutePosition,
@@ -37,21 +37,6 @@ if TYPE_CHECKING:
     ]
 
 MIN_RANDOM_POINTS = 10000
-
-
-class RelativeTo(Enum):
-    """Where the coordinates of the grid are relative to.
-
-    Attributes
-    ----------
-    center : Literal['center']
-        Grid is centered around the origin.
-    top_left : Literal['top_left']
-        Grid is positioned such that the top left corner is at the origin.
-    """
-
-    center = "center"
-    top_left = "top_left"
 
 
 # used in iter_indices below, to determine the order in which indices are yielded
@@ -82,6 +67,7 @@ class _GridPlan(_MultiPointPlan[PositionT]):
     mode: OrderMode = Field(default=OrderMode.row_wise_snake, frozen=True)
 
     @field_validator("overlap", mode="before")
+    @classmethod
     def _validate_overlap(cls, v: Any) -> tuple[float, float]:
         with contextlib.suppress(TypeError, ValueError):
             v = float(v)
@@ -448,7 +434,7 @@ class GridFromPolygon(_GridPlan[AbsolutePosition]):
         ),
     ] = None
 
-    _poly_cache: dict[tuple, list[tuple[float, float]]] = PrivateAttr(
+    _poly_cache: dict[tuple, list[tuple[float, float, int, int]]] = PrivateAttr(
         default_factory=dict
     )
 
@@ -457,6 +443,7 @@ class GridFromPolygon(_GridPlan[AbsolutePosition]):
         return False
 
     @field_validator("vertices", mode="after")
+    @classmethod
     def validate_vertices(
         cls, value: list[tuple[float, float]]
     ) -> list[tuple[float, float]]:
@@ -529,8 +516,8 @@ class GridFromPolygon(_GridPlan[AbsolutePosition]):
             )
         except ValueError:
             pos = []
-        for idx, (x, y) in enumerate(pos):
-            yield AbsolutePosition(x=x, y=y, name=f"{str(idx).zfill(4)}")
+        for idx, (x, y, r, c) in enumerate(pos):
+            yield AbsolutePosition(x=x, y=y, row=r, col=c, name=f"{str(idx).zfill(4)}")
 
     def _cached_tiles(
         self,
@@ -538,8 +525,11 @@ class GridFromPolygon(_GridPlan[AbsolutePosition]):
         fov: tuple[float, float],
         overlap: tuple[float, float],
         order: OrderMode | None = None,
-    ) -> list[tuple[float, float]]:
-        """Compute an ordered list of (x, y) stage positions that cover the polygon."""
+    ) -> list[tuple[float, float, int, int]]:
+        """Compute an ordered list of (x, y, row, col) positions.
+
+        Returns stage positions that cover the polygon.
+        """
         # compute grid spacing and half-extents
         mode = OrderMode(order) if order is not None else self.mode
         key = (fov, overlap, mode)
@@ -574,7 +564,7 @@ class GridFromPolygon(_GridPlan[AbsolutePosition]):
                 n_rows = int(np.ceil((span_y - h) / dy)) + 1
 
             # generate grid positions
-            positions: list[tuple[float, float]] = []
+            positions: list[tuple[float, float, int, int]] = []
             prepared_poly = self.prepared_poly
 
             for r, c in mode.generate_indices(n_rows, n_cols):
@@ -582,7 +572,7 @@ class GridFromPolygon(_GridPlan[AbsolutePosition]):
                 y = start_y - r * dy
                 tile = box(x - half_w, y - half_h, x + half_w, y + half_h)
                 if prepared_poly.intersects(tile):
-                    positions.append((x, y))
+                    positions.append((x, y, r, c))
 
             self._poly_cache[key] = positions
         return self._poly_cache[key]
@@ -648,21 +638,6 @@ class GridFromPolygon(_GridPlan[AbsolutePosition]):
 
 
 # ------------------------ RANDOM ------------------------
-
-
-class Shape(Enum):
-    """Shape of the bounding box for random points.
-
-    Attributes
-    ----------
-    ELLIPSE : Literal['ellipse']
-        The bounding box is an ellipse.
-    RECTANGLE : Literal['rectangle']
-        The bounding box is a rectangle.
-    """
-
-    ELLIPSE = "ellipse"
-    RECTANGLE = "rectangle"
 
 
 class RandomPoints(_MultiPointPlan[RelativePosition]):

@@ -46,6 +46,7 @@ from onnx2tf.tflite_builder.op_builders import (
     build_fused_matmul_op,
     build_fully_connected_from_gemm_or_matmul,
     build_gru_op,
+    build_multi_head_attention_op,
     build_matmul_op,
     build_gather_op,
     build_gather_nd_op,
@@ -115,6 +116,7 @@ from onnx2tf.tflite_builder.op_builders import (
     build_softmax_op,
     build_softplus_op,
     build_softsign_op,
+    build_sum_op,
     build_tan_op,
     build_transpose_op,
     build_trilu_op,
@@ -301,6 +303,51 @@ def _require_const_input(node: Any, ctx: Any, input_index: int, input_label: str
             node_op=node.op,
         )
     return np.asarray(const_value)
+
+
+def _is_unknown_rank_placeholder_tensor(ctx: Any, tensor_name: str) -> bool:
+    shape = [int(v) for v in list(ctx.get_tensor_shape(tensor_name))]
+    if len(shape) == 0 or not all(int(v) == 1 for v in shape):
+        return False
+    tensor = ctx.model_ir.tensors.get(str(tensor_name), None)
+    if tensor is not None:
+        signature = (
+            [int(v) for v in list(tensor.shape_signature)]
+            if tensor.shape_signature is not None
+            else [int(v) for v in shape]
+        )
+        if len(signature) != len(shape):
+            return False
+        if any(int(v) < 0 for v in signature):
+            return True
+        if len(shape) == 1 and int(signature[0]) == 1:
+            raw_shape = None
+            if hasattr(ctx, "shape_map"):
+                raw_shape = ctx.shape_map.get(str(tensor_name), None)
+            if raw_shape is None:
+                return True
+            if isinstance(raw_shape, (list, tuple)) and len(list(raw_shape)) == 0:
+                return True
+        return False
+    raw_shape = None
+    if hasattr(ctx, "shape_map"):
+        raw_shape = ctx.shape_map.get(str(tensor_name), None)
+    if raw_shape is None:
+        return True
+    if not isinstance(raw_shape, (list, tuple)):
+        return True
+    if len(list(raw_shape)) == 0:
+        return True
+    unresolved = False
+    for dim in list(raw_shape):
+        if isinstance(dim, (int, np.integer)):
+            if int(dim) <= 0:
+                unresolved = True
+                break
+        else:
+            unresolved = True
+            break
+    return bool(unresolved)
 
 
 def _get_original_node_inputs(node: Any, ctx: Any) -> List[str]:
@@ -1011,16 +1058,34 @@ def _validate_slice(node: Any, ctx: Any) -> None:
             node_op=node.op,
         )
 
-    starts_values = _extract_slice_indices(
-        node=node,
-        ctx=ctx,
-        input_index=1,
-        attr_name="starts",
-        label="slice starts",
-    )
-    ends_values: List[int]
+    dynamic_start_name = ""
+    if (
+        len(node.inputs) > 1
+        and str(node.inputs[1].name) != ""
+        and ctx.get_constant_array(node.inputs[1].name) is None
+        and "starts" not in node.attrs
+    ):
+        dynamic_start_name = str(node.inputs[1].name)
+    starts_values: List[int] = []
+    if dynamic_start_name == "":
+        starts_values = _extract_slice_indices(
+            node=node,
+            ctx=ctx,
+            input_index=1,
+            attr_name="starts",
+            label="slice starts",
+        )
+
     dynamic_end_name = ""
-    try:
+    if (
+        len(node.inputs) > 2
+        and str(node.inputs[2].name) != ""
+        and ctx.get_constant_array(node.inputs[2].name) is None
+        and "ends" not in node.attrs
+    ):
+        dynamic_end_name = str(node.inputs[2].name)
+    ends_values: List[int] = []
+    if dynamic_end_name == "":
         ends_values = _extract_slice_indices(
             node=node,
             ctx=ctx,
@@ -1028,42 +1093,22 @@ def _validate_slice(node: Any, ctx: Any) -> None:
             attr_name="ends",
             label="slice ends",
         )
-    except NodeValidationError as exc:
-        can_use_dynamic_end = (
-            len(node.inputs) > 2
-            and str(node.inputs[2].name) != ""
-            and ctx.get_constant_array(node.inputs[2].name) is None
-            and "ends" not in node.attrs
-            and exc.reason_code in {
-                "requires_constant_input",
-                "missing_required_attribute",
-            }
-        )
-        if not can_use_dynamic_end:
-            raise
-        dynamic_end_name = str(node.inputs[2].name)
-        ends_values = [0 for _ in range(len(starts_values))]
-    if len(starts_values) != len(ends_values):
-        raise NodeValidationError(
-            reason_code="invalid_input_shape",
-            message=(
-                f"Slice starts/ends length mismatch. "
-                f"starts_len={len(starts_values)} ends_len={len(ends_values)}"
-            ),
-            node_name=node.name,
-            node_op=node.op,
-        )
 
     rank = len(ctx.get_tensor_shape(node.inputs[0].name))
+    default_axis_len = int(
+        len(starts_values)
+        if len(starts_values) > 0
+        else (len(ends_values) if len(ends_values) > 0 else 1)
+    )
     axes = _extract_axes(
         node=node,
         ctx=ctx,
         input_index=3,
         attr_name="axes",
-        default_if_missing=[int(v) for v in range(len(starts_values))],
+        default_if_missing=[int(v) for v in range(default_axis_len)],
     )
     normalized_axes = _normalize_axes_for_rank(axes=axes, rank=rank, node=node)
-    if len(normalized_axes) != len(starts_values):
+    if dynamic_start_name == "" and len(normalized_axes) != len(starts_values):
         raise NodeValidationError(
             reason_code="invalid_input_shape",
             message=(
@@ -1082,18 +1127,18 @@ def _validate_slice(node: Any, ctx: Any) -> None:
         if isinstance(attr_steps, (list, tuple, np.ndarray)):
             steps = [int(v) for v in np.asarray(attr_steps).reshape(-1).tolist()]
         elif attr_steps is None:
-            steps = [1 for _ in range(len(starts_values))]
+            steps = [1 for _ in range(len(normalized_axes))]
         else:
             steps = [int(attr_steps)]
     else:
-        steps = [1 for _ in range(len(starts_values))]
+        steps = [1 for _ in range(len(normalized_axes))]
 
-    if len(steps) != len(starts_values):
+    if len(steps) != len(normalized_axes):
         raise NodeValidationError(
             reason_code="invalid_input_shape",
             message=(
                 f"Slice starts/steps length mismatch. "
-                f"starts_len={len(starts_values)} steps_len={len(steps)}"
+                f"axes_len={len(normalized_axes)} steps_len={len(steps)}"
             ),
             node_name=node.name,
             node_op=node.op,
@@ -1105,6 +1150,69 @@ def _validate_slice(node: Any, ctx: Any) -> None:
             node_name=node.name,
             node_op=node.op,
         )
+
+    if dynamic_end_name == "" and len(starts_values) != len(ends_values):
+        raise NodeValidationError(
+            reason_code="invalid_input_shape",
+            message=(
+                f"Slice starts/ends length mismatch. "
+                f"starts_len={len(starts_values)} ends_len={len(ends_values)}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    if dynamic_start_name != "" or (dynamic_end_name != "" and len(normalized_axes) == 1):
+        is_single_axis_dynamic = (
+            len(normalized_axes) == 1
+            and len(steps) == 1
+            and int(steps[0]) > 0
+            and (
+                dynamic_start_name != ""
+                or (len(starts_values) == 1 and int(starts_values[0]) >= 0)
+            )
+        )
+        if not is_single_axis_dynamic:
+            raise NodeValidationError(
+                reason_code="unsupported_input_shape",
+                message=(
+                    "Slice dynamic starts/ends lowering supports single-axis slicing "
+                    "with positive step only. "
+                    f"rank={rank} starts={starts_values} ends={ends_values} "
+                    f"axes={normalized_axes} steps={steps}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if dynamic_start_name != "":
+            dynamic_start_shape = [int(v) for v in ctx.get_tensor_shape(dynamic_start_name)]
+            dynamic_start_len = int(dynamic_start_shape[0]) if len(dynamic_start_shape) == 1 else -1
+            if not (len(dynamic_start_shape) == 1 and (dynamic_start_len <= 0 or dynamic_start_len == 1)):
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Slice dynamic starts must be rank-1 length-1 (or unknown length) "
+                        "for builtin lowering. "
+                        f"shape={dynamic_start_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+        if dynamic_end_name != "":
+            dynamic_end_shape = [int(v) for v in ctx.get_tensor_shape(dynamic_end_name)]
+            dynamic_end_len = int(dynamic_end_shape[0]) if len(dynamic_end_shape) == 1 else -1
+            if not (len(dynamic_end_shape) == 1 and (dynamic_end_len <= 0 or dynamic_end_len == 1)):
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Slice dynamic ends must be rank-1 length-1 (or unknown length) "
+                        "for builtin lowering. "
+                        f"shape={dynamic_end_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+        return
 
     if dynamic_end_name != "":
         dynamic_end_shape = [int(v) for v in ctx.get_tensor_shape(dynamic_end_name)]
@@ -1123,7 +1231,7 @@ def _validate_slice(node: Any, ctx: Any) -> None:
             and len(starts_values) == len(steps)
             and len(starts_values) <= rank
             and dynamic_end_len_ok
-            and axes_are_prefix
+            and (axes_are_prefix or len(normalized_axes) == 1)
             and starts_non_negative
             and steps_positive
         )
@@ -1131,8 +1239,8 @@ def _validate_slice(node: Any, ctx: Any) -> None:
             raise NodeValidationError(
                 reason_code="unsupported_input_shape",
                 message=(
-                    "Slice dynamic-end lowering supports prefix-axis slicing only "
-                    "(axes=[0..k-1], start>=0, step>0). "
+                    "Slice dynamic-end lowering supports prefix-axis slicing "
+                    "or single-axis slicing (start>=0, step>0). "
                     f"rank={rank} dynamic_end_shape={dynamic_end_shape} "
                     f"starts={starts_values} axes={normalized_axes} steps={steps}"
                 ),
@@ -1260,8 +1368,13 @@ def _validate_conv(node: Any, ctx: Any) -> None:
         )
     input_shape = ctx.get_tensor_shape(node.inputs[0].name)
     output_shape = ctx.get_tensor_shape(node.outputs[0].name)
+    input_is_unknown_placeholder = _is_unknown_rank_placeholder_tensor(ctx, node.inputs[0].name)
+    output_is_unknown_placeholder = _is_unknown_rank_placeholder_tensor(ctx, node.outputs[0].name)
     if int(weights.ndim) == 4:
-        if len(input_shape) != 4 or len(output_shape) != 4:
+        if (
+            (len(input_shape) != 4 and not input_is_unknown_placeholder)
+            or (len(output_shape) != 4 and not output_is_unknown_placeholder)
+        ):
             raise NodeValidationError(
                 reason_code="unsupported_tensor_rank",
                 message=f"Conv2D input/output rank must be 4. input_shape={input_shape} output_shape={output_shape}",
@@ -1269,7 +1382,10 @@ def _validate_conv(node: Any, ctx: Any) -> None:
                 node_op=node.op,
             )
     elif int(weights.ndim) == 3:
-        if len(input_shape) != 3 or len(output_shape) != 3:
+        if (
+            (len(input_shape) != 3 and not input_is_unknown_placeholder)
+            or (len(output_shape) != 3 and not output_is_unknown_placeholder)
+        ):
             raise NodeValidationError(
                 reason_code="unsupported_tensor_rank",
                 message=f"Conv1D input/output rank must be 3. input_shape={input_shape} output_shape={output_shape}",
@@ -1277,7 +1393,10 @@ def _validate_conv(node: Any, ctx: Any) -> None:
                 node_op=node.op,
             )
     else:
-        if len(input_shape) != 5 or len(output_shape) != 5:
+        if (
+            (len(input_shape) != 5 and not input_is_unknown_placeholder)
+            or (len(output_shape) != 5 and not output_is_unknown_placeholder)
+        ):
             raise NodeValidationError(
                 reason_code="unsupported_tensor_rank",
                 message=f"Conv3D input/output rank must be 5. input_shape={input_shape} output_shape={output_shape}",
@@ -1303,9 +1422,13 @@ def _validate_conv(node: Any, ctx: Any) -> None:
             node_name=node.name,
             node_op=node.op,
         )
-    in_channels = int(input_shape[1])
+    in_channels = int(input_shape[1]) if len(input_shape) > 1 else -1
     out_channels = int(weights.shape[0])
     weight_in_channels_per_group = int(weights.shape[1])
+    if in_channels <= 0:
+        inferred_channels = int(weight_in_channels_per_group) * int(group)
+        if inferred_channels > 0:
+            in_channels = int(inferred_channels)
     is_depthwise = (
         group > 1
         and weight_in_channels_per_group == 1
@@ -1360,7 +1483,9 @@ def _validate_conv(node: Any, ctx: Any) -> None:
 def _validate_fused_conv(node: Any, ctx: Any) -> None:
     input_shape = ctx.get_tensor_shape(node.inputs[0].name)
     output_shape = ctx.get_tensor_shape(node.outputs[0].name)
-    if input_shape != [1] and output_shape != [1]:
+    input_is_unknown_placeholder = _is_unknown_rank_placeholder_tensor(ctx, node.inputs[0].name)
+    output_is_unknown_placeholder = _is_unknown_rank_placeholder_tensor(ctx, node.outputs[0].name)
+    if not input_is_unknown_placeholder and not output_is_unknown_placeholder:
         _validate_conv(node, ctx)
     else:
         weights = _require_const_input(node, ctx, 1, "conv weights")
@@ -1372,7 +1497,7 @@ def _validate_fused_conv(node: Any, ctx: Any) -> None:
                 node_op=node.op,
             )
         if int(weights.ndim) == 4:
-            if input_shape != [1] and len(input_shape) != 4:
+            if not input_is_unknown_placeholder and len(input_shape) != 4:
                 raise NodeValidationError(
                     reason_code="unsupported_tensor_rank",
                     message=(
@@ -1382,7 +1507,7 @@ def _validate_fused_conv(node: Any, ctx: Any) -> None:
                     node_name=node.name,
                     node_op=node.op,
                 )
-            if output_shape != [1] and len(output_shape) != 4:
+            if not output_is_unknown_placeholder and len(output_shape) != 4:
                 raise NodeValidationError(
                     reason_code="unsupported_tensor_rank",
                     message=(
@@ -1393,7 +1518,7 @@ def _validate_fused_conv(node: Any, ctx: Any) -> None:
                     node_op=node.op,
                 )
         else:
-            if input_shape != [1] and len(input_shape) != 3:
+            if not input_is_unknown_placeholder and len(input_shape) != 3:
                 raise NodeValidationError(
                     reason_code="unsupported_tensor_rank",
                     message=(
@@ -1403,7 +1528,7 @@ def _validate_fused_conv(node: Any, ctx: Any) -> None:
                     node_name=node.name,
                     node_op=node.op,
                 )
-            if output_shape != [1] and len(output_shape) != 3:
+            if not output_is_unknown_placeholder and len(output_shape) != 3:
                 raise NodeValidationError(
                     reason_code="unsupported_tensor_rank",
                     message=(
@@ -1749,7 +1874,7 @@ def _validate_col2im(node: Any, ctx: Any) -> None:
 
 def _validate_global_average_pool(node: Any, ctx: Any) -> None:
     input_shape = ctx.get_tensor_shape(node.inputs[0].name)
-    if len(input_shape) < 3:
+    if len(input_shape) < 3 and not _is_unknown_rank_placeholder_tensor(ctx, node.inputs[0].name):
         raise NodeValidationError(
             reason_code="unsupported_input_rank",
             message=f"GlobalAveragePool input rank must be >=3. input_shape={input_shape}",
@@ -1968,14 +2093,18 @@ def _validate_pool(node: Any, ctx: Any) -> None:
         # 2-output MaxPool (values + argmax indices) is supported only for a
         # restricted shape-safe form in flatbuffer_direct lowering.
         if len(node.outputs) == 2:
+            input_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+            input_rank = len(input_shape)
             storage_order = int(node.attrs.get("storage_order", 0))
             kernel = [int(v) for v in list(node.attrs.get("kernel_shape", []))]
-            strides = [int(v) for v in list(node.attrs.get("strides", [1, 1]))]
-            dilations = [int(v) for v in list(node.attrs.get("dilations", [1, 1]))]
+            if input_rank == 3:
+                strides = [int(v) for v in list(node.attrs.get("strides", [1]))]
+                dilations = [int(v) for v in list(node.attrs.get("dilations", [1]))]
+            else:
+                strides = [int(v) for v in list(node.attrs.get("strides", [1, 1]))]
+                dilations = [int(v) for v in list(node.attrs.get("dilations", [1, 1]))]
             auto_pad = str(node.attrs.get("auto_pad", "NOTSET")).upper()
             pads = [int(v) for v in list(node.attrs.get("pads", [0, 0, 0, 0]))]
-            if len(pads) < 4:
-                pads = [0, 0, 0, 0]
             if storage_order != 0:
                 raise NodeValidationError(
                     reason_code="unsupported_attribute_value",
@@ -1986,27 +2115,81 @@ def _validate_pool(node: Any, ctx: Any) -> None:
                     node_name=node.name,
                     node_op=node.op,
                 )
-            if kernel != [2, 2] or strides != [2, 2]:
-                raise NodeValidationError(
-                    reason_code="unsupported_attribute_value",
-                    message=(
-                        "MaxPool with indices currently supports only "
-                        "kernel_shape=[2,2], strides=[2,2]. "
-                        f"got kernel_shape={kernel} strides={strides}"
-                    ),
-                    node_name=node.name,
-                    node_op=node.op,
+            if input_rank == 3:
+                if len(pads) == 0:
+                    pads = [0, 0]
+                elif len(pads) == 1:
+                    pads = [int(pads[0]), int(pads[0])]
+                elif len(pads) == 2:
+                    pads = [int(pads[0]), int(pads[1])]
+                elif len(pads) == 4:
+                    pads = [int(pads[1]), int(pads[3])]
+                else:
+                    raise NodeValidationError(
+                        reason_code="unsupported_attribute_value",
+                        message=f"MaxPool1D with indices pads must have length 0/1/2/4. got pads={pads}",
+                        node_name=node.name,
+                        node_op=node.op,
+                    )
+                valid_1d_pairs = (
+                    (kernel == [1] and strides == [1])
+                    or (kernel == [2] and strides == [2])
                 )
-            if dilations != [1, 1]:
-                raise NodeValidationError(
-                    reason_code="unsupported_attribute_value",
-                    message=(
-                        "MaxPool with indices currently supports only "
-                        f"dilations=[1,1]. got dilations={dilations}"
-                    ),
-                    node_name=node.name,
-                    node_op=node.op,
-                )
+                if not valid_1d_pairs:
+                    raise NodeValidationError(
+                        reason_code="unsupported_attribute_value",
+                        message=(
+                            "MaxPool1D with indices currently supports only "
+                            "kernel/strides [1]/[1] or [2]/[2]. "
+                            f"got kernel_shape={kernel} strides={strides}"
+                        ),
+                        node_name=node.name,
+                        node_op=node.op,
+                    )
+                if dilations != [1]:
+                    raise NodeValidationError(
+                        reason_code="unsupported_attribute_value",
+                        message=(
+                            "MaxPool1D with indices currently supports only "
+                            f"dilations=[1]. got dilations={dilations}"
+                        ),
+                        node_name=node.name,
+                        node_op=node.op,
+                    )
+                if kernel == [1] and any(int(v) != 0 for v in pads):
+                    raise NodeValidationError(
+                        reason_code="unsupported_attribute_value",
+                        message=(
+                            "MaxPool1D with indices kernel=[1] currently supports zero pads only. "
+                            f"got pads={pads}"
+                        ),
+                        node_name=node.name,
+                        node_op=node.op,
+                    )
+            else:
+                if len(pads) < 4:
+                    pads = [0, 0, 0, 0]
+                if kernel != [2, 2] or strides != [2, 2]:
+                    raise NodeValidationError(
+                        reason_code="unsupported_attribute_value",
+                        message=(
+                            "MaxPool with indices currently supports only "
+                            "kernel_shape=[2,2], strides=[2,2]. "
+                            f"got kernel_shape={kernel} strides={strides}"
+                        ),
+                        node_name=node.name,
+                        node_op=node.op,
+                    )
+                if dilations != [1, 1]:
+                    raise NodeValidationError(
+                        reason_code="unsupported_attribute_value",
+                        message=(
+                            "MaxPool with indices currently supports only "
+                            f"dilations=[1,1]. got dilations={dilations}"
+                        ),
+                        node_name=node.name,
+                        node_op=node.op,
+                    )
             if ceil_mode != 0:
                 raise NodeValidationError(
                     reason_code="unsupported_attribute_value",
@@ -2027,7 +2210,7 @@ def _validate_pool(node: Any, ctx: Any) -> None:
                     node_name=node.name,
                     node_op=node.op,
                 )
-            if any(int(v) != 0 for v in pads):
+            if input_rank != 3 and any(int(v) != 0 for v in pads):
                 raise NodeValidationError(
                     reason_code="unsupported_attribute_value",
                     message=(
@@ -2038,10 +2221,10 @@ def _validate_pool(node: Any, ctx: Any) -> None:
                     node_op=node.op,
                 )
     else:
-        if ceil_mode != 0:
+        if ceil_mode not in [0, 1]:
             raise NodeValidationError(
                 reason_code="unsupported_attribute_value",
-                message="Pool ceil_mode must be 0.",
+                message=f"AveragePool ceil_mode must be 0 or 1. got={ceil_mode}",
                 node_name=node.name,
                 node_op=node.op,
             )
@@ -2110,10 +2293,115 @@ def _validate_fc(node: Any, ctx: Any) -> None:
 def _validate_matmul(node: Any, ctx: Any) -> None:
     a_rank = len(ctx.get_tensor_shape(node.inputs[0].name))
     b_rank = len(ctx.get_tensor_shape(node.inputs[1].name))
-    if a_rank < 2 or b_rank < 2:
+    is_standard_matmul = a_rank >= 2 and b_rank >= 2
+    is_vector_rhs_matmul = a_rank >= 2 and b_rank == 1
+    if not (is_standard_matmul or is_vector_rhs_matmul):
         raise NodeValidationError(
             reason_code="unsupported_input_rank",
-            message=f"MatMul input rank must be >= 2. a_rank={a_rank} b_rank={b_rank}",
+            message=(
+                "MatMul input ranks must be (a_rank>=2,b_rank>=2) "
+                "or vector-rhs form (a_rank>=2,b_rank=1). "
+                f"a_rank={a_rank} b_rank={b_rank}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_multi_head_attention(node: Any, ctx: Any) -> None:
+    num_heads = int(node.attrs.get("num_heads", 0))
+    if num_heads <= 0:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"MultiHeadAttention num_heads must be > 0. num_heads={num_heads}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    unidirectional = int(node.attrs.get("unidirectional", 0))
+    if unidirectional != 0:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=(
+                "MultiHeadAttention builtin lowering currently supports unidirectional=0 only. "
+                f"unidirectional={unidirectional}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    query_name = node.inputs[0].name
+    key_name = node.inputs[1].name
+    value_name = node.inputs[2].name
+    query_shape = [int(v) for v in ctx.get_tensor_shape(query_name)]
+    key_shape = [int(v) for v in ctx.get_tensor_shape(key_name)]
+    value_shape = [int(v) for v in ctx.get_tensor_shape(value_name)]
+    if len(query_shape) != 3 or len(key_shape) != 3 or len(value_shape) != 3:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=(
+                "MultiHeadAttention builtin lowering currently supports rank-3 query/key/value only. "
+                f"query_shape={query_shape} key_shape={key_shape} value_shape={value_shape}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    query_dtype = str(ctx.get_tensor_dtype(query_name)).upper()
+    key_dtype = str(ctx.get_tensor_dtype(key_name)).upper()
+    value_dtype = str(ctx.get_tensor_dtype(value_name)).upper()
+    if len({query_dtype, key_dtype, value_dtype}) != 1:
+        raise NodeValidationError(
+            reason_code="unsupported_input_dtype",
+            message=(
+                "MultiHeadAttention builtin lowering requires query/key/value dtypes to match. "
+                f"query_dtype={query_dtype} key_dtype={key_dtype} value_dtype={value_dtype}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if query_dtype not in {"FLOAT16", "FLOAT32"}:
+        raise NodeValidationError(
+            reason_code="unsupported_input_dtype",
+            message=(
+                "MultiHeadAttention builtin lowering supports FLOAT16/FLOAT32 only. "
+                f"dtype={query_dtype}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    query_hidden = int(query_shape[2])
+    key_hidden = int(key_shape[2])
+    value_hidden = int(value_shape[2])
+    if query_hidden <= 0 or key_hidden <= 0 or value_hidden <= 0:
+        raise NodeValidationError(
+            reason_code="unsupported_input_shape",
+            message=(
+                "MultiHeadAttention builtin lowering currently requires static positive hidden sizes. "
+                f"query_shape={query_shape} key_shape={key_shape} value_shape={value_shape}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if query_hidden % num_heads != 0 or key_hidden % num_heads != 0 or value_hidden % num_heads != 0:
+        raise NodeValidationError(
+            reason_code="unsupported_input_shape",
+            message=(
+                "MultiHeadAttention hidden sizes must be divisible by num_heads. "
+                f"num_heads={num_heads} query_hidden={query_hidden} "
+                f"key_hidden={key_hidden} value_hidden={value_hidden}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if int(query_hidden // num_heads) != int(key_hidden // num_heads):
+        raise NodeValidationError(
+            reason_code="unsupported_input_shape",
+            message=(
+                "MultiHeadAttention query/key head dimensions must match. "
+                f"query_head_dim={int(query_hidden // num_heads)} key_head_dim={int(key_hidden // num_heads)}"
+            ),
             node_name=node.name,
             node_op=node.op,
         )
@@ -2902,10 +3190,10 @@ def _validate_topk(node: Any, ctx: Any) -> None:
             node_op=node.op,
         )
     sorted_attr = int(node.attrs.get("sorted", 1))
-    if sorted_attr != 1:
+    if sorted_attr not in {0, 1}:
         raise NodeValidationError(
             reason_code="unsupported_attribute_value",
-            message=f"TopK sorted must be 1 in flatbuffer_direct builtin lowering. sorted={sorted_attr}",
+            message=f"TopK sorted must be 0 or 1 in flatbuffer_direct builtin lowering. sorted={sorted_attr}",
             node_name=node.name,
             node_op=node.op,
         )
@@ -3768,8 +4056,8 @@ def _validate_einsum(node: Any, ctx: Any) -> None:
             node_op=node.op,
         )
     try:
-        lhs, rhs_out = equation.split(",", 1)
-        rhs, out = rhs_out.split("->", 1)
+        input_expr, out = equation.split("->", 1)
+        input_terms = [str(v) for v in input_expr.split(",") if str(v) != ""]
     except Exception as ex:
         raise NodeValidationError(
             reason_code="unsupported_attribute_value",
@@ -3777,10 +4065,307 @@ def _validate_einsum(node: Any, ctx: Any) -> None:
             node_name=node.name,
             node_op=node.op,
         ) from ex
+    if len(input_terms) not in {2, 3}:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=(
+                "Einsum builtin lowering currently supports 2-input or selected 3-input equations only. "
+                f"equation={equation}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+    lhs = input_terms[0]
+    rhs = input_terms[1]
+
+    # Specialized builtin lowering:
+    #   nlhd,nhdv,nlh->nlhv
+    # using TRANSPOSE+BATCH_MATMUL+TRANSPOSE+EXPAND_DIMS+MUL.
+    if (
+        len(input_terms) == 3
+        and len(lhs) == 4
+        and len(rhs) == 4
+        and len(input_terms[2]) == 3
+        and len(out) == 4
+    ):
+        scale = input_terms[2]
+        if (
+            lhs[0] == rhs[0] == scale[0] == out[0]
+            and lhs[1] == scale[1] == out[1]
+            and lhs[2] == rhs[1] == scale[2] == out[2]
+            and lhs[3] == rhs[2]
+            and rhs[3] == out[3]
+            and lhs[3] not in out
+        ):
+            lhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+            rhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
+            scale_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[2].name)]
+            out_shape = [int(v) for v in ctx.get_tensor_shape(node.outputs[0].name)]
+            if len(lhs_shape) != 4 or len(rhs_shape) != 4 or len(scale_shape) != 3 or len(out_shape) != 4:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_rank",
+                    message=(
+                        "Einsum equation nlhd,nhdv,nlh->nlhv requires lhs/rhs rank-4, scale rank-3, output rank-4. "
+                        f"lhs_shape={lhs_shape} rhs_shape={rhs_shape} scale_shape={scale_shape} out_shape={out_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+
+            def _known_dim(shape: List[int], axis: int) -> Optional[int]:
+                dim = int(shape[axis])
+                return dim if dim > 0 else None
+
+            lhs_n = _known_dim(lhs_shape, 0)
+            rhs_n = _known_dim(rhs_shape, 0)
+            scale_n = _known_dim(scale_shape, 0)
+            out_n = _known_dim(out_shape, 0)
+            if lhs_n is not None and rhs_n is not None and lhs_n != rhs_n:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Einsum batch dimension mismatch for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_n={lhs_n} rhs_n={rhs_n}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            if lhs_n is not None and scale_n is not None and lhs_n != scale_n:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Einsum batch dimension mismatch between lhs and scale for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_n={lhs_n} scale_n={scale_n}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            if lhs_n is not None and out_n is not None and lhs_n != out_n:
+                raise NodeValidationError(
+                    reason_code="unsupported_output_shape",
+                    message=(
+                        "Einsum output batch dimension mismatch for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_n={lhs_n} out_n={out_n}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+
+            lhs_l = _known_dim(lhs_shape, 1)
+            scale_l = _known_dim(scale_shape, 1)
+            out_l = _known_dim(out_shape, 1)
+            if lhs_l is not None and scale_l is not None and lhs_l != scale_l:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Einsum sequence-length mismatch between lhs and scale for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_l={lhs_l} scale_l={scale_l}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            if lhs_l is not None and out_l is not None and lhs_l != out_l:
+                raise NodeValidationError(
+                    reason_code="unsupported_output_shape",
+                    message=(
+                        "Einsum output l dimension mismatch for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_l={lhs_l} out_l={out_l}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+
+            lhs_h = _known_dim(lhs_shape, 2)
+            rhs_h = _known_dim(rhs_shape, 1)
+            scale_h = _known_dim(scale_shape, 2)
+            out_h = _known_dim(out_shape, 2)
+            if lhs_h is not None and rhs_h is not None and lhs_h != rhs_h:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Einsum head dimension mismatch for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_h={lhs_h} rhs_h={rhs_h}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            if lhs_h is not None and scale_h is not None and lhs_h != scale_h:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Einsum head dimension mismatch between lhs and scale for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_h={lhs_h} scale_h={scale_h}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            if lhs_h is not None and out_h is not None and lhs_h != out_h:
+                raise NodeValidationError(
+                    reason_code="unsupported_output_shape",
+                    message=(
+                        "Einsum output h dimension mismatch for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_h={lhs_h} out_h={out_h}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+
+            lhs_d = _known_dim(lhs_shape, 3)
+            rhs_d = _known_dim(rhs_shape, 2)
+            if lhs_d is not None and rhs_d is not None and lhs_d != rhs_d:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Einsum contraction dimension mismatch for equation nlhd,nhdv,nlh->nlhv. "
+                        f"lhs_d={lhs_d} rhs_d={rhs_d}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+
+            rhs_v = _known_dim(rhs_shape, 3)
+            out_v = _known_dim(out_shape, 3)
+            if rhs_v is not None and out_v is not None and rhs_v != out_v:
+                raise NodeValidationError(
+                    reason_code="unsupported_output_shape",
+                    message=(
+                        "Einsum output v dimension mismatch for equation nlhd,nhdv,nlh->nlhv. "
+                        f"rhs_v={rhs_v} out_v={out_v}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+            return
+
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=(
+                "Unsupported 3-input Einsum equation for builtin lowering. "
+                f"equation={equation}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
 
     # Specialized builtin lowering:
     #   abgd,gf->abdf
     # using TRANSPOSE+RESHAPE+BATCH_MATMUL+RESHAPE.
+    #
+    # Specialized builtin lowering:
+    #   abik,abjk->abij
+    # using BATCH_MATMUL(adjY=True).
+    if (
+        len(lhs) == 4
+        and len(rhs) == 4
+        and len(out) == 4
+        and lhs[0] == rhs[0] == out[0]
+        and lhs[1] == rhs[1] == out[1]
+        and lhs[2] == out[2]
+        and rhs[2] == out[3]
+        and lhs[3] == rhs[3]
+        and lhs[3] not in out
+    ):
+        lhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+        rhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
+        out_shape = [int(v) for v in ctx.get_tensor_shape(node.outputs[0].name)]
+        if len(lhs_shape) != 4 or len(rhs_shape) != 4 or len(out_shape) != 4:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=(
+                    "Einsum equation abik,abjk->abij requires lhs/rhs/output rank-4. "
+                    f"lhs_shape={lhs_shape} rhs_shape={rhs_shape} out_shape={out_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        return
+
+    # Specialized builtin lowering:
+    #   abij,abjd->abid
+    # using BATCH_MATMUL.
+    if (
+        len(lhs) == 4
+        and len(rhs) == 4
+        and len(out) == 4
+        and lhs[0] == rhs[0] == out[0]
+        and lhs[1] == rhs[1] == out[1]
+        and lhs[2] == out[2]
+        and lhs[3] == rhs[2]
+        and rhs[3] == out[3]
+        and lhs[3] not in out
+    ):
+        lhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+        rhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
+        out_shape = [int(v) for v in ctx.get_tensor_shape(node.outputs[0].name)]
+        if len(lhs_shape) != 4 or len(rhs_shape) != 4 or len(out_shape) != 4:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=(
+                    "Einsum equation abij,abjd->abid requires lhs/rhs/output rank-4. "
+                    f"lhs_shape={lhs_shape} rhs_shape={rhs_shape} out_shape={out_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        return
+
+    # Specialized builtin lowering:
+    #   abji,abjd->abid
+    # using TRANSPOSE+BATCH_MATMUL.
+    if (
+        len(lhs) == 4
+        and len(rhs) == 4
+        and len(out) == 4
+        and lhs[0] == rhs[0] == out[0]
+        and lhs[1] == rhs[1] == out[1]
+        and lhs[2] == rhs[2]
+        and lhs[3] == out[2]
+        and rhs[3] == out[3]
+        and lhs[2] not in out
+    ):
+        lhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+        rhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
+        out_shape = [int(v) for v in ctx.get_tensor_shape(node.outputs[0].name)]
+        if len(lhs_shape) != 4 or len(rhs_shape) != 4 or len(out_shape) != 4:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=(
+                    "Einsum equation abji,abjd->abid requires lhs/rhs/output rank-4. "
+                    f"lhs_shape={lhs_shape} rhs_shape={rhs_shape} out_shape={out_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        return
+
+    # Specialized builtin lowering:
+    #   amk,ank->amn
+    # using BATCH_MATMUL(adjY=True).
+    if (
+        len(lhs) == 3
+        and len(rhs) == 3
+        and len(out) == 3
+        and lhs[0] == rhs[0] == out[0]
+        and lhs[1] == out[1]
+        and rhs[1] == out[2]
+        and lhs[2] == rhs[2]
+        and lhs[2] not in out
+    ):
+        lhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+        rhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
+        out_shape = [int(v) for v in ctx.get_tensor_shape(node.outputs[0].name)]
+        if len(lhs_shape) != 3 or len(rhs_shape) != 3 or len(out_shape) != 3:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=(
+                    "Einsum equation amk,ank->amn requires lhs/rhs/output rank-3. "
+                    f"lhs_shape={lhs_shape} rhs_shape={rhs_shape} out_shape={out_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        return
+
     if (
         len(lhs) == 4
         and len(rhs) == 2
@@ -3812,6 +4397,128 @@ def _validate_einsum(node: Any, ctx: Any) -> None:
                 message=(
                     "Einsum contraction dimension mismatch for equation abgd,gf->abdf. "
                     f"lhs_g={lhs_g} rhs_g={rhs_g}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        return
+
+    # Specialized builtin lowering:
+    #   aijk,aijh->ajkh
+    # using TRANSPOSE+TRANSPOSE+BATCH_MATMUL.
+    if (
+        len(lhs) == 4
+        and len(rhs) == 4
+        and len(out) == 4
+        and lhs[0] == rhs[0]
+        and lhs[1] == rhs[1]
+        and lhs[2] == rhs[2]
+        and out[0] == lhs[0]
+        and out[1] == lhs[2]
+        and out[2] == lhs[3]
+        and out[3] == rhs[3]
+        and lhs[1] not in out
+    ):
+        lhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
+        rhs_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
+        out_shape = [int(v) for v in ctx.get_tensor_shape(node.outputs[0].name)]
+        if len(lhs_shape) != 4 or len(rhs_shape) != 4 or len(out_shape) != 4:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=(
+                    "Einsum equation aijk,aijh->ajkh requires lhs/rhs/output rank-4. "
+                    f"lhs_shape={lhs_shape} rhs_shape={rhs_shape} out_shape={out_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+        def _known_dim(shape: List[int], axis: int) -> Optional[int]:
+            dim = int(shape[axis])
+            return dim if dim > 0 else None
+
+        lhs_a = _known_dim(lhs_shape, 0)
+        rhs_a = _known_dim(rhs_shape, 0)
+        out_a = _known_dim(out_shape, 0)
+        if lhs_a is not None and rhs_a is not None and lhs_a != rhs_a:
+            raise NodeValidationError(
+                reason_code="unsupported_input_shape",
+                message=(
+                    "Einsum batch dimension mismatch for equation aijk,aijh->ajkh. "
+                    f"lhs_a={lhs_a} rhs_a={rhs_a}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if lhs_a is not None and out_a is not None and lhs_a != out_a:
+            raise NodeValidationError(
+                reason_code="unsupported_output_shape",
+                message=(
+                    "Einsum output batch dimension mismatch for equation aijk,aijh->ajkh. "
+                    f"lhs_a={lhs_a} out_a={out_a}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+        lhs_i = _known_dim(lhs_shape, 1)
+        rhs_i = _known_dim(rhs_shape, 1)
+        if lhs_i is not None and rhs_i is not None and lhs_i != rhs_i:
+            raise NodeValidationError(
+                reason_code="unsupported_input_shape",
+                message=(
+                    "Einsum contraction dimension mismatch for equation aijk,aijh->ajkh. "
+                    f"lhs_i={lhs_i} rhs_i={rhs_i}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+        lhs_j = _known_dim(lhs_shape, 2)
+        rhs_j = _known_dim(rhs_shape, 2)
+        out_j = _known_dim(out_shape, 1)
+        if lhs_j is not None and rhs_j is not None and lhs_j != rhs_j:
+            raise NodeValidationError(
+                reason_code="unsupported_input_shape",
+                message=(
+                    "Einsum shared-j dimension mismatch for equation aijk,aijh->ajkh. "
+                    f"lhs_j={lhs_j} rhs_j={rhs_j}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if lhs_j is not None and out_j is not None and lhs_j != out_j:
+            raise NodeValidationError(
+                reason_code="unsupported_output_shape",
+                message=(
+                    "Einsum output j dimension mismatch for equation aijk,aijh->ajkh. "
+                    f"lhs_j={lhs_j} out_j={out_j}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+        lhs_k = _known_dim(lhs_shape, 3)
+        out_k = _known_dim(out_shape, 2)
+        if lhs_k is not None and out_k is not None and lhs_k != out_k:
+            raise NodeValidationError(
+                reason_code="unsupported_output_shape",
+                message=(
+                    "Einsum output k dimension mismatch for equation aijk,aijh->ajkh. "
+                    f"lhs_k={lhs_k} out_k={out_k}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+        rhs_h = _known_dim(rhs_shape, 3)
+        out_h = _known_dim(out_shape, 3)
+        if rhs_h is not None and out_h is not None and rhs_h != out_h:
+            raise NodeValidationError(
+                reason_code="unsupported_output_shape",
+                message=(
+                    "Einsum output h dimension mismatch for equation aijk,aijh->ajkh. "
+                    f"rhs_h={rhs_h} out_h={out_h}"
                 ),
                 node_name=node.name,
                 node_op=node.op,
@@ -4704,14 +5411,16 @@ def _validate_qlinear_average_pool(node: Any, ctx: Any) -> None:
 def _validate_resize(node: Any, ctx: Any) -> None:
     input_shape = ctx.get_tensor_shape(node.inputs[0].name)
     output_shape = ctx.get_tensor_shape(node.outputs[0].name)
-    if input_shape != [1] and len(input_shape) != 4:
+    input_is_unknown_placeholder = _is_unknown_rank_placeholder_tensor(ctx, node.inputs[0].name)
+    output_is_unknown_placeholder = _is_unknown_rank_placeholder_tensor(ctx, node.outputs[0].name)
+    if len(input_shape) != 4 and not input_is_unknown_placeholder:
         raise NodeValidationError(
             reason_code="unsupported_input_rank",
             message=f"Resize supports rank-4 input. input_shape={input_shape}",
             node_name=node.name,
             node_op=node.op,
         )
-    if output_shape != [1] and len(output_shape) != 4:
+    if len(output_shape) != 4 and not output_is_unknown_placeholder:
         raise NodeValidationError(
             reason_code="unsupported_output_rank",
             message=f"Resize supports rank-4 output. output_shape={output_shape}",
@@ -4761,6 +5470,46 @@ def _validate_resize(node: Any, ctx: Any) -> None:
 
     has_const_param = False
     has_dynamic_sizes_param = False
+
+    def _validate_dynamic_resize_sizes_input(tensor_name: str) -> None:
+        sizes_shape = ctx.get_tensor_shape(tensor_name)
+        if sizes_shape != [1] and len(sizes_shape) != 1:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=(
+                    "Resize dynamic sizes input must be rank-1. "
+                    f"sizes_shape={sizes_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if len(sizes_shape) == 1:
+            sizes_len = int(sizes_shape[0])
+            if sizes_len == 1:
+                # Placeholder length from symbolic shape inference.
+                sizes_len = -1
+            if sizes_len > 0 and sizes_len not in [2, 4]:
+                raise NodeValidationError(
+                    reason_code="unsupported_input_shape",
+                    message=(
+                        "Resize dynamic sizes input length must be 2 or 4. "
+                        f"sizes_shape={sizes_shape}"
+                    ),
+                    node_name=node.name,
+                    node_op=node.op,
+                )
+        sizes_dtype = str(ctx.get_tensor_dtype(tensor_name)).upper()
+        if sizes_dtype not in {"INT32", "INT64"}:
+            raise NodeValidationError(
+                reason_code="unsupported_input_dtype",
+                message=(
+                    "Resize dynamic sizes input must be INT32/INT64. "
+                    f"sizes_dtype={sizes_dtype}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
     if len(node.inputs) >= 4:
         tensor_name = node.inputs[3].name
         if tensor_name != "":
@@ -4770,43 +5519,7 @@ def _validate_resize(node: Any, ctx: Any) -> None:
                     has_const_param = True
             else:
                 has_dynamic_sizes_param = True
-                sizes_shape = ctx.get_tensor_shape(tensor_name)
-                if sizes_shape != [1] and len(sizes_shape) != 1:
-                    raise NodeValidationError(
-                        reason_code="unsupported_input_rank",
-                        message=(
-                            "Resize dynamic sizes input must be rank-1. "
-                            f"sizes_shape={sizes_shape}"
-                        ),
-                        node_name=node.name,
-                        node_op=node.op,
-                    )
-                if len(sizes_shape) == 1:
-                    sizes_len = int(sizes_shape[0])
-                    if sizes_len == 1:
-                        # Placeholder length from symbolic shape inference.
-                        sizes_len = -1
-                    if sizes_len > 0 and sizes_len not in [2, 4]:
-                        raise NodeValidationError(
-                            reason_code="unsupported_input_shape",
-                            message=(
-                                "Resize dynamic sizes input length must be 2 or 4. "
-                                f"sizes_shape={sizes_shape}"
-                            ),
-                            node_name=node.name,
-                            node_op=node.op,
-                        )
-                sizes_dtype = str(ctx.get_tensor_dtype(tensor_name)).upper()
-                if sizes_dtype not in {"INT32", "INT64"}:
-                    raise NodeValidationError(
-                        reason_code="unsupported_input_dtype",
-                        message=(
-                            "Resize dynamic sizes input must be INT32/INT64. "
-                            f"sizes_dtype={sizes_dtype}"
-                        ),
-                        node_name=node.name,
-                        node_op=node.op,
-                    )
+                _validate_dynamic_resize_sizes_input(tensor_name)
     if len(node.inputs) >= 3:
         tensor_name = node.inputs[2].name
         if tensor_name != "":
@@ -4814,9 +5527,17 @@ def _validate_resize(node: Any, ctx: Any) -> None:
             if int(np.asarray(arr).size) > 0:
                 has_const_param = True
     if len(node.inputs) == 2:
-        arr = _require_const_input(node, ctx, 1, "Resize scales/sizes")
-        if int(np.asarray(arr).size) > 0:
-            has_const_param = True
+        tensor_name = node.inputs[1].name
+        if tensor_name != "":
+            arr = ctx.get_constant_array(tensor_name)
+            if arr is not None:
+                if int(np.asarray(arr).size) > 0:
+                    has_const_param = True
+            else:
+                # _NodeWrap drops optional empty inputs, so
+                # Resize(x, "", "", sizes) may appear as 2-input form.
+                has_dynamic_sizes_param = True
+                _validate_dynamic_resize_sizes_input(tensor_name)
     if not has_const_param and not has_dynamic_sizes_param:
         raise NodeValidationError(
             reason_code="requires_constant_input",
@@ -4861,11 +5582,12 @@ def _validate_grid_sample(node: Any, ctx: Any) -> None:
     image_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[0].name)]
     grid_shape = [int(v) for v in ctx.get_tensor_shape(node.inputs[1].name)]
     output_shape = [int(v) for v in ctx.get_tensor_shape(node.outputs[0].name)]
-    if len(image_shape) != 4 or len(grid_shape) != 4 or len(output_shape) != 4:
+    rank = int(len(image_shape))
+    if rank not in {4, 5} or len(grid_shape) != rank or len(output_shape) != rank:
         raise NodeValidationError(
             reason_code="unsupported_input_rank",
             message=(
-                "GridSample supports rank-4 tensors only in flatbuffer_direct. "
+                "GridSample supports rank-4/5 tensors only in flatbuffer_direct. "
                 f"image_shape={image_shape} grid_shape={grid_shape} output_shape={output_shape}"
             ),
             node_name=node.name,
@@ -4882,11 +5604,14 @@ def _validate_grid_sample(node: Any, ctx: Any) -> None:
             node_op=node.op,
         )
 
-    if int(grid_shape[3]) != 2:
+    expected_grid_last_dim = 2 if rank == 4 else 3
+    if int(grid_shape[-1]) != int(expected_grid_last_dim):
         raise NodeValidationError(
             reason_code="unsupported_input_shape",
             message=(
-                "GridSample grid last dimension must be 2 ([x,y]) in flatbuffer_direct. "
+                f"GridSample grid last dimension must be {expected_grid_last_dim} "
+                + ("([x,y])" if rank == 4 else "([x,y,z])")
+                + " in flatbuffer_direct. "
                 f"grid_shape={grid_shape}. "
                 "When grid is a model input, pass -kat/--keep_shape_absolutely_input_names for it."
             ),
@@ -4894,26 +5619,50 @@ def _validate_grid_sample(node: Any, ctx: Any) -> None:
             node_op=node.op,
         )
 
-    n, c, h, w = [int(v) for v in image_shape]
-    out_n, out_c, out_h, out_w = [int(v) for v in output_shape]
-    grid_n, grid_h, grid_w, _ = [int(v) for v in grid_shape]
-    if not (
-        n == out_n == grid_n
-        and c == out_c
-        and out_h == grid_h
-        and out_w == grid_w
-        and h >= 1
-        and w >= 1
-    ):
-        raise NodeValidationError(
-            reason_code="unsupported_input_shape",
-            message=(
-                "GridSample input/grid/output shapes are inconsistent for built-in lowering. "
-                f"image_shape={image_shape} grid_shape={grid_shape} output_shape={output_shape}"
-            ),
-            node_name=node.name,
-            node_op=node.op,
-        )
+    if rank == 4:
+        n, c, h, w = [int(v) for v in image_shape]
+        out_n, out_c, out_h, out_w = [int(v) for v in output_shape]
+        grid_n, grid_h, grid_w, _ = [int(v) for v in grid_shape]
+        if not (
+            n == out_n == grid_n
+            and c == out_c
+            and out_h == grid_h
+            and out_w == grid_w
+            and h >= 1
+            and w >= 1
+        ):
+            raise NodeValidationError(
+                reason_code="unsupported_input_shape",
+                message=(
+                    "GridSample input/grid/output shapes are inconsistent for built-in lowering. "
+                    f"image_shape={image_shape} grid_shape={grid_shape} output_shape={output_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+    else:
+        n, c, d, h, w = [int(v) for v in image_shape]
+        out_n, out_c, out_d, out_h, out_w = [int(v) for v in output_shape]
+        grid_n, grid_d, grid_h, grid_w, _ = [int(v) for v in grid_shape]
+        if not (
+            n == out_n == grid_n
+            and c == out_c
+            and out_d == grid_d
+            and out_h == grid_h
+            and out_w == grid_w
+            and d >= 1
+            and h >= 1
+            and w >= 1
+        ):
+            raise NodeValidationError(
+                reason_code="unsupported_input_shape",
+                message=(
+                    "GridSample input/grid/output shapes are inconsistent for built-in lowering. "
+                    f"image_shape={image_shape} grid_shape={grid_shape} output_shape={output_shape}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
 
     image_dtype = str(ctx.get_tensor_dtype(node.inputs[0].name)).upper()
     grid_dtype = str(ctx.get_tensor_dtype(node.inputs[1].name)).upper()
@@ -5462,6 +6211,12 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         tflite_ops=["ADD"],
         builder=_make_binary_builder("ADD"),
         validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
+    ),
+    "Sum": DispatchEntry(
+        onnx_op="Sum",
+        tflite_ops=["ADD"],
+        builder=build_sum_op,
+        validation=ValidationSpec(min_inputs=2, max_inputs=None, min_outputs=1, max_outputs=1),
     ),
     "Sub": DispatchEntry(
         onnx_op="Sub",
@@ -6103,7 +6858,7 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
     ),
     "Where": DispatchEntry(
         onnx_op="Where",
-        tflite_ops=["CAST", "SELECT"],
+        tflite_ops=["CAST", "SELECT", "SELECT_V2"],
         builder=build_where_op,
         validation=ValidationSpec(min_inputs=3, max_inputs=3, min_outputs=1, max_outputs=1),
         extra_validator=_validate_where,
@@ -6464,8 +7219,8 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
             max_inputs=3,
             min_outputs=1,
             max_outputs=1,
-            input_rank={0: [3, 4, 5]},
-            output_rank={0: [3, 4, 5]},
+            input_rank={0: [1, 2, 3, 4, 5]},
+            output_rank={0: [1, 2, 3, 4, 5]},
         ),
         extra_validator=_validate_conv,
     ),
@@ -6491,8 +7246,8 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
             max_inputs=3,
             min_outputs=1,
             max_outputs=1,
-            input_rank={0: [1, 3, 4]},
-            output_rank={0: [1, 3, 4]},
+            input_rank={0: [1, 2, 3, 4]},
+            output_rank={0: [1, 2, 3, 4]},
         ),
         extra_validator=_validate_fused_conv,
     ),
@@ -6571,8 +7326,8 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
             min_outputs=1,
             max_outputs=2,
             required_attrs=["kernel_shape"],
-            input_rank={0: [4]},
-            output_rank={0: [1, 4], 1: [1, 4]},
+            input_rank={0: [3, 4]},
+            output_rank={0: [1, 3, 4], 1: [1, 3, 4]},
         ),
         extra_validator=_validate_pool,
     ),
@@ -6589,6 +7344,13 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         builder=build_matmul_op,
         validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
         extra_validator=_validate_matmul,
+    ),
+    "MultiHeadAttention": DispatchEntry(
+        onnx_op="MultiHeadAttention",
+        tflite_ops=["RESHAPE", "TRANSPOSE", "BATCH_MATMUL", "MUL", "SOFTMAX", "CAST"],
+        builder=build_multi_head_attention_op,
+        validation=ValidationSpec(min_inputs=3, max_inputs=3, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_multi_head_attention,
     ),
     "FusedMatMul": DispatchEntry(
         onnx_op="FusedMatMul",
@@ -6657,11 +7419,19 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
     ),
     "Einsum": DispatchEntry(
         onnx_op="Einsum",
-        tflite_ops=["FULLY_CONNECTED", "BATCH_MATMUL", "CAST", "TRANSPOSE", "RESHAPE"],
+        tflite_ops=[
+            "FULLY_CONNECTED",
+            "BATCH_MATMUL",
+            "CAST",
+            "TRANSPOSE",
+            "RESHAPE",
+            "EXPAND_DIMS",
+            "MUL",
+        ],
         builder=build_einsum_op,
         validation=ValidationSpec(
             min_inputs=2,
-            max_inputs=2,
+            max_inputs=3,
             min_outputs=1,
             max_outputs=1,
         ),

@@ -32,13 +32,21 @@ from cli_helpers.utils import strip_ansi
 import click
 from configobj import ConfigObj
 import keyring
+from prompt_toolkit import print_formatted_text
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completion, DynamicCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.enums import DEFAULT_BUFFER, EditingMode
 from prompt_toolkit.filters import Condition, HasFocus, IsDone
-from prompt_toolkit.formatted_text import ANSI, AnyFormattedText
+from prompt_toolkit.formatted_text import (
+    ANSI,
+    HTML,
+    AnyFormattedText,
+    FormattedText,
+    to_formatted_text,
+    to_plain_text,
+)
 from prompt_toolkit.key_binding.bindings.named_commands import register as prompt_register
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.layout.processors import ConditionalProcessor, HighlightMatchingBracketProcessor
@@ -54,12 +62,12 @@ import sqlparse
 
 from mycli import __version__
 from mycli.clibuffer import cli_is_multiline
-from mycli.clistyle import style_factory, style_factory_output
+from mycli.clistyle import style_factory_helpers, style_factory_toolkit
 from mycli.clitoolbar import create_toolbar_tokens_func
 from mycli.compat import WIN
 from mycli.completion_refresher import CompletionRefresher
 from mycli.config import get_mylogin_cnf_path, open_mylogin_cnf, read_config_files, str_to_bool, strip_matching_quotes, write_default_config
-from mycli.constants import ISSUES_URL
+from mycli.constants import HOME_URL, ISSUES_URL, REPO_URL
 from mycli.key_bindings import mycli_bindings
 from mycli.lexer import MyCliLexer
 from mycli.packages import special
@@ -69,7 +77,7 @@ from mycli.packages.parseutils import is_destructive, is_dropping_database, is_v
 from mycli.packages.prompt_utils import confirm, confirm_destructive_query
 from mycli.packages.special.favoritequeries import FavoriteQueries
 from mycli.packages.special.main import ArgType
-from mycli.packages.special.utils import format_uptime, get_ssl_version, get_uptime
+from mycli.packages.special.utils import format_uptime, get_ssl_version, get_uptime, get_warning_count
 from mycli.packages.sqlresult import SQLResult
 from mycli.packages.tabular_output import sql_format
 from mycli.packages.toolkit.history import FileHistoryWithTimestamp
@@ -87,7 +95,7 @@ sqlparse.engine.grouping.MAX_GROUPING_TOKENS = None  # type: ignore[assignment]
 # Query tuples are used for maintaining history
 Query = namedtuple("Query", ["query", "successful", "mutating"])
 
-SUPPORT_INFO = f"Home: https://mycli.net\nBug tracker: {ISSUES_URL}"
+SUPPORT_INFO = f"Home: {HOME_URL}\nBug tracker: {ISSUES_URL}"
 DEFAULT_WIDTH = 80
 DEFAULT_HEIGHT = 25
 MIN_COMPLETION_TRIGGER = 1
@@ -150,6 +158,7 @@ class MyCli:
         self,
         sqlexecute: SQLExecute | None = None,
         prompt: str | None = None,
+        toolbar_format: str | None = None,
         logfile: TextIOWrapper | Literal[False] | None = None,
         defaults_suffix: str | None = None,
         defaults_file: str | None = None,
@@ -206,7 +215,9 @@ class MyCli:
         self.syntax_style = c["main"]["syntax_style"]
         self.less_chatty = c["main"].as_bool("less_chatty")
         self.cli_style = c["colors"]
-        self.output_style = style_factory_output(self.syntax_style, self.cli_style)
+        self.toolkit_style = style_factory_toolkit(self.syntax_style, self.cli_style)
+        self.helpers_style = style_factory_helpers(self.syntax_style, self.cli_style)
+        self.helpers_warnings_style = style_factory_helpers(self.syntax_style, self.cli_style, warnings=True)
         self.wider_completion_menu = c["main"].as_bool("wider_completion_menu")
         c_dest_warning = c["main"].as_bool("destructive_warning")
         self.destructive_warning = c_dest_warning if warn is None else warn
@@ -269,6 +280,7 @@ class MyCli:
         self.min_completion_trigger = c["main"].as_int("min_completion_trigger")
         MIN_COMPLETION_TRIGGER = self.min_completion_trigger
         self.last_prompt_message = ANSI('')
+        self.last_custom_toolbar_message = ANSI('')
 
         # Register custom special commands.
         self.register_special_commands()
@@ -291,7 +303,9 @@ class MyCli:
             self.my_cnf['mysqld'] = {}
         prompt_cnf = self.read_my_cnf(self.my_cnf, ["prompt"])["prompt"]
         self.prompt_format = prompt or prompt_cnf or c["main"]["prompt"] or self.default_prompt
+        self.prompt_lines = 0
         self.multiline_continuation_char = c["main"]["prompt_continuation"]
+        self.toolbar_format = toolbar_format or c['main']['toolbar']
         self.prompt_app = None
         self.destructive_keywords = [
             keyword for keyword in c["main"].get("destructive_keywords", "DROP SHUTDOWN DELETE TRUNCATE ALTER UPDATE").split(' ') if keyword
@@ -880,6 +894,13 @@ class MyCli:
             unpretty_text = unpretty_text + ';'
         return unpretty_text
 
+    def output_timing(self, timing: str, is_warnings_style: bool = False) -> None:
+        self.log_output(timing)
+        add_style = 'class:warnings.timing' if is_warnings_style else 'class:output.timing'
+        formatted_timing = FormattedText([('', timing)])
+        styled_timing = to_formatted_text(formatted_timing, style=add_style)
+        print_formatted_text(styled_timing, style=self.toolkit_style)
+
     def run_cli(self) -> None:
         iterations = 0
         sqlexecute = self.sqlexecute
@@ -915,10 +936,13 @@ class MyCli:
         def get_prompt_message(app) -> ANSI:
             if app.current_buffer.text:
                 return self.last_prompt_message
-            prompt = self.get_prompt(self.prompt_format)
+            prompt = self.get_prompt(self.prompt_format, app.render_counter)
             if self.prompt_format == self.default_prompt and len(prompt) > self.max_len_prompt:
-                prompt = self.get_prompt(self.default_prompt_splitln)
+                prompt = self.get_prompt(self.default_prompt_splitln, app.render_counter)
+                self.prompt_lines = prompt.count('\n') + 1
             prompt = prompt.replace("\\x1b", "\x1b")
+            if not self.prompt_lines:
+                self.prompt_lines = prompt.count('\n') + 1
             self.last_prompt_message = ANSI(prompt)
             return self.last_prompt_message
 
@@ -944,9 +968,9 @@ class MyCli:
             nonlocal mutating
             result_count = watch_count = 0
             for result in results:
-                logger.debug("title: %r", result.title)
-                logger.debug("headers: %r", result.headers)
-                logger.debug("rows: %r", result.results)
+                logger.debug("preamble: %r", result.preamble)
+                logger.debug("header: %r", result.header)
+                logger.debug("rows: %r", result.rows)
                 logger.debug("status: %r", result.status)
                 logger.debug("command: %r", result.command)
                 threshold = 1000
@@ -962,7 +986,7 @@ class MyCli:
                             sys.exit(1)
                     else:
                         watch_count += 1
-                if is_select(result.status) and isinstance(result.results, Cursor) and result.results.rowcount > threshold:
+                if is_select(result.status) and isinstance(result.rows, Cursor) and result.rows.rowcount > threshold:
                     self.echo(
                         f"The result set has more than {threshold} rows.",
                         fg="red",
@@ -979,17 +1003,14 @@ class MyCli:
                 else:
                     max_width = None
 
-                formatted = self.format_output(
-                    result.title,
-                    result.results,
-                    result.headers,
-                    result.postamble,
-                    special.is_expanded_output(),
-                    special.is_redirected(),
-                    self.null_string,
-                    self.numeric_alignment,
-                    self.binary_display,
-                    max_width,
+                formatted = self.format_sqlresult(
+                    result,
+                    is_expanded=special.is_expanded_output(),
+                    is_redirected=special.is_redirected(),
+                    null_string=self.null_string,
+                    numeric_alignment=self.numeric_alignment,
+                    binary_display=self.binary_display,
+                    max_width=max_width,
                 )
 
                 t = time() - start
@@ -1001,9 +1022,10 @@ class MyCli:
                     except KeyboardInterrupt:
                         pass
                     if self.beep_after_seconds > 0 and t >= self.beep_after_seconds:
-                        self.bell()
+                        assert self.prompt_app is not None
+                        self.prompt_app.output.bell()
                     if special.is_timing_enabled():
-                        self.echo(f"Time: {t:0.03f}s")
+                        self.output_timing(f"Time: {t:0.03f}s")
                 except KeyboardInterrupt:
                     pass
 
@@ -1012,23 +1034,27 @@ class MyCli:
                 mutating = mutating or is_mutating(result.status)
 
                 # get and display warnings if enabled
-                if self.show_warnings and isinstance(result.results, Cursor) and result.results.warning_count > 0:
+                if self.show_warnings and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
                     warnings = sqlexecute.run("SHOW WARNINGS")
+                    t = time() - start
+                    saw_warning = False
                     for warning in warnings:
-                        formatted = self.format_output(
-                            warning.title,
-                            warning.results,
-                            warning.headers,
-                            warning.postamble,
-                            special.is_expanded_output(),
-                            special.is_redirected(),
-                            self.null_string,
-                            self.numeric_alignment,
-                            self.binary_display,
-                            max_width,
+                        saw_warning = True
+                        formatted = self.format_sqlresult(
+                            warning,
+                            is_expanded=special.is_expanded_output(),
+                            is_redirected=special.is_redirected(),
+                            null_string=self.null_string,
+                            numeric_alignment=self.numeric_alignment,
+                            binary_display=self.binary_display,
+                            max_width=max_width,
+                            is_warnings_style=True,
                         )
                         self.echo("")
-                        self.output(formatted, warning.status)
+                        self.output(formatted, warning.status, is_warnings_style=True)
+
+                    if saw_warning and special.is_timing_enabled():
+                        self.output_timing(f"Time: {t:0.03f}s", is_warnings_style=True)
 
         def keepalive_hook(_context):
             """
@@ -1110,7 +1136,7 @@ class MyCli:
                             click.echo(context)
                             click.echo("---")
                         if special.is_timing_enabled():
-                            click.echo(f"Time: {duration:.2f} seconds")
+                            self.output_timing(f"Time: {duration:.2f} seconds")
                         text = self.prompt_app.prompt(
                             default=sql or '',
                             inputhook=inputhook,
@@ -1160,7 +1186,8 @@ class MyCli:
             try:
                 logger.debug("sql: %r", text)
 
-                special.write_tee(self.get_prompt(self.prompt_format) + text)
+                special.write_tee(self.last_prompt_message, nl=False)
+                special.write_tee(text)
                 self.log_query(text)
 
                 successful = False
@@ -1189,7 +1216,7 @@ class MyCli:
                     # Restart connection to the database
                     sqlexecute.connect()
                     try:
-                        for _title, _cur, _headers, status in sqlexecute.run(f"kill {connection_id_to_kill}"):
+                        for _preamble, _cur, _headers, status in sqlexecute.run(f"kill {connection_id_to_kill}"):
                             status_str = str(status).lower()
                             if status_str.find("ok") > -1:
                                 logger.debug("cancelled query, connection id: %r, sql: %r", connection_id_to_kill, text)
@@ -1238,7 +1265,11 @@ class MyCli:
             query = Query(text, successful, mutating)
             self.query_history.append(query)
 
-        get_toolbar_tokens = create_toolbar_tokens_func(self, show_initial_toolbar_help)
+        get_toolbar_tokens = create_toolbar_tokens_func(
+            self,
+            show_initial_toolbar_help,
+            self.toolbar_format,
+        )
         if self.wider_completion_menu:
             complete_style = CompleteStyle.MULTI_COLUMN
         else:
@@ -1269,7 +1300,8 @@ class MyCli:
                 auto_suggest=AutoSuggestFromHistory(),
                 complete_while_typing=complete_while_typing_filter,
                 multiline=cli_is_multiline(self),
-                style=style_factory(self.syntax_style, self.cli_style),
+                # why not self.toolkit_style here?
+                style=style_factory_toolkit(self.syntax_style, self.cli_style),
                 include_default_pygments_style=False,
                 key_bindings=key_bindings,
                 enable_open_in_editor=True,
@@ -1349,8 +1381,10 @@ class MyCli:
             self.logfile.write(query)
             self.logfile.write("\n")
 
-    def log_output(self, output: str) -> None:
+    def log_output(self, output: str | AnyFormattedText) -> None:
         """Log the output in the audit log, if it's enabled."""
+        if isinstance(output, (ANSI, HTML, FormattedText)):
+            output = to_plain_text(output)
         if isinstance(self.logfile, TextIOWrapper):
             click.echo(output, file=self.logfile)
 
@@ -1365,14 +1399,14 @@ class MyCli:
         self.log_output(s)
         click.secho(s, **kwargs)
 
-    def bell(self) -> None:
-        """Print a bell on the stderr."""
-        click.secho("\a", err=True, nl=False)
-
     def get_output_margin(self, status: str | None = None) -> int:
         """Get the output margin (number of rows for the prompt, footer and
         timing message."""
-        margin = self.get_reserved_space() + self.get_prompt(self.prompt_format).count("\n") + 1
+        if not self.prompt_lines:
+            # self.prompt_app.app.render_counter failed in the test suite
+            app = get_app()
+            self.prompt_lines = self.get_prompt(self.prompt_format, app.render_counter).count('\n') + 1
+        margin = self.get_reserved_space() + self.prompt_lines
         if special.is_timing_enabled():
             margin += 1
         if status:
@@ -1380,7 +1414,12 @@ class MyCli:
 
         return margin
 
-    def output(self, output: itertools.chain[str], status: str | None = None) -> None:
+    def output(
+        self,
+        output: itertools.chain[str],
+        status: str | None = None,
+        is_warnings_style: bool = False,
+    ) -> None:
         """Output text to stdout or a pager command.
 
         The status text is not outputted to pager or files.
@@ -1442,8 +1481,12 @@ class MyCli:
                         click.secho(line)
 
         if status:
+            # todo allow status to be a FormattedText, but strip before logging
             self.log_output(status)
-            click.secho(status)
+            add_style = 'class:warnings.status' if is_warnings_style else 'class:output.status'
+            formatted_status = FormattedText([('', status)])
+            styled_status = to_formatted_text(formatted_status, style=add_style)
+            print_formatted_text(styled_status, style=self.toolkit_style)
 
     def configure_pager(self) -> None:
         # Provide sane defaults for less if they are empty.
@@ -1497,8 +1540,21 @@ class MyCli:
         with self._completer_lock:
             return self.completer.get_completions(Document(text=text, cursor_position=cursor_position), None)
 
-    # todo: time/uptime update on every character typed, instead of after every return
-    def get_prompt(self, string: str) -> str:
+    def get_custom_toolbar(self, toolbar_format: str) -> ANSI:
+        if self.prompt_app and self.prompt_app.app.current_buffer.text:
+            return self.last_custom_toolbar_message
+        app = get_app()
+        toolbar = self.get_prompt(toolbar_format, app.render_counter)
+        toolbar = toolbar.replace("\\x1b", "\x1b")
+        self.last_custom_toolbar_message = ANSI(toolbar)
+        return self.last_custom_toolbar_message
+
+    # Memoizing a method leaks the instance, but we only expect one MyCli instance.
+    # Before memoizing, get_prompt() was called dozens of times per prompt.
+    # Even after memoizing, get_prompt's logic gets called twice per prompt, which
+    # should be addressed, because some format strings take a trip to the server.
+    @functools.lru_cache(maxsize=256)  # noqa: B019
+    def get_prompt(self, string: str, _render_counter: int) -> str:
         sqlexecute = self.sqlexecute
         assert sqlexecute is not None
         assert sqlexecute.server_info is not None
@@ -1527,6 +1583,8 @@ class MyCli:
         string = string.replace("\\k", os.path.basename(sqlexecute.socket or str(sqlexecute.port)))
         string = string.replace("\\K", sqlexecute.socket or str(sqlexecute.port))
         string = string.replace("\\A", self.dsn_alias or "(none)")
+        string = string.replace("\\_", " ")
+
         # jump through hoops for the test environment, and for efficiency
         if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
             if '\\y' in string:
@@ -1539,14 +1597,26 @@ class MyCli:
             string = string.replace('\\y', '(none)')
             string = string.replace('\\Y', '(none)')
 
-        string = string.replace("\\_", " ")
-        # jump through hoops for the test environment and for efficiency
         if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
             if '\\T' in string:
                 with sqlexecute.conn.cursor() as cur:
                     string = string.replace('\\T', get_ssl_version(cur) or '(none)')
         else:
             string = string.replace('\\T', '(none)')
+
+        if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
+            if '\\w' in string:
+                with sqlexecute.conn.cursor() as cur:
+                    string = string.replace('\\w', str(get_warning_count(cur) or '(none)'))
+        else:
+            string = string.replace('\\w', '(none)')
+        if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
+            if '\\W' in string:
+                with sqlexecute.conn.cursor() as cur:
+                    string = string.replace('\\W', str(get_warning_count(cur) or ''))
+        else:
+            string = string.replace('\\W', '')
+
         return string
 
     def run_query(
@@ -1562,35 +1632,30 @@ class MyCli:
         for result in results:
             self.main_formatter.query = query
             self.redirect_formatter.query = query
-            output = self.format_output(
-                result.title,
-                result.results,
-                result.headers,
-                result.postamble,
-                special.is_expanded_output(),
-                special.is_redirected(),
-                self.null_string,
-                self.numeric_alignment,
-                self.binary_display,
+            output = self.format_sqlresult(
+                result,
+                is_expanded=special.is_expanded_output(),
+                is_redirected=special.is_redirected(),
+                null_string=self.null_string,
+                numeric_alignment=self.numeric_alignment,
+                binary_display=self.binary_display,
             )
             for line in output:
                 self.log_output(line)
                 click.echo(line, nl=new_line)
 
             # get and display warnings if enabled
-            if self.show_warnings and isinstance(result.results, Cursor) and result.results.warning_count > 0:
+            if self.show_warnings and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
                 warnings = self.sqlexecute.run("SHOW WARNINGS")
                 for warning in warnings:
-                    output = self.format_output(
-                        warning.title,
-                        warning.results,
-                        warning.headers,
-                        warning.postamble,
-                        special.is_expanded_output(),
-                        special.is_redirected(),
-                        self.null_string,
-                        self.numeric_alignment,
-                        self.binary_display,
+                    output = self.format_sqlresult(
+                        warning,
+                        is_expanded=special.is_expanded_output(),
+                        is_redirected=special.is_redirected(),
+                        null_string=self.null_string,
+                        numeric_alignment=self.numeric_alignment,
+                        binary_display=self.binary_display,
+                        is_warnings_style=True,
                     )
                     for line in output:
                         click.echo(line, nl=new_line)
@@ -1598,32 +1663,30 @@ class MyCli:
             checkpoint.write(query.rstrip('\n') + '\n')
             checkpoint.flush()
 
-    def format_output(
+    def format_sqlresult(
         self,
-        title: str | None,
-        cur: Cursor | list[tuple] | None,
-        headers: list[str] | str | None,
-        postamble: str | None,
-        expanded: bool = False,
+        result,
+        is_expanded: bool = False,
         is_redirected: bool = False,
         null_string: str | None = None,
         numeric_alignment: str = 'right',
         binary_display: str | None = None,
         max_width: int | None = None,
+        is_warnings_style: bool = False,
     ) -> itertools.chain[str]:
         if is_redirected:
             use_formatter = self.redirect_formatter
         else:
             use_formatter = self.main_formatter
 
-        expanded = expanded or use_formatter.format_name == "vertical"
+        is_expanded = is_expanded or use_formatter.format_name == "vertical"
         output: itertools.chain[str] = itertools.chain()
 
         output_kwargs = {
             "dialect": "unix",
             "disable_numparse": True,
             "preserve_whitespace": True,
-            "style": self.output_style,
+            "style": self.helpers_warnings_style if is_warnings_style else self.helpers_style,
         }
         default_kwargs = use_formatter._output_formats[use_formatter.format_name].formatter_args
 
@@ -1634,31 +1697,33 @@ class MyCli:
             # will run before preprocessors defined as part of the format in cli_helpers
             output_kwargs["preprocessors"] = (preprocessors.convert_to_undecoded_string,)
 
-        if title:
-            output = itertools.chain(output, [title])
+        if result.preamble:
+            output = itertools.chain(output, [result.preamble])
 
-        if headers or (cur and title):
+        if result.header or (result.rows and result.preamble):
             column_types = None
             colalign = None
-            if isinstance(cur, Cursor):
+            if isinstance(result.rows, Cursor):
 
                 def get_col_type(col) -> type:
                     col_type = FIELD_TYPES.get(col[1], str)
                     return col_type if type(col_type) is type else str
 
-                if cur.rowcount > 0:
-                    column_types = [get_col_type(tup) for tup in cur.description]
+                if result.rows.rowcount > 0:
+                    column_types = [get_col_type(tup) for tup in result.rows.description]
                     colalign = [numeric_alignment if x in (int, float, Decimal) else 'left' for x in column_types]
                 else:
                     column_types, colalign = [], []
 
-            if max_width is not None and isinstance(cur, Cursor):
-                cur = list(cur)
+            if max_width is not None and isinstance(result.rows, Cursor):
+                result_rows = list(result.rows)
+            else:
+                result_rows = result.rows
 
             formatted = use_formatter.format_output(
-                cur,
-                headers,
-                format_name="vertical" if expanded else None,
+                result_rows,
+                result.header or [],
+                format_name="vertical" if is_expanded else None,
                 column_types=column_types,
                 colalign=colalign,
                 **output_kwargs,
@@ -1668,12 +1733,12 @@ class MyCli:
                 formatted = formatted.splitlines()
             formatted = iter(formatted)
 
-            if not expanded and max_width and headers and cur:
+            if not is_expanded and max_width and result.header and result_rows:
                 first_line = next(formatted)
                 if len(strip_ansi(first_line)) > max_width:
                     formatted = use_formatter.format_output(
-                        cur,
-                        headers,
+                        result_rows,
+                        result.header,
                         format_name="vertical",
                         column_types=column_types,
                         **output_kwargs,
@@ -1685,8 +1750,8 @@ class MyCli:
 
             output = itertools.chain(output, formatted)
 
-        if postamble:
-            output = itertools.chain(output, [postamble])
+        if result.postamble:
+            output = itertools.chain(output, [result.postamble])
 
         return output
 
@@ -1756,6 +1821,7 @@ class MyCli:
 @click.option("--list-ssh-config", "list_ssh_config", is_flag=True, help="list ssh configurations in the ssh config (requires paramiko).")
 @click.option("--ssh-warning-off", is_flag=True, help="Suppress the SSH deprecation notice.")
 @click.option("-R", "--prompt", "prompt", help=f'Prompt format (Default: "{MyCli.default_prompt}").')
+@click.option('--toolbar', 'toolbar_format', help='Toolbar format.')
 @click.option("-l", "--logfile", type=click.File(mode="a", encoding="utf-8"), help="Log every query and its results to a file.")
 @click.option(
     "--checkpoint", type=click.File(mode="a", encoding="utf-8"), help="In batch or --execute mode, log successful queries to a file."
@@ -1816,6 +1882,7 @@ def cli(
     dbname: str | None,
     verbose: bool,
     prompt: str | None,
+    toolbar_format: str | None,
     logfile: TextIOWrapper | None,
     checkpoint: TextIOWrapper | None,
     defaults_group_suffix: str | None,
@@ -1916,6 +1983,7 @@ def cli(
 
     mycli = MyCli(
         prompt=prompt,
+        toolbar_format=toolbar_format,
         logfile=logfile,
         defaults_suffix=defaults_group_suffix,
         defaults_file=defaults_file,
@@ -1950,7 +2018,7 @@ def cli(
         click.secho(
             "Warning: The --ssl/--no-ssl CLI options are deprecated and will be removed in a future release. "
             "Please use the \"default_ssl_mode\" config option or --ssl-mode CLI flag instead. "
-            "See issue https://github.com/dbcli/mycli/issues/1507",
+            f"See issue {ISSUES_URL}/1507",
             err=True,
             fg="yellow",
         )
@@ -1958,8 +2026,7 @@ def cli(
     # ssh_port and ssh_config_path have truthy defaults and are not included
     if any([ssh_user, ssh_host, ssh_password, ssh_key_filename, list_ssh_config, ssh_config_host]) and not ssh_warning_off:
         click.secho(
-            "Warning: The built-in SSH functionality is deprecated and will be removed in a future release. "
-            "See Issue https://github.com/dbcli/mycli/issues/1464",
+            f"Warning: The built-in SSH functionality is deprecated and will be removed in a future release. See issue {ISSUES_URL}/1464",
             err=True,
             fg="red",
         )
@@ -2049,7 +2116,7 @@ def cli(
             click.secho(
                 'Warning: The "ssl" DSN URI parameter is deprecated and will be removed in a future release. '
                 'Please use the "ssl_mode" parameter instead. '
-                'See issue https://github.com/dbcli/mycli/issues/1507',
+                f'See issue {ISSUES_URL}/1507',
                 err=True,
                 fg='yellow',
             )
@@ -2213,7 +2280,7 @@ def cli(
                 dedent(
                     f"""
                     Reading configuration from my.cnf files is deprecated.
-                    See https://github.com/dbcli/mycli/issues/1490 .
+                    See {ISSUES_URL}/1490 .
                     The cause of this message is the following in a my.cnf file without a corresponding
                     ~/.myclirc entry:
 
@@ -2227,7 +2294,7 @@ def cli(
 
                     The ~/.myclirc setting will take precedence.  In the future, the my.cnf will be ignored.
 
-                    Values are documented at https://github.com/dbcli/mycli/blob/main/mycli/myclirc .  An
+                    Values are documented at {REPO_URL}/blob/main/mycli/myclirc .  An
                     empty <value> is generally accepted.
 
                     To ignore all of this, set
@@ -2581,9 +2648,7 @@ def do_config_checkup(mycli: MyCli) -> None:
                     did_output_deprecated = True
 
     if did_output_missing or did_output_unsupported or did_output_deprecated:
-        print(
-            'For more info on supported features, see the commentary and defaults at:\n\n    * https://github.com/dbcli/mycli/blob/main/mycli/myclirc\n'
-        )
+        print(f'For more info on supported features, see the commentary and defaults at:\n\n    * {REPO_URL}/blob/main/mycli/myclirc\n')
     else:
         print('\n### Configuration:\n')
         print('User configuration all up to date!\n')

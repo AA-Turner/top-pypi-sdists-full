@@ -21,26 +21,62 @@ class AllRolesProjectList(UncheckedBaseModel):
     make sure, that you use correct one(Project.objects.with_counts())
     """
 
-    agreement_methodology: typing.Optional[AgreementMethodologyEnum] = None
+    agreement_methodology: typing.Optional[AgreementMethodologyEnum] = pydantic.Field(default=None)
+    """
+    Methodology (Consensus / Pairwise Averaging)
+    
+    * `consensus` - Consensus
+    * `pairwise` - Pairwise Averaging
+    """
+
     agreement_threshold: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Minimum percent agreement threshold for which minimum number of annotators must agree
+    Agreement threshold
     """
 
     allow_stream: typing.Optional[bool] = None
-    annotation_limit_count: typing.Optional[int] = None
-    annotation_limit_percent: typing.Optional[str] = None
-    annotator_evaluation_enabled: typing.Optional[bool] = pydantic.Field(default=None)
+    annotation_limit_count: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Enable annotator evaluation for the project
+    Limit by number of tasks
     """
 
-    annotator_evaluation_minimum_score: typing.Optional[str] = None
-    annotator_evaluation_minimum_tasks: typing.Optional[int] = None
-    annotator_evaluation_onboarding_tasks: typing.Optional[int] = None
+    annotation_limit_percent: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Limit by percentage of tasks
+    """
+
+    annotator_evaluation_continuous_tasks: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Continuous Evaluation: Required tasks
+    """
+
+    annotator_evaluation_enabled: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Evaluate all annotators against ground truth
+    """
+
+    annotator_evaluation_minimum_score: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Score required to pass evaluation
+    """
+
+    annotator_evaluation_minimum_tasks: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Number of tasks for evaluation
+    """
+
+    annotator_evaluation_onboarding_tasks: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Onboarding Evaluation: Required tasks
+    """
+
     assignment_settings: AssignmentSettings
     blueprints: typing.Optional[typing.List[BlueprintList]] = None
-    color: typing.Optional[str] = None
+    color: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Color
+    """
+
     comment_classification_config: typing.Optional[str] = None
     config_has_control_tags: typing.Optional[bool] = pydantic.Field(default=None)
     """
@@ -52,9 +88,9 @@ class AllRolesProjectList(UncheckedBaseModel):
     Flag to detect is project ready for bulk annotation
     """
 
-    control_weights: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    control_weights: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    Dict of weights for each control tag in metric calculation. Each control tag (e.g. label or choice) will have it's own key in control weight dict with weight for each label and overall weight.For example, if bounding box annotation with control tag named my_bbox should be included with 0.33 weight in agreement calculation, and the first label Car should be twice more important than Airplaine, then you have to need the specify: {'my_bbox': {'type': 'RectangleLabels', 'labels': {'Car': 1.0, 'Airplaine': 0.5}, 'overall': 0.33}
+    Dict of weights for each control tag in metric calculation.
     """
 
     created_at: typing.Optional[dt.datetime] = None
@@ -63,16 +99,20 @@ class AllRolesProjectList(UncheckedBaseModel):
     Project owner
     """
 
-    custom_script: typing.Optional[str] = None
-    custom_task_lock_ttl: typing.Optional[int] = pydantic.Field(default=None)
+    custom_script: typing.Optional[str] = pydantic.Field(default=None)
     """
-    TTL in seconds for task reservations, on new and existing tasks
+    Plugins
     """
 
-    data_types: typing.Optional[typing.Any] = None
+    custom_task_lock_ttl: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Task reservation time. TTL in seconds (UI displays and edits this value in minutes).
+    """
+
+    data_types: typing.Optional[typing.Dict[str, typing.Any]] = None
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Project description
+    Description
     """
 
     description_short: typing.Optional[str] = None
@@ -80,7 +120,7 @@ class AllRolesProjectList(UncheckedBaseModel):
     duplication_status: typing.Optional[str] = None
     enable_empty_annotation: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Allow annotators to submit empty annotations
+    Allow empty annotations
     """
 
     evaluate_predictions_automatically: typing.Optional[bool] = pydantic.Field(default=None)
@@ -90,7 +130,7 @@ class AllRolesProjectList(UncheckedBaseModel):
 
     expert_instruction: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Labeling instructions in HTML format
+    Instructions
     """
 
     finished_task_number: typing.Optional[int] = None
@@ -112,17 +152,17 @@ class AllRolesProjectList(UncheckedBaseModel):
 
     label_config: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Label config in XML format. See more about it in documentation
+    Labeling Configuration
     """
 
     max_additional_annotators_assignable: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Maximum number of additional annotators that can be assigned to a low agreement task
+    Maximum additional annotators
     """
 
     maximum_annotations: typing.Optional[int] = pydantic.Field(default=None)
     """
-    Maximum number of annotations for one task. If the number of annotations per task is equal or greater to this value, the task is completed (is_labeled=True)
+    Annotations per task
     """
 
     members: typing.Optional[str] = None
@@ -139,13 +179,21 @@ class AllRolesProjectList(UncheckedBaseModel):
 
     num_tasks_with_annotations: typing.Optional[int] = None
     organization: typing.Optional[int] = None
-    overlap_cohort_percentage: typing.Optional[int] = None
-    parsed_label_config: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    overlap_cohort_percentage: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Annotations per task coverage
+    """
+
+    parsed_label_config: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     JSON-formatted labeling configuration
     """
 
-    pause_on_failed_annotator_evaluation: typing.Optional[bool] = None
+    pause_on_failed_annotator_evaluation: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Pause annotator on failed evaluation
+    """
+
     pinned_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
     Pinned date and time
@@ -157,7 +205,11 @@ class AllRolesProjectList(UncheckedBaseModel):
     queue_total: typing.Optional[str] = None
     ready: typing.Optional[bool] = None
     rejected: typing.Optional[int] = None
-    require_comment_on_skip: typing.Optional[bool] = None
+    require_comment_on_skip: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Require comment to skip
+    """
+
     reveal_preannotations_interactively: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Reveal pre-annotations interactively
@@ -170,12 +222,12 @@ class AllRolesProjectList(UncheckedBaseModel):
     sampling: typing.Optional[SamplingDe5Enum] = None
     show_annotation_history: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Show annotation history to annotator
+    Show Data Manager to Annotators
     """
 
     show_collab_predictions: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    If set, the annotator can view model predictions
+    Use predictions to pre-label Tasks
     """
 
     show_ground_truth_first: typing.Optional[bool] = pydantic.Field(default=None)
@@ -185,16 +237,24 @@ class AllRolesProjectList(UncheckedBaseModel):
 
     show_instruction: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Show instructions to the annotator before they start
+    Show instructions before labeling
     """
 
-    show_overlap_first: typing.Optional[bool] = None
+    show_overlap_first: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Show tasks with overlap first
+    """
+
     show_skip_button: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    Show a skip button in interface and allow annotators to skip the task
+    Allow skipping tasks
     """
 
-    show_unused_data_columns_to_annotators: typing.Optional[bool] = None
+    show_unused_data_columns_to_annotators: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Show only columns used in labeling configuration to Annotators. API uses inverse field semantics here: set false to show only used columns, set true to show all task.data columns.
+    """
+
     skip_queue: typing.Optional[SkipQueueEnum] = None
     skipped_annotations_number: typing.Optional[str] = None
     start_training_on_annotation_update: typing.Optional[bool] = pydantic.Field(default=None)
@@ -203,6 +263,11 @@ class AllRolesProjectList(UncheckedBaseModel):
     """
 
     state: typing.Optional[str] = None
+    strict_task_overlap: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Enforce strict overlap limit
+    """
+
     task_number: typing.Optional[int] = pydantic.Field(default=None)
     """
     Total task number in project
@@ -210,7 +275,7 @@ class AllRolesProjectList(UncheckedBaseModel):
 
     title: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Project name. Must be between 3 and 50 characters long.
+    Project Name
     """
 
     total_annotations_number: typing.Optional[str] = None

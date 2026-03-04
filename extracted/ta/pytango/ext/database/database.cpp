@@ -108,7 +108,7 @@ void export_database(py::module &m) {
              py::call_guard<py::gil_scoped_release>())
 
         .def(py::pickle(
-            [](Tango::Database &self) { // __getstate__
+            [](Tango::Database &self) -> py::tuple { // __getstate__
                 // Serialize the base class part
                 std::string &host = self.get_db_host();
                 std::string &port = self.get_db_port();
@@ -1546,4 +1546,5 @@ void export_database(py::module &m) {
 
                     New in PyTango 8.1.0)doc",
              py::arg("attr_name"));
+    fix_dynamic_attr_dealloc<Tango::Database>();
 }

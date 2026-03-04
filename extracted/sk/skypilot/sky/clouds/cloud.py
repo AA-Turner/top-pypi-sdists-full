@@ -182,6 +182,13 @@ class Cloud:
         """
         return cls._SUPPORTS_SERVICE_ACCOUNT_ON_REMOTE
 
+    @classmethod
+    def uses_ray(cls) -> bool:
+        """Returns whether this cloud uses Ray as the distributed
+        execution framework.
+        """
+        return True
+
     #### Regions/Zones ####
 
     @classmethod
@@ -970,6 +977,21 @@ class Cloud:
     def display_name(cls) -> str:
         """Name of the cloud used in messages displayed to the user."""
         return cls.canonical_name()
+
+    # === Misc Failovers ===
+
+    @classmethod
+    def yield_cloud_specific_failover_overrides(cls,
+                                                region: Optional[str] = None
+                                               ) -> Iterable[Dict[str, Any]]:
+        """Some clouds may have configurations that require them to have
+        non-region/zone failovers. This method yields override keys for the
+        cluster config. Refer to the implementation for AWS for an example."""
+        del region  # unused
+        yield {}
+        return
+
+    # === End of Misc Failovers ===
 
     def __repr__(self):
         return self._REPR

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2026.2.1
+Version: 2026.3.1
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -11,7 +11,7 @@ Project-URL: documentation, https://github.com/unslothai/unsloth
 Project-URL: repository, https://github.com/unslothai/unsloth
 Keywords: ai,llm
 Classifier: Programming Language :: Python
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.15,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
@@ -20,7 +20,7 @@ Requires-Dist: torchao>=0.13.0
 Requires-Dist: triton>=3.0.0; "linux" in sys_platform
 Requires-Dist: packaging>=24.1
 Requires-Dist: tyro
-Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,<=4.57.6,>=4.51.3
+Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.2.0,>=4.51.3
 Requires-Dist: datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1
 Requires-Dist: sentencepiece>=0.2.0
 Requires-Dist: tqdm
@@ -42,7 +42,7 @@ Requires-Dist: filelock
 Provides-Extra: core
 Requires-Dist: packaging>=24.1; extra == "core"
 Requires-Dist: tyro; extra == "core"
-Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,<=4.57.6,>=4.51.3; extra == "core"
+Requires-Dist: transformers!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,!=4.57.4,!=4.57.5,!=5.0.0,!=5.1.0,<=5.2.0,>=4.51.3; extra == "core"
 Requires-Dist: datasets!=4.0.*,!=4.1.0,<4.4.0,>=3.4.1; extra == "core"
 Requires-Dist: sentencepiece>=0.2.0; extra == "core"
 Requires-Dist: tqdm; extra == "core"
@@ -170,7 +170,7 @@ For RTX 50x, B200, 6000 GPUs, simply do `pip install unsloth`. Read our [Blackwe
 
 ## 💾 Install Unsloth
 > [!warning]
-> Python 3.14 does not support Unsloth. Use 3.13 or lower.
+> Python 3.14 is supported.
 
 You can also see our documentation for more detailed installation and updating instructions [here](https://docs.unsloth.ai/get-started/installing-+-updating).
 

@@ -42,7 +42,6 @@ from wbcore.utils.models import ComplexToStringMixin
 
 from ...workers import Queue
 from .enums import ExportFormat, get_django_import_export_format
-from .signals import post_import
 
 logger = logging.getLogger("io")
 
@@ -274,6 +273,9 @@ class Source(models.Model):
     )
 
     import_timedelta_interval = models.IntegerField(default=0)
+    ignore_warning = models.BooleanField(
+        default=False, verbose_name="Ignore warnings", help_text=_("Ignore warnings when importing data")
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -873,7 +875,7 @@ class ImportSource(ImportExportSource):
             parsed_data_copy = deepcopy(parsed_data)
             if data := parsed_data_copy.pop("data", None):
                 self.parser_handler.handle(self, {"data": data[self.progress_index :], **parsed_data_copy}, **kwargs)
-                if self.errors_log:
+                if self.errors_log and (not self.source or not self.source.ignore_warning):
                     self.status = self.Status.WARNING.name
         # clean log if we don't want to use space to save it
         if not self.save_data:
@@ -900,7 +902,6 @@ class ImportSource(ImportExportSource):
         try:
             data = self._parse_data()
             self._process_data(data, debug=debug, **kwargs)
-            post_import.send(sender=self.parser_handler.model, import_source=self)
 
         except Exception as e:
             ex_type, ex_value, _ = sys.exc_info()

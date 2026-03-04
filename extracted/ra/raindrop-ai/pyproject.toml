@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "raindrop-ai"
-version = "0.0.39"
+version = "0.0.42"
 description = "Raindrop AI (Python SDK)"
 authors = ["Raindrop AI <sdk@raindrop.ai>"]
 license = "MIT"
@@ -14,6 +14,7 @@ requests = "^2.32.3"
 traceloop-sdk = ">=0.46.0"
 opentelemetry-sdk = ">=1.39.0"
 urllib3 = ">=2.6.0"
+protobuf = ">=5.29.6,<6"
 
 
 [tool.poetry.group.dev.dependencies]

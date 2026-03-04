@@ -33,6 +33,7 @@ class VirtualNetworkArgs:
                  vm_switch_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a VirtualNetwork resource.
+
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input['VirtualNetworkPropertiesDhcpOptionsArgs'] dhcp_options: DhcpOptions contains an array of DNS servers available to VMs deployed in the virtual network. Standard DHCP option for a subnet overrides VNET DHCP options.
         :param pulumi.Input['ExtendedLocationArgs'] extended_location: The extendedLocation of the resource.
@@ -191,7 +192,8 @@ class VirtualNetwork(pulumi.CustomResource):
 
         Uses Azure REST API version 2023-07-01-preview. In version 2.x of the Azure Native provider, it used API version 2022-12-15-preview.
 
-        Other available API versions: 2022-12-15-preview, 2025-09-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native azurestackhci [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2022-12-15-preview, 2025-09-01-preview, 2026-02-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native azurestackhci [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -216,7 +218,8 @@ class VirtualNetwork(pulumi.CustomResource):
 
         Uses Azure REST API version 2023-07-01-preview. In version 2.x of the Azure Native provider, it used API version 2022-12-15-preview.
 
-        Other available API versions: 2022-12-15-preview, 2025-09-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native azurestackhci [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2022-12-15-preview, 2025-09-01-preview, 2026-02-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native azurestackhci [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param VirtualNetworkArgs args: The arguments to use to populate this resource's properties.
@@ -268,7 +271,7 @@ class VirtualNetwork(pulumi.CustomResource):
             __props__.__dict__["status"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:azurestackhci/v20210701preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20210901preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20210901preview:VirtualnetworkRetrieve"), pulumi.Alias(type_="azure-native:azurestackhci/v20221215preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20230701preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20250901preview:VirtualNetwork")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:azurestackhci/v20210701preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20210901preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20210901preview:VirtualnetworkRetrieve"), pulumi.Alias(type_="azure-native:azurestackhci/v20221215preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20230701preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20250901preview:VirtualNetwork"), pulumi.Alias(type_="azure-native:azurestackhci/v20260201preview:VirtualNetwork")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(VirtualNetwork, __self__).__init__(
             'azure-native:azurestackhci:VirtualNetwork',

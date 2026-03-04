@@ -98,13 +98,22 @@ class SageMakerStudioAPI:
             self.execution_client = None
 
     def _build_execution_config(self):
-        execution_config = ExecutionConfig(
-            **(self.sagemaker_studio_config.overrides.get("execution", {}))
+        execution_overrides = self.sagemaker_studio_config.overrides.get("execution", {})
+        execution_config = ExecutionConfig(**execution_overrides)
+
+        # Use provided domain_id, project_id, domain_region OR fall back to env variables in MWAA or metadata file in Space
+        execution_config.domain_identifier = (
+            execution_overrides.get("domain_identifier") or self._utils._get_domain_id()
         )
-        execution_config.domain_identifier = self._utils._get_domain_id()
-        if execution_config.domain_identifier:
-            execution_config.project_identifier = self._utils._get_project_id(self.datazone_api)
-        execution_config.datazone_domain_region = self._utils._get_domain_region()
+
+        execution_config.project_identifier = execution_overrides.get(
+            "project_identifier"
+        ) or self._utils._get_project_id(self.datazone_api)
+
+        execution_config.datazone_domain_region = (
+            execution_overrides.get("datazone_domain_region") or self._utils._get_domain_region()
+        )
+
         if (
             not execution_config.local
             and execution_config.domain_identifier

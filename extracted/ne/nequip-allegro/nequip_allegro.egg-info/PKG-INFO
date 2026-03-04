@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nequip-allegro
-Version: 0.8.1
+Version: 0.8.2
 Summary: Allegro is an open-source code for building highly scalable and accurate equivariant deep learning interatomic potentials.
 Author-email: The NequIP Developers <allegro-nequip@g.harvard.edu>
 License: MIT License
@@ -30,7 +30,7 @@ Project-URL: Repository, https://github.com/mir-group/allegro
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: nequip>=0.16.0
+Requires-Dist: nequip>=0.17.0
 Dynamic: license-file
 
 <p align="center">

@@ -61,11 +61,17 @@ class SKUConfig(google.protobuf.message.Message):
     RESERVED_VOLUME_FIELD_NUMBER: builtins.int
     PAYG_RATE_FIELD_NUMBER: builtins.int
     RESERVED_RATE_FIELD_NUMBER: builtins.int
+    IS_UNLIMITED_FIELD_NUMBER: builtins.int
+    NUM_RESERVED_UNITS_FIELD_NUMBER: builtins.int
     sku: sentry_protos.billing.v1.services.contract.v1.sku_pb2.SKU.ValueType
     base_price_cents: builtins.int
     """Base price for the SKU (upgraded reserved volumes or add-on activation fees)"""
     payg_budget_cents: builtins.int
     reserved_volume: builtins.int
+    """DEPRECATED: use signed reserved_units instead for support for unlimited/reserved budget categories"""
+    is_unlimited: builtins.bool
+    num_reserved_units: builtins.int
+    """the type communicates whether the SKU is unlimited or not, additionally reserved budget SKUs have a non-zero reserved_rate in addition to 0 reserved_units"""
     @property
     def payg_rate(self) -> global___TieredPricingRate: ...
     @property
@@ -81,10 +87,15 @@ class SKUConfig(google.protobuf.message.Message):
         reserved_volume: builtins.int = ...,
         payg_rate: global___TieredPricingRate | None = ...,
         reserved_rate: global___TieredPricingRate | None = ...,
+        is_unlimited: builtins.bool = ...,
+        num_reserved_units: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_payg_budget_cents", b"_payg_budget_cents", "payg_budget_cents", b"payg_budget_cents", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_payg_budget_cents", b"_payg_budget_cents", "base_price_cents", b"base_price_cents", "payg_budget_cents", b"payg_budget_cents", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_volume", b"reserved_volume", "sku", b"sku"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_payg_budget_cents", b"_payg_budget_cents", "is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "payg_budget_cents", b"payg_budget_cents", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_payg_budget_cents", b"_payg_budget_cents", "base_price_cents", b"base_price_cents", "is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "payg_budget_cents", b"payg_budget_cents", "payg_rate", b"payg_rate", "reserved_rate", b"reserved_rate", "reserved_units", b"reserved_units", "reserved_volume", b"reserved_volume", "sku", b"sku"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_payg_budget_cents", b"_payg_budget_cents"]) -> typing.Literal["payg_budget_cents"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["reserved_units", b"reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
 
 global___SKUConfig = SKUConfig
 
@@ -124,6 +135,8 @@ class PricingConfig(google.protobuf.message.Message):
     BILLING_PERIOD_END_DATE_FIELD_NUMBER: builtins.int
     MAX_SPEND_CENTS_FIELD_NUMBER: builtins.int
     BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
+    ONDEMAND_PERIOD_START_DATE_FIELD_NUMBER: builtins.int
+    ONDEMAND_PERIOD_END_DATE_FIELD_NUMBER: builtins.int
     max_spend_cents: builtins.int
     base_price_cents: builtins.int
     """Base price for the package."""
@@ -137,6 +150,12 @@ class PricingConfig(google.protobuf.message.Message):
 
     @property
     def billing_period_end_date(self) -> sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.Date: ...
+    @property
+    def ondemand_period_start_date(self) -> sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.Date:
+        """Determines when the on demand period for invoicing the organization starts and ends, even for annual plans we bill ondemand monthly"""
+
+    @property
+    def ondemand_period_end_date(self) -> sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.Date: ...
     def __init__(
         self,
         *,
@@ -146,8 +165,10 @@ class PricingConfig(google.protobuf.message.Message):
         billing_period_end_date: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.Date | None = ...,
         max_spend_cents: builtins.int = ...,
         base_price_cents: builtins.int = ...,
+        ondemand_period_start_date: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.Date | None = ...,
+        ondemand_period_end_date: sentry_protos.billing.v1.services.contract.v1.billing_config_pb2.Date | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["billing_period_end_date", b"billing_period_end_date", "billing_period_start_date", b"billing_period_start_date"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_period_end_date", b"billing_period_end_date", "billing_period_start_date", b"billing_period_start_date", "max_spend_cents", b"max_spend_cents", "shared_sku_budgets", b"shared_sku_budgets", "sku_configs", b"sku_configs"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["billing_period_end_date", b"billing_period_end_date", "billing_period_start_date", b"billing_period_start_date", "ondemand_period_end_date", b"ondemand_period_end_date", "ondemand_period_start_date", b"ondemand_period_start_date"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_period_end_date", b"billing_period_end_date", "billing_period_start_date", b"billing_period_start_date", "max_spend_cents", b"max_spend_cents", "ondemand_period_end_date", b"ondemand_period_end_date", "ondemand_period_start_date", b"ondemand_period_start_date", "shared_sku_budgets", b"shared_sku_budgets", "sku_configs", b"sku_configs"]) -> None: ...
 
 global___PricingConfig = PricingConfig

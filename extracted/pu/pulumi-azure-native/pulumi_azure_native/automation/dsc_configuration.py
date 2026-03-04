@@ -35,6 +35,7 @@ class DscConfigurationArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a DscConfiguration resource.
+
         :param pulumi.Input[_builtins.str] automation_account_name: The name of the automation account.
         :param pulumi.Input[_builtins.str] resource_group_name: Name of an Azure Resource group.
         :param pulumi.Input['ContentSourceArgs'] source: Gets or sets the source.
@@ -221,9 +222,10 @@ class DscConfiguration(pulumi.CustomResource):
         """
         Definition of the configuration type.
 
-        Uses Azure REST API version 2023-11-01. In version 2.x of the Azure Native provider, it used API version 2022-08-08.
+        Uses Azure REST API version 2024-10-23. In version 2.x of the Azure Native provider, it used API version 2022-08-08.
 
-        Other available API versions: 2015-10-31, 2019-06-01, 2022-08-08, 2023-05-15-preview, 2024-10-23. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2015-10-31, 2019-06-01, 2022-08-08, 2023-05-15-preview, 2023-11-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -248,9 +250,10 @@ class DscConfiguration(pulumi.CustomResource):
         """
         Definition of the configuration type.
 
-        Uses Azure REST API version 2023-11-01. In version 2.x of the Azure Native provider, it used API version 2022-08-08.
+        Uses Azure REST API version 2024-10-23. In version 2.x of the Azure Native provider, it used API version 2022-08-08.
 
-        Other available API versions: 2015-10-31, 2019-06-01, 2022-08-08, 2023-05-15-preview, 2024-10-23. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2015-10-31, 2019-06-01, 2022-08-08, 2023-05-15-preview, 2023-11-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native automation [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param DscConfigurationArgs args: The arguments to use to populate this resource's properties.
@@ -312,6 +315,7 @@ class DscConfiguration(pulumi.CustomResource):
             __props__.__dict__["node_configuration_count"] = None
             __props__.__dict__["provisioning_state"] = None
             __props__.__dict__["state"] = None
+            __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
         alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:automation/v20151031:DscConfiguration"), pulumi.Alias(type_="azure-native:automation/v20190601:DscConfiguration"), pulumi.Alias(type_="azure-native:automation/v20220808:DscConfiguration"), pulumi.Alias(type_="azure-native:automation/v20230515preview:DscConfiguration"), pulumi.Alias(type_="azure-native:automation/v20231101:DscConfiguration"), pulumi.Alias(type_="azure-native:automation/v20241023:DscConfiguration")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
@@ -351,6 +355,7 @@ class DscConfiguration(pulumi.CustomResource):
         __props__.__dict__["provisioning_state"] = None
         __props__.__dict__["source"] = None
         __props__.__dict__["state"] = None
+        __props__.__dict__["system_data"] = None
         __props__.__dict__["tags"] = None
         __props__.__dict__["type"] = None
         return DscConfiguration(resource_name, opts=opts, __props__=__props__)
@@ -405,9 +410,9 @@ class DscConfiguration(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def location(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def location(self) -> pulumi.Output[_builtins.str]:
         """
-        The Azure Region where the resource lives
+        The geo-location where the resource lives
         """
         return pulumi.get(self, "location")
 
@@ -468,6 +473,14 @@ class DscConfiguration(pulumi.CustomResource):
         return pulumi.get(self, "state")
 
     @_builtins.property
+    @pulumi.getter(name="systemData")
+    def system_data(self) -> pulumi.Output['outputs.SystemDataResponse']:
+        """
+        Azure Resource Manager metadata containing createdBy and modifiedBy information.
+        """
+        return pulumi.get(self, "system_data")
+
+    @_builtins.property
     @pulumi.getter
     def tags(self) -> pulumi.Output[Optional[Mapping[str, _builtins.str]]]:
         """
@@ -479,7 +492,7 @@ class DscConfiguration(pulumi.CustomResource):
     @pulumi.getter
     def type(self) -> pulumi.Output[_builtins.str]:
         """
-        The type of the resource.
+        The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         """
         return pulumi.get(self, "type")
 

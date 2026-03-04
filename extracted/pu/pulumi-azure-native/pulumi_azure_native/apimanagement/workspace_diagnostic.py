@@ -31,7 +31,6 @@ class WorkspaceDiagnosticArgs:
                  diagnostic_id: Optional[pulumi.Input[_builtins.str]] = None,
                  frontend: Optional[pulumi.Input['PipelineDiagnosticSettingsArgs']] = None,
                  http_correlation_protocol: Optional[pulumi.Input[Union[_builtins.str, 'HttpCorrelationProtocol']]] = None,
-                 large_language_model: Optional[pulumi.Input['LLMDiagnosticSettingsArgs']] = None,
                  log_client_ip: Optional[pulumi.Input[_builtins.bool]] = None,
                  metrics: Optional[pulumi.Input[_builtins.bool]] = None,
                  operation_name_format: Optional[pulumi.Input[Union[_builtins.str, 'OperationNameFormat']]] = None,
@@ -39,6 +38,7 @@ class WorkspaceDiagnosticArgs:
                  verbosity: Optional[pulumi.Input[Union[_builtins.str, 'Verbosity']]] = None):
         """
         The set of arguments for constructing a WorkspaceDiagnostic resource.
+
         :param pulumi.Input[_builtins.str] logger_id: Resource Id of a target logger.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[_builtins.str] service_name: The name of the API Management service.
@@ -48,7 +48,6 @@ class WorkspaceDiagnosticArgs:
         :param pulumi.Input[_builtins.str] diagnostic_id: Diagnostic identifier. Must be unique in the current API Management service instance.
         :param pulumi.Input['PipelineDiagnosticSettingsArgs'] frontend: Diagnostic settings for incoming/outgoing HTTP messages to the Gateway.
         :param pulumi.Input[Union[_builtins.str, 'HttpCorrelationProtocol']] http_correlation_protocol: Sets correlation protocol to use for Application Insights diagnostics.
-        :param pulumi.Input['LLMDiagnosticSettingsArgs'] large_language_model: Large Language Models diagnostic settings
         :param pulumi.Input[_builtins.bool] log_client_ip: Log the ClientIP. Default is false.
         :param pulumi.Input[_builtins.bool] metrics: Emit custom metrics via emit-metric policy. Applicable only to Application Insights diagnostic settings.
         :param pulumi.Input[Union[_builtins.str, 'OperationNameFormat']] operation_name_format: The format of the Operation Name for Application Insights telemetries. Default is Name.
@@ -69,8 +68,6 @@ class WorkspaceDiagnosticArgs:
             pulumi.set(__self__, "frontend", frontend)
         if http_correlation_protocol is not None:
             pulumi.set(__self__, "http_correlation_protocol", http_correlation_protocol)
-        if large_language_model is not None:
-            pulumi.set(__self__, "large_language_model", large_language_model)
         if log_client_ip is not None:
             pulumi.set(__self__, "log_client_ip", log_client_ip)
         if metrics is not None:
@@ -191,18 +188,6 @@ class WorkspaceDiagnosticArgs:
         pulumi.set(self, "http_correlation_protocol", value)
 
     @_builtins.property
-    @pulumi.getter(name="largeLanguageModel")
-    def large_language_model(self) -> Optional[pulumi.Input['LLMDiagnosticSettingsArgs']]:
-        """
-        Large Language Models diagnostic settings
-        """
-        return pulumi.get(self, "large_language_model")
-
-    @large_language_model.setter
-    def large_language_model(self, value: Optional[pulumi.Input['LLMDiagnosticSettingsArgs']]):
-        pulumi.set(self, "large_language_model", value)
-
-    @_builtins.property
     @pulumi.getter(name="logClientIp")
     def log_client_ip(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -274,7 +259,6 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
                  diagnostic_id: Optional[pulumi.Input[_builtins.str]] = None,
                  frontend: Optional[pulumi.Input[Union['PipelineDiagnosticSettingsArgs', 'PipelineDiagnosticSettingsArgsDict']]] = None,
                  http_correlation_protocol: Optional[pulumi.Input[Union[_builtins.str, 'HttpCorrelationProtocol']]] = None,
-                 large_language_model: Optional[pulumi.Input[Union['LLMDiagnosticSettingsArgs', 'LLMDiagnosticSettingsArgsDict']]] = None,
                  log_client_ip: Optional[pulumi.Input[_builtins.bool]] = None,
                  logger_id: Optional[pulumi.Input[_builtins.str]] = None,
                  metrics: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -288,9 +272,10 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
         """
         Diagnostic details.
 
-        Uses Azure REST API version 2024-06-01-preview. In version 2.x of the Azure Native provider, it used API version 2023-09-01-preview.
+        Uses Azure REST API version 2024-05-01. In version 2.x of the Azure Native provider, it used API version 2023-09-01-preview.
 
-        Other available API versions: 2023-09-01-preview, 2024-05-01, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-09-01-preview, 2024-06-01-preview, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -299,7 +284,6 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] diagnostic_id: Diagnostic identifier. Must be unique in the current API Management service instance.
         :param pulumi.Input[Union['PipelineDiagnosticSettingsArgs', 'PipelineDiagnosticSettingsArgsDict']] frontend: Diagnostic settings for incoming/outgoing HTTP messages to the Gateway.
         :param pulumi.Input[Union[_builtins.str, 'HttpCorrelationProtocol']] http_correlation_protocol: Sets correlation protocol to use for Application Insights diagnostics.
-        :param pulumi.Input[Union['LLMDiagnosticSettingsArgs', 'LLMDiagnosticSettingsArgsDict']] large_language_model: Large Language Models diagnostic settings
         :param pulumi.Input[_builtins.bool] log_client_ip: Log the ClientIP. Default is false.
         :param pulumi.Input[_builtins.str] logger_id: Resource Id of a target logger.
         :param pulumi.Input[_builtins.bool] metrics: Emit custom metrics via emit-metric policy. Applicable only to Application Insights diagnostic settings.
@@ -319,9 +303,10 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
         """
         Diagnostic details.
 
-        Uses Azure REST API version 2024-06-01-preview. In version 2.x of the Azure Native provider, it used API version 2023-09-01-preview.
+        Uses Azure REST API version 2024-05-01. In version 2.x of the Azure Native provider, it used API version 2023-09-01-preview.
 
-        Other available API versions: 2023-09-01-preview, 2024-05-01, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-09-01-preview, 2024-06-01-preview, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param WorkspaceDiagnosticArgs args: The arguments to use to populate this resource's properties.
@@ -343,7 +328,6 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
                  diagnostic_id: Optional[pulumi.Input[_builtins.str]] = None,
                  frontend: Optional[pulumi.Input[Union['PipelineDiagnosticSettingsArgs', 'PipelineDiagnosticSettingsArgsDict']]] = None,
                  http_correlation_protocol: Optional[pulumi.Input[Union[_builtins.str, 'HttpCorrelationProtocol']]] = None,
-                 large_language_model: Optional[pulumi.Input[Union['LLMDiagnosticSettingsArgs', 'LLMDiagnosticSettingsArgsDict']]] = None,
                  log_client_ip: Optional[pulumi.Input[_builtins.bool]] = None,
                  logger_id: Optional[pulumi.Input[_builtins.str]] = None,
                  metrics: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -367,7 +351,6 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
             __props__.__dict__["diagnostic_id"] = diagnostic_id
             __props__.__dict__["frontend"] = frontend
             __props__.__dict__["http_correlation_protocol"] = http_correlation_protocol
-            __props__.__dict__["large_language_model"] = large_language_model
             __props__.__dict__["log_client_ip"] = log_client_ip
             if logger_id is None and not opts.urn:
                 raise TypeError("Missing required property 'logger_id'")
@@ -417,7 +400,6 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
         __props__.__dict__["backend"] = None
         __props__.__dict__["frontend"] = None
         __props__.__dict__["http_correlation_protocol"] = None
-        __props__.__dict__["large_language_model"] = None
         __props__.__dict__["log_client_ip"] = None
         __props__.__dict__["logger_id"] = None
         __props__.__dict__["metrics"] = None
@@ -467,14 +449,6 @@ class WorkspaceDiagnostic(pulumi.CustomResource):
         Sets correlation protocol to use for Application Insights diagnostics.
         """
         return pulumi.get(self, "http_correlation_protocol")
-
-    @_builtins.property
-    @pulumi.getter(name="largeLanguageModel")
-    def large_language_model(self) -> pulumi.Output[Optional['outputs.LLMDiagnosticSettingsResponse']]:
-        """
-        Large Language Models diagnostic settings
-        """
-        return pulumi.get(self, "large_language_model")
 
     @_builtins.property
     @pulumi.getter(name="logClientIp")

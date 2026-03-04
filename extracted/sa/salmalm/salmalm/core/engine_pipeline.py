@@ -7,6 +7,7 @@ from typing import Optional, Tuple, Any, Callable
 import threading as _threading
 
 log = logging.getLogger(__name__)
+_CONVERSATION_LOG_FAILURES = 0
 
 _shutting_down = False
 _active_requests = 0
@@ -43,6 +44,58 @@ def _sanitize_input(text: str) -> str:
     return "".join(c for c in text if c == "\n" or c == "\t" or c == "\r" or ord(c) >= 32)
 
 
+
+
+# --- Natural language model switch ---
+import re as _re_model
+_MODEL_SWITCH_PATTERNS = [
+    # Korean
+    _re_model.compile(r'모델.*(?:바꿔|변경|전환|스위치|바꾸|바꿈|변경해)'),
+    _re_model.compile(r'(?:바꿔|변경|전환).*모델'),
+    # English
+    _re_model.compile(r'(?:switch|change|set|use)\s+(?:the\s+)?model', _re_model.IGNORECASE),
+    _re_model.compile(r'model\s+(?:to|=)', _re_model.IGNORECASE),
+]
+_MODEL_NAME_MAP = {
+    'opus': 'anthropic/claude-opus-4-6',
+    '오푸스': 'anthropic/claude-opus-4-6',
+    'claude opus': 'anthropic/claude-opus-4-6',
+    '클로드 오푸스': 'anthropic/claude-opus-4-6',
+    'sonnet': 'anthropic/claude-sonnet-4-6',
+    '소네트': 'anthropic/claude-sonnet-4-6',
+    'claude sonnet': 'anthropic/claude-sonnet-4-6',
+    '클로드 소네트': 'anthropic/claude-sonnet-4-6',
+    'claude': 'anthropic/claude-sonnet-4-6',
+    '클로드': 'anthropic/claude-sonnet-4-6',
+    'haiku': 'anthropic/claude-haiku-4-5-20251001',
+    '하이쿠': 'anthropic/claude-haiku-4-5-20251001',
+    'gpt': 'openai/gpt-4.1',
+    'gpt-4': 'openai/gpt-4.1',
+    'gpt-4.1': 'openai/gpt-4.1',
+    'gemini': 'google/gemini-2.5-flash',
+    '제미니': 'google/gemini-2.5-flash',
+    'gemini flash': 'google/gemini-2.5-flash',
+    'gemini pro': 'google/gemini-2.5-pro',
+    'grok': 'xai/grok-4',
+    '그록': 'xai/grok-4',
+    'auto': None,
+    '자동': None,
+}
+
+def _detect_model_switch(text: str):
+    """Detect natural language model switch request. Returns model name or None."""
+    text = text.strip()
+    if len(text) > 100:
+        return None
+    matched = any(p.search(text) for p in _MODEL_SWITCH_PATTERNS)
+    if not matched:
+        return None
+    text_lower = text.lower()
+    for name, model in sorted(_MODEL_NAME_MAP.items(), key=lambda x: -len(x[0])):
+        if name in text_lower:
+            return model
+    return None
+
 async def _process_message_guarded(
     session_id: str,
     user_message: str,
@@ -52,6 +105,7 @@ async def _process_message_guarded(
     on_token: Optional[Callable] = None,
     on_status: Optional[Callable] = None,
     lang: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> str:
     """Process a user message through the Intelligence Engine pipeline.
 
@@ -102,6 +156,16 @@ async def _process_message_guarded(
         _active_requests_event.clear()
 
     try:
+        # --- Natural language model switch interceptor ---
+        _model_switch = _detect_model_switch(user_message)
+        if _model_switch:
+            from salmalm.core.session_store import get_session as _gs
+            _sess = _gs(session_id, user_id=user_id)
+            _sess.model_override = _model_switch
+            _model_short = _model_switch.split('/')[-1]
+            log.info(f'[MODEL-SWITCH] {session_id} -> {_model_switch}')
+            return f'✅ 모델을 **{_model_short}**로 변경했습니다.'
+
         return await _process_message_inner(
             session_id,
             user_message,
@@ -111,6 +175,7 @@ async def _process_message_guarded(
             on_token=on_token,
             on_status=on_status,
             lang=lang,
+            user_id=user_id,
         )
     except Exception as e:
         log.error(f"[ENGINE] Unhandled error: {type(e).__name__}: {e}")
@@ -127,7 +192,7 @@ async def _process_message_guarded(
             try:
                 sess_lock.release()
             except RuntimeError:
-                pass  # Should never happen — guard is belt-and-suspenders
+                log.debug("[ENGINE] session lock release failed", exc_info=True)
         # Evict lock entry if session no longer exists — prevents unbounded growth.
         # Check lazily here: most sessions are long-lived so eviction is rare.
         try:
@@ -138,7 +203,7 @@ async def _process_message_guarded(
                     if session_id not in _ss:
                         _session_locks.pop(session_id, None)
         except Exception:
-            pass  # Non-critical cleanup — never block on this
+            log.debug("[ENGINE] session lock cleanup failed", exc_info=True)
 
 
 def _classify_task(session, user_message: str) -> dict:
@@ -185,6 +250,7 @@ def _route_model(model_override, user_message: str, session) -> tuple:
 
 def _prepare_context(session, user_message: str, lang, on_status) -> None:
     """Prepare session context: language, compaction, RAG, mood, self-evolve."""
+    global _CONVERSATION_LOG_FAILURES
     from salmalm.core.compaction import compact_messages
     from salmalm.core.prompt import build_system_prompt
 
@@ -250,8 +316,12 @@ def _prepare_context(session, user_message: str, lang, on_status) -> None:
 
         if len(session.messages) > 4 and len(session.messages) % 10 == 0:
             prompt_evolver.record_conversation(session.messages)
+            _CONVERSATION_LOG_FAILURES = 0
     except Exception as _exc:
-        log.debug(f"Suppressed: {_exc}")
+        _CONVERSATION_LOG_FAILURES += 1
+        log.debug("[PIPELINE] record_conversation failed: %s", _exc, exc_info=True)
+        if _CONVERSATION_LOG_FAILURES >= 3:
+            log.warning("[PIPELINE] record_conversation failed %d times", _CONVERSATION_LOG_FAILURES)
 
 
 def _record_sla(sla_start: float, first_token_time: float, model: str, session_id: str) -> None:
@@ -334,6 +404,7 @@ async def _process_message_inner(
     on_token: Optional[Callable] = None,
     on_status: Optional[Callable] = None,
     lang: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> str:
     """Inner implementation of process_message."""
     from salmalm.core.engine import _engine  # singleton
@@ -347,7 +418,7 @@ async def _process_message_inner(
 
     from salmalm.core.session_store import get_session
 
-    session = get_session(session_id)
+    session = get_session(session_id, user_id=user_id)
 
     # Set user context for cost tracking (multi-tenant)
     from salmalm.core import set_current_user_id
@@ -378,6 +449,54 @@ async def _process_message_inner(
     slash_result = await _dispatch_slash_command(cmd, session, session_id, model_override, on_tool)
     if slash_result is not None:
         return slash_result
+
+    # --- Natural-language sub-agent spawn detection ---
+    _spawn_patterns_ko = [
+        ("서브 에이전트로", "서브에이전트로"),
+        ("서브에이전트로",),
+        ("백그라운드로 실행", "백그라운드로 돌려"),
+        ("서브에이전트 돌려", "서브 에이전트 돌려"),
+    ]
+    _msg_lower = user_message.strip()
+    _is_spawn_request = any(
+        kw in _msg_lower
+        for kw in ("서브에이전트로", "서브 에이전트로", "서브에이전트로 돌려", "서브에이전트를 써서",
+                   "subagent로", "sub-agent로", "백그라운드로 실행해", "서브에이전트 실행")
+    )
+    if _is_spawn_request and not _msg_lower.startswith("/"):
+        try:
+            from salmalm.features.subagents import subagent_manager
+            # Strip Korean spawn-request suffix to extract the actual task
+            _task = user_message.strip()
+            for _suf in sorted([
+                "서브에이전트로 돌리시오", "서브 에이전트로 돌리시오",
+                "서브에이전트로 돌려주시오", "서브 에이전트로 돌려주시오",
+                "서브에이전트로 돌려", "서브 에이전트로 돌려",
+                "서브에이전트로 실행하시오", "서브 에이전트로 실행하시오",
+                "서브에이전트를 써서", "서브에이전트로", "서브 에이전트로",
+                "백그라운드로 실행해", "서브에이전트 실행",
+            ], key=len, reverse=True):
+                _task = _task.replace(_suf, "").strip()
+            # Remove trailing Korean particles (을/를/이/가/은/는)
+            import re as _re
+            _task = _re.sub(r"[을를이가은는]$", "", _task.strip()).strip()
+            _task = _task.strip("., ") or user_message.strip()
+            _task_obj = subagent_manager.spawn(
+                description=_task,
+                parent_session=session_id,
+            )
+            _reply = (
+                f"✅ 서브에이전트 실행 시작!\n\n"
+                f"• **Agent ID:** `{_task_obj.task_id}`\n"
+                f"• **Task:** {_task[:80]}\n"
+                f"• **Status:** 🔄 진행 중...\n\n"
+                f"완료되면 자동으로 알려드리겠소."
+            )
+            session.add_assistant(_reply)
+            return _reply
+        except Exception as _se:
+            log.warning(f"[ENGINE] Auto-spawn failed: {_se}")
+            # fall through to LLM
 
     # --- Normal message processing ---
     if not user_message.strip() and not image_data:

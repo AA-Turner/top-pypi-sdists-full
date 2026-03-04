@@ -374,6 +374,16 @@ class Session(
     def _anonymous_dataset(self):
         return self._anon_dataset_manager.dataset
 
+    @property
+    def bq_connection(self) -> str:
+        msg = bfe.format_message(
+            f"""You are using the BigFrames session default connection: {self._bq_connection},
+            which can be different from the BigQuery project default connection.
+            This default connection may change in the future."""
+        )
+        warnings.warn(msg, category=FutureWarning)
+        return self._bq_connection
+
     def __hash__(self):
         # Stable hash needed to use in expression tree
         return hash(str(self._session_id))
@@ -1373,7 +1383,6 @@ class Session(
             write_engine=write_engine,
         )
         if engine == "bigquery":
-
             if dtype is not None:
                 raise NotImplementedError(
                     "BigQuery engine does not support the dtype arguments."
@@ -1527,7 +1536,8 @@ class Session(
         cloud_function_vpc_connector_egress_settings: Optional[
             Literal["all", "private-ranges-only", "unspecified"]
         ] = None,
-        cloud_function_memory_mib: Optional[int] = 1024,
+        cloud_function_memory_mib: Optional[int] = None,
+        cloud_function_cpus: Optional[float] = None,
         cloud_function_ingress_settings: Literal[
             "all", "internal-only", "internal-and-gclb"
         ] = "internal-only",
@@ -1708,6 +1718,10 @@ class Session(
                 default memory of cloud functions be allocated, pass `None`. See
                 for more details
                 https://cloud.google.com/functions/docs/configuring/memory.
+            cloud_function_cpus (float, Optional):
+                The number of cpus to allocate for the cloud
+                function (2nd gen) created.
+                https://docs.cloud.google.com/run/docs/configuring/services/cpu.
             cloud_function_ingress_settings (str, Optional):
                 Ingress settings controls dictating what traffic can reach the
                 function. Options are: `all`, `internal-only`, or `internal-and-gclb`.
@@ -1758,6 +1772,7 @@ class Session(
             cloud_function_vpc_connector=cloud_function_vpc_connector,
             cloud_function_vpc_connector_egress_settings=cloud_function_vpc_connector_egress_settings,
             cloud_function_memory_mib=cloud_function_memory_mib,
+            cloud_function_cpus=cloud_function_cpus,
             cloud_function_ingress_settings=cloud_function_ingress_settings,
             cloud_build_service_account=cloud_build_service_account,
         )
@@ -2252,8 +2267,9 @@ class Session(
         iam_role: Optional[str] = None,
     ) -> str:
         """Create the connection with the session settings and try to attach iam role to the connection SA.
-        If any of project, location or connection isn't specified, use the session defaults. Returns fully-qualified connection name."""
-        connection = self._bq_connection if not connection else connection
+        If any of project, location or connection isn't specified, use the session defaults. Returns fully-qualified connection name.
+        """
+        connection = self.bq_connection if not connection else connection
         connection = bigframes.clients.get_canonical_bq_connection_id(
             connection_id=connection,
             default_project=self._project,

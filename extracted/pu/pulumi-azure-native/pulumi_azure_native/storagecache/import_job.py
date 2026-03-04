@@ -31,6 +31,7 @@ class ImportJobArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a ImportJob resource.
+
         :param pulumi.Input[_builtins.str] aml_filesystem_name: Name for the AML file system. Allows alphanumerics, underscores, and hyphens. Start and end with alphanumeric.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[Union[_builtins.str, 'ConflictResolutionMode']] conflict_resolution_mode: How the import job will handle conflicts. For example, if the import job is trying to bring in a directory, but a file is at that path, how it handles it. Fail indicates that the import job should stop immediately and not do anything with the conflict. Skip indicates that it should pass over the conflict. OverwriteIfDirty causes the import job to delete and re-import the file or directory if it is a conflicting type, is dirty, or was not previously imported. OverwriteAlways extends OverwriteIfDirty to include releasing files that had been restored but were not dirty. Please reference https://learn.microsoft.com/en-us/azure/azure-managed-lustre/ for a thorough explanation of these resolution modes.
@@ -176,7 +177,8 @@ class ImportJob(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-03-01.
 
-        Other available API versions: 2024-07-01, 2025-07-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2025-07-01, 2026-01-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -200,7 +202,8 @@ class ImportJob(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-03-01.
 
-        Other available API versions: 2024-07-01, 2025-07-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2025-07-01, 2026-01-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param ImportJobArgs args: The arguments to use to populate this resource's properties.
@@ -265,7 +268,7 @@ class ImportJob(pulumi.CustomResource):
             __props__.__dict__["total_conflicts"] = None
             __props__.__dict__["total_errors"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:storagecache/v20240301:ImportJob"), pulumi.Alias(type_="azure-native:storagecache/v20240701:ImportJob"), pulumi.Alias(type_="azure-native:storagecache/v20250701:ImportJob")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:storagecache/v20240301:ImportJob"), pulumi.Alias(type_="azure-native:storagecache/v20240701:ImportJob"), pulumi.Alias(type_="azure-native:storagecache/v20250701:ImportJob"), pulumi.Alias(type_="azure-native:storagecache/v20260101:ImportJob")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ImportJob, __self__).__init__(
             'azure-native:storagecache:ImportJob',

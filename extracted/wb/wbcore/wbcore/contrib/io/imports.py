@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from .exceptions import DeserializationError, ImportError, SkipImportError
 from .models import ImportedObjectProviderRelationship, ImportSource
+from .signals import post_import
 from .utils import nest_row
 
 
@@ -309,5 +310,6 @@ class ImportExportHandler:
             if history.exists():
                 self._post_processing_history(history)
             self._post_processing_objects(created_objs, modified_objs, unmodified_objs)
+            post_import.send(sender=self.model, imported_objects=created_objs + modified_objs + unmodified_objs)
 
         self.import_source.save()

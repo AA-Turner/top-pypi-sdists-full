@@ -62,6 +62,35 @@ void dev_var_command_array_deleter(void *ptr) {
     delete static_cast<TangoArrayType *>(ptr);
 }
 
+/// Workaround for https://github.com/pybind/pybind11/issues/5998:
+/// pybind11_object_dealloc() does not call PyObject_ClearManagedDict() before tp_free()
+/// on Python 3.13+, so objects stored in the __dict__ of py::dynamic_attr() instances
+/// have their refcounts permanently abandoned when the pybind11 object is freed.
+/// Call this after defining any py::class_<T> with py::dynamic_attr().
+/// Can be removed once a fixed pybind11 release is used.
+///
+/// Templatized so that each instantiation has its own `orig` static, ensuring
+/// correctness if different types ever have different tp_dealloc implementations.
+/// The captureless lambda can reference `orig` without capturing because static
+/// local variables have fixed storage and require no closure.
+template <typename T>
+inline void fix_dynamic_attr_dealloc() {
+#if PY_VERSION_HEX >= 0x030D0000
+    static destructor orig = nullptr;
+    auto *type = reinterpret_cast<PyTypeObject *>(py::type::of<T>().ptr());
+    if(!PyType_HasFeature(type, Py_TPFLAGS_MANAGED_DICT)) {
+        return;
+    }
+    if(orig == nullptr) {
+        orig = type->tp_dealloc;
+    }
+    type->tp_dealloc = [](PyObject *self) noexcept {
+        PyObject_ClearManagedDict(self);
+        orig(self);
+    };
+#endif
+}
+
 inline void raise_(PyObject *type, const char *message) {
     PyErr_SetString(type, message);
     throw py::error_already_set();

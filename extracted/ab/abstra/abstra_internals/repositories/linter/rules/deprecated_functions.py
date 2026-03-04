@@ -31,6 +31,7 @@ class DeprecatedFunctionFound(LinterIssue):
 class DeprecatedFunctionUsage(LinterRule):
     label: str = "Deprecated function usage"
     type: str = "warning"
+    fix_with_ai: bool = True
 
     def find_issues(self) -> List[LinterIssue]:
         project = LocalProjectRepository().load()

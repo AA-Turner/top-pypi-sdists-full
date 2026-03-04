@@ -22,6 +22,24 @@ from sagemaker_studio.utils.spark.session.athena.internal_spark_utils import gen
 from sagemaker_studio.utils.spark.session.spark_session_manager import SparkSessionManager
 
 logger = logging.getLogger("SparkConnect")
+log_file = "/var/log/studio/data-notebook-kernel-server/athena_spark_session.log"
+
+try:
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.INFO)
+except (PermissionError, OSError) as e:
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(console_handler)
+    logger.setLevel(logging.INFO)
+    logger.warning(f"Failed to create log file {log_file}: {e}.")
 
 
 class AthenaSparkSessionManager(SparkSessionManager):
@@ -161,7 +179,10 @@ class AthenaSparkSessionManager(SparkSessionManager):
                 },
                 SessionIdleTimeoutInMinutes=15,
                 ClientRequestToken=client_token,
-                Tags=[{"Key": "AmazonDataZoneSessionOwner", "Value": user_id}],
+                Tags=[
+                    {"Key": "AmazonDataZoneSessionOwner", "Value": user_id},
+                    {"Key": "AmazonDataZoneProject", "Value": self.project.id},
+                ],
             )
             session_id = start_session_response["SessionId"]
             logger.debug(f"Created Athena Spark session with id: {session_id}")

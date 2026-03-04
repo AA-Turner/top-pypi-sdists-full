@@ -6,8 +6,14 @@ import pathlib
 import subprocess
 import os
 import sys
+import uuid
+import torch
 
 from omegaconf import OmegaConf, open_dict
+from nequip.data import AtomicDataDict
+
+BEST_CHECKPOINT_FILENAME = "best.ckpt"
+ORIG_PACKAGE_MODEL_FILENAME = "orig_package_model.nequip.zip"
 
 
 def _check_and_print(retcode, encoding="ascii"):
@@ -21,10 +27,119 @@ def _check_and_print(retcode, encoding="ascii"):
         retcode.check_returncode()
 
 
+def resolve_saved_model_path(tmpdir: str, model_source: str) -> str:
+    """Resolve checkpoint/package path for saved-model loading tests.
+
+    Args:
+        tmpdir: test run directory containing training artifacts.
+        model_source: one of ``"fresh"``, ``"checkpoint"``, or ``"package"``.
+
+    Returns:
+        Absolute path string to the saved model artifact.
+    """
+    if model_source in ("fresh", "checkpoint"):
+        return str(pathlib.Path(tmpdir) / BEST_CHECKPOINT_FILENAME)
+    elif model_source == "package":
+        return str(pathlib.Path(tmpdir) / ORIG_PACKAGE_MODEL_FILENAME)
+    else:
+        raise ValueError(
+            "model_source must be one of 'fresh', 'checkpoint', or 'package'. "
+            f"Got: {model_source}"
+        )
+
+
+def run_nequip_compile(
+    model_path: str,
+    tmpdir: str,
+    env: dict,
+    mode: str,
+    device: str,
+    target: str,
+    modifiers=None,
+    output_prefix: str = "compile_model",
+) -> str:
+    """Run ``nequip-compile`` and return compiled model artifact path."""
+    if modifiers is None:
+        modifiers = []
+
+    uid = uuid.uuid4()
+    compile_fname = (
+        f"{output_prefix}_{uid}.nequip.pt2"
+        if mode == "aotinductor"
+        else f"{output_prefix}_{uid}.nequip.pth"
+    )
+    output_path = str(pathlib.Path(tmpdir) / compile_fname)
+
+    cmd = [
+        "nequip-compile",
+        model_path,
+        output_path,
+        "--mode",
+        mode,
+        "--device",
+        device,
+        "--target",
+        target,
+    ]
+    if modifiers:
+        cmd.extend(["--modifiers"] + modifiers)
+
+    retcode = subprocess.run(
+        cmd,
+        cwd=tmpdir,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    _check_and_print(retcode)
+    assert os.path.exists(output_path), (
+        f"Compiled model `{output_path}` does not exist!"
+    )
+    return output_path
+
+
+def compare_output_and_gradients(
+    modelA, modelB, model_test_data, tol, compare_outputs=None
+):
+    """Compare model outputs and parameter gradients for consistency."""
+    # default fields
+    if compare_outputs is None:
+        compare_outputs = [
+            AtomicDataDict.PER_ATOM_ENERGY_KEY,
+            AtomicDataDict.TOTAL_ENERGY_KEY,
+            AtomicDataDict.FORCE_KEY,
+            AtomicDataDict.VIRIAL_KEY,
+        ]
+
+    A_out = modelA(model_test_data.copy())
+    B_out = modelB(model_test_data.copy())
+    for key in compare_outputs:
+        if key in A_out and key in B_out:
+            torch.testing.assert_close(A_out[key], B_out[key], atol=tol, rtol=tol)
+
+    # test backwards pass if there are trainable weights
+    if any([p.requires_grad for p in modelB.parameters()]):
+        B_loss = B_out[AtomicDataDict.TOTAL_ENERGY_KEY].square().sum()
+        B_loss.backward()
+
+        A_loss = A_out[AtomicDataDict.TOTAL_ENERGY_KEY].square().sum()
+        A_loss.backward()
+        compile_params = dict(modelB.named_parameters())
+        for k, v in modelA.named_parameters():
+            err = torch.max(torch.abs(v.grad - compile_params[k].grad))
+            torch.testing.assert_close(
+                v.grad,
+                compile_params[k].grad,
+                atol=tol,
+                rtol=tol,
+                msg=f"failed for {k}, with MaxAbsErr of {err:.6f}",
+            )
+
+
 def _training_session(
     conffile,
     model_dtype,
-    extra_train_from_save=None,
+    extra_train_from_save="fresh",
     model_config=None,
     training_module_override_dict=None,
 ):
@@ -36,12 +151,18 @@ def _training_session(
     Args:
         conffile: Name of config file (e.g., "minimal_aspirin.yaml")
         model_dtype: Model dtype string (e.g., "float32", "float64")
-        extra_train_from_save: Optional, None/"checkpoint"/"package" for additional training
+        extra_train_from_save: One of "fresh", "checkpoint", or "package" for additional training
         model_config: Optional model config dict to inject (for unit tests)
         training_module_override_dict: Optional dict with training_module override, including optimizer (e.g. for ScheduleFreeLightningModule)
     Yields:
         tuple: (config, tmpdir, env) - training config, temp directory, and env vars
     """
+    if extra_train_from_save not in ("fresh", "checkpoint", "package"):
+        raise ValueError(
+            "extra_train_from_save must be one of 'fresh', 'checkpoint', or 'package'. "
+            f"Got: {extra_train_from_save}"
+        )
+
     # find the config file in the same directory as this utils file
     current_file = pathlib.Path(__file__)
     config_path = current_file.parent / conffile
@@ -102,7 +223,7 @@ def _training_session(
             _check_and_print(retcode)
 
             # handle extra training from save
-            if extra_train_from_save is None:
+            if extra_train_from_save == "fresh":
                 yield config, tmpdir, env
             else:
                 with tempfile.TemporaryDirectory() as new_tmpdir:
@@ -117,7 +238,9 @@ def _training_session(
                             }
                     elif extra_train_from_save == "package":
                         # package model
-                        package_path = f"{new_tmpdir}/orig_package_model.nequip.zip"
+                        package_path = str(
+                            pathlib.Path(new_tmpdir) / ORIG_PACKAGE_MODEL_FILENAME
+                        )
                         retcode = subprocess.run(
                             [
                                 "nequip-package",

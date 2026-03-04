@@ -137,6 +137,11 @@ class SystemMixin:
 
     def _get_status(self):
         """Get status."""
+        from salmalm.web.auth import extract_auth
+        _user = extract_auth({k.lower(): v for k, v in self.headers.items()})
+        if not _user:
+            self._json({"status": "ok", "version": VERSION})
+            return
         channels = {}
         if vault.is_unlocked:
             channels["telegram"] = bool(vault.get("telegram_token"))
@@ -364,9 +369,13 @@ async def get_api_uptime():
 
 
 @router.get("/api/latency")
-async def get_api_latency():
+async def get_api_latency(_u=_Depends(_optauth)):
     from salmalm.features.sla import latency_tracker
-    return _JSON(latency_tracker.get_stats())
+    stats = latency_tracker.get_stats()
+    # Unauthenticated: return only aggregate, not per-path breakdown
+    if not _u:
+        return _JSON({"status": "ok"})
+    return _JSON(stats)
 
 
 @router.get("/api/nodes")
@@ -376,7 +385,9 @@ async def get_api_nodes(_u=_Depends(_auth)):
 
 
 @router.get("/api/status")
-async def get_api_status(request: _Request, session: str = _Query("web")):
+async def get_api_status(request: _Request, session: str = _Query("web"), _u=_Depends(_optauth)):
+    if not _u:
+        return _JSON({"status": "ok", "version": VERSION})
     from salmalm.core.core import get_usage_report, router as _cr
     from salmalm.security.crypto import vault
     channels = {}
@@ -406,6 +417,8 @@ async def get_api_status(request: _Request, session: str = _Query("web")):
 
 @router.get("/api/debug")
 async def get_api_debug(_u=_Depends(_auth)):
+    if _u.get("role") not in ("admin", "owner"):
+        return _JSON(content={"error": "Admin access required"}, status_code=403)
     import gc, platform
     from salmalm.core import _metrics, get_session
     from salmalm.core.engine_pipeline import _active_requests, _shutting_down
@@ -542,4 +555,3 @@ async def get_api_logs(lines: int = _Query(100), level: str = _Query(""), _u=_De
                 continue
             entries.append(ln)
     return _JSON({"logs": entries, "total": len(entries)})
-

@@ -324,6 +324,9 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
             "Solving with target Python version: {}",
             self.python_requirement.target()
         );
+        if !self.options.exclude_newer.is_empty() {
+            debug!("Solving with exclude-newer: {}", self.options.exclude_newer);
+        }
 
         let mut visited = FxHashSet::default();
 
@@ -1227,35 +1230,20 @@ impl<InstalledPackages: InstalledPackagesProvider> ResolverState<InstalledPackag
 
         // The version is incompatible due to its `Requires-Python` requirement.
         if let Some(requires_python) = metadata.requires_python.as_ref() {
-            // TODO(charlie): We only care about this for source distributions.
-            if !python_requirement
-                .installed()
-                .is_contained_by(requires_python)
-            {
-                return Ok(Some(ResolverVersion::Unavailable(
-                    version.clone(),
-                    UnavailableVersion::IncompatibleDist(IncompatibleDist::Source(
-                        IncompatibleSource::RequiresPython(
-                            requires_python.clone(),
-                            PythonRequirementKind::Installed,
-                        ),
-                    )),
-                )));
-            }
             if !python_requirement.target().is_contained_by(requires_python) {
+                let kind = if python_requirement.installed() == python_requirement.target() {
+                    PythonRequirementKind::Installed
+                } else {
+                    PythonRequirementKind::Target
+                };
                 return Ok(Some(ResolverVersion::Unavailable(
                     version.clone(),
                     UnavailableVersion::IncompatibleDist(IncompatibleDist::Source(
-                        IncompatibleSource::RequiresPython(
-                            requires_python.clone(),
-                            PythonRequirementKind::Target,
-                        ),
+                        IncompatibleSource::RequiresPython(requires_python.clone(), kind),
                     )),
                 )));
             }
         }
-
-        // If this is a wheel, and the implied Python version doesn't overlap, raise an error.
 
         Ok(Some(ResolverVersion::Unforked(version.clone())))
     }

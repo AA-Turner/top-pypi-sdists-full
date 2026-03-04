@@ -6697,15 +6697,18 @@ class FunctionStats(google.protobuf.message.Message):
 
     BACKLOG_FIELD_NUMBER: builtins.int
     NUM_TOTAL_TASKS_FIELD_NUMBER: builtins.int
+    NUM_RUNNING_INPUTS_FIELD_NUMBER: builtins.int
     backlog: builtins.int
     num_total_tasks: builtins.int
+    num_running_inputs: builtins.int
     def __init__(
         self,
         *,
         backlog: builtins.int = ...,
         num_total_tasks: builtins.int = ...,
+        num_running_inputs: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["backlog", b"backlog", "num_total_tasks", b"num_total_tasks"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["backlog", b"backlog", "num_running_inputs", b"num_running_inputs", "num_total_tasks", b"num_total_tasks"]) -> None: ...
 
 global___FunctionStats = FunctionStats
 
@@ -9041,6 +9044,7 @@ class Sandbox(google.protobuf.message.Message):
     DIRECT_SANDBOX_COMMANDS_ENABLED_FIELD_NUMBER: builtins.int
     _RESTORE_INSTANCE_TYPE_FIELD_NUMBER: builtins.int
     CUSTOM_DOMAIN_FIELD_NUMBER: builtins.int
+    INCLUDE_OIDC_IDENTITY_TOKEN_FIELD_NUMBER: builtins.int
     @property
     def entrypoint_args(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -9119,6 +9123,11 @@ class Sandbox(google.protobuf.message.Message):
     """
     custom_domain: builtins.str
     """If set, connections to this sandbox will be subdomains of this domain rather than the default."""
+    include_oidc_identity_token: builtins.bool
+    """If set, the sandbox will receive a MODAL_IDENTITY_TOKEN env var,
+    similar to how modal Function containers do. This can be used
+    for OIDC-based authentication (e.g. to AWS, GCP).
+    """
     def __init__(
         self,
         *,
@@ -9156,9 +9165,10 @@ class Sandbox(google.protobuf.message.Message):
         direct_sandbox_commands_enabled: builtins.bool = ...,
         _restore_instance_type: builtins.str = ...,
         custom_domain: builtins.str = ...,
+        include_oidc_identity_token: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_idle_timeout_secs", b"_idle_timeout_secs", "_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "idle_timeout_secs", b"idle_timeout_secs", "name", b"name", "network_access", b"network_access", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "scheduler_placement", b"scheduler_placement", "snapshot_version", b"snapshot_version", "workdir", b"workdir"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_idle_timeout_secs", b"_idle_timeout_secs", "_name", b"_name", "_proxy_id", b"_proxy_id", "_restore_instance_type", b"_restore_instance_type", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "custom_domain", b"custom_domain", "direct_sandbox_commands_enabled", b"direct_sandbox_commands_enabled", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "experimental_options", b"experimental_options", "i6pn_enabled", b"i6pn_enabled", "idle_timeout_secs", b"idle_timeout_secs", "image_id", b"image_id", "mount_ids", b"mount_ids", "name", b"name", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "preload_path_prefixes", b"preload_path_prefixes", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "verbose", b"verbose", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_idle_timeout_secs", b"_idle_timeout_secs", "_name", b"_name", "_proxy_id", b"_proxy_id", "_restore_instance_type", b"_restore_instance_type", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "custom_domain", b"custom_domain", "direct_sandbox_commands_enabled", b"direct_sandbox_commands_enabled", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "experimental_options", b"experimental_options", "i6pn_enabled", b"i6pn_enabled", "idle_timeout_secs", b"idle_timeout_secs", "image_id", b"image_id", "include_oidc_identity_token", b"include_oidc_identity_token", "mount_ids", b"mount_ids", "name", b"name", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "preload_path_prefixes", b"preload_path_prefixes", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "verbose", b"verbose", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_idle_timeout_secs", b"_idle_timeout_secs"]) -> typing_extensions.Literal["idle_timeout_secs"] | None: ...
     @typing.overload
@@ -10257,6 +10267,42 @@ class SecretMetadata(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["creation_info", b"creation_info", "name", b"name"]) -> None: ...
 
 global___SecretMetadata = SecretMetadata
+
+class SecretUpdateRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class Update(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        """If not set, the key is removed."""
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str | None = ...,
+        ) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["_value", b"_value", "value", b"value"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["_value", b"_value", "key", b"key", "value", b"value"]) -> None: ...
+        def WhichOneof(self, oneof_group: typing_extensions.Literal["_value", b"_value"]) -> typing_extensions.Literal["value"] | None: ...
+
+    SECRET_ID_FIELD_NUMBER: builtins.int
+    UPDATES_FIELD_NUMBER: builtins.int
+    secret_id: builtins.str
+    @property
+    def updates(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SecretUpdateRequest.Update]: ...
+    def __init__(
+        self,
+        *,
+        secret_id: builtins.str = ...,
+        updates: collections.abc.Iterable[global___SecretUpdateRequest.Update] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["secret_id", b"secret_id", "updates", b"updates"]) -> None: ...
+
+global___SecretUpdateRequest = SecretUpdateRequest
 
 class ServiceUserIdentity(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

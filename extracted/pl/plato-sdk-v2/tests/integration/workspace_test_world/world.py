@@ -37,8 +37,18 @@ class WorkspaceTestWorldConfig(RunConfig):
 
     ws: Annotated[
         Path,
-        WorkspaceMarker(description="Test workspace", tracked=False, mount="/workspace"),
+        WorkspaceMarker(description="Test workspace", tracked=False, mount_path="/workspace"),
     ] = Path("/state/ws")
+
+    tracked_ws: Annotated[
+        Path,
+        WorkspaceMarker(
+            description="Tracked workspace for DVC path tests",
+            tracked=True,
+            mount_path="/tracked",
+            dvcignore=["*.tmp", "dist"],
+        ),
+    ] = Path("/state/tracked_ws")
 
 
 @register_world("plato-world-structured-execution")
@@ -58,6 +68,9 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
 
         # --- Basic workspace attribute tests ---
         self._run_basic_tests()
+
+        # --- Tracked workspace path / dvcignore tests ---
+        await self._run_tracked_workspace_tests()
 
         # --- Local file I/O ---
         self._run_file_io_tests()
@@ -183,6 +196,134 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             lambda: callable(getattr(ws.transport, "with_path", None)),
             "transport should have with_path()",
         )
+
+    # ---------------------------------------------------------------
+    # Tracked workspace: path semantics, dvcignore, DVC isolation
+    # ---------------------------------------------------------------
+
+    async def _run_tracked_workspace_tests(self) -> None:
+        """Validate the tracked workspace API after _init_declared_workspaces."""
+        self.logger.info("Running tracked workspace path/dvcignore tests...")
+        try:
+            tws = self.workspace("tracked_ws")
+        except Exception as e:
+            self.test_results.append({"name": "tracked_ws_lookup", "passed": False, "error": str(e)})
+            self.all_passed = False
+            return
+
+        self._run_test(
+            "tracked_ws_is_workspace",
+            lambda: isinstance(tws, Workspace),
+            f"Expected Workspace, got {type(tws)}",
+        )
+
+        # path is the content dir (repo_root / "data"), not the repo root
+        self._run_test(
+            "tracked_ws_path_is_content_dir",
+            lambda: tws.path == tws._repo_root / "data",
+            f"path ({tws.path}) should be _repo_root/data ({tws._repo_root / 'data'})",
+        )
+        self._run_test(
+            "tracked_ws_path_ne_repo_root",
+            lambda: tws.path != tws._repo_root,
+            "path should NOT equal _repo_root",
+        )
+
+        # data_path property should not exist
+        self._run_test(
+            "tracked_ws_no_data_path",
+            lambda: not hasattr(tws, "data_path"),
+            "data_path attribute should be deleted",
+        )
+
+        # Content dir exists and is a real directory
+        self._run_test(
+            "tracked_ws_content_dir_exists",
+            lambda: tws.path.is_dir(),
+            f"Content dir {tws.path} should exist",
+        )
+
+        # DVC scaffolding at repo root, not at content dir
+        self._run_test(
+            "tracked_ws_git_at_repo_root",
+            lambda: (tws._repo_root / ".git").is_dir(),
+            ".git should be at _repo_root",
+        )
+        self._run_test(
+            "tracked_ws_dvc_at_repo_root",
+            lambda: (tws._repo_root / ".dvc").exists(),
+            ".dvc should be at _repo_root",
+        )
+        self._run_test(
+            "tracked_ws_no_git_in_content",
+            lambda: not (tws.path / ".git").exists(),
+            ".git should NOT be inside content dir",
+        )
+        self._run_test(
+            "tracked_ws_no_dvc_in_content",
+            lambda: not (tws.path / ".dvc").exists(),
+            ".dvc should NOT be inside content dir",
+        )
+
+        # .dvcignore at repo root with defaults + custom entries
+        dvcignore_path = tws._repo_root / ".dvcignore"
+        self._run_test(
+            "tracked_ws_dvcignore_exists",
+            lambda: dvcignore_path.exists(),
+            ".dvcignore should exist at _repo_root",
+        )
+        if dvcignore_path.exists():
+            content = dvcignore_path.read_text()
+            # Check defaults
+            for pattern in ("node_modules", "__pycache__", ".next", ".venv", "*.pyc"):
+                self._run_test(
+                    f"tracked_ws_dvcignore_default_{pattern}",
+                    lambda p=pattern: p in content,
+                    f"Default pattern '{pattern}' missing from .dvcignore",
+                )
+            # Check custom entries from WorkspaceMarker(dvcignore=["*.tmp", "dist"])
+            for pattern in ("*.tmp", "dist"):
+                self._run_test(
+                    f"tracked_ws_dvcignore_custom_{pattern}",
+                    lambda p=pattern: p in content,
+                    f"Custom pattern '{pattern}' missing from .dvcignore",
+                )
+
+        # config attribute points to content dir
+        config_path = getattr(self.config, "tracked_ws", None)
+        self._run_test(
+            "tracked_ws_config_is_content_dir",
+            lambda: config_path == tws.path,
+            f"config.tracked_ws ({config_path}) should equal workspace.path ({tws.path})",
+        )
+
+        # Write/read in content dir
+        test_file = tws.path / "_tracked_test.txt"
+        self._run_test(
+            "tracked_ws_write_content",
+            lambda: (test_file.write_text("tracked test"), test_file.read_text() == "tracked test")[1],
+            "Should write/read in content dir",
+        )
+
+        # Commit creates .dvc pointer at repo root, not content dir
+        await self._run_async_test(
+            "tracked_ws_commit",
+            lambda: self._async_ok(tws.commit("tracked_test_step")),
+            "commit() should succeed on tracked workspace",
+        )
+        self._run_test(
+            "tracked_ws_dvc_pointer_at_root",
+            lambda: (tws._repo_root / "data.dvc").exists(),
+            "data.dvc should exist at _repo_root after commit",
+        )
+        self._run_test(
+            "tracked_ws_no_dvc_pointer_in_content",
+            lambda: not (tws.path / "data.dvc").exists(),
+            "data.dvc should NOT exist inside content dir",
+        )
+
+        # Cleanup
+        test_file.unlink(missing_ok=True)
 
     # ---------------------------------------------------------------
     # Local file I/O
@@ -744,33 +885,8 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
     async def _run_lazy_dvc_tests(self) -> None:
         self.logger.info("=== Running Lazy DVC Tests ===")
 
-        exit_code, _, stderr = await run_local(
-            "apt-get update -qq && apt-get install -y -qq libfuse3-dev fuse3 pkg-config gcc python3-dev",
-            timeout=120,
-        )
-        if exit_code != 0:
-            self.logger.warning("Cannot install fuse3, skipping lazy DVC tests: %s", stderr.strip())
-            return
-
-        exit_code, _, stderr = await run_local(
-            "uv pip install --system pyfuse3",
-            timeout=120,
-        )
-        if exit_code != 0:
-            self.logger.warning("Cannot install pyfuse3, skipping lazy DVC tests: %s", stderr.strip())
-            return
-
-        exit_code, _, _ = await run_local(
-            f"{sys.executable} -c 'import pyfuse3; print(pyfuse3.__version__)'",
-            timeout=10,
-        )
-        if exit_code != 0:
-            self.logger.warning("pyfuse3 import failed after install, skipping lazy DVC tests")
-            return
-
         if not Path("/dev/fuse").exists():
-            self.logger.warning("/dev/fuse not available, skipping lazy DVC tests")
-            return
+            raise RuntimeError("/dev/fuse not available — VM must have FUSE support")
 
         await run_local(
             "grep -q 'user_allow_other' /etc/fuse.conf 2>/dev/null || echo 'user_allow_other' >> /etc/fuse.conf",
@@ -824,15 +940,33 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             "DVC workspace init should succeed",
         )
 
-        data_dir = test_dir / "data"
-        data_dir.mkdir(exist_ok=True)
-        (data_dir / "file1.txt").write_text("hello world")
-        (data_dir / "file2.txt").write_text("second file content")
-        sub = data_dir / "sub"
+        # Validate new path semantics on manually-created tracked workspace
+        self._run_test(
+            "lazy_dvc_path_is_content_dir",
+            lambda: ws.path == test_dir / "data",
+            f"ws.path ({ws.path}) should be test_dir/data ({test_dir / 'data'})",
+        )
+        self._run_test(
+            "lazy_dvc_repo_root_is_test_dir",
+            lambda: ws._repo_root == test_dir,
+            f"ws._repo_root ({ws._repo_root}) should be test_dir ({test_dir})",
+        )
+        self._run_test(
+            "lazy_dvc_dvcignore_defaults",
+            lambda: (test_dir / ".dvcignore").exists() and "node_modules" in (test_dir / ".dvcignore").read_text(),
+            ".dvcignore should exist at _repo_root with defaults",
+        )
+
+        # ws.path is now the content dir (test_dir / "data")
+        content_dir = ws.path
+        content_dir.mkdir(exist_ok=True)
+        (content_dir / "file1.txt").write_text("hello world")
+        (content_dir / "file2.txt").write_text("second file content")
+        sub = content_dir / "sub"
         sub.mkdir()
         (sub / "nested.txt").write_text("nested content here")
         large_data = os.urandom(512 * 1024)
-        (data_dir / "large.bin").write_bytes(large_data)
+        (content_dir / "large.bin").write_bytes(large_data)
         large_md5 = hashlib.md5(large_data).hexdigest()
 
         await self._run_async_test(
@@ -841,8 +975,8 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             "Regular DVC commit + push should succeed",
         )
 
-        shutil.rmtree(data_dir)
-        data_dir.mkdir()
+        shutil.rmtree(content_dir)
+        content_dir.mkdir()
 
         await self._run_async_test(
             "lazy_dvc_fuse_restore",
@@ -852,56 +986,75 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
 
         await self._run_async_test(
             "lazy_dvc_mount_exists",
-            lambda: self._check_is_mount(data_dir),
-            f"{data_dir} should be a FUSE mount point",
+            lambda: self._check_is_mount(content_dir),
+            f"{content_dir} should be a FUSE mount point",
         )
 
         await self._run_async_test(
             "lazy_dvc_listing",
-            lambda: self._check_ls_contains(data_dir, {"file1.txt", "file2.txt", "large.bin", "sub"}),
+            lambda: self._check_ls_contains(content_dir, {"file1.txt", "file2.txt", "large.bin", "sub"}),
             "All files/dirs should appear in listing",
         )
 
         await self._run_async_test(
             "lazy_dvc_nested_listing",
-            lambda: self._check_ls_contains(data_dir / "sub", {"nested.txt"}),
+            lambda: self._check_ls_contains(content_dir / "sub", {"nested.txt"}),
             "Nested directory listing should work",
         )
 
         await self._run_async_test(
             "lazy_dvc_read_text",
-            lambda: self._check_cat(data_dir / "file1.txt", "hello world"),
+            lambda: self._check_cat(content_dir / "file1.txt", "hello world"),
             "Lazy text read should return correct content",
         )
 
         await self._run_async_test(
             "lazy_dvc_read_nested",
-            lambda: self._check_cat(data_dir / "sub" / "nested.txt", "nested content here"),
+            lambda: self._check_cat(content_dir / "sub" / "nested.txt", "nested content here"),
             "Nested file read via lazy FUSE should work",
         )
 
         await self._run_async_test(
             "lazy_dvc_read_large_md5",
-            lambda: self._check_md5sum(data_dir / "large.bin", large_md5),
+            lambda: self._check_md5sum(content_dir / "large.bin", large_md5),
             "Large file content should match after lazy download",
         )
 
         await self._run_async_test(
             "lazy_dvc_write_new",
-            lambda: self._shell_write(data_dir / "new_file.txt", "brand new content"),
+            lambda: self._shell_write(content_dir / "new_file.txt", "brand new content"),
             "Creating a new file through FUSE should work",
         )
 
         await self._run_async_test(
             "lazy_dvc_modify_existing",
-            lambda: self._shell_write(data_dir / "file1.txt", "modified content"),
+            lambda: self._shell_write(content_dir / "file1.txt", "modified content"),
             "Overwriting a file through FUSE should work",
         )
 
         await self._run_async_test(
             "lazy_dvc_delete",
-            lambda: self._shell_rm(data_dir / "file2.txt"),
+            lambda: self._shell_rm(content_dir / "file2.txt"),
             "Deleting a file through FUSE should work",
+        )
+
+        # --- Symlink tests through FUSE ---
+        await self._run_async_test(
+            "lazy_dvc_create_symlink",
+            lambda: self._shell_symlink(content_dir / "link_to_file1.txt", "file1.txt"),
+            "Creating a symlink through FUSE should work",
+        )
+
+        await self._run_async_test(
+            "lazy_dvc_readlink",
+            lambda: self._check_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
+            "readlink through FUSE should return correct target",
+        )
+
+        await self._run_async_test(
+            "lazy_dvc_symlink_is_link",
+            lambda: self._check_is_symlink(content_dir / "link_to_file1.txt"),
+            "Symlink should appear as a symlink via lstat",
         )
 
         await self._run_async_test(
@@ -910,13 +1063,22 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             "Smart commit should succeed",
         )
 
+        # _smart_commit re-mounts after committing (by design — keeps mount
+        # live for the next step).  Tear down the mounts so we can rmtree
+        # the data dir and test a fresh restore from S3.
+        from plato.worlds.lazy_dvc import unmount_lazy
+
+        for mount in list(ws._lazy_mounts.values()):
+            await unmount_lazy(mount)
+        ws._lazy_mounts.clear()
+
         await self._run_async_test(
             "lazy_dvc_unmounted",
-            lambda: self._check_not_mount(data_dir),
-            f"{data_dir} should NOT be a mount point after smart commit",
+            lambda: self._check_not_mount(content_dir),
+            f"{content_dir} should NOT be a mount point after explicit unmount",
         )
 
-        shutil.rmtree(data_dir, ignore_errors=True)
+        shutil.rmtree(content_dir, ignore_errors=True)
         shutil.rmtree(test_dir / ".lazy_cache", ignore_errors=True)
 
         await self._run_async_test(
@@ -927,32 +1089,45 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
 
         await self._run_async_test(
             "lazy_dvc_verify_modified",
-            lambda: self._check_cat(data_dir / "file1.txt", "modified content"),
+            lambda: self._check_cat(content_dir / "file1.txt", "modified content"),
             "Modified file should have new content after restore",
         )
 
         await self._run_async_test(
             "lazy_dvc_verify_new",
-            lambda: self._check_cat(data_dir / "new_file.txt", "brand new content"),
+            lambda: self._check_cat(content_dir / "new_file.txt", "brand new content"),
             "New file should exist after restore",
         )
 
         await self._run_async_test(
             "lazy_dvc_verify_deleted",
-            lambda: self._check_absent(data_dir / "file2.txt"),
+            lambda: self._check_absent(content_dir / "file2.txt"),
             "Deleted file should NOT exist after restore",
         )
 
         await self._run_async_test(
             "lazy_dvc_verify_untouched",
-            lambda: self._check_cat(data_dir / "sub" / "nested.txt", "nested content here"),
+            lambda: self._check_cat(content_dir / "sub" / "nested.txt", "nested content here"),
             "Untouched nested file should have original content",
         )
 
         await self._run_async_test(
             "lazy_dvc_verify_large_untouched",
-            lambda: self._check_md5sum(data_dir / "large.bin", large_md5),
+            lambda: self._check_md5sum(content_dir / "large.bin", large_md5),
             "Untouched large file should match original MD5",
+        )
+
+        # Verify symlink survived smart commit → regular restore cycle
+        await self._run_async_test(
+            "lazy_dvc_verify_symlink_target",
+            lambda: self._check_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
+            "Symlink target should be preserved after smart commit + restore",
+        )
+
+        await self._run_async_test(
+            "lazy_dvc_verify_symlink_is_link",
+            lambda: self._check_is_symlink(content_dir / "link_to_file1.txt"),
+            "Symlink should still be a symlink after restore",
         )
 
     # --- lazy DVC helpers ---
@@ -998,4 +1173,16 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
 
     async def _shell_rm(self, path: Path) -> bool:
         ec, _, _ = await run_local(f"rm -f {path}", timeout=10)
+        return ec == 0
+
+    async def _shell_symlink(self, link_path: Path, target: str) -> bool:
+        ec, _, _ = await run_local(f"ln -s '{target}' '{link_path}'", timeout=10)
+        return ec == 0
+
+    async def _check_readlink(self, path: Path, expected_target: str) -> bool:
+        ec, stdout, _ = await run_local(f"readlink '{path}'", timeout=10)
+        return ec == 0 and stdout.strip() == expected_target
+
+    async def _check_is_symlink(self, path: Path) -> bool:
+        ec, _, _ = await run_local(f"test -L '{path}'", timeout=5)
         return ec == 0

@@ -88,6 +88,9 @@ from ...operations._operations import (
     build_pools_get_request,
     build_pools_list_request,
     build_pools_update_request,
+    build_ransomware_reports_clear_suspects_request,
+    build_ransomware_reports_get_request,
+    build_ransomware_reports_list_request,
     build_snapshot_policies_create_request,
     build_snapshot_policies_delete_request,
     build_snapshot_policies_get_request,
@@ -126,6 +129,7 @@ from ...operations._operations import (
     build_volumes_finalize_relocation_request,
     build_volumes_get_request,
     build_volumes_list_get_group_id_list_for_ldap_user_request,
+    build_volumes_list_quota_report_request,
     build_volumes_list_replications_request,
     build_volumes_list_request,
     build_volumes_peer_external_cluster_request,
@@ -285,7 +289,14 @@ class NetAppResourceQuotaLimitsAccountOperations:  # pylint: disable=name-too-lo
                 "accept",
             ]
         },
-        api_versions_list=["2025-07-01-preview", "2025-08-01", "2025-08-01-preview", "2025-09-01"],
+        api_versions_list=[
+            "2025-07-01-preview",
+            "2025-08-01",
+            "2025-08-01-preview",
+            "2025-09-01",
+            "2025-09-01-preview",
+            "2025-12-01",
+        ],
     )
     async def get(
         self, resource_group_name: str, account_name: str, quota_limit_name: str, **kwargs: Any
@@ -366,7 +377,14 @@ class NetAppResourceQuotaLimitsAccountOperations:  # pylint: disable=name-too-lo
         params_added_on={
             "2025-07-01-preview": ["api_version", "subscription_id", "resource_group_name", "account_name", "accept"]
         },
-        api_versions_list=["2025-07-01-preview", "2025-08-01", "2025-08-01-preview", "2025-09-01"],
+        api_versions_list=[
+            "2025-07-01-preview",
+            "2025-08-01",
+            "2025-08-01-preview",
+            "2025-09-01",
+            "2025-09-01-preview",
+            "2025-12-01",
+        ],
     )
     def list(self, resource_group_name: str, account_name: str, **kwargs: Any) -> AsyncItemPaged["_models.QuotaItem"]:
         """Gets a list of quota limits for all quotas that are under account. Currently PoolsPerAccount is
@@ -3844,7 +3862,7 @@ class VolumesOperations:  # pylint: disable=too-many-public-methods
                 "accept",
             ]
         },
-        api_versions_list=["2025-08-01", "2025-08-01-preview", "2025-09-01"],
+        api_versions_list=["2025-08-01", "2025-08-01-preview", "2025-09-01", "2025-09-01-preview", "2025-12-01"],
     )
     async def _list_get_group_id_list_for_ldap_user_initial(  # pylint: disable=name-too-long
         self,
@@ -4047,7 +4065,7 @@ class VolumesOperations:  # pylint: disable=too-many-public-methods
                 "accept",
             ]
         },
-        api_versions_list=["2025-08-01", "2025-08-01-preview", "2025-09-01"],
+        api_versions_list=["2025-08-01", "2025-08-01-preview", "2025-09-01", "2025-09-01-preview", "2025-12-01"],
     )
     async def begin_list_get_group_id_list_for_ldap_user(  # pylint: disable=name-too-long
         self,
@@ -4846,7 +4864,7 @@ class VolumesOperations:  # pylint: disable=too-many-public-methods
                 "accept",
             ]
         },
-        api_versions_list=["2025-08-01", "2025-08-01-preview", "2025-09-01"],
+        api_versions_list=["2025-08-01", "2025-08-01-preview", "2025-09-01", "2025-09-01-preview", "2025-12-01"],
     )
     def list_replications(
         self,
@@ -7037,6 +7055,316 @@ class VolumesOperations:  # pylint: disable=too-many-public-methods
                 deserialization_callback=get_long_running_output,
             )
         return AsyncLROPoller[None](self._client, raw_result, get_long_running_output, polling_method)  # type: ignore
+
+    @api_version_validation(
+        method_added_on="2025-12-01",
+        params_added_on={
+            "2025-12-01": [
+                "api_version",
+                "subscription_id",
+                "resource_group_name",
+                "account_name",
+                "pool_name",
+                "volume_name",
+                "content_type",
+                "accept",
+            ]
+        },
+        api_versions_list=["2025-12-01"],
+    )
+    async def _list_quota_report_initial(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        body: Optional[Union[_models.QuotaReportFilterRequest, JSON, IO[bytes]]] = None,
+        **kwargs: Any
+    ) -> AsyncIterator[bytes]:
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        content_type = content_type if body else None
+        cls: ClsType[AsyncIterator[bytes]] = kwargs.pop("cls", None)
+
+        content_type = content_type or "application/json" if body else None
+        _content = None
+        if isinstance(body, (IOBase, bytes)):
+            _content = body
+        else:
+            if body is not None:
+                _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+            else:
+                _content = None
+
+        _request = build_volumes_list_quota_report_request(
+            resource_group_name=resource_group_name,
+            account_name=account_name,
+            pool_name=pool_name,
+            volume_name=volume_name,
+            subscription_id=self._config.subscription_id,
+            content_type=content_type,
+            api_version=self._config.api_version,
+            content=_content,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "endpoint": self._serialize.url("self._config.base_url", self._config.base_url, "str", skip_quote=True),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _stream = True
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200, 202]:
+            try:
+                await response.read()  # Load the body in memory and close the socket
+            except (StreamConsumedError, StreamClosedError):
+                pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.ErrorResponse,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
+
+        response_headers = {}
+        if response.status_code == 202:
+            response_headers["Azure-AsyncOperation"] = self._deserialize(
+                "str", response.headers.get("Azure-AsyncOperation")
+            )
+            response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
+            response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
+
+        deserialized = response.iter_bytes()
+
+        if cls:
+            return cls(pipeline_response, deserialized, response_headers)  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @overload
+    async def begin_list_quota_report(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        body: Optional[_models.QuotaReportFilterRequest] = None,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> AsyncLROPoller[_models.ListQuotaReportResult]:
+        """Get quota report for volume (with filter support).
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param body: The content of the action request. Default value is None.
+        :type body: ~azure.mgmt.netapp.models.QuotaReportFilterRequest
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: An instance of AsyncLROPoller that returns ListQuotaReportResult. The
+         ListQuotaReportResult is compatible with MutableMapping
+        :rtype: ~azure.core.polling.AsyncLROPoller[~azure.mgmt.netapp.models.ListQuotaReportResult]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def begin_list_quota_report(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        body: Optional[JSON] = None,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> AsyncLROPoller[_models.ListQuotaReportResult]:
+        """Get quota report for volume (with filter support).
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param body: The content of the action request. Default value is None.
+        :type body: JSON
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: An instance of AsyncLROPoller that returns ListQuotaReportResult. The
+         ListQuotaReportResult is compatible with MutableMapping
+        :rtype: ~azure.core.polling.AsyncLROPoller[~azure.mgmt.netapp.models.ListQuotaReportResult]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def begin_list_quota_report(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        body: Optional[IO[bytes]] = None,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> AsyncLROPoller[_models.ListQuotaReportResult]:
+        """Get quota report for volume (with filter support).
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param body: The content of the action request. Default value is None.
+        :type body: IO[bytes]
+        :keyword content_type: Body Parameter content-type. Content type parameter for binary body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: An instance of AsyncLROPoller that returns ListQuotaReportResult. The
+         ListQuotaReportResult is compatible with MutableMapping
+        :rtype: ~azure.core.polling.AsyncLROPoller[~azure.mgmt.netapp.models.ListQuotaReportResult]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2025-12-01",
+        params_added_on={
+            "2025-12-01": [
+                "api_version",
+                "subscription_id",
+                "resource_group_name",
+                "account_name",
+                "pool_name",
+                "volume_name",
+                "content_type",
+                "accept",
+            ]
+        },
+        api_versions_list=["2025-12-01"],
+    )
+    async def begin_list_quota_report(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        body: Optional[Union[_models.QuotaReportFilterRequest, JSON, IO[bytes]]] = None,
+        **kwargs: Any
+    ) -> AsyncLROPoller[_models.ListQuotaReportResult]:
+        """Get quota report for volume (with filter support).
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param body: The content of the action request. Is one of the following types:
+         QuotaReportFilterRequest, JSON, IO[bytes] Default value is None.
+        :type body: ~azure.mgmt.netapp.models.QuotaReportFilterRequest or JSON or IO[bytes]
+        :return: An instance of AsyncLROPoller that returns ListQuotaReportResult. The
+         ListQuotaReportResult is compatible with MutableMapping
+        :rtype: ~azure.core.polling.AsyncLROPoller[~azure.mgmt.netapp.models.ListQuotaReportResult]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        content_type = content_type if body else None
+        cls: ClsType[_models.ListQuotaReportResult] = kwargs.pop("cls", None)
+        polling: Union[bool, AsyncPollingMethod] = kwargs.pop("polling", True)
+        lro_delay = kwargs.pop("polling_interval", self._config.polling_interval)
+        cont_token: Optional[str] = kwargs.pop("continuation_token", None)
+        if cont_token is None:
+            raw_result = await self._list_quota_report_initial(
+                resource_group_name=resource_group_name,
+                account_name=account_name,
+                pool_name=pool_name,
+                volume_name=volume_name,
+                body=body,
+                content_type=content_type,
+                cls=lambda x, y, z: x,
+                headers=_headers,
+                params=_params,
+                **kwargs
+            )
+            await raw_result.http_response.read()  # type: ignore
+        kwargs.pop("error_map", None)
+
+        def get_long_running_output(pipeline_response):
+            response_headers = {}
+            response = pipeline_response.http_response
+            response_headers["Azure-AsyncOperation"] = self._deserialize(
+                "str", response.headers.get("Azure-AsyncOperation")
+            )
+            response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
+            response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
+
+            deserialized = _deserialize(_models.ListQuotaReportResult, response.json())
+            if cls:
+                return cls(pipeline_response, deserialized, response_headers)  # type: ignore
+            return deserialized
+
+        path_format_arguments = {
+            "endpoint": self._serialize.url("self._config.base_url", self._config.base_url, "str", skip_quote=True),
+        }
+
+        if polling is True:
+            polling_method: AsyncPollingMethod = cast(
+                AsyncPollingMethod, AsyncARMPolling(lro_delay, path_format_arguments=path_format_arguments, **kwargs)
+            )
+        elif polling is False:
+            polling_method = cast(AsyncPollingMethod, AsyncNoPolling())
+        else:
+            polling_method = polling
+        if cont_token:
+            return AsyncLROPoller[_models.ListQuotaReportResult].from_continuation_token(
+                polling_method=polling_method,
+                continuation_token=cont_token,
+                client=self._client,
+                deserialization_callback=get_long_running_output,
+            )
+        return AsyncLROPoller[_models.ListQuotaReportResult](
+            self._client, raw_result, get_long_running_output, polling_method  # type: ignore
+        )
 
 
 class SnapshotsOperations:
@@ -10750,6 +11078,568 @@ class VolumeQuotaRulesOperations:
             return pipeline_response
 
         return AsyncItemPaged(get_next, extract_data)
+
+
+class RansomwareReportsOperations:
+    """
+    .. warning::
+        **DO NOT** instantiate this class directly.
+
+        Instead, you should access the following operations through
+        :class:`~azure.mgmt.netapp.aio.NetAppManagementClient`'s
+        :attr:`ransomware_reports` attribute.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        input_args = list(args)
+        self._client: AsyncPipelineClient = input_args.pop(0) if input_args else kwargs.pop("client")
+        self._config: NetAppManagementClientConfiguration = input_args.pop(0) if input_args else kwargs.pop("config")
+        self._serialize: Serializer = input_args.pop(0) if input_args else kwargs.pop("serializer")
+        self._deserialize: Deserializer = input_args.pop(0) if input_args else kwargs.pop("deserializer")
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2025-09-01-preview",
+        params_added_on={
+            "2025-09-01-preview": [
+                "api_version",
+                "subscription_id",
+                "resource_group_name",
+                "account_name",
+                "pool_name",
+                "volume_name",
+                "ransomware_report_name",
+                "accept",
+            ]
+        },
+        api_versions_list=["2025-09-01-preview", "2025-12-01"],
+    )
+    async def get(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        ransomware_report_name: str,
+        **kwargs: Any
+    ) -> _models.RansomwareReport:
+        """Get details of the specified ransomware report (ARP) ARP reports are created with a list of
+        suspected files when it detects any combination of high data entropy, abnormal volume activity
+        with data encryption, and unusual file extensions. ARP creates snapshots named
+        Anti_ransomware_backup when it detects a potential ransomware threat. You can use one of these
+        ARP snapshots or another snapshot of your volume to restore data.
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param ransomware_report_name: The name of the ransomware report. Required.
+        :type ransomware_report_name: str
+        :return: RansomwareReport. The RansomwareReport is compatible with MutableMapping
+        :rtype: ~azure.mgmt.netapp.models.RansomwareReport
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = kwargs.pop("headers", {}) or {}
+        _params = kwargs.pop("params", {}) or {}
+
+        cls: ClsType[_models.RansomwareReport] = kwargs.pop("cls", None)
+
+        _request = build_ransomware_reports_get_request(
+            resource_group_name=resource_group_name,
+            account_name=account_name,
+            pool_name=pool_name,
+            volume_name=volume_name,
+            ransomware_report_name=ransomware_report_name,
+            subscription_id=self._config.subscription_id,
+            api_version=self._config.api_version,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "endpoint": self._serialize.url("self._config.base_url", self._config.base_url, "str", skip_quote=True),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _stream = kwargs.pop("stream", False)
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [200]:
+            if _stream:
+                try:
+                    await response.read()  # Load the body in memory and close the socket
+                except (StreamConsumedError, StreamClosedError):
+                    pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.ErrorResponse,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
+
+        if _stream:
+            deserialized = response.iter_bytes()
+        else:
+            deserialized = _deserialize(_models.RansomwareReport, response.json())
+
+        if cls:
+            return cls(pipeline_response, deserialized, {})  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @distributed_trace
+    @api_version_validation(
+        method_added_on="2025-09-01-preview",
+        params_added_on={
+            "2025-09-01-preview": [
+                "api_version",
+                "subscription_id",
+                "resource_group_name",
+                "account_name",
+                "pool_name",
+                "volume_name",
+                "accept",
+            ]
+        },
+        api_versions_list=["2025-09-01-preview", "2025-12-01"],
+    )
+    def list(
+        self, resource_group_name: str, account_name: str, pool_name: str, volume_name: str, **kwargs: Any
+    ) -> AsyncItemPaged["_models.RansomwareReport"]:
+        """List all ransomware reports for the volume Returns a list of the Advanced Ransomware Protection
+        (ARP) reports for the volume. ARP reports are created with a list of suspected files when it
+        detects any combination of high data entropy, abnormal volume activity with data encryption,
+        and unusual file extensions. ARP creates snapshots named Anti_ransomware_backup when it detects
+        a potential ransomware threat. You can use one of these ARP snapshots or another snapshot of
+        your volume to restore data".
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :return: An iterator like instance of RansomwareReport
+        :rtype: ~azure.core.async_paging.AsyncItemPaged[~azure.mgmt.netapp.models.RansomwareReport]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        _headers = kwargs.pop("headers", {}) or {}
+        _params = kwargs.pop("params", {}) or {}
+
+        cls: ClsType[List[_models.RansomwareReport]] = kwargs.pop("cls", None)
+
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        def prepare_request(next_link=None):
+            if not next_link:
+
+                _request = build_ransomware_reports_list_request(
+                    resource_group_name=resource_group_name,
+                    account_name=account_name,
+                    pool_name=pool_name,
+                    volume_name=volume_name,
+                    subscription_id=self._config.subscription_id,
+                    api_version=self._config.api_version,
+                    headers=_headers,
+                    params=_params,
+                )
+                path_format_arguments = {
+                    "endpoint": self._serialize.url(
+                        "self._config.base_url", self._config.base_url, "str", skip_quote=True
+                    ),
+                }
+                _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+            else:
+                # make call to next link with the client's api-version
+                _parsed_next_link = urllib.parse.urlparse(next_link)
+                _next_request_params = case_insensitive_dict(
+                    {
+                        key: [urllib.parse.quote(v) for v in value]
+                        for key, value in urllib.parse.parse_qs(_parsed_next_link.query).items()
+                    }
+                )
+                _next_request_params["api-version"] = self._config.api_version
+                _request = HttpRequest(
+                    "GET", urllib.parse.urljoin(next_link, _parsed_next_link.path), params=_next_request_params
+                )
+                path_format_arguments = {
+                    "endpoint": self._serialize.url(
+                        "self._config.base_url", self._config.base_url, "str", skip_quote=True
+                    ),
+                }
+                _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+            return _request
+
+        async def extract_data(pipeline_response):
+            deserialized = pipeline_response.http_response.json()
+            list_of_elem = _deserialize(List[_models.RansomwareReport], deserialized.get("value", []))
+            if cls:
+                list_of_elem = cls(list_of_elem)  # type: ignore
+            return deserialized.get("nextLink") or None, AsyncList(list_of_elem)
+
+        async def get_next(next_link=None):
+            _request = prepare_request(next_link)
+
+            _stream = False
+            pipeline_response: PipelineResponse = await self._client._pipeline.run(  # pylint: disable=protected-access
+                _request, stream=_stream, **kwargs
+            )
+            response = pipeline_response.http_response
+
+            if response.status_code not in [200]:
+                map_error(status_code=response.status_code, response=response, error_map=error_map)
+                error = _failsafe_deserialize(
+                    _models.ErrorResponse,
+                    response,
+                )
+                raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
+
+            return pipeline_response
+
+        return AsyncItemPaged(get_next, extract_data)
+
+    @api_version_validation(
+        method_added_on="2025-09-01-preview",
+        params_added_on={
+            "2025-09-01-preview": [
+                "api_version",
+                "subscription_id",
+                "resource_group_name",
+                "account_name",
+                "pool_name",
+                "volume_name",
+                "ransomware_report_name",
+                "content_type",
+            ]
+        },
+        api_versions_list=["2025-09-01-preview", "2025-12-01"],
+    )
+    async def _clear_suspects_initial(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        ransomware_report_name: str,
+        body: Union[_models.RansomwareSuspectsClearRequest, JSON, IO[bytes]],
+        **kwargs: Any
+    ) -> AsyncIterator[bytes]:
+        error_map: MutableMapping = {
+            401: ClientAuthenticationError,
+            404: ResourceNotFoundError,
+            409: ResourceExistsError,
+            304: ResourceNotModifiedError,
+        }
+        error_map.update(kwargs.pop("error_map", {}) or {})
+
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        cls: ClsType[AsyncIterator[bytes]] = kwargs.pop("cls", None)
+
+        content_type = content_type or "application/json"
+        _content = None
+        if isinstance(body, (IOBase, bytes)):
+            _content = body
+        else:
+            _content = json.dumps(body, cls=SdkJSONEncoder, exclude_readonly=True)  # type: ignore
+
+        _request = build_ransomware_reports_clear_suspects_request(
+            resource_group_name=resource_group_name,
+            account_name=account_name,
+            pool_name=pool_name,
+            volume_name=volume_name,
+            ransomware_report_name=ransomware_report_name,
+            subscription_id=self._config.subscription_id,
+            content_type=content_type,
+            api_version=self._config.api_version,
+            content=_content,
+            headers=_headers,
+            params=_params,
+        )
+        path_format_arguments = {
+            "endpoint": self._serialize.url("self._config.base_url", self._config.base_url, "str", skip_quote=True),
+        }
+        _request.url = self._client.format_url(_request.url, **path_format_arguments)
+
+        _stream = True
+        pipeline_response: PipelineResponse = await self._client._pipeline.run(  # pylint: disable=protected-access
+            _request, stream=_stream, **kwargs
+        )
+
+        response = pipeline_response.http_response
+
+        if response.status_code not in [202]:
+            try:
+                await response.read()  # Load the body in memory and close the socket
+            except (StreamConsumedError, StreamClosedError):
+                pass
+            map_error(status_code=response.status_code, response=response, error_map=error_map)
+            error = _failsafe_deserialize(
+                _models.ErrorResponse,
+                response,
+            )
+            raise HttpResponseError(response=response, model=error, error_format=ARMErrorFormat)
+
+        response_headers = {}
+        response_headers["Location"] = self._deserialize("str", response.headers.get("Location"))
+        response_headers["Retry-After"] = self._deserialize("int", response.headers.get("Retry-After"))
+
+        deserialized = response.iter_bytes()
+
+        if cls:
+            return cls(pipeline_response, deserialized, response_headers)  # type: ignore
+
+        return deserialized  # type: ignore
+
+    @overload
+    async def begin_clear_suspects(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        ransomware_report_name: str,
+        body: _models.RansomwareSuspectsClearRequest,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> AsyncLROPoller[None]:
+        """Clear ransomware suspects for the given Advanced Ransomware Protection report. You should
+        evaluate the report to determine whether the activity is acceptable (false positive) or whether
+        an attack seems malicious. ARP creates snapshots named Anti_ransomware_backup when it detects a
+        potential ransomware threat. You can use one of these ARP snapshots or another snapshot of your
+        volume to restore data",.
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param ransomware_report_name: The name of the ransomware report. Required.
+        :type ransomware_report_name: str
+        :param body: Clear suspects request object supplied in the body of the operation. Required.
+        :type body: ~azure.mgmt.netapp.models.RansomwareSuspectsClearRequest
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: An instance of AsyncLROPoller that returns None
+        :rtype: ~azure.core.polling.AsyncLROPoller[None]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def begin_clear_suspects(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        ransomware_report_name: str,
+        body: JSON,
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> AsyncLROPoller[None]:
+        """Clear ransomware suspects for the given Advanced Ransomware Protection report. You should
+        evaluate the report to determine whether the activity is acceptable (false positive) or whether
+        an attack seems malicious. ARP creates snapshots named Anti_ransomware_backup when it detects a
+        potential ransomware threat. You can use one of these ARP snapshots or another snapshot of your
+        volume to restore data",.
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param ransomware_report_name: The name of the ransomware report. Required.
+        :type ransomware_report_name: str
+        :param body: Clear suspects request object supplied in the body of the operation. Required.
+        :type body: JSON
+        :keyword content_type: Body Parameter content-type. Content type parameter for JSON body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: An instance of AsyncLROPoller that returns None
+        :rtype: ~azure.core.polling.AsyncLROPoller[None]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @overload
+    async def begin_clear_suspects(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        ransomware_report_name: str,
+        body: IO[bytes],
+        *,
+        content_type: str = "application/json",
+        **kwargs: Any
+    ) -> AsyncLROPoller[None]:
+        """Clear ransomware suspects for the given Advanced Ransomware Protection report. You should
+        evaluate the report to determine whether the activity is acceptable (false positive) or whether
+        an attack seems malicious. ARP creates snapshots named Anti_ransomware_backup when it detects a
+        potential ransomware threat. You can use one of these ARP snapshots or another snapshot of your
+        volume to restore data",.
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param ransomware_report_name: The name of the ransomware report. Required.
+        :type ransomware_report_name: str
+        :param body: Clear suspects request object supplied in the body of the operation. Required.
+        :type body: IO[bytes]
+        :keyword content_type: Body Parameter content-type. Content type parameter for binary body.
+         Default value is "application/json".
+        :paramtype content_type: str
+        :return: An instance of AsyncLROPoller that returns None
+        :rtype: ~azure.core.polling.AsyncLROPoller[None]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+
+    @distributed_trace_async
+    @api_version_validation(
+        method_added_on="2025-09-01-preview",
+        params_added_on={
+            "2025-09-01-preview": [
+                "api_version",
+                "subscription_id",
+                "resource_group_name",
+                "account_name",
+                "pool_name",
+                "volume_name",
+                "ransomware_report_name",
+                "content_type",
+            ]
+        },
+        api_versions_list=["2025-09-01-preview", "2025-12-01"],
+    )
+    async def begin_clear_suspects(
+        self,
+        resource_group_name: str,
+        account_name: str,
+        pool_name: str,
+        volume_name: str,
+        ransomware_report_name: str,
+        body: Union[_models.RansomwareSuspectsClearRequest, JSON, IO[bytes]],
+        **kwargs: Any
+    ) -> AsyncLROPoller[None]:
+        """Clear ransomware suspects for the given Advanced Ransomware Protection report. You should
+        evaluate the report to determine whether the activity is acceptable (false positive) or whether
+        an attack seems malicious. ARP creates snapshots named Anti_ransomware_backup when it detects a
+        potential ransomware threat. You can use one of these ARP snapshots or another snapshot of your
+        volume to restore data",.
+
+        :param resource_group_name: The name of the resource group. The name is case insensitive.
+         Required.
+        :type resource_group_name: str
+        :param account_name: The name of the NetApp account. Required.
+        :type account_name: str
+        :param pool_name: The name of the capacity pool. Required.
+        :type pool_name: str
+        :param volume_name: The name of the volume. Required.
+        :type volume_name: str
+        :param ransomware_report_name: The name of the ransomware report. Required.
+        :type ransomware_report_name: str
+        :param body: Clear suspects request object supplied in the body of the operation. Is one of the
+         following types: RansomwareSuspectsClearRequest, JSON, IO[bytes] Required.
+        :type body: ~azure.mgmt.netapp.models.RansomwareSuspectsClearRequest or JSON or IO[bytes]
+        :return: An instance of AsyncLROPoller that returns None
+        :rtype: ~azure.core.polling.AsyncLROPoller[None]
+        :raises ~azure.core.exceptions.HttpResponseError:
+        """
+        _headers = case_insensitive_dict(kwargs.pop("headers", {}) or {})
+        _params = kwargs.pop("params", {}) or {}
+
+        content_type: Optional[str] = kwargs.pop("content_type", _headers.pop("Content-Type", None))
+        cls: ClsType[None] = kwargs.pop("cls", None)
+        polling: Union[bool, AsyncPollingMethod] = kwargs.pop("polling", True)
+        lro_delay = kwargs.pop("polling_interval", self._config.polling_interval)
+        cont_token: Optional[str] = kwargs.pop("continuation_token", None)
+        if cont_token is None:
+            raw_result = await self._clear_suspects_initial(
+                resource_group_name=resource_group_name,
+                account_name=account_name,
+                pool_name=pool_name,
+                volume_name=volume_name,
+                ransomware_report_name=ransomware_report_name,
+                body=body,
+                content_type=content_type,
+                cls=lambda x, y, z: x,
+                headers=_headers,
+                params=_params,
+                **kwargs
+            )
+            await raw_result.http_response.read()  # type: ignore
+        kwargs.pop("error_map", None)
+
+        def get_long_running_output(pipeline_response):  # pylint: disable=inconsistent-return-statements
+            if cls:
+                return cls(pipeline_response, None, {})  # type: ignore
+
+        path_format_arguments = {
+            "endpoint": self._serialize.url("self._config.base_url", self._config.base_url, "str", skip_quote=True),
+        }
+
+        if polling is True:
+            polling_method: AsyncPollingMethod = cast(
+                AsyncPollingMethod, AsyncARMPolling(lro_delay, path_format_arguments=path_format_arguments, **kwargs)
+            )
+        elif polling is False:
+            polling_method = cast(AsyncPollingMethod, AsyncNoPolling())
+        else:
+            polling_method = polling
+        if cont_token:
+            return AsyncLROPoller[None].from_continuation_token(
+                polling_method=polling_method,
+                continuation_token=cont_token,
+                client=self._client,
+                deserialization_callback=get_long_running_output,
+            )
+        return AsyncLROPoller[None](self._client, raw_result, get_long_running_output, polling_method)  # type: ignore
 
 
 class BackupVaultsOperations:

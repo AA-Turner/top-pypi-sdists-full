@@ -1,9 +1,15 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Literal, Optional, Union
+from typing import Annotated, ClassVar, Generic, Literal, TypeVar
 
-from pydantic import UUID4, BaseModel, Field, ValidationInfo, field_validator
-from typing_extensions import Annotated
+from pydantic import (
+    UUID4,
+    BaseModel,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 
 class Operator(str, Enum):
@@ -20,6 +26,7 @@ class Operator(str, Enum):
 
 
 class FilterType(str, Enum):
+    boolean = "boolean"
     number = "number"
     string = "string"
     enum = "enum"
@@ -30,14 +37,27 @@ class FilterType(str, Enum):
     custom_uuid = "custom_uuid"
     id = "id"
     date = "date"
-    between = "between"
+    function = "function"
 
 
 class FilterBase(BaseModel):
-    name: Optional[str]
+    name: str | None
 
 
-StringOperator = Literal[Operator.eq, Operator.ne, Operator.contains]
+BooleanOperator = Literal[Operator.eq, Operator.ne]
+
+
+class BooleanFilter(FilterBase):
+    """
+    Filters on a boolean field.
+    """
+
+    filter_type: ClassVar[Literal[FilterType.boolean]] = FilterType.boolean
+    operator: BooleanOperator = Field(default=Operator.eq)
+    value: bool
+
+
+StringOperator = Literal[Operator.eq, Operator.ne, Operator.contains, Operator.one_of, Operator.not_in]
 
 
 class StringFilter(FilterBase):
@@ -45,13 +65,28 @@ class StringFilter(FilterBase):
     Filters on a string field.
     """
 
-    filter_type: Literal[FilterType.string] = FilterType.string
-    value: str
+    filter_type: ClassVar[Literal[FilterType.string]] = FilterType.string
     operator: StringOperator
+    value: str | list[str]
     case_sensitive: bool = True
 
+    @model_validator(mode="after")
+    def validate_operator_value(self) -> "StringFilter":
+        operator = self.operator
+        value = self.value
+        match operator:
+            case Operator.one_of | Operator.not_in:
+                if not isinstance(value, list):
+                    raise ValueError(f"Value must be a list for operator {operator}.")
+            case Operator.eq | Operator.ne | Operator.contains:
+                if isinstance(value, list):
+                    raise ValueError(f"Value must be a string for operator {operator}.")
+            case _:
+                raise ValueError(f"Invalid operator {operator}.")
+        return self
 
-CollectionOperator = Literal[Operator.contains, Operator.not_in]
+
+CollectionOperator = Literal[Operator.eq, Operator.contains, Operator.not_in]
 
 
 class CollectionFilter(FilterBase):
@@ -59,9 +94,25 @@ class CollectionFilter(FilterBase):
     Filters for string items in a collection/list.
     """
 
-    filter_type: Literal[FilterType.collection] = FilterType.collection
-    value: str
+    filter_type: ClassVar[Literal[FilterType.collection]] = FilterType.collection
     operator: CollectionOperator
+    value: str | list[str]
+    case_sensitive: bool = True
+
+    @model_validator(mode="after")
+    def validate_operator_value(self) -> "CollectionFilter":
+        operator = self.operator
+        value = self.value
+        match operator:
+            case Operator.not_in:
+                if not isinstance(value, list):
+                    raise ValueError(f"Value must be a list for operator {operator}.")
+            case Operator.eq | Operator.contains:
+                if not isinstance(value, str):
+                    raise ValueError(f"Value must be a string for operator {operator}.")
+            case _:
+                raise ValueError(f"Invalid operator {operator}.")
+        return self
 
 
 MapOperator = Literal[Operator.one_of, Operator.not_in, Operator.eq, Operator.ne]
@@ -72,34 +123,59 @@ class MapFilter(FilterBase):
     Filters for string items in a map / dictionary.
     """
 
-    filter_type: Literal[FilterType.map] = FilterType.map
+    filter_type: ClassVar[Literal[FilterType.map]] = FilterType.map
     operator: MapOperator
     key: str
-    value: Union[str, List[str]]
+    value: str | list[str]
 
-    @field_validator("value", mode="before")
-    def validate_value(cls, value: Union[str, List[str]], info: ValidationInfo) -> Union[str, List[str]]:
-        operator = info.data.get("operator")
+    @model_validator(mode="after")
+    def validate_operator_value(self) -> "MapFilter":
+        operator = self.operator
+        value = self.value
         if operator in (Operator.one_of, Operator.not_in):
             if not isinstance(value, list):
                 raise ValueError(f"Value must be a list for operator {operator}.")
         elif operator in (Operator.eq, Operator.ne):
             if isinstance(value, list):
                 raise ValueError(f"Value must be a string for operator {operator}.")
-        return value
+        return self
 
 
-EnumOperator = Literal[Operator.eq, Operator.ne]
+EnumOperator = Literal[Operator.eq, Operator.ne, Operator.one_of, Operator.not_in]
+
+E = TypeVar("E", bound="Enum")
 
 
-class EnumFilter(FilterBase):
+class EnumFilter(FilterBase, Generic[E]):
     """
     Filters on a string field, with limited categories.
     """
 
-    filter_type: Literal[FilterType.enum] = FilterType.enum
-    value: str
+    filter_type: ClassVar[Literal[FilterType.enum]] = FilterType.enum
     operator: EnumOperator
+    value: Annotated[
+        E | list[E],
+        Field(
+            json_schema_extra={
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "example": "ENUM_VALUE",
+                        "description": "Single enum value - specific options depend on the concrete enum type used",
+                    },
+                    {
+                        "type": "array",
+                        "items": {"type": "string", "example": "ENUM_VALUE"},
+                        "example": ["ENUM_VALUE_1", "ENUM_VALUE_2"],
+                        "description": "Array of enum values",
+                    },
+                ]
+            }
+        ),
+    ]
+
+
+IDOperator = Literal[Operator.eq, Operator.ne, Operator.one_of, Operator.not_in, Operator.contains]
 
 
 class IDFilter(FilterBase):
@@ -107,55 +183,83 @@ class IDFilter(FilterBase):
     Filters on a UUID field.
     """
 
-    filter_type: Literal[FilterType.id] = FilterType.id
-    value: UUID4
+    filter_type: ClassVar[Literal[FilterType.id]] = FilterType.id
+    operator: IDOperator = Field(default=Operator.eq)
+    value: UUID4 | list[UUID4 | str] | str
+
+    @field_validator("value", mode="before")
+    def validate_value(
+        cls, value: UUID4 | list[UUID4 | str] | str, info: ValidationInfo
+    ) -> UUID4 | list[UUID4 | str] | str:
+        operator = info.data.get("operator", Operator.eq)
+        match operator:
+            case Operator.one_of | Operator.not_in:
+                if not isinstance(value, list):
+                    raise ValueError(f"Value must be a list for operator {operator}.")
+            case Operator.eq | Operator.ne:
+                if isinstance(value, list):
+                    raise ValueError(f"Value must be a single UUID for operator {operator}.")
+            case Operator.contains:
+                if not isinstance(value, str):
+                    raise ValueError(f"Value must be a string for operator {operator}.")
+            case _:
+                raise ValueError(f"Invalid operator {operator}.")
+        return value
 
 
 DateOperator = Literal[Operator.eq, Operator.ne, Operator.gt, Operator.gte, Operator.lt, Operator.lte]
 
 
 class DateFilter(FilterBase):
-    """
-    Filters on a datetime field.
-    """
+    """Filters on a datetime field."""
 
-    filter_type: Literal[FilterType.date] = FilterType.date
-    value: datetime
+    filter_type: ClassVar[Literal[FilterType.date]] = FilterType.date
     operator: DateOperator
+    value: datetime
 
 
 NumberOperator = Literal[
-    Operator.eq, Operator.ne, Operator.gt, Operator.gte, Operator.lt, Operator.lte, Operator.between
+    Operator.eq,
+    Operator.ne,
+    Operator.gt,
+    Operator.gte,
+    Operator.lt,
+    Operator.lte,
+    Operator.between,
 ]
 
 
 class CustomNumberFilter(FilterBase):
-    filter_type: Literal[FilterType.custom_number] = FilterType.custom_number
-    value: Union[int, List[int]]
+    filter_type: ClassVar[Literal[FilterType.custom_number]] = FilterType.custom_number
     operator: NumberOperator
+    value: int | float | list[int] | list[float]
 
 
 class CustomBooleanFilter(FilterBase):
-    filter_type: Literal[FilterType.custom_boolean] = FilterType.custom_boolean
+    filter_type: ClassVar[Literal[FilterType.custom_boolean]] = FilterType.custom_boolean
     value: bool
 
 
+class CustomFunctionFilter(FilterBase):
+    filter_type: ClassVar[Literal[FilterType.function]] = FilterType.function
+
+
 class CustomUUIDFilter(FilterBase):
-    filter_type: Literal[FilterType.custom_uuid] = FilterType.custom_uuid
+    filter_type: ClassVar[Literal[FilterType.custom_uuid]] = FilterType.custom_uuid
     value: UUID4
 
 
 QueryFilterV2 = Annotated[
-    Union[
-        CollectionFilter,
-        CustomBooleanFilter,
-        CustomNumberFilter,
-        CustomUUIDFilter,
-        DateFilter,
-        EnumFilter,
-        IDFilter,
-        MapFilter,
-        StringFilter,
-    ],
+    CollectionFilter
+    | CustomBooleanFilter
+    | CustomNumberFilter
+    | CustomUUIDFilter
+    | DateFilter
+    | EnumFilter
+    | IDFilter
+    | MapFilter
+    | StringFilter
+    | BooleanFilter
+    | CustomFunctionFilter,
     Field(discriminator="filter_type"),
 ]

@@ -1,22 +1,23 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: Zope
-Version: 5.13
+Version: 5.14.1
 Summary: Zope application server / web framework
-Home-page: https://zope.readthedocs.io/en/latest/
-Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.dev
-License: ZPL-2.1
+Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
 Project-URL: Documentation, https://zope.readthedocs.io
-Project-URL: Issue Tracker, https://github.com/zopefoundation/Zope/issues
-Project-URL: Sources, https://github.com/zopefoundation/Zope
+Project-URL: Issues, https://github.com/zopefoundation/Zope/issues
+Project-URL: Source, https://github.com/zopefoundation/Zope
+Project-URL: Changelog, https://github.com/zopefoundation/Zope/blob/master/CHANGES.rst
 Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Web Environment
+Classifier: Framework :: Zope
 Classifier: Framework :: Zope :: 5
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,32 +26,32 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >= 3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: AccessControl>=5.2
+Requires-Dist: AccessControl
 Requires-Dist: Acquisition
 Requires-Dist: BTrees
-Requires-Dist: Chameleon>=3.7.0
+Requires-Dist: Chameleon
 Requires-Dist: DateTime
-Requires-Dist: DocumentTemplate>=4.0
+Requires-Dist: DocumentTemplate
 Requires-Dist: ExtensionClass
 Requires-Dist: MultiMapping
 Requires-Dist: PasteDeploy
 Requires-Dist: Persistence
 Requires-Dist: RestrictedPython
-Requires-Dist: ZConfig>=2.9.2
+Requires-Dist: ZConfig
 Requires-Dist: ZODB
 Requires-Dist: multipart
-Requires-Dist: setuptools>=36.2
-Requires-Dist: transaction>=2.4
+Requires-Dist: setuptools
+Requires-Dist: transaction
 Requires-Dist: waitress
-Requires-Dist: zExceptions>=3.4
+Requires-Dist: zExceptions
 Requires-Dist: z3c.pt
 Requires-Dist: zope.browser
 Requires-Dist: zope.browsermenu
-Requires-Dist: zope.browserpage>=4.4.0.dev0
-Requires-Dist: zope.browserresource>=3.11
+Requires-Dist: zope.browserpage
+Requires-Dist: zope.browserresource
 Requires-Dist: zope.component
 Requires-Dist: zope.configuration
 Requires-Dist: zope.container
@@ -63,10 +64,10 @@ Requires-Dist: zope.exceptions
 Requires-Dist: zope.globalrequest
 Requires-Dist: zope.i18n[zcml]
 Requires-Dist: zope.i18nmessageid
-Requires-Dist: zope.interface>=3.8
+Requires-Dist: zope.interface
 Requires-Dist: zope.lifecycleevent
 Requires-Dist: zope.location
-Requires-Dist: zope.pagetemplate>=4.0.2
+Requires-Dist: zope.pagetemplate
 Requires-Dist: zope.processlifetime
 Requires-Dist: zope.proxy
 Requires-Dist: zope.ptresource
@@ -77,7 +78,7 @@ Requires-Dist: zope.sequencesort
 Requires-Dist: zope.site
 Requires-Dist: zope.size
 Requires-Dist: zope.tal
-Requires-Dist: zope.tales>=5.0.2
+Requires-Dist: zope.tales
 Requires-Dist: zope.testbrowser
 Requires-Dist: zope.testing
 Requires-Dist: zope.traversing
@@ -86,20 +87,10 @@ Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: furo; extra == "docs"
 Requires-Dist: tempstorage; extra == "docs"
+Requires-Dist: ZConfig; extra == "docs"
 Provides-Extra: wsgi
 Requires-Dist: Paste; extra == "wsgi"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 .. image:: https://github.com/zopefoundation/Zope/actions/workflows/tests.yml/badge.svg
         :target: https://github.com/zopefoundation/Zope/actions/workflows/tests.yml
@@ -135,11 +126,6 @@ links to other documents. The full documentation can be found at
 https://zope.readthedocs.io.
 
 
-.. contents::
-    :local:
-    :depth: 1
-
-
 Installation
 ============
 
@@ -162,15 +148,35 @@ Bugs reports should be made through the Zope bugtracker at
 https://github.com/zopefoundation/Zope/issues.  A bug report should
 contain detailed information about how to reproduce the bug.
 
-
 Change log
 ==========
 
-These are all the changes for Zope 5, starting with the alpha releases,
-since the branch point at Zope 4.1.2.
+These are all the changes for Zope 5 since the first Zope 5 alpha release.
 
-The change log for the previous version, Zope 4, is at
+The change log for Zope 4 is at
 https://github.com/zopefoundation/Zope/blob/4.x/CHANGES.rst
+
+
+5.14.1 (2026-03-03)
+-------------------
+
+- Fix installation of console scripts.
+
+
+5.14 (2026-03-03)
+-----------------
+
+- Switch from `z3c.checkversions` to `plone.versioncheck` to detect outdated
+  dependency pins as `z3c.checkversions` no longer works and seems abandoned.
+  See https://github.com/zopefoundation/z3c.checkversions/issues/32
+
+- Update to newest compatible versions of dependencies.
+
+- Enable multipart/form-data and application/x-www-form-urlencoded support
+  for PATCH requests.
+
+- Drop support for Python 3.9.
+
 
 5.13 (2025-03-18)
 -----------------

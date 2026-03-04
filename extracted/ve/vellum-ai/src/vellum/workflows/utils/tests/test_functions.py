@@ -4,7 +4,9 @@ from enum import Enum
 import sys
 import types
 from unittest.mock import Mock
-from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
+import uuid
+from typing import Annotated, Dict, FrozenSet, List, Literal, Mapping, Optional, Sequence, Set, Tuple, Union
+from typing_extensions import NotRequired, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -301,6 +303,95 @@ def test_compile_function_definition__default_pydantic():
                     "type": "object",
                     "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
                     "required": ["a", "b"],
+                }
+            },
+        },
+    )
+
+
+def test_compile_function_definition__uuid():
+    """Tests that uuid.UUID parameters compile to a string type with uuid format."""
+
+    # GIVEN a function with a uuid.UUID parameter
+    def my_function(a: uuid.UUID):
+        pass
+
+    # WHEN compiling the function
+    compiled_function = compile_function_definition(my_function)
+
+    # THEN it should return the compiled function definition with string type and uuid format
+    assert compiled_function == FunctionDefinition(
+        name="my_function",
+        parameters={
+            "type": "object",
+            "properties": {
+                "a": {"type": "string", "format": "uuid"},
+            },
+            "required": ["a"],
+        },
+    )
+
+
+def test_compile_function_definition__typed_dict():
+    """Tests that TypedDict parameters compile to an object type with correct properties."""
+
+    # GIVEN a function with a TypedDict parameter
+    class MyTypedDict(TypedDict):
+        a: int
+        b: str
+
+    def my_function(c: MyTypedDict):
+        pass
+
+    # WHEN compiling the function
+    compiled_function = compile_function_definition(my_function)
+
+    # THEN it should return the compiled function definition with the TypedDict as a $ref
+    ref_name = f"{__name__}.test_compile_function_definition__typed_dict.<locals>.MyTypedDict"
+    assert compiled_function == FunctionDefinition(
+        name="my_function",
+        parameters={
+            "type": "object",
+            "properties": {"c": {"$ref": f"#/$defs/{ref_name}"}},
+            "required": ["c"],
+            "$defs": {
+                ref_name: {
+                    "type": "object",
+                    "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+                    "required": ["a", "b"],
+                }
+            },
+        },
+    )
+
+
+def test_compile_function_definition__typed_dict_with_optional_keys():
+    """Tests that TypedDict with NotRequired fields correctly marks only required keys."""
+
+    # GIVEN a function with a TypedDict that has optional keys
+    class MyTypedDict(TypedDict):
+        a: int
+        b: NotRequired[str]
+
+    def my_function(c: MyTypedDict):
+        pass
+
+    # WHEN compiling the function
+    compiled_function = compile_function_definition(my_function)
+
+    # THEN only the required key should appear in the required list
+    ref_name = f"{__name__}.test_compile_function_definition__typed_dict_with_optional_keys.<locals>.MyTypedDict"
+    assert compiled_function == FunctionDefinition(
+        name="my_function",
+        parameters={
+            "type": "object",
+            "properties": {"c": {"$ref": f"#/$defs/{ref_name}"}},
+            "required": ["c"],
+            "$defs": {
+                ref_name: {
+                    "type": "object",
+                    "properties": {"a": {"type": "integer"}, "b": {"type": "string"}},
+                    "required": ["a"],
                 }
             },
         },
@@ -1038,3 +1129,40 @@ def test_compile_annotation__pep604_union_multiple_types():
 
     # THEN it should return the correct schema with anyOf
     assert result == {"anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]}
+
+
+@pytest.mark.parametrize(
+    "annotation,expected_schema",
+    [
+        (Sequence[str], {"type": "array", "items": {"type": "string"}}),
+        (Sequence[int], {"type": "array", "items": {"type": "integer"}}),
+        (Mapping[str, int], {"type": "object", "additionalProperties": {"type": "integer"}}),
+        (Mapping[str, str], {"type": "object", "additionalProperties": {"type": "string"}}),
+        (Set[str], {"type": "array", "uniqueItems": True, "items": {"type": "string"}}),
+        (Set[int], {"type": "array", "uniqueItems": True, "items": {"type": "integer"}}),
+        (FrozenSet[str], {"type": "array", "uniqueItems": True, "items": {"type": "string"}}),
+        (set[str], {"type": "array", "uniqueItems": True, "items": {"type": "string"}}),
+        (frozenset[int], {"type": "array", "uniqueItems": True, "items": {"type": "integer"}}),
+    ],
+    ids=[
+        "Sequence[str]",
+        "Sequence[int]",
+        "Mapping[str, int]",
+        "Mapping[str, str]",
+        "Set[str]",
+        "Set[int]",
+        "FrozenSet[str]",
+        "set[str]",
+        "frozenset[int]",
+    ],
+)
+def test_compile_annotation__collection_abc_types(annotation, expected_schema):
+    """Tests that Sequence, Mapping, set, and frozenset types compile to correct JSON schemas."""
+
+    # GIVEN the annotation type
+
+    # WHEN compiling the annotation
+    result = compile_annotation(annotation, {})
+
+    # THEN it should return the expected schema
+    assert result == expected_schema

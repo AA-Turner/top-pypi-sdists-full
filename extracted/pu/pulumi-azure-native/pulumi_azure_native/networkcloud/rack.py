@@ -32,6 +32,7 @@ class RackArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a Rack resource.
+
         :param pulumi.Input[_builtins.str] availability_zone: The value that will be used for machines in this rack to represent the availability zones that can be referenced by Hybrid AKS Clusters for node arrangement.
         :param pulumi.Input['ExtendedLocationArgs'] extended_location: The extended location of the cluster associated with the resource.
         :param pulumi.Input[_builtins.str] rack_location: The free-form description of the rack location. (e.g. “DTN Datacenter, Floor 3, Isle 9, Rack 2B”)
@@ -183,7 +184,8 @@ class Rack(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -206,7 +208,8 @@ class Rack(pulumi.CustomResource):
         """
         Uses Azure REST API version 2025-02-01. In version 2.x of the Azure Native provider, it used API version 2023-10-01-preview.
 
-        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2024-07-01, 2024-10-01-preview, 2025-07-01-preview, 2025-09-01, 2026-01-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native networkcloud [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param RackArgs args: The arguments to use to populate this resource's properties.
@@ -271,7 +274,7 @@ class Rack(pulumi.CustomResource):
             __props__.__dict__["provisioning_state"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:Rack")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:networkcloud/v20230701:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20231001preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20240601preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20240701:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20241001preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20250201:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20250701preview:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20250901:Rack"), pulumi.Alias(type_="azure-native:networkcloud/v20260101preview:Rack")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(Rack, __self__).__init__(
             'azure-native:networkcloud:Rack',

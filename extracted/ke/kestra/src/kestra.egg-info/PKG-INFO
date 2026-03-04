@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kestra
-Version: 1.2.0
+Version: 1.3.0
 Summary: Kestra is an infinitely scalable orchestration and scheduling platform, creating, running, scheduling, and monitoring millions of complex pipelines.
 Home-page: https://kestra.io
 Author: Kestra

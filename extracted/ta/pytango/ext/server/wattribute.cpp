@@ -165,4 +165,5 @@ void export_wattribute(py::module &m) {
                 :returns: the attribute write value.
                 :rtype: obj)doc",
              py::arg_v("extract_as", PyTango::ExtractAsNumpy, "ExtractAs.Numpy"));
+    fix_dynamic_attr_dealloc<Tango::WAttribute>();
 }

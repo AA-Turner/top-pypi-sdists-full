@@ -29,6 +29,7 @@ class HciEdgeDeviceJobArgs:
                  jobs_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a HciEdgeDeviceJob resource.
+
         :param pulumi.Input[_builtins.str] edge_device_name: The name of the EdgeDevice
         :param pulumi.Input[_builtins.str] kind: Edge device kind.
                Expected value is 'HCI'.
@@ -122,6 +123,7 @@ class HciEdgeDeviceJob(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-12-01-preview. In version 2.x of the Azure Native provider, it used API version 2024-09-01-preview.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] edge_device_name: The name of the EdgeDevice
@@ -141,6 +143,7 @@ class HciEdgeDeviceJob(pulumi.CustomResource):
         Edge device job for Azure Stack HCI solution.
 
         Uses Azure REST API version 2024-12-01-preview. In version 2.x of the Azure Native provider, it used API version 2024-09-01-preview.
+
 
         :param str resource_name: The name of the resource.
         :param HciEdgeDeviceJobArgs args: The arguments to use to populate this resource's properties.
@@ -188,7 +191,7 @@ class HciEdgeDeviceJob(pulumi.CustomResource):
             __props__.__dict__["name"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:azurestackhci/v20240901preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20241201preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20250201preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20250915preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20251001:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20251101preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20251201preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20260201:HciEdgeDeviceJob")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:azurestackhci/v20240901preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20241201preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20250201preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20250915preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20251001:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20251101preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20251201preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20260201:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20260215preview:HciEdgeDeviceJob"), pulumi.Alias(type_="azure-native:azurestackhci/v20260301preview:HciEdgeDeviceJob")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(HciEdgeDeviceJob, __self__).__init__(
             'azure-native:azurestackhci:HciEdgeDeviceJob',

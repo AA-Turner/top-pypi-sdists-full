@@ -385,13 +385,17 @@ class RemoteExecutionClient(ExecutionClient):
 
     Args:
         execution_name (str): A unique name for the execution
-        execution_type (str): The type of execution (e.g., 'NOTEBOOK')
         input_config (Dict[str, Any]): Configuration for the input data for the execution
-        compute (Optional[str]): Configuration for the compute environment
-        output_config (Optional[Dict[str, Any]]): Configuration for the outputs like output formats
-        client_token (Optional[str]): A unique token to ensure idempotency
-        termination_condition (Optional[Dict[str, Any]]): Condition for terminating the execution
-        tags (Optional[Dict[str, Any]]): Tags related to the execution
+        domain_id (Optional[str]): DataZone domain ID. If provided, overrides config value
+        project_id (Optional[str]): DataZone project ID. If provided, overrides config value
+        domain_region (Optional[str]): DataZone domain region. If provided, overrides config value
+        **kwargs: Additional parameters including:
+            execution_type (str): The type of execution (e.g., 'NOTEBOOK')
+            compute (Optional[str]): Configuration for the compute environment
+            output_config (Optional[Dict[str, Any]]): Configuration for the outputs like output formats
+            client_token (Optional[str]): A unique token to ensure idempotency
+            termination_condition (Optional[Dict[str, Any]]): Condition for terminating the execution
+            tags (Optional[Dict[str, Any]]): Tags related to the execution
 
     Returns:
         dict: A dictionary containing information about the started execution. Typical structure:
@@ -411,8 +415,9 @@ class RemoteExecutionClient(ExecutionClient):
         InternalServerError:  If there's an internal server error.
 
     Example:
-        request = StartExecutionRequest(
-            name="MyExecution",
+        # Using config values (existing behavior)
+        result = client.start_execution(
+            execution_name="MyExecution",
             input_config={"notebook_config": {"input_path": "src/folder2/test.ipynb"}},
             execution_type="NOTEBOOK",
             output_config={"notebook_config": {"output_formats": ["NOTEBOOK", "HTML"]}},
@@ -425,9 +430,19 @@ class RemoteExecutionClient(ExecutionClient):
                     "image_version": "2.8",  // valid values - {2.6, 2.8, 2, 3.0, 3}
                     "ecr_uri": "123456123456.dkr.ecr.us-west-2.amazonaws.com/ImageName:latest"
                 },
+            },
             tags={}
-        }
-        result = client.start_execution(request)
+        )
+
+        # Using direct parameters (new behavior matching SageMakerNotebookOperator)
+        result = client.start_execution(
+            execution_name="notebook_task",
+            input_config={"notebook_config": {"input_path": "path/to/notebook.ipynb"}},
+            domain_id="dzd-example123456",
+            project_id="example123456",
+            domain_region="us-east-1",
+            compute={"instance_type": "ml.c5.xlarge"}
+        )
         print(f"Execution started with ID: {result.execution_id}")
     """
 
@@ -435,6 +450,9 @@ class RemoteExecutionClient(ExecutionClient):
         self,
         execution_name: str,
         input_config: Dict[str, Any],
+        domain_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        domain_region: Optional[str] = None,
         **kwargs,
     ) -> dict:
         # Convert underscores to hyphens in execution_name to meet regex validation
@@ -447,10 +465,24 @@ class RemoteExecutionClient(ExecutionClient):
         }
 
         request = StartExecutionRequest(**parameters)
-        return self._start_execution_internal(request)
+        return self._start_execution_internal(request, domain_id, project_id, domain_region)
 
-    def _start_execution_internal(self, request: StartExecutionRequest):
-        self.__setup_execution_client()
+    def _start_execution_internal(
+        self,
+        request: StartExecutionRequest,
+        domain_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        domain_region: Optional[str] = None,
+    ):
+        # Validate input parameters early
+        if domain_id is not None:
+            self.validate_domain_id(domain_id)
+        if project_id is not None:
+            self.validate_project_id(project_id)
+        if domain_region is not None:
+            self.validate_domain_region(domain_region)
+
+        self.__setup_execution_client(domain_id, project_id, domain_region)
         self.validate_execution_name(request.execution_name)
         self.validate_input_config(request.input_config)
         self.validate_client_token(request.get("client_token"))
@@ -837,18 +869,44 @@ class RemoteExecutionClient(ExecutionClient):
             raise RuntimeError("Default environment provisioned resources not found")
         return
 
-    def __setup_execution_client(self):
+    def __setup_execution_client(
+        self,
+        domain_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+        domain_region: Optional[str] = None,
+    ):
         if self.domain_identifier is None:
-            self.domain_identifier = self.config.domain_identifier
+            if domain_id:
+                self.domain_identifier = domain_id
+            else:
+                self.domain_identifier = self.config.domain_identifier
+
         if self.project_identifier is None:
-            self.project_identifier = self.config.project_identifier
-        if not self.config.domain_identifier or not self.config.project_identifier:
+            if project_id:
+                self.project_identifier = project_id
+            else:
+                self.project_identifier = self.config.project_identifier
+
+        if not self.domain_identifier or not self.project_identifier:
             raise InternalServerError("Domain identifier and project identifier are required")
 
         if self.datazone_domain_region is None:
-            self.datazone_domain_region = self.config.datazone_domain_region
+            if domain_region:
+                self.datazone_domain_region = domain_region
+            else:
+                self.datazone_domain_region = self.config.datazone_domain_region
+
         if self.project_s3_path is None:
-            self.project_s3_path = self.config.project_s3_path
+            if domain_id and project_id:
+                # Fetch project_s3_path dynamically using the provided domain_id and project_id
+                self.project_s3_path = self._utils._get_project_s3_path(
+                    project_api=self.project_api,
+                    datazone_api=self.datazone_api,
+                    domain_id=self.domain_identifier,
+                    project_id=self.project_identifier,
+                )
+            else:
+                self.project_s3_path = self.config.project_s3_path
 
         if self.default_tooling_environment is None:
             self.__set_default_tooling_environment()
@@ -1004,3 +1062,67 @@ class RemoteExecutionClient(ExecutionClient):
             return False
         except InvalidVersion:
             raise ValidationError(f"Invalid image version {sem_ver}")
+
+    @staticmethod
+    def validate_domain_id(domain_id: str):
+        """
+        Validate DataZone domain ID format and constraints.
+
+        Args:
+            domain_id (str): The DataZone domain identifier to validate
+
+        Raises:
+            ValidationError: If the domain_id is invalid
+        """
+        if not domain_id:
+            raise ValidationError("Domain ID cannot be empty")
+
+        # DataZone domain IDs follow specific pattern: dzd[-_][a-zA-Z0-9_-]{1,36}
+        if not re.match(r"^dzd[-_][a-zA-Z0-9_-]{1,36}$", domain_id):
+            raise ValidationError(
+                f"Invalid domain ID format: '{domain_id}'. "
+                "Domain ID must follow the pattern 'dzd[-_][a-zA-Z0-9_-]{{1,36}}' "
+                "(e.g., 'dzd-abc123', 'dzd_example-domain')"
+            )
+
+    @staticmethod
+    def validate_project_id(project_id: str):
+        """
+        Validate DataZone project ID format and constraints.
+
+        Args:
+            project_id (str): The DataZone project identifier to validate
+
+        Raises:
+            ValidationError: If the project_id is invalid
+        """
+        if not project_id:
+            raise ValidationError("Project ID cannot be empty")
+
+        # DataZone project IDs follow pattern: [a-zA-Z0-9_-]{1,36}
+        if not re.match(r"^[a-zA-Z0-9_-]{1,36}$", project_id):
+            raise ValidationError(f"Invalid project ID: '{project_id}'. ")
+
+    @staticmethod
+    def validate_domain_region(domain_region: str):
+        """
+        Validate AWS region format for DataZone domain region.
+
+        Args:
+            domain_region (str): The AWS region to validate
+
+        Raises:
+            ValidationError: If the domain_region is invalid
+        """
+        if not domain_region:
+            raise ValidationError("Domain region cannot be empty")
+
+        # AWS region format validation: pattern covering all AWS regions with numbers
+        # Pattern covers: us-east-1, eu-west-2, ap-southeast-1, us-gov-east-1, cn-north-1, etc.
+        aws_region_pattern = r"^(us|eu|ap|sa|ca|af|me|il|cn|us-gov|us-iso|us-isob)-(north|south|east|west|central|northeast|northwest|southeast|southwest)-\d+$"
+
+        if not re.match(aws_region_pattern, domain_region):
+            raise ValidationError(
+                f"Invalid AWS region format: '{domain_region}'. "
+                "Region must follow AWS region naming convention (e.g., 'us-east-1', 'eu-west-2', 'ap-southeast-1')"
+            )

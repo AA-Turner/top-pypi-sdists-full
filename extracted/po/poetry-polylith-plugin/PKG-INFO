@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-polylith-plugin
-Version: 1.48.4
+Version: 1.49.0
 Summary: A Poetry plugin that adds tooling support for the Polylith Architecture
 License: MIT
 Author: David Vujic

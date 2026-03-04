@@ -8,7 +8,9 @@ const Chat = (() => {
     let _rewindPosition = null;
     let _rewindMsgEl = null;
     let _lastSentText = '';
+    let _pendingUserMessages = [];  // FIFO queue of {el, text} for SSE correlation
     let _conversationType = 'chat';
+    const _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
     // Remote collaboration state
     let _remoteAssistantEl = null;
@@ -21,8 +23,10 @@ const Chat = (() => {
     let _lastChunkTime = 0;
     let _phaseElapsedInterval = null;
     let _stallCheckInterval = null;
+    let _streamWatchdog = null;
     const _STALL_THRESHOLD_MS = 5000;
     const _PHASE_ELAPSED_DELAY_MS = 1500;
+    const _WATCHDOG_TIMEOUT_MS = 45000;
 
     // Configure marked for safe link rendering (marked v15 passes token object)
     const renderer = new marked.Renderer();
@@ -137,6 +141,7 @@ const Chat = (() => {
 
         _lastSentText = text;
         const msgEl = appendMessage('user', text);
+        _pendingUserMessages.push({ el: msgEl, text: text });
         input.value = '';
         input.style.height = 'auto';
 
@@ -208,6 +213,9 @@ const Chat = (() => {
     }
 
     async function streamChatResponse(conversationId, body, headers) {
+        if (typeof App._debugLog === 'function') {
+            App._debugLog('stream', 'Starting chat stream for ' + conversationId);
+        }
         setStreaming(true);
         showThinking();
 
@@ -277,10 +285,19 @@ const Chat = (() => {
         } finally {
             hideThinking();
             setStreaming(false);
+            _pendingUserMessages = [];
         }
     }
 
     function handleSSEEvent(type, data) {
+        _resetWatchdog();
+        if (typeof App._debugLog === 'function' && type !== 'token') {
+            const safe = {type: type};
+            if (data.phase) safe.phase = data.phase;
+            if (data.tool_name) safe.tool_name = data.tool_name;
+            if (data.id) safe.id = data.id;
+            App._debugLog('sse', 'event=' + type, safe);
+        }
         switch (type) {
             case 'thinking':
                 showThinking();
@@ -341,9 +358,17 @@ const Chat = (() => {
                     App._showPlanContent(data.content);
                 }
                 break;
+            case 'user_message':
+                if (_pendingUserMessages.length > 0 && typeof data.id === 'string'
+                    && _UUID_RE.test(data.id) && Number.isInteger(data.position)) {
+                    const pending = _pendingUserMessages.shift();
+                    const userMsgData = { id: data.id, position: data.position, content: pending.text };
+                    addMessageActions(pending.el, 'user', pending.text, userMsgData, { isLast: false });
+                }
+                break;
             case 'done':
                 hideThinking();
-                finalizeAssistant();
+                finalizeAssistant(data);
                 break;
             case 'prompt_meta':
                 if (data.sources_truncated) {
@@ -384,13 +409,18 @@ const Chat = (() => {
         scrollToBottom();
     }
 
-    function finalizeAssistant() {
+    function finalizeAssistant(doneData) {
         if (!currentAssistantEl) return;
         const contentEl = currentAssistantEl.querySelector('.message-content');
         contentEl.innerHTML = renderMarkdown(currentAssistantContent);
         renderMath(contentEl);
         addCodeCopyButtons(contentEl);
-        addMessageActions(currentAssistantEl, 'assistant', currentAssistantContent, null, { isLast: true });
+        let msgData = null;
+        if (doneData && typeof doneData.assistant_message_id === 'string'
+            && _UUID_RE.test(doneData.assistant_message_id) && Number.isInteger(doneData.assistant_message_position)) {
+            msgData = { id: doneData.assistant_message_id, position: doneData.assistant_message_position };
+        }
+        addMessageActions(currentAssistantEl, 'assistant', currentAssistantContent, msgData, { isLast: true });
         currentAssistantEl = null;
         currentAssistantContent = '';
         scrollToBottom();
@@ -1198,8 +1228,11 @@ const Chat = (() => {
             } else {
                 roleDiv.textContent = 'YOU';
             }
+        } else if (role === 'assistant') {
+            roleDiv.textContent = 'ANTEROOM';
         } else {
-            roleDiv.textContent = 'SYSTEM';
+            el.classList.add('system-hidden');
+            roleDiv.textContent = 'CONTEXT';
         }
         el.appendChild(roleDiv);
 
@@ -1253,6 +1286,32 @@ const Chat = (() => {
         scrollToBottom();
     }
 
+    function _startWatchdog() {
+        _clearWatchdog();
+        _streamWatchdog = setTimeout(() => {
+            _streamWatchdog = null;
+            if (!App.state.isStreaming) return;
+            const elapsed = ((Date.now() - _phaseStartTime) / 1000).toFixed(0);
+            if (typeof App._debugLog === 'function') {
+                App._debugLog('watchdog', 'Stream watchdog fired after ' + elapsed + 's — no server response');
+            }
+            hideThinking();
+            setStreaming(false);
+            showToast('No response from server after ' + elapsed + 's. Check your connection and try again.');
+        }, _WATCHDOG_TIMEOUT_MS);
+    }
+
+    function _clearWatchdog() {
+        if (_streamWatchdog) {
+            clearTimeout(_streamWatchdog);
+            _streamWatchdog = null;
+        }
+    }
+
+    function _resetWatchdog() {
+        if (App.state.isStreaming) _startWatchdog();
+    }
+
     function showThinking() {
         if (document.getElementById('thinking')) return;
         _phaseStartTime = Date.now();
@@ -1261,9 +1320,11 @@ const Chat = (() => {
         _thinkingPhase = '';
         _ensureThinkingElement();
         _startPhaseElapsedTimer();
+        _startWatchdog();
     }
 
     function hideThinking() {
+        _clearWatchdog();
         document.querySelectorAll('.thinking-indicator').forEach(el => el.remove());
         _thinkingPhase = '';
         _streamingChars = 0;
@@ -1720,8 +1781,12 @@ const Chat = (() => {
                 } else {
                     roleDiv.textContent = 'YOU';
                 }
+            } else if (msg.role === 'assistant') {
+                roleDiv.textContent = 'ANTEROOM';
             } else {
-                roleDiv.textContent = 'SYSTEM';
+                // system role: hide by default (compaction summaries, internal context)
+                el.classList.add('system-hidden');
+                roleDiv.textContent = 'CONTEXT';
             }
             el.appendChild(roleDiv);
 
@@ -1836,7 +1901,7 @@ const Chat = (() => {
         _remoteAssistantEl = appendMessage('assistant', '');
         const roleDiv = _remoteAssistantEl.querySelector('.message-role');
         if (roleDiv) {
-            roleDiv.textContent = 'SYSTEM (remote)';
+            roleDiv.textContent = 'ANTEROOM (remote)';
         }
     }
 

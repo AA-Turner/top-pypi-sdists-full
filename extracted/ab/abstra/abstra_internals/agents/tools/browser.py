@@ -5,7 +5,6 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
 
-import playwright
 import playwright.sync_api
 from playwright.sync_api import Page
 

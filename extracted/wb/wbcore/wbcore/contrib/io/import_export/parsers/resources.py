@@ -4,7 +4,6 @@ from django.conf import settings
 from django.utils.module_loading import import_string
 from import_export.formats.base_formats import CSV
 from import_export.results import RowResult
-from import_export.signals import post_import
 
 
 def default_import_parse(import_source):
@@ -28,7 +27,6 @@ def default_import_parse(import_source):
             raise_errors=settings.DEBUG,
         )
         import_source.file.close()
-        post_import.send(sender=None, model=model)
         success_message = """
         {} import finished:
         * new {}

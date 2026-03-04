@@ -1,5 +1,6 @@
 use super::{
-    observability_client_adapter::ObservabilityEvent, sdk_errors_observer::ErrorBoundaryEvent,
+    observability_client_adapter::{MetricType, ObservabilityEvent},
+    sdk_errors_observer::ErrorBoundaryEvent,
     DiagnosticsEvent,
 };
 use crate::user::StatsigUserLoggable;
@@ -129,6 +130,18 @@ impl OpsStatsForInstance {
 
     pub fn log_error(&self, error: ErrorBoundaryEvent) {
         self.log(OpsStatsEvent::SDKError(error));
+    }
+
+    pub fn log_checksum_validation_result(&self, is_success: bool) {
+        self.log(ObservabilityEvent::new_event(
+            MetricType::Increment,
+            "deltas_checksum_validation.count".to_string(),
+            1.0,
+            Some(HashMap::from([(
+                "result".to_string(),
+                if is_success { "success" } else { "failure" }.to_string(),
+            )])),
+        ));
     }
 
     pub fn add_marker(&self, marker: Marker, context: Option<ContextType>) {

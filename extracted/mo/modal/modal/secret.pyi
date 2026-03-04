@@ -481,6 +481,14 @@ class _Secret(modal._object._Object):
         """Return information about the Secret object."""
         ...
 
+    async def update(self, env_dict: dict[str, str]) -> None:
+        """Update this Secret, adding or overwriting key-value pairs.
+
+        Like dict.update(), this merges `env_dict` into the existing Secret.
+        Keys not mentioned in `env_dict` are left unchanged.
+        """
+        ...
+
 class Secret(modal.object.Object):
     """Secrets provide a dictionary of environment variables for images.
 
@@ -644,3 +652,22 @@ class Secret(modal.object.Object):
             ...
 
     info: __info_spec
+
+    class __update_spec(typing_extensions.Protocol):
+        def __call__(self, /, env_dict: dict[str, str]) -> None:
+            """Update this Secret, adding or overwriting key-value pairs.
+
+            Like dict.update(), this merges `env_dict` into the existing Secret.
+            Keys not mentioned in `env_dict` are left unchanged.
+            """
+            ...
+
+        async def aio(self, /, env_dict: dict[str, str]) -> None:
+            """Update this Secret, adding or overwriting key-value pairs.
+
+            Like dict.update(), this merges `env_dict` into the existing Secret.
+            Keys not mentioned in `env_dict` are left unchanged.
+            """
+            ...
+
+    update: __update_spec

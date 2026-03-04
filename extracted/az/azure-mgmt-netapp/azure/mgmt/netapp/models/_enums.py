@@ -10,7 +10,9 @@ from enum import Enum
 from azure.core import CaseInsensitiveEnumMeta
 
 
-class AcceptGrowCapacityPoolForShortTermCloneSplit(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+class AcceptGrowCapacityPoolForShortTermCloneSplit(  # pylint: disable=name-too-long
+    str, Enum, metaclass=CaseInsensitiveEnumMeta
+):
     """While auto splitting the short term clone volume, if the parent pool does not have enough space
     to accommodate the volume after split, it will be automatically resized, which will lead to
     increased billing. To accept capacity pool size auto grow and create a short term clone volume,
@@ -28,76 +30,99 @@ class ActiveDirectoryStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Status of the Active Directory."""
 
     CREATED = "Created"
-    """Active Directory created but not in use"""
+    """Active Directory created but not in use."""
     IN_USE = "InUse"
-    """Active Directory in use by SMB Volume"""
+    """Active Directory in use by SMB Volume."""
     DELETED = "Deleted"
-    """Active Directory Deleted"""
+    """Active Directory Deleted."""
     ERROR = "Error"
-    """Error with the Active Directory"""
+    """Error with the Active Directory."""
     UPDATING = "Updating"
-    """Active Directory Updating"""
+    """Active Directory Updating."""
+
+
+class ActualRansomwareProtectionState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """The actual state of the Advanced Ransomware Protection feature."""
+
+    DISABLED = "Disabled"
+    """Advanced Ransomware Protection is disabled."""
+    ENABLED = "Enabled"
+    """Advanced Ransomware Protection is enabled."""
+    LEARNING = "Learning"
+    """Advanced Ransomware Protection is in learning mode."""
+    PAUSED = "Paused"
+    """Advanced Ransomware Protection is in paused state."""
 
 
 class ApplicationType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Application Type."""
 
     SAP_HANA = "SAP-HANA"
+    """SAP_HANA."""
     ORACLE = "ORACLE"
+    """ORACLE."""
 
 
 class AvsDataStore(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Specifies whether the volume is enabled for Azure VMware Solution (AVS) datastore purpose."""
 
     ENABLED = "Enabled"
-    """avsDataStore is enabled"""
+    """avsDataStore is enabled."""
     DISABLED = "Disabled"
-    """avsDataStore is disabled"""
+    """avsDataStore is disabled."""
 
 
 class BackupType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Type of backup Manual or Scheduled."""
 
     MANUAL = "Manual"
-    """Manual backup"""
+    """Manual backup."""
     SCHEDULED = "Scheduled"
-    """Scheduled backup"""
+    """Scheduled backup."""
 
 
 class CheckNameResourceTypes(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Resource type used for verification."""
 
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS = "Microsoft.NetApp/netAppAccounts"
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS = "Microsoft.NetApp/netAppAccounts/capacityPools"
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES = "Microsoft.NetApp/netAppAccounts/capacityPools/volumes"
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES_SNAPSHOTS = (
         "Microsoft.NetApp/netAppAccounts/capacityPools/volumes/snapshots"
     )
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES_SNAPSHOTS."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_BACKUP_VAULTS_BACKUPS = "Microsoft.NetApp/netAppAccounts/backupVaults/backups"
     """ANF Backup under a volume , deprecated, use
     ``Microsoft.NetApp/netAppAccounts/backupVaults/backups`` instead."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES_BACKUPS = (
         "Microsoft.NetApp/netAppAccounts/capacityPools/volumes/backups"
     )
-    """ANF Backup under a Backup Vault"""
+    """ANF Backup under a Backup Vault."""
 
 
 class CheckQuotaNameResourceTypes(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Resource type used for verification."""
 
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS = "Microsoft.NetApp/netAppAccounts"
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS = "Microsoft.NetApp/netAppAccounts/capacityPools"
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES = "Microsoft.NetApp/netAppAccounts/capacityPools/volumes"
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES_SNAPSHOTS = (
         "Microsoft.NetApp/netAppAccounts/capacityPools/volumes/snapshots"
     )
+    """MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES_SNAPSHOTS."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_BACKUP_VAULTS_BACKUPS = "Microsoft.NetApp/netAppAccounts/backupVaults/backups"
     """ANF Backup under a volume , deprecated, use
     ``Microsoft.NetApp/netAppAccounts/backupVaults/backups`` instead."""
     MICROSOFT_NET_APP_NET_APP_ACCOUNTS_CAPACITY_POOLS_VOLUMES_BACKUPS = (
         "Microsoft.NetApp/netAppAccounts/capacityPools/volumes/backups"
     )
-    """ANF Backup under a Backup Vault"""
+    """ANF Backup under a Backup Vault."""
 
 
 class ChownMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -107,23 +132,26 @@ class ChownMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     RESTRICTED = "Restricted"
+    """RESTRICTED."""
     UNRESTRICTED = "Unrestricted"
+    """UNRESTRICTED."""
 
 
 class CoolAccessRetrievalPolicy(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """coolAccessRetrievalPolicy determines the data retrieval behavior from the cool tier to standard
     storage based on the read pattern for cool access enabled volumes. The possible values for this
-    field are:
-    Default - Data will be pulled from cool tier to standard storage on random reads. This policy
-    is the default.
-    OnRead - All client-driven data read is pulled from cool tier to standard storage on both
-    sequential and random reads.
-    Never - No client-driven data is pulled from cool tier to standard storage.
+    field are: Default - Data will be pulled from cool tier to standard storage on random reads.
+    This policy is the default. OnRead - All client-driven data read is pulled from cool tier to
+    standard storage on both sequential and random reads. Never - No client-driven data is pulled
+    from cool tier to standard storage.
     """
 
     DEFAULT = "Default"
+    """DEFAULT."""
     ON_READ = "OnRead"
+    """ON_READ."""
     NEVER = "Never"
+    """NEVER."""
 
 
 class CoolAccessTieringPolicy(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -135,7 +163,9 @@ class CoolAccessTieringPolicy(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     AUTO = "Auto"
+    """AUTO."""
     SNAPSHOT_ONLY = "SnapshotOnly"
+    """SNAPSHOT_ONLY."""
 
 
 class CreatedByType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -151,13 +181,22 @@ class CreatedByType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The entity was created by a key."""
 
 
+class DesiredRansomwareProtectionState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """The desired state of the Advanced Ransomware Protection feature."""
+
+    DISABLED = "Disabled"
+    """Advanced Ransomware Protection is disabled."""
+    ENABLED = "Enabled"
+    """Advanced Ransomware Protection is enabled."""
+
+
 class EnableSubvolumes(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Flag indicating whether subvolume operations are enabled on the volume."""
 
     ENABLED = "Enabled"
-    """subvolumes are enabled"""
+    """subvolumes are enabled."""
     DISABLED = "Disabled"
-    """subvolumes are not enabled"""
+    """subvolumes are not enabled."""
 
 
 class EncryptionKeySource(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -167,9 +206,9 @@ class EncryptionKeySource(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     MICROSOFT_NET_APP = "Microsoft.NetApp"
-    """Microsoft-managed key encryption"""
+    """Microsoft-managed key encryption."""
     MICROSOFT_KEY_VAULT = "Microsoft.KeyVault"
-    """Customer-managed key encryption"""
+    """Customer-managed key encryption."""
 
 
 class EncryptionType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -178,16 +217,18 @@ class EncryptionType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     SINGLE = "Single"
-    """EncryptionType Single, volumes will use single encryption at rest"""
+    """EncryptionType Single, volumes will use single encryption at rest."""
     DOUBLE = "Double"
-    """EncryptionType Double, volumes will use double encryption at rest"""
+    """EncryptionType Double, volumes will use double encryption at rest."""
 
 
 class EndpointType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Indicates whether the local volume is the source or destination for the Volume Replication."""
 
     SRC = "src"
+    """SRC."""
     DST = "dst"
+    """DST."""
 
 
 class Exclude(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -196,9 +237,9 @@ class Exclude(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     NONE = "None"
-    """'None' returns all replications"""
+    """'None' returns all replications."""
     DELETED = "Deleted"
-    """'Deleted' excludes deleted replications"""
+    """'Deleted' excludes deleted replications."""
 
 
 class FileAccessLogs(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -207,9 +248,9 @@ class FileAccessLogs(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     ENABLED = "Enabled"
-    """fileAccessLogs are enabled"""
+    """fileAccessLogs are enabled."""
     DISABLED = "Disabled"
-    """fileAccessLogs are not enabled"""
+    """fileAccessLogs are not enabled."""
 
 
 class InAvailabilityReasonType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -219,7 +260,9 @@ class InAvailabilityReasonType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     INVALID = "Invalid"
+    """INVALID."""
     ALREADY_EXISTS = "AlreadyExists"
+    """ALREADY_EXISTS."""
 
 
 class KeySource(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -228,24 +271,24 @@ class KeySource(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     MICROSOFT_NET_APP = "Microsoft.NetApp"
-    """Microsoft-managed key encryption"""
+    """Microsoft-managed key encryption."""
     MICROSOFT_KEY_VAULT = "Microsoft.KeyVault"
-    """Customer-managed key encryption"""
+    """Customer-managed key encryption."""
 
 
 class KeyVaultStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Status of the KeyVault connection."""
 
     CREATED = "Created"
-    """KeyVault connection created but not in use"""
+    """KeyVault connection created but not in use."""
     IN_USE = "InUse"
-    """KeyVault connection in use by SMB Volume"""
+    """KeyVault connection in use by SMB Volume."""
     DELETED = "Deleted"
-    """KeyVault connection Deleted"""
+    """KeyVault connection Deleted."""
     ERROR = "Error"
-    """Error with the KeyVault connection"""
+    """Error with the KeyVault connection."""
     UPDATING = "Updating"
-    """KeyVault connection Updating"""
+    """KeyVault connection Updating."""
 
 
 class ManagedServiceIdentityType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -267,14 +310,18 @@ class MetricAggregationType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Type of MetricAggregationType."""
 
     AVERAGE = "Average"
+    """AVERAGE."""
 
 
 class MirrorState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The status of the replication."""
 
     UNINITIALIZED = "Uninitialized"
+    """UNINITIALIZED."""
     MIRRORED = "Mirrored"
+    """MIRRORED."""
     BROKEN = "Broken"
+    """BROKEN."""
 
 
 class MultiAdStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -283,28 +330,28 @@ class MultiAdStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     DISABLED = "Disabled"
     """Account is MultiAD disabled, Means its a SharedAD or SingleAD account."""
     ENABLED = "Enabled"
-    """Account is MultiAD enabled"""
+    """Account is MultiAD enabled."""
 
 
 class NetAppProvisioningState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Gets the status of the VolumeQuotaRule at the time the operation was called."""
 
     ACCEPTED = "Accepted"
-    """Resource has been Accepted"""
+    """Resource has been Accepted."""
     CREATING = "Creating"
-    """Resource is being Created"""
+    """Resource is being Created."""
     PATCHING = "Patching"
-    """Resource is being Patched"""
+    """Resource is being Patched."""
     UPDATING = "Updating"
-    """Resource is updating"""
+    """Resource is updating."""
     DELETING = "Deleting"
-    """Resource is being Deleted"""
+    """Resource is being Deleted."""
     MOVING = "Moving"
-    """Resource is being Moved"""
+    """Resource is being Moved."""
     FAILED = "Failed"
-    """Resource has Failed"""
+    """Resource has Failed."""
     SUCCEEDED = "Succeeded"
-    """Resource has Succeeded"""
+    """Resource has Succeeded."""
 
 
 class NetworkFeatures(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -324,18 +371,68 @@ class NetworkSiblingSetProvisioningState(str, Enum, metaclass=CaseInsensitiveEnu
     """Gets the status of the NetworkSiblingSet at the time the operation was called."""
 
     SUCCEEDED = "Succeeded"
+    """SUCCEEDED."""
     FAILED = "Failed"
+    """FAILED."""
     CANCELED = "Canceled"
+    """CANCELED."""
     UPDATING = "Updating"
+    """UPDATING."""
 
 
 class QosType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The qos type of the pool."""
 
     AUTO = "Auto"
-    """qos type Auto"""
+    """qos type Auto."""
     MANUAL = "Manual"
-    """qos type Manual"""
+    """qos type Manual."""
+
+
+class QuotaType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """Type of quota."""
+
+    DEFAULT_USER_QUOTA = "DefaultUserQuota"
+    """Default user quota."""
+    DEFAULT_GROUP_QUOTA = "DefaultGroupQuota"
+    """Default group quota."""
+    INDIVIDUAL_USER_QUOTA = "IndividualUserQuota"
+    """Individual user quota."""
+    INDIVIDUAL_GROUP_QUOTA = "IndividualGroupQuota"
+    """Individual group quota."""
+
+
+class RansomwareReportSeverity(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """Severity of the Advanced Ransomware Protection (ARP) report."""
+
+    NONE = "None"
+    """No data is suspected for ransomware activity."""
+    LOW = "Low"
+    """Low attack probability."""
+    MODERATE = "Moderate"
+    """Moderate attack probability."""
+    HIGH = "High"
+    """High amount of data is suspected for ransomware activity."""
+
+
+class RansomwareReportState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """State of the Advanced Ransomware Protection (ARP) report."""
+
+    ACTIVE = "Active"
+    """The ARP report has been created. Take action by running clearsuspects marking suspects as
+    FalsePositive or PotentialThreats."""
+    RESOLVED = "Resolved"
+    """The ARP Report has been resolved."""
+
+
+class RansomwareSuspectResolution(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """ARP report suspect resolution."""
+
+    POTENTIAL_THREAT = "PotentialThreat"
+    """The identified file type is unexpected in your workload and should be treated as a potential
+    attack."""
+    FALSE_POSITIVE = "FalsePositive"
+    """The identified file type is expected in your workload and can be ignored."""
 
 
 class RegionStorageToNetworkProximity(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -363,28 +460,31 @@ class ReplicationMirrorState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The status of the replication."""
 
     UNINITIALIZED = "Uninitialized"
-    """Destination volume has not been initialized"""
+    """Destination volume has not been initialized."""
     MIRRORED = "Mirrored"
-    """Destination volume has been initialized and is ready"""
+    """Destination volume has been initialized and is ready."""
     BROKEN = "Broken"
-    """Destination volume is RW, replication relationship has been broken off"""
+    """Destination volume is RW, replication relationship has been broken off."""
 
 
 class ReplicationSchedule(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Schedule."""
 
     ENUM_10_MINUTELY = "_10minutely"
+    """10_MINUTELY."""
     HOURLY = "hourly"
+    """HOURLY."""
     DAILY = "daily"
+    """DAILY."""
 
 
 class ReplicationType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Indicates whether the replication is cross zone or cross region."""
 
     CROSS_REGION_REPLICATION = "CrossRegionReplication"
-    """Cross region replication"""
+    """Cross region replication."""
     CROSS_ZONE_REPLICATION = "CrossZoneReplication"
-    """Cross zone replication"""
+    """Cross zone replication."""
 
 
 class SecurityStyle(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -393,22 +493,24 @@ class SecurityStyle(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     NTFS = "ntfs"
+    """NTFS."""
     UNIX = "unix"
+    """UNIX."""
 
 
 class ServiceLevel(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """The service level of the file system."""
 
     STANDARD = "Standard"
-    """Standard service level"""
+    """Standard service level."""
     PREMIUM = "Premium"
-    """Premium service level"""
+    """Premium service level."""
     ULTRA = "Ultra"
-    """Ultra service level"""
+    """Ultra service level."""
     STANDARD_ZRS = "StandardZRS"
     """Zone redundant storage service level. This will be deprecated soon."""
     FLEXIBLE = "Flexible"
-    """Flexible service level"""
+    """Flexible service level."""
 
 
 class SmbAccessBasedEnumeration(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -417,56 +519,53 @@ class SmbAccessBasedEnumeration(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """
 
     DISABLED = "Disabled"
-    """smbAccessBasedEnumeration share setting is disabled"""
+    """smbAccessBasedEnumeration share setting is disabled."""
     ENABLED = "Enabled"
-    """smbAccessBasedEnumeration share setting is enabled"""
+    """smbAccessBasedEnumeration share setting is enabled."""
 
 
 class SmbNonBrowsable(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Enables non-browsable property for SMB Shares. Only applicable for SMB/DualProtocol volume."""
 
     DISABLED = "Disabled"
-    """smbNonBrowsable share setting is disabled"""
+    """smbNonBrowsable share setting is disabled."""
     ENABLED = "Enabled"
-    """smbNonBrowsable share setting is enabled"""
-
-
-class Type(str, Enum, metaclass=CaseInsensitiveEnumMeta):
-    """Type of quota."""
-
-    DEFAULT_USER_QUOTA = "DefaultUserQuota"
-    """Default user quota"""
-    DEFAULT_GROUP_QUOTA = "DefaultGroupQuota"
-    """Default group quota"""
-    INDIVIDUAL_USER_QUOTA = "IndividualUserQuota"
-    """Individual user quota"""
-    INDIVIDUAL_GROUP_QUOTA = "IndividualGroupQuota"
-    """Individual group quota"""
+    """smbNonBrowsable share setting is enabled."""
 
 
 class VolumeBackupRelationshipStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Status of the volume backup relationship."""
 
     IDLE = "Idle"
+    """IDLE."""
     TRANSFERRING = "Transferring"
+    """TRANSFERRING."""
     FAILED = "Failed"
+    """FAILED."""
     UNKNOWN = "Unknown"
+    """UNKNOWN."""
 
 
 class VolumeReplicationRelationshipStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Status of the volume replication relationship."""
 
     IDLE = "Idle"
+    """IDLE."""
     TRANSFERRING = "Transferring"
+    """TRANSFERRING."""
 
 
 class VolumeRestoreRelationshipStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Status of the volume restore relationship."""
 
     IDLE = "Idle"
+    """IDLE."""
     TRANSFERRING = "Transferring"
+    """TRANSFERRING."""
     FAILED = "Failed"
+    """FAILED."""
     UNKNOWN = "Unknown"
+    """UNKNOWN."""
 
 
 class VolumeStorageToNetworkProximity(str, Enum, metaclass=CaseInsensitiveEnumMeta):

@@ -133,7 +133,8 @@ def get_pytango_leaks(leaks: list[LeakError], max_blocks: int) -> list[LeakError
 
 def is_pytango_in_stack(leak) -> bool:
     for frame in leak.stack.frames:
-        if frame.object.endswith("_tango.so"):
+        filename = pathlib.Path(frame.object).name
+        if filename.startswith("_tango") and filename.endswith(".so"):
             return True
     return False
 

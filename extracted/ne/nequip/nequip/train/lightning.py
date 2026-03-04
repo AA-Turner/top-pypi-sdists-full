@@ -58,13 +58,13 @@ class NequIPLightningModule(lightning.LightningModule):
     def __init__(
         self,
         model: Dict,
+        num_datasets: Dict[str, int],
         optimizer: Optional[Dict] = None,
         lr_scheduler: Optional[Dict] = None,
         loss: Optional[Dict] = None,
         train_metrics: Optional[Dict] = None,
         val_metrics: Optional[Dict] = None,
         test_metrics: Optional[Dict] = None,
-        num_datasets: Optional[Dict[str, int]] = None,
         # for caching training info
         info_dict: Optional[Dict] = None,
     ):
@@ -115,17 +115,7 @@ class NequIPLightningModule(lightning.LightningModule):
         # === instantiate MetricsManager objects ===
         # must have separate MetricsManagers for each dataloader
         # num_datasets goes in order [train, val, test, predict]
-        self.num_datasets = (
-            num_datasets
-            if num_datasets is not None
-            else {
-                "train": 0,
-                "val": 0,
-                "test": 0,
-                "predict": 0,
-            }
-        )
-
+        self.num_datasets = num_datasets
         assert self.num_datasets["train"] == 1, (
             "currently only support one training dataset"
         )
@@ -143,16 +133,13 @@ class NequIPLightningModule(lightning.LightningModule):
                 "`coeff` must be set for entries of the `loss` MetricsManager for a weighted sum of metrics components to be used as the loss."
             )
 
-        # set `dist_sync_on_step=True` for loss metrics
-        # to ensure correct DDP syncing of loss function for batch steps
-        for metric in self.loss.values():
-            metric.dist_sync_on_step = True
-        self.loss
+            # set `dist_sync_on_step=True` for loss metrics
+            # to ensure correct DDP syncing of loss function for batch steps
+            for metric in self.loss.values():
+                metric.dist_sync_on_step = True
 
         # == instantiate other metrics ==
         self.train_metrics = instantiate(train_metrics, type_names=type_names)
-        if self.train_metrics is not None:
-            self.train_metrics
         # may need to instantate multiple instances to account for multiple val and test datasets
         self.val_metrics = torch.nn.ModuleList(
             [
@@ -160,16 +147,12 @@ class NequIPLightningModule(lightning.LightningModule):
                 for _ in range(self.num_datasets["val"])
             ]
         )
-        if self.val_metrics is not None:
-            self.val_metrics
         self.test_metrics = torch.nn.ModuleList(
             [
                 instantiate(test_metrics, type_names=type_names)
                 for _ in range(self.num_datasets["test"])
             ]
         )
-        if self.test_metrics is not None:
-            self.test_metrics
 
         # use "/" as delimiter for loggers to automatically categorize logged metrics
         self.logging_delimiter = "/"

@@ -28,9 +28,9 @@ class SVD(ImplicitRecommender):
         Random seed for reproducibility.
     verbose : int
         Verbosity level (0 = silent, 1+ = progress).
-    use_gpu : bool
-        If True, use GPU acceleration (CuPy or PyTorch) for recommendation
-        scoring. Falls back to CPU if no GPU backend found. Default False.
+    use_cuda : bool
+        If True, use CUDA acceleration (CuPy or PyTorch) for recommendation
+        scoring. Falls back to CPU if no CUDA backend found. Default False.
     """
 
     def __init__(
@@ -41,16 +41,19 @@ class SVD(ImplicitRecommender):
         iterations: int = 20,
         seed: int = 42,
         verbose: int = 0,
-        use_gpu: bool = False,
+        use_cuda: bool | None = None,
         **kwargs: Any,
     ) -> None:
+        _use_cuda = kwargs.pop("use_gpu", use_cuda)  # backward compat
         self.factors = factors
         self.learning_rate = learning_rate
         self.regularization = regularization
         self.iterations = iterations
         self.seed = seed
         self.verbose = verbose
-        self.use_gpu = use_gpu
+        from ._config import _resolve_cuda
+
+        self.use_cuda = _resolve_cuda(_use_cuda)
         self._fitted = False
         self._user_factors = None
         self._item_factors = None
@@ -199,10 +202,10 @@ class SVD(ImplicitRecommender):
         self._check_fitted()
         import numpy as np
 
-        if self.use_gpu:
-            from .gpu import get_gpu_backend_safe, gpu_score_user
+        if self.use_cuda:
+            from .cuda import get_cuda_backend_safe, gpu_score_user
 
-            gpu = get_gpu_backend_safe()
+            gpu = get_cuda_backend_safe()
             if gpu is not None:
                 backend, lib = gpu
                 scores = gpu_score_user(

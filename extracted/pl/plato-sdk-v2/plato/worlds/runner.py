@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import signal
 from pathlib import Path
 from typing import Annotated
 
@@ -119,9 +120,21 @@ def run(
     config_class = world_cls.get_config_class()
     run_config = config_class.from_file(config)
 
+    # Convert SIGTERM/SIGHUP to KeyboardInterrupt so asyncio.run() triggers
+    # graceful shutdown (close() cleans up agents, tailscale, etc.)
+    def _graceful_shutdown(signum: int, frame: object) -> None:
+        sig_name = signal.Signals(signum).name
+        logger.info(f"Received {sig_name}, shutting down gracefully...")
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _graceful_shutdown)
+    signal.signal(signal.SIGHUP, _graceful_shutdown)
+
     try:
         world_instance = world_cls()
         asyncio.run(world_instance.run(run_config, session=session, dev=dev, runtime=runtime))
+    except KeyboardInterrupt:
+        logger.info("World interrupted, cleanup complete")
     except Exception as e:
         logger.exception(f"World execution failed: {e}")
         raise typer.Exit(1)

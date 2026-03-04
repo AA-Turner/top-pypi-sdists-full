@@ -1,6 +1,15 @@
 from typing import Any
 
 from . import mlflow, viz
+from ._config import (
+    _auto_detect_cuda,
+    disable_cuda,
+    disable_gpu,
+    enable_cuda,
+    enable_gpu,
+    is_cuda_enabled,
+    is_gpu_enabled,
+)
 from .als import ALS, eALS
 from .analytics import customer_saturation, find_substitutes
 from .ann import ApproximateNearestNeighbors
@@ -18,6 +27,7 @@ from .fpgrowth import FPGrowth, fpgrowth
 from .fpmc import FPMC
 from .hupm import HUPM, hupm, mine_hupm
 from .hybrid import HybridRecommender
+from .hybrid_embedding import HybridEmbeddingIndex, fuse_embeddings
 from .item_knn import ItemKNN
 from .lcm import LCM
 from .lightgcn import LightGCN
@@ -57,6 +67,9 @@ from .transactions import (
 )
 from .user_knn import UserKNN
 from .viz import to_networkx, to_networkxr
+
+# Auto-detect CUDA on import
+_auto_detect_cuda()
 
 __all__ = [
     "fpgrowth",
@@ -124,6 +137,8 @@ __all__ = [
     "PopularityRecommender",
     "ContentBased",
     "HybridRecommender",
+    "HybridEmbeddingIndex",
+    "fuse_embeddings",
     "NMF",
     "Pipeline",
     "to_networkx",
@@ -138,7 +153,23 @@ __all__ = [
     "FAISSIndex",
     "build_faiss_index",
     "export_vectors",
+    "export_multi_vectors",
+    "VectorStore",
+    "QdrantVectorStore",
+    "MeilisearchVectorStore",
+    "WeaviateVectorStore",
+    "PgVectorStore",
+    "ChromaVectorStore",
+    # CUDA API (primary)
+    "check_cuda_available",
+    "enable_cuda",
+    "disable_cuda",
+    "is_cuda_enabled",
+    # Backward compat (GPU aliases)
     "check_gpu_available",
+    "enable_gpu",
+    "disable_gpu",
+    "is_gpu_enabled",
 ]
 
 
@@ -146,7 +177,15 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "FAISSIndex": (".faiss_ann", "FAISSIndex"),
     "build_faiss_index": (".faiss_ann", "build_faiss_index"),
     "export_vectors": (".vector_export", "export_vectors"),
-    "check_gpu_available": (".gpu", "check_gpu_available"),
+    "export_multi_vectors": (".vector_export", "export_multi_vectors"),
+    "VectorStore": (".vector_store", "VectorStore"),
+    "QdrantVectorStore": (".vector_store", "QdrantVectorStore"),
+    "MeilisearchVectorStore": (".vector_store", "MeilisearchVectorStore"),
+    "WeaviateVectorStore": (".vector_store", "WeaviateVectorStore"),
+    "PgVectorStore": (".vector_store", "PgVectorStore"),
+    "ChromaVectorStore": (".vector_store", "ChromaVectorStore"),
+    "check_cuda_available": (".cuda", "check_cuda_available"),
+    "check_gpu_available": (".cuda", "check_cuda_available"),
 }
 
 

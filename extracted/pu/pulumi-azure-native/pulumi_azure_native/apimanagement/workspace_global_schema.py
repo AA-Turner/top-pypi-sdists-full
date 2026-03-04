@@ -29,6 +29,7 @@ class WorkspaceGlobalSchemaArgs:
                  value: Optional[Any] = None):
         """
         The set of arguments for constructing a WorkspaceGlobalSchema resource.
+
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[Union[_builtins.str, 'SchemaType']] schema_type: Schema Type. Immutable.
         :param pulumi.Input[_builtins.str] service_name: The name of the API Management service.
@@ -150,9 +151,10 @@ class WorkspaceGlobalSchema(pulumi.CustomResource):
         """
         Global Schema Contract details.
 
-        Uses Azure REST API version 2022-09-01-preview. In version 2.x of the Azure Native provider, it used API version 2022-09-01-preview.
+        Uses Azure REST API version 2024-05-01. In version 2.x of the Azure Native provider, it used API version 2022-09-01-preview.
 
-        Other available API versions: 2023-03-01-preview, 2023-05-01-preview, 2023-09-01-preview, 2024-05-01, 2024-06-01-preview, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2022-09-01-preview, 2023-03-01-preview, 2023-05-01-preview, 2023-09-01-preview, 2024-06-01-preview, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -173,9 +175,10 @@ class WorkspaceGlobalSchema(pulumi.CustomResource):
         """
         Global Schema Contract details.
 
-        Uses Azure REST API version 2022-09-01-preview. In version 2.x of the Azure Native provider, it used API version 2022-09-01-preview.
+        Uses Azure REST API version 2024-05-01. In version 2.x of the Azure Native provider, it used API version 2022-09-01-preview.
 
-        Other available API versions: 2023-03-01-preview, 2023-05-01-preview, 2023-09-01-preview, 2024-05-01, 2024-06-01-preview, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2022-09-01-preview, 2023-03-01-preview, 2023-05-01-preview, 2023-09-01-preview, 2024-06-01-preview, 2024-10-01-preview, 2025-03-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native apimanagement [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param WorkspaceGlobalSchemaArgs args: The arguments to use to populate this resource's properties.
@@ -225,6 +228,7 @@ class WorkspaceGlobalSchema(pulumi.CustomResource):
             __props__.__dict__["workspace_id"] = workspace_id
             __props__.__dict__["azure_api_version"] = None
             __props__.__dict__["name"] = None
+            __props__.__dict__["provisioning_state"] = None
             __props__.__dict__["type"] = None
         alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:apimanagement/v20220901preview:WorkspaceGlobalSchema"), pulumi.Alias(type_="azure-native:apimanagement/v20230301preview:WorkspaceGlobalSchema"), pulumi.Alias(type_="azure-native:apimanagement/v20230501preview:WorkspaceGlobalSchema"), pulumi.Alias(type_="azure-native:apimanagement/v20230901preview:WorkspaceGlobalSchema"), pulumi.Alias(type_="azure-native:apimanagement/v20240501:WorkspaceGlobalSchema"), pulumi.Alias(type_="azure-native:apimanagement/v20240601preview:WorkspaceGlobalSchema"), pulumi.Alias(type_="azure-native:apimanagement/v20241001preview:WorkspaceGlobalSchema"), pulumi.Alias(type_="azure-native:apimanagement/v20250301preview:WorkspaceGlobalSchema")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
@@ -253,6 +257,7 @@ class WorkspaceGlobalSchema(pulumi.CustomResource):
         __props__.__dict__["azure_api_version"] = None
         __props__.__dict__["description"] = None
         __props__.__dict__["name"] = None
+        __props__.__dict__["provisioning_state"] = None
         __props__.__dict__["schema_type"] = None
         __props__.__dict__["type"] = None
         __props__.__dict__["value"] = None
@@ -281,6 +286,14 @@ class WorkspaceGlobalSchema(pulumi.CustomResource):
         The name of the resource
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="provisioningState")
+    def provisioning_state(self) -> pulumi.Output[_builtins.str]:
+        """
+        The provisioning state
+        """
+        return pulumi.get(self, "provisioning_state")
 
     @_builtins.property
     @pulumi.getter(name="schemaType")

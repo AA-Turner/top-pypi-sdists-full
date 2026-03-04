@@ -1,5 +1,6 @@
 """Tests for escalation_tool.py metadata."""
 
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -111,6 +112,7 @@ class TestResolveRecipientValue:
     """Test the resolve_recipient_value function."""
 
     @pytest.mark.asyncio
+    @patch.dict(os.environ, {"UIPATH_FOLDER_PATH": "/Test/Folder"})
     @patch("uipath_langchain.agent.tools.escalation_tool.resolve_asset")
     async def test_resolve_recipient_asset_user_email(self, mock_resolve_asset):
         """Test ASSET_USER_EMAIL type calls resolve_asset."""
@@ -132,6 +134,7 @@ class TestResolveRecipientValue:
         mock_resolve_asset.assert_called_once_with("email_asset", "/Test/Folder")
 
     @pytest.mark.asyncio
+    @patch.dict(os.environ, {"UIPATH_FOLDER_PATH": "/Test/Folder"})
     @patch("uipath_langchain.agent.tools.escalation_tool.resolve_asset")
     async def test_resolve_recipient_asset_group_name(self, mock_resolve_asset):
         """Test ASSET_GROUP_NAME type calls resolve_asset."""
@@ -297,6 +300,7 @@ class TestEscalationToolMetadata:
         mock_result = MagicMock()
         mock_result.action = None
         mock_result.data = {}
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         tool = create_escalation_tool(escalation_resource)
@@ -325,6 +329,7 @@ class TestEscalationToolMetadata:
         mock_result = MagicMock()
         mock_result.action = None
         mock_result.data = {}
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         tool = create_escalation_tool(escalation_resource_no_recipient)
@@ -349,6 +354,7 @@ class TestEscalationToolMetadata:
         mock_result = MagicMock()
         mock_result.action = None
         mock_result.data = {}
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         # Create resource with string task title
@@ -398,6 +404,7 @@ class TestEscalationToolMetadata:
         mock_result = MagicMock()
         mock_result.action = None
         mock_result.data = {}
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         # Create resource with TEXT_BUILDER task title containing variable token
@@ -455,6 +462,7 @@ class TestEscalationToolMetadata:
         mock_result = MagicMock()
         mock_result.action = None
         mock_result.data = {}
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         # Create resource with empty string task title
@@ -555,6 +563,7 @@ class TestEscalationToolOutputSchema:
         mock_result.assigned_to_user = None
         mock_result.action = "approve"
         mock_result.data = {}
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         tool = create_escalation_tool(escalation_resource)
@@ -579,6 +588,7 @@ class TestEscalationToolOutputSchema:
         mock_result = MagicMock()
         mock_result.action = "approve"
         mock_result.data = {"approved": True}
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         tool = create_escalation_tool(escalation_resource)
@@ -587,6 +597,31 @@ class TestEscalationToolOutputSchema:
         await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
 
         assert mock_interrupt.called
+
+    @pytest.mark.asyncio
+    @patch("uipath_langchain.agent.tools.escalation_tool.UiPath")
+    @patch("uipath_langchain.agent.tools.durable_interrupt.decorator.interrupt")
+    async def test_escalation_tool_raises_when_task_is_deleted(
+        self, mock_interrupt, mock_uipath_class, escalation_resource
+    ):
+        """Test that escalation tool raises AgentRuntimeError when task is deleted."""
+        from uipath_langchain.agent.exceptions import AgentRuntimeError
+
+        mock_client = MagicMock()
+        mock_client.tasks.create_async = AsyncMock(return_value=_make_mock_task())
+        mock_uipath_class.return_value = mock_client
+
+        mock_result = MagicMock()
+        mock_result.action = "approve"
+        mock_result.data = {}
+        mock_result.is_deleted = True
+        mock_interrupt.return_value = mock_result
+
+        tool = create_escalation_tool(escalation_resource)
+        call = ToolCall(args={}, id="test-call", name=tool.name)
+
+        with pytest.raises(AgentRuntimeError):
+            await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
     @patch("uipath_langchain.agent.tools.escalation_tool.UiPath")
@@ -787,6 +822,7 @@ class TestEscalationToolCreatesTaskBeforeInterrupt:
         mock_result.action = "approve"
         mock_result.data = {}
         mock_result.assigned_to_user = None
+        mock_result.is_deleted = False
         mock_interrupt.return_value = mock_result
 
         tool = create_escalation_tool(escalation_resource)
@@ -800,6 +836,34 @@ class TestEscalationToolCreatesTaskBeforeInterrupt:
         interrupt_arg = mock_interrupt.call_args[0][0]
         assert isinstance(interrupt_arg, WaitEscalation)
         assert interrupt_arg.action == task
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {"UIPATH_FOLDER_PATH": "/Test/Folder"})
+    @patch("uipath_langchain.agent.tools.escalation_tool.UiPath")
+    @patch("uipath_langchain.agent.tools.durable_interrupt.decorator.interrupt")
+    async def test_creates_task_with_execution_folder_path(
+        self, mock_interrupt, mock_uipath_class, escalation_resource
+    ):
+        """Test that tasks.create_async receives app_folder_path from the execution environment."""
+        task = _make_mock_task(id=555)
+        mock_client = MagicMock()
+        mock_client.tasks.create_async = AsyncMock(return_value=task)
+        mock_uipath_class.return_value = mock_client
+
+        mock_result = MagicMock()
+        mock_result.id = 555
+        mock_result.action = "approve"
+        mock_result.data = {}
+        mock_result.assigned_to_user = None
+        mock_result.is_deleted = False
+        mock_interrupt.return_value = mock_result
+
+        tool = create_escalation_tool(escalation_resource)
+        call = ToolCall(args={}, id="test-call", name=tool.name)
+        await tool.awrapper(tool, call, {})  # type: ignore[attr-defined]
+
+        create_call_kwargs = mock_client.tasks.create_async.call_args[1]
+        assert create_call_kwargs["app_folder_path"] == "/Test/Folder"
 
     @pytest.mark.asyncio
     @patch("uipath_langchain.agent.tools.escalation_tool.UiPath")

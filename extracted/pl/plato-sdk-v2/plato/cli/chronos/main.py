@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from pathlib import Path
@@ -206,6 +207,16 @@ def dev(
 
     try:
         dev_config = Config.from_file(config)
+    except json.JSONDecodeError as e:
+        console.print(f"[red]Invalid JSON in {config}: {e}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Failed to load config: {e}[/red]")
+        if verbose:
+            logger.exception("Failed to load dev config")
+        raise typer.Exit(1)
+
+    try:
         runner = DevRunner(
             config=dev_config,
             config_path=config,

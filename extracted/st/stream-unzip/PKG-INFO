@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stream-unzip
-Version: 0.0.100
+Version: 0.0.101
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: System :: Archiving :: Compression

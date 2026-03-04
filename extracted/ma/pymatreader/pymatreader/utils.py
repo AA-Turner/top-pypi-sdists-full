@@ -31,7 +31,7 @@
 from __future__ import annotations
 
 import types
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 import numpy as np
@@ -72,10 +72,56 @@ standard_matlab_classes = (
 
 def _import_h5py() -> h5py:
     try:
-        import h5py
+        import h5py  # noqa PLC0415
     except Exception as exc:
         raise ImportError(f'h5py is required to read MATLAB files >= v7.3 ({exc})')
     return h5py
+
+
+def _whosmat_hdf5(
+    hdf5_file: h5py.File,
+) -> list[tuple[str, tuple[int, ...], str]]:
+    """List variables in an HDF5-based MATLAB v7.3 file without loading data.
+
+    Parameters
+    ----------
+    hdf5_file : h5py.File
+        An open HDF5 file handle.
+
+    Returns
+    -------
+    list of (name, shape, class) tuples
+        Each entry describes one top-level MATLAB variable.
+    """
+    h5py = _import_h5py()
+
+    result: list[tuple[str, tuple[int, ...], str]] = []
+
+    for key in hdf5_file:
+        if key == '#refs#':
+            continue
+
+        obj = hdf5_file[key]
+        matlab_class = obj.attrs.get('MATLAB_class', b'unknown').decode()
+
+        if isinstance(obj, h5py.Dataset):
+            shape = tuple(int(x) for x in obj[()]) if 'MATLAB_empty' in obj.attrs else tuple(reversed(obj.shape))
+        elif isinstance(obj, h5py.Group):
+            if 'MATLAB_sparse' in obj.attrs:
+                matlab_class = 'sparse'
+                M = int(obj.attrs['MATLAB_sparse'])  # noqa: N806
+                jc = obj.get('jc')
+                N = len(jc) - 1 if jc is not None else 0  # noqa: N806
+                shape = (M, N)
+            else:
+                shape = (1, 1)  # structs / cell arrays stored as groups
+        else:
+            continue
+
+        result.append((key, shape, matlab_class))
+
+    result.sort(key=lambda x: x[0])
+    return result
 
 
 def _hdf5todict(
@@ -272,7 +318,7 @@ def _parse_scipy_mat_dict(data: dict) -> dict:
 
 
 def _check_for_scipy_mat_struct(
-    data: dict | np.ndarray | spmatrix | MatlabOpaque
+    data: dict | np.ndarray | spmatrix | MatlabOpaque,
 ) -> dict | np.ndarray | csc_array | list | None:
     """
     Check all entries of data for occurrences of scipy.io.matlab.mio5_params.mat_struct and convert them.
@@ -317,7 +363,7 @@ def _check_for_scipy_mat_struct(
     return data
 
 
-def _handle_scipy_ndarray(data: np.ndarray | MatlabFunction) -> np.ndarray | list:
+def _handle_scipy_ndarray(data: np.ndarray | MatlabFunction) -> np.ndarray | list | dict:
     if data.dtype == np.dtype('object') and not isinstance(data, MatlabFunction):
         as_list = []
         for element in data:
@@ -330,11 +376,16 @@ def _handle_scipy_ndarray(data: np.ndarray | MatlabFunction) -> np.ndarray | lis
     if isinstance(data, np.ndarray):
         data = np.array(data)
 
+    assert isinstance(data, (np.ndarray, list, dict))
+
     return data
 
 
-def _todict_from_np_struct(data: np.ndarray) -> dict[str, np.ndarray | int | float | str | list]:
-    data_dict: dict[str, np.ndarray | int | float | str | list] = {}
+def _todict_from_np_struct(data: np.ndarray) -> dict[str, Any]:
+    data_dict: dict[str, Any] = {}
+
+    if data.dtype.names is None:
+        return data_dict
 
     for cur_field_name in data.dtype.names:
         try:

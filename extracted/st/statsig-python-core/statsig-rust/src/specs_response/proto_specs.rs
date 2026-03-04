@@ -33,6 +33,8 @@ pub fn deserialize_protobuf(
     next_specs: &mut SpecsResponseFull,
     data: &mut ResponseData,
 ) -> Result<(), StatsigErr> {
+    let mut parsed_envelopes_count = 0;
+
     let mut reader = ProtoStreamReader::new(data);
 
     if !next_specs.is_empty() {
@@ -45,13 +47,20 @@ pub fn deserialize_protobuf(
 
     loop {
         let proto_msg_bytes = reader.read_next_delimited_proto().map_err(|e| {
+            let sample = reader.sample_current_buf();
             let err = StatsigErr::ProtobufParseError(
                 "SpecsEnvelope".to_string(),
-                format!("Error reading next delimited proto: {}", e),
+                format!(
+                    "Error reading next delimited proto: {e}
+                    \n Previous Parsed Envelope Count: {parsed_envelopes_count}
+                    \n Current Buffer Sample: {sample}"
+                ),
             );
             log_error_to_statsig_and_console!(ops_stats, TAG, err);
             err
         })?;
+
+        parsed_envelopes_count += 1;
 
         let env: pb::SpecsEnvelope =
             match prost::Message::decode_length_delimited(proto_msg_bytes.as_ref()) {
@@ -105,13 +114,17 @@ pub fn deserialize_protobuf(
             pb::SpecsEnvelopeKind::Deletions => {
                 consume_errors(ops_stats, || next_specs.handle_deletions_update(env));
             }
-            pb::SpecsEnvelopeKind::Checksums => {
-                next_specs.handle_checksums_update(env).map_err(|e| {
-                    StatsigErr::ChecksumFailure(format!(
+            pb::SpecsEnvelopeKind::Checksums => match next_specs.handle_checksums_update(env) {
+                Ok(()) => {
+                    ops_stats.log_checksum_validation_result(true);
+                }
+                Err(e) => {
+                    ops_stats.log_checksum_validation_result(false);
+                    return Err(StatsigErr::ChecksumFailure(format!(
                         "Failed to apply protobuf checksums update: {e}"
-                    ))
-                })?;
-            }
+                    )));
+                }
+            },
             pb::SpecsEnvelopeKind::CopyPrev => {
                 consume_errors(ops_stats, || {
                     next_specs.handle_copy_prev_update(current_specs)

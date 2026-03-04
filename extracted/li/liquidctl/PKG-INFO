@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: liquidctl
-Version: 1.15.0
+Version: 1.16.0
 Summary: Cross-platform tool and drivers for liquid coolers and other devices
 Home-page: https://github.com/liquidctl/liquidctl
 Author: Jonas Malaco
 Author-email: jonas@protocubo.io
+License: GPL-3.0-or-later
 Project-URL: Documentation, https://github.com/liquidctl/liquidctl/blob/main/README.md
 Project-URL: Changelog, https://github.com/liquidctl/liquidctl/blob/main/CHANGELOG.md
 Project-URL: Source, https://github.com/liquidctl/liquidctl
@@ -12,15 +13,14 @@ Keywords: aio,aquacomputer,asus,clc,cli,corsair,cross-platform,dram,driver,evga,
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: System :: Hardware :: Hardware Drivers
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: colorlog

@@ -1,17 +1,19 @@
-import unittest
 import os
-import imagesize
+import unittest
+from pathlib import Path
 
-try:
-    from pathlib import Path
-except ImportError:
-    # Python 2
-    Path = None
+import imagesize
 
 imagedir = os.path.join(os.path.dirname(__file__), "images")
 imagedir_bytes = imagedir.encode("utf-8")
 bmpfile = os.path.join(imagedir, "test_24.bmp")
 bmpfile_bytes = os.path.join(imagedir_bytes, b"test_24.bmp")
+ROTATED_JPEG = os.path.join(imagedir, "test-rotated.jpg")
+ROTATED_TIFF = os.path.join(imagedir, "test-rotated.tiff")
+ROTATED_AVIF = os.path.join(imagedir, "test-rotated.avif")
+ROTATED_HEIC = os.path.join(imagedir, "test_rotated.heic")
+if not os.path.exists(ROTATED_HEIC):
+    ROTATED_HEIC = os.path.join(imagedir, "test-rotated.heic")
 
 
 class GetTest(unittest.TestCase):
@@ -50,10 +52,26 @@ class GetTest(unittest.TestCase):
         self.assertEqual(width, 90)
         self.assertEqual(height, 60)
 
+    def test_load_svg_float_length(self):
+        from io import BytesIO
+
+        filelike = BytesIO(b'<svg width="25.4mm" height="12.7mm" xmlns="http://www.w3.org/2000/svg"></svg>')
+        width, height = imagesize.get(filelike)
+        self.assertEqual(width, 96)
+        self.assertEqual(height, 48)
+
     def test_littleendian_tiff(self):
         width, height = imagesize.get(os.path.join(imagedir, "multipage_tiff_example.tif"))
         self.assertEqual(width, 800)
         self.assertEqual(height, 600)
+
+    def test_load_svg_pt(self):
+        from io import BytesIO
+
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="72pt" height="36pt"></svg>'
+        width, height = imagesize.get(BytesIO(svg))
+        self.assertEqual(width, 96)
+        self.assertEqual(height, 48)
 
     def test_load_png_filelike(self):
         """ test_load_png_filelike
@@ -116,6 +134,26 @@ class GetTest(unittest.TestCase):
         self.assertEqual(width, 800)
         self.assertEqual(height, 600)
 
+    def test_load_avif(self):
+        width, height = imagesize.get(os.path.join(imagedir, "test.avif"))
+        self.assertEqual(width, 630)
+        self.assertEqual(height, 420)
+
+    def test_load_avif_bytes(self):
+        width, height = imagesize.get(os.path.join(imagedir_bytes, b"test.avif"))
+        self.assertEqual(width, 630)
+        self.assertEqual(height, 420)
+
+    def test_load_heic(self):
+        width, height = imagesize.get(os.path.join(imagedir, "test.heic"))
+        self.assertEqual(width, 1440)
+        self.assertEqual(height, 960)
+
+    def test_load_heic_bytes(self):
+        width, height = imagesize.get(os.path.join(imagedir_bytes, b"test.heic"))
+        self.assertEqual(width, 1440)
+        self.assertEqual(height, 960)
+
     def test_load_webp_vp8x(self):
         """Test VP8X format WebP file parsing.
         
@@ -126,50 +164,84 @@ class GetTest(unittest.TestCase):
         self.assertEqual(width, 200)
         self.assertEqual(height, 1)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_load_png_path(self):
         width, height = imagesize.get(Path(imagedir, "test.png"))
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_load_jpeg_path(self):
         width, height = imagesize.get(Path(imagedir, "test.jpg"))
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_load_jpeg2000_path(self):
         width, height = imagesize.get(Path(imagedir, "test.jp2"))
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_load_gif_path(self):
         width, height = imagesize.get(Path(imagedir, "test.gif"))
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_load_bmp_path(self):
         width, height = imagesize.get(Path(bmpfile))
         self.assertEqual(width, 100)
         self.assertEqual(abs(height), 300)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_bigendian_tiff_path(self):
         width, height = imagesize.get(Path(imagedir, "test.tiff"))
         self.assertEqual(width, 802)
         self.assertEqual(height, 670)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_load_svg_path(self):
         width, height = imagesize.get(Path(imagedir, "test.svg"))
         self.assertEqual(width, 90)
         self.assertEqual(height, 60)
 
-    @unittest.skipIf(Path is None, "requires pathlib support")
     def test_littleendian_tiff_path(self):
         width, height = imagesize.get(Path(imagedir, "multipage_tiff_example.tif"))
         self.assertEqual(width, 800)
         self.assertEqual(height, 600)
+
+    def test_load_jpeg_with_exif_rotation_default(self):
+        width, height = imagesize.get(ROTATED_JPEG)
+        self.assertEqual(width, 670)
+        self.assertEqual(height, 802)
+
+    def test_load_jpeg_with_exif_rotation_disabled(self):
+        width, height = imagesize.get(ROTATED_JPEG, exif_rotation=False)
+        self.assertEqual(width, 802)
+        self.assertEqual(height, 670)
+
+
+    def test_load_tiff_with_exif_rotation_default(self):
+        width, height = imagesize.get(ROTATED_TIFF)
+        self.assertEqual(width, 670)
+        self.assertEqual(height, 802)
+
+    def test_load_tiff_with_exif_rotation_disabled(self):
+        width, height = imagesize.get(ROTATED_TIFF, exif_rotation=False)
+        self.assertEqual(width, 802)
+        self.assertEqual(height, 670)
+
+    def test_load_heic_with_exif_rotation_default(self):
+        width, height = imagesize.get(ROTATED_HEIC)
+        info = imagesize.get_info(ROTATED_HEIC, dpi=False, colors=False, channels=False, exif_rotation=False)
+        expected = (info.height, info.width) if info.rotation in {5, 6, 7, 8} else (info.width, info.height)
+        self.assertEqual((width, height), expected)
+
+    def test_load_heic_with_exif_rotation_disabled(self):
+        width, height = imagesize.get(ROTATED_HEIC, exif_rotation=False)
+        self.assertEqual(width, 1440)
+        self.assertEqual(height, 960)
+
+    def test_load_avif_with_exif_rotation_default(self):
+        width, height = imagesize.get(ROTATED_AVIF)
+        self.assertEqual(width, 420)
+        self.assertEqual(height, 630)
+
+    def test_load_avif_with_exif_rotation_disabled(self):
+        width, height = imagesize.get(ROTATED_AVIF, exif_rotation=False)
+        self.assertEqual(width, 630)
+        self.assertEqual(height, 420)

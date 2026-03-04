@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: proxmoxer
-Version: 2.2.0
+Version: 2.3.0
 Summary: Python Wrapper for the Proxmox 2.x API (HTTP and SSH)
 Home-page: https://proxmoxer.github.io/docs/
 Download-URL: http://pypi.python.org/pypi/proxmoxer
@@ -13,11 +13,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -26,6 +26,17 @@ Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Systems Administration
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 ================================================
 Proxmoxer: A Python wrapper for Proxmox REST API

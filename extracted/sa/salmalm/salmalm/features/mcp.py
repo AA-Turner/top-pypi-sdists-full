@@ -35,6 +35,17 @@ from salmalm.security.crypto import log
 
 # ── JSON-RPC helpers ──────────────────────────────────────────
 
+MCP_ALLOWED_COMMAND_PREFIXES = ("npx ", "uvx ", "python ", "python3 ", "node ")
+MCP_BLOCKED_COMMAND_CHARS = set(";|&`$(){}[]<>\n")
+
+
+def is_safe_mcp_command(command: str) -> bool:
+    """Validate MCP add command using static allowlist + shell metacharacter denylist."""
+    cmd = str(command or "").strip()
+    return bool(cmd) and cmd.startswith(MCP_ALLOWED_COMMAND_PREFIXES) and not any(
+        ch in MCP_BLOCKED_COMMAND_CHARS for ch in cmd
+    )
+
 _rpc_id = 0
 _rpc_id_lock = threading.Lock()
 
@@ -337,6 +348,7 @@ class MCPClientConnection:
         self._lock = threading.Lock()
         self._connected = False
         self._rpc_responses: Dict[int, dict] = {}
+        self._rpc_responses_lock = threading.Lock()
         self._reader_thread: Optional[threading.Thread] = None
 
     def connect(self) -> bool:
@@ -422,7 +434,8 @@ class MCPClientConnection:
                 try:
                     msg = json.loads(line)
                     if "id" in msg:
-                        self._rpc_responses[msg["id"]] = msg
+                        with self._rpc_responses_lock:
+                            self._rpc_responses[msg["id"]] = msg
                 except json.JSONDecodeError:
                     continue
         except Exception as e:
@@ -446,11 +459,14 @@ class MCPClientConnection:
         # Wait for response
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if rid in self._rpc_responses:
-                return self._rpc_responses.pop(rid)
+            with self._rpc_responses_lock:
+                if rid in self._rpc_responses:
+                    return self._rpc_responses.pop(rid)
             time.sleep(0.05)
+        with self._rpc_responses_lock:
+            self._rpc_responses.pop(rid, None)
         log.warning(f"MCP timeout ({self.name}): {method}")
-        return None
+        raise TimeoutError(f"MCP timeout ({self.name}): {method}")
 
     def _send_notification(self, method: str, params: Optional[dict] = None):
         """Send JSON-RPC notification (no id, no response expected)."""
@@ -473,19 +489,26 @@ class MCPClientConnection:
         """Call a tool on the remote MCP server."""
         if not self._connected:
             return None
-        resp = self._send_request(
-            "tools/call",
-            {
-                "name": name,
-                "arguments": arguments or {},
-            },
-            timeout=timeout,
-        )
+        try:
+            resp = self._send_request(
+                "tools/call",
+                {
+                    "name": name,
+                    "arguments": arguments or {},
+                },
+                timeout=timeout or 30,
+            )
+        except TimeoutError as e:
+            return f"MCP Timeout: {e}"
         if resp and "result" in resp:
             result = resp["result"]
             contents = result.get("content", [])
             texts = [c.get("text", "") for c in contents if c.get("type") == "text"]
-            return "\n".join(texts) if texts else str(result)
+            text = "\n".join(texts) if texts else str(result)
+            if len(text) > 50_000:
+                suffix = "[truncated]"
+                text = text[: 50_000 - len(suffix)] + suffix
+            return text
         if resp and "error" in resp:
             return f"MCP Error: {resp['error'].get('message', 'unknown')}"
         return None
@@ -494,11 +517,18 @@ class MCPClientConnection:
         """Read a resource from the remote MCP server."""
         if not self._connected:
             return None
-        resp = self._send_request("resources/read", {"uri": uri})
+        try:
+            resp = self._send_request("resources/read", {"uri": uri}, timeout=30)
+        except TimeoutError:
+            return None
         if resp and "result" in resp:
             contents = resp["result"].get("contents", [])
             texts = [c.get("text", "") for c in contents]
-            return "\n".join(texts) if texts else None
+            text = "\n".join(texts) if texts else None
+            if text and len(text) > 50_000:
+                suffix = "[truncated]"
+                text = text[: 50_000 - len(suffix)] + suffix
+            return text
         return None
 
 
@@ -634,7 +664,8 @@ async def _run_server_stdio():
         logging.root.removeHandler(handler)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-    from salmalm.tools import TOOL_DEFINITIONS, execute_tool
+    from salmalm.tools.tool_handlers import execute_tool
+    from salmalm.tools.tool_registry import get_all_tools as TOOL_DEFINITIONS
 
     server = MCPServer()
 

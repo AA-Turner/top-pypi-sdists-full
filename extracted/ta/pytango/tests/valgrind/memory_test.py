@@ -13,8 +13,10 @@ from tango import (
     AttributeProxy,
     AttrQuality,
     AttrWriteType,
+    DevFailed,
     DeviceProxy,
     DevState,
+    EnsureOmniThread,
     EventType,
     Group,
 )
@@ -342,21 +344,40 @@ if __name__ == "__main__":
         for ind in range(n_device_proxies):
             DeviceProxy(device_name)
             progress_bar(ind, n_device_proxies)
-        unique_num_attr_proxy = unique_num_device_proxy + 1
         print(f"\n              DeviceProxy | created: {unique_num_device_proxy:>3} |")
 
+        print("Creating DeviceProxies to non-existent devices:")
+        unique_num_device_proxy_unreachable = unique_num_device_proxy + 1
+        for ind in range(unique_num_device_proxy_unreachable):
+            try:
+                DeviceProxy("tango://127.0.0.1:12345/nonexistent/tango/name")
+            except DevFailed:
+                pass
+            progress_bar(ind, unique_num_device_proxy_unreachable)
+        print(
+            f"\n  unreachable DeviceProxy | created: {unique_num_device_proxy_unreachable:>3} |"
+        )
+
         print("Creating AttributeProxies:")
+        unique_num_attr_proxy = unique_num_device_proxy_unreachable + 1
         for ind in range(unique_num_attr_proxy):
             AttributeProxy(f"{device_name}/state")
             progress_bar(ind, unique_num_attr_proxy)
-        unique_num_group = unique_num_attr_proxy + 1
         print(f"\n           AttributeProxy | created: {unique_num_attr_proxy:>3} |")
 
         print("Creating Groups:")
+        unique_num_group = unique_num_attr_proxy + 1
         for ind in range(unique_num_group):
             group = Group("test")
             group.add(device_name)
             progress_bar(ind, unique_num_group)
         print(f"\n                    Group | created: {unique_num_group:>3} |")
+
+        print("Creating EnsureOmniThreads:")
+        unique_num_ensure = unique_num_group + 1
+        for _ in range(unique_num_ensure):
+            with EnsureOmniThread():
+                pass
+        print(f"\n         EnsureOmniThread | created: {unique_num_ensure:>3} |")
 
     print("\nMemTestDevice done.")

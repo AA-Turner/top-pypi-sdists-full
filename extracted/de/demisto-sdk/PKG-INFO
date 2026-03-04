@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: demisto-sdk
-Version: 1.38.20
+Version: 1.38.21
 Summary: "A Python library for the Demisto SDK"
 License: MIT
 Author: Demisto

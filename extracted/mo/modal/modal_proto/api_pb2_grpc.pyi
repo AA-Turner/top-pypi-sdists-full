@@ -592,6 +592,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SecretListRequest,
         modal_proto.api_pb2.SecretListResponse,
     ]
+    SecretUpdate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SecretUpdateRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
     SharedVolumeDelete: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SharedVolumeDeleteRequest,
         google.protobuf.empty_pb2.Empty,
@@ -1620,6 +1624,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.SecretListRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SecretListResponse: ...
+    @abc.abstractmethod
+    def SecretUpdate(
+        self,
+        request: modal_proto.api_pb2.SecretUpdateRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
     def SharedVolumeDelete(
         self,

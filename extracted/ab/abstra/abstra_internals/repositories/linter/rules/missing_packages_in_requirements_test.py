@@ -73,3 +73,74 @@ class MissingPackagesInRequirementsTest(BaseTest):
         script.file_path.write_text(code)
         rule = MissingPackagesInRequirements()
         self.assertEqual(len(rule.find_issues()), 1)
+
+    def test_does_not_suggest_local_folder_as_package(self):
+        """Should not suggest adding local folders to requirements.txt"""
+        requirements_file = self.root / "requirements.txt"
+        requirements_file.touch()
+
+        # Create a local folder with Python files
+        utils_dir = self.root / "utils"
+        utils_dir.mkdir()
+        (utils_dir / "helper.py").write_text("def helper(): pass")
+
+        # Create script that imports from local folder
+        script = self.controller.create_tasklet("New script", "script.py")
+        code = "from utils.helper import helper"
+        script.file_path.write_text(code)
+
+        rule = MissingPackagesInRequirements()
+        issues = rule.find_issues()
+
+        # Should not suggest 'utils' as a missing package
+        issue_packages = [
+            issue.label for issue in issues if "utils" in issue.label.lower()
+        ]
+        self.assertEqual(len(issue_packages), 0)
+
+    def test_does_not_suggest_local_python_file_as_package(self):
+        """Should not suggest adding local .py files to requirements.txt"""
+        requirements_file = self.root / "requirements.txt"
+        requirements_file.touch()
+
+        # Create a local Python file
+        (self.root / "mymodule.py").write_text("def foo(): pass")
+
+        # Create script that imports from local file
+        script = self.controller.create_tasklet("New script", "script.py")
+        code = "from mymodule import foo"
+        script.file_path.write_text(code)
+
+        rule = MissingPackagesInRequirements()
+        issues = rule.find_issues()
+
+        # Should not suggest 'mymodule' as a missing package
+        issue_packages = [
+            issue.label for issue in issues if "mymodule" in issue.label.lower()
+        ]
+        self.assertEqual(len(issue_packages), 0)
+
+    def test_does_not_suggest_local_folder_with_init_py(self):
+        """Should not suggest adding local packages (with __init__.py) to requirements.txt"""
+        requirements_file = self.root / "requirements.txt"
+        requirements_file.touch()
+
+        # Create a local package with __init__.py
+        utils_dir = self.root / "utils"
+        utils_dir.mkdir()
+        (utils_dir / "__init__.py").write_text("")
+        (utils_dir / "helper.py").write_text("def helper(): pass")
+
+        # Create script that imports from local package
+        script = self.controller.create_tasklet("New script", "script.py")
+        code = "from utils import helper"
+        script.file_path.write_text(code)
+
+        rule = MissingPackagesInRequirements()
+        issues = rule.find_issues()
+
+        # Should not suggest 'utils' as a missing package
+        issue_packages = [
+            issue.label for issue in issues if "utils" in issue.label.lower()
+        ]
+        self.assertEqual(len(issue_packages), 0)

@@ -7,6 +7,7 @@ import importlib.metadata
 import json
 import logging
 import os
+import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -315,15 +316,17 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             config: Agent configuration.
             workspaces: Workspaces to mount on the agent.
                 The first workspace becomes the primary workspace.
+                Each workspace's mount_path (from WorkspaceMarker) determines
+                where it appears on the agent VM.
         """
         resolved: list[Transport] = []
         if workspaces:
-            for workspace in workspaces:
-                if workspace.transport is None:
+            for ws in workspaces:
+                if ws.transport is None:
                     raise RuntimeError(
-                        f"Workspace '{workspace.name}' has no transport (NFS/rsync). Is the Plato session connected?"
+                        f"Workspace '{ws.name}' has no transport (NFS/rsync). Is the Plato session connected?"
                     )
-                resolved.append(workspace.transport)
+                resolved.append(ws.transport)
 
         primary = resolved[0] if resolved else self._transport
         extra = resolved[1:] if len(resolved) > 1 else None
@@ -471,14 +474,27 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         """
         if not self.config.state.enabled:
             return False
+
+        workspace_specs = self.config.state.workspaces
+        use_workspace_specs_mode = bool(workspace_specs)
         sid = session_id or self.session.session_id
-        if not sid:
+        if not sid and not use_workspace_specs_mode:
             return False
-        data = await self._download_state(sid)
-        if data is None:
-            return False
-        if not self._apply_state(data):
-            return False
+
+        state_applied = False
+        if sid:
+            data = await self._download_state(sid)
+            if data is None:
+                if not use_workspace_specs_mode:
+                    return False
+            elif not data:
+                self.logger.info("State payload for session %s is empty; starting fresh", sid)
+                if not use_workspace_specs_mode:
+                    return False
+            else:
+                if not self._apply_state(data):
+                    return False
+                state_applied = True
 
         # Restore tracked workspaces from the exact checkpoint recorded in state.
         # When resuming cross-session, the source session may have used
@@ -486,19 +502,48 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         # to override, or fall back to the saved snapshot repo name.
         resume_repos = self.config.state.resume_workspaces
         saved_snapshots = self._state.workspaces if self._state else {}
+        restored_any = False
         for name, workspace in self._workspaces.items():
             if workspace.tracked:
                 snap = saved_snapshots.get(name)
-                if not snap:
-                    raise RuntimeError(
-                        f"State is missing a snapshot for tracked workspace '{name}'. Cannot perform exact restore."
-                    )
-                if not snap.steps:
-                    raise RuntimeError(
-                        f"State snapshot for tracked workspace '{name}' has no saved step. "
-                        "Cannot perform exact restore."
-                    )
-                exact_step = snap.steps[-1]
+                if use_workspace_specs_mode:
+                    spec = (workspace_specs.get(name) or "").strip()
+                    if not spec:
+                        self.logger.info(
+                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    if ":" in spec:
+                        source_session_id, exact_step = spec.split(":", 1)
+                        source_session_id = source_session_id.strip()
+                        exact_step = exact_step.strip()
+                    else:
+                        source_session_id = (session_id or self.config.state.resume_from or "").strip()
+                        exact_step = spec
+                    if not source_session_id:
+                        raise RuntimeError(
+                            f"Workspace resume spec for '{name}' must include session_id:step (got '{spec}')"
+                        )
+                    if not exact_step:
+                        raise RuntimeError(f"Workspace resume spec for '{name}' is missing step name (got '{spec}')")
+                    should_record_resume_input = source_session_id != (self.session.session_id or "")
+                else:
+                    if not snap:
+                        self.logger.info(
+                            "State has no snapshot for tracked workspace '%s'; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    if not snap.steps:
+                        self.logger.info(
+                            "State snapshot for tracked workspace '%s' has no saved step; treating as empty workspace",
+                            name,
+                        )
+                        continue
+                    exact_step = snap.steps[-1]
+                    source_session_id = (session_id or "").strip()
+                    should_record_resume_input = bool(session_id)
 
                 original = {
                     "session_id": workspace.session_id,
@@ -510,16 +555,21 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 source_session_public_id: str | None = None
                 source_repo_name: str | None = None
                 source_ref_public_id: str | None = None
-                should_record_resume_input = bool(session_id)
                 try:
-                    if session_id:
-                        workspace.session_id = session_id
+                    if source_session_id:
+                        workspace.session_id = source_session_id
 
                     # Override repo config for cross-session resume
                     override_repo = resume_repos.get(name)
-                    if not override_repo and session_id and snap.repo_name:
+                    if (
+                        not override_repo
+                        and not use_workspace_specs_mode
+                        and source_session_id
+                        and snap
+                        and snap.repo_name
+                    ):
                         override_repo = snap.repo_name
-                    if override_repo and session_id:
+                    if override_repo and source_session_id:
                         resolved = await self._resolve_workspace_repo_by_name(override_repo)
                         workspace.repo_name = override_repo
                         workspace.repo_id = resolved.repo_id
@@ -540,6 +590,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                             f"(session={workspace.session_id}, repo={workspace.repo_name})"
                         )
                     self.logger.info(f"Restored workspace '{name}' from step '{exact_step}'")
+                    restored_any = True
+                    if self._state and name in self._state.workspaces:
+                        self._state.workspaces[name].steps = [exact_step]
                     source_session_public_id = workspace.session_id
                     source_repo_name = workspace.repo_name
                     source_ref_public_id = getattr(workspace, "_last_restored_source_ref_public_id", "") or None
@@ -588,7 +641,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                             f"(repo={workspace.repo_name}, step={exact_step}): missing source metadata"
                         )
 
-        return True
+        return restored_any or state_applied
 
     def _apply_state(self, data: dict) -> bool:
         """Apply a state dict to the world's in-memory state."""
@@ -607,9 +660,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             return False
 
         resume_sid = self.config.state.resume_from or None
+        if not resume_sid and not self.config.state.workspaces:
+            return False
         restored = await self.load_state(session_id=resume_sid)
-        if restored and self._state and self._state.state_history:
-            self._step_count = max(entry.step for entry in self._state.state_history)
         return restored
 
     def _get_chronos_base_url(self) -> str:
@@ -679,15 +732,30 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     def workspace(self, name: str) -> Workspace:
         """Get a declared workspace by name.
 
-        Usage:
-            ws = self.workspace("output")
-            ws.path                          # Path on world VM
-            await ws.commit("capture")       # DVC commit (tracked workspaces)
-            await ws.restore("capture")      # DVC restore
-            data = ws.lazy_read("file.json") # Read from any revision
+        The returned Workspace exposes two key path properties:
 
-            # Pass to agent by name:
-            runner = self.agent(config, workspace="output")
+        - ``ws.path`` — content directory on the **world VM**.
+          Use this for reading/writing files from world code.
+          For tracked workspaces this is ``<root>/data``; for untracked it's ``<root>``.
+
+        - ``ws.mount_path`` — path where this workspace appears on **agent VMs**.
+          Use this when building agent instructions or any path the agent will see.
+          Defaults to ``str(ws.path)`` unless overridden via
+          ``WorkspaceMarker(mount_path="/workspace/code")``.
+
+        Always use these properties — never hardcode raw paths.
+
+        Usage::
+
+            ws = self.workspace("code")
+            ws.path                           # world VM content dir
+            ws.mount_path                    # agent VM mount path
+            await ws.commit("step_1")         # DVC commit (tracked)
+            await ws.restore("step_1")        # DVC restore
+
+            # Pass to agent:
+            runner = self.agent(config, workspaces=[ws])
+            instruction = f"Edit files in {ws.mount_path}"
         """
         if name not in self._workspaces:
             raise KeyError(f"No workspace '{name}'. Available: {list(self._workspaces.keys())}")
@@ -737,16 +805,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
     async def _resolve_workspace_repo(self, field_name: str) -> ResolvedWorkspaceRepo:
         """Resolve workspace repo via Chronos."""
-        init_cfg = self.config.workspaces.get(field_name)
-
-        if init_cfg and init_cfg.commit and ":" in init_cfg.commit:
-            repo_name, commit_ref = init_cfg.commit.split(":", 1)
-        elif init_cfg and init_cfg.commit:
-            repo_name = self.workspace_repo_name(field_name)
-            commit_ref = init_cfg.commit
-        else:
-            repo_name = self.workspace_repo_name(field_name)
-            commit_ref = ""
+        repo_name = self.workspace_repo_name(field_name)
 
         chronos_url = self._get_chronos_base_url()
         api_key = os.environ.get("PLATO_API_KEY", "")
@@ -770,7 +829,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             s3_bucket=data["s3_bucket"],
             s3_prefix=data["s3_prefix"],
             repo_id=data["repo_id"],
-            commit_ref=commit_ref,
+            commit_ref="",
             repo_name=repo_name,
             chronos_url=chronos_url,
             api_key=api_key,
@@ -909,7 +968,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 ws_path = state_root / field_name
 
             ws_path.mkdir(parents=True, exist_ok=True)
-            object.__setattr__(self.config, field_name, ws_path)
 
             # Resolve workspace repo via Chronos
             if marker.tracked:
@@ -929,8 +987,9 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 name=field_name,
                 path=ws_path,
                 tracked=marker.tracked,
-                mount=marker.mount,
+                mount_path=marker.mount_path,
                 backup=marker.tracked,
+                dvcignore=marker.dvcignore,
                 s3_bucket=repo_info.s3_bucket,
                 s3_prefix=repo_info.s3_prefix,
                 repo_id=repo_info.repo_id,
@@ -943,28 +1002,21 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             # Set up NFS/rsync transport BEFORE init — the bind mount
             # overwrites the directory, so git/dvc must be created after
             if self._transport:
-                transport = self._transport.with_path(str(workspace.data_path))
-                transport.mount_path = workspace.mount
+                Workspace._cleanup_stale_mount(workspace.path)
+                workspace.path.mkdir(parents=True, exist_ok=True)
+                transport = self._transport.with_path(str(workspace.path))
+                transport.mount_path = workspace.mount_path
                 await transport.prepare()
                 workspace.transport = transport
 
             await workspace.init()
 
-            # Restore from commit ref if specified
-            if repo_info.commit_ref:
-                self.logger.info(f"Restoring workspace '{field_name}' from commit '{repo_info.commit_ref}'")
-                restored = await workspace.restore(repo_info.commit_ref)
-                if not restored:
-                    raise RuntimeError(
-                        f"Workspace '{field_name}' commit '{repo_info.commit_ref}' has no DVC files "
-                        f"(repo={repo_info.repo_name})"
-                    )
-                await workspace._record_workspace_ref(repo_info.commit_ref, "input", {})
-
             self._workspaces[field_name] = workspace
+            # workspace.path is the content directory (data/ for tracked, root otherwise)
+            object.__setattr__(self.config, field_name, workspace.path)
             self.logger.info(
                 f"Workspace '{field_name}' at {ws_path} "
-                f"(tracked={marker.tracked}, mount={workspace.mount}, repo={repo_info.repo_name})"
+                f"(tracked={marker.tracked}, mount_path={workspace._mount_path}, repo={repo_info.repo_name})"
             )
 
     async def _generate_tailscale_auth_key(self, api_key: str) -> str:
@@ -998,66 +1050,79 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         ts = self.config.tailscale
         if not ts.enabled:
             return
-        if not ts.api_key:
-            raise RuntimeError("tailscale.enabled is True but tailscale.api_key is not set")
 
-        # Generate a short-lived auth key via the Tailscale API
-        self.logger.info("Generating Tailscale auth key...")
-        auth_key = await self._generate_tailscale_auth_key(ts.api_key)
-
-        self.logger.info("Installing Tailscale...")
-        proc = await asyncio.create_subprocess_shell(
-            "curl -fsSL https://tailscale.com/install.sh | sh",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"Tailscale install failed (rc={proc.returncode}): {stderr.decode().strip()}")
-
-        # Containers don't have systemd, so start tailscaled manually.
-        self.logger.info("Starting tailscaled daemon...")
-        self._tailscaled_proc = await asyncio.create_subprocess_exec(
-            "sudo",
-            "tailscaled",
-            "--state=/var/lib/tailscale/tailscaled.state",
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        await asyncio.sleep(2)
-
-        self.logger.info("Connecting to tailnet...")
-        proc = await asyncio.create_subprocess_exec(
-            "sudo",
-            "tailscale",
-            "up",
-            f"--auth-key={auth_key}",
-            "--accept-dns=false",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(f"'tailscale up' failed (rc={proc.returncode}): {stderr.decode().strip()}")
-
-        # Verify we're connected and can see peers
-        proc = await asyncio.create_subprocess_exec(
-            "sudo",
-            "tailscale",
-            "status",
-            "--json",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"'tailscale status' failed after connect (rc={proc.returncode}): {stderr.decode().strip()}"
+        if shutil.which("tailscale") is None or shutil.which("tailscaled") is None:
+            self.logger.info("Installing Tailscale...")
+            proc = await asyncio.create_subprocess_shell(
+                "curl -fsSL https://tailscale.com/install.sh | sh",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
+            _stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"Tailscale install failed (rc={proc.returncode}): {stderr.decode().strip()}")
+        else:
+            self.logger.info("Tailscale already installed, skipping install")
 
-        import json as _json
+        async def _tailscale_status() -> dict[str, Any] | None:
+            proc = await asyncio.create_subprocess_exec(
+                "sudo",
+                "tailscale",
+                "status",
+                "--json",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _stderr = await proc.communicate()
+            if proc.returncode != 0:
+                return None
+            return json.loads(stdout.decode())
 
-        status = _json.loads(stdout.decode())
+        status = await _tailscale_status()
+        is_online = bool(status and status.get("Self", {}).get("Online"))
+
+        if not is_online:
+            # Containers don't have systemd, so start tailscaled manually if needed.
+            self.logger.info("Starting tailscaled daemon...")
+            self._tailscaled_proc = await asyncio.create_subprocess_exec(
+                "sudo",
+                "tailscaled",
+                "--state=/var/lib/tailscale/tailscaled.state",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.sleep(2)
+
+            if not ts.api_key:
+                raise RuntimeError(
+                    "tailscale.enabled is True but tailscale.api_key is not set "
+                    "and no existing tailnet connection was found"
+                )
+
+            # Generate a short-lived auth key via the Tailscale API only when reconnecting.
+            self.logger.info("Generating Tailscale auth key...")
+            auth_key = await self._generate_tailscale_auth_key(ts.api_key)
+
+            self.logger.info("Connecting to tailnet...")
+            proc = await asyncio.create_subprocess_exec(
+                "sudo",
+                "tailscale",
+                "up",
+                f"--auth-key={auth_key}",
+                "--accept-dns=false",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                raise RuntimeError(f"'tailscale up' failed (rc={proc.returncode}): {stderr.decode().strip()}")
+
+            status = await _tailscale_status()
+            if status is None:
+                raise RuntimeError("'tailscale status' failed after connect")
+        else:
+            self.logger.info("Tailscale already connected, skipping auth/up")
+
         self_name = status.get("Self", {}).get("HostName", "unknown")
         peers = status.get("Peer", {})
         peer_names = [p.get("HostName", "?") for p in peers.values()]
@@ -1145,7 +1210,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             self.logger.info(f"Step {self._step_count}: done={result.done}")
 
             if not result.done:
-                await self.save_state()
+                await self.checkpoint(f"step.{self._step_count}")
 
             if result.done:
                 break

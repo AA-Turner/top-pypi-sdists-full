@@ -63,11 +63,11 @@ n
             """
         ).strip()
 
-        # For Python 3.7 and above: VS2022, VS2019, VS2017
+        # For Python 3.8 and above: VS2022, VS2019, VS2017
         supported_vs_years = [("2022", "v144"), ("2022", "v143"), ("2019", "v142"), ("2017", "v141")]
 
         try:
-            import ninja  # pylint: disable=import-outside-toplevel
+            import ninja  # noqa: PLC0415
 
             ninja_executable_path = os.path.join(ninja.BIN_DIR, "ninja")
             ninja_args = [f"-DCMAKE_MAKE_PROGRAM:FILEPATH={ninja_executable_path}"]
@@ -215,7 +215,7 @@ def _get_msvc_compiler_env(vs_version: int, vs_toolset: str | None = None) -> Ca
         return __get_msvc_compiler_env_cache[cache_key]
 
     if hasattr(monkey, "patch_for_msvc_specialized_compiler"):
-        monkey.patch_for_msvc_specialized_compiler()  # type: ignore[no-untyped-call]
+        monkey.patch_for_msvc_specialized_compiler()
 
     vc_dir = find_visual_studio(vs_version)
     vcvarsall = os.path.join(vc_dir, "vcvarsall.bat")

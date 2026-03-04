@@ -104,6 +104,9 @@ export function set_size(el, model, adjust_margin = true) {
                     height_policy = "max";
                     break;
                 }
+                case "inherit": {
+                    break;
+                }
                 default: {
                     unreachable();
                 }

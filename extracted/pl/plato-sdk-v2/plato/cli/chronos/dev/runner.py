@@ -127,6 +127,7 @@ class DevRunner:
         self._world_process: asyncio.subprocess.Process | None = None
         self._sigint_count = 0
         self._shutdown_requested = False
+        self._force_fresh_next_run = False
         self._startup_profiler = StartupProfiler(metadata={"config_path": str(config_path)})
 
     def _resolve_path(self, path: Path | None) -> Path | None:
@@ -654,7 +655,7 @@ class DevRunner:
 
         start_cmd = (
             f"nohup {cs_bin} --bind-addr 0.0.0.0:{VSCODE_PORT} --auth none "
-            f"--disable-telemetry > /tmp/code-server.log 2>&1 &"
+            f"--disable-telemetry /workspace > /tmp/code-server.log 2>&1 &"
         )
         with self._startup_profiler.time("setup.env.vscode.start"):
             await self.world_env.execute(start_cmd, timeout=10)
@@ -770,6 +771,18 @@ class DevRunner:
                         "session": old_config.session,
                     }
                 )
+                if self._force_fresh_next_run:
+                    world_config = dict(self.config.world.config or {})
+                    state_config = world_config.get("state")
+                    if isinstance(state_config, dict):
+                        state_config = dict(state_config)
+                        state_config.pop("resume_from", None)
+                        state_config.pop("resume_session", None)
+                        world_config["state"] = state_config
+                    self.config = self.config.model_copy(
+                        update={"world": self.config.world.model_copy(update={"config": world_config})}
+                    )
+                    self._force_fresh_next_run = False
                 # Copy previously resolved agent images
                 old_agents = self._find_agent_configs(old_config.world.config or {})
                 new_agents = self._find_agent_configs(self.config.world.config or {})
@@ -831,6 +844,13 @@ class DevRunner:
 
                 if choice == "r":
                     await self._clear_state()
+                    await self._clear_workspace_data()
+                    self._force_fresh_next_run = True
+
+                # Explicit sync before next run so code changes are guaranteed
+                console.print("  [dim]Syncing code...[/dim]")
+                synced = await self.sync_manager.initial_sync()
+                console.print(f"  [dim]Synced {synced}/{len(self.sync_manager.targets)} target(s)[/dim]")
                 console.print()
 
         finally:
@@ -882,6 +902,8 @@ class DevRunner:
 
     async def _run_world_command(self, command: str) -> int:
         """Run world command via SSH, streaming output."""
+        import subprocess
+
         from plato.cli.chronos.dev.ssh import build_ssh_command
 
         if not self.world_env or not self.ssh_key:
@@ -902,11 +924,21 @@ class DevRunner:
         def sigint_handler(signum: int, frame: object) -> None:
             self._sigint_count += 1
             if self._sigint_count == 1:
-                console.print("\n  [yellow]Stopping world...[/yellow] [dim](Ctrl+C again to exit)[/dim]")
-                if self._world_process:
-                    self._world_process.terminate()
+                console.print("\n  [yellow]Stopping world (graceful)...[/yellow] [dim](Ctrl+C again to force)[/dim]")
+                # Send SIGTERM to the remote world process so close() runs
+                # (cleans up agents, tailscale, etc.) before SSH drops.
+                if self.world_env and self.ssh_key:
+                    try:
+                        subprocess.run(
+                            build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
+                            + ["pkill -TERM -f 'plato-world-runner'"],
+                            timeout=5,
+                            capture_output=True,
+                        )
+                    except Exception:
+                        pass
             else:
-                console.print("\n  [red]Shutting down...[/red]")
+                console.print("\n  [red]Force killing...[/red]")
                 self._shutdown_requested = True
                 if self._world_process:
                     self._world_process.kill()
@@ -962,6 +994,26 @@ class DevRunner:
                 )
         except Exception as e:
             _warn(f"Could not clear state: {e}")
+
+    async def _clear_workspace_data(self) -> None:
+        """Delete workspace data dirs on the world VM so next run starts clean."""
+        from plato.cli.chronos.dev.ssh import build_ssh_command
+
+        if not self.world_env or not self.ssh_key:
+            return
+        try:
+            ssh_cmd = build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
+            # Remove all data/ dirs under /workspace/*, plus durable state
+            ssh_cmd.append("rm -rf /workspace/*/data /workspace/*/.webclone")
+            proc = await asyncio.create_subprocess_exec(
+                *ssh_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await proc.communicate()
+            _step("Cleared workspace data")
+        except Exception as e:
+            _warn(f"Could not clear workspace data: {e}")
 
     async def _cleanup(self) -> None:
         """Clean up resources."""

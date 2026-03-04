@@ -1,6 +1,7 @@
 # This file is a part of the `nequip` package. Please see LICENSE and README at the root for information on using it.
 import torch
 from nequip.data import AtomicDataDict, compute_neighborlist_
+from nequip.data._nl import DEFAULT_NEIGHBORLIST_BACKEND
 from nequip.data._key_registry import get_field_type
 from typing import Optional, Dict, Union, List
 
@@ -10,6 +11,7 @@ class NeighborListTransform(torch.nn.Module):
 
     Args:
         r_max (float): cutoff radius used for nearest neighbors
+        backend (str): neighbor list backend (`"ase"`, `"matscipy"`, or `"vesin"`)
         per_edge_type_cutoff (Dict): optional per-edge-type cutoffs (must be <= r_max)
         type_names (List[str]): list of atom type names
     """
@@ -21,14 +23,14 @@ class NeighborListTransform(torch.nn.Module):
             Dict[str, Union[float, Dict[str, float]]]
         ] = None,
         type_names: Optional[List[str]] = None,
-        **kwargs,
+        backend: str = DEFAULT_NEIGHBORLIST_BACKEND,
     ):
         super().__init__()
 
         self.r_max = r_max
+        self.backend = backend
         self.type_names = type_names
         self.per_edge_type_cutoff = per_edge_type_cutoff
-        self.kwargs = kwargs
 
         # set up pruning transform for per-edge-type cutoffs if provided
         self._pruner = None
@@ -43,7 +45,7 @@ class NeighborListTransform(torch.nn.Module):
             )
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
-        data = compute_neighborlist_(data, self.r_max, **self.kwargs)
+        data = compute_neighborlist_(data, self.r_max, backend=self.backend)
 
         # prune based on per-edge-type cutoffs if specified
         if self._pruner is not None:

@@ -3,7 +3,7 @@ Type annotations for partnercentral-channel service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_partnercentral_channel/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -38,6 +38,7 @@ __all__ = (
     "ProgramManagementAccountTypeSortNameType",
     "ProgramType",
     "ProviderType",
+    "RegionName",
     "ResaleAccountModelType",
     "ResourceServiceName",
     "RevokeServicePeriodTypeSortNameType",
@@ -212,16 +213,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -261,7 +261,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -436,6 +435,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -477,6 +477,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -493,3 +494,4 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_channel_handshakes", "list_program_management_accounts", "list_relationships"
 ]
+RegionName = Literal["us-east-1"]

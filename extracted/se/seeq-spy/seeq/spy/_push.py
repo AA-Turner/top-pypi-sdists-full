@@ -27,6 +27,9 @@ from seeq.spy.workbooks import _folder
 # This constant is set to be slightly below numArchivedItemsPerCommit in DatasourceQueriesV1.java
 DATASOURCE_CLEANUP_ITEM_COUNT_THRESHOLD = 19_000
 
+# Hard limit for items displayed on a worksheet to prevent browser performance issues
+_ABSOLUTE_MAX_DISPLAY_ITEMS = 250
+
 
 @Status.top_level_spy_function()
 def push(
@@ -335,7 +338,8 @@ def push(
     if metadata is not None and 'Type' in metadata.columns:
         _handle_workbooks_in_metadata_dataframe(metadata, workbook_context, worksheet)
 
-    _auto_populate_worksheet_if_necessary(workbook_context, worksheet, sample_stats, replace, push_result_df)
+    _auto_populate_worksheet_if_necessary(session, workbook_context, worksheet, sample_stats,
+                                          replace, push_result_df, status)
 
     push_workbooks_status = status.create_inner('Push Workbooks')
     if len(workbook_context.to_push) > 0:
@@ -744,8 +748,8 @@ def _handle_workbooks_in_metadata_dataframe(metadata, workbook_context: Workbook
         workbook_context.to_push.append(workbook_object)
 
 
-def _auto_populate_worksheet_if_necessary(workbook_context: WorkbookContext, worksheet_arg, sample_stats,
-                                          replace, push_result_df):
+def _auto_populate_worksheet_if_necessary(session, workbook_context: WorkbookContext, worksheet_arg, sample_stats,
+                                          replace, push_result_df, status):
     if workbook_context.worksheet_object is None:
         return
 
@@ -753,23 +757,48 @@ def _auto_populate_worksheet_if_necessary(workbook_context: WorkbookContext, wor
     if not isinstance(worksheet_arg, str):
         return
 
-    _auto_populate_worksheet(sample_stats.earliest_sample_in_ms, sample_stats.latest_sample_in_ms,
-                             replace, push_result_df, workbook_context.worksheet_object)
+    _auto_populate_worksheet(session, sample_stats.earliest_sample_in_ms, sample_stats.latest_sample_in_ms,
+                             replace, push_result_df, workbook_context.worksheet_object, status)
 
     if workbook_context.workbook_object not in workbook_context.to_push:
         workbook_context.to_push.append(workbook_context.workbook_object)
 
 
-def _auto_populate_worksheet(earliest_sample_in_ms, latest_sample_in_ms, replace, push_result_df, worksheet_object):
+def _auto_populate_worksheet(session, earliest_sample_in_ms, latest_sample_in_ms, replace, push_result_df,
+                             worksheet_object, status):
     display_items = pd.DataFrame()
 
     if 'Type' in push_result_df:
-        display_items = push_result_df[push_result_df['Type'].isin(['StoredSignal', 'CalculatedSignal',
-                                                                    'StoredCondition', 'CalculatedCondition',
-                                                                    'LiteralScalar', 'CalculatedScalar', 'Chart',
-                                                                    'ThresholdMetric'])]
+        display_items = push_result_df[
+            push_result_df['Type'].isin(
+                ['StoredSignal', 'CalculatedSignal', 'StoredCondition', 'CalculatedCondition',
+                 'LiteralScalar', 'CalculatedScalar', 'Chart', 'ThresholdMetric']
+            )
+        ]
 
-    worksheet_object.display_items = display_items.head(10)
+    max_items = session.options.max_display_items
+    total_items = len(display_items)
+
+    # Apply absolute maximum cap to prevent browser performance issues
+    if max_items is None:
+        effective_max = min(total_items, _ABSOLUTE_MAX_DISPLAY_ITEMS)
+    else:
+        effective_max = max_items
+
+    worksheet_object.display_items = display_items.head(effective_max)
+
+    if total_items > effective_max:
+        if max_items is None:
+            status.warn(
+                f"The worksheet displays {effective_max} of the {total_items} items pushed to the workbook. "
+                f"The number of items displayed has been capped to help maintain browser responsiveness."
+            )
+        else:
+            status.warn(
+                f"The worksheet displays {max_items} of the {total_items} items pushed to the workbook. "
+                f"To display more, increase spy.options.max_display_items or set it to None to display all items."
+            )
+
     if earliest_sample_in_ms is not None and latest_sample_in_ms is not None:
         _range = {
             'Start': pd.Timestamp(int(earliest_sample_in_ms), unit='ms', tz='UTC'),

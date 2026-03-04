@@ -277,8 +277,14 @@ def _is_private_url(url: str) -> tuple:
                 or ip.is_unspecified
             ):
                 return True, f"Internal IP blocked: {hostname} -> {ip}"
-    except socket.gaierror:
-        return True, f"DNS resolution failed: {hostname}"
+    except socket.gaierror as _dns_err:
+        # DNS failure is a network error, not a confirmed private-IP block.
+        # Return False (not blocked) so callers can let the actual connection
+        # attempt fail with a meaningful network error rather than silently
+        # treating every public URL as an SSRF risk when DNS is temporarily down.
+        # NOTE: this means transient DNS failures won't prevent requests — callers
+        # that require strict SSRF guarantees should use _resolve_and_pin() instead.
+        return False, f"DNS lookup failed (transient?): {_dns_err}"
 
     return False, ""
 

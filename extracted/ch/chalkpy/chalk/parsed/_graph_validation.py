@@ -334,11 +334,6 @@ def _validate_resolver_output(
 #             )
 
 
-# FIXME CHA-66 we should validate that joins are all pkey on pkey joins. no non-primary keys, no self-joins, no constants
-def _validate_joins(feature: UpsertFeatureGQL, builder: ClientLogBuilder, lsp_builder: FeatureClassErrorBuilder):
-    pass
-
-
 def _validate_feature_names(
     feature: UpsertFeatureGQL, builder: ClientLogBuilder, lsp_builder: FeatureClassErrorBuilder
 ):
@@ -524,7 +519,6 @@ def validate_graph(request: UpsertGraphGQL) -> List[UpdateGraphError]:
         )
         _validate_primary_key(feature, builder, lsp_builder)
         _validate_max_staleness(feature, builder, lsp_builder)
-        _validate_joins(feature, builder, lsp_builder)
         _validate_etl_to_online(feature, builder, lsp_builder)
         _validate_feature_names(feature, builder, lsp_builder)
         _validate_materialized_agg_max_staleness(feature, builder, lsp_builder)
@@ -550,15 +544,6 @@ def validate_graph(request: UpsertGraphGQL) -> List[UpdateGraphError]:
                 lsp_builder=lsp_builder,
             )
             _validate_resolver_output(resolver, builder, lsp_builder)
-
-            # TODO we still allow this
-            # _validate_resolver_feature_cycles(fqn_to_feature=fqn_to_feature, resolver=resolver, builder=builder)
-
-            # TODO Some customers currently still do stuff like:
-            # >>> def some_resolver(uid: User.id) -> DataFrame[Transaction]: ....
-            # So don't even warn about it
-            # _validate_resolver_input_and_output_namespace(resolver, builder)
-
             _validate_no_feature_times_as_input(
                 fqn_to_feature=fqn_to_feature, resolver=resolver, builder=builder, lsp_builder=lsp_builder
             )

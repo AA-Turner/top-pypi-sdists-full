@@ -1767,6 +1767,7 @@ ProductionVariantInferenceAmiVersionType = Literal[
     "al2-ami-sagemaker-inference-gpu-2-1",
     "al2-ami-sagemaker-inference-gpu-3-1",
     "al2-ami-sagemaker-inference-neuron-2",
+    "al2023-ami-sagemaker-inference-gpu-4-1",
 ]
 ProductionVariantInstanceTypeType = Literal[
     "ml.c4.2xlarge",
@@ -1882,6 +1883,12 @@ ProductionVariantInstanceTypeType = Literal[
     "ml.g6e.4xlarge",
     "ml.g6e.8xlarge",
     "ml.g6e.xlarge",
+    "ml.g7e.12xlarge",
+    "ml.g7e.24xlarge",
+    "ml.g7e.2xlarge",
+    "ml.g7e.48xlarge",
+    "ml.g7e.4xlarge",
+    "ml.g7e.8xlarge",
     "ml.inf1.24xlarge",
     "ml.inf1.2xlarge",
     "ml.inf1.6xlarge",
@@ -1962,6 +1969,7 @@ ProductionVariantInstanceTypeType = Literal[
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6-b300.48xlarge",
     "ml.p6e-gb200.36xlarge",
     "ml.r5.12xlarge",
     "ml.r5.24xlarge",

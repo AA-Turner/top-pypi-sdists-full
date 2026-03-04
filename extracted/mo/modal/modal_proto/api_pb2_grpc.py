@@ -710,6 +710,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.SecretListRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SecretListResponse.FromString,
                 )
+        self.SecretUpdate = channel.unary_unary(
+                '/modal.client.ModalClient/SecretUpdate',
+                request_serializer=modal__proto_dot_api__pb2.SecretUpdateRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
         self.SharedVolumeDelete = channel.unary_unary(
                 '/modal.client.ModalClient/SharedVolumeDelete',
                 request_serializer=modal__proto_dot_api__pb2.SharedVolumeDeleteRequest.SerializeToString,
@@ -1775,6 +1780,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SecretUpdate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SharedVolumeDelete(self, request, context):
         """SharedVolumes
         """
@@ -2718,6 +2729,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.SecretList,
                     request_deserializer=modal__proto_dot_api__pb2.SecretListRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SecretListResponse.SerializeToString,
+            ),
+            'SecretUpdate': grpc.unary_unary_rpc_method_handler(
+                    servicer.SecretUpdate,
+                    request_deserializer=modal__proto_dot_api__pb2.SecretUpdateRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'SharedVolumeDelete': grpc.unary_unary_rpc_method_handler(
                     servicer.SharedVolumeDelete,
@@ -5289,6 +5305,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SecretList',
             modal__proto_dot_api__pb2.SecretListRequest.SerializeToString,
             modal__proto_dot_api__pb2.SecretListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SecretUpdate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SecretUpdate',
+            modal__proto_dot_api__pb2.SecretUpdateRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fickling
-Version: 0.1.8
+Version: 0.1.9
 Summary: A static analyzer and interpreter for Python pickle data
 Project-URL: Homepage, https://pypi.org/project/fickling
 Project-URL: Issues, https://github.com/trailofbits/fickling/issues
@@ -313,7 +313,7 @@ raises an `UnsafeFileError` exception if malicious content is detected in the fi
 #### Option 1 (recommended): check safety of all pickle files loaded
 
 ```python
-# This enforces safety checks every time pickle.load() is used
+# This enforces safety checks every time pickle is used to deserialize
 fickling.always_check_safety()
 
 # Attempt to load an unsafe file now raises an exception

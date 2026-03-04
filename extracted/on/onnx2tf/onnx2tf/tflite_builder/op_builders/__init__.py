@@ -30,6 +30,7 @@ from onnx2tf.tflite_builder.op_builders.elementwise import (
     build_softmax_op,
     build_softplus_op,
     build_softsign_op,
+    build_sum_op,
     build_tan_op,
     build_unary_op,
     build_where_op,
@@ -81,6 +82,7 @@ from onnx2tf.tflite_builder.op_builders.fc import (
 from onnx2tf.tflite_builder.op_builders.recurrent import (
     build_gru_op,
     build_lstm_op,
+    build_multi_head_attention_op,
     build_rnn_op,
 )
 from onnx2tf.tflite_builder.op_builders.reduce import (
@@ -176,6 +178,7 @@ __all__ = [
     "build_softmax_op",
     "build_softplus_op",
     "build_softsign_op",
+    "build_sum_op",
     "build_tan_op",
     "build_unary_op",
     "build_where_op",
@@ -217,6 +220,7 @@ __all__ = [
     "build_matmul_integer_op",
     "build_gru_op",
     "build_lstm_op",
+    "build_multi_head_attention_op",
     "build_rnn_op",
     "build_cumsum_op",
     "build_reduce_l1_op",

@@ -122,7 +122,7 @@ linux:build-sdist:
 
 linux:test-source:
   stage: test
-  image: registry.gitlab.com/tango-controls/docker/micromamba:2.3.0
+  image: registry.gitlab.com/tango-controls/docker/micromamba:2.5.0
   tags:
     - linux
     - docker
@@ -142,7 +142,7 @@ linux:test-source:
       packaging psutil typing_extensions pytest pytest-asyncio pytest-forked pytest-cov pytest-timeout pystack gevent
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
       cmake clang-format clang-tools cppcheck ninja docstring_parser
-      scikit-build-core pybind11-stubgen ruff
+      scikit-build-core pybind11-stubgen ruff valgrind
     - micromamba activate base
     - |
       {
@@ -202,20 +202,15 @@ linux:test-source:
       --html-title "PyTango python and cpp coverage report"
       --cobertura-pretty
       --cobertura coverage-all.xml
+    # check for valgrind issues on develop branch or branches containing "memory"
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" || "$CI_COMMIT_BRANCH" == "maintenance/"*  || "$CI_COMMIT_BRANCH" == *"memory"* ]]; then
+        pushd tests/valgrind
+        ./run_valgrind_checks.sh
+        popd
+      fi
     # check typing stubs
     - python cmake/check_stubs.py
-    - |
-      if [[ $PYTHON_VERSION = "3.13" ]]; then
-        echo "🔍 Checking if tango/*.pyi stubs are unchanged..."
-        if git diff --quiet -- tango/*.pyi; then
-          echo "✅ tango/*.pyi files are unchanged."
-        else
-          echo "❌ tango/*.pyi files have been modified. Commit updated version to the repo (use Linux or macOS, Python 3.13)."
-          exit 1
-        fi
-      else
-        echo "ℹ️ Skipping check of tango/*.pyi stubs: only done on Python 3.13"
-      fi
   after_script:
     # Core files configuration
     - python_executable=$(which python)
@@ -244,6 +239,7 @@ linux:test-source:
       - htmlcov/
       - coverage*.xml
       - report*.xml
+      - tests/valgrind/*.xml
     reports:
       junit: report*.xml
       coverage_report:
@@ -257,7 +253,7 @@ linux:test-source:
 linux:test-source-against-develop-dependencies:
   stage: test
   when: manual
-  image: registry.gitlab.com/tango-controls/docker/micromamba:2.3.0
+  image: registry.gitlab.com/tango-controls/docker/micromamba:2.5.0
   tags:
     - linux
     - docker
@@ -375,7 +371,7 @@ linux:test-source-against-develop-dependencies:
 
 linux:test-main-cpptango:
   stage: test
-  image: registry.gitlab.com/tango-controls/docker/micromamba:2.3.0
+  image: registry.gitlab.com/tango-controls/docker/micromamba:2.5.0
   tags:
     - linux
     - docker
@@ -387,7 +383,7 @@ linux:test-main-cpptango:
     # Install build and test dependencies
     - >
       micromamba install -y -n base -c tango-controls/label/dev -c conda-forge
-      cpptango "pybind11>=3.0.1" cmake cppzmq cxx-compiler git make pkg-config ninja
+      cpptango-dbg "pybind11>=3.0.1" cmake cppzmq cxx-compiler git make pkg-config ninja
       python numpy
       packaging psutil typing_extensions pytest pytest-forked gevent valgrind docstring_parser
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
@@ -400,7 +396,10 @@ linux:test-main-cpptango:
     - make -C build install
     - popd
     # Install pytango
-    - python -m pip install -v $(ls dist/pytango*.tar.gz)[tests,telemetry]
+    - >
+      python -m pip install
+      --config-settings=cmake.build-type="Debug"
+      -v $(ls dist/pytango*.tar.gz)[tests,telemetry]
   script:
     # run telemetry-specific tests with telemetry enabled, then full test suite with it disabled (default)
     - TANGO_TELEMETRY_ENABLE=on pytest -k telemetry

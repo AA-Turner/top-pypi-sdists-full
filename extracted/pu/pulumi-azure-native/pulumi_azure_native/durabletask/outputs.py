@@ -17,6 +17,8 @@ from . import outputs
 from ._enums import *
 
 __all__ = [
+    'PrivateEndpointResponse',
+    'PrivateLinkServiceConnectionStateResponse',
     'RetentionPolicyDetailsResponse',
     'RetentionPolicyPropertiesResponse',
     'SchedulerPropertiesResponse',
@@ -24,6 +26,94 @@ __all__ = [
     'SystemDataResponse',
     'TaskHubPropertiesResponse',
 ]
+
+@pulumi.output_type
+class PrivateEndpointResponse(dict):
+    """
+    The private endpoint resource.
+    """
+    def __init__(__self__, *,
+                 id: _builtins.str):
+        """
+        The private endpoint resource.
+
+        :param _builtins.str id: The ARM identifier for private endpoint.
+        """
+        pulumi.set(__self__, "id", id)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The ARM identifier for private endpoint.
+        """
+        return pulumi.get(self, "id")
+
+
+@pulumi.output_type
+class PrivateLinkServiceConnectionStateResponse(dict):
+    """
+    A collection of information about the state of the connection between service consumer and provider.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "actionsRequired":
+            suggest = "actions_required"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PrivateLinkServiceConnectionStateResponse. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PrivateLinkServiceConnectionStateResponse.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PrivateLinkServiceConnectionStateResponse.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 actions_required: Optional[_builtins.str] = None,
+                 description: Optional[_builtins.str] = None,
+                 status: Optional[_builtins.str] = None):
+        """
+        A collection of information about the state of the connection between service consumer and provider.
+
+        :param _builtins.str actions_required: A message indicating if changes on the service provider require any updates on the consumer.
+        :param _builtins.str description: The reason for approval/rejection of the connection.
+        :param _builtins.str status: Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        """
+        if actions_required is not None:
+            pulumi.set(__self__, "actions_required", actions_required)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter(name="actionsRequired")
+    def actions_required(self) -> Optional[_builtins.str]:
+        """
+        A message indicating if changes on the service provider require any updates on the consumer.
+        """
+        return pulumi.get(self, "actions_required")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        The reason for approval/rejection of the connection.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional[_builtins.str]:
+        """
+        Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.
+        """
+        return pulumi.get(self, "status")
+
 
 @pulumi.output_type
 class RetentionPolicyDetailsResponse(dict):
@@ -54,6 +144,7 @@ class RetentionPolicyDetailsResponse(dict):
                  orchestration_state: Optional[_builtins.str] = None):
         """
         The properties of a retention policy
+
         :param _builtins.int retention_period_in_days: The retention period in days after which the orchestration will be purged automatically
         :param _builtins.str orchestration_state: The orchestration state to which this policy applies. If omitted, the policy applies to all purgeable orchestration states.
         """
@@ -107,6 +198,7 @@ class RetentionPolicyPropertiesResponse(dict):
                  retention_policies: Optional[Sequence['outputs.RetentionPolicyDetailsResponse']] = None):
         """
         The retention policy settings for the resource
+
         :param _builtins.str provisioning_state: The status of the last operation
         :param Sequence['RetentionPolicyDetailsResponse'] retention_policies: The orchestration retention policies
         """
@@ -162,6 +254,7 @@ class SchedulerPropertiesResponse(dict):
                  sku: 'outputs.SchedulerSkuResponse'):
         """
         Details of the Scheduler
+
         :param _builtins.str endpoint: URL of the durable task scheduler
         :param Sequence[_builtins.str] ip_allowlist: IP allow list for durable task scheduler. Values can be IPv4, IPv6 or CIDR
         :param _builtins.str provisioning_state: The status of the last operation
@@ -233,6 +326,7 @@ class SchedulerSkuResponse(dict):
                  capacity: Optional[_builtins.int] = None):
         """
         The SKU (Stock Keeping Unit) assigned to this durable task scheduler
+
         :param _builtins.str name: The name of the SKU
         :param _builtins.str redundancy_state: Indicates whether the current SKU configuration is zone redundant
         :param _builtins.int capacity: The SKU capacity. This allows scale out/in for the resource and impacts zone redundancy
@@ -308,6 +402,7 @@ class SystemDataResponse(dict):
                  last_modified_by_type: Optional[_builtins.str] = None):
         """
         Metadata pertaining to creation and last modification of the resource.
+
         :param _builtins.str created_at: The timestamp of resource creation (UTC).
         :param _builtins.str created_by: The identity that created the resource.
         :param _builtins.str created_by_type: The type of identity that created the resource.
@@ -406,6 +501,7 @@ class TaskHubPropertiesResponse(dict):
                  provisioning_state: _builtins.str):
         """
         The properties of Task Hub
+
         :param _builtins.str dashboard_url: URL of the durable task scheduler dashboard
         :param _builtins.str provisioning_state: The status of the last operation
         """

@@ -3,7 +3,7 @@ import math
 import torch
 from e3nn.o3._irreps import Irreps
 from e3nn.o3._wigner import wigner_3j
-from nequip.nn import scatter, replace_submodules, model_modifier
+from nequip.nn import replace_submodules, model_modifier
 from nequip.utils.dtype import torch_default_dtype
 from typing import List, Tuple, Optional
 
@@ -187,27 +187,12 @@ class Contracter(torch.nn.Module):
         x1: torch.Tensor,
         x2: torch.Tensor,
         idxs: torch.Tensor,
-        scatter_dim_size: int,
     ) -> torch.Tensor:
-        # === optional scatter + index_select ===
-        # normalize if normalization provided
-
-        if self.scatter_factor is not None:
-            x2 = self.scatter_factor * x2
-
-        # scatter and index select
-        x2_scatter = scatter(
-            x2,
-            idxs,
-            dim=0,
-            dim_size=scatter_dim_size,
-        )
-
         # === perform TP ===
         # convert to strided shape
         x1 = x1.reshape(-1, self.mul, self.base_dim1)
-        x2_scatter = x2_scatter.reshape(-1, self.mul, self.base_dim2)
-        return self._contract_conv(x1, x2_scatter, idxs)
+        x2 = x2.reshape(-1, self.mul, self.base_dim2)
+        return self._contract_conv(x1, x2, idxs)
 
     def _contract_conv(
         self, x1: torch.Tensor, x2: torch.Tensor, idxs: torch.Tensor
@@ -218,12 +203,7 @@ class Contracter(torch.nn.Module):
         # for shared weights, we can precontract weights and w3j so they can be frozen together
         # this is usually advantageous for inference, since the weights would have to be
         # multiplied in anyway at some point
-        # `up, pijk -> uijk`` or `p, pijk -> ijk`
-        if self.num_paths >= 1:
-            ww3j = torch.einsum(self._weight_w3j_einstr, self.weights, self.w3j)
-        else:
-            # account for `_, ijk -> ijk`, i.e. single path case
-            ww3j = self.w3j
+        ww3j = torch.einsum(self._weight_w3j_einstr, self.weights, self.w3j)
 
         # now do the TP with the pre-contracted w3j
         if self.w3j_is_ij_diagonal:

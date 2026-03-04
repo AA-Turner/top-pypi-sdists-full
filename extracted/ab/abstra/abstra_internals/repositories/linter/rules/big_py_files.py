@@ -17,6 +17,7 @@ class BigPyFileFound(LinterIssue):
 class BigPyFiles(LinterRule):
     label = "Large Python files"
     type = "info"
+    fix_with_ai = True
 
     def find_issues(self) -> List[LinterIssue]:
         project = LocalProjectRepository().load()

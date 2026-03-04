@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyap2"
-version = "0.2.8"
+version = "0.2.9"
 packages = [{ include = "pyap" }]
 description = "Pyap2 is a maintained fork of pyap, a regex-based library for parsing US, CA, and UK addresses. The fork adds typing support, handles more address formats and edge cases."
 authors = ["Argyle Developers <developers@argyle.io>"]

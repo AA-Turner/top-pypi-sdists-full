@@ -10,6 +10,10 @@ import logging
 from collections import Counter
 
 log = logging.getLogger("salmalm")
+_MEMORY_LOG_FAILURES = 0
+_LOOP_WINDOW_TURNS = 12
+_TOOL_WINDOW_LIMIT = 6
+_SIG_IGNORE_KEYS = frozenset({"nonce", "timestamp", "_t", "random"})
 
 
 def check_abort(session_id: str) -> str | None:
@@ -137,7 +141,7 @@ def validate_tool_calls(tool_calls: list) -> tuple[list, dict]:
 
 def check_circuit_breaker(tool_outputs: dict, consecutive_errors: int, max_errors: int) -> tuple[int, str | None]:
     """Check for consecutive tool errors. Returns (new_error_count, error_message_or_None)."""
-    errors = sum(1 for v in tool_outputs.values() if str(v).startswith("❌"))
+    errors = sum(1 for v in tool_outputs.values() if str(v).startswith(("❌", "⚠️")))
     if errors > 0:
         consecutive_errors += errors
         if consecutive_errors >= max_errors:
@@ -149,28 +153,65 @@ def check_circuit_breaker(tool_outputs: dict, consecutive_errors: int, max_error
 
 
 def check_loop_detection(tool_calls: list, recent_calls: list) -> str | None:
-    """Detect infinite loops from repeated tool calls. Returns error message or None."""
+    """Detect infinite loops from repeated tool calls."""
+    def _normalize_args(value):
+        if isinstance(value, dict):
+            normalized = {}
+            for k, v in value.items():
+                if str(k).lower() in _SIG_IGNORE_KEYS:
+                    continue
+                normalized[k] = _normalize_args(v)
+            return normalized
+        if isinstance(value, list):
+            return [_normalize_args(v) for v in value]
+        return value
+
     for tc in tool_calls:
-        sig = (
-            tc.get("name", ""),
-            hashlib.sha256(json.dumps(tc.get("arguments", {}), sort_keys=True).encode()).hexdigest()[:12],
-        )
+        name = tc.get("name", "")
+        norm_args = _normalize_args(tc.get("arguments", {}))
+        sig = (name, hashlib.sha256(json.dumps(norm_args, sort_keys=True).encode()).hexdigest()[:12])
         recent_calls.append(sig)
 
-    if len(recent_calls) >= 6:
-        freq = Counter(recent_calls[-6:])
-        top = freq.most_common(1)[0]
-        if top[1] >= 3:
-            log.warning(f"[BREAK] Loop detected: {top[0][0]} called {top[1]}x with same args in last 6 iterations")
-            return f"⚠️ Infinite loop detected — tool `{top[0][0]}` repeating with same arguments. Stopping."
-    return None
+    # Time-window/name-window guard: same tool too many times in recent turns.
+    if len(recent_calls) >= _LOOP_WINDOW_TURNS:
+        recent_window = recent_calls[-_LOOP_WINDOW_TURNS:]
+        tool_freq = Counter(name for name, _sig in recent_window if name)
+        for tool_name, count in tool_freq.items():
+            if count > _TOOL_WINDOW_LIMIT:
+                log.warning(
+                    "[BREAK] tool-window-limit: %s x%d in last %d turns",
+                    tool_name,
+                    count,
+                    _LOOP_WINDOW_TURNS,
+                )
+                return (
+                    f"⚠️ Tool `{tool_name}` was called {count} times in the last {_LOOP_WINDOW_TURNS} turns. "
+                    "STOP calling tools and write the final answer with existing results."
+                )
 
+    # Same call repeated 2+ times in last 4
+    if len(recent_calls) >= 4:
+        freq = Counter(recent_calls[-4:])
+        top = freq.most_common(1)[0]
+        if top[1] >= 2:
+            log.warning(f"[BREAK] same-call loop: {top[0][0]} x{top[1]}")
+            return f"⚠️ Tool `{top[0][0]}` already returned a result. Use it to write the final answer NOW."
+
+    # Same tool NAME 3x in a row (any args)
+    if len(recent_calls) >= 3:
+        name_streak = [s[0] for s in recent_calls[-3:]]
+        if len(set(name_streak)) == 1 and name_streak[0]:
+            log.warning(f"[BREAK] name-streak: {name_streak[0]} x3")
+            return f"⚠️ Tool `{name_streak[0]}` called 3 times in a row. STOP calling tools. Write the final answer using the result you already have."
+
+    return None
 
 async def handle_empty_response(call_fn, pruned_messages, model: str, tools: list) -> str:
     """Retry empty responses up to 2 times with backoff."""
+    import asyncio as _aio_er
     for _retry in range(2):
         log.warning(f"[LLM] Empty response, retry #{_retry + 1}")
-        await asyncio.sleep(0.5 * (_retry + 1))
+        await _aio_er.sleep(0.5 * (_retry + 1))
         retry_result, _ = await call_fn(pruned_messages, model=model, tools=tools, max_tokens=4096, thinking=False)
         response = retry_result.get("content", "")
         if response and response.strip():
@@ -197,6 +238,7 @@ def is_truncated(result: dict) -> bool:
 
 def auto_log_conversation(user_message: str, response: str, classification: dict) -> None:
     """Auto-log significant conversations to daily memory."""
+    global _MEMORY_LOG_FAILURES
     try:
         # Skip trivial exchanges
         if not user_message or len(user_message) < 20:
@@ -213,5 +255,9 @@ def auto_log_conversation(user_message: str, response: str, classification: dict
         tag = f"[{intent}]" if intent else "[conv]"
         entry = f"{tag} Q: {q_snippet}\n  A: {a_snippet}"
         write_daily_log(entry)
+        _MEMORY_LOG_FAILURES = 0
     except Exception as e:  # noqa: broad-except
-        pass  # Memory logging should never break the main flow
+        _MEMORY_LOG_FAILURES += 1
+        log.debug("[MEMORY] auto_log_conversation failed: %s", e, exc_info=True)
+        if _MEMORY_LOG_FAILURES >= 3:
+            log.warning("[MEMORY] auto_log_conversation failed %d times", _MEMORY_LOG_FAILURES)

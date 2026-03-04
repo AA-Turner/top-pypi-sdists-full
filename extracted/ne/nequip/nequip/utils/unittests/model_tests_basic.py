@@ -22,12 +22,15 @@ from nequip.data import (
     _NODE_FIELDS,
     _EDGE_FIELDS,
 )
-from nequip.data.transforms import ChemicalSpeciesToAtomTypeMapper
+from nequip.data.transforms import (
+    ChemicalSpeciesToAtomTypeMapper,
+    NeighborListTransform,
+)
 from nequip.nn import (
-    GraphModuleMixin,
     ForceStressOutput,
     PartialForceOutput,
     PerTypeScaleShift,
+    graph_model,
 )
 from nequip.utils import dtype_to_name, find_first_of_type
 from nequip.utils.test import (
@@ -74,6 +77,11 @@ class BasicModelTestsMixin:
         """
         raise NotImplementedError
 
+    @pytest.fixture
+    def zero_prior_at_init(self):
+        """Whether zero position-dependent prior at initialization is expected."""
+        return False
+
     @pytest.fixture(
         scope="class",
         params=(["cuda", "cpu"] if torch.cuda.is_available() else ["cpu"]),
@@ -105,6 +113,17 @@ class BasicModelTestsMixin:
         # we return the config with the correct `model_dtype`
         return model, config, out_fields
 
+    @staticmethod
+    def _r_max_from_model(instance) -> float:
+        assert getattr(instance, "is_graph_model", False), (
+            "test model must be a GraphModel to expose metadata"
+        )
+        metadata = instance.metadata
+        assert graph_model.R_MAX_KEY in metadata, (
+            f"model metadata missing required key `{graph_model.R_MAX_KEY}`"
+        )
+        return float(metadata[graph_model.R_MAX_KEY])
+
     @pytest.fixture(scope="class")
     def partial_model(self, model, device):
         _, config, _ = model
@@ -121,19 +140,22 @@ class BasicModelTestsMixin:
         return aux_model, out_fields
 
     @pytest.fixture(scope="class", params=["molecules", "bulk"])
-    def model_test_data(self, config, atomic_batch, diamond_carbon, device, request):
+    def model_test_data(self, model, atomic_batch, diamond_carbon, device, request):
         if request.param == "molecules":
             test_data = atomic_batch
         elif request.param == "bulk":
             test_data = diamond_carbon
         else:
             raise ValueError(f"Unknown test data parameter: {request.param}")
+        instance, _, _ = model
 
         # clone the data to avoid mutating the original batch
         # cpu because we need to reconstruct the neighborlist
         test_data = {k: v.clone().detach().to("cpu") for k, v in test_data.items()}
         # reset neighborlist
-        test_data = compute_neighborlist_(test_data, r_max=config["r_max"])
+        test_data = NeighborListTransform(r_max=self._r_max_from_model(instance))(
+            test_data
+        )
         # return the data in the device for testing
         return AtomicDataDict.to_(test_data, device)
 
@@ -144,6 +166,50 @@ class BasicModelTestsMixin:
     def conffile(self, request):
         """Training config files."""
         return request.param
+
+    @pytest.fixture(scope="class")
+    def train_fn(self):
+        """Training session function - can be overridden by subclasses to use alternative training workflows.
+
+        Default is `_training_session` which runs `nequip-train`.
+        Subclasses can override to use different training commands.
+        """
+        return _training_session
+
+    def model_parameter_updates(self, model_config):
+        """
+        Returns dict of parameter updates to inject into model config.
+
+        Default behavior injects training_data_stats interpolations for NequIP framework models.
+        Subclasses can override to customize injection behavior.
+
+        Args:
+            model_config: Model configuration dict to inspect
+
+        Returns:
+            dict: Parameter updates to apply
+        """
+        updates = {
+            # use resolvers for data-dependent parameters
+            "avg_num_neighbors": "${training_data_stats:num_neighbors_mean}",
+            "per_type_energy_shifts": "${training_data_stats:per_atom_energy_mean}",
+            "per_type_energy_scales": "${training_data_stats:per_type_forces_rms}",
+            # use top-level config variable references
+            "type_names": "${model_type_names}",
+        }
+
+        # handle nested chemical_species in pair_potential if present
+        if (
+            "pair_potential" in model_config
+            and "chemical_species" in model_config["pair_potential"]
+        ):
+            updates["pair_potential.chemical_species"] = "${chemical_species}"
+
+        # handle per_edge_type_cutoff - use the one from integration config if present
+        if "per_edge_type_cutoff" in model_config:
+            updates["per_edge_type_cutoff"] = "${per_edge_type_cutoff}"
+
+        return updates
 
     def _update_config_recursively(self, config, updates):
         """
@@ -166,48 +232,25 @@ class BasicModelTestsMixin:
             else:
                 config[key] = value
 
-    # this means we also check if we can `nequip-package` a specific model
-    # this could reveal e.g. missing externs, etc
-    @pytest.fixture(scope="class", params=[None, "package"])
-    def fake_model_training_session(self, conffile, config, model_dtype, request):
-        """Create a fake training session using integration test configs with injected model."""
-        # make a deep copy and enforce integration config parameters
-        model_config = copy.deepcopy(config)
+    @pytest.fixture(scope="class", params=["fresh", "package"])
+    def model_source(self, request):
+        """model source for fake_model_training_session. subclasses can override params."""
+        return request.param
 
-        # update parameters to match integration configs and use resolvers
-        updates = {
-            # use resolvers for data-dependent parameters
-            "avg_num_neighbors": "${training_data_stats:num_neighbors_mean}",
-            "per_type_energy_shifts": "${training_data_stats:per_atom_energy_mean}",
-            "per_type_energy_scales": "${training_data_stats:per_type_forces_rms}",
-            # use top-level config variable references
-            "type_names": "${model_type_names}",
-        }
+    def load_validation_structures(self, training_config, tmpdir):
+        """
+        Load validation structures for testing.
 
-        # handle nested chemical_species in pair_potential if present
-        if (
-            "pair_potential" in model_config
-            and "chemical_species" in model_config["pair_potential"]
-        ):
-            updates["pair_potential.chemical_species"] = "${chemical_species}"
+        Default behavior loads from NequIP datamodule.
+        Subclasses can override for different training workflows.
 
-        # handle per_edge_type_cutoff - use the one from integration config if present
-        # this will ensure consistent type names and cutoff values
-        if "per_edge_type_cutoff" in model_config:
-            updates["per_edge_type_cutoff"] = "${per_edge_type_cutoff}"
+        Args:
+            training_config: training configuration dict
+            tmpdir: temporary directory path
 
-        self._update_config_recursively(model_config, updates)
-
-        session = _training_session(
-            conffile,
-            model_dtype,
-            extra_train_from_save=request.param,
-            model_config=model_config,
-        )
-        training_config, tmpdir, env = next(session)
-        model_source = "checkpoint" if request.param is None else "package"
-
-        # Load validation structures for integration tests
+        Returns:
+            List of ASE Atoms objects for validation
+        """
         datamodule = instantiate(training_config.data, _recursive_=False)
         datamodule.prepare_data()
         datamodule.setup("validate")
@@ -216,13 +259,42 @@ class BasicModelTestsMixin:
         structures = []
         for data in dloader:
             structures += to_ase(data.copy())
+        return structures
+
+    # this means we also check if we can `nequip-package` a specific model
+    # this could reveal e.g. missing externs, etc
+    @pytest.fixture(scope="class")
+    def fake_model_training_session(
+        self, conffile, config, model_dtype, train_fn, model_source
+    ):
+        """Create a fake training session using integration test configs with injected model."""
+        # make a deep copy and enforce integration config parameters
+        model_config = copy.deepcopy(config)
+        # get parameter updates (can be overridden by subclasses)
+        updates = self.model_parameter_updates(model_config)
+        # update model config with necessary updates
+        self._update_config_recursively(model_config, updates)
+
+        session = train_fn(
+            conffile,
+            model_dtype,
+            extra_train_from_save=model_source,
+            model_config=model_config,
+        )
+        training_config, tmpdir, env = next(session)
+
+        # load validation structures (can be overridden by subclasses)
+        structures = self.load_validation_structures(training_config, tmpdir)
 
         yield training_config, tmpdir, env, model_dtype, model_source, structures
         del session
 
     def test_init(self, model):
         instance, _, _ = model
-        assert isinstance(instance, GraphModuleMixin)
+        assert (
+            hasattr(instance, "_is_graph_module_mixin")
+            and instance._is_graph_module_mixin
+        )
 
     def test_model_repr(self, model):
         """Test that the model can be represented as a string without errors."""
@@ -416,7 +488,7 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
     def test_large_separation(self, model, molecules, device):
         instance, config, _ = model
         atol = {torch.float32: 1e-4, torch.float64: 1e-10}[instance.model_dtype]
-        r_max = config["r_max"]
+        r_max = self._r_max_from_model(instance)
         atoms1 = molecules[0].copy()
         atoms2 = molecules[1].copy()
         # translate atoms2 far away
@@ -504,7 +576,7 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
                     atol=atol,
                 ), f"Translation invariance test failed for {per_atom_energy_key}"
 
-    def test_cross_frame_grad(self, model, device, nequip_dataset):
+    def test_cross_frame_grad(self, model, device, nequip_dataset, zero_prior_at_init):
         batch = AtomicDataDict.batched_from_list(
             [nequip_dataset[i] for i in range(len(nequip_dataset))]
         )
@@ -532,9 +604,10 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
                 assert cross_frame_grad.abs().max().item() == 0, (
                     f"Cross-frame gradient test failed for {energy_key}"
                 )
-                assert in_frame_grad.abs().max().item() > 0, (
-                    f"In-frame gradient test failed for {energy_key}"
-                )
+                if not zero_prior_at_init:
+                    assert in_frame_grad.abs().max().item() > 0, (
+                        f"In-frame gradient test failed for {energy_key}"
+                    )
 
     def test_numeric_gradient(self, model, atomic_batch, device):
         """
@@ -714,9 +787,9 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
 
         return wrapped
 
-    def test_force_smoothness(self, model, device, pair_force):
-        _, config, _ = model
-        r_max = config["r_max"]
+    def test_force_smoothness(self, model, device, pair_force, zero_prior_at_init):
+        instance, config, _ = model
+        r_max = self._r_max_from_model(instance)
         type_names = config["type_names"]
         num_types = len(type_names)
 
@@ -728,7 +801,8 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
                     forces = pair_force(node_idx, nbor_idx, 0.5 * r_max, 1.5 * r_max)
                     # expect some nonzero terms on the two connected atoms
                     # NOTE: sometimes it can be zero if the model has so little features such that the nonlinearity causes the activation to be ~0
-                    assert forces.abs().sum() > 1e-4, f"{forces=}"
+                    if not zero_prior_at_init:
+                        assert forces.abs().sum() > 1e-4, f"{forces=}"
 
                     # For Test 1 and 2:
                     # No need to enforce `strictly_local`. Message passing models such as NequiIP should not receive information from beyond the cutoff radius.
@@ -748,13 +822,15 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
                         torch.zeros_like(forces, device=device, dtype=forces.dtype),
                     ), f"{forces=}"
 
-    def test_partial_force_smoothness(self, model, device, pair_force):
+    def test_partial_force_smoothness(
+        self, model, device, pair_force, zero_prior_at_init
+    ):
         # NOTE: This test is designed for models that have a variable cutoff radius, though it still applicable with
         # fixed cutoff models. This works on the assumption that the partial energies on the node should not be affected
         # by the presence of a neighbor outside the cutoff radius, thus making the corresponding forces zero.
 
-        _, config, _ = model  # Just to get the config
-        r_max = config["r_max"]
+        instance, config, _ = model  # Just to get the config
+        r_max = self._r_max_from_model(instance)
         type_names = config["type_names"]
 
         # Whether the cutoff radius is specified per edge type
@@ -773,10 +849,10 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
                                 r_max = r_max[nbor_type]
                             else:
                                 # default missing target types to global r_max
-                                r_max = config["r_max"]
+                                r_max = self._r_max_from_model(instance)
                     else:
                         # default missing source types to global r_max
-                        r_max = config["r_max"]
+                        r_max = self._r_max_from_model(instance)
 
                 # Control group: force is non-zero within the cutoff radius
                 partial_forces = pair_force(
@@ -785,9 +861,10 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
                 node_partial_forces = partial_forces[0]
 
                 # NOTE: sometimes it can be zero if the model has so little features such that the nonlinearity causes the activation to be ~0
-                assert node_partial_forces.abs().sum() > 1e-4, (
-                    f"partial forces: {node_partial_forces}"
-                )
+                if not zero_prior_at_init:
+                    assert node_partial_forces.abs().sum() > 1e-4, (
+                        f"partial forces: {node_partial_forces}"
+                    )
 
                 # For Test 1 and 2:
                 # No need to enforce `strictly_local`. Message passing models such as NequiIP should not receive information from beyond the cutoff radius.
@@ -845,7 +922,7 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
                 data = AtomicDataDict.to_(
                     compute_neighborlist_(
                         AtomicDataDict.batched_from_list(data_list),
-                        r_max=config["r_max"],
+                        r_max=self._r_max_from_model(instance),
                     ),
                     device,
                 )
@@ -862,7 +939,7 @@ class EnergyModelTestsMixin(BasicModelTestsMixin):
     def test_embedding_cutoff(self, model, device):
         """Test that edge embeddings/features go to zero at cutoff and gradients are correct."""
         instance, config, _ = model
-        r_max = config["r_max"]
+        r_max = self._r_max_from_model(instance)
 
         # make a synthetic three atom example
         data = {

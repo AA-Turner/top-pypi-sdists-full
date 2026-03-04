@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema-path
-Version: 0.4.4
+Version: 0.4.5
 Summary: JSONSchema Spec with object-oriented paths
 License: Apache-2.0
 License-File: LICENSE

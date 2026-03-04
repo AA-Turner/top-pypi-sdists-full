@@ -1682,7 +1682,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def add_future(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Future.Future:
+    def add_future(self, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: typing.Optional[bool] = None, leverage: float = ..., extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Future.Future:
         ...
 
     def add_future_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False) -> QuantConnect.Securities.Future.Future:
@@ -1789,7 +1789,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_option(self, underlying: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
+    def add_option(self, underlying: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: typing.Optional[bool] = None, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
         """
         Creates and adds a new equity Option security to the algorithm
         
@@ -1803,7 +1803,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
+    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: typing.Optional[bool] = None, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
         """
         Creates and adds a new Option security to the algorithm.
         This method can be used to add options with non-equity asset classes
@@ -1819,7 +1819,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target_option: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: bool = True, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
+    def add_option(self, underlying: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target_option: str, resolution: typing.Optional[QuantConnect.Resolution] = None, market: str = None, fill_forward: typing.Optional[bool] = None, leverage: float = ...) -> QuantConnect.Securities.Option.Option:
         """
         Creates and adds a new Option security to the algorithm.
         This method can be used to add options with non-equity asset classes
@@ -1857,7 +1857,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_security(self, security_type: QuantConnect.SecurityType, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
+    def add_security(self, security_type: QuantConnect.SecurityType, ticker: str, resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
         """
         Add specified data to our data subscriptions. QuantConnect will funnel this data to the handle data routine.
         
@@ -1872,7 +1872,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_security(self, security_type: QuantConnect.SecurityType, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: bool, leverage: float, extended_market_hours: bool, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
+    def add_security(self, security_type: QuantConnect.SecurityType, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: typing.Optional[bool], leverage: float, extended_market_hours: typing.Optional[bool], data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
         """
         Add specified data to required list. QC will funnel this data to the handle data routine.
         
@@ -1888,7 +1888,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_security(self, security_type: QuantConnect.SecurityType, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], market: str, fill_forward: bool, leverage: float, extended_market_hours: bool, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
+    def add_security(self, security_type: QuantConnect.SecurityType, ticker: str, resolution: typing.Optional[QuantConnect.Resolution], market: str, fill_forward: typing.Optional[bool], leverage: float, extended_market_hours: typing.Optional[bool], data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None) -> QuantConnect.Securities.Security:
         """
         Set a required SecurityType-symbol and resolution for algorithm
         
@@ -1905,7 +1905,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def add_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Security:
+    def add_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: typing.Optional[bool] = None, leverage: float = ..., extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Security:
         """
         Set a required SecurityType-symbol and resolution for algorithm
         

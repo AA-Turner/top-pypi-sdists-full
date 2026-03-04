@@ -90,8 +90,8 @@ __all__ = (
     "RejectChannelHandshakeResponseTypeDef",
     "RelationshipDetailTypeDef",
     "RelationshipSummaryTypeDef",
-    "ResoldBusinessTypeDef",
     "ResoldEnterpriseTypeDef",
+    "ResoldUnifiedOperationsTypeDef",
     "ResponseMetadataTypeDef",
     "RevokeServicePeriodHandshakeDetailTypeDef",
     "RevokeServicePeriodPayloadTypeDef",
@@ -320,10 +320,12 @@ class RejectChannelHandshakeRequestTypeDef(TypedDict):
     catalog: str
     identifier: str
 
-class ResoldBusinessTypeDef(TypedDict):
-    coverage: CoverageType
-
 class ResoldEnterpriseTypeDef(TypedDict):
+    coverage: CoverageType
+    tamLocation: str
+    chargeAccountId: NotRequired[str]
+
+class ResoldUnifiedOperationsTypeDef(TypedDict):
     coverage: CoverageType
     tamLocation: str
     chargeAccountId: NotRequired[str]
@@ -470,9 +472,9 @@ class RejectChannelHandshakeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SupportPlanTypeDef(TypedDict):
-    resoldBusiness: NotRequired[ResoldBusinessTypeDef]
     resoldEnterprise: NotRequired[ResoldEnterpriseTypeDef]
     partnerLedSupport: NotRequired[PartnerLedSupportTypeDef]
+    resoldUnifiedOperations: NotRequired[ResoldUnifiedOperationsTypeDef]
 
 class StartServicePeriodPayloadTypeDef(TypedDict):
     programManagementAccountIdentifier: str

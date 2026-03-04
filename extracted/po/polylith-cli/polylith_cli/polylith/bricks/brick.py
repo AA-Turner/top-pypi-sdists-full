@@ -1,12 +1,25 @@
 from pathlib import Path
-from polylith_cli.polylith import configuration
+from polylith_cli.polylith import configuration, info
 from polylith_cli.polylith.dirs import create_dir
 from polylith_cli.polylith.files import create_file
 from polylith_cli.polylith.interface import create_interface
 from polylith_cli.polylith.readme import create_brick_readme
 
+def validate(root: Path, namespace: str, name: str) -> None:
+    bases = info.get_bases(root, namespace)
+    components = info.get_components(root, namespace)
+    if name in bases:
+        message = f'{name} already exists in bases.'
+        raise ValueError(message)
+    if name in components:
+        message = f'{name} already exists in components.'
+        raise ValueError(message)
+
 def create_brick(root: Path, options: dict) -> None:
     modulename = options['modulename']
+    package = options['package']
+    namespace = options['namespace']
+    validate(root, namespace, package)
     path_kwargs = {k: v for k, v in options.items() if k in {'brick', 'namespace', 'package'}}
     brick_structure = configuration.get_brick_structure_from_config(root)
     resources_structure = configuration.get_resources_structure_from_config(root)

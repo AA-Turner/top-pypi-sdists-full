@@ -41,12 +41,21 @@ class LinterCheck:
     label: str
     type: str
     issues: List[LinterIssue]
+    fix_with_ai: bool
 
-    def __init__(self, name: str, label: str, type: str, issues: List[LinterIssue]):
+    def __init__(
+        self,
+        name: str,
+        label: str,
+        type: str,
+        issues: List[LinterIssue],
+        fix_with_ai: bool = False,
+    ):
         self.name = name
         self.label = label
         self.type = type
         self.issues = issues
+        self.fix_with_ai = fix_with_ai
 
     def to_dict(self):
         return dict(
@@ -54,12 +63,14 @@ class LinterCheck:
             label=self.label,
             type=self.type,
             issues=[issue.to_dict() for issue in self.issues],
+            fixWithAi=self.fix_with_ai,
         )
 
 
 class LinterRule:
     label: str
     type: str
+    fix_with_ai: bool = False
 
     def find_issues(self) -> Sequence[LinterIssue]:
         raise NotImplementedError
@@ -74,6 +85,7 @@ class LinterRule:
             label=self.label,
             type=self.type,
             issues=list(self.find_issues()),
+            fix_with_ai=self.fix_with_ai,
         )
 
 

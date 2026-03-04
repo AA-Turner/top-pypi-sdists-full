@@ -10,6 +10,7 @@ class SeeqNames:
         corporate = '__Corporate__'
         users = '__Users__'
         my_folder = '__My_Folder__'
+        externally_shared = '__Externally_Shared__'
     
     class AnalysisViewType:
         trend = 'trend'

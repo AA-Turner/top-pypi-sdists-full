@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-schema-to-pydantic
-Version: 0.4.9
+Version: 0.4.10
 Summary: A Python library for automatically generating Pydantic v2 models from JSON Schema definitions
 Project-URL: Homepage, https://github.com/richard-gyiko/json-schema-to-pydantic
 Project-URL: Bug-Tracker, https://github.com/richard-gyiko/json-schema-to-pydantic/issues
@@ -42,6 +42,8 @@ A Python library for automatically generating Pydantic v2 models from JSON Schem
   - Type constraints and validations
   - Array and object validations
   - Format validations (email, uri, uuid, date-time)
+  - Top-level arrays and scalar types (not just objects)
+  - Underscore-prefixed fields (common in OpenAPI specs)
 - Full type hinting support
 - Clean, simple API
 
@@ -111,6 +113,18 @@ relaxed_instance = RelaxedModel(
     tags=[1, "two", True],
     metadata={"custom": "data"}
 )
+
+# Example with underscore-prefixed fields (common in OpenAPI)
+OpenAPIModel = create_model(
+    {
+        "type": "object",
+        "properties": {
+            "_links": {"type": "object"},
+            "_embedded": {"type": "object"}
+        }
+    },
+    populate_by_name=True  # Allows access via both '_links' and 'links'
+)
 ```
 
 ## Advanced Usage
@@ -118,11 +132,22 @@ relaxed_instance = RelaxedModel(
 For more complex scenarios, you can use the `PydanticModelBuilder` directly:
 
 ```python
+from pydantic import BaseModel
 from json_schema_to_pydantic import PydanticModelBuilder
 
-builder = PydanticModelBuilder()
+class PetModel(BaseModel):
+    name: str
+    type: str
+
+builder = PydanticModelBuilder(
+    predefined_models={"#/definitions/Pet": PetModel}
+)
 model = builder.create_pydantic_model(schema, root_schema)
 ```
+
+You can also pass `predefined_models` to `create_model(...)` directly.
+When a `$ref` key matches an entry in `predefined_models`, that class is reused
+instead of generating a new class.
 
 ## Error Handling
 

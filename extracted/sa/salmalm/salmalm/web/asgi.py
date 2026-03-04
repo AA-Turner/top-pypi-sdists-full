@@ -241,7 +241,10 @@ class FastHandler:
             if is_trusted:
                 xff = self.headers.get("x-forwarded-for")
                 if xff:
-                    return xff.split(",")[0].strip()
+                    hops = [h.strip() for h in xff.split(",")]
+                    while hops and any(hops[-1].startswith(net) for net in self._TRUSTED_PROXY_NETS):
+                        hops.pop()
+                    return hops[-1] if hops else remote_addr
         return remote_addr
 
     def _check_origin(self) -> bool:
@@ -284,10 +287,25 @@ def create_asgi_app() -> FastAPI:
     async def _security_headers_middleware(request: Request, call_next):
         """Inject security headers on every HTTP response (OWASP baseline)."""
         response = await call_next(request)
+        import secrets as _sec
+        _nonce = _sec.token_urlsafe(16)
+        _csp_script = f"'self' 'nonce-{_nonce}'" if not os.environ.get("SALMALM_CSP_COMPAT") else "'self' 'unsafe-inline'"
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(self), geolocation=()")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            f"default-src 'self'; "
+            f"script-src {_csp_script}; "
+            f"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; "
+            f"img-src 'self' data: blob:; "
+            f"font-src 'self' https://fonts.gstatic.com; "
+            f"connect-src 'self' ws: wss:; "
+            f"frame-ancestors 'none'; "
+            f"base-uri 'self'; "
+            f"form-action 'self'",
+        )
         if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response
@@ -337,23 +355,40 @@ def create_asgi_app() -> FastAPI:
         if _policy.csrf and method in ("POST", "PUT", "DELETE", "PATCH"):
             _origin = request.headers.get("origin", "")
             _host = request.headers.get("host", "")
-            if _origin and not any(
-                _origin.endswith(h) for h in (
-                    f"://{_host}", "://localhost", "://127.0.0.1", "://::1"
-                )
-            ):
-                return JSONResponse(
-                    {"error": "CSRF: Origin mismatch"},
-                    status_code=403,
-                )
+            if _origin:
+                # "null" Origin comes from sandboxed iframes — reject to prevent CSRF
+                if _origin == "null":
+                    return JSONResponse({"error": "CSRF: null Origin rejected"}, status_code=403)
+                try:
+                    import urllib.parse as _up
+
+                    _parsed_origin = _up.urlparse(_origin)
+                    _origin_netloc = _parsed_origin.netloc  # "evil.com:8080" or "localhost"
+                    _origin_host = _parsed_origin.hostname  # "evil.com" (no port)
+                    _allowed = (
+                        _origin_netloc == _host              # exact match including port
+                        or _origin_host in ("localhost", "127.0.0.1", "::1")
+                    )
+                except Exception:
+                    _allowed = False
+                if not _allowed:
+                    return JSONResponse({"error": "CSRF: Origin mismatch"}, status_code=403)
 
         # ── Abuse Guard ──────────────────────────────────────────────────────
         # Resolve client IP (trust X-Forwarded-For only when proxy env is set)
         _xff = request.headers.get("x-forwarded-for", "")
-        if _xff and os.environ.get("SALMALM_TRUST_PROXY"):
-            _client_ip = _xff.split(",")[0].strip()
+        _direct_ip = (request.client.host if request.client else None) or ""
+        _ASGI_TRUSTED_SUBNETS = ("127.", "::1", "10.", "172.16.", "172.17.", "172.18.",
+                                  "172.19.", "172.2", "172.30.", "172.31.", "192.168.")
+        if (_xff and os.environ.get("SALMALM_TRUST_PROXY")
+                and any(_direct_ip.startswith(s) for s in _ASGI_TRUSTED_SUBNETS)):
+            # Take rightmost non-trusted hop (client-supplied leftmost is spoofable)
+            _hops = [h.strip() for h in _xff.split(",")]
+            while _hops and any(_hops[-1].startswith(s) for s in _ASGI_TRUSTED_SUBNETS):
+                _hops.pop()
+            _client_ip = _hops[-1] if _hops else _direct_ip
         else:
-            _client_ip = (request.client.host if request.client else None) or "unknown"
+            _client_ip = _direct_ip or "unknown"
 
         # 1. IP ban check — hard block before any further processing
         _is_banned, _ban_remaining = ip_ban_list.is_banned(_client_ip)

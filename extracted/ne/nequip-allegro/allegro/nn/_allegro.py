@@ -1,6 +1,5 @@
 # This file is a part of the `allegro` package. Please see LICENSE and README at the root for information on using it.
-from typing import Optional
-import math
+from typing import Optional, Union, Sequence, Dict
 import functools
 
 import torch
@@ -9,7 +8,13 @@ from e3nn.o3._irreps import Irrep, Irreps
 from e3nn.util.jit import compile_mode
 
 from nequip.data import AtomicDataDict
-from nequip.nn import GraphModuleMixin, ScalarMLPFunction, tp_path_exists
+from nequip.nn import (
+    GraphModuleMixin,
+    ScalarMLPFunction,
+    tp_path_exists,
+    AvgNumNeighborsNorm,
+    scatter,
+)
 
 from ._strided import Contracter, MakeWeightedChannels
 
@@ -26,7 +31,8 @@ class Allegro_Module(GraphModuleMixin, torch.nn.Module):
         num_tensor_features: int,
         tensor_track_allowed_irreps: Irreps,
         # optional hyperparameters:
-        avg_num_neighbors: Optional[float] = None,
+        avg_num_neighbors: Union[float, Dict[str, float]] = None,
+        type_names: Sequence[str] = None,
         tp_path_channel_coupling: bool = True,
         weight_individual_irreps: bool = True,
         # MLP parameters:
@@ -46,10 +52,6 @@ class Allegro_Module(GraphModuleMixin, torch.nn.Module):
         assert (
             num_layers >= 1
         )  # zero layers is "two body", but we don't need to support that fallback case
-
-        assert avg_num_neighbors is not None, (
-            "`avg_num_neighbors` must be set for Allegro models, but `avg_num_neighbors=None` found"
-        )
 
         # === save parameters ===
         self.num_layers = num_layers
@@ -92,6 +94,11 @@ class Allegro_Module(GraphModuleMixin, torch.nn.Module):
             output_dim=self.num_scalar_features + self._env_weighter.weight_numel,
         )
         assert not self.first_layer_env_embed_projection.is_nonlinear
+
+        # === normalization module ===
+        self.avg_num_neighbors_norm = AvgNumNeighborsNorm(
+            avg_num_neighbors=avg_num_neighbors, type_names=type_names
+        )
 
         # === set up Allegro layers ===
         latent = functools.partial(latent, **latent_kwargs)
@@ -175,11 +182,6 @@ class Allegro_Module(GraphModuleMixin, torch.nn.Module):
                 irreps_out=Irreps([(1, ir) for _, ir in out_irreps]),
                 mul=self.num_tensor_features,
                 path_channel_coupling=tp_path_channel_coupling,
-                # `scatter_factor` is the same for both forward and backwards normalization
-                # for forward normalization, it accounts for `scatter`
-                # for backward normalization, it accounts for `index_select`
-                # NOTE: `avg_num_neighbors` is not `None` because of the assert earlier
-                scatter_factor=1.0 / math.sqrt(avg_num_neighbors),
             )
             self.tps.append(tp)
             # we extract the scalars from the first irrep of the tp
@@ -259,13 +261,34 @@ class Allegro_Module(GraphModuleMixin, torch.nn.Module):
 
         layer_index: int = 0
         for latent, tp in zip(self.latents, self.tps):
-            # === Env Weight & TP ===
+            # === construct env weighted tensor ===
             env_w_edges = self._env_weighter(tensor_basis, env_w)
-            # scatter env_w_edges and TP with tensor_features
-            # second input irreps is the one that is scattered
+
+            # scatter env_w_edges to nodes and normalize
+            env_w_scatter = scatter(
+                env_w_edges,
+                edge_center,
+                dim=0,
+                dim_size=num_atoms,
+            )
+            env_w_scatter_size0 = env_w_scatter.size(0)
+            env_w_scatter_size1 = env_w_scatter.size(1)
+            env_w_scatter_size2 = env_w_scatter.size(2)
+            data[AtomicDataDict.NODE_FEATURES_KEY] = env_w_scatter.view(
+                env_w_scatter_size0,
+                env_w_scatter_size1 * env_w_scatter_size2,
+            )
+            data = self.avg_num_neighbors_norm(data)
+
+            # === TP ===
+            # second input irreps is node-scattered env features
             irin1 = tensor_features
-            irin2 = env_w_edges
-            tensor_features = tp(irin1, irin2, edge_center, num_atoms)
+            irin2 = data[AtomicDataDict.NODE_FEATURES_KEY].view(
+                env_w_scatter_size0,
+                env_w_scatter_size1,
+                env_w_scatter_size2,
+            )
+            tensor_features = tp(irin1, irin2, edge_center)
 
             # Extract invariants from tensor track
             # features has shape [z][mul][k], where scalars are first

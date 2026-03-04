@@ -39,20 +39,22 @@ class WebSessionsMixin:
         from salmalm.core import _get_db
 
         conn = _get_db()
-        # User-scoped session list (user_id=0 or NULL = legacy/local = show all)
         _uid = _auth_user.get("id", 0)
-        if _uid and _uid > 0:
-            rows = conn.execute(
-                "SELECT session_id, updated_at, title, parent_session_id FROM session_store "
-                "WHERE user_id=? OR user_id IS NULL ORDER BY updated_at DESC",
-                (_uid,),
-            ).fetchall()
-        else:
+        _is_admin = _auth_user.get("role") in ("admin", "owner")
+        if _is_admin:
             rows = conn.execute(
                 "SELECT session_id, updated_at, title, parent_session_id FROM session_store ORDER BY updated_at DESC"
             ).fetchall()
+        elif _uid and _uid > 0:
+            rows = conn.execute(
+                "SELECT session_id, updated_at, title, parent_session_id FROM session_store "
+                "WHERE user_id=? ORDER BY updated_at DESC",
+                (_uid,),
+            ).fetchall()
+        else:
+            rows = []
         # Prefixes that are internal/ephemeral — never show in UI
-        _HIDDEN_PREFIXES = ("agent_", "subagent_", "cron-", "test_msg_", "e2e-", "save_test")
+        _HIDDEN_PREFIXES = ("agent_", "subagent_", "subagent-", "cron-", "test_msg_", "e2e-", "save_test")
 
         sessions = []
         for r in rows:
@@ -67,10 +69,16 @@ class WebSessionsMixin:
                 msg_count = 0
             else:
                 try:
-                    _row = conn.execute(
-                        "SELECT messages FROM session_store WHERE session_id=?",
-                        (sid,),
-                    ).fetchone()
+                    if _is_admin:
+                        _row = conn.execute(
+                            "SELECT messages FROM session_store WHERE session_id=?",
+                            (sid,),
+                        ).fetchone()
+                    else:
+                        _row = conn.execute(
+                            "SELECT messages FROM session_store WHERE session_id=? AND user_id=?",
+                            (sid, _uid),
+                        ).fetchone()
                     if _row is None:
                         title = stored_title or ""
                         msg_count = 0
@@ -110,7 +118,8 @@ class WebSessionsMixin:
 
     def _get_api_sessions_last(self):
         """GET /api/sessions/{id}/last — return last assistant message for recovery."""
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
 
         m = _re.match(r"^/api/sessions/([^/]+)/last$", self.path)
@@ -118,9 +127,19 @@ class WebSessionsMixin:
             self._json({"ok": False, "error": "Invalid path"}, 400)
             return
         sid = m.group(1)
-        from salmalm.core import get_session
+        from salmalm.core import get_session, _get_db
 
-        sess = get_session(sid)
+        uid = _u.get("id") if _u.get("role") not in ("admin", "owner") else None
+        conn = _get_db()
+        if uid is not None:
+            _row = conn.execute(
+                "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
+                (sid, uid),
+            ).fetchone()
+            if not _row:
+                self._json({"ok": False, "error": "Session not found or access denied"}, 404)
+                return
+        sess = get_session(sid, user_id=uid)
         # Find last assistant message
         last_msg = None
         for msg in reversed(sess.messages):
@@ -137,7 +156,8 @@ class WebSessionsMixin:
     def _post_api_sessions_create(self):
         """Post api sessions create."""
         body = self._body
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
         sid = body.get("session_id", "")
         if not sid:
@@ -146,10 +166,11 @@ class WebSessionsMixin:
         from salmalm.core import _get_db
 
         conn = _get_db()
+        uid = _u.get("id") or _u.get("uid") or _u.get("username")
         try:
             conn.execute(
-                'INSERT OR IGNORE INTO session_store (session_id, messages, updated_at, title) VALUES (?, ?, datetime("now"), ?)',
-                (sid, "[]", "New Chat"),
+                'INSERT OR IGNORE INTO session_store (session_id, user_id, messages, updated_at, title) VALUES (?, ?, ?, datetime("now"), ?)',
+                (sid, uid, "[]", "New Chat"),
             )
             conn.commit()
         except Exception as e:
@@ -159,7 +180,8 @@ class WebSessionsMixin:
     def _post_api_sessions_import(self):
         """Import a chat session from JSON export."""
         body = self._body
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
         messages = body.get("messages", [])
         title = body.get("title", "Imported Chat")
@@ -172,9 +194,10 @@ class WebSessionsMixin:
         from salmalm.core import _get_db
 
         conn = _get_db()
+        uid = _u.get("id") or _u.get("uid") or _u.get("username")
         conn.execute(
-            "INSERT OR REPLACE INTO session_store (session_id, messages, title, updated_at) VALUES (?, ?, ?, datetime('now'))",
-            (sid, json.dumps(messages, ensure_ascii=False), title),
+            "INSERT OR REPLACE INTO session_store (session_id, user_id, messages, title, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+            (sid, uid, json.dumps(messages, ensure_ascii=False), title),
         )
         conn.commit()
         audit_log("session_import", sid, detail_dict={"title": title, "msg_count": len(messages)})
@@ -194,10 +217,10 @@ class WebSessionsMixin:
         from salmalm.core.session_store import _SESSIONS_DIR
 
         conn = _get_db()
-        _uid = _u.get("id") if _u.get("role") != "admin" else None
+        _uid = _u.get("id") if _u.get("role") not in ("admin", "owner") else None
         if _uid is not None:
             row = conn.execute(
-                "SELECT 1 FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+                "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
                 (sid, _uid),
             ).fetchone()
             if not row:
@@ -206,7 +229,7 @@ class WebSessionsMixin:
         if sid in _sessions:
             del _sessions[sid]
         conn.execute(
-            "DELETE FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+            "DELETE FROM session_store WHERE session_id=? AND user_id=?",
             (sid, _uid if _uid is not None else _u.get("id", 0)),
         ) if _uid is not None else conn.execute("DELETE FROM session_store WHERE session_id=?", (sid,))
         conn.commit()
@@ -233,11 +256,11 @@ class WebSessionsMixin:
         from salmalm.core.session_store import _SESSIONS_DIR
 
         conn = _get_db()
-        _uid = _u.get("id") if _u.get("role") != "admin" else None
+        _uid = _u.get("id") if _u.get("role") not in ("admin", "owner") else None
         # Scope deletion to the requesting user's sessions only
         if _uid is not None:
             rows = conn.execute(
-                "SELECT session_id FROM session_store WHERE session_id != ? AND (user_id=? OR user_id IS NULL)",
+                "SELECT session_id FROM session_store WHERE session_id != ? AND user_id=?",
                 (keep, _uid),
             ).fetchall()
         else:
@@ -259,7 +282,7 @@ class WebSessionsMixin:
             deleted += 1
         if _uid is not None:
             conn.execute(
-                "DELETE FROM session_store WHERE session_id != ? AND (user_id=? OR user_id IS NULL)",
+                "DELETE FROM session_store WHERE session_id != ? AND user_id=?",
                 (keep, _uid),
             )
         else:
@@ -282,17 +305,17 @@ class WebSessionsMixin:
         from salmalm.core import _get_db
 
         conn = _get_db()
-        _uid = _u.get("id") if _u.get("role") != "admin" else None
+        _uid = _u.get("id") if _u.get("role") not in ("admin", "owner") else None
         if _uid is not None:
             row = conn.execute(
-                "SELECT 1 FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+                "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
                 (sid, _uid),
             ).fetchone()
             if not row:
                 self._json({"ok": False, "error": "Session not found or access denied"}, 403)
                 return
             conn.execute(
-                "UPDATE session_store SET title=? WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+                "UPDATE session_store SET title=? WHERE session_id=? AND user_id=?",
                 (title, sid, _uid),
             )
         else:
@@ -306,7 +329,7 @@ class WebSessionsMixin:
         _u = self._require_auth("user")
         if not _u:
             return
-        _uid = _u.get("id") if _u.get("role") != "admin" else None
+        _uid = _u.get("id") if _u.get("role") not in ("admin", "owner") else None
         sid = body.get("session_id", "")
         try:
             count = max(1, min(int(body.get("count", 1)), 50))
@@ -326,7 +349,7 @@ class WebSessionsMixin:
         _u = self._require_auth("user")
         if not _u:
             return
-        _uid = _u.get("id") if _u.get("role") != "admin" else None
+        _uid = _u.get("id") if _u.get("role") not in ("admin", "owner") else None
         sid = body.get("session_id", "")
         message_index = body.get("message_index")
         if not sid or message_index is None:
@@ -348,7 +371,8 @@ class WebSessionsMixin:
         Used by the web UI to load cross-channel sessions (Telegram, Discord, etc.)
         that are not stored in the browser's localStorage.
         """
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
         m = _re.match(r"^/api/sessions/([^/]+)/messages", self.path)
         if not m:
@@ -358,8 +382,10 @@ class WebSessionsMixin:
         from salmalm.core import _get_db
 
         conn = _get_db()
+        uid = _u.get("id") or _u.get("uid") or _u.get("username")
         row = conn.execute(
-            "SELECT messages FROM session_store WHERE session_id=?", (sid,)
+            "SELECT messages FROM session_store WHERE session_id=? AND user_id=?",
+            (sid, uid),
         ).fetchone()
         if not row:
             self._json({"messages": []})
@@ -402,12 +428,18 @@ async def get_sessions(_u=_Depends(_auth)):
     import json as _json, re as _re
     from salmalm.core import _get_db
     conn = _get_db()
-    _uid = _u.get("id", 0)
-    if _uid and _uid > 0:
-        rows = conn.execute("SELECT session_id, updated_at, title, parent_session_id FROM session_store WHERE user_id=? OR user_id IS NULL ORDER BY updated_at DESC", (_uid,)).fetchall()
-    else:
+    uid = _u.get("id", 0)
+    is_admin = _u.get("role") in ("admin", "owner")
+    if is_admin:
         rows = conn.execute("SELECT session_id, updated_at, title, parent_session_id FROM session_store ORDER BY updated_at DESC").fetchall()
-    _HIDDEN_PREFIXES = ("agent_", "subagent_", "cron-", "test_msg_", "e2e-", "save_test")
+    elif uid and uid > 0:
+        rows = conn.execute(
+            "SELECT session_id, updated_at, title, parent_session_id FROM session_store WHERE user_id=? ORDER BY updated_at DESC",
+            (uid,),
+        ).fetchall()
+    else:
+        rows = []
+    _HIDDEN_PREFIXES = ("agent_", "subagent_", "subagent-", "cron-", "test_msg_", "e2e-", "save_test")
     sessions = []
     for r in rows:
         sid = r[0]
@@ -420,7 +452,16 @@ async def get_sessions(_u=_Depends(_auth)):
             msg_count = 0
         else:
             try:
-                _row2 = conn.execute("SELECT messages FROM session_store WHERE session_id=?", (sid,)).fetchone()
+                if is_admin:
+                    _row2 = conn.execute(
+                        "SELECT messages FROM session_store WHERE session_id=?",
+                        (sid,),
+                    ).fetchone()
+                else:
+                    _row2 = conn.execute(
+                        "SELECT messages FROM session_store WHERE session_id=? AND user_id=?",
+                        (sid, uid),
+                    ).fetchone()
                 if _row2 is None:
                     title = stored_title or ""
                     msg_count = 0
@@ -457,7 +498,7 @@ async def get_session_messages(session_id: str, _u=_Depends(_auth)):
     uid = _u.get("id") or _u.get("uid") or _u.get("username")
     conn = _get_db()
     row = conn.execute(
-        "SELECT messages FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        "SELECT messages FROM session_store WHERE session_id=? AND user_id=?",
         (session_id, uid)
     ).fetchone()
     if not row:
@@ -487,12 +528,12 @@ async def get_session_last(session_id: str, _u=_Depends(_auth)):
     uid = _u.get("id") or _u.get("uid") or _u.get("username")
     _conn = _get_db()
     _row = _conn.execute(
-        "SELECT 1 FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
         (session_id, uid)
     ).fetchone()
     if not _row:
         raise _HTTPException(status_code=404, detail="Session not found or access denied")
-    sess = get_session(session_id)
+    sess = get_session(session_id, user_id=uid)
     last_msg = None
     for msg in reversed(sess.messages):
         if msg.get("role") == "assistant":
@@ -512,7 +553,7 @@ async def get_session_summary(session_id: str, _u=_Depends(_auth)):
     uid = _u.get("id") or _u.get("uid") or _u.get("username")
     _conn = _get_db()
     _row = _conn.execute(
-        "SELECT 1 FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
         (session_id, uid)
     ).fetchone()
     if not _row:
@@ -528,7 +569,7 @@ async def get_session_alternatives(session_id: str, msg_index: int = _Query(0), 
     uid = _u.get("id") or _u.get("uid") or _u.get("username")
     _conn = _get_db()
     _row = _conn.execute(
-        "SELECT 1 FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
         (session_id, uid)
     ).fetchone()
     if not _row:
@@ -543,8 +584,12 @@ async def post_sessions_create(req: CreateSessionRequest, _u=_Depends(_auth)):
     if not sid:
         return _JSON(content={"ok": False, "error": "Missing session_id"}, status_code=400)
     conn = _get_db()
+    uid = _u.get("id") or _u.get("uid") or _u.get("username")
     try:
-        conn.execute('INSERT OR IGNORE INTO session_store (session_id, messages, updated_at, title) VALUES (?, ?, datetime("now"), ?)', (sid, "[]", "New Chat"))
+        conn.execute(
+            'INSERT OR IGNORE INTO session_store (session_id, user_id, messages, updated_at, title) VALUES (?, ?, ?, datetime("now"), ?)',
+            (sid, uid, "[]", "New Chat"),
+        )
         conn.commit()
     except Exception:
         pass
@@ -564,14 +609,14 @@ async def post_sessions_delete(request: _Request, _u=_Depends(_auth)):
     conn = _get_db()
     # Ownership check: only delete if session belongs to this user (or is legacy/local)
     _row = conn.execute(
-        "SELECT 1 FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
         (sid, uid)
     ).fetchone()
     if not _row:
         return _JSON(content={"ok": False, "error": "Session not found or access denied"}, status_code=403)
     if sid in _sessions:
         del _sessions[sid]
-    conn.execute("DELETE FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)", (sid, uid))
+    conn.execute("DELETE FROM session_store WHERE session_id=? AND user_id=?", (sid, uid))
     conn.commit()
     _json_path = _SESSIONS_DIR / f"{sid}.json"
     try:
@@ -591,9 +636,9 @@ async def post_sessions_clear(request: _Request, _u=_Depends(_auth)):
     keep = body.get("keep", "web")
     uid = _u.get("id") or _u.get("uid") or _u.get("username")
     conn = _get_db()
-    # Only delete sessions belonging to this user (or legacy null-owner sessions)
+    # Only delete sessions belonging to this user
     rows = conn.execute(
-        "SELECT session_id FROM session_store WHERE session_id != ? AND (user_id=? OR user_id IS NULL)",
+        "SELECT session_id FROM session_store WHERE session_id != ? AND user_id=?",
         (keep, uid)
     ).fetchall()
     deleted = 0
@@ -609,7 +654,7 @@ async def post_sessions_clear(request: _Request, _u=_Depends(_auth)):
             pass
         deleted += 1
     conn.execute(
-        "DELETE FROM session_store WHERE session_id != ? AND (user_id=? OR user_id IS NULL)",
+        "DELETE FROM session_store WHERE session_id != ? AND user_id=?",
         (keep, uid)
     )
     conn.commit()
@@ -627,8 +672,11 @@ async def post_sessions_import(request: _Request, _u=_Depends(_auth)):
         return _JSON(content={"ok": False, "error": "messages array required"}, status_code=400)
     sid = f"imported_{uuid.uuid4().hex[:8]}"
     conn = _get_db()
-    conn.execute("INSERT OR REPLACE INTO session_store (session_id, messages, title, updated_at) VALUES (?, ?, ?, datetime('now'))",
-                 (sid, _json.dumps(messages, ensure_ascii=False), title))
+    uid = _u.get("id") or _u.get("uid") or _u.get("username")
+    conn.execute(
+        "INSERT OR REPLACE INTO session_store (session_id, user_id, messages, title, updated_at) VALUES (?, ?, ?, ?, datetime('now'))",
+        (sid, uid, _json.dumps(messages, ensure_ascii=False), title),
+    )
     conn.commit()
     audit_log("session_import", sid, detail_dict={"title": title, "msg_count": len(messages)})
     return _JSON(content={"ok": True, "session_id": sid})
@@ -645,13 +693,13 @@ async def post_sessions_rename(request: _Request, _u=_Depends(_auth)):
     conn = _get_db()
     # Ownership check before rename
     _row = conn.execute(
-        "SELECT 1 FROM session_store WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
         (sid, uid)
     ).fetchone()
     if not _row:
         return _JSON(content={"ok": False, "error": "Session not found or access denied"}, status_code=403)
     conn.execute(
-        "UPDATE session_store SET title=? WHERE session_id=? AND (user_id=? OR user_id IS NULL)",
+        "UPDATE session_store SET title=? WHERE session_id=? AND user_id=?",
         (title, sid, uid)
     )
     conn.commit()
@@ -668,7 +716,7 @@ async def post_sessions_rollback(request: _Request, _u=_Depends(_auth)):
         count = 1
     if not sid:
         return _JSON(content={"ok": False, "error": "Missing session_id"}, status_code=400)
-    _uid = _u.get("id") if _u and _u.get("role") != "admin" else None
+    _uid = _u.get("id") if _u and _u.get("role") not in ("admin", "owner") else None
     return _JSON(content=rollback_session(sid, count, user_id=_uid))
 
 @router.post("/api/sessions/branch")
@@ -683,5 +731,57 @@ async def post_sessions_branch(request: _Request, _u=_Depends(_auth)):
         _mi = max(0, int(message_index))
     except (TypeError, ValueError):
         return _JSON(content={"ok": False, "error": "Invalid message_index"}, status_code=400)
-    _uid = _u.get("id") if _u and _u.get("role") != "admin" else None
+    _uid = _u.get("id") if _u and _u.get("role") not in ("admin", "owner") else None
     return _JSON(content=branch_session(sid, _mi, user_id=_uid))
+
+
+@router.get("/api/sessions/{session_id}/export")
+async def get_session_export(session_id: str, format: str = "json", _u=_Depends(_auth)):
+    """GET /api/sessions/{session_id}/export — export session as JSON or Markdown."""
+    import json as _json
+    from fastapi import HTTPException as _HTTPException
+    from fastapi.responses import Response as _Resp
+    from salmalm.core import _get_db
+    uid = _u.get("id") or _u.get("uid") or _u.get("username")
+    conn = _get_db()
+    row = conn.execute(
+        "SELECT messages, updated_at FROM session_store WHERE session_id=? AND user_id=?",
+        (session_id, uid),
+    ).fetchone()
+    if not row:
+        raise _HTTPException(status_code=404, detail="Session not found or access denied")
+    msgs = _json.loads(row[0])
+    updated_at = row[1] or ""
+    if format == "md":
+        lines = [
+            "# SalmAlm Chat Export",
+            f"Session: {session_id}",
+            f"Date: {updated_at}",
+            "",
+        ]
+        for msg in msgs:
+            if msg.get("role") == "system":
+                continue
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                content = " ".join(
+                    b.get("text", "") for b in content
+                    if isinstance(b, dict) and b.get("type") == "text"
+                )
+            icon = "## 👤 User" if msg.get("role") == "user" else "## 😈 Assistant"
+            lines += [icon, str(content), "", "---", ""]
+        body = "\n".join(lines).encode("utf-8")
+        fname = f"salmalm_{session_id}_{updated_at[:10]}.md"
+        return _Resp(
+            content=body,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
+    export_data = {"session_id": session_id, "updated_at": updated_at, "messages": msgs}
+    body = _json.dumps(export_data, ensure_ascii=False, indent=2).encode("utf-8")
+    fname = f"salmalm_{session_id}_{updated_at[:10]}.json"
+    return _Resp(
+        content=body,
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

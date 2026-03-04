@@ -30,6 +30,6 @@
 """Read `.mat` files disregarding of the underlying file version."""
 
 from ._version import __version__
-from .pymatreader import read_mat
+from .pymatreader import read_mat, whosmat
 
-__all__ = ['read_mat', '__version__']
+__all__ = ['read_mat', 'whosmat', '__version__']

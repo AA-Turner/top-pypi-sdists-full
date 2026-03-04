@@ -11,18 +11,17 @@ import math
 sys.path.insert(0, os.getcwd())
 
 try:
-    from coloraide_extras.everything import ColorAll
+    from coloraide_extras.everything import ColorAll as Color
 except ImportError:
-    from coloraide.everything import ColorAll
-from coloraide.cat import WHITES  # noqa: E402
-from coloraide import algebra as alg  # noqa: E402
-from coloraide.temperature import ohno_2013  # noqa: E402
-from coloraide import cmfs  # noqa: E402
-from coloraide import gamut  # noqa: E402
-from coloraide.spaces import Labish
+    from coloraide.everything import ColorAll as Color
+from coloraide.cat import WHITES
+from coloraide import algebra as alg
+from coloraide import cmfs
+from coloraide import gamut
+from coloraide.spaces import Labish, LChish
 
 ALL_WHITES = copy.deepcopy(WHITES)
-ALL_WHITES['2deg']['D60'] = ColorAll.CS_MAP['aces2065-1'].WHITE
+ALL_WHITES['2deg']['D60'] = Color.CS_MAP['aces2065-1'].WHITE
 
 # Pick some arbitrary labels to display.
 labels_1931 = [
@@ -70,49 +69,42 @@ labels_1960 = [
 ISOTHERMS = {100000, 10000, 6000, 4000, 3000, 2000, 1500, 1000}
 
 
-class Color(ColorAll):
-    """Custom class for Pointer conversion."""
-
-
-def get_spline(x, y, steps=100):
-    """Get spline."""
-
-    return tuple([*i] for i in zip(*alg.interpolate([*zip(x, y)], method='catrom').steps(steps)))
-
-
 def convert_chromaticity(xy, opt):
     """Convert chromaticities."""
 
     if opt.viewed_chromaticity == opt.chromaticity:
         return xy
 
-    color = ColorAll.chromaticity(
+    color = Color.chromaticity(
         opt.viewed_chromaticity,
         xy,
         opt.chromaticity,
         white=opt.white
     )
+    if opt.polar:
+        return alg.polar_to_rect(color[opt.viewed_chromaticity_names[0]], color[opt.viewed_chromaticity_names[1]])
     return color[opt.viewed_chromaticity_names[0]], color[opt.viewed_chromaticity_names[1]]
 
 
-def get_spectral_locus_labels(opt):
+def get_spectral_locus_labels(opt, poly):
     """Get the spectral locus wavelength labels."""
 
-    distance = opt.label_distance
-    standard = opt.viewed_chromaticity == opt.chromaticity
+    deltax = (poly.xmax - poly.xmin)
+    deltay = (poly.ymax - poly.ymin)
+    distance = ((deltax + deltay) / 2) * 0.05
 
     annotations = []
     for wave in sorted(opt.spectral_locus_labels):
         x, y = convert_chromaticity(
-            ColorAll.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave))[:-1],
+            Color.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave))[:-1],
             opt
         )
         x1, y1 = convert_chromaticity(
-            ColorAll.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave - 0.05))[:-1],
+            Color.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave - 0.05))[:-1],
             opt
         )
         x2, y2 = convert_chromaticity(
-            ColorAll.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave + 0.05))[:-1],
+            Color.convert_chromaticity('xy-1931', opt.chromaticity, opt.observer.xy(wave + 0.05))[:-1],
             opt
         )
 
@@ -122,23 +114,32 @@ def get_spectral_locus_labels(opt):
 
         diry = (y - y1) > 0
         dirx = (x - x1) > 0
-        m1 = -((y - y1) / (x - x1)) ** -1
-        m2 = -((y2 - y) / (x2 - x)) ** -1
+        temp = (y - y1) / (x - x1)
+        m1 = -(temp) ** -1 if temp else 0
+        temp = (y2 - y) / (x2 - x)
+        m2 = -(temp) ** -1 if temp else 0
         m = alg.lerp(m1, m2, factor)
 
         length = math.sqrt(1.0 + m ** 2)
         dx = 1.0 / length
         dy = m / length
 
-        noadjust = not standard or wave < 695
+        # We only use 700 in the 1931 diagram, and it wraps back in on itself.
+        # It will be placed on the left, which isn't wrong, but not visually expected.
+        # Prevent this so it stays on the right side.
+        adjust = wave != 700
 
-        # Values really close to 700 extend past the normal locus part and cause the orientation to be off,
-        # so we force values greater than 695 to orient in sanely.
-        x0 = x + dx * (-distance if ((m >= 0 and not dirx) or (m < 0 and dirx and diry)) and noadjust else distance)
-        y0 = y + dy * (-distance if ((m >= 0 and diry) or (m < 0 and diry)) and noadjust else distance)
+        # Calculate sign
+        sx = (-1 if ((m >= 0 and not dirx) or (m < 0 and dirx)) and adjust else 1)
+        sy = (-1 if ((m >= 0 and diry) or (m < 0 and diry)) and adjust else 1)
 
-        rotate = math.degrees(math.atan2(y0 - y, x0 - x)) % 360
-        if rotate > 150:
+        # Apply offset
+        x0 = x + dx * distance * sx
+        y0 = y + dy * distance * sy
+
+        # Rotate text
+        rotate = math.degrees(math.atan2(dy, dx)) % 360
+        if 90 <= rotate <= 270:
             rotate += 180
             rotate %= 360
 
@@ -146,7 +147,7 @@ def get_spectral_locus_labels(opt):
     return annotations
 
 
-class Polygon2D:
+class Polygon:
     """2D Polygon."""
 
     def __init__(self, x, y):
@@ -179,23 +180,33 @@ class Polygon2D:
         """
 
         px, py = p
+
         # If point is outside the the bounding box, it is not in the 2D polygon.
         if px > self.xmax or px < self.xmin or py > self.ymax or py < self.ymin:
             return False
 
         winding = 0
+        # Get the previous vertex
+        ax = self.x[0]
+        ay = self.y[0]
         for i in range(1, self.length):
-            # Get the previous and and current vertex
-            j = i - 1
-            ax, ay = self.x[j], self.y[j]
-            bx, by = self.x[i], self.y[i]
+            # Get the current vertex
+            bx = self.x[i]
+            by = self.y[i]
 
+            # Check if crossing
             if ay <= py:
                 if by > py and ((bx - ax) * (py - ay) - (px - ax) * (by - ay)) > 0:
                     winding += 1
             elif by <= py and ((bx - ax) * (py - ay) - (px - ax) * (by - ay)) < 0:
-                winding -= 1
-        return winding != 0
+                winding += 1
+
+            # Current is now previous
+            ax = bx
+            ay = by
+
+        # If odd, we are inside
+        return bool(winding & 1)
 
 
 class DiagramOptions:
@@ -213,15 +224,21 @@ class DiagramOptions:
 
         self.observer = cmfs.CIE_1931_2DEG
         self.white = ALL_WHITES['2deg']['D65']
+        self.polar = False
 
         self.viewed_chromaticity = None
         if mode not in ('1931', '1960', '1976'):
-            if ColorAll.CS_MAP.get(mode):
-                cs = ColorAll.CS_MAP[mode]
-                if isinstance(ColorAll.CS_MAP[mode], Labish):
+            if Color.CS_MAP.get(mode):
+                cs = Color.CS_MAP[mode]
+                if isinstance(cs, Labish):
                     self.chromaticity = 'xy-1931'
                     self.viewed_chromaticity = mode
                     self.viewed_chromaticity_names = cs.names()[1:]
+                elif isinstance(cs, LChish):
+                    self.chromaticity = 'xy-1931'
+                    self.viewed_chromaticity = mode
+                    self.viewed_chromaticity_names = cs.names()[1:]
+                    self.polar = True
             if self.viewed_chromaticity is None:
                 raise ValueError(f"Unrecognized 'mode': {mode}")
         else:
@@ -236,24 +253,20 @@ class DiagramOptions:
             self.spectral_locus_labels = labels_1931
             self.axis_labels = ('CIE x', 'CIE y')
             self.title = "CIE 1931 Chromaticy Diagram - 2˚ Degree Standard Observer"
-            self.label_distance = 0.04
         elif mode == "1976":
             self.spectral_locus_labels = labels_1960
             self.axis_labels = ("CIE u'", "CIE v'")
             self.title = "CIE 1976 UCS Chromaticity Diagram - 2˚ Degree Standard Observer"
-            self.label_distance = 0.03
         elif mode == '1960':
             self.spectral_locus_labels = labels_1960
             self.axis_labels = ('CIE u', 'CIE v')
             self.title = "CIE 1960 UCS Chromaticity Diagram - 2˚ Degree Standard Observer"
-            self.label_distance = 0.02
         else:
             self.spectral_locus_labels = labels_1960
-            self.axis_labels = self.viewed_chromaticity_names
+            self.axis_labels = self.viewed_chromaticity_names if not self.polar else ['a', 'b']
             self.title = f"CIE {mode} Chromaticity Diagram - 2˚ Degree Standard Observer"
-            self.label_distance = 0.05
 
-        self.cct = 'ohno-2013'
+        self.cct = 'robertson-1968'
 
         if title:
             self.title = title
@@ -290,29 +303,24 @@ def cie_diagram(
     if isotherms:
         black_body = True
 
-    class Color(ColorAll):
-        ...
-
-    Color.register([ohno_2013.Ohno2013(opt.observer, opt.white)], overwrite=True)
-
-    xs = []
-    ys = []
+    locus =[]
     annotations = []
 
     # Get points for the spectral locus
-    for r in alg.linspace(360, 780, int(len(opt.observer) * 1.5)):
+    for r in alg.linspace(opt.observer.start, opt.observer.end, len(opt.observer)):
         xy = opt.observer.xy(r)
-        x, y = Color.convert_chromaticity('xy-1931', opt.chromaticity, xy)[:-1]
-        xs.append(x)
-        ys.append(y)
-
-    annotations = get_spectral_locus_labels(opt)
+        xy = Color.convert_chromaticity('xy-1931', opt.chromaticity, xy)[:-1]
+        locus.append(xy)
 
     # Draw the bottom purple line
-    interp = alg.interpolate([[xs[-1], ys[-1]], [xs[0], ys[0]]])
-    xi, yi = zip(*[interp(i / 50) for i in range(1, 51)])
-    xs.extend(xi)
-    ys.extend(yi)
+    interp = alg.interpolate([locus[-1], locus[0]])
+    locus.extend([interp(i / 50) for i in range(1, 51)])
+
+    # Create the polygon representing the locus
+    poly = Polygon(*zip(*[convert_chromaticity(r, opt) for r in locus]))
+
+    # Create wavelength labels
+    annotations = get_spectral_locus_labels(opt, poly)
 
     spaces = []
 
@@ -351,9 +359,7 @@ def cie_diagram(
                     sy,
                     color,
                     label,
-                    Polygon2D(sx, sy),
-                    _x,
-                    _y
+                    Polygon(_x, _y)
                 )
             )
 
@@ -385,9 +391,7 @@ def cie_diagram(
                     sy,
                     color,
                     label,
-                    Polygon2D(sx, sy),
-                    _x,
-                    _y
+                    Polygon(_x, _y)
                 )
             )
 
@@ -405,16 +409,15 @@ def cie_diagram(
             interp = alg.interpolate([blue[:-1], red[:-1]])
             sxy.extend([interp(i / 50) for i in range(1, 51)])
             sx, sy = zip(*sxy)
-            xy = [*zip(*[convert_chromaticity((a, b), opt) for a, b in zip(sx, sy)])]
+            xy = [convert_chromaticity((a, b), opt) for a, b in zip(sx, sy)]
+            _x, _y = zip(*xy)
             spaces.append(
                 (
                     sx,
                     sy,
                     color,
                     space,
-                    Polygon2D(sx, sy),
-                    xy[0],
-                    xy[1]
+                    Polygon(_x, _y)
                 )
             )
 
@@ -426,7 +429,6 @@ def cie_diagram(
         cx = []
         cy = []
         cc = []
-        poly = Polygon2D(xs, ys)
         min_range_x = float('inf')
         min_range_y = float('inf')
         max_range_x = float('-inf')
@@ -442,8 +444,8 @@ def cie_diagram(
                 max_range_y = s[4].ymax
 
         for r in itertools.product(
-            alg.linspace(min(0, min_range_x), max(1, max_range_x), resolution, endpoint=True),
-            alg.linspace(min(0, min_range_y), max(1, max_range_y), resolution, endpoint=True)
+            alg.linspace(min(poly.xmin, min_range_x), max(poly.xmax, max_range_x), resolution),
+            alg.linspace(min(poly.ymin, min_range_y), max(poly.ymax, max_range_y), resolution)
         ):
             in_space = False
             if spaces:
@@ -453,32 +455,48 @@ def cie_diagram(
                         break
 
             if poly.contains(r):
-                xy = convert_chromaticity(r, opt)
                 if in_space:
-                    cx.append(xy[0])
-                    cy.append(xy[1])
+                    cx.append(r[0])
+                    cy.append(r[1])
                 else:
-                    px.append(xy[0])
-                    py.append(xy[1])
+                    px.append(r[0])
+                    py.append(r[1])
 
-                srgb = Color.chromaticity(
-                    'srgb',
-                    r,
-                    opt.chromaticity,
-                    white=opt.white,
-                    scale=True,
-                    scale_space='srgb-linear',
-                    clip_negative=True,
-                    max_saturation=True
-                )
-                if in_space:
-                    cc.append(srgb.convert('srgb').to_string(hex=True, fit="clip"))
+                if opt.mode not in ('1931', '1960', '1976'):
+                    cs = Color.CS_MAP[opt.mode]
+                    values = [''] * 3
+                    l, a, b = cs.indexes()
+                    values[l] = '100%'
+                    if opt.polar:
+                        chroma, hue = alg.rect_to_polar(r[0], r[1])
+                        values[a] = str(chroma)
+                        values[b] = str(hue)
+                    else:
+                        values[a] = str(r[0])
+                        values[b] = str(r[1])
+                    srgb = Color(
+                        f'color({cs.SERIALIZE[0]} {values[0]} {values[1]} {values[2]})'
+                    ).convert('srgb', in_place=True)
+                    srgb.fit(method='scale', max_saturation=True, clip_negative=True)
                 else:
-                    c.append(srgb.convert('srgb').to_string(hex=True, fit="clip"))
+                    srgb = Color.chromaticity(
+                        'srgb',
+                        r,
+                        opt.chromaticity,
+                        white=opt.white,
+                        scale=True,
+                        scale_space='srgb-linear',
+                        clip_negative=True,
+                        max_saturation=True
+                    )
+                if in_space:
+                    cc.append(srgb.to_string(hex=True, fit="clip"))
+                else:
+                    c.append(srgb.to_string(hex=True, fit="clip"))
             elif in_space:
-                xy = convert_chromaticity(r, opt)
-                cx.append(xy[0])
-                cy.append(xy[1])
+                # xy = convert_chromaticity(r, opt)
+                cx.append(r[0])
+                cy.append(r[1])
                 cc.append('#888888')
 
         # Visible spectrum fill
@@ -501,21 +519,18 @@ def cie_diagram(
                 showlegend=False
             ))
 
-    for i in range(len(xs)):
-        xs[i], ys[i] = convert_chromaticity((xs[i], ys[i]), opt)
-
-    # Spectral Locus
+    # Spectral Locus line
     fig.add_traces(data=go.Scatter(
-        x=xs,
-        y=ys,
+        x=poly.x,
+        y=poly.y,
         mode='lines',
         line={'color': opt.locus_line_color if colorize else opt.default_color, 'width': 2},
         showlegend=False,
         opacity=0.5
     ))
 
+    # Add labels
     if label_opacity > 0:
-        # Label points
         lx = []
         ly = []
         for annotate in annotations:
@@ -550,16 +565,16 @@ def cie_diagram(
     for item in spaces:
         # Shadow effect
         fig.add_traces(data=go.Scatter(
-            x=[i + 0.0012 for i in item[5]],
-            y=[i - 0.0012 for i in item[6]],
+            x=[i + 0.0012 for i in item[4].x],
+            y=[i - 0.0012 for i in item[4].y],
             mode='lines',
             line={'color': opt.locus_line_color, 'width': 5},
             opacity=0.3,
             showlegend=False
         ))
         fig.add_traces(data=go.Scatter(
-            x=item[5],
-            y=item[6],
+            x=item[4].x,
+            y=item[4].y,
             mode='lines',
             name=item[3],
             line={'color': item[2], 'width': 4},
@@ -629,7 +644,7 @@ def cie_diagram(
             cwl = color.wavelength(white=w, complementary=True)
             if not math.isnan(dwl[1][0]):
                 bu0, bv0 = convert_chromaticity(
-                    color.split_chromaticity(opt.chromaticity, white=opt.white)[:-1],
+                    color.split_chromaticity(opt.chromaticity)[:-1],
                     opt
                 )
                 bu1, bv1 = convert_chromaticity(
@@ -682,6 +697,7 @@ def cie_diagram(
             temp, duv = (float(v) for v in value.split(':'))
             c = Color.blackbody('xyz-d65', temp, duv, scale=False, method=opt.cct)
             bu, bv = c.split_chromaticity(opt.chromaticity, white=opt.white)[:-1]
+            bu, bv = convert_chromaticity((bu, bv), opt)
             annot.append(f'({round(bu, 4)}, {round(bv, 4)})')
             bx.append(bu)
             by.append(bv)
@@ -728,33 +744,46 @@ def cie_diagram(
                 for duv in duv_range:
                     c = Color.blackbody('xyz-d65', kelvin, duv, scale=False, method=opt.cct)
                     bu, bv = c.split_chromaticity(opt.chromaticity, white=opt.white)[:-1]
+                    bu, bv = convert_chromaticity((bu, bv), opt)
                     duvx.append(bu)
                     duvy.append(bv)
 
-                bottom = kelvin < 4000
                 label = f'{kelvin}K' if kelvin != 100000 else '∞'
-                rotate = 0 - (math.degrees(math.atan2(duvy[-1] - duvy[0], duvx[-1] - duvx[0])) % 360)
-                offset = duv_range[0 if bottom else 1] / 2
+                rotate = math.degrees(math.atan2(duvy[-1] - duvy[0], duvx[-1] - duvx[0])) % 360
+
+                # Place temp labels on the positive half of the Duv line.
+                offset = duv_range[1] / 2
                 c = Color.blackbody('xyz-d65', kelvin, offset, scale=False, method=opt.cct)
                 bu, bv = c.split_chromaticity(opt.chromaticity, white=opt.white)[:-1]
 
+                # Calculate offset of labels
                 ax, ay = convert_chromaticity([bu, bv], opt)
-                vert = [0, 0] if kelvin == 100000 else alg.polar_to_rect(-20 if bottom else 15, 0 - rotate)
-                horz = alg.polar_to_rect(6, 0 - rotate + 90)
-                label_offset = [vert[0] + horz[0], vert[1] + horz[1]]
+                lx, ly = alg.polar_to_rect(15, rotate) if kelvin != 100000 else alg.polar_to_rect(2, rotate + 180)
+                ls = alg.polar_to_rect(8, rotate + 90)
+                lx += ls[0]
+                ly += ls[1]
+
+                # Standard diagrams are known quantities, adjust labels to be
+                # consistent and readable. Non-standard ones we will just be
+                # consistent on how we rotate them just to prevent upside down labels.
+                if opt.mode in ('1960', '1976'):
+                    rotate += 180
+                elif opt.mode != '1931' and 90 <= rotate <= 270:
+                    rotate += 180
+                    rotate %= 360
+
                 fig.add_annotation(
                     text=label,
                     x=ax,
                     y=ay,
-                    xshift=label_offset[0],
-                    yshift=label_offset[1],
+                    xshift=lx,
+                    yshift=ly,
                     font={'size': 12},
-                    textangle=rotate,
+                    textangle=0 - rotate,
                     standoff=0,
                     showarrow=False
                 )
 
-                duvx, duvy = [*zip(*[convert_chromaticity((bu, bv), opt) for bu, bv in zip(duvx, duvy)])]
                 fig.add_traces(data=go.Scatter(
                     x=duvx,
                     y=duvy,
@@ -764,7 +793,9 @@ def cie_diagram(
                     opacity=0.5
                 ))
 
-        uaxis, vaxis = get_spline(uaxis, vaxis, len(uaxis) * 3)
+        uaxis, vaxis = zip(
+            *alg.interpolate([[i, j] for i, j in zip(uaxis, vaxis)], method='sprague').steps(len(uaxis) * 3)
+        )
         fig.add_traces(data=go.Scatter(
             x=uaxis,
             y=vaxis,
@@ -774,6 +805,7 @@ def cie_diagram(
             opacity=0.5
         ))
 
+    # Add legend of gamuts
     if overlay_legend and show_legend:
         fig.update_layout(legend={'x': 1, 'bgcolor': 'rgba(0,0,0,0)', 'xanchor': 'right', 'yanchor': 'top'})
 

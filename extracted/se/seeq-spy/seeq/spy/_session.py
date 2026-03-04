@@ -275,6 +275,12 @@ class Session:
             Server during a spy.push(metadata) call. If you have a low-memory system
             you may wish to make this lower. It is not recommended to exceed 10000.
 
+        ``spy.options.max_display_items`` (default: 10)
+
+            The maximum number of items automatically added to the display pane of a
+            worksheet by spy.push(). If pushing more than ten items you may wish to
+            increase this. Setting this option to None adds all items to the display.
+
         ``spy.options.max_concurrent_requests`` (default: 8)
 
             The maximum number of simultaneous requests made to the Seeq Server during
@@ -480,6 +486,7 @@ class Options:
     _DEFAULT_TABLE_PULL_PAGE_SIZE = 10_000
     _DEFAULT_PUSH_PAGE_SIZE = 100_000
     _DEFAULT_METADATA_PUSH_BATCH_SIZE = 1_000
+    _DEFAULT_MAX_DISPLAY_ITEMS = 10
     _DEFAULT_MAX_CONCURRENT_REQUESTS = 8
     _DEFAULT_CLEAR_CONTENT_CACHE_BEFORE_RENDER = False
     _DEFAULT_FORCE_CALCULATED_SCALARS = True
@@ -498,6 +505,7 @@ class Options:
         self.table_pull_page_size = self._DEFAULT_TABLE_PULL_PAGE_SIZE
         self.push_page_size = self._DEFAULT_PUSH_PAGE_SIZE
         self.metadata_push_batch_size = self._DEFAULT_METADATA_PUSH_BATCH_SIZE
+        self._max_display_items = self._DEFAULT_MAX_DISPLAY_ITEMS
         self.max_concurrent_requests = self._DEFAULT_MAX_CONCURRENT_REQUESTS
         self.clear_content_cache_before_render = self._DEFAULT_CLEAR_CONTENT_CACHE_BEFORE_RENDER
         self.force_calculated_scalars = self._DEFAULT_FORCE_CALCULATED_SCALARS
@@ -539,6 +547,50 @@ class Options:
         else:
             self._compatibility = value
 
+    @property
+    def max_display_items(self):
+        return self._max_display_items
+
+    @max_display_items.setter
+    def max_display_items(self, value: Optional[int]):
+        if value is None:
+            self._max_display_items = None
+            return
+
+        # Check if it's a numeric type
+        if not isinstance(value, (int, float)):
+            raise SPyValueError(
+                "max_display_items must be a positive integer or None. "
+                f"Got {type(value).__name__}: {value}"
+            )
+
+        # Convert float to int if it's a whole number, otherwise reject
+        if isinstance(value, float):
+            if value.is_integer():
+                value = int(value)
+            else:
+                raise SPyValueError(
+                    "max_display_items must be a positive integer or None. "
+                    f"Got float with decimal: {value}"
+                )
+
+        # Check that it's positive
+        if value <= 0:
+            raise SPyValueError(
+                "max_display_items must be a positive integer or None. "
+                f"Got non-positive value: {value}"
+            )
+
+        # Check that it doesn't exceed the absolute maximum to prevent browser issues
+        from seeq.spy._push import _ABSOLUTE_MAX_DISPLAY_ITEMS
+        if value > _ABSOLUTE_MAX_DISPLAY_ITEMS:
+            raise SPyValueError(
+                f"max_display_items must be set to {_ABSOLUTE_MAX_DISPLAY_ITEMS} or less to maintain browser responsiveness. "
+                f"Got value: {value}"
+            )
+
+        self._max_display_items = value
+
     def __str__(self):
         return '\n'.join([f"{k}: {v}" for k, v in self.__dict__.items()])
 
@@ -553,7 +605,8 @@ class Options:
                 self.clear_content_cache_before_render,
                 self.force_calculated_scalars,
                 self.allow_version_mismatch,
-                self.table_pull_page_size)
+                self.table_pull_page_size,
+                self._max_display_items)
 
     def __setstate__(self, state):
         def get(i, default=None):
@@ -571,6 +624,7 @@ class Options:
         self.force_calculated_scalars = get(7, self._DEFAULT_FORCE_CALCULATED_SCALARS)
         self.allow_version_mismatch = get(8, self._DEFAULT_ALLOW_VERSION_MISMATCH)
         self.table_pull_page_size = get(9, self._DEFAULT_TABLE_PULL_PAGE_SIZE)
+        self._max_display_items = get(10, self._DEFAULT_MAX_DISPLAY_ITEMS)
 
     @property
     def friendly_exceptions(self):
@@ -702,6 +756,12 @@ class Options:
                 The number of items uploaded during each round-trip to the Seeq
                 Server during a spy.push(metadata) call. If you have a low-memory system
                 you may wish to make this lower. It is not recommended to exceed 10000.
+
+            spy.options.max_display_items (default: {self._DEFAULT_MAX_DISPLAY_ITEMS})
+
+                The maximum number of items automatically added to the display pane of a
+                worksheet by spy.push(). If pushing more than ten signals you may wish to
+                increase this. Setting this option to None adds all items to the display.
 
             spy.options.max_concurrent_requests (default: {self._DEFAULT_MAX_CONCURRENT_REQUESTS})
 

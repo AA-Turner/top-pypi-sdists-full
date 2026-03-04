@@ -30,7 +30,7 @@ import threading
 import time
 from typing import Dict, List, Optional, Tuple
 
-from salmalm.constants import DATA_DIR, KST, PBKDF2_ITER
+from salmalm.constants import BASE_DIR, DATA_DIR, KST, PBKDF2_ITER
 from salmalm.security.crypto import log
 
 AUTH_DB = DATA_DIR / "auth.db"
@@ -574,6 +574,11 @@ class AuthManager:
             )""")
                 conn.execute("""CREATE INDEX IF NOT EXISTS idx_login_attempts_user
                 ON login_attempts (username, attempted_at)""")
+                try:
+                    conn.execute("ALTER TABLE login_attempts ADD COLUMN ip_address TEXT")
+                    conn.commit()
+                except Exception:
+                    pass  # column already exists
                 conn.commit()
 
                 # Create default admin if no users exist (random password)
@@ -581,24 +586,37 @@ class AuthManager:
                 if count == 0:
                     default_pw = base64.urlsafe_b64encode(os.urandom(18)).decode().rstrip("=")
                     _, raw_api_key = self._create_user_db(conn, "admin", default_pw, "admin")
-                    # SECURITY: Never log passwords to file — console only via stderr
-                    import sys
-                    import logging as _logging
-
-                    _stderr_handler = _logging.StreamHandler(sys.stderr)
-                    _stderr_handler.setFormatter(_logging.Formatter("%(message)s"))
-                    _sec_logger = _logging.getLogger("salmalm.auth.setup")
-                    _sec_logger.addHandler(_stderr_handler)
-                    _sec_logger.propagate = False
-                    _sec_logger.warning(
-                        f"\n{'=' * 50}\n"
-                        f"[USER] Default admin created\n"
-                        f"   Username: admin\n"
-                        f"   Password: {default_pw}\n"
-                        f"[WARN]  Save this password! It won't be shown again.\n"
-                        f"{'=' * 50}"
-                    )
-                    log.info("[USER] Default admin user created (password shown in console only)")
+                    # SECURITY: Write initial password to 0600 file — never to logs/stderr.
+                    # In container/orchestration envs stderr is collected centrally,
+                    # so printing credentials there leaks them to log aggregation.
+                    import sys as _sys
+                    _pw_file = BASE_DIR / "ADMIN_INIT_PASSWORD"
+                    try:
+                        _pw_file.write_text(
+                            f"admin password (one-time, delete after saving): {default_pw}\n"
+                            f"api_key: {raw_api_key}\n",
+                            encoding="utf-8",
+                        )
+                        _pw_file.chmod(0o600)
+                        print(
+                            f"\n{'=' * 50}\n"
+                            f"[SETUP] Default admin created.\n"
+                            f"   Credentials written to: {_pw_file}\n"
+                            f"   Delete that file after saving the password.\n"
+                            f"{'=' * 50}",
+                            file=_sys.stderr,
+                        )
+                    except OSError as _e:
+                        # Fallback to stderr only if file write fails (e.g. read-only FS)
+                        print(
+                            f"\n{'=' * 50}\n"
+                            f"[SETUP] Default admin created (could not write to file: {_e})\n"
+                            f"   Username: admin  Password: {default_pw}\n"
+                            f"   Save this now — it will not be shown again.\n"
+                            f"{'=' * 50}",
+                            file=_sys.stderr,
+                        )
+                    log.info("[USER] Default admin user created (credentials in %s)", _pw_file)
             finally:
                 conn.close()
             self._initialized = True
@@ -652,15 +670,16 @@ class AuthManager:
         finally:
             conn.close()
 
-    def authenticate(self, username: str, password: str) -> Optional[dict]:
+    def authenticate(self, username: str, password: str, ip: str = "") -> Optional[dict]:
         """Authenticate user. Returns user dict or None."""
         # Input size guard (prevents DoS via oversized payloads in DB/log)
         if len(username) > 256 or len(password) > 1024:
             return None
         self._ensure_db()
+        username_norm = username.strip().lower()
 
         # Check lockout (DB-persisted)
-        if self._is_locked_out(username):
+        if self._is_locked_out(username_norm):
             log.warning(f"[LOCK] Account locked: {username}")
             return None
 
@@ -675,17 +694,17 @@ class AuthManager:
                 # Constant-time: run dummy hash to prevent username enumeration via timing
                 _DUMMY_SALT = b"\x00" * 16
                 _verify_password("dummy", b"\x00" * 32, _DUMMY_SALT)
-                self._record_attempt(username)
+                self._record_attempt(username_norm, ip=ip)
                 return None
 
             if not _verify_password(password, row[2], row[3]):
-                self._record_attempt(username)
+                self._record_attempt(username_norm, ip=ip)
                 return None
 
             # Success — clear attempts + update last_login in one transaction
             from datetime import datetime
             try:
-                conn.execute("DELETE FROM login_attempts WHERE username=?", (username,))
+                conn.execute("DELETE FROM login_attempts WHERE username=?", (username_norm,))
                 conn.execute(
                     "UPDATE users SET last_login=? WHERE id=?",
                     (datetime.now(KST).isoformat(), row[0]),
@@ -844,14 +863,22 @@ class AuthManager:
             conn.close()
         return deleted
 
-    def change_password(self, username: str, new_password: str) -> bool:
-        """Change a user password. Returns True on success."""
+    def change_password(self, username: str, new_password: str, current_password: str = "") -> bool:
+        """Change a user password.
+
+        If current_password is provided, it is verified before allowing the change.
+        """
         if len(new_password) < 8:
             from salmalm.core.exceptions import AuthError
             raise AuthError("Password must be at least 8 characters")
         if len(new_password) > 1024:
             from salmalm.core.exceptions import AuthError
             raise AuthError("Password too long (max 1024 characters)")
+        if current_password:
+            existing = self.authenticate(username, current_password)
+            if not existing:
+                from salmalm.core.exceptions import AuthError
+                raise AuthError("Current password is incorrect")
         self._ensure_db()
         pw_hash, salt = _hash_password(new_password)
         conn = get_connection(AUTH_DB)
@@ -893,6 +920,18 @@ class AuthManager:
 # ── Request authentication middleware ────────────────────────
 
 
+def normalize_principal(user: dict | None) -> dict | None:
+    """Normalize principal shape across JWT and API-key auth payloads."""
+    if not user:
+        return None
+    return {
+        "id": user.get("id") or user.get("uid"),
+        "username": user.get("username") or user.get("usr"),
+        "role": user.get("role", "anonymous"),
+        "jti": user.get("jti"),
+    }
+
+
 def extract_auth(headers: dict) -> Optional[dict]:
     """Extract user from request headers (Bearer token or API key).
 
@@ -904,14 +943,14 @@ def extract_auth(headers: dict) -> Optional[dict]:
     auth_header = headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
-        return auth_manager.verify_token(token)
+        return normalize_principal(auth_manager.verify_token(token))
     if auth_header.startswith("ApiKey "):
         api_key = auth_header[7:]
-        return auth_manager.authenticate_api_key(api_key)
+        return normalize_principal(auth_manager.authenticate_api_key(api_key))
     # Check X-API-Key header
     api_key = headers.get("x-api-key", "")
     if api_key:
-        return auth_manager.authenticate_api_key(api_key)
+        return normalize_principal(auth_manager.authenticate_api_key(api_key))
     # Check HttpOnly cookie (fallback for browser clients that set it on login)
     cookie_header = headers.get("cookie", "")
     if cookie_header:
@@ -920,7 +959,7 @@ def extract_auth(headers: dict) -> Optional[dict]:
             if part.startswith("salmalm_token="):
                 cookie_token = part[len("salmalm_token="):]
                 if cookie_token:
-                    return auth_manager.verify_token(cookie_token)
+                    return normalize_principal(auth_manager.verify_token(cookie_token))
     return None
 
 

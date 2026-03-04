@@ -327,28 +327,15 @@ class EMSys:
         send_keys("{DOWN " + ("2") + "}")
 
         await worker_sleep(2)
-        # pyautogui.click(893, 549)
-        await worker_sleep(5)
+        
         try:
-            caminho_imagem = "assets\\entrada_de_notas_16\\banco_boleto.png"
-            # Verifica se apareceu a imagem de "sem dados"
-            localizacao = pyautogui.locateOnScreen(caminho_imagem, confidence=0.9)
-            if localizacao:
-                pass
-
+            combo = main_window.child_window(class_name="TDBIComboBox", found_index=0).click()
+            await worker_sleep(2)
+            combo.select("BANCO DO BRASIL BOLETO")
         except:
-            try:
-                # Selecionar natureza da operação 9 - outros
-                select_other = main_window.child_window(
-                    class_name="TDBIComboBox", found_index=0
-                )
-                select_other.select("BOLETO")
-            except Exception as e:
-                print(f"Não foi possível selecionar: {e}")
-        # try:
-        #     set_combobox("||List", "BANCO DO BRASIL BOLETO")
-        # except:
-        #     set_combobox("||List", "BOLETO")
+            combo.select("BOLETO")
+            await worker_sleep(1)
+        send_keys("{ENTER}")
 
     async def inserir_vencimento_e_valor(
         self, nome_fornecedor, data_emissao, data_vencimento, valor

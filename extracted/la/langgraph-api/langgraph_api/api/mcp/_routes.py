@@ -13,29 +13,9 @@ __all__ = ["mcp_routes"]
 
 
 async def handle_mcp_endpoint(request: ApiRequest) -> Response:
-    """MCP endpoint handler the implements the Streamable HTTP protocol.
-
-    The handler is expected to support the following methods:
-
-    - POST: Process a JSON-RPC request
-    - DELETE: Terminate a session
-
-    We currently do not support:
-    - /GET (initiates a streaming session)
-        This endpoint can be used to RESUME a previously interrupted session.
-    - text/event-stream (streaming) response from the server.
-
-    Support for these can be added, we just need to determine what information
-    from the agent we want to stream.
-
-    One possibility is to map "custom" stream mode to server side notifications.
-
-    Args:
-        request: The incoming request object
-
-    Returns:
-        The response to the request
-    """
+    # MCP endpoint handler that implements the Streamable HTTP protocol.
+    # Supports POST (JSON-RPC request) and DELETE (terminate session).
+    # GET (streaming session resumption) and text/event-stream not yet supported.
     # Route request based on HTTP method
     if request.method == "DELETE":
         return handle_delete_request()

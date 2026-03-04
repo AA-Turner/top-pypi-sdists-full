@@ -97,7 +97,9 @@ __all__ = (
     "WaiterName",
 )
 
-AgentManagedRuntimeTypeType = Literal["PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13"]
+AgentManagedRuntimeTypeType = Literal[
+    "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
+]
 AgentRuntimeEndpointStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]

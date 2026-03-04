@@ -34574,11 +34574,11 @@ class FunctionNodeInputString(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeInputVector(FunctionNode, NodeInternal, Node, bpy_struct):
     """Provide a vector value that can be connected to other nodes in the tree"""
 
-    dimensions: int
-    """ Dimensions of the vector socket (in [2, 4], default 3)"""
-
     vector: mathutils.Vector
     """ (array of 4 items, in [-inf, inf], default (0.0, 0.0, 0.0, 0.0))"""
+
+    vector_dimensions: int
+    """ Dimensions of the vector socket (in [2, 4], default 3)"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:

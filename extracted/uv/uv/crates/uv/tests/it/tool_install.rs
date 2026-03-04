@@ -221,7 +221,7 @@ fn tool_install_python_from_global_version_file() {
     ");
 
     // It should use the version from the global file
-    uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @r"
+    uv_snapshot!(context.filters(), Command::new("flask").arg("--version").env(EnvVars::PATH, bin_dir.as_os_str()), @"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1813,6 +1813,10 @@ fn tool_install_uninstallable() {
             (r"bdist\.[^/\\\s]+(-[^/\\\s]+)?", "bdist.linux-x86_64"),
             (r"\\\.", ""),
             (r"#+", "#"),
+            (
+                "Please read the installation instructions at:\n ",
+                "Please read the installation instructions at:\n",
+            ),
         ])
         .collect::<Vec<_>>();
     uv_snapshot!(filters, context.tool_install()
@@ -1841,7 +1845,7 @@ fn tool_install_uninstallable() {
           We are sorry, but this package is not installable with pip.
 
           Please read the installation instructions at:
-     
+
           https://github.com/pyenv/pyenv#installation
           #
 
@@ -4249,7 +4253,7 @@ async fn tool_install_credentials() {
         ]
 
         [tool.options]
-        index = [{ url = "http://[LOCALHOST]/basic-auth/simple", explicit = false, default = false, format = "simple", authenticate = "auto" }]
+        index = [{ url = "http://[LOCALHOST]/basic-auth/simple", explicit = false, default = false, format = "simple", authenticate = "always" }]
         exclude-newer = "2025-01-18T00:00:00Z"
         "#);
     });

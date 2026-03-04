@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orso
-Version: 0.0.239
+Version: 0.0.240
 Summary: 🐻 DataFrame Library
 Home-page: https://github.com/mabel-dev/orso/
 Author-email: justin.joyce@joocer.com
@@ -12,11 +12,14 @@ Requires-Dist: pandas
 Requires-Dist: pyarrow
 Requires-Dist: numpy
 Requires-Dist: xxhash
+Provides-Extra: simdjson
+Requires-Dist: pysimdjson; extra == "simdjson"
 Dynamic: author-email
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
 

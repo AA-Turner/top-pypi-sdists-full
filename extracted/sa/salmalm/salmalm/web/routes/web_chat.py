@@ -15,6 +15,9 @@ from salmalm.core import router as _core_router
 _RESP_CACHE: dict = {}
 _RESP_CACHE_LOCK = threading.Lock()
 _RESP_CACHE_TTL = 300  # 5 minutes — enough to cover any SSE→HTTP fallback window
+_ALLOWED_IMAGE_MIMES = frozenset(
+    {"image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"}
+)
 
 
 def _get_cached_response(req_id: str, session_id: str, wait_if_processing: bool = False) -> dict | None:
@@ -151,8 +154,10 @@ class WebChatMixin:
         from salmalm.core.engine import process_message
 
         body = self._body
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
+        uid = int(_u.get("id") or _u.get("uid") or 0) or None
         self._auto_unlock_localhost()
         if not vault.is_unlocked:
             self._json({"error": "Vault locked"}, 403)
@@ -161,6 +166,8 @@ class WebChatMixin:
         session_id = body.get("session", "web")
         image_b64 = body.get("image_base64")
         image_mime = body.get("image_mime", "image/png")
+        if image_mime not in _ALLOWED_IMAGE_MIMES:
+            image_mime = "image/png"
         ui_lang = body.get("lang", "")
         req_id = body.get("req_id", "")  # idempotency key (generated per-send by client)
         use_stream = self.path.endswith("/stream")
@@ -271,7 +278,7 @@ class WebChatMixin:
             try:
                 from salmalm.core import get_session as _gs_pre
 
-                _sess_pre = _gs_pre(session_id)
+                _sess_pre = _gs_pre(session_id, user_id=uid)
                 _model_ov = getattr(_sess_pre, "model_override", None)
                 if _model_ov == "auto":
                     _model_ov = None
@@ -283,6 +290,7 @@ class WebChatMixin:
                     on_tool=on_tool_sse,
                     on_token=on_token_sse,
                     lang=ui_lang,
+                    user_id=uid,
                 )
                 try:
                     _running_loop = asyncio.get_running_loop()
@@ -291,7 +299,7 @@ class WebChatMixin:
                 except RuntimeError:
                     response = asyncio.run(_coro)
             except Exception as e:
-                log.error(f"[SSE] process_message error: {e}")
+                import traceback as _tbsse; log.error(f"[SSE] process_message error: {type(e).__name__}: {e}\n{_tbsse.format_exc()}")
                 response = f"❌ Internal error: {type(e).__name__}"
             finally:
                 _keepalive_stop.set()  # Fix #3: stop keepalive thread
@@ -303,7 +311,7 @@ class WebChatMixin:
 
             from salmalm.core import get_session as _gs2
 
-            _sess2 = _gs2(session_id)
+            _sess2 = _gs2(session_id, user_id=uid)
             try:
                 from salmalm.tools.tools_ui import pop_pending_commands
 
@@ -345,7 +353,7 @@ class WebChatMixin:
             try:
                 from salmalm.core import get_session as _gs_pre2
 
-                _sess_pre2 = _gs_pre2(session_id)
+                _sess_pre2 = _gs_pre2(session_id, user_id=uid)
                 _model_ov2 = getattr(_sess_pre2, "model_override", None)
                 if _model_ov2 == "auto":
                     _model_ov2 = None
@@ -355,6 +363,7 @@ class WebChatMixin:
                     model_override=_model_ov2,
                     image_data=(image_b64, image_mime) if image_b64 else None,
                     lang=ui_lang,
+                    user_id=uid,
                 )
                 try:
                     _running_loop2 = asyncio.get_running_loop()
@@ -362,11 +371,11 @@ class WebChatMixin:
                 except RuntimeError:
                     response = asyncio.run(_coro2)
             except Exception as e:
-                log.error(f"[Chat] process_message error: {e}")
-                response = f"❌ Internal error: {type(e).__name__}"
+                import traceback as _tb2; log.error(f"[Chat] process_message error: {type(e).__name__}: {e}\n{_tb2.format_exc()}")
+                response = f"❌ Internal error: {type(e).__name__}: {e}"
             from salmalm.core import get_session as _gs
 
-            _sess = _gs(session_id)
+            _sess = _gs(session_id, user_id=uid)
             self._json(
                 {
                     "response": response,
@@ -392,13 +401,17 @@ class WebChatMixin:
         """Post api chat regenerate."""
         body = self._body
         # Regenerate response — LibreChat style (응답 재생성)
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
+        uid = int(_u.get("id") or _u.get("uid") or 0) or None
         session_id = body.get("session_id", "web")
         message_index = body.get("message_index")
         if message_index is None:
             self._json({"error": "Missing message_index"}, 400)
             return
+        from salmalm.core import get_session as _gs
+        session_id = _gs(session_id, user_id=uid).id
         from salmalm.features.edge_cases import conversation_fork
 
         try:
@@ -420,14 +433,18 @@ class WebChatMixin:
         """Post api chat compare."""
         body = self._body
         # Compare models — BIG-AGI style (응답 비교)
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
+        uid = int(_u.get("id") or _u.get("uid") or 0) or None
         message = body.get("message", "")
         models = body.get("models", [])
         session_id = body.get("session_id", "web")
         if not message:
             self._json({"error": "Missing message"}, 400)
             return
+        from salmalm.core import get_session as _gs
+        session_id = _gs(session_id, user_id=uid).id
         from salmalm.features.edge_cases import compare_models
 
         try:
@@ -446,14 +463,18 @@ class WebChatMixin:
         """Post api alternatives switch."""
         body = self._body
         # Switch alternative — LibreChat style (대안 전환)
-        if not self._require_auth("user"):
+        _u = self._require_auth("user")
+        if not _u:
             return
+        uid = int(_u.get("id") or _u.get("uid") or 0) or None
         session_id = body.get("session_id", "")
         message_index = body.get("message_index")
         alt_id = body.get("alt_id")
         if not all([session_id, message_index is not None, alt_id]):
             self._json({"error": "Missing parameters"}, 400)
             return
+        from salmalm.core import get_session as _gs
+        session_id = _gs(session_id, user_id=uid).id
         from salmalm.features.edge_cases import conversation_fork
 
         content = conversation_fork.switch_alternative(session_id, int(message_index), int(alt_id))
@@ -461,7 +482,7 @@ class WebChatMixin:
             # Update session messages
             from salmalm.core import get_session
 
-            session = get_session(session_id)
+            session = get_session(session_id, user_id=uid)
             ua = [(i, m) for i, m in enumerate(session.messages) if m.get("role") in ("user", "assistant")]
             if int(message_index) < len(ua):
                 real_idx = ua[int(message_index)][0]
@@ -543,8 +564,11 @@ async def post_chat(req: _ChatBody, _u=_Depends(_auth)):
     session_id = req.session
     image_b64 = req.image_base64
     image_mime = req.image_mime
+    if image_mime not in _ALLOWED_IMAGE_MIMES:
+        image_mime = "image/png"
     ui_lang = req.lang
     req_id = req.req_id
+    uid = int(_u.get("id") or _u.get("uid") or 0) or None
     _MAX_MSG_CHARS = 50_000
     if len(message) > _MAX_MSG_CHARS:
         message = message[:_MAX_MSG_CHARS] + f"\n\n⚠️ **[Message truncated at {_MAX_MSG_CHARS:,} chars]**"
@@ -553,16 +577,16 @@ async def post_chat(req: _ChatBody, _u=_Depends(_auth)):
         return _JSON(content={"response": _cached["response"], "model": _cached["model"],
                               "complexity": _cached["complexity"], "from_cache": True})
     from salmalm.core import get_session as _gs
-    _sess_pre = _gs(session_id)
+    _sess_pre = _gs(session_id, user_id=uid)
     _model_ov = getattr(_sess_pre, "model_override", None)
     if _model_ov == "auto":
         _model_ov = None
     try:
         response = await process_message(session_id, message, model_override=_model_ov,
-                                         image_data=(image_b64, image_mime) if image_b64 else None, lang=ui_lang)
+                                         image_data=(image_b64, image_mime) if image_b64 else None, lang=ui_lang, user_id=uid)
     except Exception as e:
         response = f"❌ Internal error: {type(e).__name__}"
-    _sess = _gs(session_id)
+    _sess = _gs(session_id, user_id=uid)
     return _JSON(content={"response": response,
                           "model": getattr(_sess, "last_model", _core_router.force_model or "auto"),
                           "complexity": getattr(_sess, "last_complexity", "auto")})
@@ -580,8 +604,11 @@ async def post_chat_stream(req: _ChatBody, _u=_Depends(_auth)):
     session_id = req.session
     image_b64 = req.image_base64
     image_mime = req.image_mime
+    if image_mime not in _ALLOWED_IMAGE_MIMES:
+        image_mime = "image/png"
     ui_lang = req.lang
     req_id = req.req_id
+    uid = int(_u.get("id") or _u.get("uid") or 0) or None
     _MAX_MSG_CHARS = 50_000
     if len(message) > _MAX_MSG_CHARS:
         message = message[:_MAX_MSG_CHARS] + f"\n\n⚠️ **[Message truncated at {_MAX_MSG_CHARS:,} chars]**"
@@ -609,7 +636,7 @@ async def post_chat_stream(req: _ChatBody, _u=_Depends(_auth)):
                     pass
 
         from salmalm.core import get_session as _gs
-        _sess_pre = _gs(session_id)
+        _sess_pre = _gs(session_id, user_id=uid)
         _model_ov = getattr(_sess_pre, "model_override", None)
         if _model_ov == "auto":
             _model_ov = None
@@ -617,7 +644,7 @@ async def post_chat_stream(req: _ChatBody, _u=_Depends(_auth)):
         task = asyncio.create_task(
             process_message(session_id, message, model_override=_model_ov,
                             image_data=(image_b64, image_mime) if image_b64 else None,
-                            on_token=on_token, lang=ui_lang)
+                            on_token=on_token, lang=ui_lang, user_id=uid)
         )
 
         # Drain queue while task is running
@@ -635,7 +662,7 @@ async def post_chat_stream(req: _ChatBody, _u=_Depends(_auth)):
         try:
             response = await task
         except Exception as e:
-            log.error(f"[SSE] process_message error: {e}")
+            import traceback as _tbsse; log.error(f"[SSE] process_message error: {type(e).__name__}: {e}\n{_tbsse.format_exc()}")
             yield _sse("error", {"text": str(e)})
             return
 
@@ -647,7 +674,7 @@ async def post_chat_stream(req: _ChatBody, _u=_Depends(_auth)):
             pass
 
         from salmalm.core import get_session as _gs2
-        _sess2 = _gs2(session_id)
+        _sess2 = _gs2(session_id, user_id=uid)
         _done_model = getattr(_sess2, "last_model", _core_router.force_model or "auto")
         _done_complexity = getattr(_sess2, "last_complexity", "auto")
         _cache_response(req_id, session_id, response, _done_model, _done_complexity)
@@ -688,11 +715,14 @@ async def post_chat_abort(request: _Request, _u=_Depends(_auth)):
 @router.post("/api/chat/regenerate")
 async def post_chat_regenerate(request: _Request, _u=_Depends(_auth)):
     from salmalm.features.edge_cases import conversation_fork
+    from salmalm.core import get_session as _gs
     body = await request.json()
     session_id = body.get("session_id", "web")
     message_index = body.get("message_index")
+    uid = int(_u.get("id") or _u.get("uid") or 0) or None
     if message_index is None:
         return _JSON(content={"error": "Missing message_index"}, status_code=400)
+    session_id = _gs(session_id, user_id=uid).id
     try:
         response = await conversation_fork.regenerate(session_id, int(message_index))
         if response:
@@ -704,12 +734,15 @@ async def post_chat_regenerate(request: _Request, _u=_Depends(_auth)):
 @router.post("/api/chat/compare")
 async def post_chat_compare(request: _Request, _u=_Depends(_auth)):
     from salmalm.features.edge_cases import compare_models
+    from salmalm.core import get_session as _gs
     body = await request.json()
     message = body.get("message", "")
     models = body.get("models", [])
     session_id = body.get("session_id", "web")
+    uid = int(_u.get("id") or _u.get("uid") or 0) or None
     if not message:
         return _JSON(content={"error": "Missing message"}, status_code=400)
+    session_id = _gs(session_id, user_id=uid).id
     try:
         results = await compare_models(session_id, message, models or None)
         return _JSON(content={"ok": True, "results": results})
@@ -723,12 +756,15 @@ async def post_alternatives_switch(request: _Request, _u=_Depends(_auth)):
     session_id = body.get("session_id", "")
     message_index = body.get("message_index")
     alt_id = body.get("alt_id")
+    uid = int(_u.get("id") or _u.get("uid") or 0) or None
     if not all([session_id, message_index is not None, alt_id]):
         return _JSON(content={"error": "Missing parameters"}, status_code=400)
+    from salmalm.core import get_session as _gs
+    session_id = _gs(session_id, user_id=uid).id
     content = conversation_fork.switch_alternative(session_id, int(message_index), int(alt_id))
     if content:
         from salmalm.core import get_session
-        session = get_session(session_id)
+        session = get_session(session_id, user_id=uid)
         ua = [(i, m) for i, m in enumerate(session.messages) if m.get("role") in ("user", "assistant")]
         if int(message_index) < len(ua):
             real_idx = ua[int(message_index)][0]

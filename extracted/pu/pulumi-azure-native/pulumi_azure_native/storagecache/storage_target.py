@@ -34,6 +34,7 @@ class StorageTargetArgs:
                  unknown: Optional[pulumi.Input['UnknownTargetArgs']] = None):
         """
         The set of arguments for constructing a StorageTarget resource.
+
         :param pulumi.Input[_builtins.str] cache_name: Name of cache. Length of name must not be greater than 80 and chars must be from the [-0-9a-zA-Z_] char class.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[Union[_builtins.str, 'StorageTargetType']] target_type: Type of the Storage Target.
@@ -206,7 +207,8 @@ class StorageTarget(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-03-01. In version 2.x of the Azure Native provider, it used API version 2023-05-01.
 
-        Other available API versions: 2023-05-01, 2023-11-01-preview, 2024-07-01, 2025-07-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-05-01, 2023-11-01-preview, 2024-07-01, 2025-07-01, 2026-01-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -232,7 +234,8 @@ class StorageTarget(pulumi.CustomResource):
 
         Uses Azure REST API version 2024-03-01. In version 2.x of the Azure Native provider, it used API version 2023-05-01.
 
-        Other available API versions: 2023-05-01, 2023-11-01-preview, 2024-07-01, 2025-07-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+        Other available API versions: 2023-05-01, 2023-11-01-preview, 2024-07-01, 2025-07-01, 2026-01-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native storagecache [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param StorageTargetArgs args: The arguments to use to populate this resource's properties.
@@ -291,7 +294,7 @@ class StorageTarget(pulumi.CustomResource):
             __props__.__dict__["provisioning_state"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:storagecache/v20190801preview:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20191101:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20200301:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20201001:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20210301:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20210501:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20210901:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20220101:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20220501:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20230101:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20230301preview:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20230501:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20231101preview:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20240301:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20240701:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20250701:StorageTarget")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:storagecache/v20190801preview:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20191101:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20200301:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20201001:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20210301:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20210501:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20210901:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20220101:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20220501:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20230101:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20230301preview:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20230501:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20231101preview:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20240301:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20240701:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20250701:StorageTarget"), pulumi.Alias(type_="azure-native:storagecache/v20260101:StorageTarget")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(StorageTarget, __self__).__init__(
             'azure-native:storagecache:StorageTarget',

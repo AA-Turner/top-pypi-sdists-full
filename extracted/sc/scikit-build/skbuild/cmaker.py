@@ -120,7 +120,7 @@ class CMaker:
         >>> cmake_fpath = join(src_dpath, 'CMakeLists.txt')
         >>> open(cmake_fpath, 'w').write(ub.codeblock(
                 '''
-                cmake_minimum_required(VERSION 3.5.0)
+                cmake_minimum_required(VERSION 3.5...3.26)
                 project(foobar NONE)
                 file(WRITE "${CMAKE_BINARY_DIR}/foo.txt" "# foo")
                 install(FILES "${CMAKE_BINARY_DIR}/foo.txt" DESTINATION ".")
@@ -245,7 +245,7 @@ class CMaker:
         ninja_executable_path = None
         if generator.name == "Ninja":
             with contextlib.suppress(ImportError):
-                import ninja  # pylint: disable=import-outside-toplevel
+                import ninja  # noqa: PLC0415
 
                 ninja_executable_path = os.path.join(ninja.BIN_DIR, "ninja")
 
@@ -301,7 +301,7 @@ class CMaker:
                 cmd.append(f"{prefix}_FIND_IMPLEMENTATIONS:STRING=PyPy")
 
             with contextlib.suppress(ImportError):
-                import numpy as np  # pylint: disable=import-outside-toplevel
+                import numpy as np  # noqa: PLC0415
 
                 cmd.append(f"{prefix}_NumPy_INCLUDE_DIRS:PATH=" + np.get_include())
 
@@ -316,13 +316,15 @@ class CMaker:
 
         # Parse CMAKE_ARGS only if SKBUILD_CONFIGURE_OPTIONS is not present
         if "SKBUILD_CONFIGURE_OPTIONS" in os.environ:
-            env_cmake_args = list(filter(None, shlex.split(os.environ["SKBUILD_CONFIGURE_OPTIONS"])))
+            env_cmake_args = shlex.split(os.environ["SKBUILD_CONFIGURE_OPTIONS"])
             if any("CMAKE_INSTALL_PREFIX" in arg for arg in env_cmake_args):
                 msg = "CMAKE_INSTALL_PREFIX may not be passed via SKBUILD_CONFIGURE_OPTIONS."
                 raise ValueError(msg)
+        elif "CMAKE_ARGS" in os.environ:
+            env_cmake_args = shlex.split(os.environ["CMAKE_ARGS"])
+            env_cmake_args = [s for s in env_cmake_args if "CMAKE_INSTALL_PREFIX" not in s]
         else:
-            env_cmake_args_filtered = filter(None, shlex.split(os.environ.get("CMAKE_ARGS", "")))
-            env_cmake_args = [s for s in env_cmake_args_filtered if "CMAKE_INSTALL_PREFIX" not in s]
+            env_cmake_args = []
 
         cmd.extend(env_cmake_args)
 
@@ -369,7 +371,7 @@ class CMaker:
             >>> from skbuild.cmaker import CMaker
             >>> python_version = CMaker.get_python_version()
             >>> print('python_version = {!r}'.format(python_version))
-            python_version = '3.7'
+            python_version = '3.8'
         """
         python_version = sysconfig.get_config_var("VERSION")
 
@@ -402,7 +404,7 @@ class CMaker:
             >>> python_version = CMaker.get_python_version()
             >>> python_include_dir = CMaker.get_python_include_dir(python_version)
             >>> print('python_include_dir = {!r}'.format(python_include_dir))
-            python_include_dir = '.../conda/envs/py37/include/python3.7m'
+            python_include_dir = '.../conda/envs/py38/include/python3.8m'
         """
         # determine python include dir
         python_include_dir: str | None = sysconfig.get_config_var("INCLUDEPY")
@@ -679,8 +681,7 @@ class CMaker:
         clargs, install_target = pop_arg("--install-target", clargs, install_target)
         if not os.path.exists(CMAKE_BUILD_DIR()):
             msg = (
-                f"CMake build folder ({CMAKE_BUILD_DIR()}) does not exist. "
-                "Did you forget to run configure before make?"
+                f"CMake build folder ({CMAKE_BUILD_DIR()}) does not exist. Did you forget to run configure before make?"
             )
             raise SKBuildError(msg)
 

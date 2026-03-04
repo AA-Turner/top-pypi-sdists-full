@@ -2,12 +2,27 @@
 
 import json
 import time
+import asyncio
 from datetime import datetime
 from typing import Optional
 
 from salmalm.constants import BASE_DIR, KST
+from salmalm.config.paths import DATA_DIR as _CRON_DATA_DIR
 from salmalm.security.crypto import log
 
+
+
+def _get_tg_bot():
+    try:
+        from salmalm.core import _tg_bot as _b
+        return _b
+    except Exception:
+        pass
+    try:
+        from salmalm.features.channels import _tg_bot as _b2
+        return _b2
+    except Exception:
+        return None
 
 class LLMCronManager:
     """OpenClaw-style LLM cron with isolated session execution.
@@ -16,7 +31,7 @@ class LLMCronManager:
     Completed tasks announce results to configured channels.
     """
 
-    _JOBS_FILE = BASE_DIR / ".cron_jobs.json"  # noqa: F405
+    _JOBS_FILE = _CRON_DATA_DIR / ".cron_jobs.json"  # noqa: F405
 
     def __init__(self) -> None:
         """Init  ."""
@@ -27,6 +42,9 @@ class LLMCronManager:
         try:
             if self._JOBS_FILE.exists():
                 self.jobs = json.loads(self._JOBS_FILE.read_text())
+                for job in self.jobs:
+                    job.setdefault("owner_user_id", None)
+                    job.setdefault("timeout_seconds", 120)
                 log.info(f"[CRON] Loaded {len(self.jobs)} LLM cron jobs")
         except Exception as e:
             log.error(f"Failed to load cron jobs: {e}")
@@ -46,6 +64,8 @@ class LLMCronManager:
         prompt: str,
         model: Optional[str] = None,
         notify=True,
+        owner_user_id: Optional[int] = None,
+        timeout_seconds: int = 120,
     ) -> dict:
         """Add a new LLM cron job.
         schedule: {'kind': 'cron', 'expr': '0 6 * * *', 'tz': 'Asia/Seoul'}
@@ -62,6 +82,8 @@ class LLMCronManager:
             "prompt": prompt,
             "model": model,
             "notify": notify,
+            "owner_user_id": owner_user_id,
+            "timeout_seconds": max(1, int(timeout_seconds or 120)),
             "enabled": True,
             "created": datetime.now(KST).isoformat(),  # noqa: F405
             "last_run": None,
@@ -93,10 +115,34 @@ class LLMCronManager:
                 "last_run": j["last_run"],
                 "run_count": j.get("run_count", 0),
                 "error_count": j.get("error_count", 0),
+                "last_result": j.get("last_result", ""),
                 "last_error": j.get("last_error"),
+                "owner_user_id": j.get("owner_user_id"),
+                "timeout_seconds": j.get("timeout_seconds", 120),
             }
             for j in self.jobs
         ]
+
+    def _lookup_job_owner(self, job: dict) -> Optional[int]:
+        """Resolve owner_user_id from the persisted job list by id."""
+        try:
+            jid = job.get("id")
+            for j in self.jobs:
+                if j.get("id") == jid:
+                    owner = j.get("owner_user_id")
+                    return int(owner) if owner is not None else None
+        except Exception:
+            pass
+        owner = job.get("owner_user_id")
+        try:
+            return int(owner) if owner is not None else None
+        except Exception:
+            return None
+
+    def _owner_session_id(self, owner_user_id: Optional[int]) -> str:
+        if owner_user_id is None:
+            return "web"
+        return f"web_u{owner_user_id}"
 
     def _should_run(self, job: dict) -> bool:
         """Check if a job should run now."""
@@ -163,14 +209,13 @@ class LLMCronManager:
         notified = False
         if isinstance(notify_cfg, dict):
             notified = self._send_to_channel(notify_cfg, notify_text, job["name"])
-        elif _tg_bot and _tg_bot.token and _tg_bot.owner_id:
+        elif (_tb := _get_tg_bot()) and _tb.token and _tb.owner_id:
             try:
-                _tg_bot.send_message(_tg_bot.owner_id, notify_text)
+                _tb.send_message(_tb.owner_id, notify_text)
                 notified = True
             except Exception as e:
                 log.warning(f"[CRON] Telegram notify failed: {e}")
-        # Always store in web for visibility
-        self._store_web_notification(job["name"], response)
+        self._store_web_notification(job, response)
 
     def _send_to_channel(self, notify_cfg: dict, text: str, job_name: str) -> bool:
         """Send notification to a specific channel. Returns True if sent."""
@@ -178,8 +223,8 @@ class LLMCronManager:
         try:
             if ch == "telegram":
                 chat_id = notify_cfg.get("chat_id", "")
-                if chat_id and _tg_bot and _tg_bot.token:
-                    _tg_bot.send_message(chat_id, text)
+                if chat_id and (_tb2 := _get_tg_bot()) and _tb2.token:
+                    _tb2.send_message(chat_id, text)
                     return True
             elif ch == "discord":
                 channel_id = notify_cfg.get("channel_id", "")
@@ -194,23 +239,128 @@ class LLMCronManager:
             log.warning(f"[CRON] Notification routing failed for {job_name}: {e}")
         return False
 
-    def _store_web_notification(self, job_name: str, response: str) -> None:
+    def _store_web_notification(self, job: dict, response: str) -> None:
         """Store notification in web session for UI visibility."""
-        web_session = _sessions.get("web")
+        owner_user_id = self._lookup_job_owner(job)
+        if owner_user_id is None:
+            # Avoid leaking to shared "web" unless explicitly allowed.
+            import os as _os
+            if _os.environ.get("SALMALM_CRON_ALLOW_GENERIC_WEB_FALLBACK", "0") != "1":
+                return
+        try:
+            from salmalm.core import get_session as _gs
+            web_session = _gs(self._owner_session_id(owner_user_id), user_id=owner_user_id)
+        except Exception:
+            web_session = None
         if not web_session:
             return
         if not hasattr(web_session, "_notifications"):
             web_session._notifications = []
-        web_session._notifications.append({"time": time.time(), "text": f"⏰ Cron [{job_name}]: {response[:200]}"})
+        web_session._notifications.append({"time": time.time(), "text": f"⏰ Cron [{job['name']}]: {response[:200]}"})
         if len(web_session._notifications) > 200:
             web_session._notifications = web_session._notifications[-200:]
+
+    async def _run_llm_job(self, job: dict, is_manual: bool = False) -> str:
+        """Run one cron job and return model response."""
+        from salmalm.core.engine import process_message
+
+        # Track cost before/after to enforce per-cron-job cap
+        try:
+            from salmalm.features.edge_cases import _usage as _u_tick
+            cost_before = _u_tick.get("total_cost", 0)
+        except Exception:
+            cost_before = 0
+
+        # Fresh session per run — clears orphan tool_calls from prior runs
+        _cron_sid = f"cron-{job['id']}"
+        try:
+            from salmalm.core.core import get_session as _gs_cron
+            _cs = _gs_cron(_cron_sid)
+            _cs.messages = [m for m in _cs.messages if m.get("role") == "system"]
+        except Exception:
+            pass
+
+        prompt = job["prompt"]
+        if not is_manual:
+            prompt = (
+                "[SYSTEM] You are a cron job executor. Rules:\n"
+                "1. ALWAYS use tools for real-time data (time, files, web). NEVER guess or estimate.\n"
+                "2. For current time: python_eval with: import datetime; kst=datetime.timezone(datetime.timedelta(hours=9)); _result=datetime.datetime.now(kst).strftime('%Y-%m-%d %H:%M:%S KST')\n"
+                "3. Return ONLY the tool result as your final answer. No apologies, no explanations.\n"
+                "[TASK] " + job["prompt"]
+            )
+
+        response = await process_message(
+            _cron_sid,
+            prompt,
+            model_override=job.get("model") or __import__("salmalm.security.crypto", fromlist=["vault"]).vault.get("default_model"),
+        )
+
+        try:
+            from salmalm.features.edge_cases import _usage as _u_tick2
+            cron_cost = _u_tick2.get("total_cost", 0) - cost_before
+            MAX_CRON_JOB_COST = 2.0
+            if cron_cost > MAX_CRON_JOB_COST:
+                log.warning(f"[CRON] Job {job['name']} cost ${cron_cost:.2f} — exceeds ${MAX_CRON_JOB_COST} cap")
+        except Exception:
+            pass
+        return response
+
+    async def _push_cron_result_to_owner(self, job: dict, response: str) -> None:
+        """Push cron result only to owner-scoped web session + owner's WS connections."""
+        owner_user_id = self._lookup_job_owner(job)
+        if owner_user_id is None:
+            import os as _os
+            if _os.environ.get("SALMALM_CRON_ALLOW_GENERIC_WEB_FALLBACK", "0") != "1":
+                return
+        try:
+            from salmalm.core.session_store import get_session as _gs
+            _target_sid = self._owner_session_id(owner_user_id)
+            _ws_sess = _gs(_target_sid, user_id=owner_user_id)
+            _cron_msg = f"⏰ **[크론]** `{job['name']}`\n\n{response}"
+            _ws_sess.add_assistant(_cron_msg)
+            from salmalm.web.ws import ws_server as _ws
+            if owner_user_id is not None:
+                await _ws.broadcast_to_user(
+                    {
+                        "type": "chat",
+                        "role": "assistant",
+                        "content": _cron_msg,
+                        "session": _target_sid,
+                        "source": "cron",
+                    },
+                    owner_user_id=owner_user_id,
+                )
+            else:
+                await _ws.broadcast(
+                    {
+                        "type": "chat",
+                        "role": "assistant",
+                        "content": _cron_msg,
+                        "session": _target_sid,
+                        "source": "cron",
+                    },
+                    session_id="web",
+                )
+            log.info(f"[CRON] WS push sent: {job['name']}")
+        except Exception as _pe:
+            log.debug(f"[CRON] WS push failed: {_pe}")
+
+    def _handle_cron_timeout(self, job: dict, timeout_s: float) -> None:
+        """Handle timeout for a single cron run."""
+        job["last_run"] = datetime.now(KST).isoformat()  # noqa: F405
+        job["last_error"] = f"Timeout after {int(timeout_s)}s"
+        job["error_count"] = job.get("error_count", 0) + 1
+        self.save_jobs()
+        log.warning(f"[CRON] Job timed out: {job['name']} ({int(timeout_s)}s)")
+        self._handle_cron_failure(job, TimeoutError(job["last_error"]))
 
     def _handle_cron_failure(self, job: dict, error) -> None:
         """Handle cron job failure: notify owner, auto-disable after 5 failures."""
         error_text = f"⚠️ Cron job failed: {job['name']}\nError: {str(error)[:200]}"
         try:
-            if _tg_bot and _tg_bot.token and _tg_bot.owner_id:
-                _tg_bot.send_message(_tg_bot.owner_id, error_text)
+            if (_tb3 := _get_tg_bot()) and _tb3.token and _tb3.owner_id:
+                _tb3.send_message(_tb3.owner_id, error_text)
         except Exception as e:
             log.debug(f"Suppressed: {e}")
         if job.get("error_count", 0) >= 5:
@@ -233,30 +383,30 @@ class LLMCronManager:
         import asyncio as _asyncio_cron
 
         async def _run():
-            from salmalm.core.engine import process_message
-
             log.info(f"[CRON] Manual run: {job['name']} ({job['id']})")
-            cost_before = _usage["total_cost"]
             try:
-                response = await process_message(
-                    f"cron-{job['id']}", job["prompt"], model_override=job.get("model")
+                timeout_s = float(job.get("timeout_seconds", 120) or 120)
+                response = await asyncio.wait_for(
+                    self._run_llm_job(job, is_manual=True),
+                    timeout=timeout_s,
                 )
-                cost_after = _usage["total_cost"]
-                cron_cost = cost_after - cost_before
-                MAX_CRON_JOB_COST = 2.0
-                if cron_cost > MAX_CRON_JOB_COST:
-                    log.warning(f"[CRON] Job {job['name']} cost ${cron_cost:.2f} — exceeds ${MAX_CRON_JOB_COST} cap")
                 job["last_run"] = datetime.now(KST).isoformat()  # noqa: F405
                 job["run_count"] = job.get("run_count", 0) + 1
                 job["error_count"] = 0
+                job["last_result"] = response[:120] if response else ""
                 job.pop("last_error", None)
                 self.save_jobs()
                 log.info(f"[CRON] Cron completed: {job['name']} ({len(response)} chars)")
                 self._notify_completion(job, response)
-                write_daily_log(f"[CRON] {job['name']}: {response[:150]}")
+                await self._push_cron_result_to_owner(job, response)
+                try:
+                    from salmalm.core.memory import write_daily_log as _wdl; _wdl(f"[CRON] {job['name']}: {response[:150]}")
+                except Exception: pass
                 if job["schedule"]["kind"] == "at":
                     job["enabled"] = False
                     self.save_jobs()
+            except asyncio.TimeoutError:
+                self._handle_cron_timeout(job, float(job.get("timeout_seconds", 120) or 120))
             except Exception as e:
                 log.error(f"[CRON] cron error ({job['name']}): {e}", exc_info=True)
                 job["last_run"] = datetime.now(KST).isoformat()  # noqa: F405
@@ -292,40 +442,41 @@ class LLMCronManager:
             pass
 
         # OpenClaw-style heartbeat check
-        if heartbeat.should_beat():
-            try:
-                await heartbeat.beat()
-            except Exception as e:
-                log.error(f"[HEARTBEAT] Tick error: {e}")
+        try:
+            from salmalm.core import heartbeat as _hb
+            if _hb.should_beat():
+                try:
+                    await _hb.beat()
+                except Exception as e:
+                    log.error(f"[HEARTBEAT] Tick error: {e}")
+        except Exception: pass
 
         for job in self.jobs:
             if not self._should_run(job):
                 continue
             log.info(f"[CRON] LLM cron firing: {job['name']} ({job['id']})")
             try:
-                from salmalm.core.engine import process_message
-
-                # Track cost before/after to enforce per-cron-job cap
-                cost_before = _usage["total_cost"]
-                response = await process_message(f"cron-{job['id']}", job["prompt"], model_override=job.get("model"))
-                cost_after = _usage["total_cost"]
-                cron_cost = cost_after - cost_before
-                MAX_CRON_JOB_COST = 2.0  # $2 max per cron execution
-                if cron_cost > MAX_CRON_JOB_COST:
-                    log.warning(f"[CRON] Job {job['name']} cost ${cron_cost:.2f} — exceeds ${MAX_CRON_JOB_COST} cap")
+                timeout_s = float(job.get("timeout_seconds", 120) or 120)
+                response = await asyncio.wait_for(
+                    self._run_llm_job(job, is_manual=False),
+                    timeout=timeout_s,
+                )
                 job["last_run"] = datetime.now(KST).isoformat()  # noqa: F405
                 job["run_count"] = job.get("run_count", 0) + 1
                 job["error_count"] = 0  # Reset on success
                 job.pop("last_error", None)
                 self.save_jobs()
                 log.info(f"[CRON] Cron completed: {job['name']} ({len(response)} chars)")
-
                 self._notify_completion(job, response)
-                write_daily_log(f"[CRON] {job['name']}: {response[:150]}")
+                await self._push_cron_result_to_owner(job, response)
+                try:
+                    from salmalm.core.memory import write_daily_log as _wdl; _wdl(f"[CRON] {job['name']}: {response[:150]}")
+                except Exception: pass
                 if job["schedule"]["kind"] == "at":
                     job["enabled"] = False
                     self.save_jobs()
-
+            except asyncio.TimeoutError:
+                self._handle_cron_timeout(job, float(job.get("timeout_seconds", 120) or 120))
             except Exception as e:
                 log.error(f"LLM cron error ({job['name']}): {e}")
                 job["last_run"] = datetime.now(KST).isoformat()  # noqa: F405

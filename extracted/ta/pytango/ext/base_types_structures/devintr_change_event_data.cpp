@@ -6,6 +6,7 @@
 
 #include "common_header.h"
 #include "convertors/type_casters.h"
+#include "pyutils.h"
 
 namespace PyDevIntrChangeEventData {
 static std::shared_ptr<Tango::DevIntrChangeEventData> makeDevIntrChangeEventData() {
@@ -71,4 +72,5 @@ void export_devintr_change_event_data(py::module &m) {
                 :returns: the timestamp of the event
                 :rtype: TimeVal)doc",
              py::return_value_policy::reference_internal);
+    fix_dynamic_attr_dealloc<Tango::DevIntrChangeEventData>();
 }

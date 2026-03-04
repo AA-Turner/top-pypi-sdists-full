@@ -448,7 +448,6 @@ async def post_model_switch(request: _Request, _u=_Depends(_auth)):
 @router.post("/api/test/provider")
 async def post_test_provider(request: _Request, _u=_Depends(_auth)):
     import json as _json
-    import os as _os
     from salmalm.constants import TEST_MODELS
     body = await request.json()
     provider = body.get("provider", "")
@@ -459,32 +458,37 @@ async def post_test_provider(request: _Request, _u=_Depends(_auth)):
     prov_cfg = PROVIDERS.get(provider)
     if not prov_cfg:
         return _JSON(content={"ok": False, "message": f"Unknown provider: {provider}"})
-    env_key = prov_cfg.get("env_key", "")
-    if env_key:
-        old_val = _os.environ.get(env_key)
-        _os.environ[env_key] = api_key
     try:
         import urllib.request, urllib.error
+        # Build test request WITHOUT mutating os.environ
         if provider == "anthropic":
             url = f"{prov_cfg['base_url']}/messages"
-            req = urllib.request.Request(url,
-                data=_json.dumps({"model": TEST_MODELS["anthropic"], "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}).encode(),
-                headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}, method="POST")
+            req = urllib.request.Request(
+                url,
+                data=_json.dumps({
+                    "model": TEST_MODELS["anthropic"],
+                    "max_tokens": 1,
+                    "messages": [{"role": "user", "content": "hi"}]
+                }).encode(),
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                method="POST",
+            )
         elif provider == "ollama":
             url = f"{prov_cfg['base_url']}/api/tags"
             req = urllib.request.Request(url)
         else:
+            # openai, groq, xai, openrouter, google — Bearer auth
             url = f"{prov_cfg['base_url']}/models"
             req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})
         await _asyncio.to_thread(urllib.request.urlopen, req, 10)
         return _JSON(content={"ok": True, "message": f"✅ {provider} key is valid"})
     except urllib.error.HTTPError as e:
-        return _JSON(content={"ok": False, "message": f"❌ HTTP {e.code}: Invalid key"})
+        if e.code in (401, 403):
+            return _JSON(content={"ok": False, "message": f"❌ {provider}: Invalid API key (HTTP {e.code})"})
+        return _JSON(content={"ok": False, "message": f"❌ HTTP {e.code}"})
     except Exception as e:
-        return _JSON(content={"ok": False, "message": f"❌ Connection failed: {e}"})
-    finally:
-        if env_key:
-            if old_val is not None:
-                _os.environ[env_key] = old_val
-            elif env_key in _os.environ:
-                del _os.environ[env_key]
+        return _JSON(content={"ok": False, "message": f"❌ Connection failed: {str(e)[:120]}"})

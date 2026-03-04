@@ -2,6 +2,8 @@ import sys
 import time
 import threading
 import os
+import base64
+import math
 from contextlib import contextmanager
 from typing import Callable, Union, List, Dict, Optional, Literal, Any
 import requests
@@ -92,9 +94,12 @@ flush_lock = threading.Lock()
 debug_logs = False
 redact_pii = False
 _tracing_enabled = False
+_bypass_otel_for_tools = False
 flush_thread = None
 shutdown_event = threading.Event()
 max_ingest_size_bytes = 1 * 1024 * 1024  # 1 MB
+_direct_tool_upload_size = 50
+_direct_tool_spans_buffer: list[dict[str, Any]] = []
 
 _partial_buffers: dict[str, PartialTrackAIEvent] = {}
 _partial_timers: dict[str, Timer] = {}
@@ -139,9 +144,11 @@ def flush_loop():
 
 def flush() -> None:
     global buffer
+    global _direct_tool_spans_buffer
 
     if buffer is None:
         logger.error("No buffer available")
+        _flush_traces()
         return
 
     logger.debug("Starting flush")
@@ -149,6 +156,8 @@ def flush() -> None:
     with flush_lock:
         current_buffer = buffer
         buffer = []
+        current_direct_tool_spans = _direct_tool_spans_buffer
+        _direct_tool_spans_buffer = []
 
     logger.debug(f"Flushing buffer size: {len(current_buffer)}")
 
@@ -166,7 +175,232 @@ def flush() -> None:
             logger.debug(f"Sending {len(batch)} events to {endpoint}")
             send_request(endpoint, batch)
 
+    _flush_direct_tool_spans(current_direct_tool_spans)
+
     logger.debug("Flush complete")
+    _flush_traces()
+
+
+def _flush_traces() -> None:
+    if not _tracing_enabled:
+        return
+
+    try:
+        if TracerWrapper.verify_initialized():
+            TracerWrapper().flush()
+    except Exception as e:
+        logger.debug(f"Could not flush TracerWrapper during flush: {e}")
+
+
+def _otlp_attr_string(key: str, value: Any) -> Optional[Dict[str, Any]]:
+    if value is None:
+        return None
+    return {"key": key, "value": {"stringValue": str(value)}}
+
+
+def _otlp_attr_bool(key: str, value: bool | None) -> Optional[Dict[str, Any]]:
+    if value is None:
+        return None
+    return {"key": key, "value": {"boolValue": bool(value)}}
+
+
+def _otlp_attr_int(key: str, value: int | None) -> Optional[Dict[str, Any]]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    return {"key": key, "value": {"intValue": str(int(value))}}
+
+
+def _otlp_attr_double(
+    key: str, value: float | None
+) -> Optional[Dict[str, Any]]:
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return {"key": key, "value": {"doubleValue": number}}
+
+
+def _random_id_b64(num_bytes: int) -> str:
+    return base64.b64encode(os.urandom(num_bytes)).decode("ascii")
+
+
+def _int_id_to_b64(value: int | None, width_bytes: int) -> Optional[str]:
+    if value is None or value == 0:
+        return None
+    try:
+        return base64.b64encode(int(value).to_bytes(width_bytes, "big")).decode("ascii")
+    except (OverflowError, ValueError):
+        return None
+
+
+def _get_active_trace_context_b64() -> tuple[Optional[str], Optional[str]]:
+    """
+    Read active OTEL context IDs without depending on exporter configuration.
+    """
+    try:
+        span_context = get_current_span().get_span_context()
+    except Exception:
+        return None, None
+
+    if span_context is None:
+        return None, None
+
+    trace_id = getattr(span_context, "trace_id", 0) or 0
+    parent_span_id = getattr(span_context, "span_id", 0) or 0
+    if trace_id == 0:
+        return None, None
+
+    return _int_id_to_b64(trace_id, 16), _int_id_to_b64(parent_span_id, 8)
+
+
+def _build_direct_tool_span(
+    *,
+    span_name: str,
+    tool_name: str,
+    version: int | None,
+    start_ns: int,
+    end_ns: int,
+    duration_ms: float | int | None,
+    input_value: str | None,
+    output_value: str | None,
+    error_message: str | None,
+    association_properties: Dict[str, Any],
+) -> Dict[str, Any]:
+    trace_id_b64, parent_span_id_b64 = _get_active_trace_context_b64()
+    if trace_id_b64 is None:
+        trace_id_b64 = _random_id_b64(16)
+
+    duration_attr: Optional[Dict[str, Any]] = None
+    if duration_ms is not None:
+        try:
+            duration_number = float(duration_ms)
+        except (TypeError, ValueError):
+            duration_number = None
+        if duration_number is not None and math.isfinite(duration_number):
+            duration_attr = _otlp_attr_int(
+                "traceloop.entity.duration_ms", math.trunc(duration_number)
+            )
+
+    attributes: list[Dict[str, Any]] = []
+    for candidate in (
+        _otlp_attr_string("traceloop.span.kind", "tool"),
+        _otlp_attr_string(SpanAttributes.TRACELOOP_ENTITY_NAME, tool_name),
+        _otlp_attr_int(SpanAttributes.TRACELOOP_ENTITY_VERSION, version),
+        _otlp_attr_string(SpanAttributes.TRACELOOP_ENTITY_INPUT, input_value),
+        _otlp_attr_string(SpanAttributes.TRACELOOP_ENTITY_OUTPUT, output_value),
+        duration_attr,
+    ):
+        if candidate is not None:
+            attributes.append(candidate)
+
+    for key, value in association_properties.items():
+        attr = None
+        if isinstance(value, bool):
+            attr = _otlp_attr_bool(f"traceloop.association.properties.{key}", value)
+        elif isinstance(value, int):
+            attr = _otlp_attr_int(f"traceloop.association.properties.{key}", value)
+        elif isinstance(value, float):
+            attr = _otlp_attr_double(f"traceloop.association.properties.{key}", value)
+        else:
+            attr = _otlp_attr_string(f"traceloop.association.properties.{key}", value)
+        if attr is not None:
+            attributes.append(attr)
+
+    span: Dict[str, Any] = {
+        "traceId": trace_id_b64,
+        "spanId": _random_id_b64(8),
+        "name": span_name,
+        "startTimeUnixNano": str(start_ns),
+        "endTimeUnixNano": str(end_ns),
+        "status": (
+            {"code": 2, "message": error_message}
+            if error_message is not None
+            else {"code": 1}  # STATUS_CODE_OK
+        ),
+    }
+    if parent_span_id_b64 is not None:
+        span["parentSpanId"] = parent_span_id_b64
+    if attributes:
+        span["attributes"] = attributes
+    return span
+
+
+def _build_direct_traces_payload(spans: List[Dict[str, Any]]) -> Dict[str, Any]:
+    return {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [
+                        {"key": "service.name", "value": {"stringValue": "raindrop-ai"}}
+                    ]
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": "raindrop-ai", "version": VERSION},
+                        "spans": spans,
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def _send_traces_request(payload: Dict[str, Any]) -> None:
+    url = urllib.parse.urljoin(
+        api_url if api_url.endswith("/") else f"{api_url}/", "traces"
+    )
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {write_key}",
+    }
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            logger.debug("Direct trace request successful: %s", response.status_code)
+            break
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                "Error sending direct trace request (attempt %s/%s): %s",
+                attempt + 1,
+                max_retries,
+                e,
+            )
+            if attempt == max_retries - 1:
+                logger.error(
+                    "Failed to send direct trace request after %s attempts",
+                    max_retries,
+                )
+
+
+def _flush_direct_tool_spans(spans: List[Dict[str, Any]]) -> None:
+    if not spans:
+        return
+
+    for i in range(0, len(spans), _direct_tool_upload_size):
+        batch = spans[i : i + _direct_tool_upload_size]
+        _send_traces_request(_build_direct_traces_payload(batch))
+
+
+def _enqueue_direct_tool_span(span: Dict[str, Any]) -> None:
+    global _direct_tool_spans_buffer
+
+    if len(_direct_tool_spans_buffer) >= max_queue_size:
+        logger.error("Direct tool span buffer is full. Discarding span.")
+        return
+
+    with flush_lock:
+        _direct_tool_spans_buffer.append(span)
+
+    start_flush_thread()
 
 
 def send_request(
@@ -290,11 +524,6 @@ def shutdown():
     if flush_thread:
         flush_thread.join(timeout=10)
     flush()  # Final flush to ensure all events are sent
-    if _tracing_enabled:
-        try:
-            TracerWrapper().flush()
-        except Exception as e:
-            logger.debug(f"Could not flush TracerWrapper during shutdown: {e}")
 
 
 def _check_write_key():
@@ -582,6 +811,7 @@ def init(
     wizard_session: str | None = None,
     tracing_enabled: bool = False,
     auto_instrument: bool = True,
+    bypass_otel_for_tools: bool = False,
     **traceloop_kwargs,
 ):
     """Initialize Raindrop with Traceloop integration.
@@ -593,6 +823,9 @@ def init(
             detected LLM client libraries (OpenAI, Anthropic, etc). Set to
             False to disable all auto-instrumentation. Manual tracing
             (@task, @tool, begin/finish) works regardless of this setting.
+        bypass_otel_for_tools: If True, ``interaction.track_tool()`` emits OTLP
+            tool spans directly to ``/v1/traces`` instead of relying on the
+            configured OTEL exporter pipeline.
         **traceloop_kwargs: Extra kwargs forwarded to Traceloop.init().
             Can include ``instruments`` or ``block_instruments`` for
             fine-grained control over which libraries are instrumented.
@@ -605,6 +838,9 @@ def init(
 
     global _tracing_enabled
     _tracing_enabled = tracing_enabled
+
+    global _bypass_otel_for_tools
+    _bypass_otel_for_tools = bool(bypass_otel_for_tools and tracing_enabled)
 
     if not _tracing_enabled:
         return

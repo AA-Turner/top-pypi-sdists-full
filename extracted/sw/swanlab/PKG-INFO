@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swanlab
-Version: 0.7.8
+Version: 0.7.9
 Summary: Python library for streamlined tracking and management of AI training processes.
 Project-URL: Homepage, https://swanlab.cn
 Project-URL: Source, https://github.com/SwanHubX/SwanLab
@@ -42,7 +42,7 @@ Requires-Dist: typing-extensions; python_version < '3.9'
 Requires-Dist: urllib3>=1.26.0
 Requires-Dist: wrapt>=1.17.0
 Provides-Extra: dashboard
-Requires-Dist: swanboard==0.1.9b1; extra == 'dashboard'
+Requires-Dist: swanboard==0.1.9b3; extra == 'dashboard'
 Provides-Extra: media
 Requires-Dist: imageio[ffmpeg]; extra == 'media'
 Requires-Dist: matplotlib; extra == 'media'
@@ -412,6 +412,7 @@ for i in range(10):
 - [SpectrumWorld: Artificial Intelligence Foundation for Spectroscopy](https://arxiv.org/abs/2508.01188)
 - [CodeBoost: Boosting Code LLMs by Squeezing Knowledge from Code Snippets with RL](https://arxiv.org/pdf/2508.05242)
 - [A Joint Classification Method for Traditional Chinese Medicine Diseases and Syndromes Based on BertChinese-RCNNATTN](https://dl.acm.org/doi/full/10.1145/3759972.3759979)
+- [A Gradient-Norm-Aware Optimizer for Symmetry-Preserving and Stable Deep Learning](https://www.mdpi.com/2073-8994/18/2/374)
 
 **教程文章：**
 - [MNIST手写体识别](https://docs.swanlab.cn/examples/mnist.html)

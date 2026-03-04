@@ -157,6 +157,7 @@ class ModalClientModal:
         self.SecretDelete = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SecretDelete, client, server_url)
         self.SecretGetOrCreate = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SecretGetOrCreate, client, server_url)
         self.SecretList = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SecretList, client, server_url)
+        self.SecretUpdate = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SecretUpdate, client, server_url)
         self.SharedVolumeDelete = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SharedVolumeDelete, client, server_url)
         self.SharedVolumeGetFile = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SharedVolumeGetFile, client, server_url)
         self.SharedVolumeGetOrCreate = modal._grpc_client.UnaryUnaryWrapper(grpclib_stub.SharedVolumeGetOrCreate, client, server_url)

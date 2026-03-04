@@ -635,7 +635,7 @@ def register_func_alias(backend, fn, alias):
     _FUNC_ALIASES[backend, fn] = alias
 
 
-def register_custom_wrapper(backend, fn, wrapper):
+def register_custom_wrapper(backend, fn, wrapper=None):
     """Register a custom wrapper for a function. The wrapper is called lazily
     so that no imports are done until the function is actually used.
 
@@ -645,13 +645,23 @@ def register_custom_wrapper(backend, fn, wrapper):
         The name of the backend.
     fn : str
         The name of the function.
-    wrapper : callable
-        The wrapper function.
+    wrapper : callable, optional
+        The wrapper function. It should take a function as input and return a
+        function. If not supplied, this function can be used as a decorator
+        with ``backend`` and ``fn`` only.
     """
+    if wrapper is None:
+
+        def decorator(wrapper):
+            register_custom_wrapper(backend, fn, wrapper)
+            return wrapper
+
+        return decorator
+
     _CUSTOM_WRAPPERS[backend, fn] = wrapper
 
 
-def register_function(backend, name, fn, wrap=False):
+def register_function(backend, name, fn=None, wrap=False):
     """Directly provide a custom implementation.
 
     Parameters
@@ -660,13 +670,22 @@ def register_function(backend, name, fn, wrap=False):
         The name of the backend to register the function for.
     name : str
         Name of the function, e.g. `'sum'` or `'linalg.svd'`.
-    fn : callable
-        The function to register.
+    fn : callable, optional
+        The function to register. If not supplied, this function can be used
+        as a decorator with ``backend`` and ``name`` only.
     wrap : bool, optional
         Whether to wrap the old function like ``fn(old_fn)`` rather than
         directly supply the entire new function. This wrapper is eagerly called
         when registering, unlike `register_custom_wrapper`.
     """
+    if fn is None:
+
+        def decorator(fn):
+            register_function(backend, name, fn, wrap=wrap)
+            return fn
+
+        return decorator
+
     if wrap:
         old = get_lib_fn(backend, name)
         _FUNCS[backend, name] = fn(old)
@@ -1895,6 +1914,8 @@ register_function("builtins", "complex", complex)
 # ---------------------------------- numpy ---------------------------------- #
 
 
+@register_function("numpy", "to_numpy")
+@register_function("builtins", "to_numpy")
 def numpy_to_numpy(x):
     return do("asarray", x, like="numpy")
 
@@ -1908,13 +1929,12 @@ register_custom_wrapper("numpy", "linalg.svd", svd_not_full_matrices_wrapper)
 register_custom_wrapper("numpy", "random.normal", with_dtype_wrapper)
 register_custom_wrapper("numpy", "random.uniform", with_dtype_wrapper)
 
-register_function("builtins", "to_numpy", numpy_to_numpy)
 register_function("numpy", "complex", complex_add_re_im)
-register_function("numpy", "to_numpy", numpy_to_numpy)
 
 # ---------------------------------- cupy ----------------------------------- #
 
 
+@register_function("cupy", "to_numpy")
 def cupy_to_numpy(x):  # pragma: no cover
     return x.get()
 
@@ -1924,11 +1944,11 @@ register_module_alias("cupy.scipy", "cupyx.scipy")
 register_custom_wrapper("cupy", "linalg.svd", svd_not_full_matrices_wrapper)
 
 register_function("cupy", "complex", complex_add_re_im)
-register_function("cupy", "to_numpy", cupy_to_numpy)
 
 # ----------------------------------- jax ----------------------------------- #
 
 
+@register_function("jax", "to_numpy")
 def jax_to_numpy(x):
     return do("asarray", x, like="numpy")
 
@@ -2027,6 +2047,7 @@ class JaxDefaultRNG:
         )
 
 
+@register_function("jax", "random.default_rng")
 def jax_default_rng(seed, **kwargs):
     if isinstance(seed, JaxDefaultRNG):
         return seed
@@ -2036,6 +2057,7 @@ def jax_default_rng(seed, **kwargs):
 _JAX_RANDOM_KEY = None
 
 
+@register_function("jax", "random.seed")
 def jax_random_seed(seed=None):
     from jax.random import PRNGKey
 
@@ -2057,6 +2079,7 @@ def jax_random_get_key():
     return subkey
 
 
+@register_function("jax", "random.uniform")
 def jax_random_uniform(low=0.0, high=1.0, size=None, **kwargs):
     from jax.random import uniform
 
@@ -2067,6 +2090,7 @@ def jax_random_uniform(low=0.0, high=1.0, size=None, **kwargs):
     )
 
 
+@register_function("jax", "random.normal")
 def jax_random_normal(loc=0.0, scale=1.0, size=None, **kwargs):
     from jax.random import normal
 
@@ -2096,29 +2120,31 @@ register_submodule_alias("jax", "linalg.householder_product", "jax.lax.linalg")
 register_custom_wrapper("jax", "linalg.qr", qr_allow_fat)
 register_custom_wrapper("jax", "linalg.svd", svd_not_full_matrices_wrapper)
 
-register_function("jax", "random.default_rng", jax_default_rng)
-register_function("jax", "random.normal", jax_random_normal)
-register_function("jax", "random.seed", jax_random_seed)
-register_function("jax", "random.uniform", jax_random_uniform)
-register_function("jax", "to_numpy", jax_to_numpy)
-
-
 # --------------------------------- aesara ---------------------------------- #
-
-
-@shape.register("aesara")
-def aesara_shape(x):
-    return x.type.shape
 
 
 register_module_alias("aesara", "aesara.tensor")
 
-register_function("aesara", "shape", aesara_shape)
+
+@shape.register("aesara")
+@register_function("aesara", "shape")
+def aesara_shape(x):
+    return x.type.shape
 
 
 # -------------------------------- autograd --------------------------------- #
 
 
+register_module_alias("autograd", "autograd.numpy")
+
+register_custom_wrapper(
+    "autograd", "linalg.svd", svd_not_full_matrices_wrapper
+)
+
+register_function("autograd", "complex", complex_add_re_im)
+
+
+@register_function("autograd", "take")
 def autograd_take(x, indices, axis=None):
     # NOTE: autograd take doesn't support grad
     if axis is None:
@@ -2130,16 +2156,6 @@ def autograd_take(x, indices, axis=None):
         return x[selector]
 
 
-register_module_alias("autograd", "autograd.numpy")
-
-register_custom_wrapper(
-    "autograd", "linalg.svd", svd_not_full_matrices_wrapper
-)
-
-register_function("autograd", "complex", complex_add_re_im)
-register_function("autograd", "take", autograd_take)
-
-
 # ---------------------------------- dask ----------------------------------- #
 
 
@@ -2147,11 +2163,12 @@ def dask_to_numpy(x):
     return x.compute()
 
 
-def dask_eye_wrapper(fn):
+@register_custom_wrapper("dask", "eye")
+def dask_eye_wrapper(eye_fn):
     # Make M work as positional argument
-    @functools.wraps(fn)
+    @functools.wraps(eye_fn)
     def numpy_like(N, M=None, **kwargs):
-        return fn(N, M=M, **kwargs)
+        return eye_fn(N, M=M, **kwargs)
 
     return numpy_like
 
@@ -2161,7 +2178,6 @@ register_module_alias("dask", "dask.array")
 register_func_alias("dask", "abs", "absolute")
 register_func_alias("dask", "identity", "eye")
 
-register_custom_wrapper("dask", "eye", dask_eye_wrapper)
 register_custom_wrapper("dask", "linalg.cholesky", cholesky_lower)
 register_custom_wrapper("dask", "linalg.svd", svd_manual_full_matrices_kwarg)
 register_custom_wrapper("dask", "random.normal", with_dtype_wrapper)
@@ -2227,64 +2243,6 @@ register_function("ctf", "to_numpy", ctf_to_numpy)
 # ------------------------------- sparse------------------------------------- #
 
 
-def sparse_array(x):
-    return do("COO.from_numpy", x, like="sparse")
-
-
-def sparse_to_numpy(x):
-    return x.todense()
-
-
-def sparse_transpose(x, axes=None):
-    return x.transpose(axes)
-
-
-def sparse_reshape(x, shape):
-    return x.reshape(shape)
-
-
-def sparse_sum(x, axis=None, keepdims=False, dtype=None, out=None):
-    return x.sum(axis=axis, keepdims=keepdims, dtype=dtype, out=out)
-
-
-def sparse_prod(x, axis=None, keepdims=False, dtype=None, out=None):
-    return x.prod(axis=axis, keepdims=keepdims, dtype=dtype, out=out)
-
-
-def sparse_conj(x):
-    return x.conj()
-
-
-def sparse_real(x):
-    return x.real
-
-
-def sparse_imag(x):
-    return x.imag
-
-
-def sparse_count_nonzero(x):
-    return x.nnz
-
-
-def sparse_random_uniform(low=0.0, high=1.0, size=None, dtype=None, **kwargs):
-    def rvs(nnz):
-        return do(
-            "random.uniform", low, high, (nnz,), dtype=dtype, like="numpy"
-        )
-
-    return do("random", size, data_rvs=rvs, **kwargs, like="sparse")
-
-
-def sparse_random_normal(loc=0.0, scale=1.0, size=None, dtype=None, **kwargs):
-    def rvs(nnz):
-        return do(
-            "random.normal", loc, scale, (nnz,), dtype=dtype, like="numpy"
-        )
-
-    return do("random", size, data_rvs=rvs, **kwargs, like="sparse")
-
-
 # sparse uses numpys __array_func__ interface
 for f in (
     "arccos",
@@ -2314,33 +2272,86 @@ for f in (
 
 register_func_alias("sparse", "identity", "eye")
 
-register_function("sparse", "array", sparse_array)
-register_function("sparse", "complex", complex_add_re_im)
-register_function("sparse", "conj", sparse_conj)
-register_function("sparse", "count_nonzero", sparse_count_nonzero)
-register_function("sparse", "imag", sparse_imag)
-register_function("sparse", "prod", sparse_prod)
-register_function("sparse", "random.normal", sparse_random_normal)
-register_function("sparse", "random.uniform", sparse_random_uniform)
-register_function("sparse", "real", sparse_real)
-register_function("sparse", "reshape", sparse_reshape)
-register_function("sparse", "sum", sparse_sum)
-register_function("sparse", "to_numpy", sparse_to_numpy)
-register_function("sparse", "transpose", sparse_transpose)
+
+@register_function("sparse", "array")
+def sparse_array(x):
+    return do("COO.from_numpy", x, like="sparse")
+
+
+@register_function("sparse", "to_numpy")
+def sparse_to_numpy(x):
+    return x.todense()
+
+
+@register_function("sparse", "transpose")
+def sparse_transpose(x, axes=None):
+    return x.transpose(axes)
+
+
+@register_function("sparse", "reshape")
+def sparse_reshape(x, shape):
+    return x.reshape(shape)
+
+
+@register_function("sparse", "sum")
+def sparse_sum(x, axis=None, keepdims=False, dtype=None, out=None):
+    return x.sum(axis=axis, keepdims=keepdims, dtype=dtype, out=out)
+
+
+@register_function("sparse", "prod")
+def sparse_prod(x, axis=None, keepdims=False, dtype=None, out=None):
+    return x.prod(axis=axis, keepdims=keepdims, dtype=dtype, out=out)
+
+
+@register_function("sparse", "conj")
+def sparse_conj(x):
+    return x.conj()
+
+
+@register_function("sparse", "real")
+def sparse_real(x):
+    return x.real
+
+
+@register_function("sparse", "imag")
+def sparse_imag(x):
+    return x.imag
+
+
+@register_function("sparse", "count_nonzero")
+def sparse_count_nonzero(x):
+    return x.nnz
+
+
+@register_function("sparse", "complex")
+def sparse_complex(re, im):
+    return complex_add_re_im(re, im)
+
+
+@register_function("sparse", "random.uniform")
+def sparse_random_uniform(low=0.0, high=1.0, size=None, dtype=None, **kwargs):
+    def rvs(nnz):
+        return do(
+            "random.uniform", low, high, (nnz,), dtype=dtype, like="numpy"
+        )
+
+    return do("random", size, data_rvs=rvs, **kwargs, like="sparse")
+
+
+@register_function("sparse", "random.normal")
+def sparse_random_normal(loc=0.0, scale=1.0, size=None, dtype=None, **kwargs):
+    def rvs(nnz):
+        return do(
+            "random.normal", loc, scale, (nnz,), dtype=dtype, like="numpy"
+        )
+
+    return do("random", size, data_rvs=rvs, **kwargs, like="sparse")
+
 
 # ------------------------------- tensorflow -------------------------------- #
 
 
-def tensorflow_to_numpy(x):
-    return x.numpy()
-
-
-def tensorflow_indices(dimensions):
-    _meshgrid = get_lib_fn("tensorflow", "meshgrid")
-    _arange = get_lib_fn("tensorflow", "arange")
-    return _meshgrid(*map(_arange, dimensions), indexing="ij")
-
-
+@register_custom_wrapper("tensorflow", "pad")
 def tensorflow_pad_wrap(tf_pad):
     def numpy_like(array, pad_width, mode="constant", constant_values=0):
         if mode != "constant":
@@ -2359,6 +2370,7 @@ def tensorflow_pad_wrap(tf_pad):
     return numpy_like
 
 
+@register_custom_wrapper("tensorflow", "linalg.norm")
 def tensorflow_wrap_norm(tf_norm):
     def wrapped_norm(x, ord=None, axis=None, keepdims=False, **kwargs):
         if ord is None:
@@ -2374,7 +2386,7 @@ class TensorflowDefaultRNG:
     """
 
     def __init__(self, seed=None, **kwargs):
-        import tensorflow as tf
+        import tensorflow as tf  # type: ignore
 
         self.tf = tf
 
@@ -2425,6 +2437,7 @@ class TensorflowDefaultRNG:
     #     raise NotImplementedError
 
 
+@register_function("tensorflow", "random.default_rng")
 def tensorflow_default_rng(seed, **kwargs):
     if isinstance(seed, TensorflowDefaultRNG):
         return seed
@@ -2444,10 +2457,8 @@ register_submodule_alias("tensorflow", "pad", "tensorflow")
 
 register_func_alias("tensorflow", "astype", "cast")
 
-register_custom_wrapper("tensorflow", "linalg.norm", tensorflow_wrap_norm)
 register_custom_wrapper("tensorflow", "linalg.solve", binary_allow_1d_rhs_wrap)
 register_custom_wrapper("tensorflow", "linalg.svd", svd_sUV_to_UsVH_wrapper)
-register_custom_wrapper("tensorflow", "pad", tensorflow_pad_wrap)
 register_custom_wrapper(
     "tensorflow",
     "random.normal",
@@ -2471,9 +2482,17 @@ register_custom_wrapper(
     ),
 )
 
-register_function("tensorflow", "indices", tensorflow_indices)
-register_function("tensorflow", "to_numpy", tensorflow_to_numpy)
-register_function("tensorflow", "random.default_rng", tensorflow_default_rng)
+
+@register_function("tensorflow", "to_numpy")
+def tensorflow_to_numpy(x):
+    return x.numpy()
+
+
+@register_function("tensorflow", "indices")
+def tensorflow_indices(dimensions):
+    _meshgrid = get_lib_fn("tensorflow", "meshgrid")
+    _arange = get_lib_fn("tensorflow", "arange")
+    return _meshgrid(*map(_arange, dimensions), indexing="ij")
 
 
 # ---------------------------------- torch ---------------------------------- #
@@ -2497,24 +2516,6 @@ def torch_size(x):
     return x.numel()
 
 
-def torch_to_numpy(x):
-    return x.detach().cpu().numpy()
-
-
-def torch_copy(x):
-    return x.detach().clone()
-
-
-def torch_transpose(x, axes=None):
-    if axes is None:
-        axes = reversed(range(0, x.ndimension()))
-    return x.permute(*axes)
-
-
-def torch_astype(x, dtype):
-    return x.to(dtype=to_backend_dtype(dtype, like=x))
-
-
 @functools.lru_cache(None)
 def _torch_get_dtype_name(dtype):
     return str(dtype).split(".")[-1]
@@ -2525,26 +2526,7 @@ def torch_get_dtype_name(x):
     return _torch_get_dtype_name(x.dtype)
 
 
-def torch_real(x):
-    # torch doesn't support calling real on real arrays
-    try:
-        if x.is_complex():
-            return x.real
-    except AttributeError:
-        pass
-    return x
-
-
-def torch_imag(x):
-    # torch doesn't support calling imag on real arrays
-    try:
-        if x.is_complex():
-            return x.imag
-    except AttributeError:
-        pass
-    return do("zeros_like", x)
-
-
+@register_custom_wrapper("torch[alt]", "linalg.solve")
 def torch_linalg_solve_wrap(fn):
     @binary_allow_1d_rhs_wrap
     def numpy_like(a, b):
@@ -2553,28 +2535,7 @@ def torch_linalg_solve_wrap(fn):
     return numpy_like
 
 
-def torch_linalg_eigh(x):
-    return tuple(do("symeig", x, eigenvectors=True, like="torch"))
-
-
-def torch_linalg_eigvalsh(x):
-    return do("symeig", x, eigenvectors=False, like="torch")[0]
-
-
-def torch_scipy_linalg_solve_triangular(
-    a,
-    b,
-    lower=False,
-    unit_diagonal=False,
-    **kwargs,
-):
-    torch = get_torch()
-
-    return torch.linalg.solve_triangular(
-        a, b, upper=not lower, unitriangular=unit_diagonal, **kwargs
-    )
-
-
+@register_custom_wrapper("torch", "tensordot")
 def torch_tensordot_wrap(fn):
     @functools.wraps(fn)
     def numpy_like(a, b, axes=2):
@@ -2583,33 +2544,7 @@ def torch_tensordot_wrap(fn):
     return numpy_like
 
 
-def torch_pad(array, pad_width, mode="constant", constant_values=0):
-    if mode != "constant":
-        raise NotImplementedError
-
-    try:
-        # numpy takes pads like ((0, 0), (1, 1), ... (n-1, n-1))
-        # torch takes pads like (n-1, n-1, n-2, n-2, n-3, n-3, ...)
-        pad = tuple(itertools.chain.from_iterable(pad_width))[::-1]
-
-        # a single tuple was specified ((a, b),) - use for all axes
-        if len(pad) == 2:
-            pad = pad * array.ndimension()
-
-    except TypeError:
-        # assume int
-        pad = (pad_width,) * 2 * array.ndimension()
-
-    return do(
-        "nn.functional.pad",
-        array,
-        pad=pad,
-        mode=mode,
-        value=constant_values,
-        like="torch",
-    )
-
-
+@register_custom_wrapper("torch[alt]", "split")
 def torch_split_wrap(fn):
     # for torch >=1.8 we can use tensor_split instead, but in current stable
     # release this function has not been added
@@ -2636,6 +2571,8 @@ def torch_split_wrap(fn):
     return numpy_like
 
 
+@register_custom_wrapper("torch", "ones")
+@register_custom_wrapper("torch", "zeros")
 def torch_zeros_ones_wrap(fn):
     @functools.wraps(fn)
     def numpy_like(shape, dtype=None, **kwargs):
@@ -2646,6 +2583,7 @@ def torch_zeros_ones_wrap(fn):
     return numpy_like
 
 
+@register_custom_wrapper("torch", "eye")
 def torch_eye_wrap(fn):
     @functools.wraps(fn)
     def numpy_like(N, M=None, dtype=None, **kwargs):
@@ -2659,6 +2597,7 @@ def torch_eye_wrap(fn):
     return numpy_like
 
 
+@register_custom_wrapper("torch", "sort")
 def torch_sort_wrap(fn):
     @functools.wraps(fn)
     def numpy_like(a, axis=-1):
@@ -2667,12 +2606,7 @@ def torch_sort_wrap(fn):
     return numpy_like
 
 
-def torch_indices(dimensions):
-    _meshgrid = get_lib_fn("torch", "meshgrid")
-    _arange = get_lib_fn("torch", "arange")
-    return _meshgrid(*map(_arange, dimensions), indexing="ij")
-
-
+@register_custom_wrapper("torch", "flip")
 def torch_flip_wrap(torch_flip):
     def numpy_like(x, axis=None):
         if axis is None:
@@ -2687,38 +2621,12 @@ def torch_flip_wrap(torch_flip):
     return numpy_like
 
 
-def torch_take(a, indices, axis=None):
-    torch = get_torch()
-
-    if isinstance(indices, (tuple, list)) and len(indices) == 1:
-        # need to convert list/tuple dimension to tensor, and not squeeze
-        indices = torch.as_tensor(indices[0], device=a.device)
-        unsqueeze = True
-        squeeze = False
-    else:
-        indices = torch.as_tensor(indices, device=a.device)
-        # XXX: if scalar can't yet use torch.select as it can't vmap
-        squeeze = unsqueeze = indices.ndim == 0
-
-    if unsqueeze:
-        # promote scalar indices to 1D
-        indices = torch.unsqueeze(indices, dim=0)
-
-    # perform the take!
-    a = torch.index_select(a, dim=axis, index=indices)
-
-    if squeeze:
-        # remove scalar dimension
-        return a.squeeze(dim=axis)
-
-    return a
-
-
 class TorchDefaultRNG:
-    def __init__(self, seed, device=None):
+    def __init__(self, seed=None, device=None):
         self._torch = get_torch()
         self._generator = self._torch.Generator(device=device)
-        self._generator.manual_seed(seed)
+        if seed is not None:
+            self._generator.manual_seed(seed)
 
     # def binomial(self, n, p, size=None, **kwargs):
     #     raise NotImplementedError()
@@ -2822,6 +2730,7 @@ class TorchDefaultRNG:
         return random_choices
 
 
+@register_function("torch", "random.default_rng")
 def torch_default_rng(seed, **kwargs):
     if isinstance(seed, TorchDefaultRNG):
         return seed
@@ -2867,6 +2776,11 @@ register_custom_wrapper(
 )
 register_custom_wrapper(
     "torch",
+    "count_nonzero",
+    make_translator([("a", ("input",)), ("axis", ("dim", None))]),
+)
+register_custom_wrapper(
+    "torch",
     "diagonal",
     make_translator(
         [("a", ("input",)), ("axis1", ("dim1", 0)), ("axis2", ("dim2", 1))]
@@ -2880,21 +2794,17 @@ register_custom_wrapper(
     "expand_dims",
     make_translator([("a", ("input",)), ("axis", ("dim",))]),
 )
-register_custom_wrapper("torch", "eye", torch_eye_wrap)
-register_custom_wrapper("torch", "flip", torch_flip_wrap)
 register_custom_wrapper("torch", "linalg.svd", svd_not_full_matrices_wrapper)
-register_custom_wrapper("torch", "ones", torch_zeros_ones_wrap)
 register_custom_wrapper("torch", "random.normal", scale_random_normal_manually)
 register_custom_wrapper(
     "torch", "random.uniform", scale_random_uniform_manually
 )
-register_custom_wrapper("torch", "sort", torch_sort_wrap)
+
 register_custom_wrapper(
     "torch",
     "stack",
     make_translator([("arrays", ("tensors",)), ("axis", ("dim", 0))]),
 )
-register_custom_wrapper("torch", "tensordot", torch_tensordot_wrap)
 register_custom_wrapper(
     "torch",
     "tril",
@@ -2905,7 +2815,6 @@ register_custom_wrapper(
     "triu",
     make_translator([("m", ("input",)), ("k", ("diagonal", 0))]),
 )
-register_custom_wrapper("torch", "zeros", torch_zeros_ones_wrap)
 register_custom_wrapper(
     "torch",
     "take_along_axis",
@@ -2937,22 +2846,6 @@ for f in ("sum", "max", "min", "prod", "mean", "median", "std", "var"):
         "torch", f, make_translator(_torch_reduce_translation)
     )
 
-register_function("torch", "astype", torch_astype)
-register_function("torch", "complex", complex_add_re_im)
-register_function("torch", "copy", torch_copy)
-register_function("torch", "imag", torch_imag)
-register_function("torch", "indices", torch_indices)
-register_function("torch", "pad", torch_pad)
-register_function("torch", "random.default_rng", torch_default_rng)
-register_function("torch", "real", torch_real)
-register_function("torch", "take", torch_take)
-register_function("torch", "to_numpy", torch_to_numpy)
-register_function("torch", "transpose", torch_transpose)
-register_function(
-    "torch",
-    "scipy.linalg.solve_triangular",
-    torch_scipy_linalg_solve_triangular,
-)
 
 for f in _CREATION_ROUTINES:
     register_creation_routine("torch", f, inject_device=True)
@@ -2975,12 +2868,152 @@ register_submodule_alias("torch[alt]", "linalg.solve", "torch")
 register_submodule_alias("torch[alt]", "linalg.svd", "torch")
 
 register_custom_wrapper("torch[alt]", "linalg.qr", qr_allow_fat)
-register_custom_wrapper("torch[alt]", "linalg.solve", torch_linalg_solve_wrap)
 register_custom_wrapper("torch[alt]", "linalg.svd", svd_UsV_to_UsVH_wrapper)
-register_custom_wrapper("torch[alt]", "split", torch_split_wrap)
 
-register_function("torch[alt]", "linalg.eigh", torch_linalg_eigh)
-register_function("torch[alt]", "linalg.eigvalsh", torch_linalg_eigvalsh)
+
+@register_function("torch", "to_numpy")
+def torch_to_numpy(x):
+    return x.detach().cpu().numpy()
+
+
+@register_function("torch", "copy")
+def torch_copy(x):
+    return x.detach().clone()
+
+
+@register_function("torch", "transpose")
+def torch_transpose(x, axes=None):
+    if axes is None:
+        axes = reversed(range(0, x.dim()))
+    return x.permute(*axes)
+
+
+@register_function("torch", "astype")
+def torch_astype(x, dtype):
+    return x.to(dtype=to_backend_dtype(dtype, like=x))
+
+
+@register_function("torch", "complex")
+def torch_complex(re, im):
+    return complex_add_re_im(re, im)
+
+
+@register_function("torch", "real")
+def torch_real(x):
+    # torch doesn't support calling real on real arrays
+    try:
+        if x.is_complex():
+            return x.real
+    except AttributeError:
+        pass
+    return x
+
+
+@register_function("torch", "imag")
+def torch_imag(x):
+    # torch doesn't support calling imag on real arrays
+    try:
+        if x.is_complex():
+            return x.imag
+    except AttributeError:
+        pass
+    return do("zeros_like", x)
+
+
+@register_function("torch[alt]", "linalg.eigh")
+def torch_linalg_eigh(x):
+    return tuple(do("symeig", x, eigenvectors=True, like="torch"))
+
+
+@register_function("torch[alt]", "linalg.eigvalsh")
+def torch_linalg_eigvalsh(x):
+    return do("symeig", x, eigenvectors=False, like="torch")[0]
+
+
+@register_function("torch", "scipy.linalg.solve_triangular")
+def torch_scipy_linalg_solve_triangular(
+    a,
+    b,
+    lower=False,
+    unit_diagonal=False,
+    **kwargs,
+):
+    torch = get_torch()
+
+    return torch.linalg.solve_triangular(
+        a, b, upper=not lower, unitriangular=unit_diagonal, **kwargs
+    )
+
+
+@register_function("torch", "pad")
+def torch_pad(array, pad_width, mode="constant", constant_values=0):
+    if mode != "constant":
+        raise NotImplementedError
+
+    try:
+        # numpy takes pads like ((0, 0), (1, 1), ... (n-1, n-1))
+        # torch takes pads like (n-1, n-1, n-2, n-2, n-3, n-3, ...)
+        pad = tuple(itertools.chain.from_iterable(pad_width))[::-1]
+
+        # a single tuple was specified ((a, b),) - use for all axes
+        if len(pad) == 2:
+            pad = pad * array.ndimension()
+
+    except TypeError:
+        # assume int
+        pad = (pad_width,) * 2 * array.ndimension()
+
+    return do(
+        "nn.functional.pad",
+        array,
+        pad=pad,
+        mode=mode,
+        value=constant_values,
+        like="torch",
+    )
+
+
+@register_function("torch", "indices")
+def torch_indices(dimensions):
+    _meshgrid = get_lib_fn("torch", "meshgrid")
+    _arange = get_lib_fn("torch", "arange")
+    return _meshgrid(*map(_arange, dimensions), indexing="ij")
+
+
+@register_function("torch", "take")
+def torch_take(a, indices, axis=None):
+    torch = get_torch()
+
+    if isinstance(indices, (tuple, list)) and len(indices) == 1:
+        # need to convert list/tuple dimension to tensor, and not squeeze
+        indices = torch.as_tensor(indices[0], device=a.device)
+        unsqueeze = True
+        squeeze = False
+    else:
+        indices = torch.as_tensor(indices, device=a.device)
+        # XXX: if scalar can't yet use torch.select as it can't vmap
+        squeeze = unsqueeze = indices.ndim == 0
+
+    if unsqueeze:
+        # promote scalar indices to 1D
+        indices = torch.unsqueeze(indices, dim=0)
+
+    # perform the take!
+    a = torch.index_select(a, dim=axis, index=indices)
+
+    if squeeze:
+        # remove scalar dimension
+        return a.squeeze(dim=axis)
+
+    return a
+
+
+@register_function("torch", "trace")
+def torch_trace(x, axis1=0, axis2=1):
+    if x.dim() == 2:
+        # prefer built in
+        return x.trace()
+    return x.diagonal(dim1=axis1, dim2=axis2).sum(-1)
 
 
 # ---------------------------------- mxnet ---------------------------------- #
@@ -3020,73 +3053,6 @@ def paddle_get_dtype_name(x):
 def paddle_shape(x):
     # convert from list
     return tuple(x.shape)
-
-
-def paddle_to_numpy(x):
-    return x.numpy()
-
-
-def paddle_transpose(a, axes=None):
-    if axes is None:
-        axes = tuple(range(a.ndim - 1, -1, -1))
-    return a.transpose(perm=axes)
-
-
-def paddle_real(x):
-    # paddle doesn't support calling real on real arrays
-    try:
-        if x.is_complex():
-            return x.real()
-    except AttributeError:
-        pass
-    return x
-
-
-def paddle_imag(x):
-    # paddle doesn't support calling imag on real arrays
-    try:
-        if x.is_complex():
-            return x.imag()
-    except AttributeError:
-        pass
-    return do("zeros_like", x)
-
-
-def paddle_indices(dimensions):
-    _meshgrid = get_lib_fn("paddle", "meshgrid")
-    _arange = get_lib_fn("paddle", "arange")
-    return _meshgrid(*map(_arange, dimensions), indexing="ij")
-
-
-def paddle_ravel(x):
-    return x.reshape((-1,))
-
-
-def paddle_pad(array, pad_width, mode="constant", constant_values=0):
-    if mode != "constant":
-        raise NotImplementedError
-
-    try:
-        # numpy takes pads like ((0, 0), (1, 1), ... (n-1, n-1))
-        # paddle takes pads like (0, 0, 1, 1, 2, 2, ...)
-        pad = tuple(itertools.chain.from_iterable(pad_width))
-
-        # a single tuple was specified ((a, b),) - use for all axes
-        if len(pad) == 2:
-            pad = pad * array.ndim
-
-    except TypeError:
-        # assume int
-        pad = (pad_width,) * 2 * array.ndim
-
-    return do(
-        "nn.functional.pad",
-        array,
-        pad=pad,
-        mode=mode,
-        value=constant_values,
-        like="paddle",
-    )
 
 
 def paddle_wrap_reduction(fn):
@@ -3149,13 +3115,79 @@ register_custom_wrapper(
 for f in ("sum", "max", "min", "prod", "mean", "std", "var"):
     register_custom_wrapper("paddle", f, paddle_wrap_reduction)
 
-register_function("paddle", "imag", paddle_imag)
-register_function("paddle", "indices", paddle_indices)
-register_function("paddle", "pad", paddle_pad)
-register_function("paddle", "ravel", paddle_ravel)
-register_function("paddle", "real", paddle_real)
-register_function("paddle", "to_numpy", paddle_to_numpy)
-register_function("paddle", "transpose", paddle_transpose)
+
+@register_function("paddle", "imag")
+def paddle_imag(x):
+    # paddle doesn't support calling imag on real arrays
+    try:
+        if x.is_complex():
+            return x.imag()
+    except AttributeError:
+        pass
+    return do("zeros_like", x)
+
+
+@register_function("paddle", "indices")
+def paddle_indices(dimensions):
+    _meshgrid = get_lib_fn("paddle", "meshgrid")
+    _arange = get_lib_fn("paddle", "arange")
+    return _meshgrid(*map(_arange, dimensions), indexing="ij")
+
+
+@register_function("paddle", "pad")
+def paddle_pad(array, pad_width, mode="constant", constant_values=0):
+    if mode != "constant":
+        raise NotImplementedError
+
+    try:
+        # numpy takes pads like ((0, 0), (1, 1), ... (n-1, n-1))
+        # paddle takes pads like (0, 0, 1, 1, 2, 2, ...)
+        pad = tuple(itertools.chain.from_iterable(pad_width))
+
+        # a single tuple was specified ((a, b),) - use for all axes
+        if len(pad) == 2:
+            pad = pad * array.ndim
+
+    except TypeError:
+        # assume int
+        pad = (pad_width,) * 2 * array.ndim
+
+    return do(
+        "nn.functional.pad",
+        array,
+        pad=pad,
+        mode=mode,
+        value=constant_values,
+        like="paddle",
+    )
+
+
+@register_function("paddle", "ravel")
+def paddle_ravel(x):
+    return x.reshape((-1,))
+
+
+@register_function("paddle", "real")
+def paddle_real(x):
+    # paddle doesn't support calling real on real arrays
+    try:
+        if x.is_complex():
+            return x.real()
+    except AttributeError:
+        pass
+    return x
+
+
+@register_function("paddle", "to_numpy")
+def paddle_to_numpy(x):
+    return x.numpy()
+
+
+@register_function("paddle", "transpose")
+def paddle_transpose(a, axes=None):
+    if axes is None:
+        axes = tuple(range(a.ndim - 1, -1, -1))
+    return a.transpose(perm=axes)
 
 
 # -------------------------------- pytensor --------------------------------- #

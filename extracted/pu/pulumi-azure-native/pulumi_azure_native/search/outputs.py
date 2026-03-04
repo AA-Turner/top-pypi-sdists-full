@@ -23,9 +23,9 @@ __all__ = [
     'IdentityResponse',
     'IpRuleResponse',
     'NetworkRuleSetResponse',
+    'PrivateEndpointConnectionPropertiesPrivateEndpointResponse',
+    'PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse',
     'PrivateEndpointConnectionPropertiesResponse',
-    'PrivateEndpointConnectionPropertiesResponsePrivateEndpoint',
-    'PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState',
     'PrivateEndpointConnectionResponse',
     'QueryKeyResponse',
     'SharedPrivateLinkResourcePropertiesResponse',
@@ -61,6 +61,7 @@ class DataPlaneAadOrApiKeyAuthOptionResponse(dict):
                  aad_auth_failure_mode: Optional[_builtins.str] = None):
         """
         Indicates that either the API key or an access token from a Microsoft Entra ID tenant can be used for authentication.
+
         :param _builtins.str aad_auth_failure_mode: Describes what response the data plane API of a search service would send for requests that failed authentication.
         """
         if aad_auth_failure_mode is not None:
@@ -104,6 +105,7 @@ class DataPlaneAuthOptionsResponse(dict):
                  api_key_only: Optional[Any] = None):
         """
         Defines the options for how the search service authenticates a data plane request. This cannot be set if 'disableLocalAuth' is set to true.
+
         :param 'DataPlaneAadOrApiKeyAuthOptionResponse' aad_or_api_key: Indicates that either the API key or an access token from a Microsoft Entra ID tenant can be used for authentication.
         :param Any api_key_only: Indicates that only the API key can be used for authentication.
         """
@@ -156,6 +158,7 @@ class EncryptionWithCmkResponse(dict):
                  enforcement: Optional[_builtins.str] = None):
         """
         Describes a policy that determines how resources within the search service are to be encrypted with customer managed keys.
+
         :param _builtins.str encryption_compliance_status: Returns the status of search service compliance with respect to non-CMK-encrypted objects. If a service has more than one unencrypted object, and enforcement is enabled, the service is marked as noncompliant.
         :param _builtins.str enforcement: Describes how a search service should enforce compliance if it finds objects that aren't encrypted with the customer-managed key.
         """
@@ -213,6 +216,7 @@ class IdentityResponse(dict):
                  user_assigned_identities: Optional[Mapping[str, 'outputs.UserAssignedIdentityResponse']] = None):
         """
         Details about the search service identity. A null value indicates that the search service has no identity assigned.
+
         :param _builtins.str principal_id: The principal ID of the system-assigned identity of the search service.
         :param _builtins.str tenant_id: The tenant ID of the system-assigned identity of the search service.
         :param _builtins.str type: The type of identity used for the resource. The type 'SystemAssigned, UserAssigned' includes both an identity created by the system and a set of user assigned identities. The type 'None' will remove all identities from the service.
@@ -266,6 +270,7 @@ class IpRuleResponse(dict):
                  value: Optional[_builtins.str] = None):
         """
         The IP restriction rule of the Azure AI Search service.
+
         :param _builtins.str value: Value corresponding to a single IPv4 address (eg., 123.1.2.3) or an IP range in CIDR format (eg., 123.1.2.3/24) to be allowed.
         """
         if value is not None:
@@ -307,6 +312,7 @@ class NetworkRuleSetResponse(dict):
                  ip_rules: Optional[Sequence['outputs.IpRuleResponse']] = None):
         """
         Network specific rules that determine how the Azure AI Search service may be reached.
+
         :param _builtins.str bypass: Possible origins of inbound traffic that can bypass the rules defined in the 'ipRules' section.
         :param Sequence['IpRuleResponse'] ip_rules: A list of IP restriction rules that defines the inbound network(s) with allowing access to the search service endpoint. At the meantime, all other public IP networks are blocked by the firewall. These restriction rules are applied only when the 'publicNetworkAccess' of the search service is 'enabled'; otherwise, traffic over public interface is not allowed even with any public IP rules, and private endpoint connections would be the exclusive access method.
         """
@@ -333,89 +339,7 @@ class NetworkRuleSetResponse(dict):
 
 
 @pulumi.output_type
-class PrivateEndpointConnectionPropertiesResponse(dict):
-    """
-    Describes the properties of an existing private endpoint connection to the search service.
-    """
-    @staticmethod
-    def __key_warning(key: str):
-        suggest = None
-        if key == "groupId":
-            suggest = "group_id"
-        elif key == "privateEndpoint":
-            suggest = "private_endpoint"
-        elif key == "privateLinkServiceConnectionState":
-            suggest = "private_link_service_connection_state"
-        elif key == "provisioningState":
-            suggest = "provisioning_state"
-
-        if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in PrivateEndpointConnectionPropertiesResponse. Access the value via the '{suggest}' property getter instead.")
-
-    def __getitem__(self, key: str) -> Any:
-        PrivateEndpointConnectionPropertiesResponse.__key_warning(key)
-        return super().__getitem__(key)
-
-    def get(self, key: str, default = None) -> Any:
-        PrivateEndpointConnectionPropertiesResponse.__key_warning(key)
-        return super().get(key, default)
-
-    def __init__(__self__, *,
-                 group_id: Optional[_builtins.str] = None,
-                 private_endpoint: Optional['outputs.PrivateEndpointConnectionPropertiesResponsePrivateEndpoint'] = None,
-                 private_link_service_connection_state: Optional['outputs.PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState'] = None,
-                 provisioning_state: Optional[_builtins.str] = None):
-        """
-        Describes the properties of an existing private endpoint connection to the search service.
-        :param _builtins.str group_id: The group ID of the Azure resource for which the private link service is for.
-        :param 'PrivateEndpointConnectionPropertiesResponsePrivateEndpoint' private_endpoint: The private endpoint resource from Microsoft.Network provider.
-        :param 'PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState' private_link_service_connection_state: Describes the current state of an existing Azure Private Link service connection to the private endpoint.
-        :param _builtins.str provisioning_state: The provisioning state of the private link service connection. Valid values are Updating, Deleting, Failed, Succeeded, Incomplete, or Canceled.
-        """
-        if group_id is not None:
-            pulumi.set(__self__, "group_id", group_id)
-        if private_endpoint is not None:
-            pulumi.set(__self__, "private_endpoint", private_endpoint)
-        if private_link_service_connection_state is not None:
-            pulumi.set(__self__, "private_link_service_connection_state", private_link_service_connection_state)
-        if provisioning_state is not None:
-            pulumi.set(__self__, "provisioning_state", provisioning_state)
-
-    @_builtins.property
-    @pulumi.getter(name="groupId")
-    def group_id(self) -> Optional[_builtins.str]:
-        """
-        The group ID of the Azure resource for which the private link service is for.
-        """
-        return pulumi.get(self, "group_id")
-
-    @_builtins.property
-    @pulumi.getter(name="privateEndpoint")
-    def private_endpoint(self) -> Optional['outputs.PrivateEndpointConnectionPropertiesResponsePrivateEndpoint']:
-        """
-        The private endpoint resource from Microsoft.Network provider.
-        """
-        return pulumi.get(self, "private_endpoint")
-
-    @_builtins.property
-    @pulumi.getter(name="privateLinkServiceConnectionState")
-    def private_link_service_connection_state(self) -> Optional['outputs.PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState']:
-        """
-        Describes the current state of an existing Azure Private Link service connection to the private endpoint.
-        """
-        return pulumi.get(self, "private_link_service_connection_state")
-
-    @_builtins.property
-    @pulumi.getter(name="provisioningState")
-    def provisioning_state(self) -> Optional[_builtins.str]:
-        """
-        The provisioning state of the private link service connection. Valid values are Updating, Deleting, Failed, Succeeded, Incomplete, or Canceled.
-        """
-        return pulumi.get(self, "provisioning_state")
-
-
-@pulumi.output_type
-class PrivateEndpointConnectionPropertiesResponsePrivateEndpoint(dict):
+class PrivateEndpointConnectionPropertiesPrivateEndpointResponse(dict):
     """
     The private endpoint resource from Microsoft.Network provider.
     """
@@ -423,6 +347,7 @@ class PrivateEndpointConnectionPropertiesResponsePrivateEndpoint(dict):
                  id: Optional[_builtins.str] = None):
         """
         The private endpoint resource from Microsoft.Network provider.
+
         :param _builtins.str id: The resource ID of the private endpoint resource from Microsoft.Network provider.
         """
         if id is not None:
@@ -438,7 +363,7 @@ class PrivateEndpointConnectionPropertiesResponsePrivateEndpoint(dict):
 
 
 @pulumi.output_type
-class PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState(dict):
+class PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse(dict):
     """
     Describes the current state of an existing Azure Private Link service connection to the private endpoint.
     """
@@ -449,14 +374,14 @@ class PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionSta
             suggest = "actions_required"
 
         if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState. Access the value via the '{suggest}' property getter instead.")
+            pulumi.log.warn(f"Key '{key}' not found in PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse. Access the value via the '{suggest}' property getter instead.")
 
     def __getitem__(self, key: str) -> Any:
-        PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState.__key_warning(key)
+        PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse.__key_warning(key)
         return super().__getitem__(key)
 
     def get(self, key: str, default = None) -> Any:
-        PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionState.__key_warning(key)
+        PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse.__key_warning(key)
         return super().get(key, default)
 
     def __init__(__self__, *,
@@ -465,6 +390,7 @@ class PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionSta
                  status: Optional[_builtins.str] = None):
         """
         Describes the current state of an existing Azure Private Link service connection to the private endpoint.
+
         :param _builtins.str actions_required: A description of any extra actions that may be required.
         :param _builtins.str description: The description for the private link service connection state.
         :param _builtins.str status: Status of the the private link service connection. Valid values are Pending, Approved, Rejected, or Disconnected.
@@ -504,6 +430,89 @@ class PrivateEndpointConnectionPropertiesResponsePrivateLinkServiceConnectionSta
 
 
 @pulumi.output_type
+class PrivateEndpointConnectionPropertiesResponse(dict):
+    """
+    Describes the properties of an existing private endpoint connection to the search service.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "groupId":
+            suggest = "group_id"
+        elif key == "privateEndpoint":
+            suggest = "private_endpoint"
+        elif key == "privateLinkServiceConnectionState":
+            suggest = "private_link_service_connection_state"
+        elif key == "provisioningState":
+            suggest = "provisioning_state"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PrivateEndpointConnectionPropertiesResponse. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PrivateEndpointConnectionPropertiesResponse.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PrivateEndpointConnectionPropertiesResponse.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 group_id: Optional[_builtins.str] = None,
+                 private_endpoint: Optional['outputs.PrivateEndpointConnectionPropertiesPrivateEndpointResponse'] = None,
+                 private_link_service_connection_state: Optional['outputs.PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse'] = None,
+                 provisioning_state: Optional[_builtins.str] = None):
+        """
+        Describes the properties of an existing private endpoint connection to the search service.
+
+        :param _builtins.str group_id: The group ID of the Azure resource for which the private link service is for.
+        :param 'PrivateEndpointConnectionPropertiesPrivateEndpointResponse' private_endpoint: The private endpoint resource from Microsoft.Network provider.
+        :param 'PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse' private_link_service_connection_state: Describes the current state of an existing Azure Private Link service connection to the private endpoint.
+        :param _builtins.str provisioning_state: The provisioning state of the private link service connection. Valid values are Updating, Deleting, Failed, Succeeded, Incomplete, or Canceled.
+        """
+        if group_id is not None:
+            pulumi.set(__self__, "group_id", group_id)
+        if private_endpoint is not None:
+            pulumi.set(__self__, "private_endpoint", private_endpoint)
+        if private_link_service_connection_state is not None:
+            pulumi.set(__self__, "private_link_service_connection_state", private_link_service_connection_state)
+        if provisioning_state is not None:
+            pulumi.set(__self__, "provisioning_state", provisioning_state)
+
+    @_builtins.property
+    @pulumi.getter(name="groupId")
+    def group_id(self) -> Optional[_builtins.str]:
+        """
+        The group ID of the Azure resource for which the private link service is for.
+        """
+        return pulumi.get(self, "group_id")
+
+    @_builtins.property
+    @pulumi.getter(name="privateEndpoint")
+    def private_endpoint(self) -> Optional['outputs.PrivateEndpointConnectionPropertiesPrivateEndpointResponse']:
+        """
+        The private endpoint resource from Microsoft.Network provider.
+        """
+        return pulumi.get(self, "private_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="privateLinkServiceConnectionState")
+    def private_link_service_connection_state(self) -> Optional['outputs.PrivateEndpointConnectionPropertiesPrivateLinkServiceConnectionStateResponse']:
+        """
+        Describes the current state of an existing Azure Private Link service connection to the private endpoint.
+        """
+        return pulumi.get(self, "private_link_service_connection_state")
+
+    @_builtins.property
+    @pulumi.getter(name="provisioningState")
+    def provisioning_state(self) -> Optional[_builtins.str]:
+        """
+        The provisioning state of the private link service connection. Valid values are Updating, Deleting, Failed, Succeeded, Incomplete, or Canceled.
+        """
+        return pulumi.get(self, "provisioning_state")
+
+
+@pulumi.output_type
 class PrivateEndpointConnectionResponse(dict):
     """
     Describes an existing private endpoint connection to the Azure AI Search service.
@@ -533,6 +542,7 @@ class PrivateEndpointConnectionResponse(dict):
                  properties: Optional['outputs.PrivateEndpointConnectionPropertiesResponse'] = None):
         """
         Describes an existing private endpoint connection to the Azure AI Search service.
+
         :param _builtins.str id: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         :param _builtins.str name: The name of the resource
         :param 'SystemDataResponse' system_data: Azure Resource Manager metadata containing createdBy and modifiedBy information.
@@ -597,6 +607,7 @@ class QueryKeyResponse(dict):
                  name: _builtins.str):
         """
         Describes an API key for a given Azure AI Search service that conveys read-only permissions on the docs collection of an index.
+
         :param _builtins.str key: The value of the query API key.
         :param _builtins.str name: The name of the query API key. Query names are optional, but assigning a name can help you remember how it's used.
         """
@@ -659,6 +670,7 @@ class SharedPrivateLinkResourcePropertiesResponse(dict):
                  status: Optional[_builtins.str] = None):
         """
         Describes the properties of an existing shared private link resource managed by the Azure AI Search service.
+
         :param _builtins.str group_id: The group ID from the provider of resource the shared private link resource is for.
         :param _builtins.str private_link_resource_id: The resource ID of the resource the shared private link resource is for.
         :param _builtins.str provisioning_state: The provisioning state of the shared private link resource. Valid values are Updating, Deleting, Failed, Succeeded or Incomplete.
@@ -758,6 +770,7 @@ class SharedPrivateLinkResourceResponse(dict):
                  properties: Optional['outputs.SharedPrivateLinkResourcePropertiesResponse'] = None):
         """
         Describes a shared private link resource managed by the Azure AI Search service.
+
         :param _builtins.str id: Fully qualified resource ID for the resource. E.g. "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}"
         :param _builtins.str name: The name of the resource
         :param 'SystemDataResponse' system_data: Azure Resource Manager metadata containing createdBy and modifiedBy information.
@@ -821,6 +834,7 @@ class SkuResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         Defines the SKU of a search service, which determines billing rate and capacity limits.
+
         :param _builtins.str name: The SKU of the search service. Valid values include: 'free': Shared service. 'basic': Dedicated service with up to 3 replicas. 'standard': Dedicated service with up to 12 partitions and 12 replicas. 'standard2': Similar to standard, but with more capacity per search unit. 'standard3': The largest Standard offering with up to 12 partitions and 12 replicas (or up to 3 partitions with more indexes if you also set the hostingMode property to 'highDensity'). 'storage_optimized_l1': Supports 1TB per partition, up to 12 partitions. 'storage_optimized_l2': Supports 2TB per partition, up to 12 partitions.'
         """
         if name is not None:
@@ -876,6 +890,7 @@ class SystemDataResponse(dict):
                  last_modified_by_type: Optional[_builtins.str] = None):
         """
         Metadata pertaining to creation and last modification of the resource.
+
         :param _builtins.str created_at: The timestamp of resource creation (UTC).
         :param _builtins.str created_by: The identity that created the resource.
         :param _builtins.str created_by_type: The type of identity that created the resource.
@@ -974,6 +989,7 @@ class UserAssignedIdentityResponse(dict):
                  principal_id: _builtins.str):
         """
         User assigned identity properties
+
         :param _builtins.str client_id: The client ID of the assigned identity.
         :param _builtins.str principal_id: The principal ID of the assigned identity.
         """

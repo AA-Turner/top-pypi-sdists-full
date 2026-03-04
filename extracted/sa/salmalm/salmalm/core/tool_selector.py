@@ -6,7 +6,46 @@ Extracted from IntelligenceEngine._get_tools_for_provider to reduce god object.
 from salmalm.core.classifier import INTENT_TOOLS, _KEYWORD_TOOLS, get_extra_tools
 
 
-def get_tools_for_provider(provider: str, intent: str = None, user_message: str = "") -> list:
+_CORE_TOOLS = {
+    "read_file",
+    "edit_file",
+    "web_search",
+    "web_fetch",
+}
+
+_ELEVATED_TOOLS = {
+    "write_file",
+    "exec",
+    "exec_session",
+    "browser_action",
+}
+
+_SUBAGENT_ALLOWED_TOOLS = {
+    "read_file",
+    "edit_file",
+    "list_dir",
+    "web_search",
+    "web_fetch",
+    "http_request",
+    "python_eval",
+    "rag_search",
+    "memory_read",
+    "memory_search",
+    "json_query",
+    "regex_test",
+    "hash_text",
+    "cron_manage",
+    "workflow",
+    "file_index",
+}
+
+
+def get_tools_for_provider(
+    provider: str,
+    intent: str = None,
+    user_message: str = "",
+    power_user: bool = False,
+) -> list:
     """Get tools for provider."""
     from salmalm.tools import TOOL_DEFINITIONS
     from salmalm.core import PluginLoader
@@ -30,15 +69,6 @@ def get_tools_for_provider(provider: str, intent: str = None, user_message: str 
     # chat/memory/creative with no keyword match → NO tools (pure LLM)
     # Other intents → small core set + intent + keyword matched
     _NO_TOOL_INTENTS = {"chat", "memory", "creative"}
-    _CORE_TOOLS = {
-        "read_file",
-        "write_file",
-        "edit_file",
-        "exec",
-        "web_search",
-        "web_fetch",
-    }
-
     # Check keyword matches first (text keywords + emoji + time patterns + question words)
     keyword_matched = set()
     if user_message:
@@ -58,6 +88,11 @@ def get_tools_for_provider(provider: str, intent: str = None, user_message: str 
     if intent and intent in INTENT_TOOLS:
         selected_names.update(INTENT_TOOLS[intent])
     selected_names.update(keyword_matched)
+    msg_lower = (user_message or "").lower()
+    explicit_elevated_request = any(tn in msg_lower for tn in _ELEVATED_TOOLS)
+    intent_requires_elevated = intent in {"code", "analysis"} or bool(keyword_matched.intersection(_ELEVATED_TOOLS))
+    if explicit_elevated_request or (intent_requires_elevated and power_user):
+        selected_names.update(_ELEVATED_TOOLS)
     # Filter: only include tools that exist in all_tools
     all_tools = [t for t in all_tools if t["name"] in selected_names]
 
@@ -113,3 +148,8 @@ def get_tools_for_provider(provider: str, intent: str = None, user_message: str 
         }
         for t in all_tools
     ]
+
+
+def filter_subagent_tool_defs(tool_defs: list) -> list:
+    """Allowlist-based tool filter for sub-agents."""
+    return [t for t in tool_defs if t.get("name") in _SUBAGENT_ALLOWED_TOOLS]

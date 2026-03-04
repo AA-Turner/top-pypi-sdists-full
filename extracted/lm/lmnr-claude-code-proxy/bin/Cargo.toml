@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "cc-proxy"
-version = "0.1.14"
+version = "0.1.15"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -14,6 +14,7 @@ typescript = ["dep:napi", "dep:napi-derive", "napi-build"]
 
 [dependencies]
 dashmap = "6.1"
+flate2 = "1.1.9"
 futures-util = "0.3"
 http-body-util = "0.1"
 hyper = {version = "1.8.1", features = ["client", "http1", "http2", "server"]}

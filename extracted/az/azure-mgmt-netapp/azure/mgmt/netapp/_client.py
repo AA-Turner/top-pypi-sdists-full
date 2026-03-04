@@ -34,6 +34,7 @@ from .operations import (
     NetAppResourceUsagesOperations,
     Operations,
     PoolsOperations,
+    RansomwareReportsOperations,
     SnapshotPoliciesOperations,
     SnapshotsOperations,
     SubvolumesOperations,
@@ -70,6 +71,8 @@ class NetAppManagementClient:  # pylint: disable=too-many-instance-attributes
     :vartype backup_policies: azure.mgmt.netapp.operations.BackupPoliciesOperations
     :ivar volume_quota_rules: VolumeQuotaRulesOperations operations
     :vartype volume_quota_rules: azure.mgmt.netapp.operations.VolumeQuotaRulesOperations
+    :ivar ransomware_reports: RansomwareReportsOperations operations
+    :vartype ransomware_reports: azure.mgmt.netapp.operations.RansomwareReportsOperations
     :ivar backup_vaults: BackupVaultsOperations operations
     :vartype backup_vaults: azure.mgmt.netapp.operations.BackupVaultsOperations
     :ivar net_app_resource_quota_limits: NetAppResourceQuotaLimitsOperations operations
@@ -104,8 +107,9 @@ class NetAppManagementClient:  # pylint: disable=too-many-instance-attributes
     :keyword cloud_setting: The cloud setting for which to get the ARM endpoint. Default value is
      None.
     :paramtype cloud_setting: ~azure.core.AzureClouds
-    :keyword api_version: The API version to use for this operation. Default value is "2025-09-01".
-     Note that overriding this default value may result in unsupported behavior.
+    :keyword api_version: The API version to use for this operation. Known values are "2025-12-01"
+     and None. Default value is "2025-12-01". Note that overriding this default value may result in
+     unsupported behavior.
     :paramtype api_version: str
     :keyword int polling_interval: Default waiting time between two polls for LRO operations if no
      Retry-After header is present.
@@ -171,6 +175,9 @@ class NetAppManagementClient:  # pylint: disable=too-many-instance-attributes
         )
         self.backup_policies = BackupPoliciesOperations(self._client, self._config, self._serialize, self._deserialize)
         self.volume_quota_rules = VolumeQuotaRulesOperations(
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.ransomware_reports = RansomwareReportsOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
         self.backup_vaults = BackupVaultsOperations(self._client, self._config, self._serialize, self._deserialize)

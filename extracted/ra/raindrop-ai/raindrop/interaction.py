@@ -125,7 +125,7 @@ class Interaction:
         """
         Retroactively log a tool span tied to this interaction.
         """
-        if not _core._tracing_enabled or not _core.TracerWrapper.verify_initialized():
+        if not _core._tracing_enabled:
             return
 
         # Duration normalization
@@ -166,6 +166,81 @@ class Interaction:
         tlp_kind = _core.TraceloopSpanKindValues.TOOL
         span_name = f"{name}.{tlp_kind.value}"
 
+        association_props = {
+            "event_id": self._event_id,
+            "user_id": self._user_id,
+            "event": self._event,
+            "convo_id": self._convo_id,
+        }
+
+        merged_association_props: Dict[str, Any] = {
+            key: value for key, value in association_props.items() if value is not None
+        }
+
+        if properties:
+            for key, value in properties.items():
+                if key in association_props or value is None:
+                    continue
+                if isinstance(value, (str, bool, int, float)):
+                    merged_association_props[key] = value
+                else:
+                    try:
+                        merged_association_props[key] = json.dumps(
+                            value, cls=_core.JSONEncoder
+                        )
+                    except Exception:
+                        merged_association_props[key] = str(value)
+
+        serialized_input: str | None = None
+        serialized_output: str | None = None
+        if _core._should_send_prompts():
+            if input is not None:
+                try:
+                    json_input = json.dumps({"args": [input]}, cls=_core.JSONEncoder)
+                    serialized_input = _core._truncate_json_if_needed(json_input)
+                except Exception as e:
+                    _core.logger.debug(
+                        f"[raindrop] Could not serialize input for span: {e}"
+                    )
+
+            if output is not None:
+                try:
+                    json_output = json.dumps(output, cls=_core.JSONEncoder)
+                    serialized_output = _core._truncate_json_if_needed(json_output)
+                except Exception as e:
+                    _core.logger.debug(
+                        f"[raindrop] Could not serialize output for span: {e}"
+                    )
+
+        error_message = (
+            str(error)
+            if error is not None
+            else None
+        )
+
+        if _core._bypass_otel_for_tools:
+            direct_span = _core._build_direct_tool_span(
+                span_name=span_name,
+                tool_name=name,
+                version=version,
+                start_ns=start_ns,
+                end_ns=end_ns,
+                duration_ms=dur_ms if duration_ms is not None else None,
+                input_value=serialized_input,
+                output_value=serialized_output,
+                error_message=error_message,
+                association_properties=merged_association_props,
+            )
+            _core._enqueue_direct_tool_span(direct_span)
+            if _core.debug_logs:
+                _core.logger.debug(
+                    f'[raindrop] track_tool (direct): queued tool span "{name}" (duration_ms={duration_ms})'
+                )
+            return
+
+        if not _core.TracerWrapper.verify_initialized():
+            return
+
         tracer = _core.trace.get_tracer("traceloop.tracer")
         span = tracer.start_span(span_name, start_time=start_ns)
 
@@ -177,62 +252,21 @@ class Interaction:
                     _core.SpanAttributes.TRACELOOP_ENTITY_VERSION, version
                 )
 
-            association_props = {
-                "event_id": self._event_id,
-                "user_id": self._user_id,
-                "event": self._event,
-                "convo_id": self._convo_id,
-            }
-            for key, value in association_props.items():
-                if value is not None:
-                    span.set_attribute(f"traceloop.association.properties.{key}", value)
-
-            if properties:
-                for key, value in properties.items():
-                    if key in association_props:
-                        continue
-                    if value is None:
-                        continue
-                    if isinstance(value, (str, bool, int, float)):
-                        attr_val: Any = value
-                    else:
-                        try:
-                            attr_val = json.dumps(value, cls=_core.JSONEncoder)
-                        except Exception:
-                            attr_val = str(value)
-                    span.set_attribute(
-                        f"traceloop.association.properties.{key}", attr_val
-                    )
+            for key, value in merged_association_props.items():
+                span.set_attribute(f"traceloop.association.properties.{key}", value)
 
             if duration_ms is not None:
                 span.set_attribute("traceloop.entity.duration_ms", dur_ms)
 
-            if _core._should_send_prompts():
-                if input is not None:
-                    try:
-                        json_input = json.dumps(
-                            {"args": [input]}, cls=_core.JSONEncoder
-                        )
-                        span.set_attribute(
-                            _core.SpanAttributes.TRACELOOP_ENTITY_INPUT,
-                            _core._truncate_json_if_needed(json_input),
-                        )
-                    except Exception as e:
-                        _core.logger.debug(
-                            f"[raindrop] Could not serialize input for span: {e}"
-                        )
+            if serialized_input is not None:
+                span.set_attribute(
+                    _core.SpanAttributes.TRACELOOP_ENTITY_INPUT, serialized_input
+                )
 
-                if output is not None:
-                    try:
-                        json_output = json.dumps(output, cls=_core.JSONEncoder)
-                        span.set_attribute(
-                            _core.SpanAttributes.TRACELOOP_ENTITY_OUTPUT,
-                            _core._truncate_json_if_needed(json_output),
-                        )
-                    except Exception as e:
-                        _core.logger.debug(
-                            f"[raindrop] Could not serialize output for span: {e}"
-                        )
+            if serialized_output is not None:
+                span.set_attribute(
+                    _core.SpanAttributes.TRACELOOP_ENTITY_OUTPUT, serialized_output
+                )
 
             if error is not None:
                 exc = (

@@ -1,11 +1,10 @@
-# Copyright (c) Alibaba, Inc. and its affiliates.
+# Copyright (c) ModelScope Contributors. All rights reserved.
 import importlib.util
+import json
 import os
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional
-
-import json
 
 from swift.utils import get_logger
 
@@ -52,7 +51,7 @@ def prepare_config_args(argv):
         if argv[i] == '--config':
             if i + 1 >= len(argv):
                 raise ValueError('The `--config` argument requires a yaml file path.')
-            from omegaconf import OmegaConf, DictConfig, ListConfig
+            from omegaconf import DictConfig, ListConfig, OmegaConf
             config = OmegaConf.load(argv[i + 1])
 
             def parse_dict_config(cfg: DictConfig) -> Dict[str, Any]:
@@ -82,18 +81,9 @@ def prepare_config_args(argv):
             break
 
 
-def _compat_web_ui(argv):
-    # [compat]
-    method_name = argv[0]
-    if method_name in {'web-ui', 'web_ui'} and ('--model' in argv or '--adapters' in argv or '--ckpt_dir' in argv):
-        argv[0] = 'app'
-        logger.warning('Please use `swift app`.')
-
-
 def cli_main(route_mapping: Optional[Dict[str, str]] = None, is_megatron: bool = False) -> None:
     route_mapping = route_mapping or ROUTE_MAPPING
     argv = sys.argv[1:]
-    _compat_web_ui(argv)
     method_name = argv[0].replace('_', '-')
     argv = argv[1:]
     file_path = importlib.util.find_spec(route_mapping[method_name]).origin

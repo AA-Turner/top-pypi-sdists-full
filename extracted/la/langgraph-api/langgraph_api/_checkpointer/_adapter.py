@@ -19,8 +19,10 @@ from langgraph.checkpoint.base import (
 )
 from langgraph.graph import StateGraph
 from langgraph.pregel import Pregel
+from langgraph_grpc_common.checkpointer import GrpcCheckpointer
 
 from langgraph_api import config, timing
+from langgraph_api.grpc.client import get_shared_client
 from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
 
@@ -34,6 +36,7 @@ if TYPE_CHECKING:
         CheckpointMetadata,
         CheckpointTuple,
     )
+    from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerStub
 
     from langgraph_api._checkpointer.protocol import (
         CheckpointerProtocol,
@@ -58,6 +61,11 @@ _REQUIRED = (
     BaseCheckpointSaver.aget,
     BaseCheckpointSaver.alist,
 )
+
+
+async def _get_shared_checkpointer_stub() -> CheckpointerStub:
+    client = await get_shared_client()
+    return client.checkpointer
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +311,15 @@ async def get_checkpointer(
             raise RuntimeError("Capabilities not initialized")
         return _CustomCheckpointerAdapter(  # type: ignore[return-value]
             inner=CHECKPOINTER_STACK.inner, capabilities=_CHECKPOINTER_CAPABILITIES
+        )
+
+    if (
+        config.CHECKPOINTER_CONFIG
+        and config.CHECKPOINTER_CONFIG.get("backend") == "mongo"
+    ):
+        return cast(
+            "FullCheckpointerProtocol",
+            GrpcCheckpointer(get_stub=_get_shared_checkpointer_stub),
         )
 
     from langgraph_runtime.checkpoint import Checkpointer  # noqa: PLC0415

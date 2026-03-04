@@ -1545,4 +1545,5 @@ void export_device_proxy(py::module &m) {
 
                     New in PyTango 7.0.0)doc",
              py::arg("lockinfo"));
+    fix_dynamic_attr_dealloc<Tango::DeviceProxy>();
 }

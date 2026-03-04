@@ -723,6 +723,66 @@ class TestRemoteExecutionClient(unittest.TestCase):
             InstanceTypes=["m6i.xlarge"]  # ml. prefix removed
         )
 
+    def test_validate_domain_id(self):
+        """Test domain ID validation."""
+        # Valid cases
+        valid_ids = ["dzd-123456", "dzd_test123", "dzd-abc_def-123"]
+        for domain_id in valid_ids:
+            RemoteExecutionClient.validate_domain_id(domain_id)  # Should not raise
+
+        # Invalid cases - only test cases that will actually raise ValidationError
+        invalid_cases = [
+            ("", "Domain ID cannot be empty"),
+            ("domain-123", "Invalid domain ID format"),  # Missing dzd prefix
+            ("dzd-", "Invalid domain ID format"),  # Too short
+            ("dzd-" + "a" * 37, "Invalid domain ID format"),  # Too long
+        ]
+
+        for domain_id, expected_msg in invalid_cases:
+            with self.assertRaises(ValidationError) as context:
+                RemoteExecutionClient.validate_domain_id(domain_id)
+            self.assertIn(expected_msg, str(context.exception))
+
+    def test_validate_project_id(self):
+        """Test project ID validation."""
+        # Valid cases
+        valid_ids = ["a", "project123", "test-project_123", "a" * 36]
+        for project_id in valid_ids:
+            RemoteExecutionClient.validate_project_id(project_id)  # Should not raise
+
+        # Invalid cases - only test cases that will actually raise ValidationError
+        invalid_cases = [
+            ("", "Project ID cannot be empty"),
+            ("a" * 37, "Invalid project ID"),  # Too long
+            ("project with spaces", "Invalid project ID"),  # Spaces
+            ("project@special", "Invalid project ID"),  # Special chars
+        ]
+
+        for project_id, expected_msg in invalid_cases:
+            with self.assertRaises(ValidationError) as context:
+                RemoteExecutionClient.validate_project_id(project_id)
+            self.assertIn(expected_msg, str(context.exception))
+
+    def test_validate_domain_region(self):
+        """Test domain region validation."""
+        # Valid cases
+        valid_regions = ["us-east-1", "eu-west-2", "ap-southeast-1", "us-gov-east-1", "cn-north-1"]
+        for region in valid_regions:
+            RemoteExecutionClient.validate_domain_region(region)  # Should not raise
+
+        # Invalid cases - only test cases that will actually raise ValidationError
+        invalid_cases = [
+            ("", "Domain region cannot be empty"),
+            ("invalid-region", "Invalid AWS region format"),
+            ("us-east", "Invalid AWS region format"),  # Missing number
+            ("xyz-west-1", "Invalid AWS region format"),  # Invalid prefix
+        ]
+
+        for region, expected_msg in invalid_cases:
+            with self.assertRaises(ValidationError) as context:
+                RemoteExecutionClient.validate_domain_region(region)
+            self.assertIn(expected_msg, str(context.exception))
+
     @patch("uuid.uuid4")
     def test_start_execution_with_latest_image_version_cpu(self, mock_uuid):
         """Test that 'latest' image version correctly constructs ECR URI with CPU variant"""

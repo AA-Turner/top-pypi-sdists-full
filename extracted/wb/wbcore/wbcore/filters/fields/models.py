@@ -25,23 +25,27 @@ class ModelChoiceFilterMixin(WBCoreFilterMixin):
             values = [values]
         parsed_values = []
         for value in values:
-            if isinstance(value, int):
-                try:
-                    parsed_values.append(
-                        {
-                            "value": value,
-                            "label": str(queryset.get(id=value)),
-                        }
-                    )
-                except ObjectDoesNotExist as e:
-                    raise ParseError("Filter value invalid") from e
-            else:
+            if hasattr(value, "id"):
                 parsed_values.append(
                     {
                         "value": value.id,
                         "label": str(value),
                     }
                 )
+            else:
+                try:
+                    value = int(value)
+                    try:
+                        parsed_values.append(
+                            {
+                                "value": value,
+                                "label": str(queryset.get(id=value)),
+                            }
+                        )
+                    except ObjectDoesNotExist as e:
+                        raise ParseError("Filter value invalid") from e
+                except (ValueError, TypeError) as e:  # casting to int fails and as such, we expect an object
+                    raise ParseError("Invalid filter value") from e
         if self.MULTIPLE:
             return parsed_values
         elif parsed_values:

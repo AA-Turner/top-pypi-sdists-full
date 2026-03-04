@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from salmalm.security.crypto import log
+from salmalm.config_manager import ConfigManager
 
 from salmalm.constants import DATA_DIR
 
@@ -84,6 +85,8 @@ class PluginManager:
     def scan_and_load(self):
         """Scan ~/SalmAlm/plugins/ and load all valid plugins."""
         PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
+        config = ConfigManager.load("config")
+        require_trust_manifest = config.get("plugins", {}).get("require_trust_manifest", True)
 
         with self._lock:
             # Unregister old plugin hooks
@@ -99,14 +102,15 @@ class PluginManager:
                 plugin_json = plugin_dir / "plugin.json"
                 init_py = plugin_dir / "__init__.py"
 
-                if not plugin_json.exists():
-                    continue
-
-                try:
-                    metadata = json.loads(plugin_json.read_text(encoding="utf-8"))
-                except Exception as e:
-                    log.error(f"[PLUGIN] Bad plugin.json in {plugin_dir.name}: {e}")
-                    continue
+                metadata = {}
+                if plugin_json.exists():
+                    try:
+                        metadata = json.loads(plugin_json.read_text(encoding="utf-8"))
+                    except Exception as e:
+                        log.error(f"[PLUGIN] Bad plugin.json in {plugin_dir.name}: {e}")
+                        continue
+                elif not require_trust_manifest:
+                    metadata = {"name": plugin_dir.name}
 
                 name = metadata.get("name", plugin_dir.name)
                 info = PluginInfo(name, plugin_dir, metadata)
@@ -124,6 +128,13 @@ class PluginManager:
 
                 # Load module
                 if init_py.exists():
+                    if require_trust_manifest:
+                        if not plugin_json.exists():
+                            log.warning("[PLUGIN] Skipped (untrusted, no plugin.json): %s", plugin_dir.name)
+                            continue
+                        if metadata.get("trusted") is not True:
+                            log.warning("[PLUGIN] Skipped (untrusted plugin): %s", name)
+                            continue
                     try:
                         spec = importlib.util.spec_from_file_location(
                             f"salmalm_plugin_{name}", str(init_py), submodule_search_locations=[str(plugin_dir)]

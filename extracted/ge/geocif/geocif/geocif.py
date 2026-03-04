@@ -646,8 +646,8 @@ class Geocif:
         df[f"{self.target}_class"] = np.nan
         
         mask = df["Harvest Year"] == self.forecast_season
-        self.df_train = df[~mask]
-        self.df_test = df[mask]
+        self.df_train = df[~mask].copy()
+        self.df_test = df[mask].copy()
         
         self.df_train = self.df_train.dropna(subset=[self.target])
 

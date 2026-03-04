@@ -24,7 +24,7 @@ from .uploads import (
     UploadsResourceWithStreamingResponse,
     AsyncUploadsResourceWithStreamingResponse,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from .downloads import (
@@ -99,34 +99,35 @@ class SessionsResource(SyncAPIResource):
     def create(
         self,
         *,
-        project_id: str,
-        browser_settings: session_create_params.BrowserSettings | NotGiven = NOT_GIVEN,
-        extension_id: str | NotGiven = NOT_GIVEN,
-        keep_alive: bool | NotGiven = NOT_GIVEN,
-        proxies: Union[bool, Iterable[session_create_params.ProxiesUnionMember1]] | NotGiven = NOT_GIVEN,
-        region: Literal["us-west-2", "us-east-1", "eu-central-1", "ap-southeast-1"] | NotGiven = NOT_GIVEN,
-        api_timeout: int | NotGiven = NOT_GIVEN,
-        user_metadata: Dict[str, object] | NotGiven = NOT_GIVEN,
+        browser_settings: session_create_params.BrowserSettings | Omit = omit,
+        extension_id: str | Omit = omit,
+        keep_alive: bool | Omit = omit,
+        project_id: str | Omit = omit,
+        proxies: Union[Iterable[session_create_params.ProxiesUnionMember0], bool] | Omit = omit,
+        region: Literal["us-west-2", "us-east-1", "eu-central-1", "ap-southeast-1"] | Omit = omit,
+        api_timeout: int | Omit = omit,
+        user_metadata: Dict[str, object] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionCreateResponse:
         """Create a Session
 
         Args:
-          project_id: The Project ID.
+          extension_id: The uploaded Extension ID.
 
-        Can be found in
-              [Settings](https://www.browserbase.com/settings).
-
-          extension_id: The uploaded Extension ID. See
+        See
               [Upload Extension](/reference/api/upload-an-extension).
 
           keep_alive: Set to true to keep the session alive even after disconnections. Available on
               the Hobby Plan and above.
+
+          project_id: The Project ID. Can be found in
+              [Settings](https://www.browserbase.com/settings). Optional - if not provided,
+              the project will be inferred from the API key.
 
           proxies: Proxy configuration. Can be true for default proxy, or an array of proxy
               configurations.
@@ -151,10 +152,10 @@ class SessionsResource(SyncAPIResource):
             "/v1/sessions",
             body=maybe_transform(
                 {
-                    "project_id": project_id,
                     "browser_settings": browser_settings,
                     "extension_id": extension_id,
                     "keep_alive": keep_alive,
+                    "project_id": project_id,
                     "proxies": proxies,
                     "region": region,
                     "api_timeout": api_timeout,
@@ -177,10 +178,10 @@ class SessionsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionRetrieveResponse:
         """
-        Session
+        Get a Session
 
         Args:
           extra_headers: Send extra headers
@@ -205,25 +206,25 @@ class SessionsResource(SyncAPIResource):
         self,
         id: str,
         *,
-        project_id: str,
         status: Literal["REQUEST_RELEASE"],
+        project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Session:
-        """Update Session
+        """
+        Update a Session
 
         Args:
-          project_id: The Project ID.
-
-        Can be found in
-              [Settings](https://www.browserbase.com/settings).
-
           status: Set to `REQUEST_RELEASE` to request that the session complete. Use before
               session's timeout to avoid additional charges.
+
+          project_id: The Project ID. Can be found in
+              [Settings](https://www.browserbase.com/settings). Optional - if not provided,
+              the project will be inferred from the API key.
 
           extra_headers: Send extra headers
 
@@ -239,8 +240,8 @@ class SessionsResource(SyncAPIResource):
             f"/v1/sessions/{id}",
             body=maybe_transform(
                 {
-                    "project_id": project_id,
                     "status": status,
+                    "project_id": project_id,
                 },
                 session_update_params.SessionUpdateParams,
             ),
@@ -253,14 +254,14 @@ class SessionsResource(SyncAPIResource):
     def list(
         self,
         *,
-        q: str | NotGiven = NOT_GIVEN,
-        status: Literal["RUNNING", "ERROR", "TIMED_OUT", "COMPLETED"] | NotGiven = NOT_GIVEN,
+        q: str | Omit = omit,
+        status: Literal["RUNNING", "ERROR", "TIMED_OUT", "COMPLETED"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionListResponse:
         """List Sessions
 
@@ -306,7 +307,7 @@ class SessionsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionLiveURLs:
         """
         Session Live URLs
@@ -370,34 +371,35 @@ class AsyncSessionsResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        project_id: str,
-        browser_settings: session_create_params.BrowserSettings | NotGiven = NOT_GIVEN,
-        extension_id: str | NotGiven = NOT_GIVEN,
-        keep_alive: bool | NotGiven = NOT_GIVEN,
-        proxies: Union[bool, Iterable[session_create_params.ProxiesUnionMember1]] | NotGiven = NOT_GIVEN,
-        region: Literal["us-west-2", "us-east-1", "eu-central-1", "ap-southeast-1"] | NotGiven = NOT_GIVEN,
-        api_timeout: int | NotGiven = NOT_GIVEN,
-        user_metadata: Dict[str, object] | NotGiven = NOT_GIVEN,
+        browser_settings: session_create_params.BrowserSettings | Omit = omit,
+        extension_id: str | Omit = omit,
+        keep_alive: bool | Omit = omit,
+        project_id: str | Omit = omit,
+        proxies: Union[Iterable[session_create_params.ProxiesUnionMember0], bool] | Omit = omit,
+        region: Literal["us-west-2", "us-east-1", "eu-central-1", "ap-southeast-1"] | Omit = omit,
+        api_timeout: int | Omit = omit,
+        user_metadata: Dict[str, object] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionCreateResponse:
         """Create a Session
 
         Args:
-          project_id: The Project ID.
+          extension_id: The uploaded Extension ID.
 
-        Can be found in
-              [Settings](https://www.browserbase.com/settings).
-
-          extension_id: The uploaded Extension ID. See
+        See
               [Upload Extension](/reference/api/upload-an-extension).
 
           keep_alive: Set to true to keep the session alive even after disconnections. Available on
               the Hobby Plan and above.
+
+          project_id: The Project ID. Can be found in
+              [Settings](https://www.browserbase.com/settings). Optional - if not provided,
+              the project will be inferred from the API key.
 
           proxies: Proxy configuration. Can be true for default proxy, or an array of proxy
               configurations.
@@ -422,10 +424,10 @@ class AsyncSessionsResource(AsyncAPIResource):
             "/v1/sessions",
             body=await async_maybe_transform(
                 {
-                    "project_id": project_id,
                     "browser_settings": browser_settings,
                     "extension_id": extension_id,
                     "keep_alive": keep_alive,
+                    "project_id": project_id,
                     "proxies": proxies,
                     "region": region,
                     "api_timeout": api_timeout,
@@ -448,10 +450,10 @@ class AsyncSessionsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionRetrieveResponse:
         """
-        Session
+        Get a Session
 
         Args:
           extra_headers: Send extra headers
@@ -476,25 +478,25 @@ class AsyncSessionsResource(AsyncAPIResource):
         self,
         id: str,
         *,
-        project_id: str,
         status: Literal["REQUEST_RELEASE"],
+        project_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Session:
-        """Update Session
+        """
+        Update a Session
 
         Args:
-          project_id: The Project ID.
-
-        Can be found in
-              [Settings](https://www.browserbase.com/settings).
-
           status: Set to `REQUEST_RELEASE` to request that the session complete. Use before
               session's timeout to avoid additional charges.
+
+          project_id: The Project ID. Can be found in
+              [Settings](https://www.browserbase.com/settings). Optional - if not provided,
+              the project will be inferred from the API key.
 
           extra_headers: Send extra headers
 
@@ -510,8 +512,8 @@ class AsyncSessionsResource(AsyncAPIResource):
             f"/v1/sessions/{id}",
             body=await async_maybe_transform(
                 {
-                    "project_id": project_id,
                     "status": status,
+                    "project_id": project_id,
                 },
                 session_update_params.SessionUpdateParams,
             ),
@@ -524,14 +526,14 @@ class AsyncSessionsResource(AsyncAPIResource):
     async def list(
         self,
         *,
-        q: str | NotGiven = NOT_GIVEN,
-        status: Literal["RUNNING", "ERROR", "TIMED_OUT", "COMPLETED"] | NotGiven = NOT_GIVEN,
+        q: str | Omit = omit,
+        status: Literal["RUNNING", "ERROR", "TIMED_OUT", "COMPLETED"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionListResponse:
         """List Sessions
 
@@ -577,7 +579,7 @@ class AsyncSessionsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionLiveURLs:
         """
         Session Live URLs

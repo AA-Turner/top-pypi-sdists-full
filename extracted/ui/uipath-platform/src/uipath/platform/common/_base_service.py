@@ -20,6 +20,7 @@ from tenacity import (
 from ..errors import EnrichedException
 from ._config import UiPathApiConfig
 from ._execution_context import UiPathExecutionContext
+from ._service_url_overrides import inject_routing_headers, resolve_service_url
 from ._ssl_context import get_httpx_client_kwargs
 from ._url import UiPathUrl
 from ._user_agent import user_agent_value
@@ -101,7 +102,12 @@ class BaseService:
         kwargs.setdefault("headers", {})
         kwargs["headers"][HEADER_USER_AGENT] = user_agent_value(specific_component)
 
-        scoped_url = self._url.scope_url(str(url), scoped)
+        override = resolve_service_url(str(url))
+        if override:
+            scoped_url = override
+            inject_routing_headers(kwargs["headers"])
+        else:
+            scoped_url = self._url.scope_url(str(url), scoped)
 
         response = self._client.request(method, scoped_url, **kwargs)
 
@@ -140,7 +146,12 @@ class BaseService:
             self._specific_component
         )
 
-        scoped_url = self._url.scope_url(str(url), scoped)
+        override = resolve_service_url(str(url))
+        if override:
+            scoped_url = override
+            inject_routing_headers(kwargs["headers"])
+        else:
+            scoped_url = self._url.scope_url(str(url), scoped)
 
         response = await self._client_async.request(method, scoped_url, **kwargs)
 

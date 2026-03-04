@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datamodel-code-generator
-Version: 0.54.0
+Version: 0.54.1
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/koxudaxi/datamodel-code-generator
 Project-URL: Source, https://github.com/koxudaxi/datamodel-code-generator
@@ -22,7 +22,7 @@ Requires-Dist: argcomplete<4,>=2.10.1
 Requires-Dist: black>=19.10b0
 Requires-Dist: genson<2,>=1.2.1
 Requires-Dist: inflect<8,>=4.1
-Requires-Dist: isort<8,>=4.3.21
+Requires-Dist: isort<9,>=4.3.21
 Requires-Dist: jinja2<4,>=2.10.1
 Requires-Dist: packaging
 Requires-Dist: pydantic>=1.5
@@ -63,6 +63,8 @@ Description-Content-Type: text/markdown
 ![license](https://img.shields.io/github/license/koxudaxi/datamodel-code-generator.svg)
 [![Pydantic v1](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v1.json)](https://pydantic.dev)
 [![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://pydantic.dev)
+
+> 📣 💼 Maintainer update: Open to opportunities. 🔗 [koxudaxi.dev](https://koxudaxi.dev/?utm_source=github_readme&utm_medium=top&utm_campaign=open_to_work)
 
 ## ✨ What it does
 

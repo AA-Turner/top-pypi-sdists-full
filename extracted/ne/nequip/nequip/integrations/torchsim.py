@@ -1,22 +1,21 @@
 """Wrapper for NequIP framework models in torch-sim"""
 
-import warnings
 import torch
 
 import torch_sim as ts
 from torch_sim.models.interface import ModelInterface
-from torch_sim.typing import StateDict
 
 from nequip.data import AtomicDataDict
+from nequip.data._nl import NEIGHBORLIST_BACKEND_ALCHEMIOPS
 
-from nequip.nn import graph_model
+from .mixins import _IntegrationLoaderMixin
 
 from collections.abc import Callable
+from typing import Union, List, Dict, Optional
 from pathlib import Path
-from typing import Union, List, Optional, Dict
 
 
-class NequIPTorchSimCalc(ModelInterface):
+class NequIPTorchSimCalc(_IntegrationLoaderMixin, ModelInterface):
     """NequIP framework torch-sim calculator.
 
     This torch-sim calculator is compatible with models from the NequIP framework,
@@ -28,12 +27,9 @@ class NequIPTorchSimCalc(ModelInterface):
 
     Args:
         model (:class:`torch.nn.Module`): a model in the NequIP framework
-        r_max (float): cutoff radius for neighbor list construction
         device (str or :class:`torch.device`): device for model to evaluate on,
             e.g. ``"cpu"`` or ``"cuda"`` (default: ``"cpu"``)
         transforms (List[Callable]): list of data transforms
-        neighbor_list_backend (str): neighborlist backend to use: ``"ase"``, ``"matscipy"``, or ``"vesin"``
-            (default: ``"matscipy"``)
         atomic_numbers (:class:`torch.Tensor` or None): atomic numbers with shape
             ``[n_atoms]``. If provided at initialization, cannot be provided
             again during forward pass
@@ -45,10 +41,8 @@ class NequIPTorchSimCalc(ModelInterface):
     def __init__(
         self,
         model: torch.nn.Module,
-        r_max: float,
         device: Union[str, torch.device] = "cpu",
         transforms: List[Callable] = [],
-        neighbor_list_backend: str = "matscipy",
         atomic_numbers: torch.Tensor | None = None,
         system_idx: torch.Tensor | None = None,
     ) -> None:
@@ -69,13 +63,9 @@ class NequIPTorchSimCalc(ModelInterface):
         self._compute_stress = True
         self._memory_scales_with = "n_atoms_x_density"
 
-        self.neighbor_list_backend = neighbor_list_backend
-
         if not isinstance(model, torch.nn.Module):
             raise TypeError("Invalid model type. Must be a torch.nn.Module.")
         self.model = model.to(self._device)
-
-        self.r_max = torch.tensor(r_max, dtype=self._dtype, device=self._device)
 
         # move transforms to device (they are torch.nn.Module's)
         self.transforms = [t.to(self._device) for t in transforms]
@@ -105,36 +95,10 @@ class NequIPTorchSimCalc(ModelInterface):
         self._compute_stress = value
 
     @classmethod
-    def _handle_chemical_species_map(
-        cls,
-        chemical_species_to_atom_type_map: Optional[Union[Dict[str, str], bool]],
-        type_names: List[str],
-    ) -> Dict[str, str]:
-        """Handle chemical species map fallback to identity map with warning.
+    def _get_aoti_compile_target(cls) -> Dict:
+        from nequip.scripts._compile_utils import COMPILE_TARGET_DICT, AOTI_BATCH_TARGET
 
-        Args:
-            chemical_species_to_atom_type_map (Dict[str, str] or bool or None): mapping from chemical species to atom type names.
-                If ``None`` (default), uses identity mapping with warning.
-                If ``True``, uses identity mapping without warning.
-                If dict, uses the provided mapping.
-            type_names (List[str]): list of model type names.
-
-        Returns:
-            Dict[str, str]: the chemical species to atom type mapping.
-        """
-        if chemical_species_to_atom_type_map is None:
-            warnings.warn(
-                "Defaulting to using model type names as chemical symbols. "
-                "If the model type names correspond exactly to chemical species (e.g., 'H', 'C', 'O'), this is correct. "
-                "Otherwise, this is wrong and will cause errors. "
-                "To silence this warning, explicitly set `chemical_species_to_atom_type_map=True` for identity mapping, "
-                "or provide the correct mapping as a dict."
-            )
-            chemical_species_to_atom_type_map = {t: t for t in type_names}
-        elif chemical_species_to_atom_type_map is True:
-            # explicitly requested identity mapping without warning
-            chemical_species_to_atom_type_map = {t: t for t in type_names}
-        return chemical_species_to_atom_type_map
+        return COMPILE_TARGET_DICT[AOTI_BATCH_TARGET]
 
     @classmethod
     def from_compiled_model(
@@ -142,116 +106,14 @@ class NequIPTorchSimCalc(ModelInterface):
         compile_path: Union[str, Path],
         device: Union[str, torch.device] = "cpu",
         chemical_species_to_atom_type_map: Optional[Union[Dict[str, str], bool]] = None,
+        neighborlist_backend: str = NEIGHBORLIST_BACKEND_ALCHEMIOPS,
         **kwargs,
     ):
-        """Creates a :class:`~nequip.integrations.torchsim.NequIPTorchSimCalc` from a compiled model file.
-
-        Args:
-            compile_path (str or :class:`pathlib.Path`): path to compiled model file.
-            device (str or :class:`torch.device`): the device to use (e.g., ``"cpu"`` or ``"cuda"``).
-            chemical_species_to_atom_type_map (Dict[str, str] or bool or None): mapping from chemical species to model type names.
-                If ``None`` (default), uses identity mapping with warning.
-                If ``True``, uses identity mapping without warning.
-                If dict, uses the provided mapping.
-            **kwargs: additional arguments passed to :class:`~nequip.integrations.torchsim.NequIPTorchSimCalc`.
-        """
-        from nequip.model.inference_models import load_compiled_model
-        from nequip.scripts._compile_utils import ASE_OUTPUTS, BATCH_INPUTS
-
-        model, metadata = load_compiled_model(
-            str(compile_path), device, BATCH_INPUTS, ASE_OUTPUTS
-        )
-
-        # extract r_max and type_names from metadata
-        r_max = metadata[graph_model.R_MAX_KEY]
-        type_names = metadata[graph_model.TYPE_NAMES_KEY]
-
-        # handle chemical species mapping
-        chemical_species_to_atom_type_map = cls._handle_chemical_species_map(
-            chemical_species_to_atom_type_map, type_names
-        )
-
-        # check for transforms in kwargs
-        if "transforms" in kwargs:
-            raise KeyError("`transforms` not allowed here")
-
-        # extract neighbor_list_backend from kwargs if provided
-        neighbor_list_backend = kwargs.pop("neighbor_list_backend", "matscipy")
-
-        return cls(
-            model=model,
-            r_max=r_max,
+        return super().from_compiled_model(
+            compile_path=compile_path,
             device=device,
-            transforms=_basic_transforms(
-                metadata,
-                r_max,
-                type_names,
-                chemical_species_to_atom_type_map,
-                neighbor_list_backend,
-            ),
-            neighbor_list_backend=neighbor_list_backend,
-            **kwargs,
-        )
-
-    @classmethod
-    def _from_saved_model(
-        cls,
-        model_path: str,
-        device: Union[str, torch.device] = "cpu",
-        chemical_species_to_atom_type_map: Optional[Union[Dict[str, str], bool]] = None,
-        **kwargs,
-    ):
-        """Creates a :class:`~nequip.integrations.torchsim.NequIPTorchSimCalc` from a saved model.
-
-        .. note::
-            This method is private and intended for internal testing only.
-            Users should use ``from_compiled_model`` instead.
-
-        Args:
-            model_path (str): path to a checkpoint file, package file, or ``nequip.net`` model ID.
-            device (str or :class:`torch.device`): the device to use (e.g., ``"cpu"`` or ``"cuda"``).
-            chemical_species_to_atom_type_map (Dict[str, str] or bool or None): mapping from chemical species to model type names.
-                If ``None`` (default), uses identity mapping with warning.
-                If ``True``, uses identity mapping without warning.
-                If dict, uses the provided mapping.
-            **kwargs: additional arguments passed to :class:`~nequip.integrations.torchsim.NequIPTorchSimCalc`.
-        """
-        from nequip.model.saved_models.load_utils import load_saved_model
-        from nequip.train.lightning import _SOLE_MODEL_KEY
-
-        # load model using unified loader
-        model: graph_model.GraphModel = load_saved_model(
-            model_path, model_key=_SOLE_MODEL_KEY
-        )
-        model.eval()
-
-        r_max = float(model.metadata[graph_model.R_MAX_KEY])
-        type_names = model.metadata[graph_model.TYPE_NAMES_KEY].split(" ")
-
-        # handle chemical species mapping
-        chemical_species_to_atom_type_map = cls._handle_chemical_species_map(
-            chemical_species_to_atom_type_map, type_names
-        )
-
-        # check for transforms in kwargs
-        if "transforms" in kwargs:
-            raise KeyError("`transforms` not allowed here")
-
-        # extract neighbor_list_backend from kwargs if provided
-        neighbor_list_backend = kwargs.pop("neighbor_list_backend", "matscipy")
-
-        return cls(
-            model=model,
-            r_max=r_max,
-            device=device,
-            transforms=_basic_transforms(
-                model.metadata,
-                r_max,
-                type_names,
-                chemical_species_to_atom_type_map,
-                neighbor_list_backend,
-            ),
-            neighbor_list_backend=neighbor_list_backend,
+            chemical_species_to_atom_type_map=chemical_species_to_atom_type_map,
+            neighborlist_backend=neighborlist_backend,
             **kwargs,
         )
 
@@ -271,21 +133,17 @@ class NequIPTorchSimCalc(ModelInterface):
         self.n_systems = system_idx.max().item() + 1
         self.total_atoms = atomic_numbers.shape[0]
 
-    def forward(self, state: ts.SimState | StateDict) -> dict[str, torch.Tensor]:  # noqa: C901
+    def forward(self, state: ts.SimState) -> dict[str, torch.Tensor]:  # noqa: C901
         """Compute energies, forces, and stresses.
 
         Args:
-            state (:class:`~torch_sim.SimState` | :class:`~torch_sim.typing.StateDict`): state object containing positions, cell,
+            state (:class:`~torch_sim.SimState`): state object containing positions, cell,
                 and system information.
 
         Returns:
             dict[str, :class:`torch.Tensor`]: computed properties (``"energy"``, ``"forces"``, ``"stress"``).
         """
-        sim_state = (
-            state
-            if isinstance(state, ts.SimState)
-            else ts.SimState(**state, masses=torch.ones_like(state["positions"]))
-        )
+        sim_state = state
 
         # handle input validation for atomic numbers
         if sim_state.atomic_numbers is None and not self.atomic_numbers_in_init:
@@ -372,48 +230,3 @@ class NequIPTorchSimCalc(ModelInterface):
     ) -> None:
         # subclasses can implement this method to process extra outputs without code duplication
         pass
-
-
-def _basic_transforms(
-    metadata: dict,
-    r_max: float,
-    type_names: List[str],
-    chemical_species_to_atom_type_map: Dict[str, str],
-    neighbor_list_backend: str = "matscipy",
-) -> List[Callable]:
-    """Create transform list with neighborlist construction and optional per-edge-type cutoff pruning."""
-    from nequip.data.transforms import (
-        ChemicalSpeciesToAtomTypeMapper,
-        NeighborListTransform,
-    )
-    from nequip.nn.embedding.utils import cutoff_str_to_fulldict
-
-    transforms = [
-        ChemicalSpeciesToAtomTypeMapper(
-            model_type_names=type_names,
-            chemical_species_to_atom_type_map=chemical_species_to_atom_type_map,
-        )
-    ]
-
-    # add neighborlist transform with optional per-edge-type cutoffs
-    nl_kwargs = {"NL": neighbor_list_backend}
-
-    if metadata.get(graph_model.PER_EDGE_TYPE_CUTOFF_KEY, None) is not None:
-        per_edge_type_cutoff = metadata[graph_model.PER_EDGE_TYPE_CUTOFF_KEY]
-        if isinstance(per_edge_type_cutoff, str):
-            per_edge_type_cutoff = cutoff_str_to_fulldict(
-                per_edge_type_cutoff, type_names
-            )
-
-        transforms.append(
-            NeighborListTransform(
-                r_max=r_max,
-                per_edge_type_cutoff=per_edge_type_cutoff,
-                type_names=type_names,
-                **nl_kwargs,
-            )
-        )
-    else:
-        transforms.append(NeighborListTransform(r_max=r_max, **nl_kwargs))
-
-    return transforms

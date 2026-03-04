@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spotipy
-Version: 2.25.2
+Version: 2.26.0
 Summary: A light weight Python library for the Spotify Web API
 Home-page: https://spotipy.readthedocs.org/
 Author: @plamere
@@ -17,9 +17,9 @@ Provides-Extra: memcache
 Requires-Dist: pymemcache>=3.5.2; extra == "memcache"
 Provides-Extra: test
 Requires-Dist: autopep8>=2.3.2; extra == "test"
-Requires-Dist: flake8>=7.1.1; extra == "test"
-Requires-Dist: flake8-string-format>=0.3.0; extra == "test"
-Requires-Dist: isort>=5.13.2; extra == "test"
+Requires-Dist: flake8>=7.3.0; extra == "test"
+Requires-Dist: flake8-use-fstring>=1.4; extra == "test"
+Requires-Dist: isort>=7.0.0; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

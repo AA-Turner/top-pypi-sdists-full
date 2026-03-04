@@ -23,7 +23,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestAgentData:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.update(
@@ -32,7 +32,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update_with_all_params(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.update(
@@ -43,7 +43,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_update(self, client: LlamaCloud) -> None:
         response = client.beta.agent_data.with_raw_response.update(
@@ -56,7 +56,7 @@ class TestAgentData:
         agent_data = response.parse()
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_update(self, client: LlamaCloud) -> None:
         with client.beta.agent_data.with_streaming_response.update(
@@ -71,7 +71,7 @@ class TestAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_update(self, client: LlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
@@ -80,7 +80,7 @@ class TestAgentData:
                 data={"foo": "bar"},
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.delete(
@@ -88,7 +88,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentDataDeleteResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete_with_all_params(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.delete(
@@ -98,7 +98,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentDataDeleteResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_delete(self, client: LlamaCloud) -> None:
         response = client.beta.agent_data.with_raw_response.delete(
@@ -110,7 +110,7 @@ class TestAgentData:
         agent_data = response.parse()
         assert_matches_type(AgentDataDeleteResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_delete(self, client: LlamaCloud) -> None:
         with client.beta.agent_data.with_streaming_response.delete(
@@ -124,7 +124,7 @@ class TestAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_delete(self, client: LlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
@@ -132,7 +132,7 @@ class TestAgentData:
                 item_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_agent_data(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.agent_data(
@@ -141,7 +141,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_agent_data_with_all_params(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.agent_data(
@@ -153,7 +153,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_agent_data(self, client: LlamaCloud) -> None:
         response = client.beta.agent_data.with_raw_response.agent_data(
@@ -166,7 +166,7 @@ class TestAgentData:
         agent_data = response.parse()
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_agent_data(self, client: LlamaCloud) -> None:
         with client.beta.agent_data.with_streaming_response.agent_data(
@@ -181,7 +181,7 @@ class TestAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_aggregate(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.aggregate(
@@ -189,7 +189,7 @@ class TestAgentData:
         )
         assert_matches_type(SyncPaginatedCursorPost[AgentDataAggregateResponse], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_aggregate_with_all_params(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.aggregate(
@@ -201,11 +201,13 @@ class TestAgentData:
             filter={
                 "foo": {
                     "eq": 0,
+                    "excludes": [0],
                     "gt": 0,
                     "gte": 0,
                     "includes": [0],
                     "lt": 0,
                     "lte": 0,
+                    "ne": 0,
                 }
             },
             first=True,
@@ -217,7 +219,7 @@ class TestAgentData:
         )
         assert_matches_type(SyncPaginatedCursorPost[AgentDataAggregateResponse], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_aggregate(self, client: LlamaCloud) -> None:
         response = client.beta.agent_data.with_raw_response.aggregate(
@@ -229,7 +231,7 @@ class TestAgentData:
         agent_data = response.parse()
         assert_matches_type(SyncPaginatedCursorPost[AgentDataAggregateResponse], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_aggregate(self, client: LlamaCloud) -> None:
         with client.beta.agent_data.with_streaming_response.aggregate(
@@ -243,7 +245,7 @@ class TestAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete_by_query(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.delete_by_query(
@@ -251,7 +253,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentDataDeleteByQueryResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete_by_query_with_all_params(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.delete_by_query(
@@ -262,17 +264,19 @@ class TestAgentData:
             filter={
                 "foo": {
                     "eq": 0,
+                    "excludes": [0],
                     "gt": 0,
                     "gte": 0,
                     "includes": [0],
                     "lt": 0,
                     "lte": 0,
+                    "ne": 0,
                 }
             },
         )
         assert_matches_type(AgentDataDeleteByQueryResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_delete_by_query(self, client: LlamaCloud) -> None:
         response = client.beta.agent_data.with_raw_response.delete_by_query(
@@ -284,7 +288,7 @@ class TestAgentData:
         agent_data = response.parse()
         assert_matches_type(AgentDataDeleteByQueryResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_delete_by_query(self, client: LlamaCloud) -> None:
         with client.beta.agent_data.with_streaming_response.delete_by_query(
@@ -298,7 +302,7 @@ class TestAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_get(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.get(
@@ -306,7 +310,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_get_with_all_params(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.get(
@@ -316,7 +320,7 @@ class TestAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_get(self, client: LlamaCloud) -> None:
         response = client.beta.agent_data.with_raw_response.get(
@@ -328,7 +332,7 @@ class TestAgentData:
         agent_data = response.parse()
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_get(self, client: LlamaCloud) -> None:
         with client.beta.agent_data.with_streaming_response.get(
@@ -342,7 +346,7 @@ class TestAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_get(self, client: LlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
@@ -350,7 +354,7 @@ class TestAgentData:
                 item_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_search(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.search(
@@ -358,7 +362,7 @@ class TestAgentData:
         )
         assert_matches_type(SyncPaginatedCursorPost[AgentData], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_search_with_all_params(self, client: LlamaCloud) -> None:
         agent_data = client.beta.agent_data.search(
@@ -369,11 +373,13 @@ class TestAgentData:
             filter={
                 "foo": {
                     "eq": 0,
+                    "excludes": [0],
                     "gt": 0,
                     "gte": 0,
                     "includes": [0],
                     "lt": 0,
                     "lte": 0,
+                    "ne": 0,
                 }
             },
             include_total=True,
@@ -384,7 +390,7 @@ class TestAgentData:
         )
         assert_matches_type(SyncPaginatedCursorPost[AgentData], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_search(self, client: LlamaCloud) -> None:
         response = client.beta.agent_data.with_raw_response.search(
@@ -396,7 +402,7 @@ class TestAgentData:
         agent_data = response.parse()
         assert_matches_type(SyncPaginatedCursorPost[AgentData], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_search(self, client: LlamaCloud) -> None:
         with client.beta.agent_data.with_streaming_response.search(
@@ -416,7 +422,7 @@ class TestAsyncAgentData:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.update(
@@ -425,7 +431,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.update(
@@ -436,7 +442,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.agent_data.with_raw_response.update(
@@ -449,7 +455,7 @@ class TestAsyncAgentData:
         agent_data = await response.parse()
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.agent_data.with_streaming_response.update(
@@ -464,7 +470,7 @@ class TestAsyncAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncLlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
@@ -473,7 +479,7 @@ class TestAsyncAgentData:
                 data={"foo": "bar"},
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.delete(
@@ -481,7 +487,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentDataDeleteResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.delete(
@@ -491,7 +497,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentDataDeleteResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.agent_data.with_raw_response.delete(
@@ -503,7 +509,7 @@ class TestAsyncAgentData:
         agent_data = await response.parse()
         assert_matches_type(AgentDataDeleteResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.agent_data.with_streaming_response.delete(
@@ -517,7 +523,7 @@ class TestAsyncAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncLlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
@@ -525,7 +531,7 @@ class TestAsyncAgentData:
                 item_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_agent_data(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.agent_data(
@@ -534,7 +540,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_agent_data_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.agent_data(
@@ -546,7 +552,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_agent_data(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.agent_data.with_raw_response.agent_data(
@@ -559,7 +565,7 @@ class TestAsyncAgentData:
         agent_data = await response.parse()
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_agent_data(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.agent_data.with_streaming_response.agent_data(
@@ -574,7 +580,7 @@ class TestAsyncAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_aggregate(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.aggregate(
@@ -582,7 +588,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AsyncPaginatedCursorPost[AgentDataAggregateResponse], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_aggregate_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.aggregate(
@@ -594,11 +600,13 @@ class TestAsyncAgentData:
             filter={
                 "foo": {
                     "eq": 0,
+                    "excludes": [0],
                     "gt": 0,
                     "gte": 0,
                     "includes": [0],
                     "lt": 0,
                     "lte": 0,
+                    "ne": 0,
                 }
             },
             first=True,
@@ -610,7 +618,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AsyncPaginatedCursorPost[AgentDataAggregateResponse], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_aggregate(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.agent_data.with_raw_response.aggregate(
@@ -622,7 +630,7 @@ class TestAsyncAgentData:
         agent_data = await response.parse()
         assert_matches_type(AsyncPaginatedCursorPost[AgentDataAggregateResponse], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_aggregate(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.agent_data.with_streaming_response.aggregate(
@@ -636,7 +644,7 @@ class TestAsyncAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete_by_query(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.delete_by_query(
@@ -644,7 +652,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentDataDeleteByQueryResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete_by_query_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.delete_by_query(
@@ -655,17 +663,19 @@ class TestAsyncAgentData:
             filter={
                 "foo": {
                     "eq": 0,
+                    "excludes": [0],
                     "gt": 0,
                     "gte": 0,
                     "includes": [0],
                     "lt": 0,
                     "lte": 0,
+                    "ne": 0,
                 }
             },
         )
         assert_matches_type(AgentDataDeleteByQueryResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_delete_by_query(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.agent_data.with_raw_response.delete_by_query(
@@ -677,7 +687,7 @@ class TestAsyncAgentData:
         agent_data = await response.parse()
         assert_matches_type(AgentDataDeleteByQueryResponse, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_delete_by_query(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.agent_data.with_streaming_response.delete_by_query(
@@ -691,7 +701,7 @@ class TestAsyncAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_get(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.get(
@@ -699,7 +709,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_get_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.get(
@@ -709,7 +719,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.agent_data.with_raw_response.get(
@@ -721,7 +731,7 @@ class TestAsyncAgentData:
         agent_data = await response.parse()
         assert_matches_type(AgentData, agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.agent_data.with_streaming_response.get(
@@ -735,7 +745,7 @@ class TestAsyncAgentData:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_get(self, async_client: AsyncLlamaCloud) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `item_id` but received ''"):
@@ -743,7 +753,7 @@ class TestAsyncAgentData:
                 item_id="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_search(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.search(
@@ -751,7 +761,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AsyncPaginatedCursorPost[AgentData], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_search_with_all_params(self, async_client: AsyncLlamaCloud) -> None:
         agent_data = await async_client.beta.agent_data.search(
@@ -762,11 +772,13 @@ class TestAsyncAgentData:
             filter={
                 "foo": {
                     "eq": 0,
+                    "excludes": [0],
                     "gt": 0,
                     "gte": 0,
                     "includes": [0],
                     "lt": 0,
                     "lte": 0,
+                    "ne": 0,
                 }
             },
             include_total=True,
@@ -777,7 +789,7 @@ class TestAsyncAgentData:
         )
         assert_matches_type(AsyncPaginatedCursorPost[AgentData], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_search(self, async_client: AsyncLlamaCloud) -> None:
         response = await async_client.beta.agent_data.with_raw_response.search(
@@ -789,7 +801,7 @@ class TestAsyncAgentData:
         agent_data = await response.parse()
         assert_matches_type(AsyncPaginatedCursorPost[AgentData], agent_data, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_search(self, async_client: AsyncLlamaCloud) -> None:
         async with async_client.beta.agent_data.with_streaming_response.search(

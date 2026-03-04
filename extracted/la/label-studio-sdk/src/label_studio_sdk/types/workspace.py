@@ -15,8 +15,13 @@ class Workspace(UncheckedBaseModel):
     values with complex, nested serializations
     """
 
-    color: typing.Optional[str] = None
+    color: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Color
+    """
+
     created_by: typing.Optional[int] = None
+    created_by_user: typing.Optional[str] = None
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Workspace description
@@ -37,7 +42,7 @@ class Workspace(UncheckedBaseModel):
     projects_count: typing.Optional[int] = None
     title: str = pydantic.Field()
     """
-    Workspace name
+    Workspace Name
     """
 
     if IS_PYDANTIC_V2:

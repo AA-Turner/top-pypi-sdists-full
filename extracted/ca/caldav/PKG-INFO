@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: caldav
-Version: 2.2.6
+Version: 3.0.0
 Summary: CalDAV (RFC4791) client library
 Project-URL: Repository, https://github.com/python-caldav/caldav
 Project-URL: Issues, https://github.com/python-caldav/caldav/issues
@@ -14,7 +14,6 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,8 +21,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Office/Business :: Scheduling
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Requires-Dist: dnspython
-Requires-Dist: icalendar-searcher<2,>=1.0.0
+Requires-Dist: icalendar-searcher<2,>=1.0.5
 Requires-Dist: icalendar>6.0.0
 Requires-Dist: lxml
 Requires-Dist: niquests
@@ -34,14 +34,16 @@ Requires-Dist: typing-extensions; python_version < '3.11'
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: deptry>=0.24.0; (python_version >= '3.10') and extra == 'test'
+Requires-Dist: httpx; extra == 'test'
 Requires-Dist: manuel; extra == 'test'
 Requires-Dist: proxy-py; extra == 'test'
 Requires-Dist: pyfakefs; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-asyncio; extra == 'test'
 Requires-Dist: radicale; extra == 'test'
 Requires-Dist: tzlocal; extra == 'test'
 Requires-Dist: vobject; extra == 'test'
-Requires-Dist: xandikos>=0.2.12; extra == 'test'
+Requires-Dist: xandikos>=0.3.3; extra == 'test'
 Description-Content-Type: text/markdown
 
 # caldav
@@ -53,11 +55,46 @@ Features:
  * create, modify calendar
  * create, update and delete event
  * search events by dates
+ * async support via `caldav.aio` module
  * etc.
 
-The documentation was freshed up a bit as of version 2.0, and is available at https://caldav.readthedocs.io/
+## Quick Start
+
+```python
+from caldav import get_davclient
+
+with get_davclient() as client:
+    principal = client.principal()
+    calendars = principal.get_calendars()
+    for cal in calendars:
+        print(f"Calendar: {cal.name}")
+```
+
+## Async API
+
+For async/await support, use the `caldav.aio` module:
+
+```python
+import asyncio
+from caldav import aio
+
+async def main():
+    async with aio.get_async_davclient() as client:
+        principal = await client.principal()
+        calendars = await principal.get_calendars()
+        for cal in calendars:
+            print(f"Calendar: {cal.name}")
+
+asyncio.run(main())
+```
+
+The documentation was updated as of version 2.0, and is available at https://caldav.readthedocs.io/
 
 The package is published at [Pypi](https://pypi.org/project/caldav)
+
+## HTTP Libraries
+
+The sync client uses [niquests](https://github.com/jawah/niquests) by default (with fallback to [requests](https://requests.readthedocs.io/)). The async client uses [httpx](https://www.python-httpx.org/) if installed (`pip install caldav[async]`), otherwise falls back to niquests. See [HTTP Library Configuration](docs/source/http-libraries.rst) for details.
 
 Licences:
 

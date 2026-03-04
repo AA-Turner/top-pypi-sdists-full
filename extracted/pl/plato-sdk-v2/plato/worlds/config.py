@@ -141,27 +141,12 @@ class StateConfig(BaseModel):
         description="Map workspace name → repo name for cross-session resume, "
         "e.g. {'recordings': 'webclone/recordings'}",
     )
+    workspaces: dict[str, str] = Field(
+        default_factory=dict,
+        description="Per-workspace resume spec in '<session_id>:<step_name>' format, "
+        "e.g. {'code': 'ccebb0fb-...:step.1.stage.copy_template'}",
+    )
     checkpoint_interval_s: int = 300  # background checkpoint interval in seconds (0 = disabled)
-
-
-class WorkspaceInitConfig(BaseModel):
-    """Per-workspace initial state config.
-
-    Tells the world which Chronos workspace repo / commit to restore from
-    before execution starts.
-
-    Usage in run config YAML:
-        workspaces:
-          output:
-            commit: "webclone/output:abc123def"  # repo:hash
-          cache:
-            commit: "abc123def"  # hash only → repo auto-generated as {world_name}/{field_name}
-
-    If commit is omitted entirely, repo auto-generates as {world_name}/{field_name}
-    and starts empty.
-    """
-
-    commit: str = ""  # "reponame:hash" or just "hash" or empty
 
 
 class CheckpointConfig(BaseModel):
@@ -229,9 +214,6 @@ class RunConfig(BaseModel):
 
     # State persistence configuration
     state: StateConfig = Field(default_factory=StateConfig)
-
-    # Per-workspace init config (workspace name → init config)
-    workspaces: dict[str, WorkspaceInitConfig] = Field(default_factory=dict)
 
     # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set
     tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)

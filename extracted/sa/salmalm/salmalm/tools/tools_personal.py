@@ -61,14 +61,33 @@ def _init_db():
             started_at TEXT NOT NULL,
             ended_at TEXT,
             type TEXT DEFAULT 'focus',
-            completed INTEGER DEFAULT 0
+            completed INTEGER DEFAULT 0,
+            user_id TEXT DEFAULT 'default'
         );
     """)
+    # Backward-compatible migration for existing DBs.
+    try:
+        conn.execute("ALTER TABLE pomodoro_sessions ADD COLUMN user_id TEXT DEFAULT 'default'")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
 
 _init_db()
+
+
+def _current_user_key(args: dict = None) -> str:
+    """Resolve user key from tool execution context."""
+    try:
+        from salmalm.core.core import get_current_user_id
+
+        uid = get_current_user_id()
+    except Exception:
+        uid = None
+    if uid is None and isinstance(args, dict):
+        uid = args.get("_user_id")
+    return f"user_{uid}" if uid is not None else "default"
 
 
 # ── Notes (Personal Knowledge Base) ─────────────────────────
@@ -367,30 +386,41 @@ def handle_save_link(args: dict) -> str:
 
 # ── Pomodoro Timer ───────────────────────────────────────────
 
-_pomodoro_state = {
-    "active": False,
-    "type": None,  # 'focus' or 'break'
-    "start_time": None,
-    "duration_minutes": 25,
-    "session_id": None,
-    "timer_thread": None,
-}
+_pomodoro_state_by_user = {}
 _pomodoro_lock = threading.Lock()
 
 
-def _pomodoro_timer_func(session_id: str, duration_min: int, ptype: str):
+def _get_pomodoro_state(user_key: str) -> dict:
+    return _pomodoro_state_by_user.setdefault(
+        user_key,
+        {
+            "active": False,
+            "type": None,  # 'focus' or 'break'
+            "start_time": None,
+            "duration_minutes": 25,
+            "session_id": None,
+            "timer_thread": None,
+        },
+    )
+
+
+def _pomodoro_timer_func(user_key: str, user_id: str, session_id: str, duration_min: int, ptype: str):
     """Background timer that sends notification when done."""
     time.sleep(duration_min * 60)
     with _pomodoro_lock:
-        if _pomodoro_state.get("session_id") != session_id:
+        state = _get_pomodoro_state(user_key)
+        if state.get("session_id") != session_id:
             return  # Was stopped or replaced
-        _pomodoro_state["active"] = False
+        state["active"] = False
 
     # Record completion
     now = datetime.now(KST).isoformat()
     with _db_lock:
         conn = _get_db()
-        conn.execute("UPDATE pomodoro_sessions SET ended_at = ?, completed = 1 WHERE id = ?", (now, session_id))
+        conn.execute(
+            "UPDATE pomodoro_sessions SET ended_at = ?, completed = 1 WHERE id = ? AND user_id = ?",
+            (now, session_id, user_id),
+        )
         conn.commit()
         conn.close()
 
@@ -410,15 +440,18 @@ def _pomodoro_timer_func(session_id: str, duration_min: int, ptype: str):
 def handle_pomodoro(args: dict) -> str:
     """Pomodoro timer."""
     action = args.get("action", "status")
+    user_key = _current_user_key(args)
+    user_id = user_key
+    state = _get_pomodoro_state(user_key)
 
     if action == "start":
         duration = int(args.get("duration", 25))
         with _pomodoro_lock:
-            if _pomodoro_state["active"]:
+            if state["active"]:
                 return "🍅 포모도로가 이미 진행 중입니다. /pomodoro stop 으로 중지하세요."
             sid = secrets.token_hex(4)
             now = datetime.now(KST)
-            _pomodoro_state.update(
+            state.update(
                 {
                     "active": True,
                     "type": "focus",
@@ -430,24 +463,25 @@ def handle_pomodoro(args: dict) -> str:
         with _db_lock:
             conn = _get_db()
             conn.execute(
-                "INSERT INTO pomodoro_sessions (id, started_at, type) VALUES (?,?,?)", (sid, now.isoformat(), "focus")
+                "INSERT INTO pomodoro_sessions (id, started_at, type, user_id) VALUES (?,?,?,?)",
+                (sid, now.isoformat(), "focus", user_id),
             )
             conn.commit()
             conn.close()
-        t = threading.Thread(target=_pomodoro_timer_func, args=(sid, duration, "focus"), daemon=True)
+        t = threading.Thread(target=_pomodoro_timer_func, args=(user_key, user_id, sid, duration, "focus"), daemon=True)
         t.start()
-        _pomodoro_state["timer_thread"] = t
+        state["timer_thread"] = t
         end_time = now + timedelta(minutes=duration)
         return f"🍅 포모도로 시작! {duration}분 집중\n⏰ 종료 예정: {end_time.strftime('%H:%M')}"
 
     elif action == "break":
         duration = int(args.get("duration", 5))
         with _pomodoro_lock:
-            if _pomodoro_state["active"]:
+            if state["active"]:
                 return "🍅 타이머가 이미 진행 중입니다."
             sid = secrets.token_hex(4)
             now = datetime.now(KST)
-            _pomodoro_state.update(
+            state.update(
                 {
                     "active": True,
                     "type": "break",
@@ -459,27 +493,28 @@ def handle_pomodoro(args: dict) -> str:
         with _db_lock:
             conn = _get_db()
             conn.execute(
-                "INSERT INTO pomodoro_sessions (id, started_at, type) VALUES (?,?,?)", (sid, now.isoformat(), "break")
+                "INSERT INTO pomodoro_sessions (id, started_at, type, user_id) VALUES (?,?,?,?)",
+                (sid, now.isoformat(), "break", user_id),
             )
             conn.commit()
             conn.close()
-        t = threading.Thread(target=_pomodoro_timer_func, args=(sid, duration, "break"), daemon=True)
+        t = threading.Thread(target=_pomodoro_timer_func, args=(user_key, user_id, sid, duration, "break"), daemon=True)
         t.start()
-        _pomodoro_state["timer_thread"] = t
+        state["timer_thread"] = t
         end_time = now + timedelta(minutes=duration)
         return f"☕ 휴식 시작! {duration}분\n⏰ 종료 예정: {end_time.strftime('%H:%M')}"
 
     elif action == "stop":
         with _pomodoro_lock:
-            if not _pomodoro_state["active"]:
+            if not state["active"]:
                 return "🍅 진행 중인 포모도로가 없습니다."
-            sid = _pomodoro_state["session_id"]
-            _pomodoro_state["active"] = False
-            _pomodoro_state["session_id"] = None
+            sid = state["session_id"]
+            state["active"] = False
+            state["session_id"] = None
         now = datetime.now(KST).isoformat()
         with _db_lock:
             conn = _get_db()
-            conn.execute("UPDATE pomodoro_sessions SET ended_at = ? WHERE id = ?", (now, sid))
+            conn.execute("UPDATE pomodoro_sessions SET ended_at = ? WHERE id = ? AND user_id = ?", (now, sid, user_id))
             conn.commit()
             conn.close()
         return "🍅 포모도로 중지됨."
@@ -489,18 +524,18 @@ def handle_pomodoro(args: dict) -> str:
         with _db_lock:
             conn = _get_db()
             completed = conn.execute(
-                "SELECT COUNT(*) FROM pomodoro_sessions WHERE started_at LIKE ? AND type='focus' AND completed=1",
-                (f"{today}%",),
+                "SELECT COUNT(*) FROM pomodoro_sessions WHERE started_at LIKE ? AND type='focus' AND completed=1 AND user_id=?",
+                (f"{today}%", user_id),
             ).fetchone()[0]
             conn.close()
         lines = [f"🍅 **포모도로 통계 ({today})**"]
         lines.append(f"  완료: {completed}회")
         with _pomodoro_lock:
-            if _pomodoro_state["active"]:
-                ptype = "집중" if _pomodoro_state["type"] == "focus" else "휴식"
-                start = datetime.fromisoformat(_pomodoro_state["start_time"])
+            if state["active"]:
+                ptype = "집중" if state["type"] == "focus" else "휴식"
+                start = datetime.fromisoformat(state["start_time"])
                 elapsed = (datetime.now(KST) - start).seconds // 60
-                remaining = _pomodoro_state["duration_minutes"] - elapsed
+                remaining = state["duration_minutes"] - elapsed
                 lines.append(f"  현재: {ptype} 중 (남은 시간: {remaining}분)")
             else:
                 lines.append("  현재: 대기 중")

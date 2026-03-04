@@ -231,4 +231,6 @@ void export_device_attribute(py::module &m) {
         .finalize();
     py::object except_flags_class = DeviceAttribute.attr("except_flags");
     add_names_values_to_native_enum(except_flags_class);
+
+    fix_dynamic_attr_dealloc<Tango::DeviceAttribute>();
 }

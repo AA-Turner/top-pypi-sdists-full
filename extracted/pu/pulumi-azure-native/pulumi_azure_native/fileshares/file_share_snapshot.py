@@ -27,6 +27,7 @@ class FileShareSnapshotArgs:
                  properties: Optional[pulumi.Input['FileShareSnapshotPropertiesArgs']] = None):
         """
         The set of arguments for constructing a FileShareSnapshot resource.
+
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input[_builtins.str] resource_name: The resource name of the file share, as seen by the administrator through Azure Resource Manager.
         :param pulumi.Input[_builtins.str] name: The name of the FileShareSnapshot
@@ -104,6 +105,9 @@ class FileShareSnapshot(pulumi.CustomResource):
 
         Uses Azure REST API version 2025-06-01-preview.
 
+        Other available API versions: 2025-09-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native fileshares [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] name: The name of the FileShareSnapshot
@@ -121,6 +125,9 @@ class FileShareSnapshot(pulumi.CustomResource):
         FileShareSnapshot resource
 
         Uses Azure REST API version 2025-06-01-preview.
+
+        Other available API versions: 2025-09-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native fileshares [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param FileShareSnapshotArgs args: The arguments to use to populate this resource's properties.
@@ -161,7 +168,7 @@ class FileShareSnapshot(pulumi.CustomResource):
             __props__.__dict__["azure_api_version"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:fileshares/v20250601preview:FileShareSnapshot")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:fileshares/v20250601preview:FileShareSnapshot"), pulumi.Alias(type_="azure-native:fileshares/v20250901preview:FileShareSnapshot")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(FileShareSnapshot, __self__).__init__(
             'azure-native:fileshares:FileShareSnapshot',

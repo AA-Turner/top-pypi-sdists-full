@@ -35,11 +35,13 @@ use utils::{
     bytes_to_uuid_like_string, extract_attributes, generate_span_id, parse_span_id, parse_trace_id,
 };
 
+#[derive(Debug)]
 pub struct ResponseFailure {
     pub status_code: hyper::StatusCode,
     pub body: Vec<u8>,
 }
 
+#[derive(Debug)]
 pub enum ResponseInfo {
     Success(MessageResponse),
     Failure(ResponseFailure),

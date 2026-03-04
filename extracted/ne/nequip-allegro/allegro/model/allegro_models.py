@@ -1,5 +1,4 @@
 # This file is a part of the `allegro` package. Please see LICENSE and README at the root for information on using it.
-import math
 from e3nn import o3
 
 from nequip.data import AtomicDataDict
@@ -62,7 +61,7 @@ def AllegroModel(
         readout_mlp_hidden_layers_depth (int): number of hidden layers in the readout MLP (default ``1``)
         readout_mlp_hidden_layers_width (int): width of hidden layers in the readout MLP (reasonable to set it to be the same as ``num_scalar_features``)
         readout_mlp_nonlinearity (str): ``silu``, ``mish``, ``gelu``, or ``None`` (default ``silu``)
-        avg_num_neighbors (float): used to normalize edge sums for better numerics (default ``None``)
+        avg_num_neighbors (float/Dict[str, float]): used to normalize edge sums for better numerics (default ``None``)
         per_type_energy_scales (float/List[float]): per-atom energy scales, which could be derived from the force RMS of the data (default ``None``)
         per_type_energy_shifts (float/List[float]): per-atom energy shifts, which should generally be isolated atom reference energies or estimated from average pre-atom energies of the data (default ``None``)
         per_type_energy_scales_trainable (bool): whether the per-atom energy scales are trainable (default ``False``)
@@ -117,7 +116,7 @@ def FullAllegroModel(
     readout_mlp_hidden_layers_width: int = 32,
     readout_mlp_nonlinearity: Optional[str] = "silu",
     # edge sum normalization
-    avg_num_neighbors: Optional[float] = None,
+    avg_num_neighbors: Union[float, Dict[str, float]] = None,
     # allegro layers defaults
     weight_individual_irreps: bool = True,
     # per atom energy params
@@ -182,6 +181,7 @@ def FullAllegroModel(
         num_tensor_features=num_tensor_features,
         tensor_track_allowed_irreps=tensor_track_allowed_irreps,
         avg_num_neighbors=avg_num_neighbors,
+        type_names=type_names,
         # MLP
         latent_kwargs={
             "hidden_layers_depth": allegro_mlp_hidden_layers_depth,
@@ -224,8 +224,8 @@ def FullAllegroModel(
     edge_eng_sum = EdgewiseReduce(
         field=AtomicDataDict.EDGE_ENERGY_KEY,
         out_field=AtomicDataDict.PER_ATOM_ENERGY_KEY,
-        factor=1.0 / math.sqrt(2 * avg_num_neighbors),
-        # ^ factor of 2 to normalize dE/dr_i which includes both contributions from dE/dr_ij and every other derivative against r_ji
+        avg_num_neighbors=avg_num_neighbors,
+        type_names=type_names,
         irreps_in=edge_readout.irreps_out,
     )
 

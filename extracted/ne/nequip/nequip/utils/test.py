@@ -375,7 +375,7 @@ def set_irreps_debug(enabled: bool = False) -> None:
 
     def pre_hook(mod: GraphModuleMixin, inp):
         __tracebackhide__ = True
-        if not isinstance(mod, GraphModuleMixin):
+        if not (hasattr(mod, "_is_graph_module_mixin") and mod._is_graph_module_mixin):
             return
         mname = type(mod).__name__
         if len(inp) > 1:
@@ -409,7 +409,7 @@ def set_irreps_debug(enabled: bool = False) -> None:
 
     def post_hook(mod: GraphModuleMixin, _, out):
         __tracebackhide__ = True
-        if not isinstance(mod, GraphModuleMixin):
+        if not (hasattr(mod, "_is_graph_module_mixin") and mod._is_graph_module_mixin):
             return
         mname = type(mod).__name__
         if not (isinstance(out, dict)):
@@ -461,8 +461,8 @@ def override_irreps_debug(enabled=True):
     return decorator
 
 
-def edgeset_from_AtomicDataDict(data, **nl_kwargs):
-    data = compute_neighborlist_(data, **nl_kwargs)
+def edgeset_from_AtomicDataDict(data: AtomicDataDict.Type, r_max: float, backend: str):
+    data = compute_neighborlist_(data, r_max=r_max, backend=backend)
     return set([tuple(edge) for edge in data["edge_index"].numpy().T])
 
 
@@ -470,18 +470,12 @@ def compare_neighborlists(
     atoms_or_data: Union[ase.Atoms, AtomicDataDict.Type],
     nl1: str,
     nl2: str,
-    **nl_kwargs,
+    r_max: float,
 ):
-    """
-    Args:
-        nl1, nl2: the neighborlists to compare -- currently "ase", "matscipy", "vesin"
-    """
-    assert "r_max" in nl_kwargs
-    assert "NL" not in nl_kwargs
     if isinstance(atoms_or_data, ase.Atoms):
         data = from_ase(atoms_or_data)
     else:
         data = atoms_or_data
-    edges1 = edgeset_from_AtomicDataDict(data, NL=nl1, **nl_kwargs)
-    edges2 = edgeset_from_AtomicDataDict(data, NL=nl1, **nl_kwargs)
+    edges1 = edgeset_from_AtomicDataDict(data, r_max=r_max, backend=nl1)
+    edges2 = edgeset_from_AtomicDataDict(data, r_max=r_max, backend=nl2)
     assert edges1 == edges2

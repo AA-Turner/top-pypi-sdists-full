@@ -544,6 +544,7 @@ class DOPESHEET_PT_custom_props_action(rna_prop_ui.PropertyPanel, _bpy_types.Pan
 
 class DOPESHEET_PT_dopesheet_overlay(_bpy_types.Panel):
     bl_label: typing.Any
+    bl_options: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

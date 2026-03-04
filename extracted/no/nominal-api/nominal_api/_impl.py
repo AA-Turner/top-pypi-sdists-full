@@ -13527,16 +13527,18 @@ class ingest_api_McapProtobufTimeseriesOpts(ConjureBeanType):
             'target': ConjureFieldDefinition('target', ingest_api_DatasetIngestTarget),
             'channel_filter': ConjureFieldDefinition('channelFilter', ingest_api_McapChannels),
             'timestamp_type': ConjureFieldDefinition('timestampType', ingest_api_McapTimestampType),
+            'ignore_invalid_topics': ConjureFieldDefinition('ignoreInvalidTopics', OptionalTypeWrapper[bool]),
             'additional_file_tags': ConjureFieldDefinition('additionalFileTags', OptionalTypeWrapper[Dict[api_TagName, api_TagValue]])
         }
 
-    __slots__: List[str] = ['_source', '_target', '_channel_filter', '_timestamp_type', '_additional_file_tags']
+    __slots__: List[str] = ['_source', '_target', '_channel_filter', '_timestamp_type', '_ignore_invalid_topics', '_additional_file_tags']
 
-    def __init__(self, channel_filter: "ingest_api_McapChannels", source: "ingest_api_IngestSource", target: "ingest_api_DatasetIngestTarget", timestamp_type: "ingest_api_McapTimestampType", additional_file_tags: Optional[Dict[str, str]] = None) -> None:
+    def __init__(self, channel_filter: "ingest_api_McapChannels", source: "ingest_api_IngestSource", target: "ingest_api_DatasetIngestTarget", timestamp_type: "ingest_api_McapTimestampType", additional_file_tags: Optional[Dict[str, str]] = None, ignore_invalid_topics: Optional[bool] = None) -> None:
         self._source = source
         self._target = target
         self._channel_filter = channel_filter
         self._timestamp_type = timestamp_type
+        self._ignore_invalid_topics = ignore_invalid_topics
         self._additional_file_tags = additional_file_tags
 
     @builtins.property
@@ -13554,6 +13556,13 @@ class ingest_api_McapProtobufTimeseriesOpts(ConjureBeanType):
     @builtins.property
     def timestamp_type(self) -> "ingest_api_McapTimestampType":
         return self._timestamp_type
+
+    @builtins.property
+    def ignore_invalid_topics(self) -> Optional[bool]:
+        """If true, skips invalid MCAP topics during ingestion instead of failing the entire ingest.
+If not provided, defaults to false.
+        """
+        return self._ignore_invalid_topics
 
     @builtins.property
     def additional_file_tags(self) -> Optional[Dict[str, str]]:
@@ -16087,14 +16096,16 @@ class ingest_workflow_api_IngestMcapProtobufRequest(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'locator': ConjureFieldDefinition('locator', ingest_workflow_api_ObjectLocator),
-            'channels': ConjureFieldDefinition('channels', ingest_workflow_api_McapProtoChannels)
+            'channels': ConjureFieldDefinition('channels', ingest_workflow_api_McapProtoChannels),
+            'ignore_invalid_topics': ConjureFieldDefinition('ignoreInvalidTopics', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_locator', '_channels']
+    __slots__: List[str] = ['_locator', '_channels', '_ignore_invalid_topics']
 
-    def __init__(self, channels: "ingest_workflow_api_McapProtoChannels", locator: "ingest_workflow_api_ObjectLocator") -> None:
+    def __init__(self, channels: "ingest_workflow_api_McapProtoChannels", locator: "ingest_workflow_api_ObjectLocator", ignore_invalid_topics: Optional[bool] = None) -> None:
         self._locator = locator
         self._channels = channels
+        self._ignore_invalid_topics = ignore_invalid_topics
 
     @builtins.property
     def locator(self) -> "ingest_workflow_api_ObjectLocator":
@@ -16103,6 +16114,13 @@ class ingest_workflow_api_IngestMcapProtobufRequest(ConjureBeanType):
     @builtins.property
     def channels(self) -> "ingest_workflow_api_McapProtoChannels":
         return self._channels
+
+    @builtins.property
+    def ignore_invalid_topics(self) -> Optional[bool]:
+        """If true, skips invalid MCAP topics during ingestion instead of failing the entire ingest.
+If not provided, defaults to false.
+        """
+        return self._ignore_invalid_topics
 
 
 ingest_workflow_api_IngestMcapProtobufRequest.__name__ = "IngestMcapProtobufRequest"
@@ -33279,6 +33297,93 @@ scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode.__qualname__ = "Magnitude
 scout_chartdefinition_api_MagnitudeAndPhaseDisplayMode.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_MarkdownPanelDefinition(ConjureUnionType):
+    _v1: Optional["scout_chartdefinition_api_MarkdownPanelDefinitionV1"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', scout_chartdefinition_api_MarkdownPanelDefinitionV1)
+        }
+
+    def __init__(
+            self,
+            v1: Optional["scout_chartdefinition_api_MarkdownPanelDefinitionV1"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional["scout_chartdefinition_api_MarkdownPanelDefinitionV1"]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_MarkdownPanelDefinitionVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_MarkdownPanelDefinitionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+scout_chartdefinition_api_MarkdownPanelDefinition.__name__ = "MarkdownPanelDefinition"
+scout_chartdefinition_api_MarkdownPanelDefinition.__qualname__ = "MarkdownPanelDefinition"
+scout_chartdefinition_api_MarkdownPanelDefinition.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_MarkdownPanelDefinitionVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: "scout_chartdefinition_api_MarkdownPanelDefinitionV1") -> Any:
+        pass
+
+
+scout_chartdefinition_api_MarkdownPanelDefinitionVisitor.__name__ = "MarkdownPanelDefinitionVisitor"
+scout_chartdefinition_api_MarkdownPanelDefinitionVisitor.__qualname__ = "MarkdownPanelDefinitionVisitor"
+scout_chartdefinition_api_MarkdownPanelDefinitionVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_MarkdownPanelDefinitionV1(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'content': ConjureFieldDefinition('content', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_title', '_content']
+
+    def __init__(self, content: Optional[str] = None, title: Optional[str] = None) -> None:
+        self._title = title
+        self._content = content
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        return self._title
+
+    @builtins.property
+    def content(self) -> Optional[str]:
+        """The markdown content to display in the panel.
+        """
+        return self._content
+
+
+scout_chartdefinition_api_MarkdownPanelDefinitionV1.__name__ = "MarkdownPanelDefinitionV1"
+scout_chartdefinition_api_MarkdownPanelDefinitionV1.__qualname__ = "MarkdownPanelDefinitionV1"
+scout_chartdefinition_api_MarkdownPanelDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_MaxDecimalPlaces(ConjureBeanType):
     """Format the number to a maximum number of decimal places, rounding numbers that have greater precision.
     """
@@ -37445,11 +37550,12 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
     _geo3d: Optional["scout_chartdefinition_api_Geo3dDefinition"] = None
     _histogram: Optional["scout_chartdefinition_api_HistogramChartDefinition"] = None
     _log: Optional["scout_chartdefinition_api_LogPanelDefinition"] = None
+    _markdown: Optional["scout_chartdefinition_api_MarkdownPanelDefinition"] = None
     _plotly: Optional["scout_chartdefinition_api_PlotlyPanelDefinition"] = None
+    _procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None
     _time_series: Optional["scout_chartdefinition_api_TimeSeriesChartDefinition"] = None
     _value_table: Optional["scout_chartdefinition_api_ValueTableDefinition"] = None
     _video: Optional["scout_chartdefinition_api_VideoVizDefinition"] = None
-    _procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -37461,11 +37567,12 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             'geo3d': ConjureFieldDefinition('geo3d', scout_chartdefinition_api_Geo3dDefinition),
             'histogram': ConjureFieldDefinition('histogram', scout_chartdefinition_api_HistogramChartDefinition),
             'log': ConjureFieldDefinition('log', scout_chartdefinition_api_LogPanelDefinition),
+            'markdown': ConjureFieldDefinition('markdown', scout_chartdefinition_api_MarkdownPanelDefinition),
             'plotly': ConjureFieldDefinition('plotly', scout_chartdefinition_api_PlotlyPanelDefinition),
+            'procedure': ConjureFieldDefinition('procedure', scout_chartdefinition_api_ProcedureVizDefinition),
             'time_series': ConjureFieldDefinition('timeSeries', scout_chartdefinition_api_TimeSeriesChartDefinition),
             'value_table': ConjureFieldDefinition('valueTable', scout_chartdefinition_api_ValueTableDefinition),
-            'video': ConjureFieldDefinition('video', scout_chartdefinition_api_VideoVizDefinition),
-            'procedure': ConjureFieldDefinition('procedure', scout_chartdefinition_api_ProcedureVizDefinition)
+            'video': ConjureFieldDefinition('video', scout_chartdefinition_api_VideoVizDefinition)
         }
 
     def __init__(
@@ -37477,15 +37584,16 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             geo3d: Optional["scout_chartdefinition_api_Geo3dDefinition"] = None,
             histogram: Optional["scout_chartdefinition_api_HistogramChartDefinition"] = None,
             log: Optional["scout_chartdefinition_api_LogPanelDefinition"] = None,
+            markdown: Optional["scout_chartdefinition_api_MarkdownPanelDefinition"] = None,
             plotly: Optional["scout_chartdefinition_api_PlotlyPanelDefinition"] = None,
+            procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None,
             time_series: Optional["scout_chartdefinition_api_TimeSeriesChartDefinition"] = None,
             value_table: Optional["scout_chartdefinition_api_ValueTableDefinition"] = None,
             video: Optional["scout_chartdefinition_api_VideoVizDefinition"] = None,
-            procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (geo3d is not None) + (histogram is not None) + (log is not None) + (plotly is not None) + (time_series is not None) + (value_table is not None) + (video is not None) + (procedure is not None) != 1:
+            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (geo3d is not None) + (histogram is not None) + (log is not None) + (markdown is not None) + (plotly is not None) + (procedure is not None) + (time_series is not None) + (value_table is not None) + (video is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if cartesian is not None:
@@ -37509,9 +37617,15 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             if log is not None:
                 self._log = log
                 self._type = 'log'
+            if markdown is not None:
+                self._markdown = markdown
+                self._type = 'markdown'
             if plotly is not None:
                 self._plotly = plotly
                 self._type = 'plotly'
+            if procedure is not None:
+                self._procedure = procedure
+                self._type = 'procedure'
             if time_series is not None:
                 self._time_series = time_series
                 self._type = 'timeSeries'
@@ -37521,9 +37635,6 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             if video is not None:
                 self._video = video
                 self._type = 'video'
-            if procedure is not None:
-                self._procedure = procedure
-                self._type = 'procedure'
 
         elif type_of_union == 'cartesian':
             if cartesian is None:
@@ -37560,11 +37671,21 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._log = log
             self._type = 'log'
+        elif type_of_union == 'markdown':
+            if markdown is None:
+                raise ValueError('a union value must not be None')
+            self._markdown = markdown
+            self._type = 'markdown'
         elif type_of_union == 'plotly':
             if plotly is None:
                 raise ValueError('a union value must not be None')
             self._plotly = plotly
             self._type = 'plotly'
+        elif type_of_union == 'procedure':
+            if procedure is None:
+                raise ValueError('a union value must not be None')
+            self._procedure = procedure
+            self._type = 'procedure'
         elif type_of_union == 'timeSeries':
             if time_series is None:
                 raise ValueError('a union value must not be None')
@@ -37580,11 +37701,6 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._video = video
             self._type = 'video'
-        elif type_of_union == 'procedure':
-            if procedure is None:
-                raise ValueError('a union value must not be None')
-            self._procedure = procedure
-            self._type = 'procedure'
 
     @builtins.property
     def cartesian(self) -> Optional["scout_chartdefinition_api_CartesianChartDefinition"]:
@@ -37615,8 +37731,16 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
         return self._log
 
     @builtins.property
+    def markdown(self) -> Optional["scout_chartdefinition_api_MarkdownPanelDefinition"]:
+        return self._markdown
+
+    @builtins.property
     def plotly(self) -> Optional["scout_chartdefinition_api_PlotlyPanelDefinition"]:
         return self._plotly
+
+    @builtins.property
+    def procedure(self) -> Optional["scout_chartdefinition_api_ProcedureVizDefinition"]:
+        return self._procedure
 
     @builtins.property
     def time_series(self) -> Optional["scout_chartdefinition_api_TimeSeriesChartDefinition"]:
@@ -37629,10 +37753,6 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
     @builtins.property
     def video(self) -> Optional["scout_chartdefinition_api_VideoVizDefinition"]:
         return self._video
-
-    @builtins.property
-    def procedure(self) -> Optional["scout_chartdefinition_api_ProcedureVizDefinition"]:
-        return self._procedure
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_chartdefinition_api_VizDefinitionVisitor):
@@ -37651,16 +37771,18 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             return visitor._histogram(self.histogram)
         if self._type == 'log' and self.log is not None:
             return visitor._log(self.log)
+        if self._type == 'markdown' and self.markdown is not None:
+            return visitor._markdown(self.markdown)
         if self._type == 'plotly' and self.plotly is not None:
             return visitor._plotly(self.plotly)
+        if self._type == 'procedure' and self.procedure is not None:
+            return visitor._procedure(self.procedure)
         if self._type == 'timeSeries' and self.time_series is not None:
             return visitor._time_series(self.time_series)
         if self._type == 'valueTable' and self.value_table is not None:
             return visitor._value_table(self.value_table)
         if self._type == 'video' and self.video is not None:
             return visitor._video(self.video)
-        if self._type == 'procedure' and self.procedure is not None:
-            return visitor._procedure(self.procedure)
 
 
 scout_chartdefinition_api_VizDefinition.__name__ = "VizDefinition"
@@ -37699,7 +37821,15 @@ class scout_chartdefinition_api_VizDefinitionVisitor:
         pass
 
     @abstractmethod
+    def _markdown(self, markdown: "scout_chartdefinition_api_MarkdownPanelDefinition") -> Any:
+        pass
+
+    @abstractmethod
     def _plotly(self, plotly: "scout_chartdefinition_api_PlotlyPanelDefinition") -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure(self, procedure: "scout_chartdefinition_api_ProcedureVizDefinition") -> Any:
         pass
 
     @abstractmethod
@@ -37712,10 +37842,6 @@ class scout_chartdefinition_api_VizDefinitionVisitor:
 
     @abstractmethod
     def _video(self, video: "scout_chartdefinition_api_VideoVizDefinition") -> Any:
-        pass
-
-    @abstractmethod
-    def _procedure(self, procedure: "scout_chartdefinition_api_ProcedureVizDefinition") -> Any:
         pass
 
 
@@ -47997,10 +48123,14 @@ class scout_compute_api_ComputeNodeRequest(ConjureBeanType):
 
     @builtins.property
     def start(self) -> "api_Timestamp":
+        """The start of the time range (inclusive).
+        """
         return self._start
 
     @builtins.property
     def end(self) -> "api_Timestamp":
+        """The end of the time range (inclusive).
+        """
         return self._end
 
     @builtins.property
@@ -57141,10 +57271,14 @@ class scout_compute_api_ParameterizedComputeNodeRequest(ConjureBeanType):
 
     @builtins.property
     def start(self) -> "api_Timestamp":
+        """The start of the time range (inclusive).
+        """
         return self._start
 
     @builtins.property
     def end(self) -> "api_Timestamp":
+        """The end of the time range (inclusive).
+        """
         return self._end
 
     @builtins.property
@@ -96314,6 +96448,41 @@ Enforces read permission on the video.
         _decoder = ConjureDecoder()
         return None if _response.status_code == 204 else _decoder.decode(_response.json(), OptionalTypeWrapper[scout_video_api_VideoStream], self._return_none_for_unknown_union_types)
 
+    def get_streams_in_bounds(self, auth_header: str, request: "scout_video_api_GetStreamsInBoundsRequest", video_rid: str) -> "scout_video_api_GetStreamsInBoundsResponse":
+        """Returns all stream sessions for a video that overlap with the specified time bounds.
+A stream overlaps if there is any intersection between its [start, end] interval and the provided bounds.
+Enforces read permission on the video.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'videoRid': quote(str(_conjure_encoder.default(video_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/video/v1/videos/{videoRid}/streaming/streams-in-bounds'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_video_api_GetStreamsInBoundsResponse, self._return_none_for_unknown_union_types)
+
     def end_stream(self, auth_header: str, video_rid: str) -> "scout_video_api_EndStreamResponse":
         """Marks the active stream session as ended for the video.
 Throws VIDEO_NOT_FOUND if no active stream exists.
@@ -97332,6 +97501,52 @@ class scout_video_api_GetSegmentSummariesInBoundsRequest(ConjureBeanType):
 scout_video_api_GetSegmentSummariesInBoundsRequest.__name__ = "GetSegmentSummariesInBoundsRequest"
 scout_video_api_GetSegmentSummariesInBoundsRequest.__qualname__ = "GetSegmentSummariesInBoundsRequest"
 scout_video_api_GetSegmentSummariesInBoundsRequest.__module__ = "nominal_api.scout_video_api"
+
+
+class scout_video_api_GetStreamsInBoundsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'bounds': ConjureFieldDefinition('bounds', scout_video_api_Bounds)
+        }
+
+    __slots__: List[str] = ['_bounds']
+
+    def __init__(self, bounds: "scout_video_api_Bounds") -> None:
+        self._bounds = bounds
+
+    @builtins.property
+    def bounds(self) -> "scout_video_api_Bounds":
+        return self._bounds
+
+
+scout_video_api_GetStreamsInBoundsRequest.__name__ = "GetStreamsInBoundsRequest"
+scout_video_api_GetStreamsInBoundsRequest.__qualname__ = "GetStreamsInBoundsRequest"
+scout_video_api_GetStreamsInBoundsRequest.__module__ = "nominal_api.scout_video_api"
+
+
+class scout_video_api_GetStreamsInBoundsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'streams': ConjureFieldDefinition('streams', List[scout_video_api_VideoStream])
+        }
+
+    __slots__: List[str] = ['_streams']
+
+    def __init__(self, streams: List["scout_video_api_VideoStream"]) -> None:
+        self._streams = streams
+
+    @builtins.property
+    def streams(self) -> List["scout_video_api_VideoStream"]:
+        return self._streams
+
+
+scout_video_api_GetStreamsInBoundsResponse.__name__ = "GetStreamsInBoundsResponse"
+scout_video_api_GetStreamsInBoundsResponse.__qualname__ = "GetStreamsInBoundsResponse"
+scout_video_api_GetStreamsInBoundsResponse.__module__ = "nominal_api.scout_video_api"
 
 
 class scout_video_api_GetVideosRequest(ConjureBeanType):
@@ -100730,16 +100945,18 @@ class scout_workbookcommon_api_WorkbookSettings(ConjureBeanType):
             'asset_settings': ConjureFieldDefinition('assetSettings', OptionalTypeWrapper[Dict[scout_rids_api_AssetRid, scout_workbookcommon_api_AssetSettings]]),
             'run_settings': ConjureFieldDefinition('runSettings', OptionalTypeWrapper[Dict[scout_run_api_RunRid, scout_workbookcommon_api_RunSettings]]),
             'time_settings': ConjureFieldDefinition('timeSettings', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookTimeSettings]),
-            'offsets': ConjureFieldDefinition('offsets', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookOffsets])
+            'offsets': ConjureFieldDefinition('offsets', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookOffsets]),
+            'default_staleness_configuration': ConjureFieldDefinition('defaultStalenessConfiguration', OptionalTypeWrapper[scout_chartdefinition_api_StalenessConfiguration])
         }
 
-    __slots__: List[str] = ['_asset_settings', '_run_settings', '_time_settings', '_offsets']
+    __slots__: List[str] = ['_asset_settings', '_run_settings', '_time_settings', '_offsets', '_default_staleness_configuration']
 
-    def __init__(self, asset_settings: Optional[Dict[str, "scout_workbookcommon_api_AssetSettings"]] = None, offsets: Optional["scout_workbookcommon_api_WorkbookOffsets"] = None, run_settings: Optional[Dict[str, "scout_workbookcommon_api_RunSettings"]] = None, time_settings: Optional["scout_workbookcommon_api_WorkbookTimeSettings"] = None) -> None:
+    def __init__(self, asset_settings: Optional[Dict[str, "scout_workbookcommon_api_AssetSettings"]] = None, default_staleness_configuration: Optional["scout_chartdefinition_api_StalenessConfiguration"] = None, offsets: Optional["scout_workbookcommon_api_WorkbookOffsets"] = None, run_settings: Optional[Dict[str, "scout_workbookcommon_api_RunSettings"]] = None, time_settings: Optional["scout_workbookcommon_api_WorkbookTimeSettings"] = None) -> None:
         self._asset_settings = asset_settings
         self._run_settings = run_settings
         self._time_settings = time_settings
         self._offsets = offsets
+        self._default_staleness_configuration = default_staleness_configuration
 
     @builtins.property
     def asset_settings(self) -> Optional[Dict[str, "scout_workbookcommon_api_AssetSettings"]]:
@@ -100765,6 +100982,13 @@ over persisted the global time range.
         """Time offsets that can be applied to the workbook.
         """
         return self._offsets
+
+    @builtins.property
+    def default_staleness_configuration(self) -> Optional["scout_chartdefinition_api_StalenessConfiguration"]:
+        """Default staleness configuration for new time series panels in the workbook.
+When set, new time series panels will use this instead of the 1-second default.
+        """
+        return self._default_staleness_configuration
 
 
 scout_workbookcommon_api_WorkbookSettings.__name__ = "WorkbookSettings"

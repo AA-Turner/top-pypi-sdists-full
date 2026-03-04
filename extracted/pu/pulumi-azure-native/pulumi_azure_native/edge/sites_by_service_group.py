@@ -26,6 +26,7 @@ class SitesByServiceGroupArgs:
                  site_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a SitesByServiceGroup resource.
+
         :param pulumi.Input[_builtins.str] servicegroup_name: The name of the service group
         :param pulumi.Input['SitePropertiesArgs'] properties: The resource-specific properties for this resource.
         :param pulumi.Input[_builtins.str] site_name: The name of the Site
@@ -84,11 +85,12 @@ class SitesByServiceGroup(pulumi.CustomResource):
                  site_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        Site as ARM Resource
+        Site as Extension Resource
 
         Uses Azure REST API version 2025-03-01-preview.
 
         Other available API versions: 2025-06-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native edge [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -103,11 +105,12 @@ class SitesByServiceGroup(pulumi.CustomResource):
                  args: SitesByServiceGroupArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Site as ARM Resource
+        Site as Extension Resource
 
         Uses Azure REST API version 2025-03-01-preview.
 
         Other available API versions: 2025-06-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native edge [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param SitesByServiceGroupArgs args: The arguments to use to populate this resource's properties.

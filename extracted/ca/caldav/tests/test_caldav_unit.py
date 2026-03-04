@@ -1,42 +1,33 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
 """
 Rule: None of the tests in this file should initiate any internet
 communication, and there should be no dependencies on a working caldav
 server for the tests in this file.  We use the Mock class when needed
 to emulate server communication.
 """
+
 import pickle
-from datetime import date
-from datetime import datetime
-from datetime import timedelta
+from datetime import date, datetime, timedelta, timezone
 from unittest import mock
 from urllib.parse import urlparse
 
 import icalendar
 import lxml.etree
 import pytest
-import vobject
 
-import caldav
-from caldav import Calendar
-from caldav import CalendarObjectResource
-from caldav import CalendarSet
-from caldav import DAVObject
-from caldav import Event
-from caldav import FreeBusy
-from caldav import Journal
-from caldav import Principal
-from caldav import Todo
-from caldav.davclient import DAVClient
-from caldav.davclient import DAVResponse
-from caldav.elements import cdav
-from caldav.elements import dav
-from caldav.elements import ical
+from caldav import (
+    Calendar,
+    CalendarObjectResource,
+    CalendarSet,
+    Event,
+    Journal,
+    Principal,
+    Todo,
+)
+from caldav.davclient import DAVClient, DAVResponse
+from caldav.elements import cdav, dav
 from caldav.lib import error
-from caldav.lib import url
-from caldav.lib.python_utilities import to_normal_str
-from caldav.lib.python_utilities import to_wire
+from caldav.lib.python_utilities import to_normal_str, to_wire
 from caldav.lib.url import URL
 
 ## Note on the imports - those two lines are equivalent:
@@ -298,79 +289,10 @@ class MockedDAVClient(DAVClient):
 
     def __init__(self, xml_returned):
         self.xml_returned = xml_returned
-        DAVClient.__init__(
-            self, url="https://somwhere.in.the.universe.example/some/caldav/root"
-        )
+        DAVClient.__init__(self, url="https://somwhere.in.the.universe.example/some/caldav/root")
 
     def request(self, *largs, **kwargs):
         return MockedDAVResponse(self.xml_returned)
-
-
-class TestExpandRRule:
-    """
-    Tests the expand_rrule method
-    """
-
-    def setup_method(self):
-        cal_url = "http://me:hunter2@calendar.example:80/"
-        client = DAVClient(url=cal_url)
-        self.yearly = Event(client, data=evr)
-        self.todo = Todo(client, data=todo6)
-
-    def testZero(self):
-        ## evr has rrule yearly and dtstart DTSTART 1997-11-02
-        ## This should cause 0 recurrences:
-        self.yearly.expand_rrule(start=datetime(1998, 4, 4), end=datetime(1998, 10, 10))
-        assert len(self.yearly.icalendar_instance.subcomponents) == 0
-
-    def testOne(self):
-        self.yearly.expand_rrule(
-            start=datetime(1998, 10, 10), end=datetime(1998, 12, 12)
-        )
-        assert len(self.yearly.icalendar_instance.subcomponents) == 1
-        assert not "RRULE" in self.yearly.icalendar_component
-        assert "UID" in self.yearly.icalendar_component
-        assert "RECURRENCE-ID" in self.yearly.icalendar_component
-
-    def testThree(self):
-        self.yearly.expand_rrule(
-            start=datetime(1996, 10, 10), end=datetime(1999, 12, 12)
-        )
-        assert len(self.yearly.icalendar_instance.subcomponents) == 3
-        data1 = self.yearly.icalendar_instance.subcomponents[0].to_ical()
-        data2 = self.yearly.icalendar_instance.subcomponents[1].to_ical()
-        assert data1.replace(b"199711", b"199811") == data2
-
-    def testThreeTodo(self):
-        self.todo.expand_rrule(start=datetime(1996, 10, 10), end=datetime(1999, 12, 12))
-        assert len(self.todo.icalendar_instance.subcomponents) == 3
-        data1 = self.todo.icalendar_instance.subcomponents[0].to_ical()
-        data2 = self.todo.icalendar_instance.subcomponents[1].to_ical()
-        assert data1.replace(b"19970", b"19980") == data2
-
-    def testSplit(self):
-        self.yearly.expand_rrule(
-            start=datetime(1996, 10, 10), end=datetime(1999, 12, 12)
-        )
-        events = self.yearly.split_expanded()
-        assert len(events) == 3
-        assert len(events[0].icalendar_instance.subcomponents) == 1
-        assert (
-            events[1].icalendar_component["UID"]
-            == "19970901T130000Z-123403@example.com"
-        )
-
-    def test241(self):
-        """
-        Ref https://github.com/python-caldav/caldav/issues/241
-
-        This seems like sort of a duplicate of testThreeTodo, but the ftests actually started failing
-        """
-        assert len(self.todo.data) > 128
-        self.todo.expand_rrule(
-            start=datetime(1997, 4, 14, 0, 0), end=datetime(2015, 5, 14, 0, 0)
-        )
-        assert len(self.todo.data) > 128
 
 
 class TestCalDAV:
@@ -394,8 +316,8 @@ class TestCalDAV:
         assert response.tree is None
 
         response = client.put(
-            "/foo/møøh/bar".encode("utf-8"),
-            "bringebærsyltetøy 北京 пиво".encode("utf-8"),
+            "/foo/møøh/bar".encode(),
+            "bringebærsyltetøy 北京 пиво".encode(),
             {},
         )
         assert response.status == 200
@@ -408,7 +330,7 @@ class TestCalDAV:
         assert len(mytasks) == 1
         mytasks = calendar.search(
             todo=True,
-            expand="client",
+            expand=True,
             start=datetime(2025, 5, 5),
             end=datetime(2025, 6, 5),
         )
@@ -417,7 +339,7 @@ class TestCalDAV:
         ## It should not include the COMPLETED recurrences
         mytasks = calendar.search(
             todo=True,
-            expand="client",
+            expand=True,
             start=datetime(2025, 1, 1),
             end=datetime(2025, 6, 5),
             ## TODO - TEMP workaround for compatibility issues!  post_filter should not be needed!
@@ -541,14 +463,12 @@ class TestCalDAV:
         mocked_davresponse = DAVResponse(mocked_response)
         client.propfind = mock.MagicMock(return_value=mocked_davresponse)
         bernards_calendars = principal.calendar_home_set
-        assert bernards_calendars.url == URL(
-            "http://cal.example.com/home/bernard/calendars/"
-        )
+        assert bernards_calendars.url == URL("http://cal.example.com/home/bernard/calendars/")
 
     def _load(self, only_if_unloaded=True):
         self.data = todo6
 
-    @mock.patch("caldav.objects.CalendarObjectResource.load", new=_load)
+    @mock.patch("caldav.calendarobjectresource.CalendarObjectResource.load", new=_load)
     def testDateSearch(self):
         """
         ## ref https://github.com/python-caldav/caldav/issues/133
@@ -599,13 +519,10 @@ class TestCalDAV:
 </multistatus></xml>
 """
         client = MockedDAVClient(xml)
-        calendar = Calendar(
-            client, url="/principals/calendar/home@petroski.example.com/963/"
-        )
-        results = calendar.date_search(
-            datetime(2021, 2, 1), datetime(2021, 2, 7), expand=False
-        )
-        assert len(results) == 3
+        calendar = Calendar(client, url="/principals/calendar/home@petroski.example.com/963/")
+        with pytest.deprecated_call():
+            results = calendar.date_search(datetime(2021, 2, 1), datetime(2021, 2, 7), expand=False)
+            assert len(results) == 3
 
     def testCalendar(self):
         """
@@ -672,7 +589,7 @@ class TestCalDAV:
             client,
             url="/17149682/calendars/testcalendar-485d002e-31b9-4147-a334-1d71503a4e2c/",
         )
-        assert len(calendar.events()) == 0
+        assert len(calendar.get_events()) == 0
 
     def test_get_calendars(self):
         xml = """
@@ -742,7 +659,7 @@ class TestCalDAV:
 """
         client = MockedDAVClient(xml)
         calendar_home_set = CalendarSet(client, url="/dav/tobias%40redpill-linpro.com/")
-        assert len(calendar_home_set.calendars()) == 1
+        assert len(calendar_home_set.get_calendars()) == 1
 
         def test_supported_components(self):
             xml = """
@@ -787,14 +704,10 @@ class TestCalDAV:
   </response>
 </multistatus>
 """
-        expected_result = {
-            "/": {"{DAV:}current-user-principal": "/17149682/principal/"}
-        }
+        expected_result = {"/": {"{DAV:}current-user-principal": "/17149682/principal/"}}
 
         assert (
-            MockedDAVResponse(xml).expand_simple_props(
-                props=[dav.CurrentUserPrincipal()]
-            )
+            MockedDAVResponse(xml).expand_simple_props(props=[dav.CurrentUserPrincipal()])
             == expected_result
         )
 
@@ -828,14 +741,10 @@ class TestCalDAV:
 </multistatus>
 """
         expected_result = {
-            "/principals/users/frank/": {
-                "{DAV:}current-user-principal": "/principals/users/frank/"
-            }
+            "/principals/users/frank/": {"{DAV:}current-user-principal": "/principals/users/frank/"}
         }
         assert (
-            MockedDAVResponse(xml).expand_simple_props(
-                props=[dav.CurrentUserPrincipal()]
-            )
+            MockedDAVResponse(xml).expand_simple_props(props=[dav.CurrentUserPrincipal()])
             == expected_result
         )
 
@@ -877,13 +786,9 @@ class TestCalDAV:
     </propstat>
   </response>
 </multistatus>"""
-        expected_result = {
-            "/": {"{DAV:}current-user-principal": "/17149682/principal/"}
-        }
+        expected_result = {"/": {"{DAV:}current-user-principal": "/17149682/principal/"}}
         assert (
-            MockedDAVResponse(xml).expand_simple_props(
-                props=[dav.CurrentUserPrincipal()]
-            )
+            MockedDAVResponse(xml).expand_simple_props(props=[dav.CurrentUserPrincipal()])
             == expected_result
         )
 
@@ -1125,8 +1030,7 @@ ATTACH;VALUE=BINARY;ENCODING=BASE64;FMTTYPE=image/jpeg;
  X-FILENAME=image001.jpg;X-ORACLE-FILENAME=image001.jpg:
 """
         xml += (
-            "gIyIoLTkwKCo2KyIjM4444449QEBAJjBGS0U+Sjk/QD3/2wBDAQsLCw8NDx0QEB09KSMpPT09\n"
-            * 153490
+            "gIyIoLTkwKCo2KyIjM4444449QEBAJjBGS0U+Sjk/QD3/2wBDAQsLCw8NDx0QEB09KSMpPT09\n" * 153490
         )
         xml += """
  /Z
@@ -1235,9 +1139,7 @@ END:VCALENDAR
         assert my_event.vobject_instance.vevent.summary.value == "yet another summary"
         ## Now the data has been converted from string to vobject to string to icalendar to string to vobject and ... will the string still match the original?
         lines_now = my_event.data.strip().split("\n")
-        lines_orig = (
-            ev1.replace("Bastille Day Party", "yet another summary").strip().split("\n")
-        )
+        lines_orig = ev1.replace("Bastille Day Party", "yet another summary").strip().split("\n")
         lines_now.sort()
         lines_orig.sort()
         assert lines_now == lines_orig
@@ -1251,9 +1153,7 @@ END:VCALENDAR
         assert my_event.vobject_instance.vevent.summary.value == "yet another summary"
         ## will the string still match the original?
         lines_now = my_event.data.strip().split("\n")
-        lines_orig = (
-            ev1.replace("Bastille Day Party", "yet another summary").strip().split("\n")
-        )
+        lines_orig = ev1.replace("Bastille Day Party", "yet another summary").strip().split("\n")
         lines_now.sort()
         lines_orig.sort()
         assert lines_now == lines_orig
@@ -1271,12 +1171,219 @@ END:VCALENDAR
         target = Event(client, data=evr)
 
         ## Creating some dummy data such that the target has more than one subcomponent
-        target.expand_rrule(start=datetime(1996, 10, 10), end=datetime(1999, 12, 12))
-        assert len(target.icalendar_instance.subcomponents) == 3
+        with pytest.deprecated_call():
+            target.expand_rrule(start=datetime(1996, 10, 10), end=datetime(1999, 12, 12))
+            assert len(target.icalendar_instance.subcomponents) == 3
 
         ## The following should not fail within _set_icalendar_component
         target.icalendar_component = icalendar.Todo.from_ical(todo).subcomponents[0]
         assert len(target.icalendar_instance.subcomponents) == 1
+
+    def testNewDataAPI(self):
+        """Test the new safe data access API (issue #613).
+
+        The new API provides:
+        - get_data() / get_icalendar_instance() / get_vobject_instance() for read-only access
+        - edit_icalendar_instance() / edit_vobject_instance() context managers for editing
+        """
+        cal_url = "http://me:hunter2@calendar.example:80/"
+        client = DAVClient(url=cal_url)
+        event = Event(client, data=ev1)
+
+        # Test get_data() returns string
+        data = event.get_data()
+        assert isinstance(data, str)
+        assert "Bastille Day Party" in data
+
+        # Test get_icalendar_instance() returns a COPY
+        ical1 = event.get_icalendar_instance()
+        ical2 = event.get_icalendar_instance()
+        assert ical1 is not ical2  # Different objects (copies)
+
+        # Modifying the copy should NOT affect the original
+        for comp in ical1.subcomponents:
+            if comp.name == "VEVENT":
+                comp["SUMMARY"] = "Modified in copy"
+        assert "Modified in copy" not in event.get_data()
+
+        # Test get_vobject_instance() returns a COPY
+        vobj1 = event.get_vobject_instance()
+        vobj2 = event.get_vobject_instance()
+        assert vobj1 is not vobj2  # Different objects (copies)
+
+        # Test edit_icalendar_instance() context manager
+        with event.edit_icalendar_instance() as cal:
+            for comp in cal.subcomponents:
+                if comp.name == "VEVENT":
+                    comp["SUMMARY"] = "Edited Summary"
+
+        # Changes should be reflected
+        assert "Edited Summary" in event.get_data()
+
+        # Test edit_vobject_instance() context manager
+        with event.edit_vobject_instance() as vobj:
+            vobj.vevent.summary.value = "Vobject Edit"
+
+        assert "Vobject Edit" in event.get_data()
+
+        # Test that nested borrowing of different types raises error
+        with event.edit_icalendar_instance() as cal:
+            with pytest.raises(RuntimeError):
+                with event.edit_vobject_instance() as vobj:
+                    pass
+
+    def testDataAPICheapAccessors(self):
+        """Test the cheap internal accessors for issue #613.
+
+        These accessors avoid unnecessary format conversions when we just
+        need to peek at basic properties like UID or component type.
+        """
+        cal_url = "http://me:hunter2@calendar.example:80/"
+        client = DAVClient(url=cal_url)
+
+        # Test with event
+        event = Event(client, data=ev1)
+        assert event._get_uid_cheap() == "20010712T182145Z-123401@example.com"
+        assert event._get_component_type_cheap() == "VEVENT"
+        assert event._has_data() is True
+
+        # Test with todo
+        my_todo = Todo(client, data=todo)
+        assert my_todo._get_uid_cheap() == "20070313T123432Z-456553@example.com"
+        assert my_todo._get_component_type_cheap() == "VTODO"
+        assert my_todo._has_data() is True
+
+        # Test with journal
+        my_journal = CalendarObjectResource(client, data=journal)
+        assert my_journal._get_uid_cheap() == "19970901T130000Z-123405@example.com"
+        assert my_journal._get_component_type_cheap() == "VJOURNAL"
+        assert my_journal._has_data() is True
+
+        # Test with no data
+        empty_event = Event(client)
+        assert empty_event._get_uid_cheap() is None
+        assert empty_event._get_component_type_cheap() is None
+        assert empty_event._has_data() is False
+
+    def testDataAPIStateTransitions(self):
+        """Test state transitions in the data API (issue #613).
+
+        Verify that the internal state correctly transitions between
+        RawDataState, IcalendarState, and VobjectState.
+        """
+        from caldav.datastate import (
+            IcalendarState,
+            RawDataState,
+            VobjectState,
+        )
+
+        cal_url = "http://me:hunter2@calendar.example:80/"
+        client = DAVClient(url=cal_url)
+        event = Event(client, data=ev1)
+
+        # Initial state should be RawDataState (or lazy init)
+        event._ensure_state()
+        assert isinstance(event._state, RawDataState)
+
+        # get_data() should NOT change state
+        _ = event.get_data()
+        assert isinstance(event._state, RawDataState)
+
+        # get_icalendar_instance() should NOT change state (returns copy)
+        _ = event.get_icalendar_instance()
+        assert isinstance(event._state, RawDataState)
+
+        # edit_icalendar_instance() SHOULD change state to IcalendarState
+        with event.edit_icalendar_instance() as cal:
+            pass
+        assert isinstance(event._state, IcalendarState)
+
+        # edit_vobject_instance() SHOULD change state to VobjectState
+        with event.edit_vobject_instance() as vobj:
+            pass
+        assert isinstance(event._state, VobjectState)
+
+        # get_data() should still work from VobjectState
+        data = event.get_data()
+        assert "Bastille Day Party" in data
+
+    def testDataAPINoDataState(self):
+        """Test NoDataState behavior (issue #613).
+
+        When an object has no data, the NoDataState should provide
+        sensible defaults without raising errors.
+        """
+        from caldav.datastate import NoDataState
+
+        cal_url = "http://me:hunter2@calendar.example:80/"
+        client = DAVClient(url=cal_url)
+        event = Event(client)  # No data
+
+        # Ensure state is NoDataState
+        event._ensure_state()
+        assert isinstance(event._state, NoDataState)
+
+        # get_data() should return empty string
+        assert event.get_data() == ""
+
+        # get_icalendar_instance() should return empty Calendar
+        ical = event.get_icalendar_instance()
+        assert ical is not None
+        assert len(list(ical.subcomponents)) == 0
+
+        # Cheap accessors should return None
+        assert event._get_uid_cheap() is None
+        assert event._get_component_type_cheap() is None
+        assert event._has_data() is False
+
+    def testDataAPIEdgeCases(self):
+        """Test edge cases in the data API (issue #613)."""
+        cal_url = "http://me:hunter2@calendar.example:80/"
+        client = DAVClient(url=cal_url)
+
+        # Test with folded UID line (UID split across lines)
+        folded_uid_data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VEVENT
+UID:this-is-a-very-long-uid-that-might-be-folded-across-multiple-lines-in-r
+ eal-world-icalendar-files@example.com
+DTSTAMP:20060712T182145Z
+DTSTART:20060714T170000Z
+SUMMARY:Folded UID Test
+END:VEVENT
+END:VCALENDAR
+"""
+        event = Event(client, data=folded_uid_data)
+        # The cheap accessor uses regex which might not handle folded lines
+        # So we test that it falls back to full parsing when needed
+        uid = event._get_uid_cheap()
+        # Either the regex works or it falls back - either way we should get a UID
+        assert uid is not None
+        assert "this-is-a-very-long-uid" in uid
+
+        # Test that nested borrowing (even same type) raises error
+        # This prevents confusing ownership semantics
+        event2 = Event(client, data=ev1)
+        with event2.edit_icalendar_instance() as cal1:
+            with pytest.raises(RuntimeError):
+                with event2.edit_icalendar_instance() as cal2:
+                    pass
+
+        # Test sequential edits work fine
+        event3 = Event(client, data=ev1)
+        with event3.edit_icalendar_instance() as cal:
+            for comp in cal.subcomponents:
+                if comp.name == "VEVENT":
+                    comp["SUMMARY"] = "First Edit"
+        assert "First Edit" in event3.get_data()
+
+        # Second edit after first is complete
+        with event3.edit_icalendar_instance() as cal:
+            for comp in cal.subcomponents:
+                if comp.name == "VEVENT":
+                    comp["SUMMARY"] = "Second Edit"
+        assert "Second Edit" in event3.get_data()
 
     def testTodoDuration(self):
         cal_url = "http://me:hunter2@calendar.example:80/"
@@ -1300,24 +1407,24 @@ END:VCALENDAR
 
         ## set_due has "only" one if, so two code paths, one where dtstart is actually moved and one where it isn't
         my_todo2.set_due(some_date, move_dtstart=True)
-        assert my_todo2.icalendar_instance.subcomponents[0][
-            "DTSTART"
-        ].dt == some_date - timedelta(days=6)
+        assert my_todo2.icalendar_instance.subcomponents[0]["DTSTART"].dt == some_date - timedelta(
+            days=6
+        )
 
         ## set_duration at the other hand has 5 code paths ...
         ## 1) DTSTART set, DTSTART as the movable component
         my_todo1.set_duration(timedelta(1))
         assert my_todo1.get_due() == some_date
-        assert my_todo1.icalendar_instance.subcomponents[0][
-            "DTSTART"
-        ].dt == some_date - timedelta(1)
+        assert my_todo1.icalendar_instance.subcomponents[0]["DTSTART"].dt == some_date - timedelta(
+            1
+        )
 
         ## 2) DUE and DTSTART set, DUE as the movable component
         my_todo1.set_duration(timedelta(2), movable_attr="DUE")
         assert my_todo1.get_due() == some_date + timedelta(days=1)
-        assert my_todo1.icalendar_instance.subcomponents[0][
-            "DTSTART"
-        ].dt == some_date - timedelta(1)
+        assert my_todo1.icalendar_instance.subcomponents[0]["DTSTART"].dt == some_date - timedelta(
+            1
+        )
 
         ## 3) DUE set, DTSTART not set
         dtstart = my_todo1.icalendar_instance.subcomponents[0].pop("DTSTART").dt
@@ -1343,12 +1450,12 @@ END:VCALENDAR
         assert my_todo2.component.end == orig_end
 
         ## 7) DURATION set, but neither DTSTART nor DTEND
-        assert not "DTSTART" in my_todo4.component
-        assert not "DUE" in my_todo4.component
+        assert "DTSTART" not in my_todo4.component
+        assert "DUE" not in my_todo4.component
         assert my_todo4.component["duration"].dt == timedelta(5)
         my_todo4.set_duration(timedelta(2))
-        assert not "DTSTART" in my_todo4.component
-        assert not "DUE" in my_todo4.component
+        assert "DTSTART" not in my_todo4.component
+        assert "DUE" not in my_todo4.component
         assert my_todo4.component["duration"].dt == timedelta(2)
 
     def testURL(self):
@@ -1392,9 +1499,7 @@ END:VCALENDAR
         assert url7 == "http://foo:bar@www.example.com:8080/bar"
         assert url8 == url1
         assert url9 == url7
-        assert (
-            urlA == "http://foo:bar@www.example.com:8080/caldav.php/someuser/calendar"
-        )
+        assert urlA == "http://foo:bar@www.example.com:8080/caldav.php/someuser/calendar"
         assert urlB == url1
         with pytest.raises(ValueError):
             url1.join("http://www.google.com")
@@ -1415,9 +1520,7 @@ END:VCALENDAR
         assert url7 == "http://foo:bar@www.example.com:8080/bar"
         assert url8 == url1
         assert url9 == url7
-        assert (
-            urlA == "http://foo:bar@www.example.com:8080/caldav.php/someuser/calendar"
-        )
+        assert urlA == "http://foo:bar@www.example.com:8080/caldav.php/someuser/calendar"
         assert urlB == url1
         with pytest.raises(ValueError):
             url1.join("http://www.google.com")
@@ -1459,9 +1562,7 @@ END:VCALENDAR
         filter = cdav.Filter().append(
             cdav.CompFilter("VCALENDAR").append(
                 cdav.CompFilter("VEVENT").append(
-                    cdav.PropFilter("UID").append(
-                        [cdav.TextMatch("pouet", negate=True)]
-                    )
+                    cdav.PropFilter("UID").append([cdav.TextMatch("pouet", negate=True)])
                 )
             )
         )
@@ -1488,9 +1589,7 @@ END:VCALENDAR
             assert calendar._calendar_comp_class_by_data(ical) == class_
             if ical != "random rantings" and ical:
                 assert (
-                    calendar._calendar_comp_class_by_data(
-                        icalendar.Calendar.from_ical(ical)
-                    )
+                    calendar._calendar_comp_class_by_data(icalendar.Calendar.from_ical(ical))
                     == class_
                 )
 
@@ -1510,9 +1609,7 @@ END:VCALENDAR
         with DAVClient(url=cal_url) as client:
             assert client.extract_auth_types("Basic\n") == {"basic"}
             assert client.extract_auth_types("Basic") == {"basic"}
-            assert client.extract_auth_types('Basic Realm=foo;charset="UTF-8"') == {
-                "basic"
-            }
+            assert client.extract_auth_types('Basic Realm=foo;charset="UTF-8"') == {"basic"}
             assert client.extract_auth_types("Basic,dIGEST Realm=foo") == {
                 "basic",
                 "digest",
@@ -1537,8 +1634,8 @@ END:VCALENDAR
         4. Result: https://tobixen@e.email/remote.php/dav (wrong!)
            Should be: https://ecloud.global/remote.php/dav
         """
-        from caldav.davclient import _auto_url
         from caldav.compatibility_hints import ecloud
+        from caldav.davclient import _auto_url
 
         # Test with email username and no URL - should use ecloud domain from hints
         # RFC6764 is enabled by default, which triggers the bug
@@ -1549,7 +1646,407 @@ END:VCALENDAR
             enable_rfc6764=True,  # Default behavior - this triggers the bug
         )
 
-        assert (
-            url == "https://ecloud.global/remote.php/dav"
-        ), f"Expected 'https://ecloud.global/remote.php/dav', got '{url}'"
+        assert url == "https://ecloud.global/remote.php/dav", (
+            f"Expected 'https://ecloud.global/remote.php/dav', got '{url}'"
+        )
         assert discovered_username is None
+
+    def testSearcherMethod(self):
+        """Test that calendar.searcher() returns a properly configured CalDAVSearcher.
+
+        This tests issue #590 - the new API for creating search objects.
+        """
+        from caldav.search import CalDAVSearcher
+
+        client = MockedDAVClient(recurring_task_response)
+        calendar = Calendar(client, url="/calendar/issue491/")
+
+        # Test basic searcher creation
+        searcher = calendar.searcher(event=True)
+        assert isinstance(searcher, CalDAVSearcher)
+        assert searcher._calendar is calendar
+        assert searcher.event is True
+
+        # Test with multiple parameters
+        searcher = calendar.searcher(
+            todo=True,
+            start=datetime(2025, 1, 1),
+            end=datetime(2025, 12, 31),
+            expand=True,
+        )
+        assert searcher.todo is True
+        assert searcher.start == datetime(2025, 1, 1)
+        assert searcher.end == datetime(2025, 12, 31)
+        assert searcher.expand is True
+
+        # Test with sort keys
+        searcher = calendar.searcher(sort_keys=["due", "priority"], sort_reverse=True)
+        assert len(searcher._sort_keys) == 2
+
+        # Test with property filters
+        searcher = calendar.searcher(summary="meeting", location="office")
+        assert "summary" in searcher._property_filters
+        assert "location" in searcher._property_filters
+
+        # Test with no_* filters (undef operator goes to _property_operator, not _property_filters)
+        searcher = calendar.searcher(no_summary=True)
+        assert searcher._property_operator.get("summary") == "undef"
+
+        # Test that search() works without calendar argument
+        # Note: post_filter is a parameter to search(), not the searcher
+        mytasks = calendar.searcher(todo=True, expand=False).search(post_filter=True)
+        assert len(mytasks) == 1
+
+    def testSearcherWithoutCalendar(self):
+        """Test that CalDAVSearcher.search() raises ValueError without calendar."""
+        from caldav.search import CalDAVSearcher
+
+        searcher = CalDAVSearcher(event=True)
+        with pytest.raises(ValueError, match="No calendar provided"):
+            searcher.search()
+
+    def testGetObjectByUidUsesSelfSearch(self):
+        """
+        get_object_by_uid() must call self.search() (Calendar.search) rather than
+        constructing a CalDAVSearcher directly.  This ensures that any
+        monkey-patching of Calendar.search - such as the search-cache delay for
+        servers with lazy search indexes (purelymail) - is also applied when
+        looking up objects by UID.
+
+        See also testObjectByUID in the integration tests for the exact-match
+        guarantee.
+        """
+        uid = "20010712T182145Z-123401@example.com"
+        # Build a minimal multistatus response containing ev1
+        xml_response = f"""<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
+  <d:response>
+    <d:href>/calendar/ev1.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>{ev1}</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>"""
+        client = MockedDAVClient(xml_response)
+        calendar = Calendar(client, url="/calendar/")
+
+        # Patch Calendar.search to track calls, while still delegating to
+        # the original implementation.
+        search_calls = []
+        original_search = Calendar.search
+
+        def tracking_search(self_, *args, **kwargs):
+            search_calls.append((args, kwargs))
+            return original_search(self_, *args, **kwargs)
+
+        Calendar.search = tracking_search
+        try:
+            result = calendar.get_object_by_uid(uid, comp_class=Event)
+            assert result.id == uid
+            assert search_calls, "Calendar.search was not called by get_object_by_uid"
+        finally:
+            Calendar.search = original_search
+
+    def testGetObjectByUidExactMatch(self):
+        """
+        get_object_by_uid() must return only an object with the exact requested UID,
+        even if the server (doing a substring search) returns objects with UIDs
+        that merely contain the requested UID as a substring.
+        """
+        uid_exact = "20010712T182145Z-123401@example.com"
+        uid_superstring = "20010712T182145Z-123401@example.com-extra"
+        ev_superstring = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VEVENT
+UID:{uid_superstring}
+DTSTAMP:20060712T182145Z
+DTSTART:20060714T170000Z
+DTEND:20060715T040000Z
+SUMMARY:Bastille Day Party extra
+END:VEVENT
+END:VCALENDAR
+"""
+        # Server returns both the exact-match event AND a superstring-UID event
+        # (simulating a server that does substring matching)
+        xml_response = f"""<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
+  <d:response>
+    <d:href>/calendar/ev1.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>{ev1}</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+  <d:response>
+    <d:href>/calendar/ev_superstring.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <cal:calendar-data>{ev_superstring}</cal:calendar-data>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>"""
+        client = MockedDAVClient(xml_response)
+        calendar = Calendar(client, url="/calendar/")
+
+        # Only the exact-UID match should be returned
+        result = calendar.get_object_by_uid(uid_exact)
+        assert result.id == uid_exact
+
+        # Searching for a UID that exists only as a substring of another should fail
+        with pytest.raises(error.NotFoundError):
+            calendar.get_object_by_uid("20010712T182145Z-123401@example.com-nope")
+
+
+class TestRateLimitHelpers:
+    """Unit tests for the shared rate-limit helper functions in caldav.lib.error."""
+
+    def test_parse_retry_after_integer(self):
+        assert error.parse_retry_after("30") == 30.0
+
+    def test_parse_retry_after_zero(self):
+        assert error.parse_retry_after("0") == 0.0
+
+    def test_parse_retry_after_http_date(self):
+        from email.utils import format_datetime
+
+        future = datetime.now(timezone.utc) + timedelta(seconds=60)
+        result = error.parse_retry_after(format_datetime(future))
+        assert result is not None
+        assert 55 <= result <= 65
+
+    def test_parse_retry_after_unparseable(self):
+        assert error.parse_retry_after("banana") is None
+
+    def test_parse_retry_after_empty(self):
+        assert error.parse_retry_after("") is None
+
+    def test_compute_sleep_server_value_used(self):
+        assert error.compute_sleep_seconds(30.0, None, None) == 30.0
+
+    def test_compute_sleep_default_fallback(self):
+        assert error.compute_sleep_seconds(None, 5, None) == 5.0
+
+    def test_compute_sleep_server_overrides_default(self):
+        # Server-provided value takes priority over default
+        assert error.compute_sleep_seconds(10.0, 5, None) == 10.0
+
+    def test_compute_sleep_max_cap_applied(self):
+        assert error.compute_sleep_seconds(3600.0, None, 60) == 60.0
+
+    def test_compute_sleep_max_zero_returns_none(self):
+        assert error.compute_sleep_seconds(30.0, None, 0) is None
+
+    def test_compute_sleep_no_info_returns_none(self):
+        assert error.compute_sleep_seconds(None, None, None) is None
+
+    def test_compute_sleep_zero_seconds_returns_none(self):
+        assert error.compute_sleep_seconds(0.0, None, None) is None
+
+    def test_raise_if_rate_limited_429_no_header(self):
+        with pytest.raises(error.RateLimitError) as exc_info:
+            error.raise_if_rate_limited(429, "http://x/", None)
+        assert exc_info.value.retry_after is None
+        assert exc_info.value.retry_after_seconds is None
+
+    def test_raise_if_rate_limited_429_with_header(self):
+        with pytest.raises(error.RateLimitError) as exc_info:
+            error.raise_if_rate_limited(429, "http://x/", "30")
+        assert exc_info.value.retry_after == "30"
+        assert exc_info.value.retry_after_seconds == 30.0
+
+    def test_raise_if_rate_limited_503_with_header(self):
+        with pytest.raises(error.RateLimitError):
+            error.raise_if_rate_limited(503, "http://x/", "10")
+
+    def test_raise_if_rate_limited_503_no_header_does_not_raise(self):
+        # 503 without Retry-After should pass silently
+        error.raise_if_rate_limited(503, "http://x/", None)
+
+    def test_raise_if_rate_limited_200_does_not_raise(self):
+        error.raise_if_rate_limited(200, "http://x/", None)
+
+
+class TestRateLimiting:
+    """
+    Unit tests for 429/503 rate-limit handling (issue #627).
+    No real server communication - uses mock.patch on the session.
+    """
+
+    def _make_response(self, status_code, headers=None):
+        """Build a minimal mock HTTP response."""
+        r = mock.MagicMock()
+        r.status_code = status_code
+        r.headers = headers or {}
+        r.reason = "Too Many Requests" if status_code == 429 else "Service Unavailable"
+        return r
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_429_no_retry_after_raises(self, mocked):
+        """429 without Retry-After header always raises RateLimitError with retry_after_seconds=None."""
+        mocked.return_value = self._make_response(429)
+        client = DAVClient(url="http://cal.example.com/")
+        with pytest.raises(error.RateLimitError) as exc_info:
+            client.request("/")
+        assert exc_info.value.retry_after is None
+        assert exc_info.value.retry_after_seconds is None
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_429_with_integer_retry_after(self, mocked):
+        """429 with integer Retry-After header parses the seconds correctly."""
+        mocked.return_value = self._make_response(429, {"Retry-After": "30"})
+        client = DAVClient(url="http://cal.example.com/")
+        with pytest.raises(error.RateLimitError) as exc_info:
+            client.request("/")
+        assert exc_info.value.retry_after == "30"
+        assert exc_info.value.retry_after_seconds == 30
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_429_with_http_date_retry_after(self, mocked):
+        """429 with HTTP-date Retry-After header computes seconds from now."""
+        from email.utils import format_datetime
+
+        future = datetime.now(timezone.utc) + timedelta(seconds=60)
+        retry_after_str = format_datetime(future)
+        mocked.return_value = self._make_response(429, {"Retry-After": retry_after_str})
+        client = DAVClient(url="http://cal.example.com/")
+        with pytest.raises(error.RateLimitError) as exc_info:
+            client.request("/")
+        assert exc_info.value.retry_after == retry_after_str
+        # Should be close to 60s (allow a few seconds tolerance)
+        assert exc_info.value.retry_after_seconds is not None
+        assert 55 <= exc_info.value.retry_after_seconds <= 65
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_429_with_unparseable_retry_after(self, mocked):
+        """429 with a garbled Retry-After header still raises; retry_after_seconds is None."""
+        mocked.return_value = self._make_response(429, {"Retry-After": "banana"})
+        client = DAVClient(url="http://cal.example.com/")
+        with pytest.raises(error.RateLimitError) as exc_info:
+            client.request("/")
+        assert exc_info.value.retry_after == "banana"
+        assert exc_info.value.retry_after_seconds is None
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_503_without_retry_after_does_not_raise_rate_limit(self, mocked):
+        """503 without Retry-After falls through as a normal (non-rate-limit) response."""
+        mocked.return_value = self._make_response(503)
+        client = DAVClient(url="http://cal.example.com/")
+        # Should NOT raise RateLimitError; returns a DAVResponse with status 503
+        response = client.request("/")
+        assert response.status == 503
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_503_with_retry_after_raises(self, mocked):
+        """503 with Retry-After header raises RateLimitError."""
+        mocked.return_value = self._make_response(503, {"Retry-After": "10"})
+        client = DAVClient(url="http://cal.example.com/")
+        with pytest.raises(error.RateLimitError) as exc_info:
+            client.request("/")
+        assert exc_info.value.retry_after_seconds == 10
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_rate_limit_handle_sleeps_and_retries(self, mocked):
+        """With rate_limit_handle=True the client sleeps then retries, returning the second response."""
+        ok_response = mock.MagicMock()
+        ok_response.status_code = 200
+        ok_response.headers = {}
+        mocked.side_effect = [
+            self._make_response(429, {"Retry-After": "5"}),
+            ok_response,
+        ]
+        client = DAVClient(url="http://cal.example.com/", rate_limit_handle=True)
+        with mock.patch("caldav.davclient.time.sleep") as mock_sleep:
+            response = client.request("/")
+        mock_sleep.assert_called_once_with(5)
+        assert response.status == 200
+        assert mocked.call_count == 2
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_rate_limit_handle_default_sleep_used_when_no_retry_after(self, mocked):
+        """With rate_limit_default_sleep set, that value is used when server omits Retry-After."""
+        ok_response = mock.MagicMock()
+        ok_response.status_code = 200
+        ok_response.headers = {}
+        mocked.side_effect = [
+            self._make_response(429),
+            ok_response,
+        ]
+        client = DAVClient(
+            url="http://cal.example.com/", rate_limit_handle=True, rate_limit_default_sleep=3
+        )
+        with mock.patch("caldav.davclient.time.sleep") as mock_sleep:
+            response = client.request("/")
+        mock_sleep.assert_called_once_with(3)
+        assert response.status == 200
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_rate_limit_handle_no_sleep_info_raises(self, mocked):
+        """rate_limit_handle=True but no Retry-After and no default sleep re-raises RateLimitError."""
+        mocked.return_value = self._make_response(429)
+        client = DAVClient(url="http://cal.example.com/", rate_limit_handle=True)
+        with pytest.raises(error.RateLimitError):
+            client.request("/")
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_rate_limit_max_sleep_caps_sleep_time(self, mocked):
+        """rate_limit_max_sleep caps the sleep even when server requests longer."""
+        ok_response = mock.MagicMock()
+        ok_response.status_code = 200
+        ok_response.headers = {}
+        mocked.side_effect = [
+            self._make_response(429, {"Retry-After": "3600"}),
+            ok_response,
+        ]
+        client = DAVClient(
+            url="http://cal.example.com/", rate_limit_handle=True, rate_limit_max_sleep=60
+        )
+        with mock.patch("caldav.davclient.time.sleep") as mock_sleep:
+            client.request("/")
+        mock_sleep.assert_called_once_with(60)
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_rate_limit_max_sleep_zero_raises(self, mocked):
+        """rate_limit_max_sleep=0 means never sleep, always raise."""
+        mocked.return_value = self._make_response(429, {"Retry-After": "30"})
+        client = DAVClient(
+            url="http://cal.example.com/", rate_limit_handle=True, rate_limit_max_sleep=0
+        )
+        with pytest.raises(error.RateLimitError):
+            client.request("/")
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_rate_limit_adaptive_sleep_increases_on_repeated_retries(self, mocked):
+        """On repeated 429s the sleep grows: first sleep uses Retry-After, second adds half of already-slept."""
+        ok_response = mock.MagicMock()
+        ok_response.status_code = 200
+        ok_response.headers = {}
+        mocked.side_effect = [
+            self._make_response(429, {"Retry-After": "4"}),
+            self._make_response(429, {"Retry-After": "4"}),
+            ok_response,
+        ]
+        client = DAVClient(url="http://cal.example.com/", rate_limit_handle=True)
+        with mock.patch("caldav.davclient.time.sleep") as mock_sleep:
+            response = client.request("/")
+        assert mock_sleep.call_count == 2
+        assert mock_sleep.call_args_list[0] == mock.call(4.0)
+        assert mock_sleep.call_args_list[1] == mock.call(6.0)  # 4 + 4/2
+        assert response.status == 200
+        assert mocked.call_count == 3
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_rate_limit_max_sleep_stops_adaptive_retries(self, mocked):
+        """When accumulated sleep exceeds rate_limit_max_sleep, retrying stops."""
+        mocked.return_value = self._make_response(429, {"Retry-After": "4"})
+        client = DAVClient(
+            url="http://cal.example.com/", rate_limit_handle=True, rate_limit_max_sleep=5
+        )
+        with mock.patch("caldav.davclient.time.sleep"):
+            with pytest.raises(error.RateLimitError):
+                client.request("/")

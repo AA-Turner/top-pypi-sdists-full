@@ -231,7 +231,19 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
             {"type": "view", "schema": []},
             {"type": "schema"},
         ]
-    elif cmd.lower() in ["\\.", "source"]:
+    elif cmd.lower() in [
+        r'\.',
+        'source',
+        r'\o',
+        r'\once',
+        r'tee',
+    ]:
+        return [{"type": "file_name"}]
+    # todo: why is \edit case-sensitive?
+    elif cmd in [
+        r'\e',
+        r'\edit',
+    ]:
         return [{"type": "file_name"}]
     if cmd in ["\\llm", "\\ai"]:
         return [{"type": "llm"}]
@@ -372,13 +384,22 @@ def suggest_based_on_last_token(
                 {"type": "view", "schema": parent},
                 {"type": "function", "schema": parent},
             ]
-        else:
+        elif is_inside_quotes(text_before_cursor, -1) == 'backtick':
+            # todo: this should be revised, since we complete too exuberantly within
+            # backticks, including keywords
             aliases = [alias or table for (schema, table, alias) in tables]
             return [
                 {"type": "column", "tables": tables},
                 {"type": "function", "schema": []},
                 {"type": "alias", "aliases": aliases},
                 {"type": "keyword"},
+            ]
+        else:
+            aliases = [alias or table for (schema, table, alias) in tables]
+            return [
+                {"type": "column", "tables": tables},
+                {"type": "function", "schema": []},
+                {"type": "alias", "aliases": aliases},
             ]
     elif (
         (token_v.endswith("join") and isinstance(token, Token) and token.is_keyword)

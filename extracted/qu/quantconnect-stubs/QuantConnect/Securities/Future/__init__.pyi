@@ -437,6 +437,11 @@ class FuturesExpiryUtilityFunctions(System.Object):
         ...
 
     @staticmethod
+    def is_future_contract_expired(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], current_utc_time: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase = None) -> bool:
+        """Checks if the future contract is expired."""
+        ...
+
+    @staticmethod
     def last_friday(time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
         """
         Method to retrieve the last Friday of any month

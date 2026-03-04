@@ -49,6 +49,35 @@ def check_package(package_name) -> Literal["builtin", "installed", "unknown"]:
     return "unknown"
 
 
+def is_local_module(pkg_name: str) -> bool:
+    """
+    Check if a package name corresponds to a local module in the project.
+
+    A local module is either:
+    - A Python file with the same name (e.g., utils.py)
+    - A directory with the same name containing Python files (with or without __init__.py)
+
+    Args:
+        pkg_name: The package name to check (e.g., "utils" from "from utils import X")
+
+    Returns:
+        True if it's a local module, False otherwise
+    """
+    root = Settings.root_path
+
+    # Check if it's a Python file (e.g., utils.py)
+    if (root / f"{pkg_name}.py").exists():
+        return True
+
+    # Check if it's a directory with Python files
+    pkg_dir = root / pkg_name
+    if pkg_dir.is_dir():
+        # Check if it has at least one Python file inside
+        return any(pkg_dir.glob("*.py"))
+
+    return False
+
+
 # Helper functions to extend packaging.requirements.Requirement functionality
 def requirement_to_text(req: Requirement) -> str:
     """Convert a Requirement to text format."""
@@ -577,6 +606,10 @@ class RequirementsRepository:
                                 continue
 
                             visited_set.add(pkg_name)
+
+                            if is_local_module(pkg_name):
+                                continue
+
                             kind = check_package(pkg_name)
 
                             if kind == "builtin":

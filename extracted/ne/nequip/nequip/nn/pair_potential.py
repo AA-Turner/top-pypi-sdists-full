@@ -3,6 +3,7 @@ from typing import Union, Optional, List
 
 import torch
 
+from e3nn.o3._irreps import Irreps
 from e3nn.util.jit import compile_mode
 
 from nequip.data import AtomicDataDict
@@ -10,6 +11,7 @@ from nequip.data.misc import chemical_symbols_to_atomic_numbers_dict
 from ._graph_mixin import GraphModuleMixin
 from .utils import scatter, with_edge_vectors_
 from nequip.utils.compile import conditional_torchscript_jit
+from .embedding.cutoffs import PolynomialCutoff
 
 
 class _LJParam(torch.nn.Module):
@@ -48,13 +50,27 @@ class LennardJones(GraphModuleMixin, torch.nn.Module):
         lj_exponent: Optional[float] = None,
         lj_per_type: bool = True,
         lj_style: str = "lj",
+        polynomial_cutoff_p: float = 6.0,
+        per_atom_energy_field: str = AtomicDataDict.PER_ATOM_ENERGY_KEY,
         irreps_in=None,
     ) -> None:
         super().__init__()
         num_types = len(type_names)
+        self.per_atom_energy_field = per_atom_energy_field
+
+        # === irreps registration ===
         self._init_irreps(
-            irreps_in=irreps_in, irreps_out={AtomicDataDict.PER_ATOM_ENERGY_KEY: "0e"}
+            irreps_in=irreps_in,
+            required_irreps_in=[AtomicDataDict.NORM_LENGTH_KEY],
+            irreps_out={self.per_atom_energy_field: "0e"},
         )
+        if self.per_atom_energy_field in self.irreps_in:
+            energy_irreps = Irreps(self.irreps_in[self.per_atom_energy_field])
+            assert all(ir.l == 0 for _, ir in energy_irreps), (
+                f"{self.per_atom_energy_field} must be scalar irreps, found {energy_irreps}"
+            )
+            self.irreps_out[self.per_atom_energy_field] = energy_irreps
+
         assert lj_style in ("lj", "lj_repulsive_only", "repulsive")
         self.lj_style = lj_style
 
@@ -90,6 +106,8 @@ class LennardJones(GraphModuleMixin, torch.nn.Module):
             lj_exponent = 6.0
         self.exponent = lj_exponent
 
+        self.cutoff = conditional_torchscript_jit(PolynomialCutoff(polynomial_cutoff_p))
+        self.model_dtype = torch.get_default_dtype()
         self._param = conditional_torchscript_jit(_LJParam())
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
@@ -127,8 +145,11 @@ class LennardJones(GraphModuleMixin, torch.nn.Module):
                 # TODO: this is probably broken with NaNs at delta
                 lj_eng = lj_eng * (edge_len < (2 ** (1.0 / self.exponent) + delta))
 
-        # apply the cutoff for smoothness
-        lj_eng = lj_eng * data[AtomicDataDict.EDGE_CUTOFF_KEY]
+        # apply polynomial cutoff from this module's own normalized edge lengths
+        lj_edge_cutoff = self.cutoff(data[AtomicDataDict.NORM_LENGTH_KEY]).to(
+            self.model_dtype
+        )
+        lj_eng = lj_eng.to(self.model_dtype) * lj_edge_cutoff
 
         # sum edge LJ energies onto atoms
         atomic_eng = scatter(
@@ -137,9 +158,9 @@ class LennardJones(GraphModuleMixin, torch.nn.Module):
             dim=0,
             dim_size=AtomicDataDict.num_nodes(data),
         )
-        if AtomicDataDict.PER_ATOM_ENERGY_KEY in data:
-            atomic_eng = atomic_eng + data[AtomicDataDict.PER_ATOM_ENERGY_KEY]
-        data[AtomicDataDict.PER_ATOM_ENERGY_KEY] = atomic_eng
+        if self.per_atom_energy_field in data:
+            atomic_eng = atomic_eng + data[self.per_atom_energy_field]
+        data[self.per_atom_energy_field] = atomic_eng
         return data
 
     def __repr__(self) -> str:
@@ -159,24 +180,24 @@ class SimpleLennardJones(GraphModuleMixin, torch.nn.Module):
 
     lj_sigma: float
     lj_epsilon: float
-    lj_use_cutoff: bool
 
     def __init__(
         self,
         lj_sigma: float,
         lj_epsilon: float,
-        lj_use_cutoff: bool = False,
+        polynomial_cutoff_p: float = 6.0,
         irreps_in=None,
     ) -> None:
         super().__init__()
         self._init_irreps(
-            irreps_in=irreps_in, irreps_out={AtomicDataDict.PER_ATOM_ENERGY_KEY: "0e"}
+            irreps_in=irreps_in,
+            required_irreps_in=[AtomicDataDict.NORM_LENGTH_KEY],
+            irreps_out={AtomicDataDict.PER_ATOM_ENERGY_KEY: "0e"},
         )
-        self.lj_sigma, self.lj_epsilon, self.lj_use_cutoff = (
-            lj_sigma,
-            lj_epsilon,
-            lj_use_cutoff,
-        )
+        self.lj_sigma = lj_sigma
+        self.lj_epsilon = lj_epsilon
+        self.cutoff = conditional_torchscript_jit(PolynomialCutoff(polynomial_cutoff_p))
+        self.model_dtype = torch.get_default_dtype()
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
         data = with_edge_vectors_(data, with_lengths=True)
@@ -187,9 +208,11 @@ class SimpleLennardJones(GraphModuleMixin, torch.nn.Module):
         lj_eng = lj_eng.square() - lj_eng
         lj_eng = 2 * self.lj_epsilon * lj_eng
 
-        if self.lj_use_cutoff:
-            # apply the cutoff for smoothness
-            lj_eng = lj_eng * data[AtomicDataDict.EDGE_CUTOFF_KEY]
+        # apply polynomial cutoff from this module's own normalized edge lengths
+        lj_edge_cutoff = self.cutoff(data[AtomicDataDict.NORM_LENGTH_KEY]).to(
+            self.model_dtype
+        )
+        lj_eng = lj_eng.to(self.model_dtype) * lj_edge_cutoff
 
         # sum edge LJ energies onto atoms
         atomic_eng = scatter(
@@ -257,6 +280,7 @@ class ZBL(GraphModuleMixin, torch.nn.Module):
         type_names (List[str]): list of type names known by the model, ``[atom1, atom2, atom3]``
         chemical_species (List[str]): list of chemical symbols, e.g. ``[C, H, O]``
         units (str): `LAMMPS units <https://docs.lammps.org/units.html>`_ that the data is in; ``metal`` and ``real`` are presently supported -- raise a GitHub issue if more is desired
+        polynomial_cutoff_p (float): exponent used for the polynomial cutoff (default ``6``)
     """
 
     def __init__(
@@ -264,13 +288,27 @@ class ZBL(GraphModuleMixin, torch.nn.Module):
         type_names: List[str],
         chemical_species: List[str],
         units: str,
+        polynomial_cutoff_p: float = 6.0,
+        per_atom_energy_field: str = AtomicDataDict.PER_ATOM_ENERGY_KEY,
         irreps_in=None,
     ):
         super().__init__()
         num_types = len(type_names)
+        self.per_atom_energy_field = per_atom_energy_field
+
+        # === irreps registration ===
         self._init_irreps(
-            irreps_in=irreps_in, irreps_out={AtomicDataDict.PER_ATOM_ENERGY_KEY: "0e"}
+            irreps_in=irreps_in,
+            required_irreps_in=[AtomicDataDict.NORM_LENGTH_KEY],
+            irreps_out={self.per_atom_energy_field: "0e"},
         )
+        if self.per_atom_energy_field in self.irreps_in:
+            energy_irreps = Irreps(self.irreps_in[self.per_atom_energy_field])
+            assert all(ir.l == 0 for _, ir in energy_irreps), (
+                f"{self.per_atom_energy_field} must be scalar irreps, found {energy_irreps}"
+            )
+            self.irreps_out[self.per_atom_energy_field] = energy_irreps
+
         assert len(chemical_species) == num_types
         atomic_numbers: List[int] = [
             chemical_symbols_to_atomic_numbers_dict[chemical_species[type_i]]
@@ -309,6 +347,8 @@ class ZBL(GraphModuleMixin, torch.nn.Module):
             )
             * 0.5,  # Put half the energy on each of ij, ji
         )
+        self.cutoff = conditional_torchscript_jit(PolynomialCutoff(polynomial_cutoff_p))
+        self.model_dtype = torch.get_default_dtype()
         self._zbl = conditional_torchscript_jit(_ZBL())
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
@@ -317,8 +357,8 @@ class ZBL(GraphModuleMixin, torch.nn.Module):
         edge_center = data[AtomicDataDict.EDGE_INDEX_KEY][0]
 
         # account for possibility of reduced num nodes in atomic energy in a local-ghost atom context
-        if AtomicDataDict.PER_ATOM_ENERGY_KEY in data:
-            num_nodes = data[AtomicDataDict.PER_ATOM_ENERGY_KEY].size(0)
+        if self.per_atom_energy_field in data:
+            num_nodes = data[self.per_atom_energy_field].size(0)
         else:
             num_nodes = AtomicDataDict.num_nodes(data)
 
@@ -329,17 +369,21 @@ class ZBL(GraphModuleMixin, torch.nn.Module):
             edge_index=data[AtomicDataDict.EDGE_INDEX_KEY],
             qqr2exesquare=self._qqr2exesquare,
         ).unsqueeze(-1)
+
         # apply cutoff
-        zbl_edge_eng = zbl_edge_eng * data[AtomicDataDict.EDGE_CUTOFF_KEY]
+        zbl_edge_cutoff = self.cutoff(data[AtomicDataDict.NORM_LENGTH_KEY]).to(
+            self.model_dtype
+        )
+        zbl_edge_eng = zbl_edge_eng * zbl_edge_cutoff
         atomic_eng = scatter(
             zbl_edge_eng,
             edge_center,
             dim=0,
             dim_size=num_nodes,
         )
-        if AtomicDataDict.PER_ATOM_ENERGY_KEY in data:
-            atomic_eng = atomic_eng + data[AtomicDataDict.PER_ATOM_ENERGY_KEY]
-        data[AtomicDataDict.PER_ATOM_ENERGY_KEY] = atomic_eng
+        if self.per_atom_energy_field in data:
+            atomic_eng = atomic_eng + data[self.per_atom_energy_field]
+        data[self.per_atom_energy_field] = atomic_eng
         return data
 
 

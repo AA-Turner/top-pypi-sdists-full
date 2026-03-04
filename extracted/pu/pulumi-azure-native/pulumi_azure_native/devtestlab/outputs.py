@@ -55,6 +55,7 @@ __all__ = [
     'SubnetOverrideResponse',
     'SubnetResponse',
     'SubnetSharedPublicIpAddressConfigurationResponse',
+    'SystemDataResponse',
     'UserIdentityResponse',
     'UserSecretStoreResponse',
     'WeekDetailsResponse',
@@ -69,7 +70,9 @@ class ApplicableScheduleResponse(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "labVmsShutdown":
+        if key == "systemData":
+            suggest = "system_data"
+        elif key == "labVmsShutdown":
             suggest = "lab_vms_shutdown"
         elif key == "labVmsStartup":
             suggest = "lab_vms_startup"
@@ -88,6 +91,7 @@ class ApplicableScheduleResponse(dict):
     def __init__(__self__, *,
                  id: _builtins.str,
                  name: _builtins.str,
+                 system_data: 'outputs.SystemDataResponse',
                  type: _builtins.str,
                  lab_vms_shutdown: Optional['outputs.ScheduleResponse'] = None,
                  lab_vms_startup: Optional['outputs.ScheduleResponse'] = None,
@@ -95,9 +99,11 @@ class ApplicableScheduleResponse(dict):
                  tags: Optional[Mapping[str, _builtins.str]] = None):
         """
         Schedules applicable to a virtual machine. The schedules may have been defined on a VM or on lab level.
-        :param _builtins.str id: The identifier of the resource.
-        :param _builtins.str name: The name of the resource.
-        :param _builtins.str type: The type of the resource.
+
+        :param _builtins.str id: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        :param _builtins.str name: The name of the resource
+        :param 'SystemDataResponse' system_data: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+        :param _builtins.str type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         :param 'ScheduleResponse' lab_vms_shutdown: The auto-shutdown schedule, if one has been set at the lab or lab resource level.
         :param 'ScheduleResponse' lab_vms_startup: The auto-startup schedule, if one has been set at the lab or lab resource level.
         :param _builtins.str location: The location of the resource.
@@ -105,6 +111,7 @@ class ApplicableScheduleResponse(dict):
         """
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "system_data", system_data)
         pulumi.set(__self__, "type", type)
         if lab_vms_shutdown is not None:
             pulumi.set(__self__, "lab_vms_shutdown", lab_vms_shutdown)
@@ -119,7 +126,7 @@ class ApplicableScheduleResponse(dict):
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        The identifier of the resource.
+        Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
         """
         return pulumi.get(self, "id")
 
@@ -127,15 +134,23 @@ class ApplicableScheduleResponse(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        The name of the resource.
+        The name of the resource
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="systemData")
+    def system_data(self) -> 'outputs.SystemDataResponse':
+        """
+        Azure Resource Manager metadata containing createdBy and modifiedBy information.
+        """
+        return pulumi.get(self, "system_data")
 
     @_builtins.property
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of the resource.
+        The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         """
         return pulumi.get(self, "type")
 
@@ -182,6 +197,7 @@ class ArmTemplateParameterPropertiesResponse(dict):
                  value: Optional[_builtins.str] = None):
         """
         Properties of an Azure Resource Manager template parameter.
+
         :param _builtins.str name: The name of the template parameter.
         :param _builtins.str value: The value of the template parameter.
         """
@@ -239,6 +255,7 @@ class ArtifactDeploymentStatusPropertiesResponse(dict):
                  total_artifacts: Optional[_builtins.int] = None):
         """
         Properties of an artifact deployment.
+
         :param _builtins.int artifacts_applied: The total count of the artifacts that were successfully applied.
         :param _builtins.str deployment_status: The deployment status of the artifact.
         :param _builtins.int total_artifacts: The total count of the artifacts that were tentatively applied.
@@ -315,6 +332,7 @@ class ArtifactInstallPropertiesResponse(dict):
                  vm_extension_status_message: Optional[_builtins.str] = None):
         """
         Properties of an artifact.
+
         :param _builtins.str artifact_id: The artifact's identifier.
         :param _builtins.str artifact_title: The artifact's title.
         :param _builtins.str deployment_status_message: The status message from the deployment.
@@ -405,6 +423,7 @@ class ArtifactParameterPropertiesResponse(dict):
                  value: Optional[_builtins.str] = None):
         """
         Properties of an artifact parameter.
+
         :param _builtins.str name: The name of the artifact parameter.
         :param _builtins.str value: The value of the artifact parameter.
         """
@@ -462,6 +481,7 @@ class AttachNewDataDiskOptionsResponse(dict):
                  disk_type: Optional[_builtins.str] = None):
         """
         Properties to attach new disk to the Virtual Machine.
+
         :param _builtins.str disk_name: The name of the disk to be attached.
         :param _builtins.int disk_size_gi_b: Size of the disk to be attached in Gibibytes.
         :param _builtins.str disk_type: The storage type for the disk (i.e. Standard, Premium).
@@ -524,6 +544,7 @@ class BulkCreationParametersResponse(dict):
                  instance_count: Optional[_builtins.int] = None):
         """
         Parameters for creating multiple virtual machines as a single action.
+
         :param _builtins.int instance_count: The number of virtual machine instances to create.
         """
         if instance_count is not None:
@@ -571,6 +592,7 @@ class ComputeDataDiskResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         A data disks attached to a virtual machine.
+
         :param _builtins.int disk_size_gi_b: Gets data disk size in GiB.
         :param _builtins.str disk_uri: When backed by a blob, the URI of underlying blob.
         :param _builtins.str managed_disk_id: When backed by managed disk, this is the ID of the compute disk resource.
@@ -646,6 +668,7 @@ class ComputeVmInstanceViewStatusResponse(dict):
                  message: Optional[_builtins.str] = None):
         """
         Status information about a virtual machine.
+
         :param _builtins.str code: Gets the status Code.
         :param _builtins.str display_status: Gets the short localizable label for the status.
         :param _builtins.str message: Gets the message associated with the status.
@@ -724,6 +747,7 @@ class ComputeVmPropertiesResponse(dict):
                  vm_size: Optional[_builtins.str] = None):
         """
         Properties of a virtual machine returned by the Microsoft.Compute API.
+
         :param Sequence[_builtins.str] data_disk_ids: Gets data disks blob uri for the virtual machine.
         :param Sequence['ComputeDataDiskResponse'] data_disks: Gets all data disks attached to the virtual machine.
         :param _builtins.str network_interface_id: Gets the network interface ID of the virtual machine.
@@ -836,6 +860,7 @@ class CustomImagePropertiesCustomResponse(dict):
                  sys_prep: Optional[_builtins.bool] = None):
         """
         Properties for creating a custom image from a VHD.
+
         :param _builtins.str os_type: The OS type of the custom image (i.e. Windows, Linux)
         :param _builtins.str image_name: The image name.
         :param _builtins.bool sys_prep: Indicates whether sysprep has been run on the VHD.
@@ -882,6 +907,7 @@ class CustomImagePropertiesFromPlanResponse(dict):
                  publisher: Optional[_builtins.str] = None):
         """
         Properties for plan on a custom image.
+
         :param _builtins.str id: The id of the plan, equivalent to name of the plan
         :param _builtins.str offer: The offer for the plan from the marketplace image the custom image is derived from
         :param _builtins.str publisher: The publisher for the plan from the marketplace image the custom image is derived from
@@ -950,6 +976,7 @@ class CustomImagePropertiesFromVmResponse(dict):
                  windows_os_info: Optional['outputs.WindowsOsInfoResponse'] = None):
         """
         Properties for creating a custom image from a virtual machine.
+
         :param 'LinuxOsInfoResponse' linux_os_info: The Linux OS information of the VM.
         :param _builtins.str source_vm_id: The source vm identifier.
         :param 'WindowsOsInfoResponse' windows_os_info: The Windows OS information of the VM.
@@ -1018,6 +1045,7 @@ class DataDiskPropertiesResponse(dict):
                  host_caching: Optional[_builtins.str] = None):
         """
         Request body for adding a new or existing data disk to a virtual machine.
+
         :param 'AttachNewDataDiskOptionsResponse' attach_new_data_disk_options: Specifies options to attach a new disk to the virtual machine.
         :param _builtins.str existing_lab_disk_id: Specifies the existing lab disk id to attach to virtual machine.
         :param _builtins.str host_caching: Caching option for a data disk (i.e. None, ReadOnly, ReadWrite).
@@ -1081,6 +1109,7 @@ class DataDiskStorageTypeInfoResponse(dict):
                  storage_type: Optional[_builtins.str] = None):
         """
         Storage information about the data disks present in the custom image
+
         :param _builtins.str lun: Disk Lun
         :param _builtins.str storage_type: Disk Storage Type
         """
@@ -1115,6 +1144,7 @@ class DayDetailsResponse(dict):
                  time: Optional[_builtins.str] = None):
         """
         Properties of a daily schedule.
+
         :param _builtins.str time: The time of day the schedule will occur.
         """
         if time is not None:
@@ -1156,6 +1186,7 @@ class EnvironmentDeploymentPropertiesResponse(dict):
                  parameters: Optional[Sequence['outputs.ArmTemplateParameterPropertiesResponse']] = None):
         """
         Properties of an environment deployment.
+
         :param _builtins.str arm_template_id: The Azure Resource Manager template's identifier.
         :param Sequence['ArmTemplateParameterPropertiesResponse'] parameters: The parameters of the Azure Resource Manager template.
         """
@@ -1207,6 +1238,7 @@ class EventResponse(dict):
                  event_name: Optional[_builtins.str] = None):
         """
         An event to be notified for.
+
         :param _builtins.str event_name: The event type for which this notification is enabled (i.e. AutoShutdown, Cost)
         """
         if event_name is not None:
@@ -1231,6 +1263,7 @@ class ExternalSubnetResponse(dict):
                  name: Optional[_builtins.str] = None):
         """
         Subnet information as returned by the Microsoft.Network API.
+
         :param _builtins.str id: Gets or sets the identifier.
         :param _builtins.str name: Gets or sets the name.
         """
@@ -1282,6 +1315,7 @@ class FormulaPropertiesFromVmResponse(dict):
                  lab_vm_id: Optional[_builtins.str] = None):
         """
         Information about a VM from which a formula is to be created.
+
         :param _builtins.str lab_vm_id: The identifier of the VM from which a formula is to be created.
         """
         if lab_vm_id is not None:
@@ -1326,6 +1360,7 @@ class GalleryImageReferenceResponse(dict):
                  version: Optional[_builtins.str] = None):
         """
         The reference information for an Azure Marketplace image.
+
         :param _builtins.str offer: The offer of the gallery image.
         :param _builtins.str os_type: The OS type of the gallery image.
         :param _builtins.str publisher: The publisher of the gallery image.
@@ -1393,6 +1428,7 @@ class HourDetailsResponse(dict):
                  minute: Optional[_builtins.int] = None):
         """
         Properties of an hourly schedule.
+
         :param _builtins.int minute: Minutes of the hour the schedule will run.
         """
         if minute is not None:
@@ -1440,6 +1476,7 @@ class IdentityPropertiesResponse(dict):
                  type: Optional[_builtins.str] = None):
         """
         Properties of a managed identity
+
         :param _builtins.str client_secret_url: The client secret URL of the identity.
         :param _builtins.str principal_id: The principal id of resource identity.
         :param _builtins.str tenant_id: The tenant identifier of resource.
@@ -1519,6 +1556,7 @@ class InboundNatRuleResponse(dict):
                  transport_protocol: Optional[_builtins.str] = None):
         """
         A rule for NAT - exposing a VM's port (backendPort) on the public IP address using a load balancer.
+
         :param _builtins.int backend_port: The port to which the external traffic will be redirected.
         :param _builtins.int frontend_port: The external endpoint port of the inbound connection. Possible values range between 1 and 65535, inclusive. If unspecified, a value will be allocated automatically.
         :param _builtins.str transport_protocol: The transport protocol for the endpoint.
@@ -1591,6 +1629,7 @@ class LabAnnouncementPropertiesResponse(dict):
                  title: Optional[_builtins.str] = None):
         """
         Properties of a lab's announcement banner
+
         :param _builtins.str provisioning_state: The provisioning status of the resource.
         :param _builtins.str unique_identifier: The unique immutable identifier of a resource (Guid).
         :param _builtins.str enabled: Is the lab announcement active/enabled at this time?
@@ -1679,6 +1718,7 @@ class LabSupportPropertiesResponse(dict):
                  markdown: Optional[_builtins.str] = None):
         """
         Properties of a lab's support banner
+
         :param _builtins.str enabled: Is the lab support banner active/enabled at this time?
         :param _builtins.str markdown: The markdown text (if any) that this lab displays in the UI. If left empty/null, nothing will be shown.
         """
@@ -1713,6 +1753,7 @@ class LabVhdResponse(dict):
                  id: Optional[_builtins.str] = None):
         """
         Properties of a VHD in the lab.
+
         :param _builtins.str id: The URI to the VHD.
         """
         if id is not None:
@@ -1817,6 +1858,7 @@ class LabVirtualMachineCreationParameterResponse(dict):
                  user_name: Optional[_builtins.str] = None):
         """
         Properties for creating a virtual machine.
+
         :param _builtins.bool allow_claim: Indicates whether another user can take ownership of the virtual machine
         :param Sequence['ArtifactInstallPropertiesResponse'] artifacts: The artifacts to be installed on the virtual machine.
         :param 'BulkCreationParametersResponse' bulk_creation_parameters: The number of virtual machine instances to create.
@@ -2151,6 +2193,7 @@ class LinuxOsInfoResponse(dict):
                  linux_os_state: Optional[_builtins.str] = None):
         """
         Information about a Linux OS.
+
         :param _builtins.str linux_os_state: The state of the Linux OS (i.e. NonDeprovisioned, DeprovisionRequested, DeprovisionApplied).
         """
         if linux_os_state is not None:
@@ -2215,6 +2258,7 @@ class NetworkInterfacePropertiesResponse(dict):
                  virtual_network_id: Optional[_builtins.str] = None):
         """
         Properties of a network interface.
+
         :param _builtins.str dns_name: The DNS name.
         :param _builtins.str private_ip_address: The private IP address.
         :param _builtins.str public_ip_address: The public IP address.
@@ -2353,6 +2397,7 @@ class NotificationSettingsResponse(dict):
                  webhook_url: Optional[_builtins.str] = None):
         """
         Notification settings for a schedule.
+
         :param _builtins.str email_recipient: The email recipient to send notifications to (can be a list of semi-colon separated email addresses).
         :param _builtins.str notification_locale: The locale to use when sending a notification (fallback for unsupported languages is EN).
         :param _builtins.str status: If notifications are enabled for this schedule (i.e. Enabled, Disabled).
@@ -2442,6 +2487,7 @@ class PortResponse(dict):
                  transport_protocol: Optional[_builtins.str] = None):
         """
         Properties of a network port.
+
         :param _builtins.int backend_port: Backend port of the target virtual machine.
         :param _builtins.str transport_protocol: Protocol type of the port.
         """
@@ -2515,6 +2561,7 @@ class ScheduleCreationParameterResponse(dict):
                  weekly_recurrence: Optional['outputs.WeekDetailsResponse'] = None):
         """
         Properties for creating a schedule.
+
         :param _builtins.str location: The location of the new virtual machine or environment
         :param 'DayDetailsResponse' daily_recurrence: If the schedule will occur once each day of the week, specify the daily recurrence.
         :param 'HourDetailsResponse' hourly_recurrence: If the schedule will occur multiple times a day, specify the hourly recurrence.
@@ -2652,6 +2699,8 @@ class ScheduleResponse(dict):
             suggest = "created_date"
         elif key == "provisioningState":
             suggest = "provisioning_state"
+        elif key == "systemData":
+            suggest = "system_data"
         elif key == "uniqueIdentifier":
             suggest = "unique_identifier"
         elif key == "dailyRecurrence":
@@ -2685,6 +2734,7 @@ class ScheduleResponse(dict):
                  id: _builtins.str,
                  name: _builtins.str,
                  provisioning_state: _builtins.str,
+                 system_data: 'outputs.SystemDataResponse',
                  type: _builtins.str,
                  unique_identifier: _builtins.str,
                  daily_recurrence: Optional['outputs.DayDetailsResponse'] = None,
@@ -2699,18 +2749,20 @@ class ScheduleResponse(dict):
                  weekly_recurrence: Optional['outputs.WeekDetailsResponse'] = None):
         """
         A schedule.
+
         :param _builtins.str created_date: The creation date of the schedule.
-        :param _builtins.str id: The identifier of the resource.
-        :param _builtins.str name: The name of the resource.
+        :param _builtins.str id: Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+        :param _builtins.str name: The name of the resource
         :param _builtins.str provisioning_state: The provisioning status of the resource.
-        :param _builtins.str type: The type of the resource.
+        :param 'SystemDataResponse' system_data: Azure Resource Manager metadata containing createdBy and modifiedBy information.
+        :param _builtins.str type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         :param _builtins.str unique_identifier: The unique immutable identifier of a resource (Guid).
         :param 'DayDetailsResponse' daily_recurrence: If the schedule will occur once each day of the week, specify the daily recurrence.
         :param 'HourDetailsResponse' hourly_recurrence: If the schedule will occur multiple times a day, specify the hourly recurrence.
-        :param _builtins.str location: The location of the resource.
+        :param _builtins.str location: The geo-location where the resource lives
         :param 'NotificationSettingsResponse' notification_settings: Notification settings.
         :param _builtins.str status: The status of the schedule (i.e. Enabled, Disabled)
-        :param Mapping[str, _builtins.str] tags: The tags of the resource.
+        :param Mapping[str, _builtins.str] tags: Resource tags.
         :param _builtins.str target_resource_id: The resource ID to which the schedule belongs
         :param _builtins.str task_type: The task type of the schedule (e.g. LabVmsShutdownTask, LabVmAutoStart).
         :param _builtins.str time_zone_id: The time zone ID (e.g. China Standard Time, Greenland Standard Time, Pacific Standard time, etc.). The possible values for this property can be found in `IReadOnlyCollection<string> TimeZoneConverter.TZConvert.KnownWindowsTimeZoneIds` (https://github.com/mattjohnsonpint/TimeZoneConverter/blob/main/README.md)
@@ -2720,6 +2772,7 @@ class ScheduleResponse(dict):
         pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "provisioning_state", provisioning_state)
+        pulumi.set(__self__, "system_data", system_data)
         pulumi.set(__self__, "type", type)
         pulumi.set(__self__, "unique_identifier", unique_identifier)
         if daily_recurrence is not None:
@@ -2757,7 +2810,7 @@ class ScheduleResponse(dict):
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        The identifier of the resource.
+        Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
         """
         return pulumi.get(self, "id")
 
@@ -2765,7 +2818,7 @@ class ScheduleResponse(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        The name of the resource.
+        The name of the resource
         """
         return pulumi.get(self, "name")
 
@@ -2778,10 +2831,18 @@ class ScheduleResponse(dict):
         return pulumi.get(self, "provisioning_state")
 
     @_builtins.property
+    @pulumi.getter(name="systemData")
+    def system_data(self) -> 'outputs.SystemDataResponse':
+        """
+        Azure Resource Manager metadata containing createdBy and modifiedBy information.
+        """
+        return pulumi.get(self, "system_data")
+
+    @_builtins.property
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of the resource.
+        The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
         """
         return pulumi.get(self, "type")
 
@@ -2813,7 +2874,7 @@ class ScheduleResponse(dict):
     @pulumi.getter
     def location(self) -> Optional[_builtins.str]:
         """
-        The location of the resource.
+        The geo-location where the resource lives
         """
         return pulumi.get(self, "location")
 
@@ -2837,7 +2898,7 @@ class ScheduleResponse(dict):
     @pulumi.getter
     def tags(self) -> Optional[Mapping[str, _builtins.str]]:
         """
-        The tags of the resource.
+        Resource tags.
         """
         return pulumi.get(self, "tags")
 
@@ -2900,6 +2961,7 @@ class SharedPublicIpAddressConfigurationResponse(dict):
                  inbound_nat_rules: Optional[Sequence['outputs.InboundNatRuleResponse']] = None):
         """
         Properties of a virtual machine that determine how it is connected to a load balancer.
+
         :param Sequence['InboundNatRuleResponse'] inbound_nat_rules: The incoming NAT rules
         """
         if inbound_nat_rules is not None:
@@ -2955,6 +3017,7 @@ class SubnetOverrideResponse(dict):
                  virtual_network_pool_name: Optional[_builtins.str] = None):
         """
         Property overrides on a subnet of a virtual network.
+
         :param _builtins.str lab_subnet_name: The name given to the subnet within the lab.
         :param _builtins.str resource_id: The resource ID of the subnet.
         :param 'SubnetSharedPublicIpAddressConfigurationResponse' shared_public_ip_address_configuration: Properties that virtual machines on this subnet will share.
@@ -3056,6 +3119,7 @@ class SubnetResponse(dict):
                  resource_id: Optional[_builtins.str] = None):
         """
         Subnet information.
+
         :param _builtins.str allow_public_ip: The permission policy of the subnet for allowing public IP addresses (i.e. Allow, Deny)).
         :param _builtins.str lab_subnet_name: The name of the subnet as seen in the lab.
         :param _builtins.str resource_id: The resource ID of the subnet.
@@ -3118,6 +3182,7 @@ class SubnetSharedPublicIpAddressConfigurationResponse(dict):
                  allowed_ports: Optional[Sequence['outputs.PortResponse']] = None):
         """
         Configuration for public IP address sharing.
+
         :param Sequence['PortResponse'] allowed_ports: Backend ports that virtual machines on this subnet are allowed to expose
         """
         if allowed_ports is not None:
@@ -3130,6 +3195,117 @@ class SubnetSharedPublicIpAddressConfigurationResponse(dict):
         Backend ports that virtual machines on this subnet are allowed to expose
         """
         return pulumi.get(self, "allowed_ports")
+
+
+@pulumi.output_type
+class SystemDataResponse(dict):
+    """
+    Metadata pertaining to creation and last modification of the resource.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "createdAt":
+            suggest = "created_at"
+        elif key == "createdBy":
+            suggest = "created_by"
+        elif key == "createdByType":
+            suggest = "created_by_type"
+        elif key == "lastModifiedAt":
+            suggest = "last_modified_at"
+        elif key == "lastModifiedBy":
+            suggest = "last_modified_by"
+        elif key == "lastModifiedByType":
+            suggest = "last_modified_by_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SystemDataResponse. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SystemDataResponse.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SystemDataResponse.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 created_at: Optional[_builtins.str] = None,
+                 created_by: Optional[_builtins.str] = None,
+                 created_by_type: Optional[_builtins.str] = None,
+                 last_modified_at: Optional[_builtins.str] = None,
+                 last_modified_by: Optional[_builtins.str] = None,
+                 last_modified_by_type: Optional[_builtins.str] = None):
+        """
+        Metadata pertaining to creation and last modification of the resource.
+
+        :param _builtins.str created_at: The timestamp of resource creation (UTC).
+        :param _builtins.str created_by: The identity that created the resource.
+        :param _builtins.str created_by_type: The type of identity that created the resource.
+        :param _builtins.str last_modified_at: The timestamp of resource last modification (UTC)
+        :param _builtins.str last_modified_by: The identity that last modified the resource.
+        :param _builtins.str last_modified_by_type: The type of identity that last modified the resource.
+        """
+        if created_at is not None:
+            pulumi.set(__self__, "created_at", created_at)
+        if created_by is not None:
+            pulumi.set(__self__, "created_by", created_by)
+        if created_by_type is not None:
+            pulumi.set(__self__, "created_by_type", created_by_type)
+        if last_modified_at is not None:
+            pulumi.set(__self__, "last_modified_at", last_modified_at)
+        if last_modified_by is not None:
+            pulumi.set(__self__, "last_modified_by", last_modified_by)
+        if last_modified_by_type is not None:
+            pulumi.set(__self__, "last_modified_by_type", last_modified_by_type)
+
+    @_builtins.property
+    @pulumi.getter(name="createdAt")
+    def created_at(self) -> Optional[_builtins.str]:
+        """
+        The timestamp of resource creation (UTC).
+        """
+        return pulumi.get(self, "created_at")
+
+    @_builtins.property
+    @pulumi.getter(name="createdBy")
+    def created_by(self) -> Optional[_builtins.str]:
+        """
+        The identity that created the resource.
+        """
+        return pulumi.get(self, "created_by")
+
+    @_builtins.property
+    @pulumi.getter(name="createdByType")
+    def created_by_type(self) -> Optional[_builtins.str]:
+        """
+        The type of identity that created the resource.
+        """
+        return pulumi.get(self, "created_by_type")
+
+    @_builtins.property
+    @pulumi.getter(name="lastModifiedAt")
+    def last_modified_at(self) -> Optional[_builtins.str]:
+        """
+        The timestamp of resource last modification (UTC)
+        """
+        return pulumi.get(self, "last_modified_at")
+
+    @_builtins.property
+    @pulumi.getter(name="lastModifiedBy")
+    def last_modified_by(self) -> Optional[_builtins.str]:
+        """
+        The identity that last modified the resource.
+        """
+        return pulumi.get(self, "last_modified_by")
+
+    @_builtins.property
+    @pulumi.getter(name="lastModifiedByType")
+    def last_modified_by_type(self) -> Optional[_builtins.str]:
+        """
+        The type of identity that last modified the resource.
+        """
+        return pulumi.get(self, "last_modified_by_type")
 
 
 @pulumi.output_type
@@ -3170,6 +3346,7 @@ class UserIdentityResponse(dict):
                  tenant_id: Optional[_builtins.str] = None):
         """
         Identity attributes of a lab user.
+
         :param _builtins.str app_id: Set to the app Id of the client JWT making the request.
         :param _builtins.str object_id: Set to the object Id of the client JWT making the request. Not all users have object Id. For CSP (reseller) scenarios for example, object Id is not available.
         :param _builtins.str principal_id: Set to the principal Id of the client JWT making the request. Service principal will not have the principal Id.
@@ -3257,6 +3434,7 @@ class UserSecretStoreResponse(dict):
                  key_vault_uri: Optional[_builtins.str] = None):
         """
         Properties of a user's secret store.
+
         :param _builtins.str key_vault_id: The ID of the user's Key vault.
         :param _builtins.str key_vault_uri: The URI of the user's Key vault.
         """
@@ -3292,6 +3470,7 @@ class WeekDetailsResponse(dict):
                  weekdays: Optional[Sequence[_builtins.str]] = None):
         """
         Properties of a weekly schedule.
+
         :param _builtins.str time: The time of the day the schedule will occur.
         :param Sequence[_builtins.str] weekdays: The days of the week for which the schedule is set (e.g. Sunday, Monday, Tuesday, etc.).
         """
@@ -3343,6 +3522,7 @@ class WindowsOsInfoResponse(dict):
                  windows_os_state: Optional[_builtins.str] = None):
         """
         Information about a Windows OS.
+
         :param _builtins.str windows_os_state: The state of the Windows OS (i.e. NonSysprepped, SysprepRequested, SysprepApplied).
         """
         if windows_os_state is not None:

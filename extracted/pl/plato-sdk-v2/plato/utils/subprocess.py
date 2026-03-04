@@ -44,15 +44,11 @@ async def run_ssh(
     timeout: int = 300,
     extra_opts: list[tuple[str, str]] | None = None,
 ) -> tuple[int, str, str]:
-    """Run a command on a remote host via SSH and return (exit_code, stdout, stderr)."""
-    if user != "root":
-        escaped_cmd = command.replace("\\", "\\\\").replace('"', '\\"')
-        command = f'su - {user} -c "{escaped_cmd}"'
-
+    """Run a command on a remote host via SSH as root and return (exit_code, stdout, stderr)."""
     ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
     ssh_cmd.append(command)
 
-    logger.debug(f"SSH running command as {user}: {command[:200]}...")
+    logger.debug(f"SSH running command: {command[:200]}...")
 
     proc = await asyncio.create_subprocess_exec(
         *ssh_cmd,
@@ -88,15 +84,11 @@ async def run_ssh_streaming(
     user: str = "root",
     extra_opts: list[tuple[str, str]] | None = None,
 ) -> int:
-    """Run a command via SSH with real-time output streaming. Returns exit code."""
-    if user != "root":
-        escaped_cmd = command.replace("\\", "\\\\").replace('"', '\\"')
-        command = f'su - {user} -c "{escaped_cmd}"'
-
+    """Run a command via SSH as root with real-time output streaming. Returns exit code."""
     ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
     ssh_cmd.append(command)
 
-    logger.debug(f"SSH streaming command as {user}: {command[:200]}...")
+    logger.debug(f"SSH streaming command: {command[:200]}...")
 
     process = await asyncio.create_subprocess_exec(
         *ssh_cmd,

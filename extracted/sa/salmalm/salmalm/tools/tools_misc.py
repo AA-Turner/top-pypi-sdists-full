@@ -21,6 +21,7 @@ from salmalm.security.crypto import vault, log
 # ── Reminder System ──────────────────────────────────────────
 
 _reminders: list = []
+_reminders_by_user: dict = {}
 _reminder_lock = threading.RLock()  # RLock: reentrant — _ensure_reminder_thread holds it while calling _load_reminders
 _reminder_thread_started = False
 
@@ -147,6 +148,19 @@ def _reminders_file() -> Path:
     return WORKSPACE_DIR / "reminders.json"
 
 
+def _current_user_key(args: dict = None) -> str:
+    """Resolve user key from tool execution context."""
+    try:
+        from salmalm.core.core import get_current_user_id
+
+        uid = get_current_user_id()
+    except Exception:
+        uid = None
+    if uid is None and isinstance(args, dict):
+        uid = args.get("_user_id")
+    return f"user_{uid}" if uid is not None else "default"
+
+
 def _load_reminders():
     """Load reminders from disk into _reminders in-place.
 
@@ -157,22 +171,29 @@ def _load_reminders():
     = ...`` would silently leave all importers pointing at the old empty list.
     """
     fp = _reminders_file()
+    global _reminders_by_user
     with _reminder_lock:
         _reminders.clear()
+        _reminders_by_user = {}
         if fp.exists():
             try:
                 loaded = json.loads(fp.read_text(encoding="utf-8"))
                 if isinstance(loaded, list):
-                    _reminders.extend(loaded)
+                    _reminders_by_user["default"] = loaded
+                elif isinstance(loaded, dict):
+                    _reminders_by_user = {
+                        str(k): (v if isinstance(v, list) else []) for k, v in loaded.items()
+                    }
             except Exception as e:  # noqa: broad-except
                 pass  # Leave _reminders empty on corrupt file
+        _reminders.extend(_reminders_by_user.get("default", []))
 
 
 def _save_reminders():
     """Save reminders atomically (tempfile + fsync + rename)."""
     fp = _reminders_file()
     fp.parent.mkdir(parents=True, exist_ok=True)
-    data = json.dumps(_reminders, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+    data = json.dumps(_reminders_by_user, ensure_ascii=False, indent=2, default=str).encode("utf-8")
     tmp_fd, tmp_path = tempfile.mkstemp(dir=fp.parent, suffix=".tmp")
     try:
         with os.fdopen(tmp_fd, "wb") as f:
@@ -277,21 +298,23 @@ def _reminder_check_loop():
         now = datetime.now(timezone.utc)
         with _reminder_lock:
             due = []
-            remaining = []
-            for r in _reminders:
-                try:
-                    trigger_time = datetime.fromisoformat(r["time"])
-                    if trigger_time <= now:
-                        due.append(r)
-                    else:
+            for user_key, user_reminders in list(_reminders_by_user.items()):
+                remaining = []
+                for r in user_reminders:
+                    try:
+                        trigger_time = datetime.fromisoformat(r["time"])
+                        if trigger_time <= now:
+                            due.append((user_key, r))
+                        else:
+                            remaining.append(r)
+                    except Exception as e:  # noqa: broad-except
                         remaining.append(r)
-                except Exception as e:  # noqa: broad-except
-                    remaining.append(r)
+                _reminders_by_user[user_key] = remaining
             if due:
                 _reminders.clear()
-                _reminders.extend(remaining)
+                _reminders.extend(_reminders_by_user.get("default", []))
                 _save_reminders()
-        for r in due:
+        for user_key, r in due:
             try:
                 _send_notification_impl(f"⏰ Reminder: {r['message']}", title="Reminder", channel="all")
             except Exception as e:
@@ -303,7 +326,9 @@ def _reminder_check_loop():
                     if repeat in deltas:
                         r["time"] = (datetime.fromisoformat(r["time"]) + deltas[repeat]).isoformat()
                         with _reminder_lock:
-                            _reminders.append(r)
+                            _reminders_by_user.setdefault(user_key, []).append(r)
+                            _reminders.clear()
+                            _reminders.extend(_reminders_by_user.get("default", []))
                             _save_reminders()
                 except Exception as e:  # noqa: broad-except
                     log.debug(f"Suppressed: {e}")
@@ -328,6 +353,7 @@ def handle_reminder(args: dict) -> str:
     """Handle reminder."""
     _ensure_reminder_thread()
     action = args.get("action", "set")
+    user_key = _current_user_key(args)
 
     if action == "set":
         message = args.get("message", "")
@@ -343,7 +369,9 @@ def handle_reminder(args: dict) -> str:
             "created": datetime.now(timezone.utc).isoformat(),
         }
         with _reminder_lock:
-            _reminders.append(reminder)
+            _reminders_by_user.setdefault(user_key, []).append(reminder)
+            _reminders.clear()
+            _reminders.extend(_reminders_by_user.get("default", []))
             _save_reminders()
         return f"⏰ Reminder set: **{message}** at {trigger_time.strftime('%Y-%m-%d %H:%M')}" + (
             f" (repeat: {args['repeat']})" if args.get("repeat") else ""
@@ -351,10 +379,11 @@ def handle_reminder(args: dict) -> str:
 
     elif action == "list":
         _load_reminders()
-        if not _reminders:
+        user_reminders = _reminders_by_user.get(user_key, [])
+        if not user_reminders:
             return "⏰ No active reminders."
-        lines = [f"⏰ **Active Reminders ({len(_reminders)}):**"]
-        for r in sorted(_reminders, key=lambda x: x.get("time", "")):
+        lines = [f"⏰ **Active Reminders ({len(user_reminders)}):**"]
+        for r in sorted(user_reminders, key=lambda x: x.get("time", "")):
             repeat_str = f" 🔁{r['repeat']}" if r.get("repeat") else ""
             lines.append(f"  • [{r['id']}] **{r['message']}** — {r['time'][:16]}{repeat_str}")
         return "\n".join(lines)
@@ -364,10 +393,13 @@ def handle_reminder(args: dict) -> str:
         if not rid:
             return "❌ reminder_id is required"
         with _reminder_lock:
-            before = len(_reminders)
-            _reminders[:] = [r for r in _reminders if r.get("id") != rid]
+            bucket = _reminders_by_user.get(user_key, [])
+            before = len(bucket)
+            _reminders_by_user[user_key] = [r for r in bucket if r.get("id") != rid]
+            _reminders.clear()
+            _reminders.extend(_reminders_by_user.get("default", []))
             _save_reminders()
-            if len(_reminders) < before:
+            if len(_reminders_by_user.get(user_key, [])) < before:
                 return f"⏰ Reminder deleted: {rid}"
         return f"❌ Reminder not found: {rid}"
 

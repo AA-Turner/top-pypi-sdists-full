@@ -9,19 +9,16 @@ Tests include model output validation, calculator consistency, and batched evalu
 
 import pytest
 import torch
-import pathlib
-import subprocess
-import os
-import uuid
 import numpy as np
+from ase.calculators.calculator import all_properties as ase_all_properties
+from ase.calculators.singlepoint import SinglePointCalculator
 
-from nequip.data import to_ase
-from nequip.utils.versions import _TORCH_GE_2_6
-from nequip.ase import NequIPCalculator
+from nequip.data import AtomicDataDict, from_ase
+from nequip.utils.versions import _TORCH_GE_2_6, _TORCH_GE_2_10
+from nequip.integrations.ase import NequIPCalculator
 
-from hydra.utils import instantiate
-from .utils import _check_and_print
-from .model_tests_compilation import CompilationTestsMixin
+from .utils import resolve_saved_model_path, run_nequip_compile
+from .model_tests_basic import EnergyModelTestsMixin
 
 
 # === TorchSim availability check ===
@@ -153,11 +150,11 @@ def validate_model_interface_contract(
         atom_offset += len(struct)
 
 
-class TorchSimIntegrationMixin(CompilationTestsMixin):
+class TorchSimIntegrationMixin(EnergyModelTestsMixin):
     """
     TorchSim integration tests.
 
-    Inherits from CompilationTestsMixin, adding torch-sim-specific integration tests.
+    Inherits from EnergyModelTestsMixin, adding torch-sim-specific integration tests.
     Tests that NequIPTorchSimCalc (compiled with --target batch) produces results matching
     NequIPCalculator (reference ASE interface).
 
@@ -175,82 +172,141 @@ class TorchSimIntegrationMixin(CompilationTestsMixin):
         """
         return {"float32": 5e-5, "float64": 1e-10}[model_dtype]
 
+    @pytest.fixture(scope="class")
+    def torchsim_aoti_target(self):
+        """May be overridden by subclasses.
+
+        Return ``nequip-compile --target`` value used for AOTI compilation.
+        """
+        from nequip.scripts._compile_utils import AOTI_BATCH_TARGET
+
+        return AOTI_BATCH_TARGET
+
+    @pytest.fixture(scope="class")
+    def torchsim_calculator_cls(self):
+        """May be overridden by subclasses.
+
+        Return torch-sim calculator class used for compiled-model loading.
+        """
+        return NequIPTorchSimCalc
+
+    @pytest.fixture(scope="class")
+    def torchsim_reference_ase_calculator_cls(self):
+        """May be overridden by subclasses.
+
+        Return ASE calculator class used for saved-model reference evaluation.
+        """
+        return NequIPCalculator
+
+    @pytest.fixture(scope="class")
+    def torchsim_properties_to_compare(self):
+        """May be overridden by subclasses.
+
+        Return property names to compare between ASE and torch-sim outputs.
+
+        NOTE: assume ASE property keys and torch-sim output keys are identical.
+        """
+        return ["energy", "forces", "stress"]
+
+    def _make_ase_reference_data(self, atoms, properties_to_compare):
+        """Evaluate ASE properties and convert them into AtomicDataDict format."""
+        evaluated = {}
+        for property_name in properties_to_compare:
+            evaluated[property_name] = atoms.calc.get_property(property_name, atoms)
+
+        sp_atoms = atoms.copy()
+        # ASE standard properties go through SinglePointCalculator.
+        # Non-standard extension properties are stored in info/arrays and
+        # loaded via from_ase(..., include_keys=...).
+        calc_results = {
+            k: v for k, v in evaluated.items() if k in set(ase_all_properties)
+        }
+        if calc_results:
+            sp_atoms.calc = SinglePointCalculator(sp_atoms, **calc_results)
+
+        for key, value in evaluated.items():
+            if key in calc_results:
+                continue
+            value_np = np.asarray(value)
+            if value_np.ndim >= 1 and value_np.shape[0] == len(sp_atoms):
+                sp_atoms.arrays[key] = value_np
+            else:
+                sp_atoms.info[key] = value_np
+
+        return from_ase(sp_atoms, include_keys=list(properties_to_compare))
+
     @pytest.fixture(
         scope="class",
-        params=["torchscript"] + (["aotinductor"] if _TORCH_GE_2_6 else []),
+        params=([] if _TORCH_GE_2_10 else ["torchscript"])
+        + (["aotinductor"] if _TORCH_GE_2_6 else []),
     )
     def torchsim_compiled_model(
         self,
         request,
         fake_model_training_session,
         device,
-        nequip_compile_acceleration_modifiers,
+        torchsim_compile_modifiers,
+        torchsim_aoti_target,
     ):
         """Compile model once for torch-sim and reuse across tests.
 
         Parametrized by compilation mode (torchscript/aotinductor).
-        Compiles with --target batch for torch-sim batched evaluation.
+
+        Returns:
+            tuple[str, str, list]: ``(saved_model_path, compiled_model_path, structures)``
         """
         mode = request.param
-        config, tmpdir, env, model_dtype, model_source, _ = fake_model_training_session
+        _, tmpdir, env, model_dtype, model_source, structures = (
+            fake_model_training_session
+        )
 
-        # handle acceleration modifiers
         compile_modifiers = []
-        if nequip_compile_acceleration_modifiers is not None:
-            compile_modifiers = nequip_compile_acceleration_modifiers(
-                mode, device, model_dtype
-            )
+        if torchsim_compile_modifiers is not None:
+            compile_modifiers = torchsim_compile_modifiers(mode, device, model_dtype)
 
-        # get model path
-        if model_source == "checkpoint":
-            model_path = str(pathlib.Path(f"{tmpdir}/best.ckpt"))
-        else:  # package
-            model_path = str(pathlib.Path(f"{tmpdir}/orig_package_model.nequip.zip"))
-
-        # compile with --target batch for torch-sim
-        uid = uuid.uuid4()
-        compile_fname = (
-            f"torchsim_model_{uid}.nequip.pt2"
-            if mode == "aotinductor"
-            else f"torchsim_model_{uid}.nequip.pth"
-        )
-        output_path = str(pathlib.Path(f"{tmpdir}/{compile_fname}"))
-
-        cmd = [
-            "nequip-compile",
-            model_path,
-            output_path,
-            "--mode",
-            mode,
-            "--device",
-            device,
-            "--target",
-            "batch",  # Key difference from ASE compilation
-        ]
-        if compile_modifiers:
-            cmd.extend(["--modifiers"] + compile_modifiers)
-
-        retcode = subprocess.run(
-            cmd,
-            cwd=tmpdir,
+        model_path = resolve_saved_model_path(tmpdir, model_source)
+        output_path = run_nequip_compile(
+            model_path=model_path,
+            tmpdir=tmpdir,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        _check_and_print(retcode)
-        assert os.path.exists(output_path), (
-            f"Compiled model `{output_path}` does not exist!"
+            mode=mode,
+            device=device,
+            target=torchsim_aoti_target,
+            modifiers=compile_modifiers,
+            output_prefix="torchsim_model",
         )
 
-        return output_path, mode
+        return model_path, output_path, structures
+
+    @pytest.fixture(scope="class", params=[None])
+    def torchsim_compile_modifiers(self, request):
+        """Implemented by subclasses.
+
+        Returns a callable that handles model modification and constraints for
+        torch-sim compile tests.
+        The callable signature is: ``(mode, device, model_dtype) -> modifiers_list``
+
+        Args:
+            mode: compilation mode (``"torchscript"`` or ``"aotinductor"``)
+            device: target device (``"cpu"`` or ``"cuda"``)
+            model_dtype: model dtype string (``"float32"`` or ``"float64"``)
+
+        Returns:
+            modifiers_list: list of modifier names to pass to
+                ``nequip-compile --modifiers`` or calls ``pytest.skip()`` to skip
+                the test.
+
+        Default is ``None`` (no modifiers applied).
+        """
+        return request.param
 
     @pytest.mark.skipif(not _TORCHSIM_INSTALLED, reason="torch-sim not installed")
     def test_torchsim_model_interface_validation(
         self,
         torchsim_compiled_model,
         device,
-        fake_model_training_session,
         torchsim_tol,
+        torchsim_calculator_cls,
     ):
         """Test that NequIPTorchSimCalc follows the torch-sim ModelInterface contract.
 
@@ -260,9 +316,8 @@ class TorchSimIntegrationMixin(CompilationTestsMixin):
         - Model doesn't mutate inputs
         - Batched evaluation matches individual evaluations
         """
-        compiled_path, _ = torchsim_compiled_model
-        _, _, _, _, _, structures = fake_model_training_session
-        torchsim_calc = NequIPTorchSimCalc.from_compiled_model(
+        _, compiled_path, structures = torchsim_compiled_model
+        torchsim_calc = torchsim_calculator_cls.from_compiled_model(
             compiled_path, device=device, chemical_species_to_atom_type_map=True
         )
         validate_model_interface_contract(
@@ -273,9 +328,11 @@ class TorchSimIntegrationMixin(CompilationTestsMixin):
     def test_torchsim_calculator_consistency(
         self,
         torchsim_compiled_model,
-        fake_model_training_session,
         device,
         torchsim_tol,
+        torchsim_calculator_cls,
+        torchsim_reference_ase_calculator_cls,
+        torchsim_properties_to_compare,
     ):
         """Test that NequIPTorchSimCalc matches NequIPCalculator output.
 
@@ -283,90 +340,72 @@ class TorchSimIntegrationMixin(CompilationTestsMixin):
         ASE calculator interface. ASE calculator loads from saved model (checkpoint/package)
         as reference, while TorchSim loads from batch-compiled model.
         """
-        compiled_path, mode = torchsim_compiled_model
-        config, tmpdir, env, model_dtype, model_source, _ = fake_model_training_session
-
-        # get model path for ASE calculator
-        if model_source == "checkpoint":
-            model_path = str(pathlib.Path(f"{tmpdir}/best.ckpt"))
-        else:  # package
-            model_path = str(pathlib.Path(f"{tmpdir}/orig_package_model.nequip.zip"))
+        model_path, compiled_path, structures = torchsim_compiled_model
 
         # load both calculators
         # ASE calculator from saved model (reference)
-        nequip_calc = NequIPCalculator._from_saved_model(
+        nequip_calc = torchsim_reference_ase_calculator_cls._from_saved_model(
             model_path,
             device=device,
             chemical_species_to_atom_type_map=True,
         )
 
         # TorchSim calculator from batch-compiled model
-        torchsim_calc = NequIPTorchSimCalc.from_compiled_model(
+        torchsim_calc = torchsim_calculator_cls.from_compiled_model(
             compiled_path,
             device=device,
             chemical_species_to_atom_type_map=True,
         )
 
-        # get validation data
-        datamodule = instantiate(config.data, _recursive_=False)
-        datamodule.prepare_data()
-        datamodule.setup("validate")
-        dloader = datamodule.val_dataloader()[0]
-
         # test on validation structures
-        for data in dloader:
-            atoms_list = to_ase(data.copy())
-            for atoms in atoms_list:
-                # NequIP calculator results
-                nequip_atoms = atoms.copy()
-                nequip_atoms.calc = nequip_calc
-                nequip_E = nequip_atoms.get_potential_energy()
-                nequip_F = nequip_atoms.get_forces()
-                nequip_S = nequip_atoms.get_stress(voigt=False)
+        for atoms in structures:
+            nequip_atoms = atoms.copy()
+            nequip_atoms.calc = nequip_calc
 
-                # TorchSim calculator results
-                # convert atoms to SimState
-                sim_state = ts.io.atoms_to_state(
-                    [atoms], device=device, dtype=torch.float64
+            # TorchSim calculator results
+            sim_state = ts.io.atoms_to_state(
+                [atoms], device=device, dtype=torch.float64
+            )
+            ts_results = torchsim_calc(sim_state)
+            ase_ref = self._make_ase_reference_data(
+                nequip_atoms, torchsim_properties_to_compare
+            )
+
+            for property_name in torchsim_properties_to_compare:
+                if property_name not in ts_results:
+                    continue
+                atomic_key = (
+                    AtomicDataDict.TOTAL_ENERGY_KEY
+                    if property_name == "energy"
+                    else property_name
                 )
-                ts_results = torchsim_calc(sim_state)
+                if atomic_key not in ase_ref:
+                    continue
 
-                # compare energies
+                ase_val = ase_ref[atomic_key].detach().cpu().numpy()
+                ts_val = np.reshape(
+                    ts_results[property_name].detach().cpu().numpy(), ase_val.shape
+                )
+
                 np.testing.assert_allclose(
-                    nequip_E,
-                    ts_results["energy"].cpu().numpy()[0],
+                    ase_val,
+                    ts_val,
                     rtol=torchsim_tol,
                     atol=torchsim_tol,
+                    err_msg=f"Mismatch for torch-sim property `{property_name}`",
                 )
 
-                # compare forces
-                np.testing.assert_allclose(
-                    nequip_F,
-                    ts_results["forces"].cpu().numpy(),
-                    rtol=torchsim_tol,
-                    atol=torchsim_tol,
-                )
-
-                # compare stress (if available)
-                if "stress" in ts_results:
-                    np.testing.assert_allclose(
-                        nequip_S,
-                        ts_results["stress"].cpu().numpy()[0],
-                        rtol=torchsim_tol,
-                        atol=torchsim_tol,
-                    )
-
-                del nequip_atoms, sim_state, ts_results
+            del nequip_atoms, sim_state, ts_results
 
     @pytest.mark.skipif(not _TORCHSIM_INSTALLED, reason="torch-sim not installed")
     @pytest.mark.parametrize("batch_size", [2, 3])
     def test_torchsim_batched_evaluation(
         self,
         torchsim_compiled_model,
-        fake_model_training_session,
         device,
         batch_size,
         torchsim_tol,
+        torchsim_calculator_cls,
     ):
         """Test batched evaluation consistency.
 
@@ -375,32 +414,20 @@ class TorchSimIntegrationMixin(CompilationTestsMixin):
 
         This is a key feature of torch-sim for efficient MD simulations.
         """
-        compiled_path, _ = torchsim_compiled_model
-        config, _, _, _, _, _ = fake_model_training_session
+        _, compiled_path, structures = torchsim_compiled_model
 
         # load calculator
-        torchsim_calc = NequIPTorchSimCalc.from_compiled_model(
+        torchsim_calc = torchsim_calculator_cls.from_compiled_model(
             compiled_path,
             device=device,
             chemical_species_to_atom_type_map=True,
         )
 
-        # get test structures
-        datamodule = instantiate(config.data, _recursive_=False)
-        datamodule.prepare_data()
-        datamodule.setup("validate")
-        dloader = datamodule.val_dataloader()[0]
-
-        structures = []
-        for data in dloader:
-            structures += to_ase(data.copy())
-            if len(structures) >= batch_size:
-                break
-
+        # check if we have enough structures for batched evaluation
         if len(structures) < batch_size:
             pytest.skip(f"Not enough structures for batch_size={batch_size}")
 
-        structures = structures[:batch_size]
+        test_structures = structures[:batch_size]
 
         # === test batched vs individual evaluation ===
 
@@ -409,7 +436,7 @@ class TorchSimIntegrationMixin(CompilationTestsMixin):
         individual_forces = []
         individual_stresses = []
 
-        for atoms in structures:
+        for atoms in test_structures:
             sim_state = ts.io.atoms_to_state(
                 [atoms], device=device, dtype=torch.float64
             )
@@ -421,7 +448,7 @@ class TorchSimIntegrationMixin(CompilationTestsMixin):
 
         # batched evaluation
         batched_sim_state = ts.io.atoms_to_state(
-            structures, device=device, dtype=torch.float64
+            test_structures, device=device, dtype=torch.float64
         )
         batched_result = torchsim_calc(batched_sim_state)
 

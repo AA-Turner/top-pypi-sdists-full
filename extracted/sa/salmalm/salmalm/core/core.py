@@ -64,6 +64,65 @@ def _atexit_close_db():
 _atexit.register(_atexit_close_db)
 
 
+_ownership_migration_done = False
+_ownership_migration_lock = threading.Lock()
+
+
+def _run_ownership_migration(conn) -> None:
+    """One-time migration: assign NULL-owner sessions to admin user.
+
+    Idempotent — tracked in schema_migrations table.
+    Single-user mode: all NULL sessions → admin.
+    Multi-user mode: same (best-effort; we can't know original owner).
+    """
+    global _ownership_migration_done
+    if _ownership_migration_done:
+        return
+    with _ownership_migration_lock:
+        if _ownership_migration_done:
+            return
+        try:
+            row = conn.execute(
+                "SELECT 1 FROM schema_migrations WHERE migration_id=?",
+                ("session_ownership_v1",),
+            ).fetchone()
+            if row:
+                _ownership_migration_done = True
+                return
+
+            # Find admin user id
+            try:
+                admin_row = conn.execute(
+                    "SELECT id FROM users WHERE role IN ('admin','owner') ORDER BY id LIMIT 1"
+                ).fetchone()
+            except sqlite3.OperationalError:
+                # users table may not exist yet in local/single-user startup path
+                _ownership_migration_done = True
+                return
+            if not admin_row:
+                # No users yet — single-user/local mode, skip migration
+                _ownership_migration_done = True
+                return
+            admin_id = admin_row[0]
+
+            # Assign all NULL-owner sessions to admin
+            updated = conn.execute(
+                "UPDATE session_store SET user_id=? WHERE user_id IS NULL",
+                (admin_id,),
+            ).rowcount
+            conn.execute(
+                "INSERT INTO schema_migrations (migration_id, applied_at) VALUES (?, datetime('now'))",
+                ("session_ownership_v1",),
+            )
+            conn.commit()
+            if updated:
+                log.info(f"[MIGRATION] session_ownership_v1: assigned {updated} NULL-owner sessions to admin #{admin_id}")
+            _ownership_migration_done = True
+        except Exception as e:
+            log.warning(f"[MIGRATION] session_ownership_v1 failed (non-fatal): {e}")
+            _ownership_migration_done = True  # Don't retry — avoid blocking startup
+
+
 def _get_db() -> sqlite3.Connection:
     """Get thread-local SQLite connection (reused across calls, WAL mode)."""
     conn = getattr(_thread_local, "audit_conn", None)
@@ -143,7 +202,12 @@ def _get_db() -> sqlite3.Connection:
             removed_at TEXT NOT NULL,
             reason TEXT DEFAULT 'rollback'
         )""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS schema_migrations (
+            migration_id TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL
+        )""")
         conn.commit()
+        _run_ownership_migration(conn)
         _thread_local.audit_conn = conn
     return conn
 

@@ -5,13 +5,8 @@ Package metadata for xblocks-contrib.
 import os
 import re
 import sys
-import shutil
-import subprocess
 
 from setuptools import find_packages, setup
-from setuptools.command.build_py import build_py
-from setuptools.command.develop import develop
-from setuptools.command.sdist import sdist
 
 
 def get_version(*file_paths):
@@ -67,13 +62,10 @@ def load_requirements(*requirements_paths):
     re_package_name_base_chars = r"a-zA-Z0-9\-_."  # chars allowed in base package name
     # Two groups: name[maybe,extras], and optionally a constraint
     requirement_line_regex = re.compile(
-        r"([%s]+(?:\[[%s,\s]+\])?)([<>=][^#\s]+)?"
-        % (re_package_name_base_chars, re_package_name_base_chars)
+        r"([%s]+(?:\[[%s,\s]+\])?)([<>=][^#\s]+)?" % (re_package_name_base_chars, re_package_name_base_chars)
     )
 
-    def add_version_constraint_or_raise(
-        current_line, current_requirements, add_if_not_present
-    ):
+    def add_version_constraint_or_raise(current_line, current_requirements, add_if_not_present):
         regex_match = requirement_line_regex.match(current_line)
         if regex_match:
             package = regex_match.group(1)
@@ -82,10 +74,7 @@ def load_requirements(*requirements_paths):
             existing_version_constraints = current_requirements.get(package, None)
             # It's fine to add constraints to an unconstrained package,
             # but raise an error if there are already constraints in place.
-            if (
-                existing_version_constraints
-                and existing_version_constraints != version_constraints
-            ):
+            if existing_version_constraints and existing_version_constraints != version_constraints:
                 raise BaseException(
                     f"Multiple constraint definitions found for {package}:"
                     f' "{existing_version_constraints}" and "{version_constraints}".'
@@ -103,11 +92,7 @@ def load_requirements(*requirements_paths):
                 if is_requirement(line):
                     add_version_constraint_or_raise(line, requirements, True)
                 if line and line.startswith("-c") and not line.startswith("-c http"):
-                    constraint_files.add(
-                        os.path.dirname(path)
-                        + "/"
-                        + line.split("#")[0].replace("-c", "").strip()
-                    )
+                    constraint_files.add(os.path.dirname(path) + "/" + line.split("#")[0].replace("-c", "").strip())
 
     # process constraint files: add constraints to existing requirements
     for constraint_file in constraint_files:
@@ -117,9 +102,7 @@ def load_requirements(*requirements_paths):
                     add_version_constraint_or_raise(line, requirements, False)
 
     # process back into list of pkg><=constraints strings
-    constrained_requirements = [
-        f'{pkg}{version or ""}' for (pkg, version) in sorted(requirements.items())
-    ]
+    constrained_requirements = [f'{pkg}{version or ""}' for (pkg, version) in sorted(requirements.items())]
     return constrained_requirements
 
 
@@ -131,80 +114,7 @@ def is_requirement(line):
         bool: True if the line is not blank, a comment,
         a URL, or an included file
     """
-    return (
-        line and line.strip() and not line.startswith(("-r", "#", "-e", "git+", "-c"))
-    )
-
-
-def package_data(pkg, sub_roots, nested=False):
-    """
-    Declare package_data based on all root directories inside `pkg`.
-
-    If nested is True, scans all directories immediately under the package
-    root for matching sub_root directory names.
-
-    If nested is false, only checks directly in the package root for matching
-    directory names.
-    """
-    data = []
-    # Default: We scan the package directory. Use for individual blocks.
-    roots = ['.']
-    if nested:
-        # For packages with several xblocks under one directory (xblocks_contrib)
-        roots = [d for d in os.listdir(pkg) if os.path.isdir(os.path.join(pkg, d))]
-
-    for root in roots:
-        for sub_root in sub_roots:
-            for dirname, _, files in os.walk(os.path.join(pkg, root, sub_root)):
-                for fname in files:
-                    data.append(os.path.relpath(os.path.join(dirname, fname), pkg))
-
-    return {pkg: data}
-
-
-JS_BUILD_DONE = False
-
-
-def build_js(dist=None):
-    """Run npm ci & build once. Updates package_data if run."""
-    global JS_BUILD_DONE
-    if JS_BUILD_DONE:
-        return
-    JS_BUILD_DONE = True
-
-    # Skip if no package.json (e.g. installing from PyPI) or no npm
-    if not os.path.exists("package.json") or not shutil.which("npm"):
-        if os.path.exists("package.json"):
-            print("Warning: npm not found, skipping JS build.")
-        return
-
-    try:
-        print("Building JS assets...")
-        subprocess.check_call(["npm", "ci"])
-        subprocess.check_call(["npm", "run", "build"])
-        # Refresh package data to include new assets
-        if dist:
-            dist.package_data = package_data("xblocks_contrib", ["static", "public", "templates"])
-    except Exception as e:
-        print(f"Warning: JS build failed: {e}. Continuing installation...")
-
-
-class JSBuildPy(build_py):
-    def run(self):
-        build_js(self.distribution)
-        super().run()
-
-
-class JSDevelop(develop):
-    def run(self):
-        build_js(self.distribution)
-        super().run()
-
-
-class JSSdist(sdist):
-    def run(self):
-        build_js(self.distribution)
-        super().run()
+    return line and line.strip() and not line.startswith(("-r", "#", "-e", "git+", "-c"))
 
 
 VERSION = get_version("xblocks_contrib", "__init__.py")
@@ -215,12 +125,8 @@ if sys.argv[-1] == "tag":
     os.system("git push --tags")
     sys.exit()
 
-README = open(
-    os.path.join(os.path.dirname(__file__), "README.rst"), encoding="utf8"
-).read()
-CHANGELOG = open(
-    os.path.join(os.path.dirname(__file__), "CHANGELOG.rst"), encoding="utf8"
-).read()
+README = open(os.path.join(os.path.dirname(__file__), "README.rst"), encoding="utf8").read()
+CHANGELOG = open(os.path.join(os.path.dirname(__file__), "CHANGELOG.rst"), encoding="utf8").read()
 
 setup(
     name="xblocks-contrib",
@@ -264,20 +170,14 @@ setup(
             # and have been migrated fully from edx-platform or their original
             # repository.
             "pdf = xblock_pdf:PDFBlock",
-        ]
+        ],
+        # Dynamically inject the CAPA problem module as a Django app
+        # so edx-platform natively discovers the templates/ directory.
+        "lms.djangoapp": [
+            "xblocks_contrib_problem_capa = xblocks_contrib.problem.capa.apps:CapaAppConfig",
+        ],
+        "cms.djangoapp": [
+            "xblocks_contrib_problem_capa = xblocks_contrib.problem.capa.apps:CapaAppConfig",
+        ],
     },
-    package_data={
-        **package_data(
-            "xblocks_contrib", ["static", "public", "templates"],
-            nested=True,
-        ),
-        **package_data(
-            "xblock_pdf", ["static", "templates"],
-        ),
-    },
-    cmdclass={
-        "build_py": JSBuildPy,
-        "develop": JSDevelop,
-        "sdist": JSSdist,
-    }
 )

@@ -122,6 +122,8 @@ class ManageMixin:
             return
         import zipfile
         import io
+        from pathlib import Path
+        from salmalm.utils.migration import _safe_member_dest
 
         content_length = int(self.headers.get("Content-Length", 0))
         if content_length > 100 * 1024 * 1024:  # 100MB limit
@@ -134,15 +136,22 @@ class ManageMixin:
             self._json({"ok": False, "error": "Invalid zip file"}, 400)
             return
 
-        # Safety: check for path traversal
+        safe_base = Path(DATA_DIR).resolve()
+        count = 0
         for name in zf.namelist():
-            if name.startswith("/") or ".." in name:
-                self._json({"ok": False, "error": f"Unsafe path in zip: {name}"}, 400)
+            if name.endswith("/"):
+                continue
+            try:
+                dest = _safe_member_dest(safe_base, name)
+            except ValueError:
+                zf.close()
+                self._json({"ok": False, "error": f"Unsafe path blocked: {name}"}, 400)
                 return
-
-        zf.extractall(str(DATA_DIR))
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(zf.read(name))
+            count += 1
         zf.close()
-        self._json({"ok": True, "message": f"Restored {len(zf.namelist())} files to {DATA_DIR}"})
+        self._json({"ok": True, "message": f"Restored {count} files to {DATA_DIR}"})
 
     def _post_api_vault(self):
         """Post api vault."""
@@ -616,9 +625,15 @@ class ManageMixin:
         from salmalm.tools.tool_handlers import execute_tool
 
         tool = body.get("tool", "")
-        args = body.get("args", {})
+        args = dict(body.get("args", {}))
         if not tool:
             self._json({"error": "tool name required"}, 400)
+            return
+        for _reserved in ("_authenticated", "_session_id", "_user_id"):
+            args.pop(_reserved, None)
+        _ALWAYS_BLOCKED = {"exec", "exec_session", "python_eval", "sandbox_exec", "browser"}
+        if tool in _ALWAYS_BLOCKED:
+            self._json({"error": f"Tool '{tool}' is not permitted via node/execute"}, 403)
             return
         try:
             result = execute_tool(tool, args)  # type: ignore[assignment]
@@ -984,7 +999,9 @@ async def post_cooldowns_reset(_u=_Depends(_auth)):
 @router.post("/api/backup/restore")
 async def post_backup_restore(request: _Request, _u=_Depends(_auth)):
     import zipfile, io
+    from pathlib import Path
     from salmalm.constants import DATA_DIR
+    from salmalm.utils.migration import _safe_member_dest
     if _u.get("role") != "admin":
         return _JSON(content={"error": "Admin access required"}, status_code=403)
     body_bytes = await request.body()
@@ -994,22 +1011,32 @@ async def post_backup_restore(request: _Request, _u=_Depends(_auth)):
         zf = zipfile.ZipFile(io.BytesIO(body_bytes))
     except zipfile.BadZipFile:
         return _JSON(content={"ok": False, "error": "Invalid zip file"}, status_code=400)
+    safe_base = Path(DATA_DIR).resolve()
+    count = 0
     for name in zf.namelist():
-        if name.startswith("/") or ".." in name:
-            return _JSON(content={"ok": False, "error": f"Unsafe path in zip: {name}"}, status_code=400)
-    zf.extractall(str(DATA_DIR))
-    n = len(zf.namelist())
+        if name.endswith("/"):
+            continue
+        try:
+            dest = _safe_member_dest(safe_base, name)
+        except ValueError:
+            zf.close()
+            return _JSON(content={"ok": False, "error": f"Unsafe path blocked: {name}"}, status_code=400)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(zf.read(name))
+        count += 1
     zf.close()
-    return _JSON(content={"ok": True, "message": f"Restored {n} files to {DATA_DIR}"})
+    return _JSON(content={"ok": True, "message": f"Restored {count} files to {DATA_DIR}"})
 
 @router.post("/api/presence")
-async def post_presence(request: _Request):
+async def post_presence(request: _Request, _u=_Depends(_optauth)):
     from salmalm.features.presence import presence_manager
     body = await request.json()
     instance_id = body.get("instanceId", "")
     if not instance_id:
         return _JSON(content={"error": "instanceId required"}, status_code=400)
     ip = request.client.host if request.client else ""
+    if not _u and ip not in ("127.0.0.1", "::1"):
+        return _JSON(content={"error": "Authentication required"}, status_code=401)
     entry = presence_manager.register(instance_id, host=body.get("host", ""), ip=ip,
                                       mode=body.get("mode", "web"), user_agent=body.get("userAgent", ""))
     return _JSON(content={"ok": True, "state": entry.state})
@@ -1017,11 +1044,18 @@ async def post_presence(request: _Request):
 @router.post("/api/node/execute")
 async def post_node_execute(request: _Request, _u=_Depends(_auth)):
     from salmalm.tools.tool_handlers import execute_tool
+    if _u.get("role") not in ("admin", "owner"):
+        return _JSON(content={"error": "Admin access required"}, status_code=403)
     body = await request.json()
     tool = body.get("tool", "")
-    args = body.get("args", {})
+    args = dict(body.get("args", {}))
     if not tool:
         return _JSON(content={"error": "tool name required"}, status_code=400)
+    for _reserved in ("_authenticated", "_session_id", "_user_id"):
+        args.pop(_reserved, None)
+    _ALWAYS_BLOCKED = {"exec", "exec_session", "python_eval", "sandbox_exec", "browser"}
+    if tool in _ALWAYS_BLOCKED:
+        return _JSON(content={"error": f"Tool '{tool}' is not permitted via node/execute"}, status_code=403)
     try:
         result = await _asyncio.to_thread(execute_tool, tool, args)
         return _JSON(content={"ok": True, "result": result[:50000]})

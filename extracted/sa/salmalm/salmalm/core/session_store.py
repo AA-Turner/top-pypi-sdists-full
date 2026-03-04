@@ -56,7 +56,7 @@ class Session:
     def __init__(self, session_id: str, user_id: Optional[int] = None) -> None:
         """Create a new session with isolated context, message history, and model preferences."""
         self.id = session_id
-        self.user_id = user_id  # Multi-tenant: owning user (None = legacy/local)
+        self.user_id = user_id  # Multi-tenant: owning user
         self.messages: list = []
         self.created = time.time()
         self.last_active = time.time()
@@ -254,13 +254,7 @@ def get_session(session_id: str, user_id: Optional[int] = None) -> Session:
             existing = _sessions[session_id]
             # Access control: deny if owned by a *different* authenticated user.
             if user_id is not None:
-                _owner_conflict = (
-                    existing.user_id is not None and existing.user_id != user_id
-                ) or (
-                    existing.user_id is None
-                    and session_id not in ("web", "local", "default")
-                    and _is_multi_user_mode()
-                )
+                _owner_conflict = existing.user_id != user_id
                 if _owner_conflict:
                     log.warning(
                         "[SESSION] User %s denied access to session %s (owned by %s)",
@@ -276,11 +270,21 @@ def get_session(session_id: str, user_id: Optional[int] = None) -> Session:
             # Try to restore from SQLite
             try:
                 conn = _get_db()
-                row = conn.execute(
-                    "SELECT messages, session_meta FROM session_store WHERE session_id=?",
-                    (session_id,),
-                ).fetchone()
+                if user_id is not None:
+                    row = conn.execute(
+                        "SELECT messages, session_meta, user_id FROM session_store "
+                        "WHERE session_id=? AND user_id=?",
+                        (session_id, user_id),
+                    ).fetchone()
+                else:
+                    # System/admin call: no ownership filter
+                    row = conn.execute(
+                        "SELECT messages, session_meta, user_id FROM session_store WHERE session_id=?",
+                        (session_id,),
+                    ).fetchone()
                 if row:
+                    if len(row) > 2 and row[2] is not None:
+                        _sessions[session_id].user_id = row[2]  # restore stored owner
                     try:
                         restored = json.loads(row[0])
                         if not isinstance(restored, list):
@@ -367,13 +371,23 @@ def get_session(session_id: str, user_id: Optional[int] = None) -> Session:
         return _sessions[session_id]
 
 
-def rollback_session(session_id: str, count: int) -> dict:
+def rollback_session(session_id: str, count: int, user_id: Optional[int] = None) -> dict:
     """Roll back the last `count` user+assistant message pairs.
 
     Removed messages are backed up in session_message_backup table.
     Returns {'ok': True, 'removed': <int>} or {'ok': False, 'error': ...}.
     """
-    session = get_session(session_id)
+    # Ownership check
+    if user_id is not None:
+        conn = _get_db()
+        row = conn.execute(
+            "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
+            (session_id, user_id),
+        ).fetchone()
+        if not row:
+            return {"ok": False, "error": "Session not found or access denied"}
+
+    session = get_session(session_id, user_id=user_id)
     non_system = [(i, m) for i, m in enumerate(session.messages) if m.get("role") != "system"]
     pairs_removed = 0
     indices_to_remove = []
@@ -430,7 +444,16 @@ def branch_session(session_id: str, message_index: int, user_id: int | None = No
     Returns {'ok': True, 'new_session_id': ...} or error.
     """
 
-    session = get_session(session_id)
+    if user_id is not None:
+        conn = _get_db()
+        row = conn.execute(
+            "SELECT 1 FROM session_store WHERE session_id=? AND user_id=?",
+            (session_id, user_id),
+        ).fetchone()
+        if not row:
+            return {"ok": False, "error": "Session not found or access denied"}
+
+    session = get_session(session_id, user_id=user_id)
     # Ownership check: non-admin users can only branch their own sessions
     if user_id is not None and session.user_id is not None and session.user_id != user_id:
         log.warning("[BRANCH] User %s denied branch of session %s (owned by %s)", user_id, session_id, session.user_id)
@@ -439,7 +462,7 @@ def branch_session(session_id: str, message_index: int, user_id: int | None = No
         return {"ok": False, "error": f"Invalid message_index: {message_index}"}
 
     new_id = f"branch-{_uuid.uuid4().hex[:8]}"
-    new_session = Session(new_id)
+    new_session = Session(new_id, user_id=user_id)
     new_session.messages = json.loads(json.dumps(session.messages[: message_index + 1]))
     new_session.metadata["parent_session_id"] = session_id
     new_session.metadata["branch_index"] = message_index

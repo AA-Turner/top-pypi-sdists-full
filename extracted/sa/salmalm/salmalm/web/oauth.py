@@ -1,9 +1,4 @@
-"""OAuth subscription authentication for Anthropic and OpenAI.
-
-stdlib-only. Token storage uses simple XOR obfuscation (AES-256 would require
-a third-party library; we stay stdlib-only and note that real deployments should
-use OS keyring or proper encryption).
-"""
+"""OAuth subscription authentication for Anthropic and OpenAI."""
 
 from __future__ import annotations
 
@@ -42,8 +37,7 @@ def _xor_bytes(data: bytes, key: bytes) -> bytes:
 
 
 def _encrypt_tokens(data: dict) -> str:
-    # Prefer vault (AES-GCM) — ONLY secure storage path
-    """Encrypt tokens."""
+    """Store OAuth tokens — vault required for secure storage."""
     try:
         from salmalm.security.crypto import vault
 
@@ -51,15 +45,15 @@ def _encrypt_tokens(data: dict) -> str:
             vault.set("oauth_tokens", json.dumps(data))
             return "__VAULT__"
     except Exception as e:  # noqa: broad-except
-        log.debug(f"Suppressed: {e}")
-    # XOR fallback — warn loudly, this is NOT secure storage
-    log.warning(
-        "[OAUTH] ⚠️ Storing tokens with XOR obfuscation (NOT encryption). "
-        "Install cryptography package and unlock vault for secure storage: "
-        "pip install salmalm[crypto]"
+        log.debug(f"[OAUTH] vault access error: {e}")
+    log.error(
+        "[OAUTH] Cannot store OAuth tokens: vault is locked or unavailable. "
+        "Unlock the vault first: salmalm unlock"
     )
-    raw = json.dumps(data).encode()
-    return base64.b64encode(_xor_bytes(raw, _OBFUSCATION_KEY)).decode()
+    raise RuntimeError(
+        "OAuth tokens require an unlocked vault for secure storage. "
+        "Run: salmalm unlock"
+    )
 
 
 def _decrypt_tokens(encoded: str) -> dict:
@@ -75,8 +69,18 @@ def _decrypt_tokens(encoded: str) -> dict:
         except Exception as e:  # noqa: broad-except
             log.debug(f"Suppressed: {e}")
         return {}
-    raw = _xor_bytes(base64.b64decode(encoded), _OBFUSCATION_KEY)
-    return json.loads(raw)
+    try:
+        raw = _xor_bytes(base64.b64decode(encoded), _OBFUSCATION_KEY)
+        decoded = json.loads(raw)
+        log.warning("[OAUTH] Legacy XOR-encoded tokens found. Re-encrypting in vault.")
+        try:
+            _encrypt_tokens(decoded)
+        except RuntimeError:
+            log.warning("[OAUTH] Vault unavailable — legacy tokens discarded for security.")
+            return {}
+        return decoded
+    except Exception:
+        return {}
 
 
 class AnthropicOAuth:

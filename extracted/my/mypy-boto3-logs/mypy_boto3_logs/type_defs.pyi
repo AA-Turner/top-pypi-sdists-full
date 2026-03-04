@@ -3,7 +3,7 @@ Type annotations for logs service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -318,6 +318,7 @@ __all__ = (
     "ProcessorUnionTypeDef",
     "PutAccountPolicyRequestTypeDef",
     "PutAccountPolicyResponseTypeDef",
+    "PutBearerTokenAuthenticationRequestTypeDef",
     "PutDataProtectionPolicyRequestTypeDef",
     "PutDataProtectionPolicyResponseTypeDef",
     "PutDeliveryDestinationPolicyRequestTypeDef",
@@ -767,6 +768,7 @@ class LogGroupTypeDef(TypedDict):
     logGroupClass: NotRequired[LogGroupClassType]
     logGroupArn: NotRequired[str]
     deletionProtectionEnabled: NotRequired[bool]
+    bearerTokenAuthenticationEnabled: NotRequired[bool]
 
 class DescribeLogStreamsRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -1182,6 +1184,10 @@ class PutAccountPolicyRequestTypeDef(TypedDict):
     policyType: PolicyTypeType
     scope: NotRequired[Literal["ALL"]]
     selectionCriteria: NotRequired[str]
+
+class PutBearerTokenAuthenticationRequestTypeDef(TypedDict):
+    logGroupIdentifier: str
+    bearerTokenAuthenticationEnabled: bool
 
 class PutDataProtectionPolicyRequestTypeDef(TypedDict):
     logGroupIdentifier: str

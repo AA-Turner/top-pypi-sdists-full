@@ -146,6 +146,8 @@ def execute_tool(name: str, args: dict) -> str:
             from salmalm.web.middleware import is_tool_allowed_external
 
             args = dict(args)  # shallow copy to avoid mutating caller's dict
+            # NOTE: _authenticated must only come from trusted internal callers
+            # (engine/dispatcher), never directly from external HTTP request args.
             _is_auth = bool(args.pop("_authenticated", False))
             if not is_tool_allowed_external(name, is_authenticated=_is_auth, bind_addr=bind):
                 log.warning(f"[SECURITY] Tool '{name}' blocked: external bind + restricted tier")

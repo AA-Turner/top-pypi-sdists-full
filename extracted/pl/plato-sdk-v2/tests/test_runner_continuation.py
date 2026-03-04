@@ -1,13 +1,15 @@
-"""Tests for AgentRunner.with_continuation() and the continuation loop in run()."""
+"""Tests for AgentRunner (.with_continuation, continuation loop) and Workspace.mount_path."""
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from plato.agents.runner import AgentRunner
 from plato.agents.runtime.base import AgentContext, PreparedAgent, Runtime
+from plato.worlds.workspace import Workspace
 
 # ---------------------------------------------------------------------------
 # Helpers / fakes
@@ -44,6 +46,31 @@ def _make_agent_config():
     cfg.runtime = MagicMock()
     cfg.runtime.model_dump.return_value = {"type": "docker"}
     return cfg
+
+
+# ---------------------------------------------------------------------------
+# Tests: Workspace.mount_path
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceMountPoint:
+    """Test the Workspace.mount_path property."""
+
+    def test_mount_path_returns_explicit_value(self):
+        ws = Workspace("code", Path("/workspace/code"), tracked=False, mount_path="/custom/code")
+        assert ws.mount_path == "/custom/code"
+
+    def test_mount_path_defaults_to_path_when_none(self):
+        ws = Workspace("code", Path("/workspace/code"), tracked=False)
+        assert ws.mount_path == "/workspace/code"
+
+    def test_mount_path_defaults_to_data_subdir_when_tracked(self):
+        ws = Workspace("code", Path("/workspace/code"), tracked=True)
+        assert ws.mount_path == "/workspace/code/data"
+
+    def test_mount_path_overrides_tracked_data_subdir(self):
+        ws = Workspace("code", Path("/workspace/code"), tracked=True, mount_path="/workspace/code")
+        assert ws.mount_path == "/workspace/code"
 
 
 # ---------------------------------------------------------------------------

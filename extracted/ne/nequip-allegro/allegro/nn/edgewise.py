@@ -2,9 +2,10 @@
 import torch
 
 from nequip.data import AtomicDataDict
-from nequip.nn import GraphModuleMixin, scatter
+from nequip.nn import GraphModuleMixin, scatter, AvgNumNeighborsNorm
 
-from typing import Optional
+from typing import Optional, Union, Dict, Sequence
+from math import sqrt
 
 
 class EdgewiseReduce(GraphModuleMixin, torch.nn.Module):
@@ -16,7 +17,8 @@ class EdgewiseReduce(GraphModuleMixin, torch.nn.Module):
         self,
         field: str,
         out_field: Optional[str] = None,
-        factor: Optional[float] = None,
+        avg_num_neighbors: Union[float, Dict[str, float]] = None,
+        type_names: Sequence[str] = None,
         reduce="sum",
         irreps_in={},
     ):
@@ -33,20 +35,14 @@ class EdgewiseReduce(GraphModuleMixin, torch.nn.Module):
                 else {}
             ),
         )
-        self._factor = None
-        if factor is not None:
-            self._factor = factor
+        self.norm_module = AvgNumNeighborsNorm(
+            avg_num_neighbors=avg_num_neighbors, type_names=type_names
+        )
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:
         # get destination nodes 🚂
         edge_dst = data[AtomicDataDict.EDGE_INDEX_KEY][0]
         edge_data = data[self.field]
-
-        # === scale ===
-        # for numerics it seems safer to make these smaller first before accumulating
-        factor: Optional[float] = self._factor  # torchscript hack for typing
-        if factor is not None:
-            edge_data = edge_data * factor
 
         # === scatter ===
         out = scatter(
@@ -56,5 +52,12 @@ class EdgewiseReduce(GraphModuleMixin, torch.nn.Module):
             dim_size=AtomicDataDict.num_nodes(data),
             reduce=self.reduce,
         )
+        # === scale ===
+        data[AtomicDataDict.NODE_FEATURES_KEY] = out
+        data = self.norm_module(data)
+        out = data[AtomicDataDict.NODE_FEATURES_KEY] / sqrt(2)
+        # ^ factor of 2 to normalize dE/dr_i which includes both contributions from dE/dr_ij
+        # and every other derivative against r_ji.
+
         data[self.out_field] = out
         return data

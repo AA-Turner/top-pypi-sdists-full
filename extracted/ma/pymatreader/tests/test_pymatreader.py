@@ -35,7 +35,7 @@ import numpy as np
 import pytest
 from scipy import sparse
 
-from pymatreader import read_mat
+from pymatreader import read_mat, whosmat
 
 from .helper_functions import _read_xml_data, _sanitize_dict, assertDeepAlmostEqual
 
@@ -174,7 +174,7 @@ def test_raw_old_eeglab():
 def test_raw_h5_eeglab_event_type():
     """Test that the event type of EEGLab data is read correctly."""
     data = read_mat(Path(test_data_folder, testdata_eeglab_h5))
-    from .helper_functions.mne_eeglab_stuff import prepare_events_like_mne
+    from .helper_functions.mne_eeglab_stuff import prepare_events_like_mne  # noqa PLC0415
 
     events = prepare_events_like_mne(data)
 
@@ -186,7 +186,7 @@ def test_raw_h5_eeglab_event_type():
 def test_raw_old_eeglab_event_type():
     """Test that the event type of old EEGLab data is read correctly."""
     data = read_mat(Path(test_data_folder, testdata_eeglab_old))
-    from .helper_functions.mne_eeglab_stuff import prepare_events_like_mne
+    from .helper_functions.mne_eeglab_stuff import prepare_events_like_mne  # noqa PLC0415
 
     events = prepare_events_like_mne(data)
     first_event = events[0]
@@ -320,22 +320,73 @@ def test_sparse_matrices(version):
             assert matrix.dtype == np.float64
 
             # Check the shape of the matrix
-            mat_shapes = dict(
-                col=(N, 1),
-                row=(1, N),
-                wide=(N, 2 * N),
-                square=(N, N),
-                tall=(2 * N, N)
-            )
+            mat_shapes = dict(col=(N, 1), row=(1, N), wide=(N, 2 * N), square=(N, N), tall=(2 * N, N))
 
             assert matrix.shape == mat_shapes[name]
 
             # Check every single value of the matrix
             # Load the "true" data from the CSV file
-            csv_matrix = np.loadtxt(
-                Path(test_data_folder, f'sparse_{empty}{name}.csv'),
-                delimiter=','
-            ).reshape(mat_shapes[name])
+            csv_matrix = np.loadtxt(Path(test_data_folder, f'sparse_{empty}{name}.csv'), delimiter=',').reshape(
+                mat_shapes[name]
+            )
 
             np.testing.assert_allclose(matrix.toarray(), csv_matrix, atol=1e-15)
 
+
+def test_whosmat_v7():
+    """Test whosmat on a v7 .mat file."""
+    result = whosmat(Path(test_data_folder, testdata_v7_fname))
+    assert isinstance(result, list)
+    assert all(isinstance(entry, tuple) and len(entry) == 3 for entry in result)  # noqa: PLR2004
+
+    by_name = {name: (shape, cls) for name, shape, cls in result}
+    assert 'a_matrix' in by_name
+    assert by_name['a_matrix'] == ((100, 100), 'double')
+    assert by_name['a_float'] == ((1, 1), 'double')
+
+
+def test_whosmat_v73():
+    """Test whosmat on a v7.3 (HDF5) .mat file."""
+    result = whosmat(Path(test_data_folder, testdata_v73_fname))
+    assert isinstance(result, list)
+    assert all(isinstance(entry, tuple) and len(entry) == 3 for entry in result)  # noqa: PLR2004
+
+    by_name = {name: (shape, cls) for name, shape, cls in result}
+    assert 'a_matrix' in by_name
+    assert by_name['a_matrix'] == ((100, 100), 'double')
+    assert by_name['a_float'] == ((1, 1), 'double')
+
+
+def test_whosmat_v7_v73_consistency():
+    """Test that whosmat returns consistent variable names and classes across versions."""
+    v7_result = whosmat(Path(test_data_folder, testdata_v7_fname))
+    v73_result = whosmat(Path(test_data_folder, testdata_v73_fname))
+
+    v7_names = {name for name, _, _ in v7_result}
+    v73_names = {name for name, _, _ in v73_result}
+    assert v7_names == v73_names
+
+    v7_by_name = {name: cls for name, _, cls in v7_result}
+    v73_by_name = {name: cls for name, _, cls in v73_result}
+    for name in v7_names:
+        assert v7_by_name[name] == v73_by_name[name], f'class mismatch for {name}'
+
+
+@pytest.mark.parametrize('version', ['4', '6', '7', '73'])
+def test_whosmat_sparse(version):
+    """Test that whosmat reports sparse matrices correctly."""
+    result = whosmat(Path(test_data_folder, f'sparse_v{version}.mat'))
+    by_name = {name: (shape, cls) for name, shape, cls in result}
+
+    assert by_name['A_square'] == ((10, 10), 'sparse')
+    assert by_name['A_tall'] == ((20, 10), 'sparse')
+    assert by_name['A_wide'] == ((10, 20), 'sparse')
+    assert by_name['A_col'] == ((10, 1), 'sparse')
+    assert by_name['A_row'] == ((1, 10), 'sparse')
+    assert by_name['A_single'] == ((1, 1), 'sparse')
+
+
+def test_whosmat_file_not_found():
+    """Test that whosmat raises OSError for a missing file."""
+    with pytest.raises(OSError):
+        whosmat(Path(test_data_folder, invalid_fname))

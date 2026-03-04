@@ -2,4 +2,4 @@
 Init for the ProblemBlock.
 """
 
-from .problem import ProblemBlock
+from .capa_block import ProblemBlock

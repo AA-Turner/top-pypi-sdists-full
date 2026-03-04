@@ -63,7 +63,7 @@ endif()
 
 FetchContent_Declare(miniexpr
     GIT_REPOSITORY https://github.com/Blosc/miniexpr.git
-    GIT_TAG 8682461c5969134cfbd33ccf3a69c6856f5e4d55
+    GIT_TAG 37bf6982bf9619036b47f095b7005bc3c87a7447
     # SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../miniexpr
 )
 FetchContent_MakeAvailable(miniexpr)
@@ -119,7 +119,7 @@ else()
     include(FetchContent)
     FetchContent_Declare(blosc2
         GIT_REPOSITORY https://github.com/Blosc/c-blosc2
-        GIT_TAG f27bb87c51443e237dab4c68d445480b65ae7688 # malloc(0) -> NULL
+        GIT_TAG 1386ef42f58b61c876edf714a2af84bd7b59dc5d # v2.23.1
     )
     FetchContent_MakeAvailable(blosc2)
     include_directories("${blosc2_SOURCE_DIR}/include")

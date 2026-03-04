@@ -32,6 +32,7 @@ class ActivityLogAlertArgs:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
         """
         The set of arguments for constructing a ActivityLogAlert resource.
+
         :param pulumi.Input['ActionListArgs'] actions: The actions that will activate when the condition is met.
         :param pulumi.Input['AlertRuleAllOfConditionArgs'] condition: The condition that will cause this alert to activate.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
@@ -191,6 +192,9 @@ class ActivityLogAlert(pulumi.CustomResource):
 
         Uses Azure REST API version 2020-10-01.
 
+        Other available API versions: 2026-01-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native monitor [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['ActionListArgs', 'ActionListArgsDict']] actions: The actions that will activate when the condition is met.
@@ -213,6 +217,9 @@ class ActivityLogAlert(pulumi.CustomResource):
         An Activity Log Alert rule resource.
 
         Uses Azure REST API version 2020-10-01.
+
+        Other available API versions: 2026-01-01. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native monitor [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param ActivityLogAlertArgs args: The arguments to use to populate this resource's properties.
@@ -271,7 +278,7 @@ class ActivityLogAlert(pulumi.CustomResource):
             __props__.__dict__["azure_api_version"] = None
             __props__.__dict__["name"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:insights/v20170401:ActivityLogAlert"), pulumi.Alias(type_="azure-native:insights/v20201001:ActivityLogAlert"), pulumi.Alias(type_="azure-native:insights/v20230101preview:ActivityLogAlert"), pulumi.Alias(type_="azure-native:insights:ActivityLogAlert"), pulumi.Alias(type_="azure-native:monitor/v20170401:ActivityLogAlert"), pulumi.Alias(type_="azure-native:monitor/v20201001:ActivityLogAlert"), pulumi.Alias(type_="azure-native:monitor/v20230101preview:ActivityLogAlert")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:insights/v20170401:ActivityLogAlert"), pulumi.Alias(type_="azure-native:insights/v20201001:ActivityLogAlert"), pulumi.Alias(type_="azure-native:insights/v20230101preview:ActivityLogAlert"), pulumi.Alias(type_="azure-native:insights:ActivityLogAlert"), pulumi.Alias(type_="azure-native:monitor/v20170401:ActivityLogAlert"), pulumi.Alias(type_="azure-native:monitor/v20201001:ActivityLogAlert"), pulumi.Alias(type_="azure-native:monitor/v20230101preview:ActivityLogAlert"), pulumi.Alias(type_="azure-native:monitor/v20260101:ActivityLogAlert")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ActivityLogAlert, __self__).__init__(
             'azure-native:monitor:ActivityLogAlert',

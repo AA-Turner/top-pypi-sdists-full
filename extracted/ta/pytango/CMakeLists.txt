@@ -7,7 +7,7 @@ include(cmake/prelude.cmake)
 
 project(
     pytango
-    VERSION 10.1.3
+    VERSION 10.1.4
     DESCRIPTION "Python bindings for the Tango distributed control system"
     HOMEPAGE_URL "https://pytango.readthedocs.io/"
     LANGUAGES CXX
@@ -119,6 +119,7 @@ pybind11_add_module(
     ext/constants.cpp
     ext/coverage.cpp
     ext/ensure_omni_thread.cpp
+    ext/mem_leak_test.cpp
     ext/pytango.cpp
     ext/pyutils.cpp
     ext/tango_util.cpp

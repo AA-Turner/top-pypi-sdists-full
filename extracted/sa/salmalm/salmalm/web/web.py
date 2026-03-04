@@ -41,6 +41,7 @@ from salmalm.web.routes.web_system import SystemMixin as WebSystemMixin
 from salmalm.web.routes.web_manage import ManageMixin as WebManageMixin
 from salmalm.web.routes.web_content import ContentMixin as WebContentMixin
 from salmalm.web.routes.web_agents import AgentsMixin
+from salmalm.web.routes.web_subagents import WebSubagentsMixin
 
 # Google OAuth CSRF state tokens {state: timestamp}
 _google_oauth_pending_states: dict = {}
@@ -66,6 +67,7 @@ class WebHandler(
     WebManageMixin,
     WebContentMixin,
     AgentsMixin,
+    WebSubagentsMixin,
     http.server.BaseHTTPRequestHandler,
 ):
     """HTTP handler for web UI and API."""
@@ -268,18 +270,26 @@ class WebHandler(
         # PUT /api/sessions/{id}/title
         m = _RE_SESSION_TITLE.match(self.path)
         if m:
-            if not self._require_auth("user"):
+            _u = self._require_auth("user")
+            if not _u:
                 return
             sid = m.group(1)
             title = body.get("title", "").strip()[:60]
             if not title:
                 self._json({"ok": False, "error": "Missing title"}, 400)
                 return
+            uid = _u.get("id") or _u.get("uid") or _u.get("username")
             from salmalm.core import _get_db
 
             conn = _get_db()
-            conn.execute("UPDATE session_store SET title=? WHERE session_id=?", (title, sid))
+            cur = conn.execute(
+                "UPDATE session_store SET title=? WHERE session_id=? AND user_id=?",
+                (title, sid, uid),
+            )
             conn.commit()
+            if cur.rowcount == 0:
+                self._json({"ok": False, "error": "Session not found or access denied"}, 404)
+                return
             self._json({"ok": True})
             return
         self._json({"error": "Not found"}, 404)
@@ -330,7 +340,7 @@ class WebHandler(
     # ── GET Route Table (exact path → method) ──
     _GET_ROUTES: dict = {}
     for _mixin_cls in [
-        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin,
+        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin, WebSubagentsMixin,
     ]:
         _GET_ROUTES.update(getattr(_mixin_cls, 'GET_ROUTES', {}))
     _GET_ROUTES.update({
@@ -685,7 +695,7 @@ self.addEventListener('fetch',e=>{{
 
     _POST_ROUTES: dict = {}
     for _mixin_cls in [
-        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin,
+        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin, WebSubagentsMixin,
     ]:
         _POST_ROUTES.update(getattr(_mixin_cls, 'POST_ROUTES', {}))
     _POST_ROUTES.update({
@@ -747,12 +757,13 @@ self.addEventListener('fetch',e=>{{
             return self._post_api_test_provider()
         elif self.path.startswith("/api/thoughts/search"):
             return self._post_api_thoughts_search()
+        elif self.path.startswith("/api/subagents/"):
+            return self._post_subagent_action()
         else:
             self._json({"error": "Not found"}, 404)
 
     _GET_PREFIX_ROUTES: list = []
     for _mixin_cls in [
-        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin,
+        WebAuthMixin, WebChatMixin, WebCronMixin, WebEngineMixin, WebGatewayMixin, WebModelMixin, WebSessionsMixin, WebSetupMixin, WebUsersMixin, WebFeaturesMixin, WebFilesMixin, WebSystemMixin, WebManageMixin, WebContentMixin, AgentsMixin, WebSubagentsMixin,
     ]:
         _GET_PREFIX_ROUTES.extend(getattr(_mixin_cls, 'GET_PREFIX_ROUTES', []))
-

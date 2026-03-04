@@ -4,7 +4,7 @@ import copy
 import importlib
 import typing
 from typing import Iterator, Optional, Tuple, Union
-import urllib.parse
+from urllib import parse as urlparse
 
 import colorama
 
@@ -28,7 +28,7 @@ if typing.TYPE_CHECKING:
 def _is_url(policy_string: str) -> bool:
     """Check if the policy string is a URL."""
     try:
-        parsed = urllib.parse.urlparse(policy_string)
+        parsed = urlparse.urlparse(policy_string)
         return parsed.scheme in ('http', 'https')
     except Exception:  # pylint: disable=broad-except
         return False
@@ -145,6 +145,10 @@ def apply(
     config = copy.deepcopy(skypilot_config.to_dict())
     mutated_dag = dag_lib.Dag()
     mutated_dag.name = dag.name
+    # Preserve DAG execution properties if set
+    if dag.is_job_group():
+        assert dag.execution is not None
+        mutated_dag.set_execution(dag.execution)
 
     mutated_config = None
     for task in dag.tasks:

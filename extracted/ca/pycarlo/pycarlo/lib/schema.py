@@ -8714,7 +8714,10 @@ class IndexedFieldFilterType(sgqlc.types.Input):
 
 class InformaticaConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("username", "password")
+    __field_names__ = ("base_url", "username", "password")
+    base_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="baseUrl")
+    """Base URL used for API authentication"""
+
     username = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="username")
     """Username"""
 

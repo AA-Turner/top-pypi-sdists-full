@@ -402,6 +402,7 @@ async def _build_chat_system_prompt(
     skill_registry: Any = None,
     space_id: str | None = None,
     project_id: str | None = None,
+    attachment_filenames: list[str] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Assemble the extra system prompt from all context sources.
 
@@ -476,6 +477,19 @@ async def _build_chat_system_prompt(
 
     # Structural separation: everything below this marker is external/untrusted data
     extra += untrusted_section_marker()
+
+    # Attachment guidance — placed in the untrusted section because filenames are user-controlled
+    if attachment_filenames:
+        sanitized = [sanitize_trust_tags(fn) for fn in attachment_filenames]
+        names = ", ".join(sanitized)
+        extra += (
+            "\n\n## Attached Files\n"
+            f"The user has attached the following file(s): {names}\n"
+            "Their content has been extracted and included directly in the user's message below. "
+            "Read and use that content to answer the user's request. "
+            "Do NOT use file tools (read_file, pptx, xlsx, docx, glob_files, etc.) to re-read these files — "
+            "the content is already available in the conversation."
+        )
 
     # Canvas context (cap at 10K chars)
     canvas_context_limit = 10_000
@@ -932,6 +946,7 @@ class StreamContext:
     token_throttle_interval: float = 0.1
     last_token_broadcast: float = 0.0
     prompt_meta: dict[str, Any] = field(default_factory=dict)
+    user_msg: dict[str, Any] | None = None
 
 
 _DISCONNECT_POLL_INTERVAL = 3  # seconds
@@ -1021,6 +1036,13 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
     # Emit prompt metadata (RAG status, source info) as an early event
     if ctx.prompt_meta:
         yield {"event": "prompt_meta", "data": json.dumps(ctx.prompt_meta)}
+
+    # Emit user message metadata so the client can attach action buttons
+    if ctx.user_msg:
+        yield {
+            "event": "user_message",
+            "data": json.dumps({"id": ctx.user_msg["id"], "position": ctx.user_msg["position"]}),
+        }
 
     try:
         _planning_cfg = ctx.planning_config
@@ -1458,7 +1480,11 @@ async def _stream_chat_events(ctx: StreamContext) -> Any:
                         },
                     )
 
-                yield {"event": "done", "data": json.dumps({"plan_mode": ctx.plan_mode})}
+                _done_payload: dict[str, Any] = {"plan_mode": ctx.plan_mode}
+                if current_assistant_msg:
+                    _done_payload["assistant_message_id"] = current_assistant_msg["id"]
+                    _done_payload["assistant_message_position"] = current_assistant_msg["position"]
+                yield {"event": "done", "data": json.dumps(_done_payload)}
 
     except Exception:
         logger.exception("Chat stream error")
@@ -1742,25 +1768,32 @@ async def chat(conversation_id: str, request: Request) -> Any:
                             from ..services.document_extractor import EXTRACTABLE_MIME_TYPES, extract_text
 
                             validated_mime = att.get("mime_type") or f.content_type
+                            extracted = None
                             if validated_mime and validated_mime in EXTRACTABLE_MIME_TYPES:
                                 extracted = extract_text(file_data, validated_mime)
-                                if extracted:
-                                    max_chars = 50_000
-                                    if len(extracted) > max_chars:
-                                        extracted = extracted[:max_chars] + "\n\n[... truncated]"
-                                    attachment_contents.append(
-                                        {
-                                            "type": "text",
-                                            "filename": f.filename,
-                                            "content": extracted,
-                                        }
-                                    )
-                                else:
-                                    logger.warning(
-                                        "Could not extract text from %s (%s)",
-                                        f.filename,
-                                        validated_mime,
-                                    )
+                            if extracted:
+                                max_chars = 50_000
+                                if len(extracted) > max_chars:
+                                    extracted = extracted[:max_chars] + "\n\n[... truncated]"
+                                attachment_contents.append(
+                                    {
+                                        "type": "text",
+                                        "filename": f.filename,
+                                        "content": extracted,
+                                    }
+                                )
+                            else:
+                                attachment_contents.append(
+                                    {
+                                        "type": "text",
+                                        "filename": f.filename,
+                                        "content": (
+                                            f"[Attached file: {f.filename} ({validated_mime})"
+                                            f" — content could not be extracted automatically."
+                                            f" Use the appropriate tool to read this file.]"
+                                        ),
+                                    }
+                                )
                         except Exception:
                             logger.debug("Document extraction failed for %s", f.filename, exc_info=True)
 
@@ -1856,6 +1889,8 @@ async def chat(conversation_id: str, request: Request) -> Any:
     is_first_message = not regenerate and len(history) <= 1
     first_user_text = message_text
 
+    _att_filenames = [a["filename"] for a in attachment_contents if a.get("filename")] if attachment_contents else []
+
     extra_system_prompt, prompt_meta = await _build_chat_system_prompt(
         ai_service=ai_service,
         tool_registry=tool_registry,
@@ -1878,6 +1913,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         skill_registry=getattr(request.app.state, "skill_registry", None),
         space_id=space_id,
         project_id=project_id,
+        attachment_filenames=_att_filenames,
     )
 
     # Build per-request safety approval context
@@ -1968,6 +2004,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         canvas_needs_approval=_canvas_needs_approval(safety_config, tool_registry),
         request=request,
         prompt_meta=prompt_meta,
+        user_msg=user_msg,
     )
 
     return EventSourceResponse(_stream_chat_events(stream_ctx))
@@ -1994,6 +2031,32 @@ async def stream_status(conversation_id: str, request: Request) -> Any:
     if not stream_info:
         return {"active": False}
     age = time_mod.monotonic() - stream_info.get("started_at", 0)
+    # Evict stale streams: if the originating request disconnected or the
+    # stream has been active for too long, clean it up and report inactive.
+    stale_request = stream_info.get("request")
+    max_age = 180  # 3 minutes hard cap
+    if age > max_age:
+        logger.info("Evicting stale stream for %s (age=%.0fs)", conversation_id, age)
+        cancel_ev = stream_info.get("cancel_event")
+        if cancel_ev:
+            cancel_ev.set()
+        _active_streams.pop(conversation_id, None)
+        return {"active": False}
+    # Check if the originating SSE request is still connected.  If it
+    # disconnected (e.g. page refresh), the SSE generator is orphaned and
+    # _poll_disconnect will eventually clean it up — this is an eager check.
+    if stale_request:
+        try:
+            disconnected = await stale_request.is_disconnected()
+        except Exception:
+            disconnected = True
+        if disconnected:
+            logger.info("Evicting disconnected stream for %s (age=%.0fs)", conversation_id, age)
+            cancel_ev = stream_info.get("cancel_event")
+            if cancel_ev:
+                cancel_ev.set()
+            _active_streams.pop(conversation_id, None)
+            return {"active": False}
     return {"active": True, "age_seconds": round(age)}
 
 

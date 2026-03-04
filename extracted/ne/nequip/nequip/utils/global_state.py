@@ -6,7 +6,7 @@ from lightning.pytorch import seed_everything
 import e3nn
 
 from .global_dtype import _GLOBAL_DTYPE
-from .versions.torch_versions import _TORCH_GE_2_9
+from .versions.torch_versions import _TORCH_GE_2_6, _TORCH_GE_2_9, _TORCH_GE_2_10
 
 import warnings
 import os
@@ -112,11 +112,25 @@ def set_global_state(
 
         # === e3nn optimization flags ===
         # we initialize them all to true
+        # torch.jit.script is deprecated in PT 2.10+, so use eager mode
         e3nn.set_optimization_defaults(
             specialized_code=True,
             optimize_einsums=True,
-            jit_script_fx=True,
+            jit_mode="eager" if _TORCH_GE_2_10 else "script",
         )
+
+        # === workaround for PyTorch 2.10 codecache bug ===
+        # torch._inductor.codecache not exported but needed for aoti_load_package
+        # see https://github.com/pytorch/pytorch/issues/173706
+        if _TORCH_GE_2_10:
+            from torch._inductor import codecache as _  # noqa: F401
+
+        # === torch._dynamo config for PyTorch >= 2.6 ===
+        # we set this flag because we always assume dynamic shapes when we compile
+        # see relevant entries in https://github.com/pytorch/pytorch/blob/main/torch/_dynamo/config.py
+        if _TORCH_GE_2_6:
+            torch._dynamo.config.capture_dynamic_output_shape_ops = True
+            torch._dynamo.config.capture_scalar_outputs = True
 
         # ENVIRONMENT VARIABLES
         # torch.multiprocessing fix for batch_size=1

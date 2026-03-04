@@ -1,9 +1,9 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: salmalm
-Version: 0.29.30
+Version: 0.30.0
 Summary: Personal AI Gateway — Python AI assistant with multi-model routing, web UI, and 66 built-in tools. Core: uvicorn + fastapi + websockets.
 Author-email: Nightmare Dolsoe <dolsoe@salmalm.dev>
-License-Expression: MIT
+License: MIT
 Project-URL: Homepage, https://github.com/hyunjun6928-netizen/salmalm
 Project-URL: Repository, https://github.com/hyunjun6928-netizen/salmalm
 Project-URL: Documentation, https://github.com/hyunjun6928-netizen/salmalm#readme
@@ -26,26 +26,12 @@ Classifier: Topic :: Communications :: Chat
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: uvicorn[standard]>=0.29.0
-Requires-Dist: fastapi>=0.111.0
-Requires-Dist: websockets>=12.0
-Requires-Dist: cryptography>=41.0
-Provides-Extra: crypto
-Requires-Dist: cryptography>=41.0; extra == "crypto"
 Provides-Extra: browser
-Requires-Dist: playwright>=1.40; extra == "browser"
+Provides-Extra: crypto
+Provides-Extra: dev
 Provides-Extra: discord
 Provides-Extra: keychain
-Requires-Dist: keyring>=24.0; extra == "keychain"
-Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-asyncio; extra == "dev"
-Requires-Dist: pytest-timeout; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-forked; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Dynamic: license-file
+License-File: LICENSE
 
 # SalmAlm — Private AI Gateway
 

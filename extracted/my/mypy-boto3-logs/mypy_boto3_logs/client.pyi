@@ -3,7 +3,7 @@ Type annotations for logs service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -183,6 +183,7 @@ from .type_defs import (
     ListTagsLogGroupResponseTypeDef,
     PutAccountPolicyRequestTypeDef,
     PutAccountPolicyResponseTypeDef,
+    PutBearerTokenAuthenticationRequestTypeDef,
     PutDataProtectionPolicyRequestTypeDef,
     PutDataProtectionPolicyResponseTypeDef,
     PutDeliveryDestinationPolicyRequestTypeDef,
@@ -1109,6 +1110,16 @@ class CloudWatchLogsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_account_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_account_policy)
+        """
+
+    def put_bearer_token_authentication(
+        self, **kwargs: Unpack[PutBearerTokenAuthenticationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Enables or disables bearer token authentication for the specified log group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_bearer_token_authentication.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_bearer_token_authentication)
         """
 
     def put_data_protection_policy(

@@ -1,13 +1,15 @@
 """Tests for AgentCoreMemorySessionManager."""
 
 import logging
+import time
 from unittest.mock import Mock, patch
 
 import pytest
 from botocore.config import Config as BotocoreConfig
 from botocore.exceptions import ClientError
 from strands.agent.agent import Agent
-from strands.hooks import MessageAddedEvent
+from strands.hooks import AfterInvocationEvent, MessageAddedEvent
+from strands.hooks.registry import HookRegistry
 from strands.types.exceptions import SessionException
 from strands.types.session import Session, SessionAgent, SessionMessage, SessionType
 
@@ -421,6 +423,23 @@ class TestAgentCoreMemorySessionManager:
 
         # Should not raise any exceptions
         session_manager.update_agent("test-session-456", session_agent)
+
+    def test_update_agent_uses_cache(self, session_manager, mock_memory_client):
+        """Test that update_agent uses cache to avoid fetching memory events on subsequent updates."""
+
+        # Manually populate the cache (simulating what happens after first agent creation/read)
+        created_at = "2024-01-01T12:00:00+00:00"
+        session_manager._agent_created_at_cache["test-agent-123"] = created_at
+
+        # Now update the agent - should NOT call list_events since it's in cache
+        updated_agent = SessionAgent(agent_id="test-agent-123", state={"key": "value"}, conversation_manager_state={})
+        session_manager.update_agent("test-session-456", updated_agent)
+
+        # Verify that list_events was NOT called (cache was used)
+        mock_memory_client.list_events.assert_not_called()
+
+        # Verify the created_at was preserved from cache
+        assert updated_agent.created_at == created_at
 
     def test_update_agent_wrong_session(self, session_manager):
         """Test updating an agent with wrong session ID."""
@@ -1186,6 +1205,58 @@ class TestAgentCoreMemorySessionManager:
         mock_memory_client.list_events.assert_called_once()
         call_kwargs = mock_memory_client.list_events.call_args[1]
         assert call_kwargs["max_results"] == 550  # limit + offset
+
+    def test_append_message_handles_none_from_create_message(self, session_manager, test_agent):
+        """Test that append_message gracefully handles None return from create_message."""
+        # Create a tool use message (no text content, only toolUse block)
+        tool_use_message = {
+            "role": "assistant",
+            "content": [
+                {
+                    "toolUse": {
+                        "toolUseId": "tooluse_abc123",
+                        "name": "calculator",
+                        "input": {"operation": "add", "a": 5, "b": 3},
+                    }
+                }
+            ],
+        }
+
+        # Mock create_message to return None (simulating the behavior for messages with no text)
+        session_manager.create_message = Mock(return_value=None)
+        session_manager._latest_agent_message = {}
+
+        # This should NOT crash - it should handle None gracefully
+        session_manager.append_message(tool_use_message, test_agent)
+
+        # Verify create_message was called
+        session_manager.create_message.assert_called_once()
+
+        # Verify that _latest_agent_message was NOT updated (since message was skipped)
+        assert test_agent.agent_id not in session_manager._latest_agent_message
+
+    def test_append_message_normal_message_still_works(self, session_manager, test_agent):
+        """Test that append_message still works correctly for normal messages with text."""
+        # Create a normal message with text content
+        normal_message = {
+            "role": "assistant",
+            "content": [{"text": "The answer is 8."}],
+        }
+
+        # Mock create_message to return a valid event (normal behavior)
+        mock_event = {"eventId": "event_123456", "memoryId": "test-memory"}
+        session_manager.create_message = Mock(return_value=mock_event)
+        session_manager._latest_agent_message = {}
+
+        # This should work normally
+        session_manager.append_message(normal_message, test_agent)
+
+        # Verify create_message was called
+        session_manager.create_message.assert_called_once()
+
+        # Verify that _latest_agent_message WAS updated
+        assert test_agent.agent_id in session_manager._latest_agent_message
+        assert session_manager._latest_agent_message[test_agent.agent_id].message_id == "event_123456"
 
 
 class TestBatchingConfig:
@@ -2065,3 +2136,350 @@ class TestThinkingModeCompatibility:
                     content = mock_agent.messages[0]["content"]
                     assert "<user_context>" in content[0]["text"]
                     assert "</user_context>" in content[0]["text"]
+
+
+class TestAfterInvocationHook:
+    """Test AfterInvocationEvent hook integration."""
+
+    def test_after_invocation_hook_registered(self, batching_session_manager):
+        """Test that AfterInvocationEvent hook is registered when batching is enabled."""
+        registry = HookRegistry()
+        batching_session_manager.register_hooks(registry)
+
+        # Verify AfterInvocationEvent callback is registered (batching is enabled)
+        assert AfterInvocationEvent in registry._registered_callbacks
+        assert len(registry._registered_callbacks[AfterInvocationEvent]) > 0
+
+    def test_after_invocation_hook_flushes_buffer(self, batching_session_manager, mock_memory_client):
+        """Test that AfterInvocationEvent hook triggers flush."""
+        # Mock session_repository to avoid parent class hook issues
+        batching_session_manager.session_repository = Mock()
+
+        # Add messages to buffer
+        with batching_session_manager._buffer_lock:
+            batching_session_manager._message_buffer.append(
+                ("test-session", [("user", "test message")], False, batching_session_manager._get_monotonic_timestamp())
+            )
+
+        assert batching_session_manager.pending_message_count() == 1
+
+        # Register hooks and trigger AfterInvocationEvent
+        registry = HookRegistry()
+        batching_session_manager.register_hooks(registry)
+
+        # Create mock event with mock agent
+        mock_agent = Mock()
+        mock_event = AfterInvocationEvent(agent=mock_agent)
+        registry.invoke_callbacks(mock_event)
+
+        # Verify buffer was flushed
+        assert batching_session_manager.pending_message_count() == 0
+
+    def test_after_invocation_hook_not_registered_when_batching_disabled(self, session_manager):
+        """Test that AfterInvocationEvent flush hook is NOT registered when batching is disabled."""
+        # Spy on the registry to track what gets added
+        registry = HookRegistry()
+        original_add = registry.add_callback
+        added_callbacks = []
+
+        def spy_add_callback(event_type, callback):
+            added_callbacks.append((event_type, callback))
+            return original_add(event_type, callback)
+
+        registry.add_callback = spy_add_callback
+        session_manager.register_hooks(registry)
+
+        # Check that no AfterInvocationEvent callback referencing _flush_messages was added
+        flush_callbacks = [
+            cb
+            for event_type, cb in added_callbacks
+            if event_type == AfterInvocationEvent
+            and hasattr(cb, "__code__")
+            and "_flush_messages" in str(cb.__code__.co_names)
+        ]
+        assert len(flush_callbacks) == 0
+
+
+class TestIntervalFlush:
+    """Test interval-based flush mechanism for long-running agents."""
+
+    def test_interval_flush_timer_starts_when_configured(self):
+        """Test that interval flush timer starts when flush_interval_seconds is set."""
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            batch_size=10,
+            flush_interval_seconds=5.0,
+        )
+
+        mock_client = Mock()
+        mock_client.list_events.return_value = []
+
+        with (
+            patch(
+                "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+                return_value=mock_client,
+            ),
+            patch("boto3.Session") as mock_boto_session,
+            patch("strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None),
+        ):
+            mock_session = Mock()
+            mock_session.region_name = "us-west-2"
+            mock_session.client.return_value = Mock()
+            mock_boto_session.return_value = mock_session
+
+            manager = AgentCoreMemorySessionManager(config)
+
+            # Verify timer was started
+            assert manager._flush_timer is not None
+            assert manager._flush_timer.is_alive()
+            assert not manager._shutdown
+
+            # Cleanup
+            manager.close()
+
+    def test_interval_flush_timer_not_started_when_disabled(self):
+        """Test that interval flush timer is not started when flush_interval_seconds is None."""
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            batch_size=10,
+            # flush_interval_seconds not set (defaults to None)
+        )
+
+        mock_client = Mock()
+        mock_client.list_events.return_value = []
+
+        with (
+            patch(
+                "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+                return_value=mock_client,
+            ),
+            patch("boto3.Session") as mock_boto_session,
+            patch("strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None),
+        ):
+            mock_session = Mock()
+            mock_session.region_name = "us-west-2"
+            mock_session.client.return_value = Mock()
+            mock_boto_session.return_value = mock_session
+
+            manager = AgentCoreMemorySessionManager(config)
+
+            # Verify timer was not started
+            assert manager._flush_timer is None
+            assert not manager._shutdown
+
+    def test_interval_flush_timer_stops_on_close(self):
+        """Test that interval flush timer stops when close() is called."""
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            batch_size=10,
+            flush_interval_seconds=5.0,
+        )
+
+        mock_client = Mock()
+        mock_client.list_events.return_value = []
+
+        with (
+            patch(
+                "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+                return_value=mock_client,
+            ),
+            patch("boto3.Session") as mock_boto_session,
+            patch("strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None),
+        ):
+            mock_session = Mock()
+            mock_session.region_name = "us-west-2"
+            mock_session.client.return_value = Mock()
+            mock_boto_session.return_value = mock_session
+
+            manager = AgentCoreMemorySessionManager(config)
+
+            # Verify timer is running
+            assert manager._flush_timer is not None
+            timer_ref = manager._flush_timer  # Keep reference
+            assert timer_ref.is_alive()
+            assert not manager._shutdown
+
+            # Close manager
+            manager.close()
+
+            # Verify timer is stopped
+            assert manager._shutdown
+            assert manager._flush_timer is None  # Should be set to None
+            # Give timer a moment to actually stop
+            time.sleep(0.1)
+            assert not timer_ref.is_alive()  # Verify thread actually stopped
+
+    def test_interval_flush_timer_stops_on_context_exit(self):
+        """Test that interval flush timer stops when exiting context manager."""
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            batch_size=10,
+            flush_interval_seconds=5.0,
+        )
+
+        mock_client = Mock()
+        mock_client.list_events.return_value = []
+
+        with (
+            patch(
+                "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+                return_value=mock_client,
+            ),
+            patch("boto3.Session") as mock_boto_session,
+            patch("strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None),
+        ):
+            mock_session = Mock()
+            mock_session.region_name = "us-west-2"
+            mock_session.client.return_value = Mock()
+            mock_boto_session.return_value = mock_session
+
+            with AgentCoreMemorySessionManager(config) as manager:
+                # Verify timer is running inside context
+                assert manager._flush_timer is not None
+                assert not manager._shutdown
+
+            # Verify timer is stopped after context exit
+            assert manager._shutdown
+
+    def test_interval_flush_callback_flushes_when_buffer_has_messages(self):
+        """Test that interval flush callback flushes buffer when it has messages."""
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            batch_size=10,
+            flush_interval_seconds=5.0,
+        )
+
+        mock_client = Mock()
+        mock_client.list_events.return_value = []
+        mock_client.create_event.return_value = {"eventId": "event_123"}
+
+        with (
+            patch(
+                "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+                return_value=mock_client,
+            ),
+            patch("boto3.Session") as mock_boto_session,
+            patch("strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None),
+        ):
+            mock_session = Mock()
+            mock_session.region_name = "us-west-2"
+            mock_session.client.return_value = Mock()
+            mock_boto_session.return_value = mock_session
+
+            manager = AgentCoreMemorySessionManager(config)
+
+            # Add messages to buffer
+            with manager._buffer_lock:
+                manager._message_buffer.append(
+                    ("test-session", [("user", "test message")], False, manager._get_monotonic_timestamp())
+                )
+
+            assert manager.pending_message_count() == 1
+
+            # Manually trigger interval flush callback
+            manager._interval_flush_callback()
+
+            # Verify buffer was flushed
+            assert manager.pending_message_count() == 0
+
+            # Cleanup
+            manager.close()
+
+    def test_interval_flush_callback_skips_when_buffer_empty(self):
+        """Test that interval flush callback skips flush when buffer is empty."""
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            batch_size=10,
+            flush_interval_seconds=5.0,
+        )
+
+        mock_client = Mock()
+        mock_client.list_events.return_value = []
+
+        with (
+            patch(
+                "bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient",
+                return_value=mock_client,
+            ),
+            patch("boto3.Session") as mock_boto_session,
+            patch("strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None),
+        ):
+            mock_session = Mock()
+            mock_session.region_name = "us-west-2"
+            mock_session.client.return_value = Mock()
+            mock_boto_session.return_value = mock_session
+
+            manager = AgentCoreMemorySessionManager(config)
+
+            # Verify buffer is empty
+            assert manager.pending_message_count() == 0
+
+            # Track flush calls
+            original_flush = manager._flush_messages
+            flush_called = {"count": 0}
+
+            def tracked_flush():
+                flush_called["count"] += 1
+                return original_flush()
+
+            manager._flush_messages = tracked_flush
+
+            # Manually trigger interval flush callback
+            manager._interval_flush_callback()
+
+            # Verify flush was not called (buffer was empty)
+            assert flush_called["count"] == 0
+
+            # Cleanup
+            manager.close()
+
+    def test_config_flush_interval_validation(self):
+        """Test that flush_interval_seconds must be positive."""
+        # Valid: positive value
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            flush_interval_seconds=30.0,
+        )
+        assert config.flush_interval_seconds == 30.0
+
+        # Valid: None (disabled)
+        config = AgentCoreMemoryConfig(
+            memory_id="test-memory",
+            session_id="test-session",
+            actor_id="test-actor",
+            flush_interval_seconds=None,
+        )
+        assert config.flush_interval_seconds is None
+
+        # Invalid: zero or negative should raise validation error
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            AgentCoreMemoryConfig(
+                memory_id="test-memory",
+                session_id="test-session",
+                actor_id="test-actor",
+                flush_interval_seconds=0.0,
+            )
+
+        with pytest.raises(ValidationError):
+            AgentCoreMemoryConfig(
+                memory_id="test-memory",
+                session_id="test-session",
+                actor_id="test-actor",
+                flush_interval_seconds=-5.0,
+            )

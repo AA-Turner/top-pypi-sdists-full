@@ -1101,9 +1101,8 @@ class MainController:
             Update workspace branding settings
             Updating workspace branding settings...
         """
-        project = self.repositories.project.load()
-        project.workspace.update(changes)
-        self.repositories.project.save(project)
+        with self.repositories.project.atomic() as project:
+            project.workspace.update(changes)
         return project.workspace
 
     def is_initial(self, id: str):
@@ -1169,14 +1168,12 @@ class MainController:
             Create a new tasklet stage
             Creating a new tasklet stage...
         """
-        project = self.repositories.project.load()
         script = ScriptStage.create(
             title, file, workflow_position=workflow_position, id=id
         )
         self.init_code_file(script.file, new_script_code)
-        project.add_stage(script)
-        self.repositories.project.save(project)
-
+        with self.repositories.project.atomic() as project:
+            project.add_stage(script)
         return script
 
     def get_scripts(self) -> list[ScriptStage]:
@@ -1244,11 +1241,10 @@ class MainController:
             Create a new form stage
             Creating a new form stage...
         """
-        project = self.repositories.project.load()
         form = FormStage.create(title, file, workflow_position=workflow_position, id=id)
         self.init_code_file(form.file, new_form_code)
-        project.add_stage(form)
-        self.repositories.project.save(project)
+        with self.repositories.project.atomic() as project:
+            project.add_stage(form)
         return form
 
     def get_forms(self) -> list[FormStage]:
@@ -1310,9 +1306,8 @@ class MainController:
             Delete a stage
             Deleting a stage...
         """
-        project = self.repositories.project.load()
-        project.delete_stage(stage_id, remove_file)
-        self.repositories.project.save(project)
+        with self.repositories.project.atomic() as project:
+            project.delete_stage(stage_id, remove_file)
 
     def create_hook(
         self,
@@ -1370,11 +1365,10 @@ class MainController:
             Create a new hook stage
             Creating a new hook stage...
         """
-        project = self.repositories.project.load()
         hook = HookStage.create(title, file, workflow_position=workflow_position, id=id)
         self.init_code_file(hook.file, new_hook_code)
-        project.add_stage(hook)
-        self.repositories.project.save(project)
+        with self.repositories.project.atomic() as project:
+            project.add_stage(hook)
         return hook
 
     def get_hook(self, id: str) -> HookStage | None:
@@ -1481,11 +1475,10 @@ class MainController:
             Create a new job stage
             Creating a new job stage...
         """
-        project = self.repositories.project.load()
         job = JobStage.create(title, file, workflow_position=workflow_position, id=id)
         self.init_code_file(job.file, new_job_code)
-        project.add_stage(job)
-        self.repositories.project.save(project)
+        with self.repositories.project.atomic() as project:
+            project.add_stage(job)
         return job
 
     def update_stage(self, id: str, changes: dict[str, Any]) -> Stage:
@@ -1554,19 +1547,15 @@ class MainController:
             Update properties of an existing stage
             Updating properties of an existing stage...
         """
-        project = self.repositories.project.load()
-        stage = project.get_stage(id)
-
-        stage_module = project.get_stage_module(id)
-        if stage_module is not None:
-            project = stage_module.get_project()
-
-        if not stage:
-            raise Exception(f"Stage with id {id} not found")
-
         # Agents use prompt_content instead of code_content
         if "prompt_content" in changes:
             changes["code_content"] = changes.pop("prompt_content")
+
+        project = self.repositories.project.load()
+        stage = project.get_stage(id)
+
+        if not stage:
+            raise Exception(f"Stage with id {id} not found")
 
         if isinstance(stage, StageWithFile) and (
             code_content := changes.pop("code_content", None)
@@ -1579,9 +1568,25 @@ class MainController:
         if test_data := changes.pop("test_data", None):
             self.write_test_data(test_data)
 
-        stage = project.update_stage(stage, changes)
-        self.repositories.project.save(project)
-        return stage
+        stage_module = project.get_stage_module(id)
+        if stage_module is not None:
+            module_project = stage_module.get_project()
+            module_stage = module_project.get_stage(id)
+            if not module_stage:
+                raise Exception(f"Stage with id {id} not found in module")
+            updated_stage = module_project.update_stage(module_stage, changes)
+            self.repositories.project.save(module_project)
+            return updated_stage
+
+        with self.repositories.project.atomic() as project:
+            atomic_stage = project.get_stage(id)
+            if not atomic_stage:
+                raise Exception(f"Stage with id {id} not found")
+            project.update_stage(atomic_stage, changes)
+        result = project.get_stage(id)
+        if not result:
+            raise Exception(f"Stage with id {id} not found after update")
+        return result
 
     def list_all_stages(self) -> list[Stage]:
         """
@@ -1751,16 +1756,16 @@ class MainController:
             Update access control settings
             Updating access control settings...
         """
-        project = self.repositories.project.load()
-        changes = [{"id": id, "is_public": is_public, "required_roles": required_roles}]
-        response = project.update_access_controls(changes)
-        self.repositories.project.save(project)
+        ac_changes = [
+            {"id": id, "is_public": is_public, "required_roles": required_roles}
+        ]
+        with self.repositories.project.atomic() as project:
+            response = project.update_access_controls(ac_changes)
         return response[0] if response else None
 
     def update_access_controls(self, changes: list[dict[str, Any]]):
-        project = self.repositories.project.load()
-        response = project.update_access_controls(changes)
-        self.repositories.project.save(project)
+        with self.repositories.project.atomic() as project:
+            response = project.update_access_controls(changes)
         return response
 
     def get_access_control_by_stage_id(self, id):

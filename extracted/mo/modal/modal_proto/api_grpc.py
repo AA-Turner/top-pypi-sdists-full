@@ -576,6 +576,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def SecretUpdate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SecretUpdateRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def SharedVolumeDelete(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SharedVolumeDeleteRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
@@ -1570,6 +1574,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SecretListRequest,
                 modal_proto.api_pb2.SecretListResponse,
+            ),
+            '/modal.client.ModalClient/SecretUpdate': grpclib.const.Handler(
+                self.SecretUpdate,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SecretUpdateRequest,
+                google.protobuf.empty_pb2.Empty,
             ),
             '/modal.client.ModalClient/SharedVolumeDelete': grpclib.const.Handler(
                 self.SharedVolumeDelete,
@@ -2650,6 +2660,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/SecretList',
             modal_proto.api_pb2.SecretListRequest,
             modal_proto.api_pb2.SecretListResponse,
+        )
+        self.SecretUpdate = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SecretUpdate',
+            modal_proto.api_pb2.SecretUpdateRequest,
+            google.protobuf.empty_pb2.Empty,
         )
         self.SharedVolumeDelete = grpclib.client.UnaryUnaryMethod(
             channel,

@@ -27,6 +27,7 @@ class WaveArgs:
                  wave_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Wave resource.
+
         :param pulumi.Input[_builtins.str] project_name: Migrate Project Name
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the resource group. The name is case insensitive.
         :param pulumi.Input['WavePropertiesArgs'] properties: The resource-specific properties for this resource.
@@ -104,6 +105,9 @@ class Wave(pulumi.CustomResource):
 
         Uses Azure REST API version 2025-03-30-preview.
 
+        Other available API versions: 2025-12-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native migrate [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] project_name: Migrate Project Name
@@ -121,6 +125,9 @@ class Wave(pulumi.CustomResource):
         Migration Wave resource.
 
         Uses Azure REST API version 2025-03-30-preview.
+
+        Other available API versions: 2025-12-01-preview. These can be accessed by generating a local SDK package using the CLI command `pulumi package add azure-native migrate [ApiVersion]`. See the [version guide](../../../version-guide/#accessing-any-api-version-via-local-packages) for details.
+
 
         :param str resource_name: The name of the resource.
         :param WaveArgs args: The arguments to use to populate this resource's properties.
@@ -163,7 +170,7 @@ class Wave(pulumi.CustomResource):
             __props__.__dict__["name"] = None
             __props__.__dict__["system_data"] = None
             __props__.__dict__["type"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:migrate/v20250330preview:Wave")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="azure-native:migrate/v20250330preview:Wave"), pulumi.Alias(type_="azure-native:migrate/v20251201preview:Wave")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(Wave, __self__).__init__(
             'azure-native:migrate:Wave',

@@ -12,20 +12,8 @@ class, if there was such a class---"self" is just passed explicitly:
 
     AtomicDataDict.some_method(my_data)
 
-Some standard fields:
-
-    pos (Tensor [n_nodes, 3]): Positions of the nodes.
-    edge_index (LongTensor [2, n_edges]): ``edge_index[0]`` is the per-edge
-        index of the source node and ``edge_index[1]`` is the target node.
-    edge_cell_shift (Tensor [n_edges, 3], optional): which periodic image
-        of the target point each edge goes to, relative to the source point.
-    cell (Tensor [1, 3, 3], optional): the periodic cell for
-        ``edge_cell_shift`` as the three triclinic cell vectors.
-    node_features (Tensor [n_atom, ...]): the input features of the nodes, optional
-    node_attrs (Tensor [n_atom, ...]): the attributes of the nodes, for instance the atom type, optional
-    batch (Tensor [n_atom]): the graph to which the node belongs, optional
-    atomic_numbers (Tensor [n_atom]): optional
-    atom_type (Tensor [n_atom]): optional
+Canonical field names and shape conventions are defined in ``_keys.py`` and
+enforced through field registries in ``_key_registry.py``.
 """
 
 from typing import Dict, Union, Tuple, List, Optional, Any
@@ -70,6 +58,13 @@ def to_(
     """Move an AtomicDataDict to a device"""
     for k, v in data.items():
         data[k] = v.to(device=device)
+    return data
+
+
+def detach_(data: Type) -> Type:
+    """Detach all tensors in an AtomicDataDict in place."""
+    for k, v in data.items():
+        data[k] = v.detach()
     return data
 
 
@@ -272,10 +267,26 @@ def num_edges(data: Type) -> int:
     return data[_keys.EDGE_INDEX_KEY].size(1)
 
 
-def with_batch_(data: Type) -> Type:
-    """Get batch Tensor.
+def is_batched(data: Type) -> bool:
+    out = _keys.BATCH_KEY in data
+    if out:
+        assert _keys.NUM_NODES_KEY in data
+    return out
 
-    If this AtomicDataPrimitive has no ``batch``, one of all zeros will be allocated and returned.
+
+def with_batch_(data: Type) -> Type:
+    """Add explicit batching keys in-place for a single frame.
+
+    Typically called on single-frame data that does not yet include batching metadata.
+    If batching metadata already exists, this function is a no-op that enforces
+    batched data contracts (that is, both ``BATCH_KEY`` and ``NUM_NODES_KEY``
+    are present).
+
+    Added keys for the single-frame case:
+        - ``BATCH_KEY``: ``(num_atoms,)`` long tensor; maps each atom to a frame index
+          (all zeros for a single frame)
+        - ``NUM_NODES_KEY``: ``(num_frames,)`` long tensor; number of atoms per frame
+          (``[num_atoms]`` for a single frame)
     """
     if _keys.BATCH_KEY in data:
         assert _keys.NUM_NODES_KEY in data
@@ -297,7 +308,9 @@ def with_batch_(data: Type) -> Type:
 # For autocomplete in IDEs, don't expose our various imports
 __all__ = [
     to_,
+    detach_,
     without_nodes,
+    is_batched,
     num_nodes,
     num_edges,
     with_batch_,
