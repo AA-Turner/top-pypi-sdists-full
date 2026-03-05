@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.database_data_response import DatabaseDataResponse
 from ..types.database_mutation_response import DatabaseMutationResponse
+from ..types.database_sql_response import DatabaseSqlResponse
 from ..types.database_status_response import DatabaseStatusResponse
 from ..types.database_table_schema_response import DatabaseTableSchemaResponse
 from ..types.database_tables_response import DatabaseTablesResponse
@@ -372,6 +373,42 @@ class DatabasesClient:
         )
         """
         _response = self._raw_client.get_table_schema(asset_id, table_name, request_options=request_options)
+        return _response.data
+
+    def execute_sql(
+        self, asset_id: str, *, sql: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseSqlResponse:
+        """
+        Execute a SQL statement against the database. SELECT queries return columns and rows. Non-SELECT statements (CREATE, INSERT, UPDATE, DELETE, ALTER, DROP, etc.) return execution statuses.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        sql : str
+            SQL statement to execute
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseSqlResponse
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.databases.execute_sql(
+            asset_id="asset_id",
+            sql="SELECT id, name FROM users WHERE active = true LIMIT 10",
+        )
+        """
+        _response = self._raw_client.execute_sql(asset_id, sql=sql, request_options=request_options)
         return _response.data
 
     def get_status(
@@ -817,6 +854,50 @@ class AsyncDatabasesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_table_schema(asset_id, table_name, request_options=request_options)
+        return _response.data
+
+    async def execute_sql(
+        self, asset_id: str, *, sql: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseSqlResponse:
+        """
+        Execute a SQL statement against the database. SELECT queries return columns and rows. Non-SELECT statements (CREATE, INSERT, UPDATE, DELETE, ALTER, DROP, etc.) return execution statuses.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        sql : str
+            SQL statement to execute
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseSqlResponse
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.databases.execute_sql(
+                asset_id="asset_id",
+                sql="SELECT id, name FROM users WHERE active = true LIMIT 10",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.execute_sql(asset_id, sql=sql, request_options=request_options)
         return _response.data
 
     async def get_status(

@@ -20,7 +20,7 @@ pub fn process_list(content: &str, list_type: &str, output: &mut String) {
         let trimmed = line.trim();
 
         // Handle nested lists
-        if trimmed.contains("\\begin{")
+        if (trimmed.contains("\\begin{") || trimmed.contains("\\begin {"))
             && let Some(env_name) = extract_env_name(trimmed)
             && (env_name == "itemize" || env_name == "enumerate" || env_name == "description")
         {
@@ -88,7 +88,11 @@ pub fn process_table(content: &str, output: &mut String, tables: &mut Vec<Table>
 
     for line in lines {
         let trimmed = line.trim();
-        if trimmed.starts_with("\\hline") || trimmed.is_empty() || trimmed.contains("\\begin{tabular}") {
+        if trimmed.starts_with("\\hline")
+            || trimmed.is_empty()
+            || trimmed.contains("\\begin{tabular}")
+            || trimmed.contains("\\end{tabular}")
+        {
             continue;
         }
 
@@ -148,11 +152,12 @@ pub fn process_table_with_caption(content: &str, output: &mut String, tables: &m
     }
 
     // Process the tabular environment inside
+    let end_tag = "\\end{tabular}";
     if content.contains("\\begin{tabular}")
         && let Some(start) = content.find("\\begin{tabular}")
-        && let Some(end) = content.find("\\end{tabular}")
+        && let Some(end) = content.find(end_tag)
     {
-        let tabular_content = &content[start..end + 13];
+        let tabular_content = &content[start..end + end_tag.len()];
         process_table(tabular_content, output, tables);
     }
 }

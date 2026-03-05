@@ -232,10 +232,10 @@ def _read_name_from_config_file(path: str):
     required=False,
     default=None,
     help="[Beta] Third-party connection to associate with the service (e.g., Databricks). "
-    "Format: connection_type=TYPE,connection_name=NAME. "
-    "Example: --connection connection_type=databricks,connection_name=my-conn. "
+    "Format: type=TYPE,name=NAME. "
+    "Example: --connection type=databricks,name=my-conn. "
     "Can be repeated for multiple connections. "
-    "This feature is in beta preview. Contact support@anyscale.com to request enablement.",
+    "This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com) to request enablement.",
 )
 def deploy(  # noqa: PLR0912, PLR0913 C901
     config_file: List[str],

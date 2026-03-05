@@ -25,6 +25,7 @@ from .immapp import icons_fontawesome_6 as icons_fontawesome_6
 
 from . import im_cool_bar as im_cool_bar
 from . import nanovg as nanovg
+from . import im_anim as im_anim
 
 from .imgui import ImVec2 as ImVec2, ImVec4 as ImVec4, ImColor as ImColor, ImVec2Like as ImVec2Like
 from .imgui_pydantic import ImVec2_Pydantic as ImVec2_Pydantic, ImVec4_Pydantic as ImVec4_Pydantic, ImColor_Pydantic as ImColor_Pydantic
@@ -37,3 +38,29 @@ __version__: str
 def compilation_time() -> str:
     """Return date and time when imgui_bundle was compiled"""
     pass
+
+
+from typing import overload
+
+def em_size(v: float = 1.0) -> float:
+    """Returns a size in pixels corresponding to `v` em units.
+
+    1 em = current font size (ImGui::GetFontSize()).
+    Use this for DPI-independent sizing.
+    """
+    ...
+
+@overload
+def em_to_vec2(x: float, y: float) -> ImVec2: ...
+@overload
+def em_to_vec2(v: ImVec2Like) -> ImVec2: ...
+
+def em_to_vec2(x, y=None) -> ImVec2:
+    """Returns an ImVec2 sized in em units (multiples of font size).
+
+    Can be called as:
+        em_to_vec2(3.0, 2.0)  -> ImVec2 of 3em x 2em
+        em_to_vec2((3.0, 2.0))  -> same, from tuple
+        em_to_vec2(ImVec2(3.0, 2.0))  -> same, from ImVec2
+    """
+    ...

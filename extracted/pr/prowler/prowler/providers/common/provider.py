@@ -248,6 +248,12 @@ class Provider(ABC):
                         repositories=arguments.repository,
                         organizations=arguments.organization,
                     )
+                elif "googleworkspace" in provider_class_name.lower():
+                    provider_class(
+                        config_path=arguments.config_file,
+                        mutelist_path=arguments.mutelist_file,
+                        fixer_config=fixer_config,
+                    )
                 elif "cloudflare" in provider_class_name.lower():
                     provider_class(
                         filter_zones=arguments.region,
@@ -267,10 +273,23 @@ class Provider(ABC):
                         github_username=arguments.github_username,
                         personal_access_token=arguments.personal_access_token,
                         oauth_app_token=arguments.oauth_app_token,
+                        provider_uid=arguments.provider_uid,
                     )
                 elif "llm" in provider_class_name.lower():
                     provider_class(
                         max_concurrency=arguments.max_concurrency,
+                        config_path=arguments.config_file,
+                        fixer_config=fixer_config,
+                    )
+                elif "image" in provider_class_name.lower():
+                    provider_class(
+                        images=arguments.images,
+                        image_list_file=arguments.image_list_file,
+                        scanners=arguments.scanners,
+                        image_config_scanners=arguments.image_config_scanners,
+                        trivy_severity=arguments.trivy_severity,
+                        ignore_unfixed=arguments.ignore_unfixed,
+                        timeout=arguments.timeout,
                         config_path=arguments.config_file,
                         fixer_config=fixer_config,
                     )
@@ -297,6 +316,9 @@ class Provider(ABC):
                 elif "openstack" in provider_class_name.lower():
                     provider_class(
                         clouds_yaml_file=getattr(arguments, "clouds_yaml_file", None),
+                        clouds_yaml_content=getattr(
+                            arguments, "clouds_yaml_content", None
+                        ),
                         clouds_yaml_cloud=getattr(arguments, "clouds_yaml_cloud", None),
                         auth_url=getattr(arguments, "os_auth_url", None),
                         identity_api_version=getattr(

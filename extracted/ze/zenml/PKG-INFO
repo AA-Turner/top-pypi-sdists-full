@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zenml
-Version: 0.93.3
+Version: 0.94.0
 Summary: ZenML: MLOps for Reliable AI: from Classical AI to Agents.
 Keywords: machine learning,production,pipeline,mlops,devops,ai,agents,agentic workflows
 Author: ZenML GmbH
@@ -44,7 +44,7 @@ Requires-Dist: azure-mgmt-containerservice>=20.0.0 ; extra == 'connectors-azure'
 Requires-Dist: azure-mgmt-containerregistry>=10.0.0 ; extra == 'connectors-azure'
 Requires-Dist: azure-mgmt-storage>=20.0.0 ; extra == 'connectors-azure'
 Requires-Dist: azure-storage-blob>=12.0.0 ; extra == 'connectors-azure'
-Requires-Dist: azure-mgmt-resource>=21.0.0 ; extra == 'connectors-azure'
+Requires-Dist: azure-mgmt-resource>=21.0.0,<25.0.0 ; extra == 'connectors-azure'
 Requires-Dist: kubernetes>=18.20.0 ; extra == 'connectors-azure'
 Requires-Dist: requests>=2.27.11,<3.0.0 ; extra == 'connectors-azure'
 Requires-Dist: marshmallow<4.0.0 ; extra == 'connectors-azure'
@@ -115,7 +115,7 @@ Requires-Dist: azure-identity>=1.4.0 ; extra == 'secrets-azure'
 Requires-Dist: azure-keyvault-secrets>=4.0.0 ; extra == 'secrets-azure'
 Requires-Dist: google-cloud-secret-manager>=2.12.5 ; extra == 'secrets-gcp'
 Requires-Dist: hvac>=0.11.2 ; extra == 'secrets-hashicorp'
-Requires-Dist: zenml[local] ; extra == 'server'
+Requires-Dist: zenml[local,native-schedules] ; extra == 'server'
 Requires-Dist: fastapi>=0.100,<=0.115.8 ; extra == 'server'
 Requires-Dist: uvicorn[standard]>=0.17.5 ; extra == 'server'
 Requires-Dist: python-multipart~=0.0.9 ; extra == 'server'
@@ -127,6 +127,7 @@ Requires-Dist: ipinfo>=4.4.3 ; extra == 'server'
 Requires-Dist: secure~=1.0.1 ; extra == 'server'
 Requires-Dist: tldextract~=5.1.0 ; extra == 'server'
 Requires-Dist: itsdangerous~=2.2.0 ; extra == 'server'
+Requires-Dist: croniter>=6.0.0 ; extra == 'server'
 Requires-Dist: copier>=8.1.0 ; extra == 'templates'
 Requires-Dist: jinja2-time>=0.2.0,<0.3.0 ; extra == 'templates'
 Requires-Dist: ruff>=0.1.7 ; extra == 'templates'

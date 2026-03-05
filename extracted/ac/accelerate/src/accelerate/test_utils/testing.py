@@ -55,6 +55,7 @@ from ..utils import (
     is_mlu_available,
     is_mps_available,
     is_musa_available,
+    is_neuron_available,
     is_npu_available,
     is_pandas_available,
     is_pippy_available,
@@ -101,6 +102,8 @@ def get_backend():
         return "xpu", torch.xpu.device_count(), torch.xpu.memory_allocated
     elif is_hpu_available():
         return "hpu", torch.hpu.device_count(), torch.hpu.memory_allocated
+    elif is_neuron_available():
+        return "neuron", torch.neuron.device_count(), torch.neuron.memory_allocated
     else:
         return "cpu", 1, lambda: 0
 
@@ -282,6 +285,13 @@ def require_npu(test_case):
     Decorator marking a test that requires NPU. These tests are skipped when there are no NPU available.
     """
     return unittest.skipUnless(is_npu_available(), "test require a NPU")(test_case)
+
+
+def require_neuron(test_case):
+    """
+    Decorator marking a test that requires Neuron. These tests are skipped when there are no Neuron Cores available.
+    """
+    return unittest.skipUnless(is_neuron_available(), "test require Neuron Cores")(test_case)
 
 
 def require_mps(test_case):
@@ -766,10 +776,8 @@ def execute_subprocess_async(cmd: list, env=None, stdin=None, timeout=180, quiet
     for i, c in enumerate(cmd):
         if isinstance(c, Path):
             cmd[i] = str(c)
-    loop = asyncio.get_event_loop()
-    result = loop.run_until_complete(
-        _stream_subprocess(cmd, env=env, stdin=stdin, timeout=timeout, quiet=quiet, echo=echo)
-    )
+
+    result = asyncio.run(_stream_subprocess(cmd, env=env, stdin=stdin, timeout=timeout, quiet=quiet, echo=echo))
 
     cmd_str = " ".join(cmd)
     if result.returncode > 0:

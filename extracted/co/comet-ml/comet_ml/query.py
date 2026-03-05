@@ -92,8 +92,6 @@ class QueryExpression(object):
         )
 
     def __invert__(self):
-        if isinstance(self.lhs, _Tag):
-            raise ValueError("can't negate a Tag expression")
         # Handle logical operators
         if self.op == "&":
             # De Morgan's law: ~(A & B) = ~A | ~B

@@ -7,84 +7,99 @@ This module provides the ProgressMonitor PipelineStep that:
 - Updates the dataset card with a progress bar and ETA
 """
 
+import re
 import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pyarrow.parquet as pq
 from datasets import load_dataset, load_dataset_builder
-from huggingface_hub import HfFileSystem, list_repo_files
-from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub import HfFileSystem
 
 from datatrove.pipeline.base import PipelineStep
 from datatrove.pipeline.inference.dataset_card_generator import (
     InferenceDatasetCardParams,
     build_and_upload_dataset_card,
+    download_dataset_readme,
     format_number,
+    patch_readme_configs,
+    patch_readme_prompt,
+    upload_dataset_readme,
 )
 from datatrove.utils.logging import logger
 
 
-def format_time_remaining(seconds: float) -> str:
-    """
-    Convert seconds to human-readable format.
+_PROGRESS_SECTION_HEADER = "## 🔄 Generation Progress"
+_TIMESTAMP_LINE_PATTERN = re.compile(r"^\*Last updated:.*$", re.MULTILINE)
+_CONFIG_NAME_PATTERN = re.compile(r"^\s*-\s*config_name:\s*(?P<name>[^\s#]+)\s*$", re.MULTILINE)
 
-    Examples:
-        - 90 -> "1m"
-        - 3600 -> "1h"
-        - 5400 -> "1h 30m"
-        - 7200 -> "2h"
+
+def format_time_remaining(seconds: float) -> str:
+    """Convert seconds to human-readable format with appropriate units.
+
+    Picks the two largest non-zero units for readability:
+        - 90s       -> "1m"
+        - 5400s     -> "1h 30m"
+        - 90000s    -> "1d 1h"
+        - 700000s   -> "1w 1d"
+        - 3000000s  -> "1mo 4d"
+        - 40000000s -> "1y 3mo"
     """
     if seconds < 60:
         return "< 1m"
 
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
+    # Define units from largest to smallest
+    units = [
+        ("y", 365.25 * 24 * 3600),
+        ("mo", 30.44 * 24 * 3600),
+        ("w", 7 * 24 * 3600),
+        ("d", 24 * 3600),
+        ("h", 3600),
+        ("m", 60),
+    ]
 
-    if hours > 0 and minutes > 0:
-        return f"{hours}h {minutes}m"
-    elif hours > 0:
-        return f"{hours}h"
-    else:
-        return f"{minutes}m"
+    parts: list[str] = []
+    remaining = seconds
+    for label, unit_seconds in units:
+        if remaining >= unit_seconds:
+            count = int(remaining // unit_seconds)
+            remaining %= unit_seconds
+            parts.append(f"{count}{label}")
+            if len(parts) == 2:
+                break
+
+    return " ".join(parts)
 
 
 def format_completion_datetime(timestamp: float) -> str:
     """
     Format completion timestamp as readable date/time.
 
-    Example: "Nov 27, 18:30 UTC"
+    Example: "Nov 27 2026, 18:30 UTC"
     """
     dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-    return dt.strftime("%b %d, %H:%M UTC")
+    return dt.strftime("%b %d %Y, %H:%M UTC")
 
 
-def repo_has_parquet_data(repo_id: str) -> bool:
-    """
-    Check whether a dataset repo contains any parquet data files.
-
-    Returns:
-        True if at least one parquet file is found, False otherwise.
-    """
-    try:
-        files = list_repo_files(repo_id=repo_id, repo_type="dataset")
-    except HfHubHTTPError as e:
-        logger.warning(f"Could not list files for {repo_id}: {e}")
-        return False
-
-    has_parquet = any(file.lower().endswith(".parquet") for file in files)
-    if not has_parquet:
-        logger.info(f"No parquet files found yet in {repo_id}; skipping dataset load")
-    return has_parquet
+def _bounded_completed(completed: int, total: int) -> int:
+    """Clamp completed count to a valid display range."""
+    if total <= 0:
+        return 0
+    return max(0, min(completed, total))
 
 
-def count_documents_in_repo(repo_id: str) -> int:
+def count_documents_in_repo(repo_id: str, config_name: str = "default") -> int:
     """
     Count total documents in uploaded parquet files in HF repo by reading parquet metadata.
 
     This approach reads only the file headers (a few KB per file) without downloading
     the actual data, making it efficient for large datasets and avoiding disk bloat.
+
+    Args:
+        repo_id: HuggingFace dataset repository ID.
+        config_name: Dataset config name. "default" searches data/, named configs search {config_name}/.
 
     Returns 0 if repo doesn't exist or has no data yet.
     """
@@ -93,12 +108,13 @@ def count_documents_in_repo(repo_id: str) -> int:
         # The filesystem caches directory listings, which prevents us from seeing new files
         fs = HfFileSystem()
 
-        # Invalidate the cache for this specific path to get fresh file listing
-        cache_path = f"datasets/{repo_id}/data"
+        # Parquet files live under data/ for default config, or {config_name}/ for named configs
+        subdir = "data" if config_name == "default" else config_name
+        cache_path = f"datasets/{repo_id}/{subdir}"
         fs.invalidate_cache(cache_path)
 
         # Find all parquet files in the repo's data directory
-        parquet_files = fs.glob(f"datasets/{repo_id}/data/*.parquet")
+        parquet_files = fs.glob(f"datasets/{repo_id}/{subdir}/**/*.parquet")
 
         if not parquet_files:
             logger.info(f"No parquet files found yet in {repo_id}")
@@ -199,56 +215,151 @@ def calculate_eta(completed: int, total: int, elapsed_time: float) -> tuple[floa
     return seconds_remaining, completion_dt
 
 
-def render_progress_bar(completed: int, total: int, start_time: float, current_time: float) -> str:
+def render_progress_bar(
+    completed: int,
+    total: int,
+    start_time: float,
+    current_time: float,
+) -> str:
+    """Render a progress bar with ETA.
+
+    Format: [●●●●●●●●●●●●○○○○○○○○] 60% • 3,000/5,000 docs<br>⏱️ 2h 15m remaining • 📅 Nov 27, 18:30 UTC
     """
-    Render progress bar with dots format.
-
-    Format: [●●●●●●●●●●●●○○○○○○○○] 60% • 3,000/5,000 documents processed • ⏱️ 2h 15m remaining • 📅 Nov 27, 18:30 UTC
-    """
-    # Calculate percentage
-    if total == 0:
-        percentage = 0
-    else:
-        percentage = int((completed / total) * 100)
-
-    # Create progress bar with 20 dots
-    filled_dots = int((completed / total) * 20) if total > 0 else 0
-    empty_dots = 20 - filled_dots
-    bar = "[" + "●" * filled_dots + "○" * empty_dots + "]"
-
-    # Format document count
-    doc_text = f"{format_number(completed)}/{format_number(total)} documents processed"
-
-    progress_text = f"{bar} {percentage}% • {doc_text}"
-
-    # Calculate ETA
+    bounded_completed = _bounded_completed(completed, total)
+    bar_text = _render_bar_and_counts(bounded_completed, total)
     elapsed_time = current_time - start_time
-    if completed > 0 and completed < total:
-        seconds_remaining, completion_dt = calculate_eta(completed, total, elapsed_time)
+    if 0 < bounded_completed < total:
+        seconds_remaining, completion_dt = calculate_eta(bounded_completed, total, elapsed_time)
         time_text = f"⏱️ {format_time_remaining(seconds_remaining)} remaining"
         date_text = f"📅 {format_completion_datetime(completion_dt.timestamp())}"
-        return f"{progress_text} • {time_text} • {date_text}"
-    elif completed == 0:
-        return f"{progress_text} • ⏱️ calculating..."
-    else:
-        return f"{progress_text} • ✅ Complete"
+        return f"{bar_text}<br>{time_text} • {date_text}"
+    if bounded_completed >= total > 0:
+        return f"{bar_text}<br>✅ Complete"
+    return f"{bar_text}<br>⏱️ waiting for first shard upload..."
 
 
-def create_progress_section_markdown(completed: int, total: int, start_time: float, current_time: float) -> str:
+def _render_bar_and_counts(completed: int, total: int) -> str:
+    """Render just the progress bar and document counts (no ETA)."""
+    bounded_completed = _bounded_completed(completed, total)
+    percentage = int((bounded_completed / total) * 100) if total > 0 else 0
+    filled_dots = int((bounded_completed / total) * 20) if total > 0 else 0
+    empty_dots = 20 - filled_dots
+    bar = "[" + "●" * filled_dots + "○" * empty_dots + "]"
+    doc_text = f"{format_number(bounded_completed)}/{format_number(total)} docs"
+    return f"{bar} {percentage}% • {doc_text}"
+
+
+def _render_timestamp_line() -> str:
+    return f"*Last updated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}*"
+
+
+def _upsert_config_progress_line(readme_content: str, config_name: str, new_config_line: str) -> str | None:
+    """Insert or replace the progress line for a single config."""
+    config_pattern = re.compile(rf"^\*\*{re.escape(config_name)}\*\*:.*$", re.MULTILINE)
+    if config_pattern.search(readme_content):
+        return config_pattern.sub(new_config_line, readme_content)
+
+    if _PROGRESS_SECTION_HEADER not in readme_content:
+        logger.warning("No progress section found in README; this is unexpected during monitoring")
+        return None
+
+    match = _TIMESTAMP_LINE_PATTERN.search(readme_content)
+    if match:
+        return readme_content[: match.start()] + new_config_line + "\n\n" + readme_content[match.start() :]
+
+    # Append at end of progress section if no timestamp line exists yet.
+    idx = readme_content.index(_PROGRESS_SECTION_HEADER)
+    next_section = re.search(r"\n## [^🔄]", readme_content[idx + 1 :])
+    insert_pos = idx + 1 + next_section.start() if next_section else len(readme_content)
+    return readme_content[:insert_pos] + new_config_line + "\n\n" + readme_content[insert_pos:]
+
+
+def _replace_timestamp_line(readme_content: str) -> str:
+    """Refresh the Last updated timestamp line."""
+    return _TIMESTAMP_LINE_PATTERN.sub(_render_timestamp_line(), readme_content)
+
+
+def patch_readme_progress(
+    readme_content: str,
+    config_name: str,
+    completed: int,
+    total_per_config: int,
+    start_time: float,
+    current_time: float,
+) -> str:
+    """Patch only the owned config's progress line and the timestamp
+    in an existing README.
+
+    If the progress section or the config line doesn't exist yet, they are
+    created / appended.
+
+    Args:
+        readme_content: Current full README text.
+        config_name: The config this monitor owns (e.g. "math").
+        completed: Number of documents completed for this config.
+        total_per_config: Total expected documents for this config.
+        start_time: When this monitor started (for ETA).
+        current_time: Current timestamp.
+
+    Returns:
+        Updated README text.
     """
-    Create the full progress section for the dataset card.
+    new_bar = render_progress_bar(completed, total_per_config, start_time, current_time)
+    new_config_line = f"**{config_name}**: {new_bar}"
 
-    Returns markdown text to be inserted into the dataset card.
+    updated = _upsert_config_progress_line(readme_content, config_name, new_config_line)
+    if updated is None:
+        return readme_content
+
+    return _replace_timestamp_line(updated)
+
+
+def create_progress_section_markdown(
+    config_name: str,
+    completed: int,
+    total_per_config: int,
+    start_time: float,
+    current_time: float,
+) -> str:
+    """Create the initial progress section for a single config.
+
+    Used only when the README has no progress section yet (first update).
+    Subsequent updates use patch_readme_progress instead.
     """
-    progress_bar = render_progress_bar(completed, total, start_time, current_time)
+    bar = render_progress_bar(completed, total_per_config, start_time, current_time)
+    lines = [
+        "",
+        _PROGRESS_SECTION_HEADER,
+        "",
+        f"**{config_name}**: {bar}",
+        "",
+        _render_timestamp_line(),
+    ]
+    return "\n".join(lines)
 
-    return f"""
-## 🔄 Generation Progress
 
-{progress_bar}
+def _extract_config_names(readme_content: str, current_config: str) -> list[str]:
+    """Extract config names from README frontmatter and prioritize current config."""
+    config_names = [current_config]
+    seen = {current_config}
+    for match in _CONFIG_NAME_PATTERN.finditer(readme_content):
+        config_name = match.group("name").strip()
+        if config_name in ("all",):
+            continue
+        if config_name in seen:
+            continue
+        seen.add(config_name)
+        config_names.append(config_name)
+    return config_names
 
-*Last updated: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}*
-"""
+
+def _append_progress_section(readme_content: str, progress_section: str) -> str:
+    """Append a fresh progress section to an existing README."""
+    stripped_readme = readme_content.rstrip()
+    stripped_section = progress_section.strip()
+    if not stripped_readme:
+        return f"{stripped_section}\n"
+    return f"{stripped_readme}\n\n{stripped_section}\n"
 
 
 @dataclass
@@ -271,7 +382,7 @@ class InferenceProgressMonitor(PipelineStep):
     # Monitoring parameters
     inference_job_id: str | None = None
     max_examples: int = -1
-    update_interval: int = 3600  # 1 hour
+    update_interval: int = 3600  # 1 hour to make sure the commit history does not get overwhelmed
 
     name: str = "InferenceProgressMonitor"
     type: str = "Monitor"
@@ -287,28 +398,15 @@ class InferenceProgressMonitor(PipelineStep):
             logger.warning(f"Warning: Failed to check Slurm job status: {e}")
             return True  # Assume running if check fails to avoid premature exit
 
-    def run(self, data=None, rank: int = 0, world_size: int = 1):
-        """
-        Monitor progress and update dataset card until completion.
-
-        Only runs on rank 0. Yields data if provided (passthrough).
-        """
-        # Only run on rank 0
-        if rank != 0:
-            if data:
-                yield from data
-            return
-
-        # Pass through data if provided
-        if data:
-            yield from data
-
+    def _log_monitor_start(self) -> None:
+        """Log monitor startup details."""
         logger.info(f"Starting progress monitor for {self.params.output_repo_id}")
         if self.inference_job_id:
             logger.info(f"Monitoring inference job: {self.inference_job_id}")
         logger.info(f"Update interval: {self.update_interval} seconds")
 
-        # Get total expected documents
+    def _get_total_expected_documents(self) -> int:
+        """Resolve and log expected document count."""
         total_docs = get_total_expected_documents(
             self.params.input_dataset_name,
             self.params.input_dataset_split,
@@ -316,41 +414,152 @@ class InferenceProgressMonitor(PipelineStep):
             self.max_examples,
         )
         logger.info(f"Total expected documents: {format_number(total_docs)}")
+        return total_docs
 
+    def _should_stop_monitoring(self) -> bool:
+        """Check monitor stop conditions for completion or failed job."""
+        if Path(self.params.stats_path).exists():
+            logger.info("stats.json detected - generation complete!")
+            return True
+
+        # Since the monitor runs in parallel with inference (no Slurm dependency),
+        # it must manually check if the inference job has failed or stopped without
+        # producing stats.json, otherwise it would run indefinitely.
+        if self.inference_job_id and not self._is_job_running(self.inference_job_id):
+            logger.info(
+                f"Inference job {self.inference_job_id} is no longer running and stats.json was not found. Stopping monitor."
+            )
+            return True
+
+        return False
+
+    def _collect_progress_snapshot(self, total_docs: int) -> tuple[str, int, float]:
+        """Collect and log current progress for this monitor's config."""
+        current_time = time.time()
+        config_name = self.params.prompt_template_name
+        completed = count_documents_in_repo(self.params.output_repo_id, config_name)
+        logger.info(f"Progress ({config_name}): {format_number(completed)}/{format_number(total_docs)} documents")
+        return config_name, completed, current_time
+
+    def _append_seeded_progress_section(
+        self,
+        readme_content: str,
+        config_name: str,
+        completed: int,
+        total_docs: int,
+        start_time: float,
+        current_time: float,
+    ) -> str:
+        """Append a progress section and seed it with known config progress."""
+        config_names = _extract_config_names(readme_content, config_name)
+        progress_section = create_progress_section_markdown(
+            config_name, completed, total_docs, start_time, current_time
+        )
+        for name in config_names[1:]:
+            config_count = count_documents_in_repo(self.params.output_repo_id, name)
+            progress_section = patch_readme_progress(
+                progress_section,
+                name,
+                config_count,
+                total_docs,
+                start_time,
+                current_time,
+            )
+        return _append_progress_section(readme_content, progress_section)
+
+    def _patch_existing_readme(
+        self,
+        readme_content: str,
+        config_name: str,
+        completed: int,
+        total_docs: int,
+        start_time: float,
+        current_time: float,
+    ) -> str:
+        """Apply progress/prompt/config updates to an existing README."""
+        updated_readme = readme_content
+        if _PROGRESS_SECTION_HEADER not in updated_readme:
+            updated_readme = self._append_seeded_progress_section(
+                updated_readme,
+                config_name,
+                completed,
+                total_docs,
+                start_time,
+                current_time,
+            )
+
+        updated = patch_readme_progress(updated_readme, config_name, completed, total_docs, start_time, current_time)
+        if self.params.prompt_template:
+            updated = patch_readme_prompt(updated, config_name, self.params.prompt_template)
+        return patch_readme_configs(
+            updated,
+            self.params.output_repo_id,
+            config_name,
+            self.params.input_dataset_split or "train",
+        )
+
+    def _update_dataset_card(
+        self,
+        config_name: str,
+        completed: int,
+        total_docs: int,
+        start_time: float,
+        current_time: float,
+    ) -> None:
+        """Create or patch README with latest progress, then upload."""
+        readme_content = download_dataset_readme(self.params.output_repo_id)
+        if readme_content is None:
+            progress_section = create_progress_section_markdown(
+                config_name,
+                completed,
+                total_docs,
+                start_time,
+                current_time,
+            )
+            build_and_upload_dataset_card(
+                params=self.params,
+                progress_section=progress_section,
+            )
+            return
+
+        updated_readme = self._patch_existing_readme(
+            readme_content,
+            config_name,
+            completed,
+            total_docs,
+            start_time,
+            current_time,
+        )
+        upload_dataset_readme(self.params.output_repo_id, updated_readme)
+
+    def run(self, data=None, rank: int = 0, world_size: int = 1):
+        """
+        Monitor progress and update dataset card until completion.
+
+        Only runs on rank 0. Yields data if provided (passthrough).
+        """
+        if data:
+            yield from data
+        if rank != 0:
+            return
+
+        self._log_monitor_start()
+        total_docs = self._get_total_expected_documents()
         start_time = time.time()
 
         while True:
-            # Check if generation is complete (stats.json exists)
-            if self.params.stats_path.exists():
-                logger.info("stats.json detected - generation complete!")
+            if self._should_stop_monitoring():
                 break
 
-            # Check if inference job is still running (Slurm only)
-            # Since the monitor runs in parallel with inference (no Slurm dependency),
-            # it must manually check if the inference job has failed or stopped without
-            # producing stats.json, otherwise it would run indefinitely.
-            if self.inference_job_id and not self._is_job_running(self.inference_job_id):
-                logger.info(
-                    f"Inference job {self.inference_job_id} is no longer running and stats.json was not found. Stopping monitor."
-                )
-                break
+            config_name, completed, current_time = self._collect_progress_snapshot(total_docs)
 
-            # Get current progress
-            current_time = time.time()
-            completed_docs = count_documents_in_repo(self.params.output_repo_id)
-
-            logger.info(f"Progress: {format_number(completed_docs)}/{format_number(total_docs)} documents")
-
-            # Create progress section
             try:
-                progress_section = create_progress_section_markdown(
-                    completed_docs, total_docs, start_time, current_time
-                )
-
-                # Update dataset card with progress (without waiting for stats.json)
-                build_and_upload_dataset_card(
-                    params=self.params,
-                    progress_section=progress_section,
+                self._update_dataset_card(
+                    config_name=config_name,
+                    completed=completed,
+                    total_docs=total_docs,
+                    start_time=start_time,
+                    current_time=current_time,
                 )
                 logger.info("Dataset card updated with progress")
             except Exception as e:

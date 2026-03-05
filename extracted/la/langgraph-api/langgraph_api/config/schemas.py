@@ -296,7 +296,12 @@ class MongoCheckpointerConfig(TypedDict):
     """Configuration for the MongoDB checkpointer backend."""
 
     backend: Literal["mongo"]
-    uri: str
+    uri: NotRequired[str]
+    """MongoDB connection URI.
+
+    If omitted, resolved from the ``LS_MONGODB_URI`` environment variable,
+    falling back to ``MONGODB_URI``.
+    """
     ttl: NotRequired[ThreadTTLConfig | None]
 
 

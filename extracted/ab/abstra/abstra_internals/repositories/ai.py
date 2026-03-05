@@ -34,6 +34,7 @@ class AIRepository(ABC):
     def get_ai_messages(
         self,
         req: CloudApiCliAiV2StreamRequest,
+        user_jwt=None,
     ):
         raise NotImplementedError()
 
@@ -54,7 +55,9 @@ class AIRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def start_conversation(self, secret_key: str, tunnel_session_path: str):
+    def start_conversation(
+        self, secret_key: str, tunnel_session_path: str, user_jwt=None
+    ):
         raise NotImplementedError()
 
     @abstractmethod
@@ -91,6 +94,7 @@ class ProductionAIRepository(AIRepository):
     def get_ai_messages(
         self,
         req: CloudApiCliAiV2StreamRequest,
+        user_jwt=None,
     ):
         raise NotImplementedError()
 
@@ -103,7 +107,9 @@ class ProductionAIRepository(AIRepository):
     def abort_thread(self, headers: dict, thread_id: str):
         raise NotImplementedError()
 
-    def start_conversation(self, secret_key: str, tunnel_session_path: str):
+    def start_conversation(
+        self, secret_key: str, tunnel_session_path: str, user_jwt=None
+    ):
         raise NotImplementedError(
             "This method is not implemented in ProductionAIRepository."
         )
@@ -160,10 +166,15 @@ class LocalAIRepository(AIRepository):
     def get_ai_messages(
         self,
         req: CloudApiCliAiV2StreamRequest,
+        user_jwt=None,
     ):
         url = "/ai-v2/stream"
         body = req.to_dict()
         headers = resolve_headers()
+        if headers is None:
+            raise Exception("You must be logged in to use AI")
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
         response = self.client.post(url, headers=headers, json=body, stream=True)
         if response.status_code != 200:
             response.raise_for_status()
@@ -203,7 +214,9 @@ class LocalAIRepository(AIRepository):
         )
         response.raise_for_status()
 
-    def start_conversation(self, secret_key: str, tunnel_session_path: str):
+    def start_conversation(
+        self, secret_key: str, tunnel_session_path: str, user_jwt=None
+    ):
         """
         Start a new conversation with the AI.
 
@@ -212,6 +225,7 @@ class LocalAIRepository(AIRepository):
         Args:
             secret_key (str): The secret key for authentication.
             tunnel_session_path (str): The session path for the tunnel.
+            user_jwt: Optional JWT token for web-editor user identification.
 
         Returns:
             dict: The response containing the conversation details.
@@ -221,7 +235,10 @@ class LocalAIRepository(AIRepository):
             tunnel_session_path=tunnel_session_path,
             secret_key=secret_key,
         ).to_dict()
-        response = self.client.post(url, json=body)
+        headers = {}
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
+        response = self.client.post(url, json=body, headers=headers)
         response.raise_for_status()
         return response.json()
 

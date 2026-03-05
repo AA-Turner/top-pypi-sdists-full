@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rtslib-fb
-Version: 2.2.3
+Version: 2.2.4
 Summary: API for Linux kernel SCSI target (aka LIO)
 Project-URL: Homepage, http://github.com/open-iscsi/rtslib-fb
 Author-email: Andy Grover <agrover@redhat.com>, Jerome Martin <jxm@risingtidesystems.com>

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stream-inflate
-Version: 0.0.42
+Version: 0.0.43
 Summary: Uncompress DEFLATE streams in pure Python (albeit compiled with Cython)
 Author-email: Michal Charemza <michal@charemza.name>
 Project-URL: Source, https://github.com/michalc/stream-inflate

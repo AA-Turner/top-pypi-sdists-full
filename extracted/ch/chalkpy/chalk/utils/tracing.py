@@ -1,19 +1,16 @@
 from __future__ import annotations
 
 import contextlib
-import os
 import threading
 import time
 import types
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Union, cast
+from typing import TYPE_CHECKING, Callable, Mapping, Union
 
-from chalk.utils._ddtrace_version import can_use_datadog_statsd, can_use_ddtrace
+from chalk.utils._datadog_version import can_use_datadog_statsd
 from chalk.utils._otel_version import can_use_otel_trace
-from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
 
 if TYPE_CHECKING:
-    import ddtrace.context
     from opentelemetry import trace as otel_trace
 
 
@@ -81,16 +78,13 @@ if can_use_otel_trace:
         current_span = otel_trace.get_current_span()
         current_span.set_attributes(dict(tags))
 
-    def safe_current_trace_context() -> ddtrace.context.Context | otel_trace.SpanContext | None:  # pyright: ignore[reportRedeclaration]
+    def safe_current_trace_context() -> otel_trace.SpanContext | None:  # pyright: ignore[reportRedeclaration]
         configure_tracing("chalkpy")
         return otel_trace.get_current_span().get_span_context()
 
     @contextlib.contextmanager
     def safe_activate_trace_context(  # pyright: ignore[reportRedeclaration]
-        ctx: ddtrace.context.Context
-        | ddtrace.Span
-        | otel_trace.SpanContext
-        | None,  # pyright: ignore[reportPrivateImportUsage]
+        ctx: otel_trace.SpanContext | None,  # pyright: ignore[reportPrivateImportUsage]
     ):
         configure_tracing("chalkpy")
         if isinstance(ctx, otel_trace.SpanContext):
@@ -119,74 +113,6 @@ if can_use_otel_trace:
         otel_inject(headers, context=ctx)
         return headers
 
-elif can_use_ddtrace:
-    import ddtrace
-    from ddtrace.propagation.http import HTTPPropagator
-
-    _logger.debug("ddtrace installed and available, using it to trace")
-
-    @contextlib.contextmanager
-    def safe_trace(span_id: str, attributes: Mapping[str, str] | None = None):  # pyright: ignore[reportRedeclaration]
-        configure_tracing("chalkpy")
-        if not ddtrace.tracer.enabled:
-            yield
-            return
-        if attributes is None:
-            attributes = {}
-        attributes = dict(attributes)
-        attributes["thread_id"] = str(threading.get_native_id())
-        with ddtrace.tracer.trace(name=span_id) as span:
-            if hasattr(span, "_ignore_exception"):
-                span._ignore_exception(GeneratorExit)  # pyright: ignore [reportPrivateUsage, reportArgumentType]
-                from chalk.sql._internal.sql_source import UnsupportedEfficientExecutionError
-
-                span._ignore_exception(  # pyright: ignore [reportPrivateUsage]
-                    UnsupportedEfficientExecutionError  # pyright: ignore [reportArgumentType]
-                )
-            if attributes:
-                span.set_tags(cast(Any, attributes))
-            yield
-
-    def safe_add_metrics(metrics: Mapping[str, Union[int, float]]):  # pyright: ignore[reportRedeclaration]
-        configure_tracing("chalkpy")
-        span = ddtrace.tracer.current_span()
-        if span:
-            span.set_metrics(cast(Any, metrics))
-
-    def safe_add_tags(tags: Mapping[str, str]):  # pyright: ignore[reportRedeclaration]
-        configure_tracing("chalkpy")
-        span = ddtrace.tracer.current_span()
-        if span:
-            span.set_tags(cast(Any, tags))
-
-    def safe_current_trace_context() -> ddtrace.context.Context | otel_trace.SpanContext | None:  # pyright: ignore[reportRedeclaration]
-        configure_tracing("chalkpy")
-        return ddtrace.tracer.current_trace_context()
-
-    @contextlib.contextmanager
-    def safe_activate_trace_context(  # pyright: ignore[reportRedeclaration]
-        ctx: ddtrace.context.Context
-        | ddtrace.Span
-        | otel_trace.SpanContext
-        | None,  # pyright: ignore[reportPrivateImportUsage]
-    ):
-        configure_tracing("chalkpy")
-        if isinstance(ctx, ddtrace.context.Context) or isinstance(ctx, ddtrace.Span):
-            ddtrace.tracer.context_provider.activate(ctx)
-        yield
-
-    def add_trace_headers(  # pyright: ignore[reportRedeclaration]
-        input_headers: None | dict[str, str]
-    ) -> dict[str, str]:
-        configure_tracing("chalkpy")
-        headers: dict[str, str] = dict(input_headers if input_headers is not None else {})
-        span = ddtrace.tracer.current_span()
-        if span:
-            span.context.sampling_priority = 2
-            span.set_tags({ddtrace.constants.SAMPLING_PRIORITY_KEY: 2})  # Ensure that sampling is enabled
-            HTTPPropagator.inject(span.context, headers)
-        return headers
-
 else:
     _logger.debug("no trace packages found, tracing will not work")
 
@@ -200,16 +126,12 @@ else:
     def safe_add_tags(tags: Mapping[str, str]):  # pyright: ignore[reportRedeclaration]
         pass
 
-    def safe_current_trace_context() -> ddtrace.context.Context | otel_trace.SpanContext | None:  # pyright: ignore[reportRedeclaration]
+    def safe_current_trace_context() -> None:  # pyright: ignore[reportRedeclaration]
         return
 
     @contextlib.contextmanager
     def safe_activate_trace_context(  # pyright: ignore[reportRedeclaration]
-        ctx: ddtrace.context.Context
-        | ddtrace.Span
-        | otel_trace.Context
-        | otel_trace.SpanContext
-        | None,  # pyright: ignore[reportPrivateImportUsage]
+        ctx: None,
     ):
         yield
 
@@ -289,55 +211,7 @@ def configure_tracing(default_service_name: str):
             )
             otel_trace.set_tracer_provider(provider)
 
-        elif can_use_ddtrace:
-            import ddtrace
-            from ddtrace.filters import FilterRequestsOnUrl
-
-            if ddtrace.config.service is None:
-                ddtrace.config.service = default_service_name
-            # Re-configuring the global tracer to capture any setting changes from environs from a .dotenv file
-            # which might be loaded after the first ddtrace import
-
-            ddtrace.tracer.configure(
-                enabled=None if "DD_TRACE_ENABLED" not in os.environ else env_var_bool("DD_TRACE_ENABLED"),
-                hostname=os.getenv("DD_AGENT_HOST") or os.getenv("DD_TRACE_AGENT_URL"),
-                uds_path=os.getenv("DD_TRACE_AGENT_URL"),
-                dogstatsd_url=os.getenv("DD_DOGSTATSD_URL"),
-                api_version=os.getenv("DD_TRACE_API_VERSION"),
-                compute_stats_enabled=env_var_bool("DD_TRACE_COMPUTE_STATS"),
-                iast_enabled=None if "DD_IAST_ENABLED" not in os.environ else env_var_bool("DD_IAST_ENABLED"),
-                # exclude healthcheck url from apm trace collection
-                settings={
-                    "FILTERS": [
-                        FilterRequestsOnUrl(
-                            [
-                                r"^http://.*/healthcheck$",
-                                r"^http://.*/ready$",
-                                r"^http://[^/]*/$",  # exclude "/"
-                            ]
-                        )
-                    ]
-                },
-            )
-            if ddtrace.tracer.enabled:
-                ddtrace.patch(
-                    asyncio=True,
-                    databricks=False,
-                    fastapi=True,
-                    futures=True,
-                    httplib=True,
-                    httpx=True,
-                    psycopg=True,
-                    redis=True,
-                    requests=True,
-                    sqlalchemy=False,
-                    urllib3=True,
-                )
-
-            _logger.info(
-                f"Configuring DDtrace tracing: enabled={ddtrace.tracer.enabled}, service={ddtrace.config.service}, env={ddtrace.config.env}, trace_agent_url: {ddtrace.config._trace_agent_url}, effective trace agent: {ddtrace.tracer._agent_url}"  # pyright: ignore [reportAttributeAccessIssue, reportPrivateUsage]
-            )
         else:
-            _logger.warning("neither opentelemetry nor ddtrace are installed")
+            _logger.warning("opentelemetry is not installed, tracing will not work")
 
     _TRACING_CONFIGURED.do_once(do_configure_tracing)

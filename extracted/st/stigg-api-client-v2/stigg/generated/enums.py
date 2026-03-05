@@ -1203,6 +1203,11 @@ class SubscriptionAddonSortFields(str, Enum):
     updatedAt = "updatedAt"
 
 
+class SubscriptionBillingCycleAnchor(str, Enum):
+    NOW = "NOW"
+    UNCHANGED = "UNCHANGED"
+
+
 class SubscriptionCancelReason(str, Enum):
     AutoCancellationRule = "AutoCancellationRule"
     CancelledByBilling = "CancelledByBilling"

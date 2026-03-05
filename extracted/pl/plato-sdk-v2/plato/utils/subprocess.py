@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,30 @@ SSH_OPTS: list[tuple[str, str]] = [
     ("UserKnownHostsFile", "/dev/null"),
     ("LogLevel", "ERROR"),
 ]
+
+
+_SENSITIVE_ENV_KEY_PATTERN = re.compile(
+    r"(?:token|secret|pass|password|key|credential|session|cookie|auth|aws)",
+    re.IGNORECASE,
+)
+_ENV_ASSIGNMENT_PATTERN = re.compile(
+    r"(?P<prefix>\bexport\s+)?(?P<key>[A-Za-z_][A-Za-z0-9_]*)="
+    r"(?P<value>'[^']*'|\"[^\"]*\"|[^\s;|&]+)"
+)
+
+
+def _sanitize_command_for_logs(command: str) -> str:
+    """Redact sensitive env values before logging SSH commands."""
+
+    def _replace(match: re.Match[str]) -> str:
+        prefix = match.group("prefix") or ""
+        key = match.group("key")
+        value = match.group("value")
+        if _SENSITIVE_ENV_KEY_PATTERN.search(key):
+            return f"{prefix}{key}=<redacted>"
+        return f"{prefix}{key}={value}"
+
+    return _ENV_ASSIGNMENT_PATTERN.sub(_replace, command)
 
 
 async def run_local(command: str, timeout: int = 60) -> tuple[int, str, str]:
@@ -47,8 +72,9 @@ async def run_ssh(
     """Run a command on a remote host via SSH as root and return (exit_code, stdout, stderr)."""
     ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
     ssh_cmd.append(command)
+    log_command = _sanitize_command_for_logs(command)
 
-    logger.debug(f"SSH running command: {command[:200]}...")
+    logger.debug("SSH running command on %s: %s", hostname, log_command)
 
     proc = await asyncio.create_subprocess_exec(
         *ssh_cmd,
@@ -66,13 +92,18 @@ async def run_ssh(
     stderr_str = stderr.decode("utf-8", errors="replace")
 
     if exit_code != 0:
-        logger.warning(f"SSH command failed: exit_code={exit_code}")
+        logger.warning(
+            "SSH command failed on %s: exit_code=%s command=%s",
+            hostname,
+            exit_code,
+            log_command,
+        )
         if stdout_str:
             logger.warning(f"SSH stdout: {stdout_str}")
         if stderr_str:
             logger.warning(f"SSH stderr: {stderr_str}")
     else:
-        logger.debug(f"SSH command finished: exit_code={exit_code}")
+        logger.debug("SSH command finished on %s: exit_code=%s", hostname, exit_code)
 
     return exit_code, stdout_str, stderr_str
 
@@ -87,8 +118,9 @@ async def run_ssh_streaming(
     """Run a command via SSH as root with real-time output streaming. Returns exit code."""
     ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
     ssh_cmd.append(command)
+    log_command = _sanitize_command_for_logs(command)
 
-    logger.debug(f"SSH streaming command: {command[:200]}...")
+    logger.debug("SSH streaming command on %s: %s", hostname, log_command)
 
     process = await asyncio.create_subprocess_exec(
         *ssh_cmd,
@@ -112,7 +144,7 @@ async def run_ssh_streaming(
         output_block = "\n".join(output_lines)
         logger.error(f"SSH output ({len(output_lines)} lines):\n{output_block}")
 
-    logger.debug(f"SSH command finished: exit_code={exit_code}")
+    logger.debug("SSH command finished on %s: exit_code=%s", hostname, exit_code)
     return exit_code
 
 

@@ -113,9 +113,9 @@ def read_file(filename):
 
 class LoggingList(list):
     def __init__(self, typ, verbose):
+        super().__init__()
         self.typ = typ
         self._verbose = verbose
-        return super().__init__()
 
     def append(self, item):
         if self._verbose:
@@ -125,9 +125,9 @@ class LoggingList(list):
 
 class LoggingSet(set):
     def __init__(self, typ, verbose):
+        super().__init__()
         self.typ = typ
         self._verbose = verbose
-        return super().__init__()
 
     def add(self, name):
         if self._verbose:

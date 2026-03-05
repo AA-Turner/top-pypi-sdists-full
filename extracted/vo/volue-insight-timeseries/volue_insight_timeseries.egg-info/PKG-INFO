@@ -1,10 +1,14 @@
 Metadata-Version: 2.4
 Name: volue_insight_timeseries
-Version: 2.2.1
+Version: 2.3.1
 Summary: Volue Insight API python library
 Home-page: https://www.volueinsight.com
 Author: Volue Insight
 Author-email: support.insight@volue.com
+Project-URL: Homepage, https://volueinsight.com/
+Project-URL: Documentation, https://docs.volue.com/data-and-forecasts/volue-insight-timeseries/
+Project-URL: Source, https://github.com/Volue-Public/volue-insight-timeseries
+Project-URL: Issues, https://github.com/Volue-Public/volue-insight-timeseries/issues
 Requires-Python: >=3.10, <3.15
 License-File: LICENSE
 Requires-Dist: requests>=2.18

@@ -12,6 +12,7 @@ class NetworkEndpoint(Enum):
     LOG_EVENT = "log_event"
     DOWNLOAD_CONFIG_SPECS = "download_config_specs"
     GET_ID_LISTS = "get_id_lists"
+    DOWNLOAD_ID_LIST_FILE = "download_id_list_file"
     ALL = "all"
 
 
@@ -49,6 +50,7 @@ class IStatsigNetworkWorker:
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
@@ -57,10 +59,19 @@ class IStatsigNetworkWorker:
             on_complete: Callable,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
-    def get_id_list(self, on_complete: Any, url, headers, log_on_exception=False):
+    def get_id_list(
+            self,
+            on_complete: Any,
+            url,
+            headers,
+            log_on_exception: Optional[bool] = False,
+            id_list_file_id: Optional[str] = None,
+            request_context: Optional[str] = None,
+    ):
         pass
 
     def log_events(self, payload, headers=None, log_on_exception=False, retry=0):
@@ -72,6 +83,7 @@ class IStatsigNetworkWorker:
             since_time: int = 0,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 
@@ -80,6 +92,7 @@ class IStatsigNetworkWorker:
             on_complete: Any,
             log_on_exception: Optional[bool] = False,
             init_timeout: Optional[int] = None,
+            request_context: Optional[str] = None,
     ):
         pass
 

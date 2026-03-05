@@ -22,11 +22,11 @@ import jax.numpy as jnp
 
 from flax.nnx import (
   filterlib,
-  graph,
+  graphlib,
 )
 from flax.nnx import variablelib as variableslib
 from flax.nnx.pytreelib import Pytree, PytreeMeta
-from flax.nnx.graph import GraphState
+from flax.nnx.graphlib import GraphState
 from flax.typing import Key, Path, PathParts
 import warnings
 
@@ -302,6 +302,7 @@ class Module(Pytree, metaclass=ModuleMeta):
     self,
     *filters: filterlib.Filter,
     raise_if_not_found: bool = True,
+    graph: bool | None = None,
     **attributes: tp.Any,
   ) -> None:
     """Sets the attributes of nested Modules including the current Module.
@@ -342,7 +343,7 @@ class Module(Pytree, metaclass=ModuleMeta):
     if not filters:
       filters = (True,)
     predicates = tuple(map(filterlib.to_predicate, filters))
-    for path, module in iter_modules(self):
+    for path, module in iter_modules(self, graph=graph):
       for predicate in predicates:
         if predicate(path, module):
           for name, value in attributes.items():
@@ -428,7 +429,7 @@ class Module(Pytree, metaclass=ModuleMeta):
       raise_if_not_found=False,
     )
 
-def view(node: A, /, *, only: filterlib.Filter = ..., raise_if_not_found: bool = True,  **kwargs) -> A:
+def view(node: A, /, *, only: filterlib.Filter = ..., raise_if_not_found: bool = True, graph: bool | None = None, **kwargs) -> A:
   """Creates a new node with static attributes updated according to ``**kwargs``.
 
   The new node contains references to jax arrays in the original node. If a
@@ -462,28 +463,47 @@ def view(node: A, /, *, only: filterlib.Filter = ..., raise_if_not_found: bool =
   Args:
     node: the object to create a copy of.
     only: Filters to select the Modules to set the attributes of.
+    graph: If ``True`` (default), uses graph-mode which supports the full
+      NNX feature set including shared references. If ``False``, uses
+      tree-mode which treats Modules as regular JAX pytrees, avoiding
+      the overhead of the graph protocol.
     **kwargs: The attributes to set.
   """
   predicate = filterlib.to_predicate(only)
 
-  counts = {k: 0 for k in kwargs}
-  counts["_set_mode_calls"] = 0
+  remaining = set(kwargs)
 
   def _set_mode_fn(path, node):
     if hasattr(node, 'set_view') and predicate(path, node):
-      counts["_set_mode_calls"] += 1
-      unused = node.set_view(**kwargs)
-      for k in unused:
-        counts[k] += 1
+      sig = inspect.signature(node.set_view)
+      has_var_keyword = any(
+        p.kind == inspect.Parameter.VAR_KEYWORD
+        for p in sig.parameters.values()
+      )
+      if has_var_keyword:
+        node.set_view(**kwargs)
+        remaining.clear()
+      else:
+        named_params = {
+          name
+          for name, p in sig.parameters.items()
+          if p.kind
+          in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+          )
+        }
+        filtered_kwargs = {
+          k: v for k, v in kwargs.items() if k in named_params
+        }
+        node.set_view(**filtered_kwargs)
+        remaining.difference_update(named_params)
     return node
 
-  out = graph.recursive_map(_set_mode_fn, node)
+  out = graphlib.recursive_map(_set_mode_fn, node, graph=graph)
 
-  if raise_if_not_found:
-    set_mode_calls = counts.pop("_set_mode_calls")
-    unused_keys = [k for k, v in counts.items() if v == set_mode_calls]
-    if unused_keys:
-      raise ValueError(f"Unused keys found in nnx.view: {unused_keys}")
+  if raise_if_not_found and remaining:
+    raise ValueError(f"Unused keys found in nnx.view: {sorted(remaining)}")
 
   return out
 
@@ -518,7 +538,7 @@ def _parse_docstring_args(doc_str: str) -> dict[str, str]:
 
 
 
-def view_info(node: Module, /, *, only: filterlib.Filter = ...) -> str:
+def view_info(node: Module, /, *, only: filterlib.Filter = ..., graph: bool | None = None) -> str:
   """Provides information about the ``view`` arguments for a module and all
   submodules. If no docstring is provided for a module's `set_view`, this function
   puts the `set_view` signature below the function.
@@ -554,6 +574,10 @@ def view_info(node: Module, /, *, only: filterlib.Filter = ...) -> str:
   Args:
     node: the object to display ``view`` information for.
     only: Filters to select the Modules to display information for.
+    graph: If ``True`` (default), uses graph-mode which supports the full
+      NNX feature set including shared references. If ``False``, uses
+      tree-mode which treats Modules as regular JAX pytrees, avoiding
+      the overhead of the graph protocol.
   """
   predicate = filterlib.to_predicate(only)
   classes: set[Module] = set()
@@ -563,7 +587,7 @@ def view_info(node: Module, /, *, only: filterlib.Filter = ...) -> str:
       classes.add(node.__class__)
     return node
 
-  graph.recursive_map(_set_mode_info_fn, node)
+  graphlib.recursive_map(_set_mode_info_fn, node, graph=graph)
 
   class_list = sorted(list(classes), key=lambda x: x.__qualname__)
   out_str = []
@@ -613,7 +637,9 @@ def first_from(*args: tp.Optional[A], error_msg: str) -> A:
       return arg
   raise ValueError(error_msg)
 
-def iter_modules(module: Module) -> tp.Iterator[tuple[PathParts, Module]]:
+def iter_modules(
+  module: Module, /, *, graph: bool | None = None,
+) -> tp.Iterator[tuple[PathParts, Module]]:
   """Recursively iterates over all nested :class:`Module`'s of the given Module, including
   the argument.
 
@@ -648,48 +674,16 @@ def iter_modules(module: Module) -> tp.Iterator[tuple[PathParts, Module]]:
     ('submodule', 'linear2') Linear
     ('submodule',) SubModule
     () Block
+
+  Args:
+    module: A :class:`Module` object.
+    graph: If ``True`` (default), uses graph-mode which supports the full
+      NNX feature set including shared references. If ``False``, uses
+      tree-mode which treats Modules as regular JAX pytrees, avoiding
+      the overhead of the graph protocol.
   """
-  for path, value in graph.iter_graph(module):
+  for path, value in graphlib.iter_graph(module, graph=graph):
     if isinstance(value, Module):
       yield path, value
 
-def iter_children(module: Module) -> tp.Iterator[tuple[Key, Module]]:
-  """Iterates over all children :class:`Module`'s of a given Module. This
-  method is similar to :func:`iter_modules`, except it only iterates over the
-  immediate children, and does not recurse further down.
-
-  Specifically, this function creates a generator that yields the key and the Module instance,
-  where the key is a string representing the attribute name of the Module to access
-  the corresponding child Module.
-
-  Example::
-
-    >>> from flax import nnx
-    ...
-    >>> class SubModule(nnx.Module):
-    ...   def __init__(self, din, dout, rngs):
-    ...     self.linear1 = nnx.Linear(din, dout, rngs=rngs)
-    ...     self.linear2 = nnx.Linear(din, dout, rngs=rngs)
-    ...
-    >>> class Block(nnx.Module):
-    ...   def __init__(self, din, dout, *, rngs: nnx.Rngs):
-    ...     self.linear = nnx.Linear(din, dout, rngs=rngs)
-    ...     self.submodule = SubModule(din, dout, rngs=rngs)
-    ...     self.dropout = nnx.Dropout(0.5)
-    ...     self.batch_norm = nnx.BatchNorm(10, rngs=rngs)
-    ...
-    >>> model = Block(2, 5, rngs=nnx.Rngs(0))
-    >>> for path, module in nnx.iter_children(model):
-    ...  print(path, type(module).__name__)
-    ...
-    batch_norm BatchNorm
-    dropout Dropout
-    linear Linear
-    submodule SubModule
-  """
-  node_impl = graph.get_node_impl(module)
-  assert node_impl is not None
-  node_dict = node_impl.node_dict(module)
-  for key, value in node_dict.items():
-    if isinstance(value, Module):
-      yield key, value
+iter_children = graphlib.iter_children

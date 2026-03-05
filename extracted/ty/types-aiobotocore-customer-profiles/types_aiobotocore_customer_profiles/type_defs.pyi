@@ -1137,6 +1137,7 @@ class ListProfileObjectTypeItemTypeDef(TypedDict):
     LastUpdatedAt: NotRequired[datetime]
     MaxProfileObjectCount: NotRequired[int]
     MaxAvailableProfileObjectCount: NotRequired[int]
+    SourcePriority: NotRequired[int]
     Tags: NotRequired[dict[str, str]]
 
 class ListProfileObjectTypeTemplateItemTypeDef(TypedDict):
@@ -1695,6 +1696,7 @@ class GetProfileObjectTypeResponseTypeDef(TypedDict):
     SourceLastUpdatedTimestampFormat: str
     MaxAvailableProfileObjectCount: int
     MaxProfileObjectCount: int
+    SourcePriority: int
     Fields: dict[str, ObjectTypeFieldTypeDef]
     Keys: dict[str, list[ObjectTypeKeyOutputTypeDef]]
     CreatedAt: datetime
@@ -1722,6 +1724,7 @@ class PutProfileObjectTypeResponseTypeDef(TypedDict):
     SourceLastUpdatedTimestampFormat: str
     MaxProfileObjectCount: int
     MaxAvailableProfileObjectCount: int
+    SourcePriority: int
     Fields: dict[str, ObjectTypeFieldTypeDef]
     Keys: dict[str, list[ObjectTypeKeyOutputTypeDef]]
     CreatedAt: datetime
@@ -2223,6 +2226,7 @@ class PutProfileObjectTypeRequestTypeDef(TypedDict):
     AllowProfileCreation: NotRequired[bool]
     SourceLastUpdatedTimestampFormat: NotRequired[str]
     MaxProfileObjectCount: NotRequired[int]
+    SourcePriority: NotRequired[int]
     Fields: NotRequired[Mapping[str, ObjectTypeFieldTypeDef]]
     Keys: NotRequired[Mapping[str, Sequence[ObjectTypeKeyUnionTypeDef]]]
     Tags: NotRequired[Mapping[str, str]]

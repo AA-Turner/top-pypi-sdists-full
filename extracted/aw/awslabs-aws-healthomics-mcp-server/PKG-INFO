@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.aws-healthomics-mcp-server
-Version: 0.0.26
+Version: 0.0.27
 Summary: An AWS Labs Model Context Protocol (MCP) server for AWS HealthOmics
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/aws-healthomics-mcp-server/
@@ -105,6 +105,20 @@ This MCP server provides tools for:
 ### File Discovery Tools
 
 1. **SearchGenomicsFiles** - Intelligent search for genomics files across S3 buckets, HealthOmics sequence stores, and reference stores with pattern matching, file association detection, and relevance scoring
+
+### Run Group Management Tools
+
+1. **CreateAHORunGroup** - Create a new run group with optional resource limits (maxCpus, maxGpus, maxDuration, maxRuns) and tags
+2. **GetAHORunGroup** - Retrieve detailed information about a specific run group
+3. **ListAHORunGroups** - List available run groups with optional name filtering and pagination
+4. **UpdateAHORunGroup** - Update an existing run group's name or resource limits
+
+### Run Cache Management Tools
+
+1. **CreateAHORunCache** - Create a new run cache with a cache behavior (CACHE_ALWAYS or CACHE_ON_FAILURE), S3 URI for cache storage, and optional name, description, tags, and cross-account bucket owner ID
+2. **GetAHORunCache** - Retrieve detailed information about a specific run cache including configuration, status, and metadata
+3. **ListAHORunCaches** - List available run caches with optional filtering by name, status, or cache behavior, with pagination support
+4. **UpdateAHORunCache** - Update an existing run cache's cache behavior, name, or description
 
 ### Region Management Tools
 
@@ -495,6 +509,14 @@ The following IAM permissions are required:
                 "omics:GetRun",
                 "omics:ListRunTasks",
                 "omics:GetRunTask",
+                "omics:CreateRunGroup",
+                "omics:GetRunGroup",
+                "omics:ListRunGroups",
+                "omics:UpdateRunGroup",
+                "omics:CreateRunCache",
+                "omics:GetRunCache",
+                "omics:ListRunCaches",
+                "omics:UpdateRunCache",
                 "omics:ListSequenceStores",
                 "omics:ListReadSets",
                 "omics:GetReadSetMetadata",
@@ -512,7 +534,8 @@ The following IAM permissions are required:
             "Action": [
                 "s3:ListBucket",
                 "s3:GetObject",
-                "s3:GetObjectTagging"
+                "s3:GetObjectTagging",
+                "s3:HeadBucket"
             ],
             "Resource": [
                 "arn:aws:s3:::*genomics*",
@@ -540,7 +563,8 @@ The following IAM permissions are required:
     "Action": [
         "s3:ListBucket",
         "s3:GetObject",
-        "s3:GetObjectTagging"
+        "s3:GetObjectTagging",
+        "s3:HeadBucket"
     ],
     "Resource": [
         "arn:aws:s3:::my-genomics-data",

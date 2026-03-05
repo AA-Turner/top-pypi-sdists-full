@@ -125,6 +125,7 @@ class IDTypes(Enum):
     user_group_memberships = "ugm"
     resource_permissions = "rperm"
     workload_connections = "wlc"
+    connection_configs = "ccfg"
     entra_user_mappings = "eum"
     entra_oauth_sessions = "eos"
 

@@ -334,6 +334,11 @@ class Trait(_Identifiable, ABC):
 class Architecture(Trait):
     """A CPU architecture identifies a `processor instruction set
     <https://en.wikipedia.org/wiki/Instruction_set_architecture>`_.
+
+    .. seealso::
+        `archspec <https://github.com/archspec/archspec>`_ provides a rich database of
+        CPU microarchitectures (feature flags, compiler compatibility, family trees).
+        It could be used to extend our architecture metadata beyond basic ISA detection.
     """
 
     def info(self) -> dict[str, str | bool | None]:
@@ -354,6 +359,12 @@ class Architecture(Trait):
 class Platform(Trait):
     """A platform can identify multiple distributions or OSes with the same
     characteristics.
+
+    .. seealso::
+        Init systems (systemd, upstart, sysvinit, openrc, runit, etc.) are another
+        dimension of platform characterization that could be detected in the future.
+        See `python-distro/distro#142 <https://github.com/python-distro/distro/issues/142>`_
+        for prior discussion on init system detection.
     """
 
     def info(self) -> dict[str, str | bool | None | dict[str, str | None]]:

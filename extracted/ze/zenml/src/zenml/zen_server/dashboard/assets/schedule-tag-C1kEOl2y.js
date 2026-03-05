@@ -1,0 +1,1 @@
+import{aJ as s}from"./@ui-core-DKdciH1Z.js";import{S as r}from"./clock-DcaJYqTc.js";import{T as a}from"./index-If3XYs4X.js";function c({...e}){return s.jsxs(a,{rounded:!1,className:"inline-flex",emphasis:"subtle",color:"blue",...e,children:[s.jsx(r,{className:"h-4 w-4 shrink-0 fill-current"}),s.jsx("span",{className:"truncate",children:"Schedule"})]})}export{c as S};

@@ -42,8 +42,9 @@ impl TableUtils {
         while i < chars.len() {
             let ch = chars[i];
 
-            if ch == '\\' {
-                // Skip escaped character.
+            if ch == '\\' && !in_code {
+                // Skip escaped character (only outside code spans —
+                // backslashes are literal inside code spans per CommonMark).
                 i += if i + 1 < chars.len() { 2 } else { 1 };
                 continue;
             }
@@ -498,8 +499,7 @@ impl TableUtils {
 
     /// Count the number of cells in a table row with flavor-specific behavior
     ///
-    /// For Standard/GFM flavor, pipes in inline code ARE cell delimiters (matches GitHub).
-    /// For MkDocs flavor, pipes in inline code are NOT cell delimiters.
+    /// Pipes inside code spans are treated as content, not cell delimiters.
     ///
     /// This function strips blockquote prefixes before counting cells, so it works
     /// correctly for tables inside blockquotes.
@@ -509,7 +509,26 @@ impl TableUtils {
         Self::split_table_row_with_flavor(content, flavor).len()
     }
 
-    /// Mask pipes inside inline code blocks with a placeholder character
+    /// Count the number of consecutive backslashes immediately preceding `pos` in `chars`.
+    fn count_preceding_backslashes(chars: &[char], pos: usize) -> usize {
+        let mut count = 0;
+        let mut k = pos;
+        while k > 0 {
+            k -= 1;
+            if chars[k] == '\\' {
+                count += 1;
+            } else {
+                break;
+            }
+        }
+        count
+    }
+
+    /// Mask pipes inside inline code blocks with a placeholder character.
+    ///
+    /// Backticks preceded by an odd number of backslashes are escaped (literal text)
+    /// and do not open or close code spans. An even number of backslashes means the
+    /// backslashes themselves are escaped, so the backtick is a real delimiter.
     pub fn mask_pipes_in_inline_code(text: &str) -> String {
         let mut result = String::new();
         let chars: Vec<char> = text.chars().collect();
@@ -517,6 +536,15 @@ impl TableUtils {
 
         while i < chars.len() {
             if chars[i] == '`' {
+                // A backtick preceded by an odd number of backslashes is escaped
+                let preceding = Self::count_preceding_backslashes(&chars, i);
+                if preceding % 2 != 0 {
+                    // Escaped backtick -- treat as literal text, not a code span opener
+                    result.push(chars[i]);
+                    i += 1;
+                    continue;
+                }
+
                 // Count consecutive backticks at start
                 let start = i;
                 let mut backtick_count = 0;
@@ -531,6 +559,11 @@ impl TableUtils {
 
                 while j < chars.len() {
                     if chars[j] == '`' {
+                        // Per CommonMark spec, backslash escapes do NOT work inside code
+                        // spans -- all characters including backslashes are literal. So we
+                        // do NOT check count_preceding_backslashes here (only for the
+                        // opening backtick above).
+
                         // Count potential closing backticks
                         let close_start = j;
                         let mut close_count = 0;
@@ -577,81 +610,14 @@ impl TableUtils {
         result
     }
 
-    /// Escape pipes inside inline code blocks with backslash.
-    /// Converts `|` to `\|` inside backtick spans.
-    /// Used by auto-fix to preserve content while making tables valid.
-    pub fn escape_pipes_in_inline_code(text: &str) -> String {
-        let mut result = String::new();
-        let chars: Vec<char> = text.chars().collect();
-        let mut i = 0;
-
-        while i < chars.len() {
-            if chars[i] == '`' {
-                let start = i;
-                let mut backtick_count = 0;
-                while i < chars.len() && chars[i] == '`' {
-                    backtick_count += 1;
-                    i += 1;
-                }
-
-                let mut found_closing = false;
-                let mut j = i;
-
-                while j < chars.len() {
-                    if chars[j] == '`' {
-                        let close_start = j;
-                        let mut close_count = 0;
-                        while j < chars.len() && chars[j] == '`' {
-                            close_count += 1;
-                            j += 1;
-                        }
-
-                        if close_count == backtick_count {
-                            found_closing = true;
-                            result.extend(chars[start..i].iter());
-
-                            for &ch in chars.iter().take(close_start).skip(i) {
-                                if ch == '|' {
-                                    result.push('\\');
-                                    result.push('|');
-                                } else {
-                                    result.push(ch);
-                                }
-                            }
-
-                            result.extend(chars[close_start..j].iter());
-                            i = j;
-                            break;
-                        }
-                    } else {
-                        j += 1;
-                    }
-                }
-
-                if !found_closing {
-                    result.extend(chars[start..i].iter());
-                }
-            } else {
-                result.push(chars[i]);
-                i += 1;
-            }
-        }
-
-        result
-    }
-
     /// Mask escaped pipes for accurate table cell parsing
     ///
     /// In GFM tables, escape handling happens BEFORE cell boundary detection:
     /// - `\|` → escaped pipe → masked (stays as cell content)
     /// - `\\|` → escaped backslash + pipe → NOT masked (pipe is a delimiter)
     ///
-    /// IMPORTANT: Inline code spans do NOT protect pipes in GFM tables!
-    /// The pipe in `` `a | b` `` still acts as a cell delimiter, splitting into
-    /// two cells: `` `a `` and ` b` ``. This matches GitHub's actual rendering.
-    ///
-    /// To include a literal pipe in a table cell (even in code), you must escape it:
-    /// `` `a \| b` `` → single cell containing `a | b` (with code formatting)
+    /// This function only handles escaped pipes. Pipes inside inline code spans
+    /// are handled separately by `mask_pipes_in_inline_code`.
     pub fn mask_pipes_for_table_parsing(text: &str) -> String {
         let mut result = String::new();
         let chars: Vec<char> = text.chars().collect();
@@ -689,9 +655,8 @@ impl TableUtils {
     /// Returns a Vec of cell content strings (not trimmed - preserves original spacing).
     /// This is the foundation for both cell counting and cell content extraction.
     ///
-    /// For Standard/GFM flavor, pipes in inline code ARE cell delimiters (matches GitHub).
-    /// For MkDocs flavor, pipes in inline code are NOT cell delimiters.
-    pub fn split_table_row_with_flavor(row: &str, flavor: crate::config::MarkdownFlavor) -> Vec<String> {
+    /// Pipes inside code spans are treated as content, not cell delimiters.
+    pub fn split_table_row_with_flavor(row: &str, _flavor: crate::config::MarkdownFlavor) -> Vec<String> {
         let trimmed = row.trim();
 
         if !trimmed.contains('|') {
@@ -701,12 +666,8 @@ impl TableUtils {
         // First, mask escaped pipes (same for all flavors)
         let masked = Self::mask_pipes_for_table_parsing(trimmed);
 
-        // For MkDocs flavor, also mask pipes inside inline code
-        let final_masked = if flavor == crate::config::MarkdownFlavor::MkDocs {
-            Self::mask_pipes_in_inline_code(&masked)
-        } else {
-            masked
-        };
+        // Mask pipes inside inline code for all flavors
+        let final_masked = Self::mask_pipes_in_inline_code(&masked);
 
         let has_leading = final_masked.starts_with('|');
         let has_trailing = final_masked.ends_with('|');
@@ -1141,9 +1102,8 @@ mod tests {
 
     #[test]
     fn test_count_cells_with_escaped_pipes() {
-        // In GFM tables, escape handling happens BEFORE cell splitting.
-        // Inline code does NOT protect pipes - they still act as cell delimiters.
-        // To include a literal pipe in a table cell, you MUST escape it with \|
+        // Pipes inside code spans are treated as content, not cell delimiters.
+        // To include a literal pipe outside code spans, escape it with \|.
 
         // Basic table structure
         assert_eq!(TableUtils::count_cells("| Challenge | Solution |"), 2);
@@ -1154,23 +1114,22 @@ mod tests {
         assert_eq!(TableUtils::count_cells(r"| Command | echo \| grep |"), 2);
         assert_eq!(TableUtils::count_cells(r"| A | B \| C |"), 2); // B | C is one cell
 
-        // Escaped pipes inside backticks (correct way to include | in code in tables)
+        // Escaped pipes inside backticks
         assert_eq!(TableUtils::count_cells(r"| Command | `echo \| grep` |"), 2);
 
         // Double backslash + pipe: \\| means escaped backslash followed by pipe delimiter
         assert_eq!(TableUtils::count_cells(r"| A | B \\| C |"), 3); // \\| is NOT escaped pipe
-        assert_eq!(TableUtils::count_cells(r"| A | `B \\| C` |"), 3); // Same inside code
+        // Double backslash inside backticks: pipe is still masked by code span
+        assert_eq!(TableUtils::count_cells(r"| A | `B \\| C` |"), 2);
 
-        // IMPORTANT: Bare pipes in inline code DO act as delimiters (GFM behavior)
-        // This matches GitHub's actual rendering where `a | b` splits into two cells
-        assert_eq!(TableUtils::count_cells("| Command | `echo | grep` |"), 3);
-        assert_eq!(TableUtils::count_cells("| `code | one` | `code | two` |"), 4);
-        assert_eq!(TableUtils::count_cells("| `single|pipe` |"), 2);
+        // Pipes inside code spans are content, not delimiters
+        assert_eq!(TableUtils::count_cells("| Command | `echo | grep` |"), 2);
+        assert_eq!(TableUtils::count_cells("| `code | one` | `code | two` |"), 2);
+        assert_eq!(TableUtils::count_cells("| `single|pipe` |"), 1);
 
-        // The regex example from Issue #34 - pipes in regex patterns need escaping
-        // Unescaped: `^([0-1]?\d|2[0-3])` has a bare | which splits cells
-        assert_eq!(TableUtils::count_cells(r"| Hour formats | `^([0-1]?\d|2[0-3])` |"), 3);
-        // Escaped: `^([0-1]?\d\|2[0-3])` keeps the | as part of the regex
+        // Regex example - pipes in code spans are masked
+        assert_eq!(TableUtils::count_cells(r"| Hour formats | `^([0-1]?\d|2[0-3])` |"), 2);
+        // Escaped pipe inside code is also masked (escape is redundant here)
         assert_eq!(TableUtils::count_cells(r"| Hour formats | `^([0-1]?\d\|2[0-3])` |"), 2);
     }
 
@@ -1457,11 +1416,18 @@ But no delimiter row
 
     #[test]
     fn test_split_table_row_with_flavor_standard() {
-        // Standard/GFM flavor: pipes in inline code ARE cell delimiters
+        // Pipes in inline code are NOT cell delimiters for any flavor
         let cells =
             TableUtils::split_table_row_with_flavor("| Type | `x | y` |", crate::config::MarkdownFlavor::Standard);
-        // In GFM, `x | y` splits into separate cells
-        assert_eq!(cells.len(), 3);
+        assert_eq!(
+            cells.len(),
+            2,
+            "Pipes in code spans should not be cell delimiters, got {cells:?}"
+        );
+        assert!(
+            cells[1].contains("`x | y`"),
+            "Inline code with pipe should be single cell"
+        );
     }
 
     // === extract_blockquote_prefix tests ===
@@ -1574,5 +1540,111 @@ But no delimiter row
             tables[0].list_context.is_some(),
             "Should be a list table since delimiter is properly indented"
         );
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_regular_backticks() {
+        // Regular backtick code span: pipe should be masked
+        let result = TableUtils::mask_pipes_in_inline_code("| `code | here` |");
+        assert_eq!(result, "| `code _ here` |");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_escaped_backtick_not_code_span() {
+        // Escaped backtick (\`) is literal text, not a code span opener.
+        // The pipe should NOT be masked.
+        let result = TableUtils::mask_pipes_in_inline_code(r"| \`not code | still pipe\` |");
+        assert_eq!(result, r"| \`not code | still pipe\` |");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_escaped_backslash_then_backtick() {
+        // Escaped backslash (\\) followed by backtick: the backtick IS a code span opener.
+        // The pipe inside the code span SHOULD be masked.
+        let result = TableUtils::mask_pipes_in_inline_code(r"| \\`real code | masked\\` |");
+        // \\` = escaped backslash + real backtick (code span opener)
+        // The pipe between the backticks should be masked
+        assert_eq!(result, r"| \\`real code _ masked\\` |");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_triple_backslash_before_backtick() {
+        // Three backslashes before backtick: odd count means backtick is escaped
+        let result = TableUtils::mask_pipes_in_inline_code(r"| \\\`not code | pipe\\\` |");
+        assert_eq!(result, r"| \\\`not code | pipe\\\` |");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_four_backslashes_before_backtick() {
+        // Four backslashes before backtick: even count means backtick is a real delimiter
+        let result = TableUtils::mask_pipes_in_inline_code(r"| \\\\`code | here\\\\` |");
+        assert_eq!(result, r"| \\\\`code _ here\\\\` |");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_no_backslash() {
+        // No backslashes at all: standard behavior, pipe inside code span is masked
+        let result = TableUtils::mask_pipes_in_inline_code("before `a | b` after");
+        assert_eq!(result, "before `a _ b` after");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_no_code_span() {
+        // No backticks at all: nothing should be masked
+        let result = TableUtils::mask_pipes_in_inline_code("| col1 | col2 |");
+        assert_eq!(result, "| col1 | col2 |");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_backslash_before_closing_backtick() {
+        // Per CommonMark spec, backslash escapes do NOT work inside code spans.
+        // Inside a code span, `\` is a literal character. So `foo\` is a valid
+        // code span containing "foo\", and the closing backtick is NOT escaped.
+        //
+        // Input: | `foo\` | bar |
+        // The code span is `foo\` (backtick opens, backslash is literal, backtick closes).
+        // The pipe after the code span is a real delimiter, producing 2 cells.
+        // The pipe inside the code span should be left alone (there isn't one here).
+        let result = TableUtils::mask_pipes_in_inline_code(r"| `foo\` | bar |");
+        // The backslash before closing backtick is literal inside the code span,
+        // so the code span closes at that backtick. The pipe between cells is NOT masked.
+        assert_eq!(result, r"| `foo\` | bar |");
+    }
+
+    #[test]
+    fn test_mask_pipes_in_inline_code_backslash_literal_with_pipe_inside() {
+        // Code span contains a backslash and a pipe: `a\|b`
+        // The backslash is literal inside the code span (CommonMark spec).
+        // The pipe is inside the code span, so it should be masked.
+        let result = TableUtils::mask_pipes_in_inline_code(r"| `a\|b` | col2 |");
+        assert_eq!(result, r"| `a\_b` | col2 |");
+    }
+
+    #[test]
+    fn test_count_preceding_backslashes() {
+        let chars: Vec<char> = r"abc\\\`def".chars().collect();
+        // Position of backtick is at index 6 (a=0, b=1, c=2, \=3, \=4, \=5, `=6)
+        assert_eq!(TableUtils::count_preceding_backslashes(&chars, 6), 3);
+
+        let chars2: Vec<char> = r"abc\\`def".chars().collect();
+        // Position of backtick is at index 5
+        assert_eq!(TableUtils::count_preceding_backslashes(&chars2, 5), 2);
+
+        let chars3: Vec<char> = "`def".chars().collect();
+        // Position of backtick is at index 0 -- no preceding chars
+        assert_eq!(TableUtils::count_preceding_backslashes(&chars3, 0), 0);
+    }
+
+    #[test]
+    fn test_has_unescaped_pipe_backslash_literal_in_code_span() {
+        // Per CommonMark: backslashes are literal inside code spans.
+        // `foo\` is a complete code span, so the pipe after it is outside code.
+        assert!(TableUtils::has_unescaped_pipe_outside_inline_code(r"`foo\` | bar"));
+
+        // Escaped backtick outside code span: \` is not a code span opener
+        assert!(TableUtils::has_unescaped_pipe_outside_inline_code(r"\`foo | bar\`"));
+
+        // Pipe inside code span should not count
+        assert!(!TableUtils::has_unescaped_pipe_outside_inline_code(r"`foo | bar`"));
     }
 }

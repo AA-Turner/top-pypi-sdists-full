@@ -17,11 +17,9 @@ class CronScheduler:
         """Init  ."""
         self.jobs = []
         self._running = False
-        self._active_tasks = set()
 
     def add_job(self, name: str, interval_seconds: int, callback: object, **kwargs: object) -> None:
         """Add a new cron job with the given schedule and callback."""
-        timeout_seconds = kwargs.pop("timeout_seconds", 120)
         self.jobs.append(
             {
                 "name": name,
@@ -30,30 +28,8 @@ class CronScheduler:
                 "kwargs": kwargs,
                 "last_run": 0,
                 "enabled": True,
-                "error_count": 0,
-                "timeout_seconds": max(1, int(timeout_seconds or 120)),
-                "running": False,
             }
         )
-
-    async def _run_job(self, job: dict) -> None:
-        """Run one job with timeout protection."""
-        try:
-            timeout_s = float(job.get("timeout_seconds", 120) or 120)
-            if asyncio.iscoroutinefunction(job["callback"]):
-                coro = job["callback"](**job["kwargs"])
-            else:
-                coro = asyncio.to_thread(job["callback"], **job["kwargs"])
-            await asyncio.wait_for(coro, timeout=timeout_s)
-            job["error_count"] = 0
-        except asyncio.TimeoutError:
-            job["error_count"] = job.get("error_count", 0) + 1
-            log.warning(f"[CRON] Job timeout ({job['name']}): {int(job.get('timeout_seconds', 120))}s")
-        except Exception as e:
-            job["error_count"] = job.get("error_count", 0) + 1
-            log.error(f"Cron error ({job['name']}): {e}")
-        finally:
-            job["running"] = False
 
     async def run(self) -> None:
         """Start the cron scheduler loop."""
@@ -65,14 +41,15 @@ class CronScheduler:
                 if not job["enabled"]:
                     continue
                 if now - job["last_run"] >= job["interval"]:
-                    if job.get("running"):
-                        continue
-                    log.info(f"[CRON] Running cron: {job['name']}")
-                    job["running"] = True
-                    job["last_run"] = now  # fixed-interval behavior independent of runtime
-                    task = asyncio.create_task(self._run_job(job))
-                    self._active_tasks.add(task)
-                    task.add_done_callback(self._active_tasks.discard)
+                    try:
+                        log.info(f"[CRON] Running cron: {job['name']}")
+                        if asyncio.iscoroutinefunction(job["callback"]):
+                            await job["callback"](**job["kwargs"])
+                        else:
+                            job["callback"](**job["kwargs"])
+                        job["last_run"] = now
+                    except Exception as e:
+                        log.error(f"Cron error ({job['name']}): {e}")
             await asyncio.sleep(10)
 
     def stop(self) -> None:
@@ -201,13 +178,16 @@ class HeartbeatManager:
             state_ctx = "\n\nLast checks:\n" + "\n".join(checks)
 
         try:
-            from salmalm.core.engine import process_message
+            from salmalm.core.engine_pipeline import process_message
 
             # Run in isolated session (OpenClaw pattern: no cross-contamination)
-            result = await process_message(
-                f"heartbeat-{int(time.time())}",
-                f"[Heartbeat check]\n{prompt}{state_ctx}\n\nIf nothing needs attention, reply HEARTBEAT_OK.",
-                model_override=None,  # Use auto-routing
+            result = await asyncio.wait_for(
+                process_message(
+                    f"heartbeat-{int(time.time())}",
+                    f"[Heartbeat check]\n{prompt}{state_ctx}\n\nIf nothing needs attention, reply HEARTBEAT_OK.",
+                    model_override=None,  # Use auto-routing
+                ),
+                timeout=120,  # heartbeat should be fast
             )
 
             # Update state
@@ -229,7 +209,11 @@ class HeartbeatManager:
             # Announce if result is meaningful
             if result and "HEARTBEAT_OK" not in result:
                 cls._announce(result)
-                write_daily_log(f"[HEARTBEAT] {result[:200]}")
+                try:
+                    from salmalm.core.core import write_daily_log as _write_daily_log
+                    _write_daily_log(f"[HEARTBEAT] {result[:200]}")
+                except Exception as _wdl_err:
+                    log.debug(f"[HEARTBEAT] write_daily_log skipped: {_wdl_err}")
 
             return result
         except Exception as e:
@@ -239,6 +223,13 @@ class HeartbeatManager:
     @classmethod
     def _announce(cls, result: str) -> None:
         """Announce heartbeat results to configured channels."""
+        # Lazy imports to avoid circular dependency
+        try:
+            from salmalm.core.session_store import _tg_bot, _sessions
+        except Exception:
+            _tg_bot = None
+            _sessions = {}
+
         # Telegram notification
         if _tg_bot and _tg_bot.token and _tg_bot.owner_id:
             try:
@@ -253,8 +244,6 @@ class HeartbeatManager:
             if not hasattr(web_session, "_notifications"):
                 web_session._notifications = []
             web_session._notifications.append({"time": time.time(), "text": f"💓 Heartbeat: {result[:200]}"})
-            if len(web_session._notifications) > 200:
-                web_session._notifications = web_session._notifications[-200:]
 
 
 heartbeat = HeartbeatManager()

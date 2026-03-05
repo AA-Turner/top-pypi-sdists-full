@@ -8,9 +8,12 @@ T = TypeVar("T", bound="ListJobsResponse200ItemType0RawFlowFlowEnv")
 
 @_attrs_define
 class ListJobsResponse200ItemType0RawFlowFlowEnv:
-    """Environment variables available to all steps"""
+    """Environment variables available to all steps. Values can be strings, JSON values, or special references: '$var:path'
+    (workspace variable) or '$res:path' (resource).
 
-    additional_properties: Dict[str, str] = _attrs_field(init=False, factory=dict)
+    """
+
+    additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         field_dict: Dict[str, Any] = {}
@@ -31,10 +34,10 @@ class ListJobsResponse200ItemType0RawFlowFlowEnv:
     def additional_keys(self) -> List[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> str:
+    def __getitem__(self, key: str) -> Any:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: str) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

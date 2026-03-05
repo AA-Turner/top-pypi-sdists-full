@@ -5,14 +5,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import click
 from pydantic import ValidationError
-
-from uipath._cli._evals._conversational_utils import UiPathLegacyEvalChatMessagesMapper
 
 from .evaluators.base_evaluator import GenericBaseEvaluator
 from .evaluators.evaluator_factory import EvaluatorFactory
 from .mocks._types import InputMockingStrategy, LLMMockingStrategy
+from .models._conversational_utils import UiPathLegacyEvalChatMessagesMapper
 from .models.evaluation_set import (
     EvaluationItem,
     EvaluationSet,
@@ -23,6 +21,51 @@ from .models.evaluation_set import (
 logger = logging.getLogger(__name__)
 
 EVAL_SETS_DIRECTORY_NAME = "evaluations/eval-sets"
+
+
+def _apply_file_overrides_to_conversational_inputs(
+    conversational_inputs: Any,
+    overrides: dict[str, Any],
+) -> None:
+    """Apply file overrides to conversational input attachments before mapper conversion.
+
+    Extracts file objects from override values (single dict or array), matches them
+    to existing attachments by FullName, and replaces attachment fields in-place.
+    No-op if there are no file overrides or no matching attachments.
+    """
+    if not overrides:
+        return
+
+    file_overrides: list[dict[str, Any]] = []
+    for value in overrides.values():
+        if isinstance(value, list):
+            file_overrides.extend(f for f in value if isinstance(f, dict) and "ID" in f)
+        elif isinstance(value, dict) and "ID" in value:
+            file_overrides.append(value)
+
+    if not file_overrides:
+        return
+
+    override_by_name = {f["FullName"]: f for f in file_overrides if "FullName" in f}
+
+    def _override_attachments(attachments: list[Any] | None) -> None:
+        if not attachments:
+            return
+        for attachment in attachments:
+            override = override_by_name.get(attachment.full_name)
+            if override:
+                attachment.id = override["ID"]
+                if "FullName" in override:
+                    attachment.full_name = override["FullName"]
+                if "MimeType" in override:
+                    attachment.mime_type = override["MimeType"]
+
+    _override_attachments(conversational_inputs.current_user_prompt.attachments)
+
+    for exchange in conversational_inputs.conversation_history:
+        for message in exchange:
+            if hasattr(message, "attachments"):
+                _override_attachments(message.attachments)
 
 
 def discriminate_eval_set(data: dict[str, Any]) -> EvaluationSet | LegacyEvaluationSet:
@@ -47,57 +90,20 @@ class EvalHelpers:
     """Helper functions for evaluation commands, including loading and parsing evaluation sets and evaluators."""
 
     @staticmethod
-    def auto_discover_eval_set() -> str:
-        """Auto-discover evaluation set from {EVAL_SETS_DIRECTORY_NAME} directory.
-
-        Returns:
-            Path to the evaluation set file
-
-        Raises:
-            ValueError: If no eval set found or multiple eval sets exist
-        """
-        eval_sets_dir = Path(EVAL_SETS_DIRECTORY_NAME)
-
-        if not eval_sets_dir.exists():
-            raise ValueError(
-                f"No '{EVAL_SETS_DIRECTORY_NAME}' directory found. "
-                "Please set 'UIPATH_PROJECT_ID' env var and run 'uipath pull'."
-            )
-
-        eval_set_files = list(eval_sets_dir.glob("*.json"))
-
-        if not eval_set_files:
-            raise ValueError(
-                f"No evaluation set files found in '{EVAL_SETS_DIRECTORY_NAME}' directory. "
-            )
-
-        if len(eval_set_files) > 1:
-            file_names = [f.name for f in eval_set_files]
-            raise ValueError(
-                f"Multiple evaluation sets found: {file_names}. "
-                f"Please specify which evaluation set to use: 'uipath eval [entrypoint] <eval_set_path>'"
-            )
-
-        eval_set_path = str(eval_set_files[0])
-        logger.info(
-            f"Auto-discovered evaluation set: {click.style(eval_set_path, fg='cyan')}"
-        )
-
-        eval_set_path_obj = Path(eval_set_path)
-        if not eval_set_path_obj.is_file() or eval_set_path_obj.suffix != ".json":
-            raise ValueError("Evaluation set must be a JSON file")
-
-        return eval_set_path
-
-    @staticmethod
     def load_eval_set(
-        eval_set_path: str, eval_ids: list[str] | None = None
+        eval_set_path: str,
+        eval_ids: list[str] | None = None,
+        input_overrides: dict[str, Any] | None = None,
     ) -> tuple[EvaluationSet, str]:
         """Load the evaluation set from file.
 
         Args:
             eval_set_path: Path to the evaluation set file
             eval_ids: Optional list of evaluation IDs to filter
+            input_overrides: Optional input field overrides per evaluation ID.
+                For conversational agents, file overrides are applied to attachments
+                before the legacy-to-messages conversion so that overridden IDs
+                are baked into the messages before mapping.
 
         Returns:
             Tuple of (EvaluationSet, resolved_path)
@@ -148,6 +154,16 @@ class EvalHelpers:
                         )
 
                     if evaluation.conversational_inputs:
+                        overrides_for_eval = (
+                            input_overrides.get(evaluation.id, {})
+                            if input_overrides
+                            else {}
+                        )
+                        _apply_file_overrides_to_conversational_inputs(
+                            evaluation.conversational_inputs,
+                            overrides_for_eval,
+                        )
+
                         conversational_messages_input = UiPathLegacyEvalChatMessagesMapper.legacy_conversational_eval_input_to_uipath_message_list(
                             evaluation.conversational_inputs
                         )

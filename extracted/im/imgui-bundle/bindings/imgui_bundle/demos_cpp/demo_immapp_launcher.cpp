@@ -6,12 +6,12 @@
 
 
 const std::string DOC = R"(
-# HelloImGui and ImmApp
+# Demos Applications
 
-* [HelloImGui](https://pthom.github.io/hello_imgui) is a library based on ImGui that enables to easily create applications with ImGui.
-* [ImApp](https://github.com/pthom/imgui_bundle/blob/main/external/immapp/immapp/runner.h) (aka "Immediate App", a submodule of ImGuiBundle) is a thin extension of HelloImGui that enables to easily initialize the ImGuiBundle addons that require additional setup at startup.
+This section presents various demo applications that illustrate how to use Dear ImGui Bundle for various use cases. Click on the "View Code" buttons to view the apps' code, and click on "Run" to run them. Scroll with the mouse wheel in the table below for more demos.
 
-## Demo applications (*scroll with the mouse wheel below for more demos*)
+Note: [Hello ImGui](https://pthom.github.io/hello_imgui) is a library based on ImGui that enables to easily create applications with ImGui.
+[ImApp](https://github.com/pthom/imgui_bundle/blob/main/external/immapp/immapp/runner.h) ("Immediate App") is a thin extension of HelloImGui that enables to easily use addons that require additional setup at startup.
 )";
 
 
@@ -32,6 +32,7 @@ std::function<void()> makeGui()
         DemoApp{"demo_testengine", "How to use ImGui Test Engine to test and automate your application"},
         DemoApp{"demo_python_context_manager",
                 "How to use a python context manager for `imgui.begin()`, `imgui.end()`, etc."},
+        DemoApp{"demo_run_async", "(Python) How to enable parallel Python execution with GUI rendering with optimal performance"},
         DemoApp{"demo_command_palette", "a Sublime Text or VSCode style command palette in ImGui"},
         DemoApp{"demo_parametric_curve","Illustration of the Immediate GUI paradigm, with a simple parametric curve"},
         DemoApp{"haiku_implot_heart", "Share some love for ImGui and ImPlot"},

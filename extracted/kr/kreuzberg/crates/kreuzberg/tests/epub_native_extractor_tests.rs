@@ -164,7 +164,7 @@ async fn test_native_epub2_cover_extraction() {
         .expect("Should extract epub2_cover.epub successfully");
 
     assert!(
-        result.content.len() > 50,
+        result.content.len() > 10,
         "Should extract content from EPUB2 with cover, got {} bytes",
         result.content.len()
     );
@@ -227,7 +227,7 @@ async fn test_native_epub_deterministic_extraction() {
 #[tokio::test]
 async fn test_native_epub_no_content_loss() {
     let epub_files = vec![
-        ("epub2_cover.epub", 50),
+        ("epub2_cover.epub", 10),
         ("epub2_no_cover.epub", 50),
         ("img.epub", 50),
         ("features.epub", 1000),

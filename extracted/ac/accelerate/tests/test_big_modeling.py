@@ -411,7 +411,7 @@ class BigModelingTester(unittest.TestCase):
             "linear4": device_0,
         }
 
-        # Just to initialize CUDA context.
+        # Just to initialize device context.
         a = torch.rand(5).to(device_0)  # noqa: F841
 
         free_memory_bytes = torch_accelerator_module.mem_get_info(device_0)[0]
@@ -947,7 +947,7 @@ class BigModelingTester(unittest.TestCase):
         """Tests that `dispatch_model` quantizes int8 layers"""
         from huggingface_hub import hf_hub_download
         from transformers import AutoConfig, AutoModel, BitsAndBytesConfig
-        from transformers.utils.bitsandbytes import replace_with_bnb_linear
+        from transformers.integrations.bitsandbytes import replace_with_bnb_linear
 
         with init_empty_weights():
             model = AutoModel.from_config(AutoConfig.from_pretrained("bigscience/bloom-560m"))
@@ -978,7 +978,7 @@ class BigModelingTester(unittest.TestCase):
         """Tests that `dispatch_model` quantizes int8 layers"""
         from huggingface_hub import hf_hub_download
         from transformers import AutoConfig, AutoModel, BitsAndBytesConfig
-        from transformers.utils.bitsandbytes import replace_with_bnb_linear
+        from transformers.integrations.bitsandbytes import replace_with_bnb_linear
 
         with init_empty_weights():
             model = AutoModel.from_config(AutoConfig.from_pretrained("bigscience/bloom-560m"))
@@ -1041,7 +1041,7 @@ class BigModelingTester(unittest.TestCase):
         """Tests that `dispatch_model` quantizes fp4 layers"""
         from huggingface_hub import hf_hub_download
         from transformers import AutoConfig, AutoModel, BitsAndBytesConfig
-        from transformers.utils.bitsandbytes import replace_with_bnb_linear
+        from transformers.integrations.bitsandbytes import replace_with_bnb_linear
 
         with init_empty_weights():
             model = AutoModel.from_config(AutoConfig.from_pretrained("bigscience/bloom-560m"))

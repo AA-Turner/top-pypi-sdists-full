@@ -87,7 +87,7 @@ EnvironmentHealthStatusType = Literal[
     "Degraded", "Info", "NoData", "Ok", "Pending", "Severe", "Suspended", "Unknown", "Warning"
 ]
 EnvironmentHealthType = Literal["Green", "Grey", "Red", "Yellow"]
-EnvironmentInfoTypeType = Literal["bundle", "tail"]
+EnvironmentInfoTypeType = Literal["analyze", "bundle", "tail"]
 EnvironmentStatusType = Literal[
     "Aborting",
     "Launching",
@@ -272,6 +272,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

@@ -472,11 +472,13 @@ class DataLoaderAdapter:
         # so we need to adjust it here
         if PartialState().distributed_type != DistributedType.NO:
             factor = PartialState().num_processes - 1
-            if self.dl_state_dict["_sampler_iter_yielded"] > 0:
+            # When num_workers > 0, StatefulDataLoader uses _MultiProcessingDataLoaderIter
+            # which may not have _sampler_iter_yielded or _num_yielded in its state_dict
+            if "_sampler_iter_yielded" in self.dl_state_dict and self.dl_state_dict["_sampler_iter_yielded"] > 0:
                 self.dl_state_dict["_sampler_iter_yielded"] -= factor
-            if self.dl_state_dict["_num_yielded"] > 0:
+            if "_num_yielded" in self.dl_state_dict and self.dl_state_dict["_num_yielded"] > 0:
                 self.dl_state_dict["_num_yielded"] -= factor
-            if self.dl_state_dict["_index_sampler_state"] is not None:
+            if self.dl_state_dict.get("_index_sampler_state") is not None:
                 if (
                     "samples_yielded" in self.dl_state_dict["_index_sampler_state"]
                     and self.dl_state_dict["_index_sampler_state"]["samples_yielded"] > 0
@@ -554,6 +556,14 @@ class DataLoaderShard(DataLoaderAdapter, DataLoaderStateMixin):
         self._drop_last = _drop_last
         self._non_blocking = _non_blocking
         self.iteration = 0
+
+    def adjust_state_dict_for_prefetch(self):
+        # DataLoaderShard does not need the DDP prefetch adjustment that DataLoaderDispatcher needs.
+        # In DataLoaderShard, each process has its own sharded base dataloader and the 1-batch
+        # look-ahead is already accounted for by the timing of _update_state_dict() calls
+        # (called before the inner next(), so the captured state already equals the number of
+        # batches yielded to the user).
+        pass
 
     def __iter__(self):
         if self.rng_types is not None:

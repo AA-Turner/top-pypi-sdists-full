@@ -1938,7 +1938,7 @@ class DatabaseManager:
             bidirectional: If True, also search target_term and swap results (default True)
 
         Returns:
-            List of termbase hits, sorted by priority (lower = higher priority)
+            List of termbase hits
             Each result includes 'match_direction' ('source' or 'target') indicating
             which column matched. For 'target' matches, source_term and target_term
             are swapped so results are always oriented correctly for the current project.
@@ -1988,14 +1988,14 @@ class DatabaseManager:
         # Base SELECT for forward matches (source_term matches)
         base_select_forward = """
             SELECT
-                t.id, t.source_term, t.target_term, t.termbase_id, t.priority,
+                t.id, t.source_term, t.target_term, t.termbase_id,
                 t.forbidden, t.source_lang, t.target_lang, t.definition, t.domain,
                 t.notes, t.project, t.client,
                 tb.name as termbase_name,
                 tb.source_lang as termbase_source_lang,
                 tb.target_lang as termbase_target_lang,
                 tb.is_project_termbase,
-                COALESCE(ta.priority, tb.ranking) as ranking,
+                CASE WHEN COALESCE(ta.priority, 0) = 1 OR tb.is_project_termbase = 1 THEN 1 ELSE 0 END as ranking,
                 'source' as match_direction
             FROM termbase_terms t
             LEFT JOIN termbases tb ON CAST(t.termbase_id AS INTEGER) = tb.id
@@ -2008,7 +2008,7 @@ class DatabaseManager:
         base_select_reverse = """
             SELECT
                 t.id, t.target_term as source_term, t.source_term as target_term,
-                t.termbase_id, t.priority,
+                t.termbase_id,
                 t.forbidden, t.target_lang as source_lang, t.source_lang as target_lang,
                 t.definition, t.domain,
                 t.notes, t.project, t.client,
@@ -2016,7 +2016,7 @@ class DatabaseManager:
                 tb.target_lang as termbase_source_lang,
                 tb.source_lang as termbase_target_lang,
                 tb.is_project_termbase,
-                COALESCE(ta.priority, tb.ranking) as ranking,
+                CASE WHEN COALESCE(ta.priority, 0) = 1 OR tb.is_project_termbase = 1 THEN 1 ELSE 0 END as ranking,
                 'target' as match_direction
             FROM termbase_terms t
             LEFT JOIN termbases tb ON CAST(t.termbase_id AS INTEGER) = tb.id
@@ -2100,12 +2100,12 @@ class DatabaseManager:
                     UNION ALL
                     {reverse_query}
                 ) combined
-                ORDER BY COALESCE(ranking, -1) ASC, source_term ASC
+                ORDER BY ranking DESC, source_term ASC
             """
             params = forward_params + reverse_params
         else:
             # Original forward-only behavior
-            query = forward_query + " ORDER BY COALESCE(ranking, -1) ASC, source_term ASC"
+            query = forward_query + " ORDER BY ranking DESC, source_term ASC"
             params = forward_params
 
         self.cursor.execute(query, params)

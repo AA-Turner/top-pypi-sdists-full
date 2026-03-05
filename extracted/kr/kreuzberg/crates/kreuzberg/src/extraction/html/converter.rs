@@ -7,7 +7,8 @@ use crate::core::config::OutputFormat as KreuzbergOutputFormat;
 use crate::error::{KreuzbergError, Result};
 use crate::types::HtmlMetadata;
 use html_to_markdown_rs::{
-    ConversionOptions, MetadataConfig, OutputFormat as LibOutputFormat, convert as convert_html, convert_with_metadata,
+    ConversionOptions, ExtendedMetadata, MetadataConfig, OutputFormat as LibOutputFormat, convert as convert_html,
+    convert_with_metadata,
 };
 
 /// Map Kreuzberg OutputFormat to html-to-markdown-rs OutputFormat.
@@ -15,11 +16,10 @@ fn map_output_format(format: KreuzbergOutputFormat) -> LibOutputFormat {
     match format {
         KreuzbergOutputFormat::Markdown => LibOutputFormat::Markdown,
         KreuzbergOutputFormat::Djot => LibOutputFormat::Djot,
-        // Plain, Html, and Structured default to Markdown for HTML conversions
+        KreuzbergOutputFormat::Plain => LibOutputFormat::Plain,
+        // Html and Structured default to Markdown for HTML conversions
         // Structured output includes the converted content plus full element metadata
-        KreuzbergOutputFormat::Plain | KreuzbergOutputFormat::Html | KreuzbergOutputFormat::Structured => {
-            LibOutputFormat::Markdown
-        }
+        KreuzbergOutputFormat::Html | KreuzbergOutputFormat::Structured => LibOutputFormat::Markdown,
     }
 }
 
@@ -133,47 +133,68 @@ pub fn convert_html_to_markdown_with_metadata(
     check_wasm_size_limit(html)?;
 
     let format = output_format.unwrap_or(KreuzbergOutputFormat::Markdown);
+    // When the output format is Plain, the html-to-markdown library takes a fast path
+    // that skips the metadata collector entirely. To still extract metadata, we run the
+    // conversion with Markdown format (which goes through the full pipeline including
+    // metadata collection), then do a separate plain-text conversion for the content.
+    let is_plain = matches!(format, KreuzbergOutputFormat::Plain);
+    let metadata_format = if is_plain {
+        KreuzbergOutputFormat::Markdown
+    } else {
+        format
+    };
+
     // Disable extract_metadata (YAML frontmatter) in the conversion options because
     // metadata is collected separately via MetadataCollector in convert_with_metadata.
     // Keeping extract_metadata=true would cause metadata to appear both as YAML frontmatter
     // in the content string and in the returned metadata struct, which tanks quality scores.
-    let mut options = resolve_conversion_options(options, format);
+    let mut options = resolve_conversion_options(options.clone(), metadata_format);
     options.extract_metadata = false;
     let metadata_config = MetadataConfig::default();
 
+    let to_html_metadata = |content: String, extended_metadata: ExtendedMetadata| {
+        let html_metadata = HtmlMetadata::from(extended_metadata);
+        (
+            content,
+            if html_metadata.is_empty() {
+                None
+            } else {
+                Some(html_metadata)
+            },
+        )
+    };
+
     #[cfg(not(target_arch = "wasm32"))]
     if html_requires_large_stack(html.len()) {
-        let html = html.to_string();
+        let html_owned = html.to_string();
+        let plain_options = is_plain.then(|| resolve_conversion_options(None, format));
         return run_on_dedicated_stack(move || {
-            convert_with_metadata(&html, Some(options), metadata_config, None)
-                .map_err(|e| KreuzbergError::parsing(format!("HTML metadata extraction failed: {}", e)))
-                .map(|(content, extended_metadata)| {
-                    let html_metadata = HtmlMetadata::from(extended_metadata);
-                    (
-                        content,
-                        if html_metadata.is_empty() {
-                            None
-                        } else {
-                            Some(html_metadata)
-                        },
-                    )
-                })
+            let (md_content, extended_metadata) =
+                convert_with_metadata(&html_owned, Some(options), metadata_config, None)
+                    .map_err(|e| KreuzbergError::parsing(format!("HTML metadata extraction failed: {}", e)))?;
+            let content = if let Some(opts) = plain_options {
+                convert_html(&html_owned, Some(opts))
+                    .map_err(|e| KreuzbergError::parsing(format!("HTML plain text conversion failed: {}", e)))?
+            } else {
+                md_content
+            };
+            Ok(to_html_metadata(content, extended_metadata))
         });
     }
 
     let (content, extended_metadata) = convert_with_metadata(html, Some(options), metadata_config, None)
         .map_err(|e| KreuzbergError::parsing(format!("HTML metadata extraction failed: {}", e)))?;
 
-    let html_metadata = HtmlMetadata::from(extended_metadata);
+    // If plain text was requested, do a separate conversion for the content.
+    let content = if is_plain {
+        let plain_options = resolve_conversion_options(None, format);
+        convert_html(html, Some(plain_options))
+            .map_err(|e| KreuzbergError::parsing(format!("HTML plain text conversion failed: {}", e)))?
+    } else {
+        content
+    };
 
-    Ok((
-        content,
-        if html_metadata.is_empty() {
-            None
-        } else {
-            Some(html_metadata)
-        },
-    ))
+    Ok(to_html_metadata(content, extended_metadata))
 }
 
 #[cfg(test)]

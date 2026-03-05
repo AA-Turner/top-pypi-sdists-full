@@ -14,7 +14,7 @@ import re
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Iterator, Optional
+from typing import Any, Iterable, Iterator, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -742,6 +742,25 @@ class Keeper:
                 )
             except Exception as e:
                 logger.warning("Failed to initialize TaskClient: %s", e)
+
+        # --- Planner stats (precomputed priors for continuation) ---
+        self._planner_stats = None
+        if self._is_local:
+            from .planner_stats import PlannerStatsStore
+            try:
+                self._planner_stats = PlannerStatsStore(
+                    self._store_path / "planner_stats.db"
+                )
+                # Bootstrap: enqueue rebuild task if stats have never been built.
+                # The daemon will pick this up on its next tick.
+                doc_coll = self._resolve_doc_collection()
+                if self._planner_stats.needs_rebuild(doc_coll):
+                    self._pending_queue.enqueue(
+                        ".planner-rebuild", doc_coll, "",
+                        task_type="planner-rebuild",
+                    )
+            except Exception as e:
+                logger.warning("Failed to initialize PlannerStatsStore: %s", e)
 
         # System doc migration deferred to first write (needs embeddings)
         from .system_docs import _bundled_docs_hash
@@ -1777,6 +1796,33 @@ class Keeper:
         docs = self._document_store.query_by_id_prefix(doc_coll, prefix)
         return [doc.id[len(prefix):] for doc in docs]
 
+    def _get_singular_keys(self, keys: Iterable[str]) -> set[str]:
+        """Return the subset of *keys* whose tagdoc has ``_singular=true``.
+
+        For each non-system key, looks up ``.tag/{key}`` in the document
+        store.  If the tagdoc exists and carries ``_singular: "true"``,
+        the key is included in the result set.
+        """
+        doc_coll = self._resolve_doc_collection()
+        singular: set[str] = set()
+        for key in keys:
+            if key.startswith(SYSTEM_TAG_PREFIX):
+                continue
+            parent = self._document_store.get(doc_coll, f".tag/{key}")
+            if parent is not None and parent.tags.get("_singular") == "true":
+                singular.add(key)
+        return singular
+
+    def _validate_singular_tags(self, add_changes: dict, singular_keys: set[str]) -> None:
+        """Raise if any singular key has more than one incoming value."""
+        for key in singular_keys:
+            values = tag_values(add_changes, key)
+            if len(values) > 1:
+                raise ValueError(
+                    f"Tag '{key}' is singular (at most one value allowed), "
+                    f"but got {len(values)} values: {values!r}"
+                )
+
     # -------------------------------------------------------------------------
     # Edge processing (tag-driven relationship edges)
     # -------------------------------------------------------------------------
@@ -2075,14 +2121,22 @@ class Keeper:
 
         if tags:
             user_tags = casefold_tags(filter_non_system_tags(tags))
+            # Validate constrained tags (only user-provided, not existing/env)
+            self._validate_constrained_tags(user_tags)
+            # Singular enforcement: clear existing values so merge replaces
+            singular_keys = self._get_singular_keys(
+                k for k in user_tags if tag_values(user_tags, k) != [""]
+            )
+            if singular_keys:
+                self._validate_singular_tags(user_tags, singular_keys)
             for key in user_tags:
                 values = tag_values(user_tags, key)
                 if values == [""]:
                     merged_tags.pop(key, None)
                 else:
+                    if key in singular_keys:
+                        merged_tags.pop(key, None)
                     _merge_tags_additive(merged_tags, {key: values})
-            # Validate constrained tags (only user-provided, not existing/env)
-            self._validate_constrained_tags(user_tags)
 
         _merge_tags_additive(merged_tags, system_tags, replace_system=True)
 
@@ -4868,6 +4922,11 @@ class Keeper:
         # Apply tag changes (filter out system tags from input)
         if add_changes:
             self._validate_constrained_tags(add_changes)
+            singular_keys = self._get_singular_keys(add_changes)
+            if singular_keys:
+                self._validate_singular_tags(add_changes, singular_keys)
+                for sk in singular_keys:
+                    user_tags.pop(sk, None)
         if add_changes or remove_keys or remove_value_changes:
             user_tags = _apply_tag_mutations(
                 user_tags,
@@ -4948,6 +5007,11 @@ class Keeper:
             }
         if add_changes:
             self._validate_constrained_tags(add_changes)
+            singular_keys = self._get_singular_keys(add_changes)
+            if singular_keys:
+                self._validate_singular_tags(add_changes, singular_keys)
+                for sk in singular_keys:
+                    merged.pop(sk, None)
         if add_changes or remove_keys or remove_value_changes:
             merged = _apply_tag_mutations(
                 merged,
@@ -5562,6 +5626,7 @@ class Keeper:
                     "backfill-edges": "Backfilling edges",
                     "embed": "Embedding",
                     "ocr": "OCR",
+                    "planner-rebuild": "Rebuilding planner stats",
                     "reindex": "Re-embedding",
                     "summarize": "Summarizing",
                 }
@@ -5582,6 +5647,11 @@ class Keeper:
                     self._release_content_extractor()
                     self._release_summarization_provider()
                     self._release_embedding_provider()
+                elif item.task_type == "planner-rebuild":
+                    if self._planner_stats:
+                        self._planner_stats.rebuild(
+                            self._document_store, item.collection,
+                        )
                 elif item.task_type == "reindex":
                     self._process_pending_reindex(item)
                     self._release_embedding_provider()
@@ -5635,6 +5705,22 @@ class Keeper:
                 result["errors"].append(f"{item.id}: {error_msg}")
                 logger.warning("Failed to %s %s (attempt %d): %s",
                              item.task_type, item.id, item.attempts, e)
+
+        # Drain planner outbox (bounded)
+        if self._planner_stats:
+            try:
+                doc_coll = self._resolve_doc_collection()
+                planner_result = self._planner_stats.drain_outbox(
+                    self._document_store, doc_coll,
+                    max_items=20, max_ms=200,
+                )
+                if planner_result["processed"]:
+                    logger.info(
+                        "Planner stats: processed=%d failed=%d",
+                        planner_result["processed"], planner_result["failed"],
+                    )
+            except Exception as e:
+                logger.debug("Planner drain skipped: %s", e)
 
         # Poll for delegated task results
         if self._task_client:
@@ -5810,6 +5896,69 @@ class Keeper:
             "Delegated %s %s reverted to local: %s",
             item.task_type, item.id, reason,
         )
+
+    # -------------------------------------------------------------------------
+    # Planner priors
+    # -------------------------------------------------------------------------
+
+    def get_planner_priors(
+        self,
+        scope_key: str | None = None,
+        candidates: list[str] | None = None,
+    ) -> dict:
+        """Return minimal planner priors for continuation discriminators.
+
+        Shape:
+        {
+            "planner_priors": {
+                "fanout": {...},
+                "selectivity": {...},
+                "cardinality": {...}
+            },
+            "staleness": {"stats_age_s": 14, "fallback_mode": false}
+        }
+        """
+        if not self._planner_stats:
+            return {
+                "planner_priors": {},
+                "staleness": {"stats_age_s": None, "fallback_mode": True},
+            }
+
+        from .planner_stats import build_scope_key
+        if scope_key is None:
+            scope_key = build_scope_key()
+
+        raw_priors = self._planner_stats.get_priors(
+            scope_key,
+            metric_families=[
+                "expansion.fanout",
+                "expansion.selectivity",
+                "facet.cardinality",
+            ],
+            subject_keys=candidates,
+        )
+        staleness = self._planner_stats.get_staleness(scope_key)
+
+        priors = {
+            "fanout": raw_priors.get("expansion.fanout", {}),
+            "selectivity": raw_priors.get("expansion.selectivity", {}),
+            "cardinality": raw_priors.get("facet.cardinality", {}),
+        }
+
+        return {
+            "planner_priors": priors,
+            "staleness": staleness,
+        }
+
+    def rebuild_planner_stats(self) -> dict:
+        """Full rebuild of planner statistics from canonical data.
+
+        Returns dict with count of stats upserted per metric family.
+        """
+        if not self._planner_stats:
+            return {}
+        doc_coll = self._resolve_doc_collection()
+        return self._planner_stats.rebuild(self._document_store, doc_coll)
 
     def apply_result(self, item_id, collection, result, *, existing_tags=None):
         """Apply a ProcessorResult to the local store."""

@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: etils
-Version: 1.13.0
+Version: 1.14.0
 Summary: Collection of common python utils
 Keywords: utils,jax,tensorflow,tf,machine learning,deep learning
 Author-email: Conchylicultor <etils@google.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -57,7 +57,6 @@ Requires-Dist: numpy ; extra == "enp"
 Requires-Dist: einops ; extra == "enp"
 Requires-Dist: etils[epy] ; extra == "enp"
 Requires-Dist: fsspec ; extra == "epath"
-Requires-Dist: importlib_resources ; extra == "epath"
 Requires-Dist: typing_extensions ; extra == "epath"
 Requires-Dist: zipp ; extra == "epath"
 Requires-Dist: etils[epy] ; extra == "epath"

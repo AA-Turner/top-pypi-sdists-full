@@ -12,7 +12,7 @@ pub use tensorzero_types::{
     Base64File, File, ObjectStoragePointer, RawText, Role, Template, Text, Thought,
     ToolCallWrapper, Unknown, UrlFile,
 };
-use tensorzero_types::{InputMessage, InputMessageContent};
+use tensorzero_types::{InputMessage, InputMessageContent, ResolveUuidResponse};
 use uuid::Uuid;
 
 // =============================================================================
@@ -40,26 +40,21 @@ pub enum EventPayloadMessageContent {
 pub struct EventPayloadMessage {
     pub role: Role,
     pub content: Vec<EventPayloadMessageContent>,
+    #[serde(default)]
+    // EventPayloadMessageMetadata currently has no fields exposed to Typescript,
+    // so we need to override the type to satisfy eslint
+    #[cfg_attr(feature = "ts-bindings", ts(type = "Record<string, never>"))]
+    pub metadata: EventPayloadMessageMetadata,
 }
 
-impl TryFrom<InputMessage> for EventPayloadMessage {
-    type Error = &'static str;
-
-    fn try_from(msg: InputMessage) -> Result<Self, Self::Error> {
-        let content = msg
-            .content
-            .into_iter()
-            .map(|c| match c {
-                InputMessageContent::Text(text) => Ok(EventPayloadMessageContent::Text(text)),
-                _ => Err("EventPayloadMessage only supports Text content blocks"),
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(EventPayloadMessage {
-            role: msg.role,
-            content,
-        })
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct EventPayloadMessageMetadata {
+    /// Attempted lookups for anything that matched a UUID regex
+    /// in the parent `EventPayloadMessage`
+    // We hide this from the UI, and populate in in the gateway
+    // before proxying it to the autopilot server
+    #[serde(default)]
+    pub resolved_uuids: Vec<ResolveUuidResponse>,
 }
 
 impl From<EventPayloadMessage> for InputMessage {
@@ -253,7 +248,7 @@ pub enum GatewayEventPayload {
     Message(EventPayloadMessage),
     Error(EventPayloadError),
     StatusUpdate(EventPayloadStatusUpdate),
-    ToolCall(EventPayloadToolCall),
+    ToolCall(GatewayEventPayloadToolCall),
     ToolCallAuthorization(GatewayEventPayloadToolCallAuthorization),
     ToolResult(EventPayloadToolResult),
     Visualization(EventPayloadVisualization),
@@ -272,7 +267,7 @@ impl TryFrom<EventPayload> for GatewayEventPayload {
             EventPayload::Message(m) => Ok(GatewayEventPayload::Message(m)),
             EventPayload::Error(e) => Ok(GatewayEventPayload::Error(e)),
             EventPayload::StatusUpdate(s) => Ok(GatewayEventPayload::StatusUpdate(s)),
-            EventPayload::ToolCall(t) => Ok(GatewayEventPayload::ToolCall(t)),
+            EventPayload::ToolCall(t) => Ok(GatewayEventPayload::ToolCall(t.into())),
             EventPayload::ToolCallAuthorization(auth) => {
                 Ok(GatewayEventPayload::ToolCallAuthorization(auth.try_into()?))
             }
@@ -316,6 +311,30 @@ pub struct EventPayloadToolCall {
     pub arguments: serde_json::Value,
     /// Side info to pass to the tool (hidden from LLM, used for execution context).
     pub side_info: AutopilotSideInfo,
+}
+
+/// Tool call payload as seen by gateway consumers.
+/// Includes `requires_approval` which is set by the gateway based on tool whitelist config.
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GatewayEventPayloadToolCall {
+    pub name: String,
+    pub arguments: serde_json::Value,
+    pub side_info: AutopilotSideInfo,
+    /// Whether this tool call requires manual user approval.
+    /// `false` for whitelisted tools (auto-approved by gateway).
+    pub requires_approval: bool,
+}
+
+impl From<EventPayloadToolCall> for GatewayEventPayloadToolCall {
+    fn from(tc: EventPayloadToolCall) -> Self {
+        GatewayEventPayloadToolCall {
+            name: tc.name,
+            arguments: tc.arguments,
+            side_info: tc.side_info,
+            requires_approval: true, // safe default: require approval
+        }
+    }
 }
 
 /// Side information required for autopilot client tools.

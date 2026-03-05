@@ -4686,7 +4686,19 @@ class AsyncClient(AsyncBaseClient):
               cancellationDate
               effectiveEndDate
               currentBillingPeriodEnd
+              currentBillingPeriodStart
+              billingPeriod
               additionalMetaData
+              totalPrice {
+                subTotal {
+                  amount
+                  currency
+                }
+                total {
+                  amount
+                  currency
+                }
+              }
               customer {
                 customerId
                 email
@@ -4701,6 +4713,15 @@ class AsyncClient(AsyncBaseClient):
               plan {
                 planId: refId
                 displayName
+                description
+                product {
+                  refId
+                  displayName
+                  downgradePlan {
+                    refId
+                    displayName
+                  }
+                }
               }
               addons {
                 quantity

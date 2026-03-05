@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-meridian
-Version: 1.5.2
+Version: 1.5.3
 Summary: Google's open source mixed marketing model library, helps you understand your return on investment and direct your ad spend with confidence. 
 Author-email: The Meridian Authors <no-reply@google.com>
 Project-URL: homepage, https://github.com/google/meridian
@@ -15,7 +15,7 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: arviz
+Requires-Dist: arviz<0.20.0
 Requires-Dist: altair>=5
 Requires-Dist: bidict
 Requires-Dist: immutabledict
@@ -25,8 +25,8 @@ Requires-Dist: numpy<2.4.0,>=2.0.2
 Requires-Dist: pandas<3,>=2.2.2
 Requires-Dist: scipy<2,>=1.13.1
 Requires-Dist: statsmodels>=0.14.5
-Requires-Dist: tensorflow<2.21,>=2.18
-Requires-Dist: tensorflow-probability<0.26,>=0.25
+Requires-Dist: tensorflow<2.21,>=2.19.0
+Requires-Dist: tfp-nightly==0.26.0.dev20260130
 Requires-Dist: tf-keras<2.21,>=2.18
 Requires-Dist: xarray
 Provides-Extra: dev
@@ -38,20 +38,20 @@ Provides-Extra: colab
 Requires-Dist: psutil; extra == "colab"
 Requires-Dist: python-calamine; extra == "colab"
 Provides-Extra: and-cuda
-Requires-Dist: tensorflow[and-cuda]<2.21,>=2.18; extra == "and-cuda"
+Requires-Dist: tensorflow[and-cuda]<2.21,>=2.19.0; extra == "and-cuda"
 Provides-Extra: mlflow
 Requires-Dist: mlflow; extra == "mlflow"
 Provides-Extra: jax
-Requires-Dist: jax==0.5.3; extra == "jax"
-Requires-Dist: jaxlib==0.5.3; extra == "jax"
-Requires-Dist: tensorflow-probability[substrates-jax]==0.25.0; extra == "jax"
+Requires-Dist: jax==0.7.2; extra == "jax"
+Requires-Dist: jaxlib==0.7.2; extra == "jax"
+Requires-Dist: tfp-nightly[substrates-jax]==0.26.0.dev20260130; extra == "jax"
 Provides-Extra: schema
-Requires-Dist: mmm-proto-schema>=1.1.1; extra == "schema"
+Requires-Dist: mmm-proto-schema>=1.1.2; extra == "schema"
 Requires-Dist: semver; extra == "schema"
 Provides-Extra: scenarioplanner
 Requires-Dist: google-api-python-client; extra == "scenarioplanner"
 Requires-Dist: google-auth; extra == "scenarioplanner"
-Requires-Dist: mmm-proto-schema>=1.1.1; extra == "scenarioplanner"
+Requires-Dist: mmm-proto-schema>=1.1.2; extra == "scenarioplanner"
 Requires-Dist: semver; extra == "scenarioplanner"
 Dynamic: license-file
 
@@ -86,7 +86,7 @@ you understand the differences between these MMM projects.
 
 ## Install Meridian
 
-Python 3.11 or 3.12 is required to use Meridian. We also recommend using a
+Python 3.11-3.13 is required to use Meridian. We also recommend using a
 minimum of 1 GPU.
 
 Note: This project has been tested on T4 GPU using 16 GB of RAM.
@@ -210,7 +210,7 @@ To cite this repository:
   author = {Google Meridian Marketing Mix Modeling Team},
   title = {Meridian: Marketing Mix Modeling},
   url = {https://github.com/google/meridian},
-  version = {1.5.2},
-  year = {2025},
+  version = {1.5.3},
+  year = {2026},
 }
 ```

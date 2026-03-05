@@ -44,6 +44,7 @@ from accelerate.test_utils import (
 )
 from accelerate.test_utils.testing import (
     AccelerateTestCase,
+    assert_exception,
     require_cuda,
     require_non_torch_xla,
     require_torchdata_stateful_dataloader,
@@ -244,21 +245,25 @@ class AcceleratorTester(AccelerateTestCase):
         assert len(accelerator._schedulers) == 0
         assert len(accelerator._dataloaders) == 0
 
-        # The less-than comes *specifically* from CUDA CPU things/won't be present on CPU builds
-        assert free_cpu_ram_after <= free_cpu_ram_before
+        # The less-than comes *specifically* from device CPU things/won't be present on CPU builds
+        # Allow a small tolerance for OS-level memory fluctuations between measurements
+        assert free_cpu_ram_after <= free_cpu_ram_before + 50
 
     @require_non_torch_xla
     def test_env_var_device(self):
         """Tests that setting the torch device with ACCELERATE_TORCH_DEVICE overrides default device."""
         PartialState._reset_state()
 
-        # Mock torch.cuda.set_device to avoid an exception as the device doesn't exist
+        # Mock torch's set_device call to avoid an exception as the device doesn't exist
         def noop(*args, **kwargs):
             pass
 
-        with patch("torch.cuda.set_device", noop), patch_environment(ACCELERATE_TORCH_DEVICE="cuda:64"):
+        with (
+            patch(f"torch.{torch_device}.set_device", noop),
+            patch_environment(ACCELERATE_TORCH_DEVICE=f"{torch_device}:64"),
+        ):
             accelerator = Accelerator()
-            assert str(accelerator.state.device) == "cuda:64"
+            assert str(accelerator.state.device) == f"{torch_device}:64"
 
     @parameterized.expand([(True, True), (True, False), (False, False)], name_func=parameterized_custom_name_func)
     def test_save_load_model(self, use_safetensors, tied_weights):
@@ -464,11 +469,11 @@ class AcceleratorTester(AccelerateTestCase):
     @require_bnb
     def test_accelerator_bnb(self):
         """Tests that the accelerator can be used with the BNB library."""
-        from transformers import AutoModelForCausalLM
+        from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
         model = AutoModelForCausalLM.from_pretrained(
             "EleutherAI/gpt-neo-125m",
-            load_in_8bit=True,
+            quantization_config=BitsAndBytesConfig(load_in_8bit=True),
             device_map={"": 0},
         )
         accelerator = Accelerator()
@@ -495,8 +500,12 @@ class AcceleratorTester(AccelerateTestCase):
             device_map = infer_auto_device_map(model)
             device_map["lm_head"] = "cpu"
 
+        from transformers import BitsAndBytesConfig
+
         model = AutoModelForCausalLM.from_pretrained(
-            "EleutherAI/gpt-neo-125m", device_map=device_map, load_in_8bit=True, llm_int8_enable_fp32_cpu_offload=True
+            "EleutherAI/gpt-neo-125m",
+            device_map=device_map,
+            quantization_config=BitsAndBytesConfig(load_in_8bit=True, llm_int8_enable_fp32_cpu_offload=True),
         )
 
         # This should not work and get value error
@@ -510,7 +519,7 @@ class AcceleratorTester(AccelerateTestCase):
     @require_multi_device
     def test_accelerator_bnb_multi_device(self):
         """Tests that the accelerator can be used with the BNB library."""
-        from transformers import AutoModelForCausalLM
+        from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
         if torch_device == "cuda":
             PartialState._shared_state = {"distributed_type": DistributedType.MULTI_GPU}
@@ -531,7 +540,7 @@ class AcceleratorTester(AccelerateTestCase):
 
         model = AutoModelForCausalLM.from_pretrained(
             "EleutherAI/gpt-neo-125m",
-            load_in_8bit=True,
+            quantization_config=BitsAndBytesConfig(load_in_8bit=True),
             device_map=device_map,
         )
         accelerator = Accelerator()
@@ -547,7 +556,7 @@ class AcceleratorTester(AccelerateTestCase):
     @require_multi_device
     def test_accelerator_bnb_multi_device_no_distributed(self):
         """Tests that the accelerator can be used with the BNB library."""
-        from transformers import AutoModelForCausalLM
+        from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
         with init_empty_weights():
             model = AutoModelForCausalLM.from_pretrained(
@@ -558,7 +567,7 @@ class AcceleratorTester(AccelerateTestCase):
 
         model = AutoModelForCausalLM.from_pretrained(
             "EleutherAI/gpt-neo-125m",
-            load_in_8bit=True,
+            quantization_config=BitsAndBytesConfig(load_in_8bit=True),
             device_map=device_map,
         )
         accelerator = Accelerator()
@@ -861,3 +870,27 @@ class AcceleratorTester(AccelerateTestCase):
             #       weight is on the meta device, we need a `value` to put in on 0
             x = torch.randn(1, 2)
             my_model(x)
+
+    @require_non_torch_xla
+    def test_prepare_model_8bit_cpu_offload_raises_valueerror_not_typeerror(self):
+        class ModelForTest(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.l = torch.nn.Linear(2, 2)
+
+            def forward(self, x):
+                return self.l(x)
+
+        accelerator = Accelerator()
+        model = ModelForTest()
+
+        # Trigger the 8-bit/4-bit + hf_device_map code path.
+        model.is_loaded_in_8bit = True
+        model.hf_device_map = {"": "cpu"}
+
+        with (
+            patch("accelerate.accelerator.is_bitsandbytes_multi_backend_available", return_value=False),
+            patch("accelerate.accelerator.is_xpu_available", return_value=False),
+        ):
+            with assert_exception(ValueError, "CPU or disk offload"):
+                accelerator.prepare_model(model)

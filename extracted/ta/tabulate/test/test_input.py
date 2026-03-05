@@ -1,6 +1,6 @@
 """Test support of the various forms of tabular data."""
 
-from tabulate import tabulate
+from tabulate import tabulate, SEPARATING_LINE
 from common import assert_equal, assert_in, raises, skip
 
 try:
@@ -11,7 +11,7 @@ except ImportError:
 
 
 def test_iterable_of_iterables():
-    "Input: an interable of iterables."
+    "Input: an iterable of iterables."
     ii = iter(map(lambda x: iter(x), [range(5), range(5, 0, -1)]))
     expected = "\n".join(
         ["-  -  -  -  -", "0  1  2  3  4", "5  4  3  2  1", "-  -  -  -  -"]
@@ -21,7 +21,7 @@ def test_iterable_of_iterables():
 
 
 def test_iterable_of_iterables_headers():
-    "Input: an interable of iterables with headers."
+    "Input: an iterable of iterables with headers."
     ii = iter(map(lambda x: iter(x), [range(5), range(5, 0, -1)]))
     expected = "\n".join(
         [
@@ -36,7 +36,7 @@ def test_iterable_of_iterables_headers():
 
 
 def test_iterable_of_iterables_firstrow():
-    "Input: an interable of iterables with the first row as headers"
+    "Input: an iterable of iterables with the first row as headers"
     ii = iter(map(lambda x: iter(x), ["abcde", range(5), range(5, 0, -1)]))
     expected = "\n".join(
         [
@@ -173,7 +173,7 @@ def test_numpy_record_array():
             [("Alice", 23, 169.5), ("Bob", 27, 175.0)],
             dtype={
                 "names": ["name", "age", "height"],
-                "formats": ["a32", "uint8", "float32"],
+                "formats": ["S32", "uint8", "float32"],
             },
         )
         expected = "\n".join(
@@ -199,7 +199,7 @@ def test_numpy_record_array_keys():
             [("Alice", 23, 169.5), ("Bob", 27, 175.0)],
             dtype={
                 "names": ["name", "age", "height"],
-                "formats": ["a32", "uint8", "float32"],
+                "formats": ["S32", "uint8", "float32"],
             },
         )
         expected = "\n".join(
@@ -225,7 +225,7 @@ def test_numpy_record_array_headers():
             [("Alice", 23, 169.5), ("Bob", 27, 175.0)],
             dtype={
                 "names": ["name", "age", "height"],
-                "formats": ["a32", "uint8", "float32"],
+                "formats": ["S32", "uint8", "float32"],
             },
         )
         expected = "\n".join(
@@ -313,6 +313,7 @@ def test_sqlite3():
             cursor.execute("INSERT INTO people VALUES (?, ?, ?)", values)
         cursor.execute("SELECT name, age, height FROM people ORDER BY name")
         result = tabulate(cursor, headers=["whom", "how old", "how tall"])
+        conn.close()
         expected = """\
 whom      how old    how tall
 ------  ---------  ----------
@@ -337,6 +338,7 @@ def test_sqlite3_keys():
             'SELECT name "whom", age "how old", height "how tall" FROM people ORDER BY name'
         )
         result = tabulate(cursor, headers="keys")
+        conn.close()
         expected = """\
 whom      how old    how tall
 ------  ---------  ----------
@@ -520,9 +522,31 @@ def test_py37orlater_list_of_dataclasses_headers():
         skip("test_py37orlater_list_of_dataclasses_headers is skipped")
 
 
+def test_py37orlater_list_of_dataclasses_with_separating_line():
+    "Input: a list of dataclasses with a separating line"
+    try:
+        from dataclasses import make_dataclass
+
+        Person = make_dataclass("Person", ["name", "age", "height"])
+        ld = [Person("Alice", 23, 169.5), SEPARATING_LINE, Person("Bob", 27, 175.0)]
+        result = tabulate(ld, headers="keys")
+        expected = "\n".join(
+            [
+                "name      age    height",
+                "------  -----  --------",
+                "Alice      23     169.5",
+                "------  -----  --------",
+                "Bob        27     175",
+            ]
+        )
+        assert_equal(expected, result)
+    except ImportError:
+        skip("test_py37orlater_list_of_dataclasses_keys is skipped")
+
+
 def test_list_bytes():
     "Input: a list of bytes. (issue #192)"
-    lb = [["你好".encode("utf-8")], ["你好"]]
+    lb = [["你好".encode()], ["你好"]]
     expected = "\n".join(
         ["bytes", "---------------------------", r"b'\xe4\xbd\xa0\xe5\xa5\xbd'", "你好"]
     )

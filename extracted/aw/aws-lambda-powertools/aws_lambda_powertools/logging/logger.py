@@ -38,6 +38,7 @@ from aws_lambda_powertools.shared import constants
 from aws_lambda_powertools.shared.functions import (
     extract_event_from_common_models,
     get_tracer_id,
+    is_durable_context,
     resolve_env_var_choice,
     resolve_truthy_env_var_choice,
 )
@@ -520,13 +521,18 @@ class Logger:
 
         @functools.wraps(lambda_handler)
         def decorate(event, context, *args, **kwargs):
-            lambda_context = build_lambda_context_model(context)
+            unwrapped_context = (
+                build_lambda_context_model(context.lambda_context)
+                if is_durable_context(context)
+                else build_lambda_context_model(context)
+            )
+
             cold_start = _is_cold_start()
 
             if clear_state:
-                self.structure_logs(cold_start=cold_start, **lambda_context.__dict__)
+                self.structure_logs(cold_start=cold_start, **unwrapped_context.__dict__)
             else:
-                self.append_keys(cold_start=cold_start, **lambda_context.__dict__)
+                self.append_keys(cold_start=cold_start, **unwrapped_context.__dict__)
 
             if correlation_id_path:
                 self.set_correlation_id(
@@ -820,6 +826,12 @@ class Logger:
         **additional_keys: Any
             Key-value pairs to include in the log context during the lifespan of the context manager.
 
+        Warning
+        -------
+        All keys added within this context are removed when exiting, even if they existed before.
+        If a key with the same name already exists, the original value will be lost after the context exits.
+        To persist keys across multiple log messages, use `append_keys()` instead.
+
         Example
         --------
         **Logging with contextual keys**
@@ -1104,7 +1116,7 @@ class Logger:
             fn=log_line["filename"],
             lno=log_line["line"],
             msg=log_line["msg"],
-            args=(),
+            args=log_line.get("args", ()),
             exc_info=log_line["exc_info"],
             func=log_line["function"],
             extra=log_line["extra"],

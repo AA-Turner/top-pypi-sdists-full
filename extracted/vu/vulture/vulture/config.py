@@ -2,6 +2,7 @@
 This module handles retrieval of configuration values from either the
 command-line arguments or the pyproject.toml file.
 """
+
 import argparse
 import pathlib
 
@@ -41,7 +42,7 @@ def _check_input_config(data):
             raise InputError(f"Unknown configuration key: {key}")
         # The linter suggests to use "isinstance" here but this fails to
         # detect the difference between `int` and `bool`.
-        if type(value) is not type(DEFAULTS[key]):  # noqa: E721
+        if type(value) is not type(DEFAULTS[key]):
             expected_type = type(DEFAULTS[key]).__name__
             raise InputError(f"Data type for {key} must be {expected_type!r}")
 
@@ -186,7 +187,7 @@ def make_config(argv=None, tomlfile=None):
 
     :param argv: The CLI arguments to be parsed. This value is transparently
         passed through to :py:meth:`argparse.ArgumentParser.parse_args`.
-    :param tomlfile: An IO instance containing TOML data. By default this will
+    :param tomlfile: An IO instance containing TOML data. By default, this will
         auto-detect an existing ``pyproject.toml`` file and exists solely for
         unit-testing.
     """

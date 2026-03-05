@@ -72,6 +72,7 @@ __all__ = (
     "ComputeResourceTypeDef",
     "ComputeResourceUnionTypeDef",
     "ComputeResourceUpdateTypeDef",
+    "ComputeScalingPolicyTypeDef",
     "ConsumableResourcePropertiesOutputTypeDef",
     "ConsumableResourcePropertiesTypeDef",
     "ConsumableResourcePropertiesUnionTypeDef",
@@ -327,6 +328,9 @@ class UpdatePolicyTypeDef(TypedDict):
 class ComputeEnvironmentOrderTypeDef(TypedDict):
     order: int
     computeEnvironment: str
+
+class ComputeScalingPolicyTypeDef(TypedDict):
+    minScaleDownDelayMinutes: NotRequired[int]
 
 class Ec2ConfigurationTypeDef(TypedDict):
     imageType: str
@@ -1244,6 +1248,7 @@ ComputeResourceOutputTypeDef = TypedDict(
         "spotIamFleetRole": NotRequired[str],
         "launchTemplate": NotRequired[LaunchTemplateSpecificationOutputTypeDef],
         "ec2Configuration": NotRequired[list[Ec2ConfigurationTypeDef]],
+        "scalingPolicy": NotRequired[ComputeScalingPolicyTypeDef],
     },
 )
 
@@ -1520,6 +1525,7 @@ ComputeResourceTypeDef = TypedDict(
         "spotIamFleetRole": NotRequired[str],
         "launchTemplate": NotRequired[LaunchTemplateSpecificationTypeDef],
         "ec2Configuration": NotRequired[Sequence[Ec2ConfigurationTypeDef]],
+        "scalingPolicy": NotRequired[ComputeScalingPolicyTypeDef],
     },
 )
 LaunchTemplateSpecificationUnionTypeDef = Union[
@@ -1619,6 +1625,7 @@ ComputeResourceUpdateTypeDef = TypedDict(
         "updateToLatestImageVersion": NotRequired[bool],
         "type": NotRequired[CRTypeType],
         "imageId": NotRequired[str],
+        "scalingPolicy": NotRequired[ComputeScalingPolicyTypeDef],
     },
 )
 

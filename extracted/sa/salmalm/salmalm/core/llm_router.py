@@ -191,8 +191,11 @@ def _fetch_provider_models(provider: str) -> List[str]:
             return sorted(canonical_set) + sorted(dated_by_family.values())
 
         elif provider == "google":
-            url = f"{base}/models?key={key}&pageSize=100"
-            with urllib.request.urlopen(url, timeout=8) as r:
+            _req = urllib.request.Request(
+                f"{base}/models?pageSize=100",
+                headers={"x-goog-api-key": key},
+            )
+            with urllib.request.urlopen(_req, timeout=8) as r:
                 data = json.loads(r.read())
             return [
                 m["name"].replace("models/", "")
@@ -691,11 +694,10 @@ class LLMRouter:
         try:
             result = self._do_call(provider, bare_model, messages, max_tokens, tools, timeout)
             self._call_history.append({"model": target_model, "provider": provider, "ok": True, "ts": time.time()})
-            if len(self._call_history) > 200:
-                self._call_history = self._call_history[-100:]  # keep latest 100
+            if len(self._call_history) > 1000: self._call_history = self._call_history[-500:]
             return result
         except Exception as e:
-            errors.append(f"{provider}/{bare_model}: {e}")
+            log.warning(f"Provider error {provider}/{bare_model}: {e}"); errors.append(f"{provider}/{bare_model}: request failed")
             log.warning(f"LLM call failed for {provider}/{bare_model}: {e}")
 
         # Fallback
@@ -720,11 +722,9 @@ class LLMRouter:
                         "fallback": True,
                     }
                 )
-                if len(self._call_history) > 200:
-                    self._call_history = self._call_history[-100:]
                 return result
             except Exception as e2:
-                errors.append(f"{fb_prov}/{fb_model}: {e2}")
+                log.warning(f"Failover error {fb_prov}/{fb_model}: {e2}"); errors.append(f"{fb_prov}/{fb_model}: request failed")
 
         return {
             "content": "❌ All providers failed:\n" + "\n".join(errors),
@@ -740,17 +740,8 @@ class LLMRouter:
         url, headers, body = self._build_request(provider, model, messages, max_tokens, tools)
         data = json.dumps(body).encode()
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                result = json.loads(resp.read().decode())
-        except Exception as _e:
-            # Mask API keys in exception context — tracebacks must not leak secrets
-            _safe_hdrs = {
-                k: ("***" if "key" in k.lower() or "auth" in k.lower() or "token" in k.lower() else v)
-                for k, v in headers.items()
-            }
-            log.error(f"[LLM_ROUTER] {provider} call failed: {type(_e).__name__}: {_e} | headers: {_safe_hdrs}")
-            raise
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            result = json.loads(resp.read().decode())
         return self._parse_response(provider, result)
 
 

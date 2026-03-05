@@ -101,6 +101,8 @@ pub use xml::parse_xml;
 
 #[cfg(any(feature = "office", feature = "html", feature = "xml"))]
 pub use markdown::cells_to_markdown;
+#[cfg(any(feature = "office", feature = "html", feature = "xml"))]
+pub use markdown::cells_to_text;
 
 pub use capacity::{
     estimate_content_capacity, estimate_html_markdown_capacity, estimate_presentation_capacity,

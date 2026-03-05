@@ -133,16 +133,11 @@ def load_and_quantize_model(
         model = replace_with_bnb_layers(model, bnb_quantization_config, modules_to_not_convert=modules_to_not_convert)
         # convert param to the right dtype
         dtype = bnb_quantization_config.torch_dtype
-        for name, param in model.state_dict().items():
+        for name, param in model.named_parameters():
             if any(module_to_keep_in_fp32 in name for module_to_keep_in_fp32 in keep_in_fp32_modules):
-                param.to(torch.float32)
-                if param.dtype != torch.float32:
-                    name = name.replace(".weight", "").replace(".bias", "")
-                    param = getattr(model, name, None)
-                    if param is not None:
-                        param.to(torch.float32)
+                param.data = param.data.to(torch.float32)
             elif torch.is_floating_point(param):
-                param.to(dtype)
+                param.data = param.data.to(dtype)
         if model_device.type == "cuda":
             model.cuda(torch.cuda.current_device())
             torch.cuda.empty_cache()
@@ -316,7 +311,7 @@ def _replace_with_bnb_layers(
 
     Returns the converted model and a boolean that indicates if the conversion has been successful or not.
     """
-    # bitsandbytes will initialize CUDA on import, so it needs to be imported lazily
+    # bitsandbytes will initialize device(e.g. CUDA, XPU) on import, so it needs to be imported lazily
     import bitsandbytes as bnb
 
     has_been_replaced = False
@@ -425,7 +420,7 @@ def get_keys_to_not_convert(model):
 
 def has_4bit_bnb_layers(model):
     """Check if we have `bnb.nn.Linear4bit` or `bnb.nn.Linear8bitLt` layers inside our model"""
-    # bitsandbytes will initialize CUDA on import, so it needs to be imported lazily
+    # bitsandbytes will initialize device(e.g. CUDA, XPU) on import, so it needs to be imported lazily
     import bitsandbytes as bnb
 
     for m in model.modules():

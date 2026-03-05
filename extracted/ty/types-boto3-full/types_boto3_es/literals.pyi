@@ -27,6 +27,7 @@ __all__ = (
     "AutoTuneTypeType",
     "ConfigChangeStatusType",
     "DeploymentStatusType",
+    "DeploymentStrategyType",
     "DescribePackagesFilterNameType",
     "DescribeReservedElasticsearchInstanceOfferingsPaginatorName",
     "DescribeReservedElasticsearchInstancesPaginatorName",
@@ -92,6 +93,7 @@ ConfigChangeStatusType = Literal[
 DeploymentStatusType = Literal[
     "COMPLETED", "ELIGIBLE", "IN_PROGRESS", "NOT_ELIGIBLE", "PENDING_UPDATE"
 ]
+DeploymentStrategyType = Literal["CapacityOptimized", "Default"]
 DescribePackagesFilterNameType = Literal["PackageID", "PackageName", "PackageStatus"]
 DescribeReservedElasticsearchInstanceOfferingsPaginatorName = Literal[
     "describe_reserved_elasticsearch_instance_offerings"

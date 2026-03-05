@@ -1,6 +1,6 @@
 #![cfg(feature = "office")]
 
-use kreuzberg::core::config::ExtractionConfig;
+use kreuzberg::core::config::{ExtractionConfig, OutputFormat};
 use kreuzberg::plugins::DocumentExtractor;
 use std::path::PathBuf;
 
@@ -180,8 +180,12 @@ async fn test_fictionbook_markdown_formatting_preservation() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("emphasis.fb2");
 
+    let config = ExtractionConfig {
+        output_format: OutputFormat::Markdown,
+        ..Default::default()
+    };
     let result = extractor
-        .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
+        .extract_file(&path, "application/x-fictionbook+xml", &config)
         .await
         .expect("Failed to extract FB2 file");
 
@@ -208,8 +212,12 @@ async fn test_fictionbook_formatting_in_body_paragraphs() {
     let extractor = kreuzberg::extractors::FictionBookExtractor::new();
     let path = test_file_path("basic.fb2");
 
+    let config = ExtractionConfig {
+        output_format: OutputFormat::Markdown,
+        ..Default::default()
+    };
     let result = extractor
-        .extract_file(&path, "application/x-fictionbook+xml", &ExtractionConfig::default())
+        .extract_file(&path, "application/x-fictionbook+xml", &config)
         .await
         .expect("Failed to extract FB2 file");
 

@@ -33,6 +33,7 @@ from .literals import (
     ConnectionModeType,
     DataSourceStatusType,
     DeploymentStatusType,
+    DeploymentStrategyType,
     DescribePackagesFilterNameType,
     DomainHealthType,
     DomainPackageStatusType,
@@ -177,6 +178,8 @@ __all__ = (
     "DeletePackageResponseTypeDef",
     "DeleteVpcEndpointRequestTypeDef",
     "DeleteVpcEndpointResponseTypeDef",
+    "DeploymentStrategyOptionsStatusTypeDef",
+    "DeploymentStrategyOptionsTypeDef",
     "DescribeDomainAutoTunesRequestTypeDef",
     "DescribeDomainAutoTunesResponseTypeDef",
     "DescribeDomainChangeProgressRequestTypeDef",
@@ -634,6 +637,10 @@ class IamIdentityCenterOptionsTypeDef(TypedDict):
     iamIdentityCenterInstanceArn: NotRequired[str]
     iamRoleForIdentityCenterApplicationArn: NotRequired[str]
     iamIdentityCenterApplicationArn: NotRequired[str]
+
+
+class DeploymentStrategyOptionsTypeDef(TypedDict):
+    DeploymentStrategy: DeploymentStrategyType
 
 
 class DomainEndpointOptionsTypeDef(TypedDict):
@@ -1516,6 +1523,11 @@ UpdateApplicationResponseTypeDef = TypedDict(
 )
 
 
+class DeploymentStrategyOptionsStatusTypeDef(TypedDict):
+    Options: DeploymentStrategyOptionsTypeDef
+    Status: OptionStatusTypeDef
+
+
 class DomainEndpointOptionsStatusTypeDef(TypedDict):
     Options: DomainEndpointOptionsTypeDef
     Status: OptionStatusTypeDef
@@ -2250,6 +2262,7 @@ class DomainStatusTypeDef(TypedDict):
     DomainProcessingStatus: NotRequired[DomainProcessingStatusTypeType]
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsOutputTypeDef]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
 
 
 class DescribeInstanceTypeLimitsResponseTypeDef(TypedDict):
@@ -2279,6 +2292,7 @@ class CreateDomainRequestTypeDef(TypedDict):
     OffPeakWindowOptions: NotRequired[OffPeakWindowOptionsTypeDef]
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
 
 
 class UpdateDomainConfigRequestTypeDef(TypedDict):
@@ -2303,6 +2317,7 @@ class UpdateDomainConfigRequestTypeDef(TypedDict):
     OffPeakWindowOptions: NotRequired[OffPeakWindowOptionsTypeDef]
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsTypeDef]
     AIMLOptions: NotRequired[AIMLOptionsInputTypeDef]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
 
 
 class DomainConfigTypeDef(TypedDict):
@@ -2327,6 +2342,7 @@ class DomainConfigTypeDef(TypedDict):
     SoftwareUpdateOptions: NotRequired[SoftwareUpdateOptionsStatusTypeDef]
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     AIMLOptions: NotRequired[AIMLOptionsStatusTypeDef]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsStatusTypeDef]
 
 
 class CreateDomainResponseTypeDef(TypedDict):

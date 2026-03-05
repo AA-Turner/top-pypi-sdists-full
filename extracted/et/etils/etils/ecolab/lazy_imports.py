@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,6 +153,7 @@ with _builder.replace_imports(is_std=False):
   import chex
   import dataclass_array as dca
   import einops
+  import fiddle as fdl
   import flask
   import flax
   from flax import linen as nn
@@ -162,6 +163,7 @@ with _builder.replace_imports(is_std=False):
   import grain.python as grain
   import graphviz
   import imageio
+  import immutabledict
   # Even though `import ipywidgets as widgets` is the common alias, widgets
   # is likely too ambiguous.
   import ipywidgets
@@ -172,6 +174,7 @@ with _builder.replace_imports(is_std=False):
   import matplotlib
   import matplotlib as mpl  # Standard alias
   from matplotlib import pyplot as plt
+  import mcp
   import mediapy as media
   import ml_collections
   import networkx as nx
@@ -179,6 +182,7 @@ with _builder.replace_imports(is_std=False):
   import optax
   import orbax
   from orbax import checkpoint as ocp
+  from orbax.checkpoint.experimental import v1 as ocp_v1
   from orbax import export as oex
   import pandas as pd
   import PIL

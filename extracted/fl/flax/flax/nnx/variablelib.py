@@ -27,7 +27,7 @@ from flax import config
 from flax import errors
 from flax.core import spmd as core_spmd
 from flax.nnx import reprlib, tracers, visualization
-from flax.typing import MISSING, Missing, SizeBytes
+from flax.typing import BaseConfigContext, MISSING, Missing, SizeBytes
 import jax
 from jax._src.state.types import AbstractRef
 import jax.experimental
@@ -72,60 +72,7 @@ class VariableContext(threading.local):
 VARIABLE_CONTEXT = VariableContext()
 
 
-class UseEagerShardContext:
-  def __init__(self, prev_value: bool | None, new_value: bool):
-    self.prev_value: bool | None = prev_value
-    self.new_value: bool = new_value
-
-  def __enter__(self):
-    if self.prev_value is not None:
-      VARIABLE_CONTEXT.eager_shard_stack.insert(-1, self.prev_value)
-
-  def __exit__(self, exc_type, exc_value, traceback):
-    VARIABLE_CONTEXT.eager_shard_stack.pop()
-
-  def __call__(self, f: F) -> F:
-    # undo eager stack change
-    VARIABLE_CONTEXT.eager_shard_stack.pop()
-    if self.prev_value is not None:
-      VARIABLE_CONTEXT.eager_shard_stack.append(self.prev_value)
-
-    @functools.wraps(f)
-    def use_eager_sharding_wrapper(*args, **kwargs):
-      VARIABLE_CONTEXT.eager_shard_stack.append(self.new_value)
-      try:
-        return f(*args, **kwargs)
-      finally:
-        VARIABLE_CONTEXT.eager_shard_stack.pop()
-
-    return use_eager_sharding_wrapper  # type: ignore[return-value]
-
-def using_eager_sharding() -> bool:
-  """Returns whether Variables are using eager sharding by default.
-
-  Example::
-
-    >>> from flax import nnx
-    >>> nnx.use_eager_sharding(True)
-    <...>
-    >>> nnx.using_eager_sharding()
-    True
-    >>> nnx.use_eager_sharding(False)
-    <...>
-    >>> nnx.using_eager_sharding()
-    False
-
-
-  Returns:
-    A boolean indicating if Variables are using eager sharding by default.
-  """
-  do_eager_sharding = config.flax_always_shard_variable
-  if VARIABLE_CONTEXT.eager_shard_stack:
-    do_eager_sharding = VARIABLE_CONTEXT.eager_shard_stack[-1]
-  return do_eager_sharding
-
-
-def use_eager_sharding(value: bool, /):
+class use_eager_sharding(BaseConfigContext):
   """Sets whether Variables should use eager sharding by default or not.
 
   Example usage::
@@ -157,13 +104,31 @@ def use_eager_sharding(value: bool, /):
   Returns:
     A context manager that resets the context to the previous value.
   """
-  if VARIABLE_CONTEXT.eager_shard_stack:
-    prev_value = VARIABLE_CONTEXT.eager_shard_stack[-1]
-    VARIABLE_CONTEXT.eager_shard_stack[-1] = value
-  else:
-    prev_value = None
-    VARIABLE_CONTEXT.eager_shard_stack.append(value)
-  return UseEagerShardContext(prev_value, value)
+  get_default = classmethod(lambda cls: config.flax_always_shard_variable)
+  get_stack = classmethod(lambda cls: VARIABLE_CONTEXT.eager_shard_stack)
+
+
+def using_eager_sharding() -> bool:
+  """Returns whether Variables are using eager sharding by default.
+
+  Example::
+
+    >>> from flax import nnx
+    >>> nnx.use_eager_sharding(True)
+    <...>
+    >>> nnx.using_eager_sharding()
+    True
+    >>> nnx.use_eager_sharding(False)
+    <...>
+    >>> nnx.using_eager_sharding()
+    False
+
+
+  Returns:
+    A boolean indicating if Variables are using eager sharding by default.
+  """
+  return use_eager_sharding.current_value()
+
 
 @dataclasses.dataclass(frozen=True)
 class VarDefaults(tp.Mapping[str, tp.Any]):
@@ -329,7 +294,7 @@ hjx.control_flow_allowed_effects.add_type(VariableEffect)
 
 
 def _bind_new_variable(
-    *leaves, treedef, var_type, has_qdd, mutable, ref
+    *leaves, treedef, var_type, has_qdd, ref
 ) -> HijaxVariable:
   """Binds new_variable_p after instantiating any Zero tangents."""
   leaves = tuple(hjx.instantiate_zeros(leaf) for leaf in leaves)
@@ -338,13 +303,12 @@ def _bind_new_variable(
     treedef=treedef,
     var_type=var_type,
     has_qdd=has_qdd,
-    mutable=mutable,
     ref=ref,
   )
 
 
 def _new_hijax_from_variable(variable: Variable) -> HijaxVariable:
-  has_qdd = variable.mutable and not variable.ref
+  has_qdd = not variable.ref
   leaves, treedef = jax.tree.flatten(variable)
   var_type = type(variable)
   hijax_var = _bind_new_variable(
@@ -352,24 +316,23 @@ def _new_hijax_from_variable(variable: Variable) -> HijaxVariable:
     treedef=treedef,
     var_type=var_type,
     has_qdd=has_qdd,
-    mutable=variable.mutable,
     ref=variable.ref,
   )
   return hijax_var
 
 
 class NewVariable(hjx.HiPrimitive):
-  def is_high(self, *leaves, treedef, var_type, has_qdd, mutable, ref) -> bool:
+  def is_high(self, *leaves, treedef, var_type, has_qdd, ref) -> bool:
     return True  # type: ignore
 
-  def impl(self, *leaves, treedef, var_type, has_qdd, mutable, ref):
+  def impl(self, *leaves, treedef, var_type, has_qdd, ref):
     return HijaxVariable._new(
-      leaves, treedef, var_type, has_qdd, mutable=mutable, ref=ref
+      leaves, treedef, var_type, has_qdd, ref=ref
     )
 
-  def abstract_eval(self, *leaves, treedef, var_type, has_qdd, mutable, ref):
+  def abstract_eval(self, *leaves, treedef, var_type, has_qdd, ref):
     aval = AbstractVariable(
-      var_type, treedef, leaves, has_qdd, mutable=mutable, ref=ref
+      var_type, treedef, leaves, has_qdd, ref=ref
     )
     if has_qdd:
       qdd = VariableQDD(tuple(leaves), treedef, var_type)
@@ -378,24 +341,24 @@ class NewVariable(hjx.HiPrimitive):
     else:
       return aval, set()
 
-  def to_lojax(self, *leaves, treedef, var_type, has_qdd, mutable, ref):
-    return HijaxVariable._new(leaves, treedef, var_type, has_qdd, mutable=mutable, ref=ref)
+  def to_lojax(self, *leaves, treedef, var_type, has_qdd, ref):
+    return HijaxVariable._new(leaves, treedef, var_type, has_qdd, ref=ref)
 
-  def jvp(_, primals, tangents, *, treedef, var_type, has_qdd, mutable, ref):
+  def jvp(_, primals, tangents, *, treedef, var_type, has_qdd, ref):
     if has_qdd:
       raise NotImplementedError(
         "jvp not implemented for 'new_variable' with QDD"
       )
     primal_hijax_var = _bind_new_variable(
-      *primals, treedef=treedef, var_type=var_type, has_qdd=has_qdd, mutable=mutable, ref=ref
+      *primals, treedef=treedef, var_type=var_type, has_qdd=has_qdd, ref=ref
     )
     tangent_hijax_var = _bind_new_variable(
-      *tangents, treedef=treedef, var_type=var_type, has_qdd=has_qdd, mutable=mutable, ref=ref
+      *tangents, treedef=treedef, var_type=var_type, has_qdd=has_qdd, ref=ref
     )
     return primal_hijax_var, tangent_hijax_var
 
   def transpose(
-    _, out_var: HijaxVariable, *input_leaves, treedef, var_type, has_qdd, mutable, ref
+    _, out_var: HijaxVariable, *input_leaves, treedef, var_type, has_qdd, ref
   ):
     if has_qdd:
       raise NotImplementedError(
@@ -582,7 +545,6 @@ class GetVariable(hjx.HiPrimitive):
       treedef=abstract_var._treedef,
       var_type=var_type,
       has_qdd=has_qdd,
-      mutable=abstract_var.mutable,
       ref=abstract_var.ref,
     )
     return (hijax_var_dot,)
@@ -701,12 +663,11 @@ class HijaxVariableMeta(type):
 class HijaxVariable(
   tp.Generic[A], reprlib.Representable, metaclass=HijaxVariableMeta
 ):  # type: ignore
-  __slots__ = ('_treedef', '_leaves', '_var_type', 'has_qdd', '_mutable', '_ref')
+  __slots__ = ('_treedef', '_leaves', '_var_type', 'has_qdd', '_ref')
   _treedef: PyTreeDef
   _leaves: tuple[Leaf, ...]
   _var_type: type[Variable[tp.Any]]
   has_qdd: bool
-  _mutable: bool
   _ref: bool
 
   @classmethod
@@ -717,7 +678,6 @@ class HijaxVariable(
     var_type: type[Variable[A]],
     has_qdd: bool,
     *,
-    mutable: bool = True,
     ref: bool = False,
   ):
     hijax_var = object.__new__(cls)
@@ -725,7 +685,6 @@ class HijaxVariable(
     object.__setattr__(hijax_var, '_leaves', leaves)
     object.__setattr__(hijax_var, '_var_type', var_type)
     object.__setattr__(hijax_var, 'has_qdd', has_qdd)
-    object.__setattr__(hijax_var, '_mutable', mutable)
     object.__setattr__(hijax_var, '_ref', ref)
     return hijax_var
 
@@ -766,10 +725,6 @@ class HijaxVariable(
   @property
   def ref(self) -> bool:
     return self._ref
-
-  @property
-  def mutable(self) -> bool:
-    return self._mutable
 
   get_metadata = _as_hijax_method('get_metadata')
   set_metadata = _as_hijax_method('set_metadata')
@@ -896,7 +851,6 @@ def _to_abstract_variable(hijax_var: HijaxVariable):
     treedef,
     leaves,
     hijax_var.has_qdd,
-    mutable=hijax_var.mutable,
     ref=hijax_var.ref,
   )
 
@@ -908,22 +862,16 @@ hjx.register_hitype(HijaxVariable, _to_abstract_variable)
 # AbstractVariable
 # ---------------------------------
 class AbstractVariable(tp.Generic[A], hjx.MutableHiType):
-  __slots__ = ['_var_type', '_treedef', '_leaves', 'has_qdd', '_mutable', '_ref']
+  __slots__ = ['_var_type', '_treedef', '_leaves', 'has_qdd', '_ref']
   _var_type: type[Variable[A]]
   _treedef: PyTreeDef | None
   _leaves: tuple[hjx.AbstractValue, ...] | None
   has_qdd: bool
-  _mutable: bool
   _ref: bool
-  # forwarded to value
 
   @property
   def ref(self) -> bool:
     return self._ref
-
-  @property
-  def mutable(self) -> bool:
-    return self._mutable
 
   @property
   def hijax(self):
@@ -938,7 +886,6 @@ class AbstractVariable(tp.Generic[A], hjx.MutableHiType):
     leaves: tuple[hjx.AbstractValue, ...] | None,
     has_qdd: bool,
     *,
-    mutable: bool = True,
     ref: bool = False,
   ):
     if (treedef is None) ^ (leaves is None):
@@ -947,7 +894,6 @@ class AbstractVariable(tp.Generic[A], hjx.MutableHiType):
     object.__setattr__(self, '_leaves', leaves)
     object.__setattr__(self, '_var_type', var_type)
     object.__setattr__(self, 'has_qdd', has_qdd)
-    object.__setattr__(self, '_mutable', mutable)
     object.__setattr__(self, '_ref', ref)
 
   @property
@@ -1121,7 +1067,6 @@ class AbstractVariable(tp.Generic[A], hjx.MutableHiType):
       variable_state.treedef,
       self._var_type,
       has_qdd=self.has_qdd,
-      mutable=self.mutable,
       ref=self.ref,
     )  # will be mutated
 
@@ -1151,7 +1096,6 @@ class AbstractVariable(tp.Generic[A], hjx.MutableHiType):
       self._treedef,
       self._leaves,
       self.has_qdd,
-      mutable=self.mutable,
       ref=self.ref,
     )
 
@@ -1275,7 +1219,7 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
   _trace_state: tracers.TraceState
   _var_metadata: dict[str, tp.Any]
   required_metadata = frozenset(
-    ['hijax', 'ref', 'mutable', 'eager_sharding']
+    ['hijax', 'ref', 'eager_sharding']
   )
 
   @property
@@ -1289,10 +1233,6 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
   @property
   def ref(self) -> bool:
     return self._var_metadata['ref']
-
-  @property
-  def mutable(self) -> bool:
-    return self._var_metadata['mutable']
 
   @property
   def shape(self: Variable[jax.Array]) -> tuple[int, ...]:
@@ -1313,7 +1253,6 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
     *,
     hijax: bool | None = None,
     ref: bool | None = None,
-    mutable: bool = True,
     eager_sharding: bool | None = None,
     **metadata: tp.Any,
   ):
@@ -1335,13 +1274,6 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
             'argument to Variable constructor.'
           )
         ref = aux_metadata.pop('ref')
-      if 'mutable' in aux_metadata:
-        if mutable is not None and mutable != aux_metadata['mutable']:
-          raise ValueError(
-            'Cannot specify mutable both in VariableMetadata and as an '
-            'argument to Variable constructor.'
-          )
-        mutable = aux_metadata.pop('mutable')
       if 'eager_sharding' in aux_metadata:
         if (
           eager_sharding is not None
@@ -1364,17 +1296,11 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
     if eager_sharding is None:
       eager_sharding = using_eager_sharding()
 
-    if ref and not mutable:
-      raise ValueError(
-        'Cannot set ref=True and mutable=False simultaneously.'
-      )
-
     if any(is_array_ref(v) for v in jax.tree.leaves(value)):
       raise ValueError('Cannot pass a Ref directly into Variable constructor.')
 
     metadata['hijax'] = hijax
     metadata['ref'] = ref
-    metadata['mutable'] = mutable
     metadata['eager_sharding'] = eager_sharding
     object.__setattr__(self, '_trace_state', tracers.TraceState())
     object.__setattr__(self, '_var_metadata', metadata)
@@ -1423,15 +1349,11 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
   def _can_update(self) -> bool:
     """Whether the Variable can be updated in-place in the current trace context."""
     if self.hijax:
-      return self.mutable
+      return True
     else:
-      return self.mutable and self._trace_state.is_valid()
+      return self._trace_state.is_valid()
 
   def _check_can_update(self):
-    if not self.mutable:
-      raise errors.ImmutableVariableError(
-        f'Cannot mutate {type(self).__name__} as it is marked as immutable.'
-      )
     if not self.hijax and not self._trace_state.is_valid():
       raise errors.TraceContextError(
         f'Cannot mutate {type(self).__name__} from a different trace level'
@@ -1556,13 +1478,6 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
           f'Cannot change `ref` metadata, expected {self.ref}, '
           f'got {metadata["ref"]}'
         )
-      if 'mutable' not in metadata:
-        metadata['mutable'] = self.mutable
-      if metadata['mutable'] != self.mutable:
-        raise ValueError(
-          f'Cannot change `mutable` metadata, expected {self.mutable}, '
-          f'got {metadata["mutable"]}'
-        )
       if 'eager_sharding' not in metadata:
         metadata['eager_sharding'] = self.eager_sharding
       if metadata['eager_sharding'] != self.eager_sharding:
@@ -1581,10 +1496,6 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
         raise ValueError(
           f'Cannot change `ref` metadata, expected {self.ref}, got {value}'
         )
-      if name == 'mutable' and value != self.mutable:
-        raise ValueError(
-          f'Cannot change `mutable` metadata, expected {self.mutable}, got {value}'
-        )
       self._var_metadata[name] = value
     elif kwargs:
       if 'hijax' in kwargs and kwargs['hijax'] != self.hijax:
@@ -1596,11 +1507,6 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
         raise ValueError(
           f'Cannot change `ref` metadata, expected {self.ref}, '
           f'got {kwargs["ref"]}'
-        )
-      if 'mutable' in kwargs and kwargs['mutable'] != self.mutable:
-        raise ValueError(
-          f'Cannot change `mutable` metadata, expected {self.mutable}, '
-          f'got {kwargs["mutable"]}'
         )
       self._var_metadata.update(kwargs)
     else:
@@ -1626,7 +1532,7 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
       name: The key of the metadata element to delete.
     """
     self._check_can_update()
-    if name in ('hijax', 'ref', 'mutable'):
+    if name in ('hijax', 'ref'):
       raise ValueError(f'Cannot delete `{name}` metadata')
     del self._var_metadata[name]
 
@@ -1649,7 +1555,6 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
       metadata = variable_state.get_metadata()
       metadata['hijax'] = self.hijax
       metadata['ref'] = self.ref
-      metadata['mutable'] = self.mutable
       self._var_metadata = metadata
 
   @tp.final
@@ -1784,17 +1689,7 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
   ) -> Variable[tp.Any]:
     assert 'raw_value' not in updates
 
-    if not updates.get('mutable', True) and updates.get('ref', False):
-      raise ValueError(
-        'Cannot set ref=True and mutable=False simultaneously.'
-      )
     new_metadata = self.get_metadata() | updates
-    if not updates.get('mutable', True) and self.mutable:
-      new_metadata['ref'] = False
-      if self.ref:
-        new_metadata['had_ref'] = True
-    if updates.get('mutable', False) or updates.get('ref', False):
-      new_metadata.pop('had_ref', None)
 
     if not isinstance(value, Missing):
       pass
@@ -1805,10 +1700,7 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
     if _copy_ref and is_array_ref(value):
       value = value[...]
 
-    if _copy_ref and (
-      new_metadata['ref']
-      or (new_metadata['mutable'] and self.get_metadata('had_ref', False))
-    ):
+    if _copy_ref and new_metadata['ref']:
       value = jax.new_ref(value)
       new_metadata['ref'] = True
 
@@ -1852,13 +1744,11 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
     yield reprlib.Object(type=type(self).__name__, comment=comment)
     yield reprlib.Attr('value', self.get_value())
     for name, value in self._var_metadata.items():
-      if name == 'hijax' and not value:
+      if name == 'hijax' and value == config.flax_hijax_variable:
         continue
       if name == 'ref' and not value:
         continue
-      if name == 'mutable' and value:
-        continue
-      if name == 'eager_sharding' and value:
+      if name == 'eager_sharding' and value == config.flax_always_shard_variable:
         continue
       yield reprlib.Attr(name, value)
 
@@ -1872,7 +1762,14 @@ class Variable(tp.Generic[A], reprlib.Representable, metaclass=VariableMeta):
     else:
       first_line_annotation = None
 
-    children = {'value': self.get_value(), **self._var_metadata}
+    metadata = {
+      name: value
+      for name, value in self._var_metadata.items()
+      if not (name == 'hijax' and value == config.flax_hijax_variable)
+      and not (name == 'ref' and not value)
+      and not (name == 'eager_sharding' and value == config.flax_always_shard_variable)
+    }
+    children = {'value': self.get_value(), **metadata}
     return visualization.render_object_constructor(
       object_type=type(self),
       attributes=children,

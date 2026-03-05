@@ -6,11 +6,10 @@ use crate::codec::ascii85::{ascii85decode, asciihexdecode};
 use crate::codec::jbig2::{Jbig2StreamReader, Jbig2StreamWriter};
 use crate::codec::lzw::lzwdecode_with_earlychange;
 use crate::codec::runlength::rldecode;
-use crate::pdftypes::{PDFObject, PDFStream};
+use crate::pdftypes::{PDFDict, PDFName, PDFObject, PDFStream};
 use crate::simd::U8_LANES;
 use crate::{PdfError, Result};
 use flate2::read::ZlibDecoder;
-use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -81,7 +80,7 @@ impl ImageWriter {
         stream: &PDFStream,
         srcsize: (Option<i32>, Option<i32>),
         bits: i32,
-        colorspace: &[String],
+        colorspace: &[PDFName],
     ) -> Result<String> {
         let filters = get_filters(stream);
         let last_filter = filters.last().map(|(f, _)| f.as_str());
@@ -245,7 +244,7 @@ fn expected_image_len_uncapped(
     width: i32,
     height: i32,
     bits: i32,
-    colorspace: &[String],
+    colorspace: &[PDFName],
 ) -> Option<usize> {
     if width <= 0 || height <= 0 || bits <= 0 {
         return None;
@@ -269,10 +268,7 @@ fn expected_image_len_uncapped(
     w.checked_mul(h)?.checked_mul(channels)
 }
 
-fn predictor_overhead(
-    filters: &[(String, Option<HashMap<String, PDFObject>>)],
-    height: i32,
-) -> usize {
+fn predictor_overhead(filters: &[(String, Option<PDFDict>)], height: i32) -> usize {
     if height <= 0 {
         return 0;
     }
@@ -294,12 +290,12 @@ fn predictor_overhead(
 }
 
 #[cfg(test)]
-fn expected_image_len(width: i32, height: i32, bits: i32, colorspace: &[String]) -> Option<usize> {
+fn expected_image_len(width: i32, height: i32, bits: i32, colorspace: &[PDFName]) -> Option<usize> {
     expected_image_len_uncapped(width, height, bits, colorspace)
         .map(|len| len.min(MAX_IMAGE_DECODED_BYTES))
 }
 
-fn get_filters(stream: &PDFStream) -> Vec<(String, Option<HashMap<String, PDFObject>>)> {
+fn get_filters(stream: &PDFStream) -> Vec<(String, Option<PDFDict>)> {
     let filter_obj = stream.get("Filter");
     let params_obj = stream.get("DecodeParms");
 
@@ -309,7 +305,7 @@ fn get_filters(stream: &PDFStream) -> Vec<(String, Option<HashMap<String, PDFObj
         _ => Vec::new(),
     };
 
-    let params_list: Vec<Option<HashMap<String, PDFObject>>> = match params_obj {
+    let params_list: Vec<Option<PDFDict>> = match params_obj {
         Some(PDFObject::Dict(d)) => vec![Some(d.clone())],
         Some(PDFObject::Array(arr)) => arr
             .iter()
@@ -337,7 +333,7 @@ fn get_filters(stream: &PDFStream) -> Vec<(String, Option<HashMap<String, PDFObj
     for (idx, filter) in filters.into_iter().enumerate() {
         if let PDFObject::Name(name) = filter {
             let p = params.get(idx).cloned().unwrap_or(None);
-            result.push((name, p));
+            result.push((name.to_string(), p));
         }
     }
 
@@ -346,7 +342,7 @@ fn get_filters(stream: &PDFStream) -> Vec<(String, Option<HashMap<String, PDFObj
 
 fn decode_stream_data_limited(
     stream: &PDFStream,
-    filters: &[(String, Option<HashMap<String, PDFObject>>)],
+    filters: &[(String, Option<PDFDict>)],
     max_len: Option<usize>,
 ) -> Result<Vec<u8>> {
     let mut data = stream.get_rawdata().to_vec();
@@ -555,7 +551,7 @@ fn apply_png_predictor_impl(
                     current_row[i] = row_data[i].wrapping_add(paeth);
                 }
             }
-            _ => return Err(PdfError::DecodeError("invalid PNG predictor".to_string())),
+            _ => return Err(PdfError::DecodeError("invalid PNG predictor".into())),
         }
 
         result.extend_from_slice(&current_row);
@@ -769,14 +765,14 @@ mod tests {
 
     #[test]
     fn expected_image_len_caps_large_images() {
-        let colorspace = vec!["DeviceRGB".to_string()];
+        let colorspace = vec!["DeviceRGB".into()];
         let len = expected_image_len(10_000, 10_000, 8, &colorspace).unwrap();
         assert_eq!(len, MAX_IMAGE_DECODED_BYTES);
     }
 
     #[test]
     fn expected_image_len_small_images_unchanged() {
-        let colorspace = vec!["DeviceRGB".to_string()];
+        let colorspace = vec!["DeviceRGB".into()];
         let len = expected_image_len(100, 100, 8, &colorspace).unwrap();
         assert_eq!(len, 100 * 100 * 3);
     }

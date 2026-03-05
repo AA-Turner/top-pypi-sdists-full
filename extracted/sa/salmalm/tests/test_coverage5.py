@@ -20,7 +20,7 @@ class TestToolHandlersCoverage5(unittest.TestCase):
     def test_json_query_invalid(self):
         from salmalm.tools.tool_handlers import execute_tool
         result = execute_tool('json_query', {'data': 'not json', 'query': '.x'})
-        self.assertTrue('error' in result.lower() or 'Error' in result)
+        self.assertTrue('error' in result.lower() or 'Error' in result or '❌' in result)
 
     def test_diff_files(self):
         from salmalm.tools.tool_handlers import execute_tool

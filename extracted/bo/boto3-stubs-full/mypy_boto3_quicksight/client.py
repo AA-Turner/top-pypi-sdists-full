@@ -1643,7 +1643,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[DescribeSelfUpgradeConfigurationRequestTypeDef]
     ) -> DescribeSelfUpgradeConfigurationResponseTypeDef:
         """
-        Describes the self-upgrade configuration for a Quick Suite account.
+        Describes the self-upgrade configuration for a Quick account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_self_upgrade_configuration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_self_upgrade_configuration)
@@ -1783,9 +1783,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[GenerateEmbedUrlForAnonymousUserRequestTypeDef]
     ) -> GenerateEmbedUrlForAnonymousUserResponseTypeDef:
         """
-        Generates an embed URL that you can use to embed an Amazon Quick Suite
-        dashboard or visual in your website, without having to register any reader
-        users.
+        Generates an embed URL that you can use to embed an Amazon Quick dashboard or
+        visual in your website, without having to register any reader users.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/generate_embed_url_for_anonymous_user.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#generate_embed_url_for_anonymous_user)
@@ -1795,8 +1794,8 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[GenerateEmbedUrlForRegisteredUserRequestTypeDef]
     ) -> GenerateEmbedUrlForRegisteredUserResponseTypeDef:
         """
-        Generates an embed URL that you can use to embed an Amazon Quick Suite
-        experience in your website.
+        Generates an embed URL that you can use to embed an Amazon Quick experience in
+        your website.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/generate_embed_url_for_registered_user.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#generate_embed_url_for_registered_user)
@@ -2105,7 +2104,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[ListSelfUpgradesRequestTypeDef]
     ) -> ListSelfUpgradesResponseTypeDef:
         """
-        Lists all self-upgrade requests for a Quick Suite account.
+        Lists all self-upgrade requests for a Quick account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_self_upgrades.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_self_upgrades)
@@ -2365,7 +2364,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[SearchTopicsRequestTypeDef]
     ) -> SearchTopicsResponseTypeDef:
         """
-        Searches for any Q topic that exists in an Quick Suite account.
+        Searches for any Q topic that exists in an Quick account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_topics.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#search_topics)
@@ -2509,7 +2508,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateApplicationWithTokenExchangeGrantRequestTypeDef]
     ) -> UpdateApplicationWithTokenExchangeGrantResponseTypeDef:
         """
-        Updates an Quick Suite application with a token exchange grant.
+        Updates an Quick application with a token exchange grant.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_application_with_token_exchange_grant.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_application_with_token_exchange_grant)
@@ -2801,7 +2800,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateSelfUpgradeRequestTypeDef]
     ) -> UpdateSelfUpgradeResponseTypeDef:
         """
-        Updates a self-upgrade request for a Quick Suite user by approving, denying, or
+        Updates a self-upgrade request for a Quick user by approving, denying, or
         verifying the request.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_self_upgrade.html)
@@ -2812,7 +2811,7 @@ class QuickSightClient(BaseClient):
         self, **kwargs: Unpack[UpdateSelfUpgradeConfigurationRequestTypeDef]
     ) -> UpdateSelfUpgradeConfigurationResponseTypeDef:
         """
-        Updates the self-upgrade configuration for a Quick Suite account.
+        Updates the self-upgrade configuration for a Quick account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_self_upgrade_configuration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_self_upgrade_configuration)

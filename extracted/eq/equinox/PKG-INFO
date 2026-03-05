@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: equinox
-Version: 0.13.4
+Version: 0.13.5
 Summary: Elegant easy-to-use neural networks in JAX.
 Project-URL: repository, https://github.com/patrick-kidger/equinox
 Author-email: Patrick Kidger <contact@kidger.site>

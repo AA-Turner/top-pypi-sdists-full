@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: uipath
-Version: 2.10.3
+Version: 2.10.5
 Summary: Python SDK and CLI for UiPath Platform, enabling programmatic interaction with automation services, process management, and deployment tools.
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-python
 Project-URL: Documentation, https://uipath.github.io/uipath-python/
 Maintainer-email: Marius Cosareanu <marius.cosareanu@uipath.com>, Cristian Pufu <cristian.pufu@uipath.com>
-License-File: LICENSE
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

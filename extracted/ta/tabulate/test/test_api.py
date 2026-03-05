@@ -1,6 +1,4 @@
-"""API properties.
-
-"""
+"""API properties."""
 
 from tabulate import tabulate, tabulate_formats, simple_separated_format
 from common import skip
@@ -26,7 +24,7 @@ def _check_signature(function, expected_sig):
     if not signature:
         skip("")
     actual_sig = signature(function)
-    print(f"expected: {expected_sig}\nactual: {str(actual_sig)}\n")
+    print(f"expected: {expected_sig}\nactual: {actual_sig}\n")
 
     assert len(actual_sig.parameters) == len(expected_sig)
 
@@ -48,10 +46,16 @@ def test_tabulate_signature():
         ("missingval", ""),
         ("showindex", "default"),
         ("disable_numparse", False),
+        ("colglobalalign", None),
         ("colalign", None),
+        ("preserve_whitespace", False),
         ("maxcolwidths", None),
+        ("headersglobalalign", None),
+        ("headersalign", None),
         ("rowalign", None),
         ("maxheadercolwidths", None),
+        ("break_long_words", True),
+        ("break_on_hyphens", True),
     ]
     _check_signature(tabulate, expected_sig)
 

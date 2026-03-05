@@ -227,6 +227,9 @@ class Query:
             # Put error in stream so iterators can handle it
             await self._message_send.send({"type": "error", "error": str(e)})
         finally:
+            # Unblock any waiters (e.g. string-prompt path waiting for first
+            # result) so they don't stall for the full timeout on early exit.
+            self._first_result_event.set()
             # Always signal end of stream
             await self._message_send.send({"type": "end"})
 
@@ -567,6 +570,65 @@ class Query:
             }
         )
 
+    async def reconnect_mcp_server(self, server_name: str) -> None:
+        """Reconnect a disconnected or failed MCP server.
+
+        Args:
+            server_name: The name of the MCP server to reconnect
+        """
+        await self._send_control_request(
+            {
+                "subtype": "mcp_reconnect",
+                "serverName": server_name,
+            }
+        )
+
+    async def toggle_mcp_server(self, server_name: str, enabled: bool) -> None:
+        """Enable or disable an MCP server.
+
+        Args:
+            server_name: The name of the MCP server to toggle
+            enabled: Whether the server should be enabled
+        """
+        await self._send_control_request(
+            {
+                "subtype": "mcp_toggle",
+                "serverName": server_name,
+                "enabled": enabled,
+            }
+        )
+
+    async def stop_task(self, task_id: str) -> None:
+        """Stop a running task.
+
+        Args:
+            task_id: The task ID from task_notification events
+        """
+        await self._send_control_request(
+            {
+                "subtype": "stop_task",
+                "task_id": task_id,
+            }
+        )
+
+    async def wait_for_result_and_end_input(self) -> None:
+        """Wait for the first result (if needed) then close stdin.
+
+        If SDK MCP servers or hooks require bidirectional communication,
+        keeps stdin open until the first result arrives (or timeout).
+        Otherwise closes stdin immediately.
+        """
+        if self.sdk_mcp_servers or self.hooks:
+            logger.debug(
+                "Waiting for first result before closing stdin "
+                f"(sdk_mcp_servers={len(self.sdk_mcp_servers)}, "
+                f"has_hooks={bool(self.hooks)})"
+            )
+            with anyio.move_on_after(self._stream_close_timeout):
+                await self._first_result_event.wait()
+
+        await self.transport.end_input()
+
     async def stream_input(self, stream: AsyncIterable[dict[str, Any]]) -> None:
         """Stream input messages to transport.
 
@@ -579,25 +641,7 @@ class Query:
                     break
                 await self.transport.write(json.dumps(message) + "\n")
 
-            # If we have SDK MCP servers or hooks that need bidirectional communication,
-            # wait for first result before closing the channel
-            has_hooks = bool(self.hooks)
-            if self.sdk_mcp_servers or has_hooks:
-                logger.debug(
-                    f"Waiting for first result before closing stdin "
-                    f"(sdk_mcp_servers={len(self.sdk_mcp_servers)}, has_hooks={has_hooks})"
-                )
-                try:
-                    with anyio.move_on_after(self._stream_close_timeout):
-                        await self._first_result_event.wait()
-                        logger.debug("Received first result, closing input stream")
-                except Exception:
-                    logger.debug(
-                        "Timed out waiting for first result, closing input stream"
-                    )
-
-            # After all messages sent (and result received if needed), end input
-            await self.transport.end_input()
+            await self.wait_for_result_and_end_input()
         except Exception as e:
             logger.debug(f"Error streaming input: {e}")
 

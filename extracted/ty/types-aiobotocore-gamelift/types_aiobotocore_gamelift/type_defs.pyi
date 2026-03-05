@@ -52,6 +52,7 @@ from .literals import (
     GameServerGroupInstanceTypeType,
     GameServerGroupStatusType,
     GameServerInstanceStatusType,
+    GameServerIpProtocolSupportedType,
     GameServerProtectionPolicyType,
     GameServerUtilizationStatusType,
     GameSessionPlacementStateType,
@@ -66,6 +67,8 @@ from .literals import (
     MetricNameType,
     OperatingSystemType,
     PlacementFallbackStrategyType,
+    PlayerGatewayModeType,
+    PlayerGatewayStatusType,
     PlayerSessionCreationPolicyType,
     PlayerSessionStatusType,
     PolicyTypeType,
@@ -280,6 +283,8 @@ __all__ = (
     "GetGameSessionLogUrlOutputTypeDef",
     "GetInstanceAccessInputTypeDef",
     "GetInstanceAccessOutputTypeDef",
+    "GetPlayerConnectionDetailsInputTypeDef",
+    "GetPlayerConnectionDetailsOutputTypeDef",
     "InstanceAccessTypeDef",
     "InstanceCredentialsTypeDef",
     "InstanceDefinitionTypeDef",
@@ -338,6 +343,9 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PingBeaconTypeDef",
     "PlacedPlayerSessionTypeDef",
+    "PlayerConnectionDetailTypeDef",
+    "PlayerConnectionEndpointTypeDef",
+    "PlayerGatewayConfigurationTypeDef",
     "PlayerLatencyPolicyTypeDef",
     "PlayerLatencyTypeDef",
     "PlayerOutputTypeDef",
@@ -528,6 +536,7 @@ class ContainerEnvironmentTypeDef(TypedDict):
 class ContainerFleetLocationAttributesTypeDef(TypedDict):
     Location: NotRequired[str]
     Status: NotRequired[ContainerFleetLocationStatusType]
+    PlayerGatewayStatus: NotRequired[PlayerGatewayStatusType]
 
 class DeploymentDetailsTypeDef(TypedDict):
     LatestDeploymentId: NotRequired[str]
@@ -596,6 +605,9 @@ class S3LocationTypeDef(TypedDict):
 class LocationConfigurationTypeDef(TypedDict):
     Location: str
 
+class PlayerGatewayConfigurationTypeDef(TypedDict):
+    GameServerIpProtocolSupported: NotRequired[GameServerIpProtocolSupportedType]
+
 class ResourceCreationLimitPolicyTypeDef(TypedDict):
     NewGameSessionsPerCreator: NotRequired[int]
     PolicyPeriodInMinutes: NotRequired[int]
@@ -603,6 +615,7 @@ class ResourceCreationLimitPolicyTypeDef(TypedDict):
 class LocationStateTypeDef(TypedDict):
     Location: NotRequired[str]
     Status: NotRequired[FleetStatusType]
+    PlayerGatewayStatus: NotRequired[PlayerGatewayStatusType]
 
 class InstanceDefinitionTypeDef(TypedDict):
     InstanceType: GameServerGroupInstanceTypeType
@@ -1001,6 +1014,10 @@ class GetInstanceAccessInputTypeDef(TypedDict):
     FleetId: str
     InstanceId: str
 
+class GetPlayerConnectionDetailsInputTypeDef(TypedDict):
+    GameSessionId: str
+    PlayerIds: Sequence[str]
+
 class InstanceCredentialsTypeDef(TypedDict):
     UserName: NotRequired[str]
     Secret: NotRequired[str]
@@ -1074,6 +1091,10 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 class UDPEndpointTypeDef(TypedDict):
     Domain: NotRequired[str]
+    Port: NotRequired[int]
+
+class PlayerConnectionEndpointTypeDef(TypedDict):
+    IpAddress: NotRequired[str]
     Port: NotRequired[int]
 
 class PriorityConfigurationOverrideTypeDef(TypedDict):
@@ -1348,6 +1369,7 @@ class ContainerFleetTypeDef(TypedDict):
     DeploymentDetails: NotRequired[DeploymentDetailsTypeDef]
     LogConfiguration: NotRequired[LogConfigurationTypeDef]
     LocationAttributes: NotRequired[list[ContainerFleetLocationAttributesTypeDef]]
+    PlayerGatewayMode: NotRequired[PlayerGatewayModeType]
 
 ContainerHealthCheckUnionTypeDef = Union[
     ContainerHealthCheckTypeDef, ContainerHealthCheckOutputTypeDef
@@ -1452,6 +1474,7 @@ class CreateContainerFleetInputTypeDef(TypedDict):
     GameSessionCreationLimitPolicy: NotRequired[GameSessionCreationLimitPolicyTypeDef]
     LogConfiguration: NotRequired[LogConfigurationTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    PlayerGatewayMode: NotRequired[PlayerGatewayModeType]
 
 class CreateFleetLocationsInputTypeDef(TypedDict):
     FleetId: str
@@ -1484,6 +1507,8 @@ class FleetAttributesTypeDef(TypedDict):
     ComputeType: NotRequired[ComputeTypeType]
     AnywhereConfiguration: NotRequired[AnywhereConfigurationTypeDef]
     InstanceRoleCredentialsProvider: NotRequired[Literal["SHARED_CREDENTIAL_FILE"]]
+    PlayerGatewayMode: NotRequired[PlayerGatewayModeType]
+    PlayerGatewayConfiguration: NotRequired[PlayerGatewayConfigurationTypeDef]
 
 class UpdateFleetAttributesInputTypeDef(TypedDict):
     FleetId: str
@@ -1581,6 +1606,7 @@ class GameSessionTypeDef(TypedDict):
     GameSessionData: NotRequired[str]
     MatchmakerData: NotRequired[str]
     Location: NotRequired[str]
+    PlayerGatewayStatus: NotRequired[PlayerGatewayStatusType]
 
 class MatchmakingConfigurationTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -1886,6 +1912,7 @@ class GameSessionConnectionInfoTypeDef(TypedDict):
     DnsName: NotRequired[str]
     Port: NotRequired[int]
     MatchedPlayerSessions: NotRequired[list[MatchedPlayerSessionTypeDef]]
+    PlayerGatewayStatus: NotRequired[PlayerGatewayStatusType]
 
 class GameSessionPlacementTypeDef(TypedDict):
     PlacementId: NotRequired[str]
@@ -1907,6 +1934,7 @@ class GameSessionPlacementTypeDef(TypedDict):
     GameSessionData: NotRequired[str]
     MatchmakerData: NotRequired[str]
     PriorityConfigurationOverride: NotRequired[PriorityConfigurationOverrideOutputTypeDef]
+    PlayerGatewayStatus: NotRequired[PlayerGatewayStatusType]
 
 class GameSessionQueueTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -1928,6 +1956,12 @@ class InstanceAccessTypeDef(TypedDict):
 
 class PingBeaconTypeDef(TypedDict):
     UDPEndpoint: NotRequired[UDPEndpointTypeDef]
+
+class PlayerConnectionDetailTypeDef(TypedDict):
+    PlayerId: NotRequired[str]
+    Endpoints: NotRequired[list[PlayerConnectionEndpointTypeDef]]
+    PlayerGatewayToken: NotRequired[str]
+    Expiration: NotRequired[datetime]
 
 PriorityConfigurationOverrideUnionTypeDef = Union[
     PriorityConfigurationOverrideTypeDef, PriorityConfigurationOverrideOutputTypeDef
@@ -2244,6 +2278,11 @@ class LocationModelTypeDef(TypedDict):
     LocationArn: NotRequired[str]
     PingBeacon: NotRequired[PingBeaconTypeDef]
 
+class GetPlayerConnectionDetailsOutputTypeDef(TypedDict):
+    GameSessionId: str
+    PlayerConnectionDetails: list[PlayerConnectionDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StartGameSessionPlacementInputTypeDef(TypedDict):
     PlacementId: str
     GameSessionQueueName: str
@@ -2385,6 +2424,8 @@ class CreateFleetInputTypeDef(TypedDict):
     ComputeType: NotRequired[ComputeTypeType]
     AnywhereConfiguration: NotRequired[AnywhereConfigurationTypeDef]
     InstanceRoleCredentialsProvider: NotRequired[Literal["SHARED_CREDENTIAL_FILE"]]
+    PlayerGatewayMode: NotRequired[PlayerGatewayModeType]
+    PlayerGatewayConfiguration: NotRequired[PlayerGatewayConfigurationTypeDef]
 
 class UpdateRuntimeConfigurationInputTypeDef(TypedDict):
     FleetId: str

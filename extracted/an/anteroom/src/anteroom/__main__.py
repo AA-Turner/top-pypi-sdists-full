@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import errno
+import json
 import logging
 import os
 import socket
@@ -601,6 +602,37 @@ def _run_web(
         raise
 
 
+_STEP_LABELS: dict[str, str] = {
+    "database": "Initializing database",
+    "mcp_servers": "Connecting to MCP servers",
+    "tools": "Registering tools",
+    "embeddings": "Probing embeddings",
+    "packs": "Loading packs",
+    "artifacts": "Loading artifacts and skills",
+    "ready": "Ready",
+}
+
+
+def _read_last_progress(path: Path) -> dict[str, str] | None:
+    """Read the progress file and return the last parseable JSON event."""
+    try:
+        text = path.read_text()
+    except OSError:
+        return None
+    last: dict[str, str] | None = None
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+            if isinstance(obj, dict):
+                last = obj
+        except (json.JSONDecodeError, ValueError):
+            continue
+    return last
+
+
 def _run_start(config: AppConfig, config_path: Path, args: argparse.Namespace) -> None:
     """Start the web UI server in the background."""
     from .services.server_manager import ServerManager
@@ -634,13 +666,35 @@ def _run_start(config: AppConfig, config_path: Path, args: argparse.Namespace) -
     probe_host = "127.0.0.1" if config.app.host in ("0.0.0.0", "::") else config.app.host
     url = f"{scheme}://{probe_host}:{config.app.port}"
 
-    for _ in range(50):
-        if mgr.is_port_responding(probe_host, config.app.port, timeout=0.5):
-            break
-        time.sleep(0.1)
+    from rich.console import Console
+    from rich.status import Status
 
-    if mgr.is_port_responding(probe_host, config.app.port, timeout=1.0):
-        print(f"Anteroom started at {url} (PID {pid})")
+    console = Console()
+    status_text = "Starting Anteroom..."
+    started = False
+
+    with Status(status_text, console=console, spinner="dots") as spinner:
+        for _ in range(100):
+            if mgr.is_port_responding(probe_host, config.app.port, timeout=0.5):
+                started = True
+                break
+            progress = _read_last_progress(mgr.progress_path)
+            if progress:
+                step = progress.get("step", "")
+                step_status = progress.get("status", "")
+                detail = progress.get("detail", "")
+                if step == "error":
+                    console.print(f"[red]Server failed to start: {detail}[/red]")
+                    sys.exit(1)
+                if step_status == "running":
+                    label = _STEP_LABELS.get(step, step)
+                    if detail:
+                        label = f"{label} ({detail})"
+                    spinner.update(f"{label}...")
+            time.sleep(0.1)
+
+    if started:
+        console.print(f"[green]Anteroom started at {url} (PID {pid})[/green]")
         if not getattr(args, "no_browser", False):
             webbrowser.open(url)
     else:
@@ -717,20 +771,6 @@ def _run_status(config: AppConfig) -> None:
         print(f"Stale PID file found (process {status.pid} is not running). Cleaned up.")
 
 
-def _resolve_project_id(config: AppConfig, project_name: str) -> str:
-    """Resolve a project name to its ID, or exit with an error."""
-    from .db import get_db
-    from .services import storage
-
-    db = get_db(config.app.data_dir / "chat.db")
-    project = storage.get_project_by_name(db, project_name)
-    if not project:
-        print(f"Error: Project '{project_name}' not found.", file=sys.stderr)
-        print("Run `aroom projects` to list available projects.", file=sys.stderr)
-        sys.exit(1)
-    return str(project["id"])
-
-
 def _resolve_space_id(config: AppConfig, space_name: str) -> str:
     """Resolve a space name to its ID, or exit with an error."""
     from .db import get_db
@@ -749,40 +789,6 @@ def _resolve_space_id(config: AppConfig, space_name: str) -> str:
     print(f"Error: Space '{space_name}' not found.", file=sys.stderr)
     print("Run `aroom space list` to list available spaces.", file=sys.stderr)
     sys.exit(1)
-
-
-def _run_projects(config: AppConfig) -> None:
-    """List all named projects."""
-    from rich.console import Console
-    from rich.table import Table
-
-    from .db import get_db
-    from .services import storage
-
-    db = get_db(config.app.data_dir / "chat.db")
-    projects = storage.list_projects(db)
-    if not projects:
-        print("No projects found. Create one in the web UI.")
-        return
-
-    console = Console()
-    table = Table(title="Projects")
-    table.add_column("Name", style="bold")
-    table.add_column("Model")
-    table.add_column("Instructions", max_width=50)
-    table.add_column("Updated")
-
-    for p in projects:
-        instructions_preview = (p.get("instructions") or "")[:50]
-        if len(p.get("instructions") or "") > 50:
-            instructions_preview += "..."
-        table.add_row(
-            p["name"],
-            p.get("model") or "(default)",
-            instructions_preview,
-            p.get("updated_at", "")[:10],
-        )
-    console.print(table)
 
 
 def _run_artifact(config: AppConfig, args: argparse.Namespace) -> None:
@@ -1344,10 +1350,9 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
         list_spaces,
         resolve_space,
         sync_space_paths,
-        update_space,
     )
     from .services.spaces import (
-        file_hash,
+        compute_file_hash,
         is_local_space,
         parse_space_file,
         slugify_dir_name,
@@ -1371,7 +1376,7 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
             return _pick_from_candidates(
                 candidates,
                 "space",
-                lambda c: f"{c['id'][:8]}  {c['name']}  ({c['file_path']})",
+                lambda c: f"{c['id'][:8]}  {c['name']}  ({c.get('source_file', '')})",
             )
         console.print(f"[red]Error:[/red] Space {escape(name_or_id)!r} not found")
         return None
@@ -1388,8 +1393,8 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
         table.add_column("Conversations", justify="right")
         table.add_column("Last Loaded")
         for s in spaces:
-            fp = s["file_path"]
-            origin = "local" if (fp and is_local_space(fp)) else "global"
+            sf = s.get("source_file", "")
+            origin = "local" if (sf and is_local_space(sf)) else "global"
             count = count_space_conversations(db, s["id"])
             table.add_row(
                 s["name"],
@@ -1435,7 +1440,7 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
             return
 
         write_space_template(target, name)
-        s = create_space(db, name, str(target), file_hash(target))
+        s = create_space(db, name, source_file=str(target), source_hash=compute_file_hash(target))
         # Map cwd so resolve_space_by_cwd() finds this space
         sync_space_paths(db, s["id"], [{"local_path": str(cwd)}])
         console.print(f"[green]Created local space:[/green] {escape(s['name'])}")
@@ -1461,7 +1466,14 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
             console.print(f"[yellow]Space '{escape(space_cfg.name)}' already exists.[/yellow]")
             console.print(f"  Use [bold]aroom space show {escape(space_cfg.name)}[/bold] to view it.")
             return
-        s = create_space(db, space_cfg.name, str(path), file_hash(path))
+        s = create_space(
+            db,
+            space_cfg.name,
+            source_file=str(path),
+            source_hash=compute_file_hash(path),
+            instructions=space_cfg.instructions or "",
+            model=space_cfg.config.get("model"),
+        )
         console.print(f"[green]Loaded space:[/green] {escape(s['name'])} (id: {s['id'][:8]}...)")
 
     elif action == "show":
@@ -1470,8 +1482,16 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
             return
         console.print(f"[bold]{escape(space['name'])}[/bold]")
         console.print(f"  ID:          {space['id']}")
-        console.print(f"  File:        {space['file_path']}")
-        console.print(f"  Hash:        {space['file_hash'][:16]}...")
+        _sf = space.get("source_file", "")
+        console.print(f"  Source:      {_sf or '(DB-only)'}")
+        _sh = space.get("source_hash", "")
+        if _sh:
+            console.print(f"  Hash:        {_sh[:16]}...")
+        if space.get("instructions"):
+            _ip = space["instructions"][:80].replace("\n", " ")
+            console.print(f"  Instructions: {_ip}...")
+        if space.get("model"):
+            console.print(f"  Model:       {space['model']}")
         console.print(f"  Last loaded: {space['last_loaded_at']}")
         console.print(f"  Created:     {space['created_at']}")
 
@@ -1486,22 +1506,33 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
         space = _resolve(args.name)
         if not space:
             return
-        path = Path(space["file_path"])
+        _sf = space.get("source_file", "")
+        if not _sf:
+            console.print("[red]Error:[/red] Space has no source file to refresh from.")
+            return
+        path = Path(_sf)
         if not path.is_file():
-            console.print(f"[red]Error:[/red] Space file not found: {path}")
+            console.print(f"[red]Error:[/red] Space source file not found: {path}")
             return
-        new_hash = file_hash(path)
-        if new_hash == space["file_hash"]:
-            console.print("[dim]Space file unchanged — nothing to refresh.[/dim]")
+
+        from .services.spaces import sync_space_from_file
+
+        try:
+            updated = sync_space_from_file(db, path)
+            console.print(f"[green]Refreshed space:[/green] {escape(updated['name'])}")
+        except ValueError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
             return
-        update_space(db, space["id"], file_hash=new_hash)
-        console.print(f"[green]Refreshed:[/green] {escape(args.name)} (hash updated)")
 
     elif action == "clone":
         space = _resolve(args.name)
         if not space:
             return
-        path = Path(space["file_path"])
+        _sf = space.get("source_file", "")
+        if not _sf:
+            console.print("[red]Error:[/red] Space has no source file to clone from.")
+            return
+        path = Path(_sf)
         if not path.is_file():
             console.print(f"[red]Error:[/red] Space file not found: {path}")
             return
@@ -1582,7 +1613,11 @@ def _run_space(config: AppConfig, args: argparse.Namespace) -> None:
             return
         from .services.spaces import SpaceLocalConfig, parse_local_file, resolve_local_path, write_local_file
 
-        path = Path(space["file_path"])
+        _sf = space.get("source_file", "")
+        if not _sf:
+            console.print("[red]Error:[/red] Space has no source file.")
+            return
+        path = Path(_sf)
         local_path = resolve_local_path(path)
         local_cfg = parse_local_file(local_path) if local_path else SpaceLocalConfig()
         local_cfg.repos_root = str(new_root)
@@ -1598,7 +1633,6 @@ def _run_chat(
     continue_last: bool = False,
     resume_id: str | None = None,
     project_path: str | None = None,
-    project_id: str | None = None,
     model: str | None = None,
     trust_project: bool = False,
     no_project_context: bool = False,
@@ -1630,7 +1664,6 @@ def _run_chat(
                 no_tools=no_tools,
                 continue_last=continue_last,
                 conversation_id=resume_id,
-                project_id=project_id,
                 trust_project=trust_project,
                 no_project_context=no_project_context,
                 plan_mode=plan_mode,
@@ -1677,7 +1710,7 @@ def _run_exec(
     verbose: bool = False,
     no_project_context: bool = False,
     trust_project: bool = False,
-    project_id: str | None = None,
+    space_id: str | None = None,
 ) -> None:
     """Launch non-interactive exec mode."""
     if model:
@@ -1700,7 +1733,7 @@ def _run_exec(
                 verbose=verbose,
                 no_project_context=no_project_context,
                 trust_project=trust_project,
-                project_id=project_id,
+                space_id=space_id,
             )
         )
         sys.exit(exit_code)
@@ -1909,12 +1942,6 @@ def main() -> None:
         help="Set random seed for deterministic outputs",
     )
     parser.add_argument(
-        "--project",
-        dest="project_name",
-        default=None,
-        help="Load a named project (instructions, model override, source context)",
-    )
-    parser.add_argument(
         "--space",
         dest="space_name",
         default=None,
@@ -1939,9 +1966,6 @@ def main() -> None:
         default=False,
         help=argparse.SUPPRESS,
     )
-
-    # `aroom projects` subcommand
-    subparsers.add_parser("projects", help="List named projects")
 
     artifact_parser = subparsers.add_parser("artifact", help="Manage artifacts")
     artifact_subparsers = artifact_parser.add_subparsers(dest="artifact_action")
@@ -2006,7 +2030,7 @@ def main() -> None:
     space_parser = subparsers.add_parser("space", help="Manage spaces")
     space_subparsers = space_parser.add_subparsers(dest="space_action")
     space_subparsers.add_parser("list", help="List all spaces")
-    space_create_parser = space_subparsers.add_parser("create", help="Create a local space in the current directory")
+    space_create_parser = space_subparsers.add_parser("create", help="Create a new global space")
     space_create_parser.add_argument("name", help="Space name")
     space_subparsers.add_parser("init", help="Create a local space, deriving the name from the directory")
     space_load_parser = space_subparsers.add_parser("load", help="Load an existing space YAML file")
@@ -2174,10 +2198,6 @@ def main() -> None:
         )
         return
 
-    if args.command == "projects":
-        _run_projects(config)
-        return
-
     if args.command == "artifact":
         _run_artifact(config, args)
         return
@@ -2206,12 +2226,6 @@ def main() -> None:
         _run_web(config, config_path, debug=args.debug, enforced_fields=enforced_fields)
         return
 
-    # Resolve --project <name> to project_id
-    _project_name = getattr(args, "project_name", None)
-    _project_id: str | None = None
-    if _project_name:
-        _project_id = _resolve_project_id(config, _project_name)
-
     # Resolve --space <name> to space_id
     _space_name = getattr(args, "space_name", None)
     _space_id: str | None = None
@@ -2226,7 +2240,6 @@ def main() -> None:
             continue_last=args.continue_last,
             resume_id=args.resume_id,
             project_path=args.project_path,
-            project_id=_project_id,
             model=args.model,
             trust_project=args.trust_project,
             no_project_context=args.no_project_context,
@@ -2246,7 +2259,7 @@ def main() -> None:
             verbose=args.verbose,
             no_project_context=args.no_project_context,
             trust_project=args.trust_project,
-            project_id=_project_id,
+            space_id=_space_id,
         )
     else:
         _run_web(config, config_path, debug=args.debug, enforced_fields=enforced_fields)

@@ -336,6 +336,7 @@ StandardIdentifierType = Literal[
     "ASSET",
     "CASE",
     "COMMUNICATION_RECORD",
+    "DEVICE",
     "HOTEL_PREFERENCE",
     "HOTEL_RESERVATION",
     "HOTEL_STAY_REVENUE",
@@ -348,6 +349,7 @@ StandardIdentifierType = Literal[
     "PROFILE",
     "SECONDARY",
     "UNIQUE",
+    "WEB_ANALYTICS",
 ]
 StatisticType = Literal[
     "AVERAGE",
@@ -535,6 +537,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

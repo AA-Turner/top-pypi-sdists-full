@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.6.6
+Version: 6.6.7
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -165,9 +165,13 @@ Unreleased
 ----------
 * nothing unreleased
 
+[6.6.7] - 2026-03-04
+---------------------
+* feat: expose admin list endpoint with search and pagination
+
 [6.6.6] - 2026-02-20
 ---------------------
-* feat:Implement soft delete for admins
+* feat: Implement soft delete for admins
 
 [6.6.5] - 2026-02-24
 ---------------------

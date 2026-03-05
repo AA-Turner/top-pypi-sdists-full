@@ -19,9 +19,7 @@ from phoenix.db.helpers import (
     get_dataset_example_revisions,
     insert_experiment_with_examples_snapshot,
 )
-from phoenix.db.types.annotation_configs import (
-    CategoricalAnnotationConfig,
-)
+from phoenix.db.types.annotation_configs import CategoricalOutputConfig
 from phoenix.db.types.model_provider import (
     is_sdk_compatible_with_model_provider,
 )
@@ -425,9 +423,9 @@ class ChatCompletionMutationMixin:
                     trace: Trace | None = None
                     if tracer is not None:
                         async with info.context.db() as session:
-                            db_traces = await tracer.save_db_traces(
-                                session=session, project_id=project_id
-                            )
+                            db_traces = tracer.get_db_traces(project_id=project_id)
+                            session.add_all(db_traces)
+                            await session.flush()
                         if db_traces:
                             db_trace = db_traces[0]
                             trace = Trace(id=db_trace.id, db_record=db_trace)
@@ -671,9 +669,9 @@ class ChatCompletionMutationMixin:
                 all_configs = _convert_output_config_inputs_to_pydantic(
                     inline_llm_evaluator.output_configs
                 )
-                categorical_configs: list[CategoricalAnnotationConfig] = []
+                categorical_configs: list[CategoricalOutputConfig] = []
                 for config in all_configs:
-                    if not isinstance(config, CategoricalAnnotationConfig):
+                    if not isinstance(config, CategoricalOutputConfig):
                         raise BadRequest(
                             "Only categorical annotation configs "
                             "are supported for LLM evaluator previews"
@@ -786,7 +784,9 @@ class ChatCompletionMutationMixin:
                         description=project_description,
                     )
                 )
-            db_traces = await tracer.save_db_traces(session=session, project_id=project_id)
+            db_traces = tracer.get_db_traces(project_id=project_id)
+            session.add_all(db_traces)
+            await session.flush()
 
         db_trace = db_traces[0]
         db_span = db_trace.spans[0]

@@ -103,7 +103,7 @@ class Param(FieldInfo):  # type: ignore[misc]
         alias_priority: int | None = _Unset,
         # MAINTENANCE: update when deprecating Pydantic v1, import these types
         # MAINTENANCE: validation_alias: str | AliasPath | AliasChoices | None
-        validation_alias: str | None = None,
+        validation_alias: str | None = _Unset,
         serialization_alias: str | None = None,
         title: str | None = None,
         description: str | None = None,
@@ -217,6 +217,14 @@ class Param(FieldInfo):  # type: ignore[misc]
 
         self.openapi_examples = openapi_examples
 
+        # Pydantic 2.12+ no longer copies alias to validation_alias automatically
+        # Ensure alias and validation_alias are in sync when only one is provided
+        if validation_alias is _Unset and alias is not None:
+            validation_alias = alias
+        elif alias is None and validation_alias is not _Unset and validation_alias is not None:
+            alias = validation_alias
+            kwargs["alias"] = alias
+
         kwargs.update(
             {
                 "annotation": annotation,
@@ -254,7 +262,7 @@ class Path(Param):  # type: ignore[misc]
         alias_priority: int | None = _Unset,
         # MAINTENANCE: update when deprecating Pydantic v1, import these types
         # MAINTENANCE: validation_alias: str | AliasPath | AliasChoices | None
-        validation_alias: str | None = None,
+        validation_alias: str | None = _Unset,
         serialization_alias: str | None = None,
         title: str | None = None,
         description: str | None = None,
@@ -386,7 +394,7 @@ class Query(Param):  # type: ignore[misc]
         annotation: Any | None = None,
         alias: str | None = None,
         alias_priority: int | None = _Unset,
-        validation_alias: str | None = None,
+        validation_alias: str | None = _Unset,
         serialization_alias: str | None = None,
         title: str | None = None,
         description: str | None = None,
@@ -517,7 +525,7 @@ class Header(Param):  # type: ignore[misc]
         alias_priority: int | None = _Unset,
         # MAINTENANCE: update when deprecating Pydantic v1, import these types
         # str | AliasPath | AliasChoices | None
-        validation_alias: str | None = None,
+        validation_alias: str | None = _Unset,
         serialization_alias: str | None = None,
         convert_underscores: bool = True,
         title: str | None = None,
@@ -667,7 +675,7 @@ class Body(FieldInfo):  # type: ignore[misc]
         alias_priority: int | None = _Unset,
         # MAINTENANCE: update when deprecating Pydantic v1, import these types
         # str | AliasPath | AliasChoices | None
-        validation_alias: str | None = None,
+        validation_alias: str | None = _Unset,
         serialization_alias: str | None = None,
         title: str | None = None,
         description: str | None = None,
@@ -716,7 +724,18 @@ class Body(FieldInfo):  # type: ignore[misc]
         )
         if examples is not None:
             kwargs["examples"] = examples
+        if openapi_examples is not None:
+            kwargs["openapi_examples"] = openapi_examples
         current_json_schema_extra = json_schema_extra or extra
+
+        # Pydantic 2.12+ no longer copies alias to validation_alias automatically
+        # Ensure alias and validation_alias are in sync when only one is provided
+        if validation_alias is _Unset and alias is not None:
+            validation_alias = alias
+        elif alias is None and validation_alias is not _Unset and validation_alias is not None:
+            alias = validation_alias
+            kwargs["alias"] = alias
+        self.openapi_examples = openapi_examples
 
         kwargs.update(
             {
@@ -754,7 +773,7 @@ class Form(Body):  # type: ignore[misc]
         alias_priority: int | None = _Unset,
         # MAINTENANCE: update when deprecating Pydantic v1, import these types
         # str | AliasPath | AliasChoices | None
-        validation_alias: str | None = None,
+        validation_alias: str | None = _Unset,
         serialization_alias: str | None = None,
         title: str | None = None,
         description: str | None = None,
@@ -1108,11 +1127,23 @@ def get_field_info_annotated_type(annotation, value, is_path_param: bool) -> tup
     """
     annotated_args = get_args(annotation)
     type_annotation = annotated_args[0]
-    powertools_annotations = [arg for arg in annotated_args[1:] if isinstance(arg, FieldInfo)]
+
+    # Handle both FieldInfo instances and FieldInfo subclasses (e.g., Body vs Body())
+    powertools_annotations: list[FieldInfo] = []
+    for arg in annotated_args[1:]:
+        if isinstance(arg, FieldInfo):
+            powertools_annotations.append(arg)
+        elif isinstance(arg, type) and issubclass(arg, FieldInfo):
+            # If it's a class (e.g., Body instead of Body()), instantiate it
+            powertools_annotations.append(arg())
 
     # Preserve non-FieldInfo metadata (like annotated_types constraints)
     # This is important for constraints like Interval, Gt, Lt, etc.
-    other_metadata = [arg for arg in annotated_args[1:] if not isinstance(arg, FieldInfo)]
+    other_metadata = [
+        arg
+        for arg in annotated_args[1:]
+        if not isinstance(arg, FieldInfo) and not (isinstance(arg, type) and issubclass(arg, FieldInfo))
+    ]
 
     # Determine which annotation to use
     powertools_annotation: FieldInfo | None = None

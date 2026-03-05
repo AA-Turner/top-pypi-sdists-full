@@ -70,6 +70,7 @@ __all__ = (
     "GameServerGroupStatusType",
     "GameServerHealthCheckType",
     "GameServerInstanceStatusType",
+    "GameServerIpProtocolSupportedType",
     "GameServerProtectionPolicyType",
     "GameServerUtilizationStatusType",
     "GameSessionPlacementStateType",
@@ -99,6 +100,8 @@ __all__ = (
     "OperatingSystemType",
     "PaginatorName",
     "PlacementFallbackStrategyType",
+    "PlayerGatewayModeType",
+    "PlayerGatewayStatusType",
     "PlayerSessionCreationPolicyType",
     "PlayerSessionStatusType",
     "PolicyTypeType",
@@ -845,6 +848,7 @@ GameServerGroupStatusType = Literal[
 ]
 GameServerHealthCheckType = Literal["HEALTHY"]
 GameServerInstanceStatusType = Literal["ACTIVE", "DRAINING", "SPOT_TERMINATING"]
+GameServerIpProtocolSupportedType = Literal["DUAL_STACK", "IPv4"]
 GameServerProtectionPolicyType = Literal["FULL_PROTECTION", "NO_PROTECTION"]
 GameServerUtilizationStatusType = Literal["AVAILABLE", "UTILIZED"]
 GameSessionPlacementStateType = Literal["CANCELLED", "FAILED", "FULFILLED", "PENDING", "TIMED_OUT"]
@@ -906,6 +910,8 @@ OperatingSystemType = Literal[
     "WINDOWS_2022",
 ]
 PlacementFallbackStrategyType = Literal["DEFAULT_AFTER_SINGLE_PASS", "NONE"]
+PlayerGatewayModeType = Literal["DISABLED", "ENABLED", "REQUIRED"]
+PlayerGatewayStatusType = Literal["DISABLED", "ENABLED"]
 PlayerSessionCreationPolicyType = Literal["ACCEPT_ALL", "DENY_ALL"]
 PlayerSessionStatusType = Literal["ACTIVE", "COMPLETED", "RESERVED", "TIMEDOUT"]
 PolicyTypeType = Literal["RuleBased", "TargetBased"]
@@ -1064,13 +1070,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -1110,7 +1116,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -1285,6 +1290,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

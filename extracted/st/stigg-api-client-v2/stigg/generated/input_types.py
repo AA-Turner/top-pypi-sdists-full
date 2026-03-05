@@ -87,6 +87,7 @@ from .enums import (
     SortDirection,
     SortNulls,
     SubscriptionAddonSortFields,
+    SubscriptionBillingCycleAnchor,
     SubscriptionCancellationAction,
     SubscriptionCancellationTime,
     SubscriptionCancelReason,
@@ -313,6 +314,9 @@ class ApplySubscriptionInput(BaseModel):
     )
     billing_country_code: Optional[str] = Field(
         alias="billingCountryCode", default=None
+    )
+    billing_cycle_anchor: Optional[SubscriptionBillingCycleAnchor] = Field(
+        alias="billingCycleAnchor", default=None
     )
     billing_id: Optional[str] = Field(alias="billingId", default=None)
     billing_information: Optional["SubscriptionBillingInfo"] = Field(
@@ -3497,6 +3501,9 @@ class PreviewSubscriptionInput(BaseModel):
     billing_country_code: Optional[str] = Field(
         alias="billingCountryCode", default=None
     )
+    billing_cycle_anchor: Optional[SubscriptionBillingCycleAnchor] = Field(
+        alias="billingCycleAnchor", default=None
+    )
     billing_information: Optional["SubscriptionBillingInfo"] = Field(
         alias="billingInformation", default=None
     )
@@ -3907,6 +3914,9 @@ class ProvisionCustomerSubscriptionInput(BaseModel):
     billing_country_code: Optional[str] = Field(
         alias="billingCountryCode", default=None
     )
+    billing_cycle_anchor: Optional[SubscriptionBillingCycleAnchor] = Field(
+        alias="billingCycleAnchor", default=None
+    )
     billing_id: Optional[str] = Field(alias="billingId", default=None)
     billing_information: Optional["SubscriptionBillingInfo"] = Field(
         alias="billingInformation", default=None
@@ -3962,6 +3972,9 @@ class ProvisionSubscription(BaseModel):
     )
     billing_country_code: Optional[str] = Field(
         alias="billingCountryCode", default=None
+    )
+    billing_cycle_anchor: Optional[SubscriptionBillingCycleAnchor] = Field(
+        alias="billingCycleAnchor", default=None
     )
     billing_id: Optional[str] = Field(alias="billingId", default=None)
     billing_information: Optional["SubscriptionBillingInfo"] = Field(
@@ -4022,6 +4035,9 @@ class ProvisionSubscriptionInput(BaseModel):
     )
     billing_country_code: Optional[str] = Field(
         alias="billingCountryCode", default=None
+    )
+    billing_cycle_anchor: Optional[SubscriptionBillingCycleAnchor] = Field(
+        alias="billingCycleAnchor", default=None
     )
     billing_id: Optional[str] = Field(alias="billingId", default=None)
     billing_information: Optional["SubscriptionBillingInfo"] = Field(
@@ -4738,6 +4754,9 @@ class SubscriptionInput(BaseModel):
     )
     billing_country_code: Optional[str] = Field(
         alias="billingCountryCode", default=None
+    )
+    billing_cycle_anchor: Optional[SubscriptionBillingCycleAnchor] = Field(
+        alias="billingCycleAnchor", default=None
     )
     billing_id: Optional[str] = Field(alias="billingId", default=None)
     billing_information: Optional["SubscriptionBillingInfo"] = Field(
@@ -5566,6 +5585,9 @@ class UpdateSubscriptionInput(BaseModel):
     )
     billable_features: Optional[List["BillableFeatureInput"]] = Field(
         alias="billableFeatures", default=None
+    )
+    billing_cycle_anchor: Optional[SubscriptionBillingCycleAnchor] = Field(
+        alias="billingCycleAnchor", default=None
     )
     billing_information: Optional["SubscriptionBillingInfo"] = Field(
         alias="billingInformation", default=None

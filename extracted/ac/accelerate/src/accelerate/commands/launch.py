@@ -22,7 +22,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import psutil
 import torch
 
 from accelerate.commands.config import default_config_file, load_config_from_file
@@ -42,6 +41,7 @@ from accelerate.utils import (
     is_hpu_available,
     is_mlu_available,
     is_musa_available,
+    is_neuron_available,
     is_npu_available,
     is_rich_available,
     is_sagemaker_available,
@@ -273,13 +273,6 @@ def launch_command_parser(subparsers=None):
         default=False,
         action="store_true",
         help="Whether to use Megatron-LM.",
-    )
-
-    paradigm_args.add_argument(
-        "--use_xpu",
-        default=None,
-        action="store_true",
-        help="Whether to use IPEX plugin to speed up training on XPU specifically. This argument is deprecated and ignored, will be removed in Accelerate v1.20.",
     )
 
     # distributed GPU training arguments
@@ -533,7 +526,7 @@ def launch_command_parser(subparsers=None):
     fsdp_args.add_argument(
         "--fsdp_min_num_params",
         type=int,
-        default=1e8,
+        default=int(1e8),
         help="FSDP's minimum number of parameters for Default Auto Wrapping. (useful only when `use_fsdp` flag is passed).",
     )
     # We enable this for backwards compatibility, throw a warning if this is set in `FullyShardedDataParallelPlugin`
@@ -619,6 +612,54 @@ def launch_command_parser(subparsers=None):
         help="Megatron-LM's Tensor Parallelism (TP) degree. (useful only when `use_megatron_lm` flag is passed).",
     )
     megatron_lm_args.add_argument(
+        "--megatron_lm_use_custom_fsdp",
+        type=bool,
+        default=False,
+        help="Whether to use custom FSDP. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_no_load_optim",
+        type=bool,
+        default=False,
+        help="Whether to not load optimizer. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_eod_mask_loss",
+        type=bool,
+        default=False,
+        help="Whether to use eod mask loss. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_overlap_cpu_optimizer_d2h_h2d",
+        type=bool,
+        default=False,
+        help="Whether to overlap CPU optimizer step, gradients D2H and updated parameters H2D. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_no_save_optim",
+        type=bool,
+        default=False,
+        help="Whether to not save optimizer. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_optimizer_cpu_offload",
+        type=bool,
+        default=False,
+        help="Whether to use CPU offload for optimizer. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_use_precision_aware_optimizer",
+        type=bool,
+        default=False,
+        help="Whether to use precision aware optimizer. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_decoder_last_pipeline_num_layers",
+        type=int,
+        default=None,
+        help="Megatron-LM's decoder last pipeline number of layers, default None is even split of transformer layers across all pipeline stages.",
+    )
+    megatron_lm_args.add_argument(
         "--megatron_lm_pp_degree",
         type=int,
         default=1,
@@ -659,6 +700,83 @@ def launch_command_parser(subparsers=None):
         help="Megatron-LM's gradient clipping value based on global L2 Norm (0 to disable). "
         "(useful only when `use_megatron_lm` flag is passed).",
     )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_recompute_granularity",
+        default=None,
+        type=str,
+        help="Megatron-LM's recompute granularity (full, selective). "
+        "(useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_recompute_method",
+        default=None,
+        type=str,
+        help="Megatron-LM's recompute method (uniform, block). (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_recompute_num_layers",
+        default=None,
+        type=int,
+        help="Megatron-LM's number of layers to recompute. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_attention_backend",
+        default=None,
+        type=str,
+        help="Decides Whether (true|false) to enable attention backend. "
+        "(useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_expert_model_parallel_size",
+        default=None,
+        type=int,
+        help="Megatron-LM's expert model parallel size. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_context_parallel_size",
+        default=None,
+        type=int,
+        help="Megatron-LM's context parallel size. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_attention_dropout",
+        default=None,
+        type=float,
+        help="Megatron-LM's attention dropout rate. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_hidden_dropout",
+        default=None,
+        type=float,
+        help="Megatron-LM's hidden dropout rate. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_attention_softmax_in_fp32",
+        default=None,
+        type=str,
+        help="Decides Whether (true|false) to use fp32 for attention softmax. "
+        "(useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_expert_tensor_parallel_size",
+        default=None,
+        type=int,
+        help="Megatron-LM's expert tensor parallel size. (useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_calculate_per_token_loss",
+        default=None,
+        type=str,
+        help="Decides Whether (true|false) to calculate per token loss. "
+        "(useful only when `use_megatron_lm` flag is passed).",
+    )
+    megatron_lm_args.add_argument(
+        "--megatron_lm_use_rotary_position_embeddings",
+        default=None,
+        type=str,
+        help="Decides Whether (true|false) to use rotary position embeddings. "
+        "(useful only when `use_megatron_lm` flag is passed).",
+    )
 
     # FP8 arguments
     fp8_args = parser.add_argument_group(
@@ -667,8 +785,8 @@ def launch_command_parser(subparsers=None):
     fp8_args.add_argument(
         "--fp8_backend",
         type=str,
-        choices=["te", "msamp"],
-        help="Choose a backend to train with FP8 (te: TransformerEngine, msamp: MS-AMP)",
+        choices=["ao", "te", "msamp"],
+        help="Choose a backend to train with FP8 (ao: torchao, te: TransformerEngine, msamp: MS-AMP)",
     )
     fp8_args.add_argument(
         "--fp8_use_autocast_during_eval",
@@ -721,6 +839,18 @@ def launch_command_parser(subparsers=None):
         choices=["O1", "O2"],
         help="What level of 8-bit collective communication should be used with MS-AMP (useful only when `--fp8_backend=msamp` is passed).",
     )
+    fp8_args.add_argument(
+        "--fp8_enable_fsdp_float8_all_gather",
+        default="true",
+        type=str_to_bool,
+        help="Whether to enable FSDP2 float8 all gather (useful only when `--fp8_backend=ao` is passed).",
+    )
+    fp8_args.add_argument(
+        "--fp8_pad_inner_dim",
+        default="true",
+        type=str_to_bool,
+        help="Whether to pad the inner dimension for FP8 GEMMs (useful only when `--fp8_backend=ao` is passed).",
+    )
 
     # AWS arguments
     aws_args = parser.add_argument_group("AWS Arguments", "Arguments related to AWS.")
@@ -758,12 +888,6 @@ def launch_command_parser(subparsers=None):
         default=None,
         help="Location for a hostfile for using Accelerate to launch a multi-CPU training job with mpirun. This will "
         "get passed to the MPI --hostfile or -f parameter, depending on which MPI program is installed.",
-    )
-    mpirun_args.add_argument(
-        "--mpirun_ccl",
-        type=int,
-        default=1,
-        help="The number of oneCCL worker threads when using Accelerate to launch multi-CPU training with mpirun.",
     )
 
     # ParallelismConfig arguments
@@ -1107,6 +1231,7 @@ def _validate_launch_command(args):
                     DistributedType.MULTI_MUSA,
                     DistributedType.MULTI_XPU,
                     DistributedType.MULTI_HPU,
+                    DistributedType.MULTI_NEURON,
                 )
                 else False
             )
@@ -1185,6 +1310,8 @@ def _validate_launch_command(args):
                 args.num_processes = torch.npu.device_count()
             elif is_hpu_available():
                 args.num_processes = torch.hpu.device_count()
+            elif is_neuron_available():
+                args.num_processes = torch.neuron.device_count()
             else:
                 args.num_processes = torch.cuda.device_count()
             warned.append(f"\t`--num_processes` was set to a value of `{args.num_processes}`")
@@ -1200,6 +1327,7 @@ def _validate_launch_command(args):
                 or (is_mlu_available() and torch.mlu.device_count() > 1)
                 or (is_sdaa_available() and torch.sdaa.device_count() > 1)
                 or (is_musa_available() and torch.musa.device_count() > 1)
+                or (is_neuron_available() and torch.neuron.device_count() > 1)
                 or (torch.cuda.is_available() and torch.cuda.device_count() > 1)
             )
         ):
@@ -1232,18 +1360,14 @@ def _validate_launch_command(args):
                 ["MPI_LOCALNRANKS", "OMPI_COMM_WORLD_LOCAL_SIZE", "MV2_COMM_WORLD_LOCAL_SIZE"],
                 max(int(args.num_processes / args.num_machines), 1),
             )
+            import psutil
+
             threads_per_process = int(psutil.cpu_count(logical=False) / local_size)
             if threads_per_process > 1:
                 args.num_cpu_threads_per_process = threads_per_process
                 warned.append(
                     f"\t`--num_cpu_threads_per_process` was set to `{args.num_cpu_threads_per_process}` to improve out-of-box performance when training on CPUs"
                 )
-
-    if args.use_xpu is not None:
-        logger.warning(
-            "use_xpu is deprecated and ignored, will be removed in Accelerate v1.20. "
-            "XPU is a PyTorch native citizen now, we don't need extra argument to enable it any more."
-        )
 
     if any(warned):
         message = "The following values were not passed to `accelerate launch` and had defaults used instead:\n"

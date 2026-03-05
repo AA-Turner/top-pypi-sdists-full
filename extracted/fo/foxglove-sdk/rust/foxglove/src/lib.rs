@@ -381,7 +381,9 @@ pub(crate) use time::nanoseconds_since_epoch;
 
 #[cfg(feature = "remote_access")]
 mod api_client;
-#[cfg(feature = "_remote_common")]
+#[cfg(all(feature = "_remote_common", feature = "_protocol"))]
+pub mod protocol;
+#[cfg(all(feature = "_remote_common", not(feature = "_protocol")))]
 mod protocol;
 #[doc(hidden)]
 #[cfg(feature = "remote_access")]
@@ -466,11 +468,6 @@ pub enum FoxgloveError {
     /// An error related to configuration
     #[error("Configuration error: {0}")]
     ConfigurationError(String),
-    /// An error occurred while communicating with remote access.
-    #[doc(hidden)]
-    #[cfg(feature = "remote_access")]
-    #[error(transparent)]
-    RemoteAccessError(#[from] crate::remote_access::RemoteAccessError),
 }
 
 impl From<convert::RangeError> for FoxgloveError {

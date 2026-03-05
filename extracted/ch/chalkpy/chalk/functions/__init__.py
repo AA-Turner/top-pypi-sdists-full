@@ -1946,6 +1946,28 @@ def gunzip(expr: Underscore):
     return UnderscoreFunction("gunzip", expr)
 
 
+def from_snappy(expr: Underscore):
+    """
+    Decompress a snappy compressed bytes feature.
+
+    Parameters
+    ----------
+    expr
+        The snappy compressed bytes feature to decompress.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    compressed_data: bytes
+    ...    decompressed_data: bytes = F.from_snappy(_.compressed_data)
+    """
+    return UnderscoreFunction("from_snappy", expr)
+
+
 def cosine_similarity(a: Underscore, b: Underscore):
     """
     Compute the cosine similarity between two vectors.
@@ -6118,6 +6140,7 @@ __all__ = (
     "from_unix_seconds",
     "greatest",
     "gunzip",
+    "from_snappy",
     "haversine",
     "head",
     "hour_of_day",

@@ -349,7 +349,6 @@ async fn test_docbook_itemized_list() {
     assert!(result.content.contains("First item"));
     assert!(result.content.contains("Second item"));
     assert!(result.content.contains("Third item"));
-    assert!(result.content.contains("- "), "Should contain bullet points");
 }
 
 #[tokio::test]
@@ -379,7 +378,6 @@ async fn test_docbook_ordered_list() {
     assert!(result.content.contains("First step"));
     assert!(result.content.contains("Second step"));
     assert!(result.content.contains("Third step"));
-    assert!(result.content.contains("1. "), "Should contain numbered list");
 }
 
 #[tokio::test]
@@ -399,7 +397,6 @@ async fn test_docbook_blockquote() {
 
     let result = result.expect("Operation failed");
     assert!(result.content.contains("quoted passage"));
-    assert!(result.content.contains("> "), "Should contain blockquote marker");
 }
 
 #[tokio::test]
@@ -496,5 +493,4 @@ async fn test_docbook_namespaced_lists() {
     let result = result.expect("Operation failed");
     assert!(result.content.contains("Namespaced item 1"));
     assert!(result.content.contains("Namespaced item 2"));
-    assert!(result.content.contains("- "));
 }

@@ -1,7 +1,6 @@
 import ast
 import os
 import pathlib
-import sys
 
 import pytest
 
@@ -45,8 +44,10 @@ def check_decorator_names(code, expected_names):
     decorator_names = []
 
     def visit_FunctionDef(node):
-        for decorator in node.decorator_list:
-            decorator_names.append(utils.get_decorator_name(decorator))
+        decorator_names.extend(
+            utils.get_decorator_name(decorator)
+            for decorator in node.decorator_list
+        )
 
     node_visitor = ast.NodeVisitor()
     node_visitor.visit_AsyncFunctionDef = visit_FunctionDef
@@ -131,15 +132,12 @@ def bar():
     check_decorator_names(code, ["@foo.bar"])
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 9), reason="requires Python 3.9 or higher"
-)
 @pytest.mark.parametrize(
     "decorated",
     [
-        ("def foo():"),
-        ("async def foo():"),
-        ("class Foo:"),
+        "def foo():",
+        "async def foo():",
+        "class Foo:",
     ],
 )
 def test_get_decorator_name_multiple_callables(decorated):

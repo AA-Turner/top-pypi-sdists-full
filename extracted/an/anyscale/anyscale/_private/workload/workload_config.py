@@ -246,12 +246,8 @@ class WorkloadConfig(ModelBase):
         for conn in connections:
             if isinstance(conn, dict):
                 conn_copy = conn.copy()
-                if "connection_type" in conn_copy and isinstance(
-                    conn_copy["connection_type"], str
-                ):
-                    conn_copy["connection_type"] = ConnectionType.validate(
-                        conn_copy["connection_type"]
-                    )
+                if "type" in conn_copy and isinstance(conn_copy["type"], str):
+                    conn_copy["type"] = ConnectionType.validate(conn_copy["type"])
                 validated.append(ConnectionConfig.from_dict(conn_copy))
             elif isinstance(conn, ConnectionConfig):
                 validated.append(conn)

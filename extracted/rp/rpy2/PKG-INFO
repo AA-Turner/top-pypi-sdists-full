@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpy2
-Version: 3.6.4
+Version: 3.6.5
 Summary: Python interface to the R language (embedded R)
 Author-email: Laurent Gautier <lgautier@gmail.com>
 License-Expression: GPL-2.0-or-later
@@ -10,7 +10,6 @@ Project-URL: Source, https://github.com/rpy2/rpy2
 Project-URL: Tracker, https://github.com/rpy2/rpy2/issue
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -18,13 +17,12 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: rpy2-rinterface>=3.6.3
+Requires-Dist: rpy2-rinterface>=3.6.4
 Requires-Dist: rpy2-robjects>=3.6.3
 Requires-Dist: packaging; platform_system == "Windows"
-Requires-Dist: backports.zoneinfo; python_version < "3.9"
 Provides-Extra: doc
 Requires-Dist: pygraphviz; extra == "doc"
 Requires-Dist: sphinx; extra == "doc"
@@ -39,8 +37,8 @@ Provides-Extra: numpy
 Requires-Dist: rpy2-rinterface[numpy]; extra == "numpy"
 Requires-Dist: rpy2-robjects[numpy]; extra == "numpy"
 Provides-Extra: pandas
-Requires-Dist: rpy2-rinterface[numpy]; extra == "pandas"
-Requires-Dist: rpy2-robjects[numpy]; extra == "pandas"
+Requires-Dist: rpy2-rinterface; extra == "pandas"
+Requires-Dist: rpy2-robjects[pandas]; extra == "pandas"
 Provides-Extra: types
 Requires-Dist: mypy; extra == "types"
 Requires-Dist: types-tzlocal; extra == "types"
@@ -68,6 +66,9 @@ being pypi) using pip:
 
 ```bash
 pip install rpy2
+
+## or
+# uv pip install rpy2
 ```
 
 The package has optional depencies providing
@@ -76,12 +77,18 @@ specific functionalities not otherwise required to use the rest of rpy2.
 For example, to be able to run the unit tests:
 ```bash
 pip install 'rpy2[test]'
+
+## or
+# uv pip install 'rpy2[test]'
 ```
 
 To install all optional dependencies (numpy, pandas, ipython), use:
 
 ```bash
 pip install 'rpy2[all]'
+
+## or
+# uv pip install 'rpy2[all]'
 ```
 
 ## Installation for rpy2 developers
@@ -94,6 +101,9 @@ To install from the source tree, just enter:
 
 ```bash
 pip install ./rpy2-rinterface/ ./rpy2-robjects/ .
+
+## or
+# uv pip install ./rpy2-rinterface ./rpy2-robject/ .
 ```
 
 Various optional dependencies can be specified through dependency groups.
@@ -101,6 +111,9 @@ For example:
 
 ```bash
 pip install ./rpy2-rinterface'[all]' ./rpy2-robjects'[all]' '.[all]'
+
+## or
+# uv pip install ./rpy2-rinterface'[all]' ./rpy2-robjects'[all]' '.[all]'
 ```
 
 `rpy2-rinterface` contains the binding to R's C API. Building from
@@ -161,3 +174,4 @@ documentation.
 RPy2 can be used under the terms of the GNU
 General Public License Version 2 or later (see the file
 gpl-2.0.txt). This is the very same license R itself is released under.
+

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import random
+import re
 import string
 from typing import Sequence
 
@@ -27,6 +28,7 @@ from sqlalchemy.types import (
 
 from snowflake.sqlalchemy.custom_types import (
     ARRAY,
+    DECFLOAT,
     GEOGRAPHY,
     GEOMETRY,
     MAP,
@@ -35,6 +37,7 @@ from snowflake.sqlalchemy.custom_types import (
     TIMESTAMP_NTZ,
     TIMESTAMP_TZ,
     VARIANT,
+    VECTOR,
 )
 
 ischema_names_baseline = {
@@ -48,6 +51,7 @@ ischema_names_baseline = {
     "DATETIME": DATETIME,
     "DEC": DECIMAL,
     "DECIMAL": DECIMAL,
+    "DECFLOAT": DECFLOAT,
     "DOUBLE": FLOAT,
     "FIXED": DECIMAL,
     "FLOAT": FLOAT,
@@ -69,6 +73,7 @@ ischema_names_baseline = {
     "VARBINARY": BINARY,
     "VARCHAR": VARCHAR,
     "VARIANT": VARIANT,
+    "VECTOR": VECTOR,
     "OBJECT": OBJECT,
     "ARRAY": ARRAY,
     "GEOGRAPHY": GEOGRAPHY,
@@ -93,3 +98,16 @@ def random_string(
     """
     random_part = "".join([random.choice(choices) for _ in range(length)])
     return "".join([prefix, random_part, suffix])
+
+
+def normalize_ddl(ddl: str) -> str:
+    """Normalize DDL string by removing extra whitespace and newlines."""
+    return re.sub(r"\s+", " ", ddl).strip()
+
+
+def compile_type(type_instance):
+    """Compile a type to its DDL string using the Snowflake type compiler."""
+    from snowflake.sqlalchemy import snowdialect
+
+    dialect = snowdialect.dialect()
+    return dialect.type_compiler.process(type_instance)

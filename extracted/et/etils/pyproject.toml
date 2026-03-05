@@ -2,7 +2,7 @@
 name = "etils"
 description = "Collection of common python utils"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {file = "LICENSE"}
 authors = [{name = "Conchylicultor", email="etils@google.com"}]
 classifiers = [
@@ -61,7 +61,6 @@ enp = [
 ]
 epath = [
     "fsspec",
-    "importlib_resources",
     "typing_extensions",
     "zipp",
     "etils[epy]",

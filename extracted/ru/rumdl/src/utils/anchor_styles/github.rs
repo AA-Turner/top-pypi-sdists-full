@@ -40,7 +40,9 @@ static EMPHASIS_ASTERISK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\*{1,3
 // Match emphasis underscores - only when they wrap text, not in snake_case
 // This pattern matches _text_ or __text__ but not test_with_underscores
 static EMPHASIS_UNDERSCORE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b_{1,2}([^_\s][^_]*?)_{1,2}\b").unwrap());
-static CODE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`([^`]{0,500})`").unwrap());
+// Match both single-backtick and double-backtick code spans.
+// Double-backtick spans (``code``) are tried first so they aren't consumed as two single spans.
+static CODE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"``([^`]{0,500})``|`([^`]{0,500})`").unwrap());
 // Match image and link patterns
 // Using simple approach: match the brackets and parentheses, extract only the bracket content
 static IMAGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!\[([^\]]*)\]\([^)]*\)").unwrap());
@@ -134,6 +136,21 @@ fn heading_to_fragment_internal(heading: &str) -> String {
 
     // Step 5: Remove markdown formatting while preserving inner text
     if text.contains('*') || text.contains('_') || text.contains('`') || text.contains('[') {
+        // Extract code span content FIRST and protect it from emphasis processing.
+        // Code spans take precedence over emphasis in Markdown parsing, so
+        // `__init__` should preserve underscores (literal code content),
+        // while __init__ without backticks should strip them (emphasis).
+        let mut code_extracts: Vec<String> = Vec::new();
+        text = CODE_PATTERN
+            .replace_all(&text, |caps: &regex::Captures| {
+                let idx = code_extracts.len();
+                // Group 1 is the double-backtick match, group 2 is the single-backtick match
+                let content = caps.get(1).or_else(|| caps.get(2)).map(|m| m.as_str()).unwrap_or("");
+                code_extracts.push(content.to_string());
+                format!("\x00CODE{idx}\x00")
+            })
+            .to_string();
+
         // Process emphasis iteratively to handle nesting (e.g., **_text_**)
         // Bounded to 3 iterations to prevent infinite loops on malformed input
         for _ in 0..3 {
@@ -144,7 +161,12 @@ fn heading_to_fragment_internal(heading: &str) -> String {
                 break;
             }
         }
-        text = CODE_PATTERN.replace_all(&text, "$1").to_string();
+
+        // Restore code span content after emphasis processing
+        for (idx, content) in code_extracts.into_iter().enumerate() {
+            text = text.replace(&format!("\x00CODE{idx}\x00"), &content);
+        }
+
         text = IMAGE_PATTERN.replace_all(&text, "$1").to_string();
         text = LINK_PATTERN.replace_all(&text, "$1").to_string();
     }
@@ -923,5 +945,79 @@ mod tests {
 
         assert!(duration.as_millis() < 100);
         assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_code_span_preserves_underscores_in_slug() {
+        // Verified against GitHub.com via Gist: code span content is preserved literally
+        assert_eq!(heading_to_fragment("`__hello__`"), "__hello__");
+        assert_eq!(heading_to_fragment("`__init__`"), "__init__");
+        assert_eq!(heading_to_fragment("`_single_`"), "_single_");
+    }
+
+    #[test]
+    fn test_emphasis_underscores_removed_from_slug() {
+        // Verified against GitHub.com via Gist: bare emphasis underscores are stripped
+        assert_eq!(heading_to_fragment("__hello__"), "hello");
+        assert_eq!(heading_to_fragment("_hello_"), "hello");
+    }
+
+    #[test]
+    fn test_mixed_code_and_emphasis_in_heading() {
+        // Verified against GitHub.com via Gist: code spans preserve content,
+        // emphasis outside code spans is stripped
+        assert_eq!(
+            heading_to_fragment("`__init__` method for __MyClass__"),
+            "__init__-method-for-myclass"
+        );
+    }
+
+    #[test]
+    fn test_multiple_code_spans_in_heading() {
+        // Multiple code spans each preserve their underscore content independently
+        assert_eq!(heading_to_fragment("`__a__` and `__b__`"), "__a__-and-__b__");
+        assert_eq!(heading_to_fragment("`__init__` and `__del__`"), "__init__-and-__del__");
+        // Three code spans
+        assert_eq!(heading_to_fragment("`__a__` `__b__` `__c__`"), "__a__-__b__-__c__");
+    }
+
+    #[test]
+    fn test_adjacent_code_spans_in_heading() {
+        // Adjacent code spans with no space between them
+        assert_eq!(heading_to_fragment("`__a__``__b__`"), "__a____b__");
+        assert_eq!(heading_to_fragment("`_x_``_y_`"), "_x__y_");
+    }
+
+    #[test]
+    fn test_double_backtick_code_span_preserves_content() {
+        // Double-backtick code spans should also preserve their content as-is,
+        // just like single-backtick code spans.
+        assert_eq!(heading_to_fragment("``__init__``"), "__init__");
+        assert_eq!(heading_to_fragment("``__hello__``"), "__hello__");
+        assert_eq!(heading_to_fragment("``_single_``"), "_single_");
+    }
+
+    #[test]
+    fn test_double_backtick_code_span_with_surrounding_text() {
+        // Double-backtick code span mixed with regular text and emphasis
+        assert_eq!(
+            heading_to_fragment("``__init__`` method for __MyClass__"),
+            "__init__-method-for-myclass"
+        );
+    }
+
+    #[test]
+    fn test_double_backtick_code_span_containing_single_backtick() {
+        // A key use case for double-backtick spans: they can contain a literal backtick
+        assert_eq!(heading_to_fragment("``code`here``"), "codehere");
+    }
+
+    #[test]
+    fn test_code_span_with_parentheses() {
+        // Parentheses and commas inside code spans are stripped by the character filter;
+        // spaces become hyphens
+        assert_eq!(heading_to_fragment("`__init__(self, name)`"), "__init__self-name");
+        assert_eq!(heading_to_fragment("`foo(bar)`"), "foobar");
+        assert_eq!(heading_to_fragment("`func(a, b, c)`"), "funca-b-c");
     }
 }

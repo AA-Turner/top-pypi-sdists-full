@@ -280,28 +280,25 @@ impl KreuzbergMcp {
 #[tool_handler]
 impl ServerHandler for KreuzbergMcp {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::default(),
-            capabilities: ServerCapabilities {
-                tools: Some(ToolsCapability::default()),
-                ..Default::default()
-            },
-            server_info: Implementation {
-                name: "kreuzberg-mcp".to_string(),
-                title: Some("Kreuzberg Document Intelligence MCP Server".to_string()),
-                description: Some("Document intelligence library for extracting content from PDFs, images, office documents, and more.".to_string()),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                icons: None,
-                website_url: Some("https://kreuzberg-dev.github.io/kreuzberg/".to_string()),
-            },
-            instructions: Some(
+        let mut capabilities = ServerCapabilities::default();
+        capabilities.tools = Some(ToolsCapability::default());
+
+        let server_info = Implementation::new(
+            "kreuzberg-mcp",
+            env!("CARGO_PKG_VERSION"),
+        )
+        .with_title("Kreuzberg Document Intelligence MCP Server")
+        .with_description("Document intelligence library for extracting content from PDFs, images, office documents, and more.")
+        .with_website_url("https://kreuzberg-dev.github.io/kreuzberg/");
+
+        InitializeResult::new(capabilities)
+            .with_server_info(server_info)
+            .with_instructions(
                 "Extract content from documents in various formats. Supports PDFs, Word documents, \
                  Excel spreadsheets, images (with OCR), HTML, emails, and more. Use enable_ocr=true \
                  for scanned documents, force_ocr=true to always use OCR even if text extraction \
-                 succeeds."
-                    .to_string(),
-            ),
-        }
+                 succeeds.",
+            )
     }
 }
 

@@ -1,0 +1,1 @@
+import{r as t,aJ as s}from"./@ui-core-DKdciH1Z.js";import{bc as i,bq as c,c as e,c0 as n}from"./index-If3XYs4X.js";const x=t.forwardRef(({children:r,className:a,...o},l)=>s.jsxs(i,{children:[s.jsx(c,{ref:l,className:e("w-full flex-nowrap",a),...o,children:r}),s.jsx(n,{orientation:"horizontal"})]}));x.displayName="ScrollingTabsList";export{x as S};

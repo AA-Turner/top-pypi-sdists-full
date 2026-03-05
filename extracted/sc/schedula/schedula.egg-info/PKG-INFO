@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: schedula
-Version: 1.6.13
+Version: 1.6.15
 Summary: Produce a plan that dispatches calls based on a graph of functions, satisfying data dependencies.
 Home-page: https://github.com/vinci1it2000/schedula
-Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.13
+Download-URL: https://github.com/vinci1it2000/schedula/tarball/v1.6.15
 Author: Vincenzo Arcidiacono
 Author-email: vinci1it2000@gmail.com
 License: EUPL 1.1+
@@ -77,6 +77,7 @@ Requires-Dist: celery; extra == "form"
 Requires-Dist: sqlalchemy_adapter; extra == "form"
 Requires-Dist: pydash; extra == "form"
 Requires-Dist: apprise; extra == "form"
+Requires-Dist: flask-socketio; extra == "form"
 Requires-Dist: mongo_schema; extra == "form"
 Requires-Dist: flask_caching; extra == "form"
 Requires-Dist: filelock; extra == "form"
@@ -116,6 +117,7 @@ Requires-Dist: flask-mail; extra == "all"
 Requires-Dist: flask-principal; extra == "all"
 Requires-Dist: flask-pymongo; extra == "all"
 Requires-Dist: flask-security[common]>=5.6.0; extra == "all"
+Requires-Dist: flask-socketio; extra == "all"
 Requires-Dist: flask-sqlalchemy; extra == "all"
 Requires-Dist: flask-wtf; extra == "all"
 Requires-Dist: flask_caching; extra == "all"
@@ -157,6 +159,7 @@ Requires-Dist: flask-mail; extra == "dev"
 Requires-Dist: flask-principal; extra == "dev"
 Requires-Dist: flask-pymongo; extra == "dev"
 Requires-Dist: flask-security[common]>=5.6.0; extra == "dev"
+Requires-Dist: flask-socketio; extra == "dev"
 Requires-Dist: flask-sqlalchemy; extra == "dev"
 Requires-Dist: flask-wtf; extra == "dev"
 Requires-Dist: flask_caching; extra == "dev"

@@ -1042,7 +1042,7 @@ NationalSecurityType = Literal["No", "Yes"]
 OpportunityEngagementInvitationSortNameType = Literal["InvitationDate"]
 OpportunityOriginType = Literal["AWS Referral", "Partner Referral"]
 OpportunitySortNameType = Literal[
-    "CreatedDate", "CustomerCompanyName", "Identifier", "LastModifiedDate"
+    "CreatedDate", "CustomerCompanyName", "Identifier", "LastModifiedDate", "TargetCloseDate"
 ]
 OpportunityTypeType = Literal["Expansion", "Flat Renewal", "Net New Business"]
 ParticipantTypeType = Literal["RECEIVER", "SENDER"]
@@ -1271,6 +1271,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

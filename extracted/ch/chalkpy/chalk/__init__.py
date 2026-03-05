@@ -25,6 +25,7 @@ from chalk.features import (
 from chalk.features._document import Document
 from chalk.features._last import Last
 from chalk.features.filter import freeze_time
+from chalk.features.incremental import IncrementalConfig
 from chalk.features.pseudofeatures import Distance, Now
 from chalk.features.resolver import OfflineResolver, OnlineResolver, Resolver, make_model_resolver, offline, online
 from chalk.features.tag import BranchId, EnvironmentId
@@ -62,6 +63,7 @@ __all__ = (
     "Environments",
     "FeatureTime",
     "Features",
+    "IncrementalConfig",
     "JSON",
     "Last",
     "MaterializationWindowConfig",

@@ -118,6 +118,7 @@ __all__ = (
     "ReplacePermissionAssociationsResponseTypeDef",
     "ReplacePermissionAssociationsWorkTypeDef",
     "ResourceShareAssociationTypeDef",
+    "ResourceShareConfigurationTypeDef",
     "ResourceShareInvitationTypeDef",
     "ResourceSharePermissionDetailTypeDef",
     "ResourceSharePermissionSummaryTypeDef",
@@ -207,6 +208,10 @@ class CreatePermissionVersionRequestTypeDef(TypedDict):
     permissionArn: str
     policyTemplate: str
     clientToken: NotRequired[str]
+
+
+class ResourceShareConfigurationTypeDef(TypedDict):
+    retainSharingOnAccountLeaveOrganization: NotRequired[bool]
 
 
 class DeletePermissionRequestTypeDef(TypedDict):
@@ -554,17 +559,6 @@ class CreatePermissionRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 
-class CreateResourceShareRequestTypeDef(TypedDict):
-    name: str
-    resourceArns: NotRequired[Sequence[str]]
-    principals: NotRequired[Sequence[str]]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    allowExternalPrincipals: NotRequired[bool]
-    clientToken: NotRequired[str]
-    permissionArns: NotRequired[Sequence[str]]
-    sources: NotRequired[Sequence[str]]
-
-
 class ResourceSharePermissionDetailTypeDef(TypedDict):
     arn: NotRequired[str]
     version: NotRequired[str]
@@ -596,6 +590,24 @@ class ResourceSharePermissionSummaryTypeDef(TypedDict):
     tags: NotRequired[list[TagTypeDef]]
 
 
+class TagResourceRequestTypeDef(TypedDict):
+    tags: Sequence[TagTypeDef]
+    resourceShareArn: NotRequired[str]
+    resourceArn: NotRequired[str]
+
+
+class CreateResourceShareRequestTypeDef(TypedDict):
+    name: str
+    resourceArns: NotRequired[Sequence[str]]
+    principals: NotRequired[Sequence[str]]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    allowExternalPrincipals: NotRequired[bool]
+    clientToken: NotRequired[str]
+    permissionArns: NotRequired[Sequence[str]]
+    sources: NotRequired[Sequence[str]]
+    resourceShareConfiguration: NotRequired[ResourceShareConfigurationTypeDef]
+
+
 class ResourceShareTypeDef(TypedDict):
     resourceShareArn: NotRequired[str]
     name: NotRequired[str]
@@ -607,12 +619,7 @@ class ResourceShareTypeDef(TypedDict):
     creationTime: NotRequired[datetime]
     lastUpdatedTime: NotRequired[datetime]
     featureSet: NotRequired[ResourceShareFeatureSetType]
-
-
-class TagResourceRequestTypeDef(TypedDict):
-    tags: Sequence[TagTypeDef]
-    resourceShareArn: NotRequired[str]
-    resourceArn: NotRequired[str]
+    resourceShareConfiguration: NotRequired[ResourceShareConfigurationTypeDef]
 
 
 class GetResourcePoliciesRequestPaginateTypeDef(TypedDict):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents-tools
-Version: 0.2.21
+Version: 0.2.22
 Summary: A collection of specialized tools for Strands Agents
 Project-URL: Homepage, https://github.com/strands-agents/tools
 Project-URL: Bug Tracker, https://github.com/strands-agents/tools/issues
@@ -48,17 +48,17 @@ Requires-Dist: playwright<2.0.0,>=1.42.0; extra == 'agent-core-browser'
 Provides-Extra: agent-core-code-interpreter
 Requires-Dist: bedrock-agentcore<1.2.0,>=1.1.0; extra == 'agent-core-code-interpreter'
 Provides-Extra: build
-Requires-Dist: hatch<1.16.0,>=1.0.0; extra == 'build'
+Requires-Dist: hatch>=1.16.5; extra == 'build'
 Provides-Extra: dev
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'dev'
-Requires-Dist: hatch<1.16.0,>=1.0.0; extra == 'dev'
+Requires-Dist: hatch>=1.16.5; extra == 'dev'
 Requires-Dist: mem0ai<1.0.0,>=0.1.104; extra == 'dev'
 Requires-Dist: mypy<1.0.0,>=0.981; extra == 'dev'
 Requires-Dist: nest-asyncio<2.0.0,>=1.5.0; extra == 'dev'
 Requires-Dist: opensearch-py<3.0.0,>=2.8.0; extra == 'dev'
 Requires-Dist: playwright<2.0.0,>=1.42.0; extra == 'dev'
 Requires-Dist: pre-commit<4.2.0,>=3.2.0; extra == 'dev'
-Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'dev'
+Requires-Dist: pytest<10.0.0,>=8.0.0; extra == 'dev'
 Requires-Dist: responses<1.0.0,>=0.6.1; extra == 'dev'
 Requires-Dist: ruff<0.14.0,>=0.13.0; extra == 'dev'
 Requires-Dist: twelvelabs<1.0.0,>=0.4.0; extra == 'dev'

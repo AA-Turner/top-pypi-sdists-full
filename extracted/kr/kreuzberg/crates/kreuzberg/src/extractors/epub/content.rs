@@ -92,7 +92,9 @@ const BLOCK_ELEMENTS: &[&str] = &[
 ];
 
 /// Elements whose entire subtree should be skipped (no text extracted).
-const SKIP_ELEMENTS: &[&str] = &["head", "script", "style", "svg", "math"];
+const SKIP_ELEMENTS: &[&str] = &[
+    "head", "script", "style", "svg", "math", "video", "audio", "source", "track", "object", "embed", "iframe",
+];
 
 /// Extract text from XHTML content by traversing the XML tree directly.
 ///
@@ -222,6 +224,18 @@ fn visit_node(node: roxmltree::Node<'_, '_>, output: &mut String) {
 
             // Skip elements whose content should never appear in plain text.
             if SKIP_ELEMENTS.iter().any(|&s| s == tag) {
+                return;
+            }
+
+            // Self-closing elements that produce whitespace.
+            if tag == "br" {
+                output.push('\n');
+                return;
+            }
+            if tag == "hr" {
+                if !output.is_empty() && !output.ends_with('\n') {
+                    output.push('\n');
+                }
                 return;
             }
 

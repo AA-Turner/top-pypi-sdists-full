@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: x-transformers
-Version: 2.16.1
+Version: 2.16.2
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
-Project-URL: Repository, https://github.com/lucidrains/x-transformers
+Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
 Author-email: Phil Wang <lucidrains@gmail.com>
 License: MIT License
         

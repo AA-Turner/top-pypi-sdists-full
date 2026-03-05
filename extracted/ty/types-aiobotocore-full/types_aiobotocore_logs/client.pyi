@@ -186,6 +186,7 @@ from .type_defs import (
     ListTagsLogGroupResponseTypeDef,
     PutAccountPolicyRequestTypeDef,
     PutAccountPolicyResponseTypeDef,
+    PutBearerTokenAuthenticationRequestTypeDef,
     PutDataProtectionPolicyRequestTypeDef,
     PutDataProtectionPolicyResponseTypeDef,
     PutDeliveryDestinationPolicyRequestTypeDef,
@@ -1112,6 +1113,16 @@ class CloudWatchLogsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_account_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_account_policy)
+        """
+
+    async def put_bearer_token_authentication(
+        self, **kwargs: Unpack[PutBearerTokenAuthenticationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Enables or disables bearer token authentication for the specified log group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_bearer_token_authentication.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_bearer_token_authentication)
         """
 
     async def put_data_protection_policy(

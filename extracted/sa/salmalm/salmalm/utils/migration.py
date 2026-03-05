@@ -10,9 +10,16 @@ from __future__ import annotations
 import hashlib
 import json
 import zipfile
+
+def _safe_dest(base_dir, rel_path: str):
+    """Resolve dest path and block traversal outside base_dir. Returns (dest, error)."""
+    dest = (base_dir / rel_path).resolve()
+    if not dest.is_relative_to(base_dir.resolve()):
+        return None, f"Path traversal blocked: {rel_path}"
+    return dest, None
+
 from datetime import datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Any, Dict, List
 
 from salmalm.constants import VERSION, BASE_DIR, MEMORY_DIR, VAULT_FILE, KST, DATA_DIR
@@ -74,19 +81,6 @@ def _get_agent_name() -> str:
         return "SalmAlm Agent"
     except Exception as e:  # noqa: broad-except
         return "SalmAlm Agent"
-
-
-def _safe_member_dest(base: Path, rel: str) -> Path:
-    """Return resolved destination only if it stays inside base.
-
-    Blocks absolute paths, dotdot traversal, and symlink escapes.
-    """
-    rel_path = Path(rel)
-    if rel_path.is_absolute() or ".." in rel_path.parts:
-        raise ValueError(f"Unsafe archive path: {rel!r}")
-    dest = (base / rel_path).resolve()
-    dest.relative_to(base.resolve())  # raises ValueError if outside base
-    return dest
 
 
 # ============================================================
@@ -362,11 +356,9 @@ class AgentImporter:
     """Import agent state from a ZIP file."""
 
     # conflict_mode: 'overwrite' | 'merge' | 'skip'
-    def __init__(self, conflict_mode: str = "overwrite", includes: List[str] | None = None, user_id: str | None = None) -> None:
+    def __init__(self, conflict_mode: str = "overwrite") -> None:
         """Init  ."""
         self.conflict_mode = conflict_mode
-        self.includes = set(includes or [])
-        self._user_id = user_id
 
     def preview(self, zip_data: bytes) -> Dict[str, Any]:
         """Preview what's in the ZIP without importing.
@@ -436,32 +428,28 @@ class AgentImporter:
 
         # Import each section
         names = zf.namelist()
-        if self._allow_section("soul") and any(n.startswith("soul/") for n in names):
+        if any(n.startswith("soul/") for n in names):
             self._import_soul(zf, result)
-        if self._allow_section("personas") and any(n.startswith("personas/") for n in names):
+        if any(n.startswith("personas/") for n in names):
             self._import_personas(zf, result)
-        if self._allow_section("memory") and any(n.startswith("memory/") for n in names):
+        if any(n.startswith("memory/") for n in names):
             self._import_memory(zf, result)
-        if self._allow_section("sessions") and any(n.startswith("sessions/") for n in names):
+        if any(n.startswith("sessions/") for n in names):
             self._import_sessions(zf, result)
-        if self._allow_section("config") and any(n.startswith("config/") for n in names):
+        if any(n.startswith("config/") for n in names):
             self._import_config(zf, result)
-        if self._allow_section("data") and any(n.startswith("data/") for n in names):
+        if any(n.startswith("data/") for n in names):
             self._import_data(zf, result)
-        if self._allow_section("plugins") and any(n.startswith("plugins/") for n in names):
+        if any(n.startswith("plugins/") for n in names):
             self._import_plugins(zf, result)
-        if self._allow_section("skills") and any(n.startswith("skills/") for n in names):
+        if any(n.startswith("skills/") for n in names):
             self._import_skills(zf, result)
-        if self._allow_section("vault") and any(n.startswith("vault/") for n in names):
+        if any(n.startswith("vault/") for n in names):
             self._import_vault(zf, result)
 
         zf.close()
         log.info(f"[IMPORT] Agent imported: {result.imported}, skipped: {result.skipped}")
         return result
-
-    def _allow_section(self, section: str) -> bool:
-        """Filter import sections when includes is provided."""
-        return not self.includes or section in self.includes
 
     def _import_soul(self, zf: zipfile.ZipFile, result: ImportResult):
         """Import soul."""
@@ -482,11 +470,9 @@ class AgentImporter:
             for name in zf.namelist():
                 if name.startswith("personas/") and name.endswith(".md"):
                     fname = name.split("/")[-1]
-                    try:
-                        dest = _safe_member_dest(_PERSONAS_DIR, fname)
-                    except ValueError:
-                        log.warning("[IMPORT] Blocked path traversal: %s", name)
-                        result.warnings.append(f"personas: blocked unsafe path {name!r}")
+                    dest, err = _safe_dest(_PERSONAS_DIR, fname)
+                    if err:
+                        result.errors.append(err)
                         continue
                     if dest.exists() and self.conflict_mode == "skip":
                         continue
@@ -511,11 +497,9 @@ class AgentImporter:
                 if fname == "MEMORY.md":
                     dest = BASE_DIR / "MEMORY.md"
                 else:
-                    try:
-                        dest = _safe_member_dest(MEMORY_DIR, fname)
-                    except ValueError:
-                        log.warning("[IMPORT] Blocked path traversal: %s", name)
-                        result.warnings.append(f"memory: blocked unsafe path {name!r}")
+                    dest, err = _safe_dest(MEMORY_DIR, fname)
+                    if err:
+                        result.errors.append(err)
                         continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 if dest.exists() and self.conflict_mode == "skip":
@@ -550,30 +534,17 @@ class AgentImporter:
                 msgs = json.dumps(data.get("messages", []), ensure_ascii=False)
                 updated = data.get("updated_at", _now_kst())
                 # Check existing
-                if self._user_id is not None:
-                    existing = conn.execute(
-                        "SELECT session_id FROM session_store WHERE session_id=? AND user_id=?",
-                        (sid, self._user_id),
-                    ).fetchone()
-                else:
-                    existing = conn.execute("SELECT session_id FROM session_store WHERE session_id=?", (sid,)).fetchone()
+                existing = conn.execute("SELECT session_id FROM session_store WHERE session_id=?", (sid,)).fetchone()
                 if existing and self.conflict_mode == "skip":
                     continue
                 if existing:
-                    if self._user_id is not None:
-                        conn.execute(
-                            "UPDATE session_store SET messages=?, updated_at=? WHERE session_id=? AND user_id=?",
-                            (msgs, updated, sid, self._user_id),
-                        )
-                    else:
-                        conn.execute(
-                            "UPDATE session_store SET messages=?, updated_at=? WHERE session_id=?",
-                            (msgs, updated, sid),
-                        )
+                    conn.execute(
+                        "UPDATE session_store SET messages=?, updated_at=? WHERE session_id=?", (msgs, updated, sid)
+                    )
                 else:
                     conn.execute(
-                        "INSERT INTO session_store (session_id, user_id, messages, updated_at) VALUES (?,?,?,?)",
-                        (sid, self._user_id, msgs, updated),
+                        "INSERT INTO session_store (session_id, messages, updated_at) VALUES (?,?,?)",
+                        (sid, msgs, updated),
                     )
                 count += 1
             conn.commit()
@@ -630,11 +601,9 @@ class AgentImporter:
                 if not name.startswith("plugins/") or name.endswith("/"):
                     continue
                 rel = name[len("plugins/") :]
-                try:
-                    dest = _safe_member_dest(_PLUGINS_DIR, rel)
-                except ValueError:
-                    log.warning("[IMPORT] Blocked path traversal: %s", name)
-                    result.warnings.append(f"plugins: blocked unsafe path {name!r}")
+                dest, err = _safe_dest(_PLUGINS_DIR, rel)
+                if err:
+                    result.errors.append(err)
                     continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(zf.read(name))
@@ -653,11 +622,9 @@ class AgentImporter:
                 if not name.startswith("skills/") or name.endswith("/"):
                     continue
                 rel = name[len("skills/") :]
-                try:
-                    dest = _safe_member_dest(_SKILLS_DIR, rel)
-                except ValueError:
-                    log.warning("[IMPORT] Blocked path traversal: %s", name)
-                    result.warnings.append(f"skills: blocked unsafe path {name!r}")
+                dest, err = _safe_dest(_SKILLS_DIR, rel)
+                if err:
+                    result.errors.append(err)
                     continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(zf.read(name))
@@ -705,7 +672,7 @@ def quick_sync_export() -> dict:
 
     # Routing config
     try:
-        from salmalm.core.engine import get_routing_config
+        from salmalm.core.model_selection import load_routing_config as get_routing_config
 
         data["routing"] = get_routing_config()
     except Exception as e:  # noqa: broad-except
@@ -729,7 +696,7 @@ def quick_sync_export() -> dict:
 
     # Failover config
     try:
-        from salmalm.core.engine import get_failover_config
+        from salmalm.core.llm_loop import get_failover_config
 
         data["failover"] = get_failover_config()
     except Exception as e:  # noqa: broad-except
@@ -756,7 +723,7 @@ def quick_sync_import(data: dict) -> None:
     # Routing config
     if "routing" in data:
         try:
-            from salmalm.core.engine import _save_routing_config
+            from salmalm.core.model_selection import _save_routing_config
 
             _save_routing_config(data["routing"])
         except Exception as e:
@@ -765,7 +732,7 @@ def quick_sync_import(data: dict) -> None:
     # Failover config
     if "failover" in data:
         try:
-            from salmalm.core.engine import save_failover_config
+            from salmalm.core.llm_loop import save_failover_config
 
             save_failover_config(data["failover"])
         except Exception as e:
@@ -795,9 +762,9 @@ def export_agent(include_vault: bool = False, include_sessions: bool = True, inc
     return exporter.export_agent()
 
 
-def import_agent(zip_data: bytes, conflict_mode: str = "overwrite", includes: List[str] | None = None, user_id: str | None = None) -> ImportResult:
+def import_agent(zip_data: bytes, conflict_mode: str = "overwrite") -> ImportResult:
     """Import agent state from ZIP bytes. Convenience wrapper."""
-    importer = AgentImporter(conflict_mode=conflict_mode, includes=includes, user_id=user_id)
+    importer = AgentImporter(conflict_mode=conflict_mode)
     return importer.import_agent(zip_data)
 
 

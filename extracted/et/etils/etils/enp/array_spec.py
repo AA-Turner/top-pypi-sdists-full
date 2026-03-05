@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,6 +52,9 @@ class ArraySpec:
 
   def __init__(self, shape, dtype):
     if numpy_utils.is_dtype_str(dtype):  # Normalize `str` dtype
+      dtype = np.dtype('O')
+    elif _is_jax_random_dtype(dtype):
+      # `jax.random.key(0).dtype` is not a valid np.dtype
       dtype = np.dtype('O')
     self.shape = tuple(shape)
     self.dtype = np.dtype(dtype)
@@ -137,6 +140,13 @@ class ArraySpec:
     # Should we also handle `bytes` case ?
     return cls(shape=shape, dtype=dtype)
 
+  def __konfig_export__(self):
+    return {
+        '__qualname__': 'etils.enp.array_spec:ArraySpec',
+        'shape': self.shape,
+        'dtype': self.dtype.name,
+    }
+
 
 def is_fake_array(array: Array) -> bool:
   """Returns `True` if the given array is a fake array."""
@@ -168,15 +178,32 @@ def _is_grain(array: Array) -> bool:
   return isinstance(array, grain.ArraySpec)
 
 
+def _get_grain_shm_array_metadata_cls():
+  """Imports the shm metadata from `grain` in a cross-version compatible way."""
+  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
+  import grain
+
+  cls = getattr(
+      grain.multiprocessing,
+      'SharedMemoryArrayMetadata',
+      None,
+  )
+  if cls is None:
+    from grain._src.python import shared_memory_array
+
+    cls = shared_memory_array.SharedMemoryArrayMetadata
+  # pylint: enable=g-import-not-at-top  # pytype: enable=import-error
+  return cls
+
+
 def _is_pygrain(array: Array) -> bool:
   if (
       'grain._src.python' not in sys.modules
       and 'grain.python' not in sys.modules
   ):
     return False
-  from grain._src.python import shared_memory_array  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
 
-  return isinstance(array, shared_memory_array.SharedMemoryArrayMetadata)
+  return isinstance(array, _get_grain_shm_array_metadata_cls())
 
 
 def _is_orbax(array: Array) -> bool:
@@ -191,3 +218,7 @@ def _is_orbax(array: Array) -> bool:
           value.ScalarMetadata,
       ),
   )
+
+
+def _is_jax_random_dtype(dtype: Any) -> bool:
+  return lazy.has_jax and isinstance(dtype, lazy.jax._src.prng.KeyTy)  # pylint: disable=protected-access

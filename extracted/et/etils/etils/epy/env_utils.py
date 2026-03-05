@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 """Environment utils."""
 
+import getpass
 import os
 import sys
 
@@ -32,3 +33,8 @@ def is_notebook() -> bool:
 def is_test() -> bool:
   """Returns True if running in a test environment."""
   return 'TEST_TMPDIR' in os.environ
+
+
+def getuser() -> str:
+  """Returns the user running the code."""
+  return getpass.getuser()

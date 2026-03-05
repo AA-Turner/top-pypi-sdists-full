@@ -1005,11 +1005,15 @@ impl MD013LineLength {
                 let marker_len = marker.len();
 
                 // MkDocs flavor requires at least 4 spaces for list continuation
+                // after a blank line (multi-paragraph list items). For non-blank
+                // continuation (lines directly following the marker line), use
+                // the natural marker width so that 2-space indent is recognized.
                 let min_continuation_indent = if ctx.flavor.requires_strict_list_indent() {
                     marker_len.max(4)
                 } else {
                     marker_len
                 };
+                let content_continuation_indent = marker_len;
 
                 // Track lines and their types (content, code block, fence, nested list)
                 #[derive(Clone)]
@@ -1053,8 +1057,10 @@ impl MD013LineLength {
                     // Use pre-computed indent from ctx
                     let indent = line_info.indent;
 
-                    // Valid continuation must be indented at least min_continuation_indent
-                    if indent >= min_continuation_indent {
+                    // Valid continuation must be indented at least content_continuation_indent.
+                    // For non-blank continuation, use marker_len (e.g. 2 for "- ").
+                    // MkDocs strict 4-space requirement applies only after blank lines.
+                    if indent >= content_continuation_indent {
                         let trimmed = line_info.content(ctx.content).trim();
 
                         // Use pre-computed in_code_block from ctx
@@ -1070,6 +1076,9 @@ impl MD013LineLength {
                         // Check for MkDocs admonition lines inside list items.
                         // The flavor detection marks these with in_admonition, so we
                         // can classify them as admonition header or body content.
+                        // Code fence markers (``` or ~~~) within admonitions must be
+                        // classified as CodeBlock so the block builder preserves them
+                        // verbatim instead of merging them into paragraph text.
                         if line_info.in_admonition {
                             let raw_content = line_info.content(ctx.content);
                             if mkdocs_admonitions::is_admonition_start(raw_content) {
@@ -1077,7 +1086,11 @@ impl MD013LineLength {
                                 list_item_lines.push(LineType::AdmonitionHeader(header_text, indent));
                             } else {
                                 let body_text = raw_content[indent..].trim_end().to_string();
-                                list_item_lines.push(LineType::AdmonitionContent(body_text, indent));
+                                if is_fence_marker(&body_text) {
+                                    list_item_lines.push(LineType::CodeBlock(body_text, indent));
+                                } else {
+                                    list_item_lines.push(LineType::AdmonitionContent(body_text, indent));
+                                }
                             }
                             i += 1;
                             continue;
@@ -1120,7 +1133,10 @@ impl MD013LineLength {
                             continue;
                         }
 
-                        // Normal continuation vs indented code block
+                        // Normal continuation vs indented code block.
+                        // Use min_continuation_indent for the threshold since
+                        // code blocks start 4 spaces beyond the expected content
+                        // level (which is min_continuation_indent for MkDocs).
                         if indent <= min_continuation_indent + 3 {
                             // Extract content (remove indentation and trailing whitespace)
                             // Preserve hard breaks (2 trailing spaces) while removing excessive whitespace
@@ -1163,7 +1179,31 @@ impl MD013LineLength {
                     }
                 }
 
-                let indent_size = min_continuation_indent;
+                // Determine the output continuation indent.
+                // Normalize/Default modes canonicalize to min_continuation_indent
+                // (fixing over-indented continuation). Semantic/SentencePerLine
+                // modes preserve the user's actual indent since they only fix
+                // line breaking, not indentation.
+                let indent_size = match config.reflow_mode {
+                    ReflowMode::SemanticLineBreaks | ReflowMode::SentencePerLine => {
+                        // Find indent of the first plain text continuation line,
+                        // skipping the marker line (index 0), nested list items,
+                        // code blocks, and blank lines.
+                        list_item_lines
+                            .iter()
+                            .enumerate()
+                            .skip(1)
+                            .find_map(|(k, lt)| {
+                                if matches!(lt, LineType::Content(_)) {
+                                    Some(ctx.lines[list_start + k].indent)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(min_continuation_indent)
+                    }
+                    _ => min_continuation_indent,
+                };
                 let expected_indent = " ".repeat(indent_size);
 
                 // Split list_item_lines into blocks (paragraphs, code blocks, nested lists, semantic lines, and HTML blocks)

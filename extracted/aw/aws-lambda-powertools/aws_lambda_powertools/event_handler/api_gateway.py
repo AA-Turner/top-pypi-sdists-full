@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import logging
 import re
@@ -26,6 +27,7 @@ from aws_lambda_powertools.event_handler.openapi.constants import (
     DEFAULT_OPENAPI_VERSION,
 )
 from aws_lambda_powertools.event_handler.openapi.exceptions import (
+    RequestUnsupportedContentType,
     RequestValidationError,
     ResponseValidationError,
     SchemaValidationError,
@@ -377,6 +379,7 @@ class Route:
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: HTTPStatus | None = None,
         middlewares: list[Callable[..., Response]] | None = None,
     ):
@@ -419,6 +422,8 @@ class Route:
             Additional OpenAPI extensions as a dictionary.
         deprecated: bool
             Whether or not to mark this route as deprecated in the OpenAPI schema
+        enable_validation: bool | None, optional
+            Enable or disable validation for this specific route. If None, inherits from resolver setting.
         custom_response_validation_http_code: int | HTTPStatus | None, optional
             Whether to have custom http status code for this route if response validation fails
         middlewares: list[Callable[..., Response]] | None
@@ -448,6 +453,7 @@ class Route:
         self.middlewares = middlewares or []
         self.operation_id = operation_id or self._generate_operation_id()
         self.deprecated = deprecated
+        self.enable_validation = enable_validation
 
         # _middleware_stack_built is used to ensure the middleware stack is only built once.
         self._middleware_stack_built = False
@@ -534,15 +540,34 @@ class Route:
 
         all_middlewares = []
 
+        # Determine if validation should be enabled for this route
+        # If route has explicit enable_validation setting, use it; otherwise, use resolver's global setting
+        route_validation_enabled = (
+            self.enable_validation if self.enable_validation is not None else app._enable_validation
+        )
+
+        # If route needs validation but resolver didn't create the middlewares, create them now
+        if route_validation_enabled and not hasattr(app, "_request_validation_middleware"):
+            from aws_lambda_powertools.event_handler.middlewares.openapi_validation import (
+                OpenAPIRequestValidationMiddleware,
+                OpenAPIResponseValidationMiddleware,
+            )
+
+            app._request_validation_middleware = OpenAPIRequestValidationMiddleware()
+            app._response_validation_middleware = OpenAPIResponseValidationMiddleware(
+                validation_serializer=app._serializer,
+                has_response_validation_error=app._has_response_validation_error,
+            )
+
         # Add request validation middleware first if validation is enabled
-        if hasattr(app, "_request_validation_middleware"):
+        if route_validation_enabled and hasattr(app, "_request_validation_middleware"):
             all_middlewares.append(app._request_validation_middleware)
 
         # Add user middlewares in the middle
         all_middlewares.extend(router_middlewares + self.middlewares)
 
         # Add response validation middleware before the route handler if validation is enabled
-        if hasattr(app, "_response_validation_middleware"):
+        if route_validation_enabled and hasattr(app, "_response_validation_middleware"):
             all_middlewares.append(app._response_validation_middleware)
 
         logger.debug(f"Building middleware stack: {all_middlewares}")
@@ -666,7 +691,8 @@ class Route:
         # Add the response to the OpenAPI operation
         if self.responses:
             for status_code in list(self.responses):
-                response = self.responses[status_code]
+                # Create a deep copy to prevent mutation of the shared dictionary
+                response = copy.deepcopy(self.responses[status_code])
 
                 # Case 1: there is not 'content' key
                 if "content" not in response:
@@ -826,6 +852,8 @@ class Route:
 
         # Generate the request body media type
         request_media_content: dict[str, Any] = {"schema": body_schema}
+        if field_info.openapi_examples:
+            request_media_content["examples"] = field_info.openapi_examples
         request_body_oai["content"] = {request_media_type: request_media_content}
         return request_body_oai
 
@@ -1128,6 +1156,7 @@ class BaseRouter(ABC):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -1190,6 +1219,7 @@ class BaseRouter(ABC):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -1231,6 +1261,7 @@ class BaseRouter(ABC):
             security,
             openapi_extensions,
             deprecated,
+            enable_validation,
             custom_response_validation_http_code,
             middlewares,
         )
@@ -1251,6 +1282,7 @@ class BaseRouter(ABC):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -1293,6 +1325,7 @@ class BaseRouter(ABC):
             security,
             openapi_extensions,
             deprecated,
+            enable_validation,
             custom_response_validation_http_code,
             middlewares,
         )
@@ -1313,6 +1346,7 @@ class BaseRouter(ABC):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -1355,6 +1389,7 @@ class BaseRouter(ABC):
             security,
             openapi_extensions,
             deprecated,
+            enable_validation,
             custom_response_validation_http_code,
             middlewares,
         )
@@ -1375,6 +1410,7 @@ class BaseRouter(ABC):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -1416,6 +1452,7 @@ class BaseRouter(ABC):
             security,
             openapi_extensions,
             deprecated,
+            enable_validation,
             custom_response_validation_http_code,
             middlewares,
         )
@@ -1436,6 +1473,7 @@ class BaseRouter(ABC):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -1480,6 +1518,7 @@ class BaseRouter(ABC):
             security,
             openapi_extensions,
             deprecated,
+            enable_validation,
             custom_response_validation_http_code,
             middlewares,
         )
@@ -1500,6 +1539,7 @@ class BaseRouter(ABC):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -1543,6 +1583,7 @@ class BaseRouter(ABC):
             security,
             openapi_extensions,
             deprecated,
+            enable_validation,
             custom_response_validation_http_code,
             middlewares,
         )
@@ -2204,6 +2245,162 @@ class ApiGatewayResolver(BaseRouter):
             openapi_extensions=openapi_extensions,
         )
 
+    def configure_openapi_merge(
+        self,
+        path: str,
+        pattern: str | list[str] = "handler.py",
+        exclude: list[str] | None = None,
+        resolver_name: str = "app",
+        recursive: bool = False,
+        title: str = DEFAULT_OPENAPI_TITLE,
+        version: str = DEFAULT_API_VERSION,
+        openapi_version: str = DEFAULT_OPENAPI_VERSION,
+        summary: str | None = None,
+        description: str | None = None,
+        tags: list[Tag | str] | None = None,
+        servers: list[Server] | None = None,
+        terms_of_service: str | None = None,
+        contact: Contact | None = None,
+        license_info: License | None = None,
+        security_schemes: dict[str, SecurityScheme] | None = None,
+        security: list[dict[str, list[str]]] | None = None,
+        external_documentation: ExternalDocumentation | None = None,
+        openapi_extensions: dict[str, Any] | None = None,
+        on_conflict: Literal["warn", "error", "first", "last"] = "warn",
+    ):
+        """Configure OpenAPI merge to generate a unified schema from multiple Lambda handlers.
+
+        This method discovers resolver instances across multiple Python files and merges
+        their OpenAPI schemas into a single unified specification. Useful for micro-function
+        architectures where each Lambda has its own resolver.
+
+        Parameters
+        ----------
+        path : str
+            Root directory path to search for resolver files.
+        pattern : str | list[str], optional
+            Glob pattern(s) to match handler files. Default is "handler.py".
+        exclude : list[str], optional
+            Patterns to exclude from search. Default excludes tests, __pycache__, and .venv.
+        resolver_name : str, optional
+            Name of the resolver variable in handler files. Default is "app".
+        recursive : bool, optional
+            Whether to search recursively in subdirectories. Default is False.
+        title : str
+            The title of the unified API.
+        version : str
+            The version of the OpenAPI document.
+        openapi_version : str, default = "3.1.0"
+            The version of the OpenAPI Specification.
+        summary : str, optional
+            A short summary of what the application does.
+        description : str, optional
+            A verbose explanation of the application behavior.
+        tags : list[Tag | str], optional
+            A list of tags used by the specification with additional metadata.
+        servers : list[Server], optional
+            An array of Server Objects for connectivity information.
+        terms_of_service : str, optional
+            A URL to the Terms of Service for the API.
+        contact : Contact, optional
+            The contact information for the exposed API.
+        license_info : License, optional
+            The license information for the exposed API.
+        security_schemes : dict[str, SecurityScheme], optional
+            Security schemes available in the specification.
+        security : list[dict[str, list[str]]], optional
+            Security mechanisms applied globally across the API.
+        external_documentation : ExternalDocumentation, optional
+            A link to external documentation for the API.
+        openapi_extensions : dict[str, Any], optional
+            Additional OpenAPI extensions as a dictionary.
+        on_conflict : str, optional
+            Strategy for handling conflicts when the same path+method is defined
+            in multiple schemas. Options: "warn" (default), "error", "first", "last".
+
+        Example
+        -------
+        >>> from aws_lambda_powertools.event_handler import APIGatewayRestResolver
+        >>>
+        >>> app = APIGatewayRestResolver()
+        >>> app.configure_openapi_merge(
+        ...     path="./functions",
+        ...     pattern="handler.py",
+        ...     exclude=["**/tests/**"],
+        ...     resolver_name="app",
+        ...     title="My Unified API",
+        ...     version="1.0.0",
+        ... )
+
+        See Also
+        --------
+        configure_openapi : Configure OpenAPI for a single resolver
+        enable_swagger : Enable Swagger UI
+        """
+        from aws_lambda_powertools.event_handler.openapi.merge import OpenAPIMerge
+
+        if exclude is None:
+            exclude = ["**/tests/**", "**/__pycache__/**", "**/.venv/**"]
+
+        self._openapi_merge = OpenAPIMerge(
+            title=title,
+            version=version,
+            openapi_version=openapi_version,
+            summary=summary,
+            description=description,
+            tags=tags,
+            servers=servers,
+            terms_of_service=terms_of_service,
+            contact=contact,
+            license_info=license_info,
+            security_schemes=security_schemes,
+            security=security,
+            external_documentation=external_documentation,
+            openapi_extensions=openapi_extensions,
+            on_conflict=on_conflict,
+        )
+        self._openapi_merge.discover(
+            path=path,
+            pattern=pattern,
+            exclude=exclude,
+            resolver_name=resolver_name,
+            recursive=recursive,
+        )
+
+    def get_openapi_merge_schema(self) -> dict[str, Any]:
+        """Get the merged OpenAPI schema from multiple Lambda handlers.
+
+        Returns
+        -------
+        dict[str, Any]
+            The merged OpenAPI schema.
+
+        Raises
+        ------
+        RuntimeError
+            If configure_openapi_merge has not been called.
+        """
+        if not hasattr(self, "_openapi_merge") or self._openapi_merge is None:
+            raise RuntimeError("configure_openapi_merge must be called before get_openapi_merge_schema")
+        return self._openapi_merge.get_openapi_schema()
+
+    def get_openapi_merge_json_schema(self) -> str:
+        """Get the merged OpenAPI schema as JSON from multiple Lambda handlers.
+
+        Returns
+        -------
+        str
+            The merged OpenAPI schema as a JSON string.
+
+        Raises
+        ------
+        RuntimeError
+            If configure_openapi_merge has not been called.
+        """
+        if not hasattr(self, "_openapi_merge") or self._openapi_merge is None:
+            raise RuntimeError("configure_openapi_merge must be called before get_openapi_merge_json_schema")
+        return self._openapi_merge.get_openapi_json_schema()
+
     def enable_swagger(
         self,
         *,
@@ -2310,32 +2507,38 @@ class ApiGatewayResolver(BaseRouter):
 
             openapi_servers = servers or [Server(url=(base_path or "/"))]
 
-            spec = self.get_openapi_schema(
-                title=title,
-                version=version,
-                openapi_version=openapi_version,
-                summary=summary,
-                description=description,
-                tags=tags,
-                servers=openapi_servers,
-                terms_of_service=terms_of_service,
-                contact=contact,
-                license_info=license_info,
-                security_schemes=security_schemes,
-                security=security,
-                external_documentation=external_documentation,
-                openapi_extensions=openapi_extensions,
-            )
+            # Use merged schema if configure_openapi_merge was called, otherwise use regular schema
+            if hasattr(self, "_openapi_merge") and self._openapi_merge is not None:
+                # Get merged schema as JSON string (already properly serialized)
+                escaped_spec = self._openapi_merge.get_openapi_json_schema().replace("</", "<\\/")
+            else:
+                spec = self.get_openapi_schema(
+                    title=title,
+                    version=version,
+                    openapi_version=openapi_version,
+                    summary=summary,
+                    description=description,
+                    tags=tags,
+                    servers=openapi_servers,
+                    terms_of_service=terms_of_service,
+                    contact=contact,
+                    license_info=license_info,
+                    security_schemes=security_schemes,
+                    security=security,
+                    external_documentation=external_documentation,
+                    openapi_extensions=openapi_extensions,
+                )
 
-            # The .replace('</', '<\\/') part is necessary to prevent a potential issue where the JSON string contains
-            # </script> or similar tags. Escaping the forward slash in </ as <\/ ensures that the JSON does not
-            # inadvertently close the script tag, and the JSON remains a valid string within the JavaScript code.
-            escaped_spec = model_json(
-                spec,
-                by_alias=True,
-                exclude_none=True,
-                indent=2,
-            ).replace("</", "<\\/")
+                # The .replace('</', '<\\/') part is necessary to prevent a potential issue where the JSON
+                # string contains </script> or similar tags. Escaping the forward slash in </ as <\/ ensures
+                # that the JSON does not inadvertently close the script tag, and the JSON remains a valid
+                # string within the JavaScript code.
+                escaped_spec = model_json(
+                    spec,
+                    by_alias=True,
+                    exclude_none=True,
+                    indent=2,
+                ).replace("</", "<\\/")
 
             # Check for query parameters; if "format" is specified as "json",
             # respond with the JSON used in the OpenAPI spec
@@ -2402,6 +2605,7 @@ class ApiGatewayResolver(BaseRouter):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -2436,6 +2640,7 @@ class ApiGatewayResolver(BaseRouter):
                     security,
                     openapi_extensions,
                     deprecated,
+                    enable_validation,
                     custom_response_validation_http_code,
                     middlewares,
                 )
@@ -2459,7 +2664,7 @@ class ApiGatewayResolver(BaseRouter):
 
         return register_resolver
 
-    def resolve(self, event: dict[str, Any], context: LambdaContext) -> dict[str, Any]:
+    def resolve(self, event: Mapping[str, Any], context: LambdaContext) -> dict[str, Any]:
         """Resolves the response based on the provide event and decorator routes
 
         ## Internals
@@ -2512,10 +2717,10 @@ class ApiGatewayResolver(BaseRouter):
             event = event.raw_event
 
         if self._debug:
-            print(self._serializer(event))
+            print(self._serializer(cast(dict, event)))
 
         # Populate router(s) dependencies without keeping a reference to each registered router
-        BaseRouter.current_event = self._to_proxy_event(event)
+        BaseRouter.current_event = self._to_proxy_event(cast(dict, event))
         BaseRouter.lambda_context = context
 
         response = self._resolve().build(self.current_event, self._cors)
@@ -2806,6 +3011,18 @@ class ApiGatewayResolver(BaseRouter):
                 route=route,
             )
 
+        if isinstance(exp, RequestUnsupportedContentType):
+            errors = [{"loc": e["loc"], "type": e["type"]} for e in exp.errors()]
+            return self._response_builder_class(
+                response=Response(
+                    status_code=HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                    content_type=content_types.APPLICATION_JSON,
+                    body={"statusCode": HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "detail": errors},
+                ),
+                serializer=self._serializer,
+                route=route,
+            )
+
         if isinstance(exp, ServiceError):
             return self._response_builder_class(
                 response=Response(
@@ -2951,6 +3168,7 @@ class Router(BaseRouter):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -2978,6 +3196,7 @@ class Router(BaseRouter):
                 frozen_security,
                 frozen_openapi_extensions,
                 deprecated,
+                enable_validation,
                 custom_response_validation_http_code,
             )
 
@@ -3067,6 +3286,7 @@ class APIGatewayRestResolver(ApiGatewayResolver):
         security: list[dict[str, list[str]]] | None = None,
         openapi_extensions: dict[str, Any] | None = None,
         deprecated: bool = False,
+        enable_validation: bool | None = None,
         custom_response_validation_http_code: int | HTTPStatus | None = None,
         middlewares: list[Callable[..., Any]] | None = None,
     ) -> Callable[[AnyCallableT], AnyCallableT]:
@@ -3087,6 +3307,7 @@ class APIGatewayRestResolver(ApiGatewayResolver):
             security,
             openapi_extensions,
             deprecated,
+            enable_validation,
             custom_response_validation_http_code,
             middlewares,
         )
@@ -3152,8 +3373,34 @@ class ALBResolver(ApiGatewayResolver):
         enable_validation: bool = False,
         response_validation_error_http_code: HTTPStatus | int | None = None,
         json_body_deserializer: Callable[[str], dict] | None = None,
+        decode_query_parameters: bool = False,
     ):
-        """Amazon Application Load Balancer (ALB) resolver"""
+        """Amazon Application Load Balancer (ALB) resolver
+
+
+        Parameters
+        ----------
+        cors: CORSConfig
+            Optionally configure and enabled CORS. Not each route will need to have to cors=True
+        debug: bool | None
+            Enables debug mode, by default False. Can be also be enabled by "POWERTOOLS_DEV"
+            environment variable
+        serializer: Callable, optional
+            function to serialize `obj` to a JSON formatted `str`, by default json.dumps
+        strip_prefixes: list[str | Pattern], optional
+            optional list of prefixes to be removed from the request path before doing the routing.
+            This is often used with api gateways with multiple custom mappings.
+            Each prefix can be a static string or a compiled regex pattern
+        enable_validation: bool | None
+            Enables validation of the request body against the route schema, by default False.
+        response_validation_error_http_code
+            Sets the returned status code if response is not validated. enable_validation must be True.
+        json_body_deserializer: Callable[[str], dict], optional
+            function to deserialize `str`, `bytes`, `bytearray` containing a JSON document to a Python `dict`,
+            by default json.loads when integrating with EventSource data class
+        decode_query_parameters: bool | None
+            Enables URL-decoding of query parameters (both keys and values), by default False.
+        """
         super().__init__(
             ProxyEventType.ALBEvent,
             cors,
@@ -3164,6 +3411,7 @@ class ALBResolver(ApiGatewayResolver):
             response_validation_error_http_code,
             json_body_deserializer=json_body_deserializer,
         )
+        self.decode_query_parameters = decode_query_parameters
 
     def _get_base_path(self) -> str:
         # ALB doesn't have a stage variable, so we just return an empty string
@@ -3190,3 +3438,10 @@ class ALBResolver(ApiGatewayResolver):
             result.body = ""
 
         return super()._to_response(result)
+
+    @override
+    def _to_proxy_event(self, event: dict) -> BaseProxyEvent:
+        proxy_event = super()._to_proxy_event(event)
+        if isinstance(proxy_event, ALBEvent):
+            proxy_event.decode_query_parameters = self.decode_query_parameters
+        return proxy_event

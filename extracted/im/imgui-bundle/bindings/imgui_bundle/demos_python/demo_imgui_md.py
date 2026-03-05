@@ -49,30 +49,30 @@ int answer()
 *Warning about tables layout*: the first row will impose the columns widths.
 Use nbsp\; to increase the columns sizes on the first row if required.
 
-As an example, the table below:
+As an example, the table below (where columns are resizable!)
 
-| Continent&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Population&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Number of Countries |
-|-----------|------------|---------------------|
-| Africa    | 1.3 billion | 54                  |
-| Antarctica | 0 | 0          |
-| Asia      | 4.5 billion | 48                  |
-| Europe    | 743 million | 44                  |
-| North America | 579 million | 23              |
-| Oceania   | 41 million  | 14                  |
-| South America | 422 million | 12              |
+| Continent | Population | Number of Countries |
+|----------------|-------------|---------------------|
+| Africa         | 1.3 billion | 54                  |
+| Antarctica     | 0           | 0                   |
+| Asia           | 4.5 billion | 48                  |
+| Europe         | 743 million | 44                  |
+| North America  | 579 million | 23                  |
+| Oceania        | 41 million  | 14                  |
+| South America  | 422 million | 12                  |
 
-Can be created with this code (where lots of nbsp\; were added to enforce the column widths on the first row):<br><br>
+Can be created with this code
 
 ```
-| Continent&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Population&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Number of Countries |
-|-----------|------------|---------------------|
-| Africa    | 1.3 billion | 54                  |
-| Antarctica | 0 | 0          |
-| Asia      | 4.5 billion | 48                  |
-| Europe    | 743 million | 44                  |
-| North America | 579 million | 23              |
-| Oceania   | 41 million  | 14                  |
-| South America | 422 million | 12              |
+| Continent      | Population  | Number of Countries |
+|----------------|-------------|---------------------|
+| Africa         | 1.3 billion | 54                  |
+| Antarctica     | 0           | 0                   |
+| Asia           | 4.5 billion | 48                  |
+| Europe         | 743 million | 44                  |
+| North America  | 579 million | 23                  |
+| Oceania        | 41 million  | 14                  |
+| South America  | 422 million | 12                  |
 ```
     """
     return markdown
@@ -81,7 +81,10 @@ Can be created with this code (where lots of nbsp\; were added to enforce the co
 def demo_gui():
     s = example_markdown_string()
     imgui_md.render(s)
-
+    # Note: you may also use:
+    #   imgui_md.render_unindented(s)
+    # (it will remove the main indentation of the Markdown string before rendering it,
+    # which is useful when the string is defined inside a function with indentation)
 
 def main():
     immapp.run(demo_gui, with_markdown=True, window_size=(800, 800))

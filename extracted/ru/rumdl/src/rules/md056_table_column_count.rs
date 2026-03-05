@@ -32,23 +32,6 @@ impl MD056TableColumnCount {
             return None;
         }
 
-        // For standard flavor with too many cells, first try escaping pipes in inline code.
-        if flavor == crate::config::MarkdownFlavor::Standard && current_count > expected_count {
-            let escaped_row = TableUtils::escape_pipes_in_inline_code(row_content);
-            let escaped_count = TableUtils::count_cells_with_flavor(&escaped_row, flavor);
-
-            if escaped_count == expected_count {
-                let fixed = escaped_row.trim().to_string();
-                return Some(self.restore_prefixes(&fixed, table_block, line_index, original_line));
-            }
-
-            if escaped_count < current_count
-                && let Some(fixed) = self.fix_row_by_truncation(&escaped_row, expected_count, flavor)
-            {
-                return Some(self.restore_prefixes(&fixed, table_block, line_index, original_line));
-            }
-        }
-
         let fixed = self.fix_row_by_truncation(row_content, expected_count, flavor)?;
         Some(self.restore_prefixes(&fixed, table_block, line_index, original_line))
     }
@@ -101,19 +84,9 @@ impl MD056TableColumnCount {
         let has_leading_pipe = trimmed.starts_with('|');
         let has_trailing_pipe = trimmed.ends_with('|');
 
-        // Use flavor-aware cell splitting
-        let cells = Self::split_row_into_cells(trimmed, flavor);
-
-        let mut cell_contents: Vec<&str> = Vec::new();
-        for (i, cell) in cells.iter().enumerate() {
-            // Skip empty leading/trailing parts
-            if (i == 0 && cell.trim().is_empty() && has_leading_pipe)
-                || (i == cells.len() - 1 && cell.trim().is_empty() && has_trailing_pipe)
-            {
-                continue;
-            }
-            cell_contents.push(cell.trim());
-        }
+        // Delegate to shared cell splitting (returns only cell contents, no empty leading/trailing parts)
+        let cells = TableUtils::split_table_row_with_flavor(trimmed, flavor);
+        let mut cell_contents: Vec<&str> = cells.iter().map(|c| c.trim()).collect();
 
         // Adjust cell count to match expected count
         match current_count.cmp(&expected_count) {
@@ -146,40 +119,6 @@ impl MD056TableColumnCount {
         }
 
         Some(result)
-    }
-
-    /// Split a table row into cells, respecting flavor-specific behavior
-    ///
-    /// For Standard/GFM flavor, pipes in inline code ARE cell delimiters.
-    /// For MkDocs flavor, pipes in inline code are NOT cell delimiters.
-    fn split_row_into_cells(row: &str, flavor: crate::config::MarkdownFlavor) -> Vec<String> {
-        // First, mask escaped pipes (same for all flavors)
-        let masked = TableUtils::mask_pipes_for_table_parsing(row);
-
-        // For MkDocs flavor, also mask pipes inside inline code
-        let final_masked = if flavor == crate::config::MarkdownFlavor::MkDocs {
-            TableUtils::mask_pipes_in_inline_code(&masked)
-        } else {
-            masked
-        };
-
-        // Split by pipes on the masked string, then extract corresponding
-        // original content from the unmasked row
-        let masked_parts: Vec<&str> = final_masked.split('|').collect();
-        let mut cells = Vec::new();
-        let mut pos = 0;
-
-        for masked_part in masked_parts {
-            let cell_len = masked_part.len();
-            if pos + cell_len <= row.len() {
-                cells.push(row[pos..pos + cell_len].to_string());
-            } else {
-                cells.push(masked_part.to_string());
-            }
-            pos += cell_len + 1; // +1 for the pipe delimiter
-        }
-
-        cells
     }
 }
 
@@ -513,15 +452,15 @@ Some text in between.
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 0, "escaped pipe \\| should not split cells");
 
-        // Double backslash + pipe: \\| means escaped backslash + pipe delimiter (3 columns)
+        // Double backslash + pipe inside code span: pipe is still masked by code span
         let content_double = "| Command | Description |
 |---------|-------------|
 | `echo \\\\| grep` | Pipe example |
 | `ls` | List files |";
         let ctx2 = LintContext::new(content_double, crate::config::MarkdownFlavor::Standard, None);
         let result2 = rule.check(&ctx2).unwrap();
-        // Line 3 has \\| which becomes 3 cells, but header expects 2
-        assert_eq!(result2.len(), 1, "double backslash \\\\| should split cells");
+        // The \\| is inside backticks, so the pipe is content, not a delimiter
+        assert_eq!(result2.len(), 0, "pipes inside code spans should not split cells");
     }
 
     #[test]

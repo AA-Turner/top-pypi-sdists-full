@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-server-motherduck
-Version: 1.0.2
+Version: 1.0.3
 Summary: A MCP server for MotherDuck and local DuckDB
 Author-email: tdoehmen <till@motherduck.com>
 License-File: LICENSE

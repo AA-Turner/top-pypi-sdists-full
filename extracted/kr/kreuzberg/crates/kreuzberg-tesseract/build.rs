@@ -831,11 +831,16 @@ mod build_tesseract {
 
         println!("cargo:warning=Applying tesseract WASM patch from {:?}", patch_file);
 
+        // Normalize paths to forward slashes for cross-platform compatibility.
+        // On Windows, backslash paths cause git apply and patch to fail.
+        let dir_str = normalize_cmake_path(tesseract_dir);
+        let patch_str = normalize_cmake_path(&patch_file);
+
         // Try git apply first
         let result = std::process::Command::new("git")
-            .args(["apply", "--directory"])
-            .arg(tesseract_dir)
-            .arg(&patch_file)
+            .args(["apply", "--ignore-whitespace", "--directory"])
+            .arg(&dir_str)
+            .arg(&patch_str)
             .output();
 
         match result {
@@ -846,10 +851,10 @@ mod build_tesseract {
                 println!("cargo:warning=git apply failed, trying patch command...");
                 // Try patch command
                 let result = std::process::Command::new("patch")
-                    .args(["-p1", "-d"])
-                    .arg(tesseract_dir)
+                    .args(["--force", "-p1", "-d"])
+                    .arg(&dir_str)
                     .arg("-i")
-                    .arg(&patch_file)
+                    .arg(&patch_str)
                     .output();
 
                 match result {
@@ -858,10 +863,35 @@ mod build_tesseract {
                     }
                     Ok(output) => {
                         let stderr = String::from_utf8_lossy(&output.stderr);
-                        panic!("Failed to apply tesseract WASM patch: {}", stderr);
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        // Tesseract 5.5.2 restructured CMakeLists.txt, moving source
+                        // lists to cmake/SourceLists.cmake. The patch will partially
+                        // fail but the programmatic fixups below handle the rest.
+                        if tesseract_dir.join("cmake/SourceLists.cmake").exists() {
+                            println!(
+                                "cargo:warning=Patch partially failed (expected for Tesseract 5.5.2+), \
+                                 applying programmatic fixups:\nstderr: {}\nstdout: {}",
+                                stderr, stdout
+                            );
+                        } else {
+                            panic!(
+                                "Failed to apply tesseract WASM patch:\nstderr: {}\nstdout: {}",
+                                stderr, stdout
+                            );
+                        }
                     }
                     Err(e) => {
-                        panic!("Failed to run patch command: {}. Install git or patch utility.", e);
+                        // If patch command is not available, check if we can handle
+                        // it programmatically for 5.5.2+
+                        if tesseract_dir.join("cmake/SourceLists.cmake").exists() {
+                            println!(
+                                "cargo:warning=patch command not available ({}), \
+                                 applying programmatic fixups for Tesseract 5.5.2+",
+                                e
+                            );
+                        } else {
+                            panic!("Failed to run patch command: {}. Install git or patch utility.", e);
+                        }
                     }
                 }
             }

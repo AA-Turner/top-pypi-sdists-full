@@ -38,6 +38,7 @@ __all__ = (
     "CapacityProviderStatusType",
     "CapacityProviderTypeType",
     "CapacityProviderUpdateStatusType",
+    "CapacityReservationPreferenceType",
     "ClusterFieldType",
     "ClusterSettingNameType",
     "CompatibilityType",
@@ -158,7 +159,7 @@ AvailabilityZoneRebalancingType = Literal["DISABLED", "ENABLED"]
 BareMetalType = Literal["excluded", "included", "required"]
 BurstablePerformanceType = Literal["excluded", "included", "required"]
 CPUArchitectureType = Literal["ARM64", "X86_64"]
-CapacityOptionTypeType = Literal["ON_DEMAND", "SPOT"]
+CapacityOptionTypeType = Literal["ON_DEMAND", "RESERVED", "SPOT"]
 CapacityProviderFieldType = Literal["TAGS"]
 CapacityProviderStatusType = Literal["ACTIVE", "DEPROVISIONING", "INACTIVE", "PROVISIONING"]
 CapacityProviderTypeType = Literal[
@@ -174,6 +175,9 @@ CapacityProviderUpdateStatusType = Literal[
     "UPDATE_COMPLETE",
     "UPDATE_FAILED",
     "UPDATE_IN_PROGRESS",
+]
+CapacityReservationPreferenceType = Literal[
+    "RESERVATIONS_EXCLUDED", "RESERVATIONS_FIRST", "RESERVATIONS_ONLY"
 ]
 ClusterFieldType = Literal["ATTACHMENTS", "CONFIGURATIONS", "SETTINGS", "STATISTICS", "TAGS"]
 ClusterSettingNameType = Literal["containerInsights"]
@@ -490,6 +494,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

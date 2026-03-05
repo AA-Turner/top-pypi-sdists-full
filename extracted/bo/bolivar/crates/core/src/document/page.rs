@@ -4,10 +4,12 @@
 
 use super::catalog::PDFDocument;
 use crate::error::{PdfError, Result};
-use crate::model::objects::PDFObject;
-use std::collections::{HashMap, HashSet};
+use crate::model::objects::{PDFDict, PDFObject};
+use std::collections::HashSet;
 use std::sync::Arc;
 
+#[cfg(test)]
+use std::collections::HashMap;
 #[cfg(test)]
 use std::sync::{Mutex, OnceLock};
 
@@ -56,7 +58,7 @@ pub struct PDFPage {
     /// Page object ID
     pub pageid: u32,
     /// Page attributes dictionary
-    pub attrs: HashMap<String, PDFObject>,
+    pub attrs: PDFDict,
     /// Page label (logical page number)
     pub label: Option<String>,
     /// Media box (physical page size)
@@ -74,7 +76,7 @@ pub struct PDFPage {
     /// Page annotations
     pub annots: Option<PDFObject>,
     /// Page resources
-    pub resources: HashMap<String, PDFObject>,
+    pub resources: PDFDict,
     /// Page content streams (decoded data)
     pub contents: Vec<Vec<u8>>,
     /// User unit (PDF 1.6) - scales default user space units. Default is 1.0.
@@ -110,7 +112,7 @@ impl PDFPage {
     /// Create a page from attributes.
     fn from_attrs(
         pageid: u32,
-        attrs: HashMap<String, PDFObject>,
+        attrs: PDFDict,
         label: Option<String>,
         doc: &PDFDocument,
     ) -> Result<Self> {
@@ -160,10 +162,7 @@ impl PDFPage {
     ///
     /// Contents can be a single stream or an array of streams.
     /// Returns decoded data from all content streams.
-    pub(crate) fn parse_contents(
-        attrs: &HashMap<String, PDFObject>,
-        doc: &PDFDocument,
-    ) -> Vec<Vec<u8>> {
+    pub(crate) fn parse_contents(attrs: &PDFDict, doc: &PDFDocument) -> Vec<Vec<u8>> {
         let contents_obj = match attrs.get("Contents") {
             Some(obj) => obj,
             None => return Vec::new(),
@@ -207,11 +206,7 @@ impl PDFPage {
         }
     }
 
-    fn parse_box(
-        attrs: &HashMap<String, PDFObject>,
-        key: &str,
-        doc: &PDFDocument,
-    ) -> Option<[f64; 4]> {
+    fn parse_box(attrs: &PDFDict, key: &str, doc: &PDFDocument) -> Option<[f64; 4]> {
         let obj = attrs.get(key)?;
         Self::parse_box_obj(obj, doc)
     }
@@ -241,10 +236,7 @@ struct InheritedNode {
 }
 
 impl InheritedNode {
-    fn from_dict(
-        parent: Option<Arc<InheritedNode>>,
-        dict: &HashMap<String, PDFObject>,
-    ) -> Arc<Self> {
+    fn from_dict(parent: Option<Arc<InheritedNode>>, dict: &PDFDict) -> Arc<Self> {
         Arc::new(Self {
             parent,
             resources: dict.get("Resources").cloned(),
@@ -286,26 +278,26 @@ impl InheritedNode {
         })
     }
 
-    fn apply_to(&self, dest: &mut HashMap<String, PDFObject>) {
+    fn apply_to(&self, dest: &mut PDFDict) {
         if !dest.contains_key("Resources")
             && let Some(val) = self.resolve_resources()
         {
-            dest.insert("Resources".to_string(), val.clone());
+            dest.insert("Resources".into(), val.clone());
         }
         if !dest.contains_key("MediaBox")
             && let Some(val) = self.resolve_mediabox()
         {
-            dest.insert("MediaBox".to_string(), val.clone());
+            dest.insert("MediaBox".into(), val.clone());
         }
         if !dest.contains_key("CropBox")
             && let Some(val) = self.resolve_cropbox()
         {
-            dest.insert("CropBox".to_string(), val.clone());
+            dest.insert("CropBox".into(), val.clone());
         }
         if !dest.contains_key("Rotate")
             && let Some(val) = self.resolve_rotate()
         {
-            dest.insert("Rotate".to_string(), val.clone());
+            dest.insert("Rotate".into(), val.clone());
         }
     }
 }
@@ -601,23 +593,22 @@ impl<'a> Iterator for PageIterator<'a> {
 #[cfg(test)]
 mod tests {
     use super::InheritedNode;
-    use crate::model::objects::PDFObject;
-    use std::collections::HashMap;
+    use crate::model::objects::{PDFDict, PDFObject};
 
     #[test]
     fn test_inherited_node_apply_to_fills_missing() {
-        let mut root = HashMap::new();
-        root.insert("MediaBox".to_string(), PDFObject::Name("root".into()));
-        root.insert("Rotate".to_string(), PDFObject::Int(90));
+        let mut root = PDFDict::default();
+        root.insert("MediaBox".into(), PDFObject::Name("root".into()));
+        root.insert("Rotate".into(), PDFObject::Int(90));
 
-        let mut mid = HashMap::new();
-        mid.insert("Resources".to_string(), PDFObject::Name("mid".into()));
+        let mut mid = PDFDict::default();
+        mid.insert("Resources".into(), PDFObject::Name("mid".into()));
 
         let root_node = InheritedNode::from_dict(None, &root);
         let mid_node = InheritedNode::from_dict(Some(root_node), &mid);
 
-        let mut leaf = HashMap::new();
-        leaf.insert("Resources".to_string(), PDFObject::Name("leaf".into()));
+        let mut leaf = PDFDict::default();
+        leaf.insert("Resources".into(), PDFObject::Name("leaf".into()));
 
         mid_node.apply_to(&mut leaf);
 

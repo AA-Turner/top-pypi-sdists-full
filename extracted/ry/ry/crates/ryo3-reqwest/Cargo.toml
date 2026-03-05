@@ -15,6 +15,7 @@ readme = "README.md"
 [dependencies]
 bytes.workspace = true
 cookie.workspace = true
+encoding_rs = "0.8.35"
 futures-core.workspace = true
 futures-util = { workspace = true, features = ["sink"] }
 jiter.workspace = true

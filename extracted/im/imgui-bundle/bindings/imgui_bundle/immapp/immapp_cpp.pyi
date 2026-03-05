@@ -1,5 +1,13 @@
 """ImmApp: Immediate App Toolkit for ImGui Bundle"""
 
+###############################################################################
+# This file is a part of Dear ImGui Bundle
+# -----------------------------------------------------------------------------
+# ImmApp is an Immediate App Toolkit for ImGui Bundle.
+#
+# It is automatically generated (using https://pthom.github.io/litgen/),
+# and is generally very close to the C++ version. Comments, docs are identical.
+###############################################################################
 # ruff: noqa: B008, F821
 from typing import Tuple, Optional, Callable, List, overload, Any
 import enum
@@ -122,6 +130,10 @@ class AddOnsParams:
     # Set withTexInspect=True if you need to use imgui_tex_inspect
     with_tex_inspect: bool = False
 
+    # Set withImAnim=True if you need to use ImAnim.
+    # If True, then iam_update_begin_frame() and iam_clip_update() will be called automatically at each frame
+    with_im_anim: bool = False
+
     # #ifdef IMGUI_BUNDLE_WITH_IMGUI_NODE_EDITOR
     #
     # You can tweak NodeEditorConfig (but this is optional)
@@ -145,6 +157,7 @@ class AddOnsParams:
         with_markdown: bool = False,
         with_node_editor: bool = False,
         with_tex_inspect: bool = False,
+        with_im_anim: bool = False,
         with_node_editor_config: Optional[NodeEditorConfig] = None,
         update_node_editor_colors_from_imgui_colors: bool = True,
         with_markdown_options: Optional[ImGuiMd.MarkdownOptions] = None,
@@ -186,11 +199,13 @@ def run(
     window_restore_previous_geometry: bool = False,
     window_size: Optional[ScreenSize] = None,
     fps_idle: float = 10.0,
+    top_most: bool = False,
     with_implot: bool = False,
     with_implot3d: bool = False,
     with_markdown: bool = False,
     with_node_editor: bool = False,
     with_tex_inspect: bool = False,
+    with_im_anim: bool = False,
     with_node_editor_config: Optional[NodeEditorConfig] = None,
     with_markdown_options: Optional[ImGuiMd.MarkdownOptions] = None,
 ) -> None:
@@ -229,10 +244,12 @@ def run_with_markdown(
     window_restore_previous_geometry: bool = False,
     window_size: Optional[ScreenSize] = None,
     fps_idle: float = 10.0,
+    top_most: bool = False,
     with_implot: bool = False,
     with_implot3d: bool = False,
     with_node_editor: bool = False,
     with_tex_inspect: bool = False,
+    with_im_anim: bool = False,
     with_node_editor_config: Optional[NodeEditorConfig] = None,
     with_markdown_options: Optional[ImGuiMd.MarkdownOptions] = None,
 ) -> None:
@@ -332,7 +349,7 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
     ) -> None:
         """Initializes the rendering with the full customizable `RunnerParams`.
          This will initialize the platform backend (SDL, Glfw, etc.) and the rendering backend (OpenGL, Vulkan, etc.).
-         A distinct copy of `RunnerParams` is stored internally.
+         A reference to the user's `RunnerParams` is kept internally (similar to ImmApp::Run).
 
 
         Python bindings defaults:
@@ -362,6 +379,7 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
         window_restore_previous_geometry: bool = False,
         window_size: Optional[ScreenSize] = None,
         fps_idle: float = 10.0,
+        top_most: bool = False,
         with_implot: bool = False,
         with_implot3d: bool = False,
         with_markdown: bool = False,
@@ -458,7 +476,7 @@ class snippets:  # Proxy class that introduces typings for the *submodule* snipp
     class SnippetData:
         code: str = ""
         language: SnippetLanguage = DefaultSnippetLanguage()
-        palette: SnippetTheme = SnippetTheme.light
+        palette: SnippetTheme = SnippetTheme.dark
 
         show_copy_button: bool = (
             True  # Displayed on top of the editor (Top Right corner)
@@ -487,7 +505,7 @@ class snippets:  # Proxy class that introduces typings for the *submodule* snipp
             self,
             code: str = "",
             language: SnippetLanguage = DefaultSnippetLanguage(),
-            palette: SnippetTheme = SnippetTheme.light,
+            palette: SnippetTheme = SnippetTheme.dark,
             show_copy_button: bool = True,
             show_cursor_position: bool = True,
             displayed_filename: str = "",

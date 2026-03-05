@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddgs
-Version: 9.11.1
+Version: 9.11.2
 Summary: Dux Distributed Global Search. A metasearch library that aggregates results from diverse web search services.
 Author: deedy5
 License-Expression: MIT
@@ -29,7 +29,6 @@ Requires-Dist: mypy>=1.17.1; extra == "dev"
 Requires-Dist: prek; extra == "dev"
 Requires-Dist: pytest>=8.4.1; extra == "dev"
 Requires-Dist: ruff>=0.13.0; extra == "dev"
-Requires-Dist: typing-extensions>=4.15.0; extra == "dev"
 Requires-Dist: lxml-stubs; extra == "dev"
 Requires-Dist: types-Pygments; extra == "dev"
 Requires-Dist: types-pexpect; extra == "dev"
@@ -63,11 +62,8 @@ A metasearch library that aggregates results from diverse web search services.
 ___
 ## Install
 ```python
-# Base install
-pip install -U ddgs
-
-# With API server support (includes fastapi, mcp, uvicorn[standard])
-pip install -U ddgs[api]
+pip install -U ddgs      # Base install
+pip install -U ddgs[api] # With API server
 ```
 
 ## CLI version
@@ -81,19 +77,12 @@ ___
 
 ## API Server (with MCP Integration)
 
-- **CLI (after pip install)**
+- **CLI**
 ```bash
-# Start server in foreground
-ddgs api
-
-# Start server in detached mode (background)
-ddgs api -d
-
-# Stop detached server
-ddgs api -s
-
-# Custom host/port
-ddgs api --host 127.0.0.1 --port 9000
+ddgs api    # Start in foreground
+ddgs api -d # Start in detached mode
+ddgs api -s # Stop detached server
+ddgs api --host 127.0.0.1 --port 9000 --proxy socks5h://127.0.0.1:9150  # Custom host / post / proxy
 ```
 
 - **Docker compose**

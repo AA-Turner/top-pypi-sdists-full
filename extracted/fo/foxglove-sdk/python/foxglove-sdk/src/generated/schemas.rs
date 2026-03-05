@@ -3,8 +3,8 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::enum_variant_names)]
 #![allow(non_snake_case)]
-use crate::schemas_wkt::{Duration, Timestamp};
 use crate::PySchema;
+use crate::schemas_wkt::{Duration, Timestamp};
 use bytes::Bytes;
 use foxglove::Encode;
 use pyo3::prelude::*;
@@ -597,11 +597,7 @@ impl CylinderPrimitive {
     fn __repr__(&self) -> String {
         format!(
             "CylinderPrimitive(pose={:?}, size={:?}, bottom_scale={:?}, top_scale={:?}, color={:?})",
-            self.0.pose,
-            self.0.size,
-            self.0.bottom_scale,
-            self.0.top_scale,
-            self.0.color,
+            self.0.pose, self.0.size, self.0.bottom_scale, self.0.top_scale, self.0.color,
         )
     }
     /// Returns the CylinderPrimitive schema.
@@ -1101,6 +1097,7 @@ impl From<VoxelGrid> for foxglove::schemas::VoxelGrid {
 
 /// Array of annotations for a 2D image
 ///
+/// :param timestamp: Timestamp of the image annotations. When set, individual annotation timestamps will be ignored.
 /// :param circles: Circle annotations
 /// :param points: Points annotations
 /// :param texts: Text annotations
@@ -1113,14 +1110,16 @@ pub(crate) struct ImageAnnotations(pub(crate) foxglove::schemas::ImageAnnotation
 #[pymethods]
 impl ImageAnnotations {
     #[new]
-    #[pyo3(signature = (*, circles=None, points=None, texts=None, metadata=None) )]
+    #[pyo3(signature = (*, timestamp=None, circles=None, points=None, texts=None, metadata=None) )]
     fn new(
+        timestamp: Option<Timestamp>,
         circles: Option<Vec<CircleAnnotation>>,
         points: Option<Vec<PointsAnnotation>>,
         texts: Option<Vec<TextAnnotation>>,
         metadata: Option<Vec<KeyValuePair>>,
     ) -> Self {
         Self(foxglove::schemas::ImageAnnotations {
+            timestamp: timestamp.map(Into::into),
             circles: circles
                 .unwrap_or_default()
                 .into_iter()
@@ -1145,8 +1144,8 @@ impl ImageAnnotations {
     }
     fn __repr__(&self) -> String {
         format!(
-            "ImageAnnotations(circles={:?}, points={:?}, texts={:?}, metadata={:?})",
-            self.0.circles, self.0.points, self.0.texts, self.0.metadata,
+            "ImageAnnotations(timestamp={:?}, circles={:?}, points={:?}, texts={:?}, metadata={:?})",
+            self.0.timestamp, self.0.circles, self.0.points, self.0.texts, self.0.metadata,
         )
     }
     /// Returns the ImageAnnotations schema.

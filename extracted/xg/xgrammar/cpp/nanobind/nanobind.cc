@@ -359,6 +359,8 @@ NB_MODULE(xgrammar_bindings, m) {
           nb::arg("end").none()
       )
       .def("_qwen_xml_tool_calling_to_ebnf", &QwenXMLToolCallingToEBNF, nb::arg("schema"))
+      .def("_minimax_xml_tool_calling_to_ebnf", &MiniMaxXMLToolCallingToEBNF, nb::arg("schema"))
+      .def("_deepseek_xml_tool_calling_to_ebnf", &DeepSeekXMLToolCallingToEBNF, nb::arg("schema"))
       .def(
           "_generate_float_regex",
           [](std::optional<double> start, std::optional<double> end) {
@@ -376,7 +378,8 @@ NB_MODULE(xgrammar_bindings, m) {
              nb::ndarray<> retrieve_next_sibling,
              nb::ndarray<> draft_tokens,
              GrammarMatcher& matcher,
-             nb::ndarray<> bitmask) {
+             nb::ndarray<> bitmask,
+             double time_threshold) -> bool {
             // Convert ndarrays to DLTensors
             static_assert(
                 sizeof(retrieve_next_token) == sizeof(void*) + sizeof(nb::dlpack::dltensor)
@@ -391,8 +394,13 @@ NB_MODULE(xgrammar_bindings, m) {
                 reinterpret_cast<DLTensor*>(reinterpret_cast<char*>(&draft_tokens) + sizeof(void*));
             DLTensor* bitmask_ptr =
                 reinterpret_cast<DLTensor*>(reinterpret_cast<char*>(&bitmask) + sizeof(void*));
-            TraverseDraftTree(
-                next_token_ptr, next_sibling_ptr, draft_tokens_ptr, matcher, bitmask_ptr
+            return TraverseDraftTree(
+                next_token_ptr,
+                next_sibling_ptr,
+                draft_tokens_ptr,
+                matcher,
+                bitmask_ptr,
+                time_threshold
             );
           },
           nb::arg("retrieve_next_token"),
@@ -400,6 +408,7 @@ NB_MODULE(xgrammar_bindings, m) {
           nb::arg("draft_tokens"),
           nb::arg("matcher"),
           nb::arg("bitmask"),
+          nb::arg("time_threshold") = -1.0,
           nb::call_guard<nb::gil_scoped_release>()
       );
 

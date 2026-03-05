@@ -83,6 +83,7 @@ class ResolveCustomerResultTypeDef(TypedDict):
     CustomerIdentifier: str
     ProductCode: str
     CustomerAWSAccountId: str
+    LicenseArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UsageAllocationOutputTypeDef(TypedDict):
@@ -100,6 +101,7 @@ class UsageRecordOutputTypeDef(TypedDict):
     Quantity: NotRequired[int]
     UsageAllocations: NotRequired[list[UsageAllocationOutputTypeDef]]
     CustomerAWSAccountId: NotRequired[str]
+    LicenseArn: NotRequired[str]
 
 UsageAllocationUnionTypeDef = Union[UsageAllocationTypeDef, UsageAllocationOutputTypeDef]
 
@@ -124,6 +126,7 @@ class UsageRecordTypeDef(TypedDict):
     Quantity: NotRequired[int]
     UsageAllocations: NotRequired[Sequence[UsageAllocationUnionTypeDef]]
     CustomerAWSAccountId: NotRequired[str]
+    LicenseArn: NotRequired[str]
 
 class BatchMeterUsageResultTypeDef(TypedDict):
     Results: list[UsageRecordResultTypeDef]
@@ -134,4 +137,4 @@ UsageRecordUnionTypeDef = Union[UsageRecordTypeDef, UsageRecordOutputTypeDef]
 
 class BatchMeterUsageRequestTypeDef(TypedDict):
     UsageRecords: Sequence[UsageRecordUnionTypeDef]
-    ProductCode: str
+    ProductCode: NotRequired[str]

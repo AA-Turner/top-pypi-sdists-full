@@ -425,6 +425,7 @@ class Athena(BaseAthena):
             httpx_client=httpx_client,
         )
         self._tools: typing.Optional[WrappedToolsClient] = None
+        self._query: typing.Optional[WrappedQueryClient] = None
         self.llm = _DeprecatedLLMProperty()
 
     @property
@@ -432,6 +433,12 @@ class Athena(BaseAthena):
         if self._tools is None:
             self._tools = WrappedToolsClient(client_wrapper=self._client_wrapper)
         return self._tools
+
+    @property
+    def query(self) -> WrappedQueryClient:
+        if self._query is None:
+            self._query = WrappedQueryClient(client_wrapper=self._client_wrapper)
+        return self._query
 
 
 class AsyncAthena(AsyncBaseAthena):
@@ -490,6 +497,7 @@ class AsyncAthena(AsyncBaseAthena):
 
             environment = cast(AthenaEnvironment, _CurrentEnv.CURRENT)
         self._tools: typing.Optional[WrappedAsyncToolsClient] = None
+        self._query: typing.Optional[WrappedAsyncQueryClient] = None
         super().__init__(
             base_url=base_url,
             environment=environment,  # type: ignore[arg-type]
@@ -503,6 +511,12 @@ class AsyncAthena(AsyncBaseAthena):
         if self._tools is None:
             self._tools = WrappedAsyncToolsClient(client_wrapper=self._client_wrapper)
         return self._tools
+
+    @property
+    def query(self) -> WrappedAsyncQueryClient:
+        if self._query is None:
+            self._query = WrappedAsyncQueryClient(client_wrapper=self._client_wrapper)
+        return self._query
 
 
 def _read_json_frame(model: DataFrameRequestOut) -> "pd.DataFrame":

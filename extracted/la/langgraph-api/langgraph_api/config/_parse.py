@@ -1,3 +1,4 @@
+import os
 from collections.abc import Callable
 from typing import Annotated, TypeVar, cast, get_args, get_origin
 
@@ -72,6 +73,17 @@ def parse_checkpointer(value: str | None) -> CheckpointerConfig | None:
             raw = {**raw, "backend": "custom"}
         else:
             raw = {**raw, "backend": "default"}
+
+    # For mongo backend, resolve URI from environment if not provided.
+    if raw.get("backend") == "mongo" and not raw.get("uri"):
+        uri = os.environ.get("LS_MONGODB_URI") or os.environ.get("MONGODB_URI")
+        if uri:
+            raw = {**raw, "uri": uri}
+        else:
+            raise ValueError(
+                "LANGGRAPH_CHECKPOINTER backend='mongo' requires a MongoDB URI: "
+                "set 'uri' in the config, or LS_MONGODB_URI / MONGODB_URI environment variable"
+            )
 
     parsed = TypeAdapter(CheckpointerConfig).validate_python(raw)
     return cast("CheckpointerConfig | None", parsed or None)

@@ -128,6 +128,7 @@ from .type_defs import (
     AssociateLambdaFunctionRequestTypeDef,
     AssociateLexBotRequestTypeDef,
     AssociatePhoneNumberContactFlowRequestTypeDef,
+    AssociateQueueEmailAddressesRequestTypeDef,
     AssociateQueueQuickConnectsRequestTypeDef,
     AssociateRoutingProfileQueuesRequestTypeDef,
     AssociateSecurityKeyRequestTypeDef,
@@ -346,6 +347,7 @@ from .type_defs import (
     DisassociateLambdaFunctionRequestTypeDef,
     DisassociateLexBotRequestTypeDef,
     DisassociatePhoneNumberContactFlowRequestTypeDef,
+    DisassociateQueueEmailAddressesRequestTypeDef,
     DisassociateQueueQuickConnectsRequestTypeDef,
     DisassociateRoutingProfileQueuesRequestTypeDef,
     DisassociateSecurityKeyRequestTypeDef,
@@ -463,6 +465,8 @@ from .type_defs import (
     ListPredefinedAttributesResponseTypeDef,
     ListPromptsRequestTypeDef,
     ListPromptsResponseTypeDef,
+    ListQueueEmailAddressesRequestTypeDef,
+    ListQueueEmailAddressesResponseTypeDef,
     ListQueueQuickConnectsRequestTypeDef,
     ListQueueQuickConnectsResponseTypeDef,
     ListQueuesRequestTypeDef,
@@ -905,6 +909,18 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_phone_number_contact_flow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_phone_number_contact_flow)
+        """
+
+    async def associate_queue_email_addresses(
+        self, **kwargs: Unpack[AssociateQueueEmailAddressesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associates a set of email addresses with a queue to enable agents to select
+        different "From" (system) email addresses when replying to inbound email
+        contacts or initiating outbound email contacts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_queue_email_addresses.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_queue_email_addresses)
         """
 
     async def associate_queue_quick_connects(
@@ -2286,6 +2302,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_phone_number_contact_flow)
         """
 
+    async def disassociate_queue_email_addresses(
+        self, **kwargs: Unpack[DisassociateQueueEmailAddressesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Removes the association between a set of email addresses and a queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_queue_email_addresses.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_queue_email_addresses)
+        """
+
     async def disassociate_queue_quick_connects(
         self, **kwargs: Unpack[DisassociateQueueQuickConnectsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -2923,6 +2949,18 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_prompts.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_prompts)
+        """
+
+    async def list_queue_email_addresses(
+        self, **kwargs: Unpack[ListQueueEmailAddressesRequestTypeDef]
+    ) -> ListQueueEmailAddressesResponseTypeDef:
+        """
+        Lists all email addresses that are currently associated with a specific queue,
+        providing details about which "From" email addresses agents can select when
+        handling email contacts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_queue_email_addresses.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_queue_email_addresses)
         """
 
     async def list_queue_quick_connects(

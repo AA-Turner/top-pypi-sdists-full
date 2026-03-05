@@ -556,36 +556,21 @@ class CompactMatchItem(QFrame):
         # Special styling for Non-Translatables
         if self.match.match_type == "NonTrans":
             type_color = "#FFFDD0"  # Pastel yellow background
-        # For termbase matches, apply ranking-based green shading
+        # For termbase matches, apply project/background green shading
         elif self.match.match_type == "Termbase":
             is_forbidden = self.match.metadata.get('forbidden', False)
             is_project_termbase_flag = self.match.metadata.get('is_project_termbase', False)
             termbase_ranking = self.match.metadata.get('ranking', None)
 
-            # EFFECTIVE project termbase = explicit flag OR ranking #1
+            # EFFECTIVE project termbase = explicit flag OR ranking == 1
             is_effective_project = is_project_termbase_flag or (termbase_ranking == 1)
             is_project_termbase = is_effective_project  # For later use in background styling
 
             if is_forbidden:
                 type_color = "#000000"  # Forbidden terms: black
             else:
-                # Use ranking to determine soft pastel green shade
-                # All shades are subtle to stay in the background
-                if termbase_ranking is not None:
-                    # Map ranking to soft pastel green shades:
-                    # Ranking #1: Soft medium green (Green 200)
-                    # Ranking #2: Soft light green (Green 100)
-                    # Ranking #3: Very soft light green (Light Green 100)
-                    # Ranking #4+: Extremely soft pastel green (Green 50)
-                    ranking_colors = {
-                        1: "#A5D6A7",  # Soft medium green (Green 200)
-                        2: "#C8E6C9",  # Soft light green (Green 100)
-                        3: "#DCEDC8",  # Very soft light green (Light Green 100)
-                    }
-                    type_color = ranking_colors.get(termbase_ranking, "#E8F5E9")  # Green 50 for 4+
-                else:
-                    # No ranking - use soft light green
-                    type_color = "#C8E6C9"  # Green 100 (fallback)
+                # Project glossary = medium green, Background = light green
+                type_color = "#A5D6A7" if is_effective_project else "#C8E6C9"
         else:
             type_color = base_color
         
@@ -1582,24 +1567,23 @@ class TranslationResultsPanel(QWidget):
             # Fetch fresh data from database
             cursor = db_manager.cursor
             cursor.execute("""
-                SELECT source_term, target_term, priority, domain, notes, 
+                SELECT source_term, target_term, domain, notes,
                        project, client, forbidden, termbase_id
                 FROM termbase_terms
                 WHERE id = ?
             """, (term_id,))
-            
+
             row = cursor.fetchone()
             if row:
                 # Update the current selection metadata with fresh data
                 self.current_selection.source = row[0]
                 self.current_selection.target = row[1]
-                self.current_selection.metadata['priority'] = row[2] or 99
-                self.current_selection.metadata['domain'] = row[3] or ''
-                self.current_selection.metadata['notes'] = row[4] or ''
-                self.current_selection.metadata['project'] = row[5] or ''
-                self.current_selection.metadata['client'] = row[6] or ''
-                self.current_selection.metadata['forbidden'] = row[7] or False
-                self.current_selection.metadata['termbase_id'] = row[8]
+                self.current_selection.metadata['domain'] = row[2] or ''
+                self.current_selection.metadata['notes'] = row[3] or ''
+                self.current_selection.metadata['project'] = row[4] or ''
+                self.current_selection.metadata['client'] = row[5] or ''
+                self.current_selection.metadata['forbidden'] = row[6] or False
+                self.current_selection.metadata['termbase_id'] = row[7]
                 
                 # Re-display with updated data
                 self._display_termbase_data(self.current_selection)
@@ -1638,10 +1622,6 @@ class TranslationResultsPanel(QWidget):
         # Termbase name
         termbase_name = match.metadata.get('termbase_name', 'Unknown')
         metadata_parts.append(f"<b>Termbase:</b> {termbase_name}")
-        
-        # Priority
-        priority = match.metadata.get('priority', 50)
-        metadata_parts.append(f"<b>Priority:</b> {priority}")
         
         # Domain
         domain = match.metadata.get('domain', '')

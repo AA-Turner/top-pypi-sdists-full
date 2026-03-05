@@ -546,9 +546,7 @@ class WorkloadSDK(BaseSDK):
         connection_type = self.get_connection_type_from_connection_method_type(
             connection.connection_type
         )
-        return ConnectionConfig(
-            connection_type=connection_type, connection_name=connection.name,
-        )
+        return ConnectionConfig(type=connection_type, name=connection.name,)
 
     def resolve_connection_ids(
         self, connections: Optional[List[ConnectionConfig]]
@@ -567,8 +565,8 @@ class WorkloadSDK(BaseSDK):
         # Check for duplicate connection types (only one connection per type allowed)
         seen_types: set = set()
         for conn_config in connections:
-            # connection_type is guaranteed to be ConnectionType by ConnectionConfig validation
-            connection_type = conn_config.connection_type
+            # type is guaranteed to be ConnectionType by ConnectionConfig validation
+            connection_type = conn_config.type
             if connection_type in seen_types:
                 raise ValueError(
                     f"Duplicate connection type '{connection_type.value}' specified. "
@@ -580,11 +578,11 @@ class WorkloadSDK(BaseSDK):
         connection_ids = []
         for conn_config in connections:
             fetched_connections = self.client.list_databricks_connections(
-                name=conn_config.connection_name
+                name=conn_config.name
             )
             if len(fetched_connections) == 0:
                 raise ValueError(
-                    f"Connection '{conn_config.connection_name}' not found. Please check that the "
+                    f"Connection '{conn_config.name}' not found. Please check that the "
                     f"connection exists in your organization settings and has the correct name."
                 )
             connection_ids.append(fetched_connections[0].id)

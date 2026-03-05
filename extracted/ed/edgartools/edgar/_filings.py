@@ -1561,7 +1561,15 @@ class Filing:
         """
         Get the period of report for the filing
         """
-        return self.sgml().period_of_report
+        period = self.sgml().period_of_report
+        if not period:
+            # Fallback: extract from homepage index page
+            try:
+                period = self.homepage.period_of_report
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
+                    httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError):
+                pass  # Offline or network unavailable — return None
+        return period
 
     @property
     def attachments(self):
@@ -1608,7 +1616,17 @@ class Filing:
     def xml(self) -> Optional[str]:
         """Returns the xml contents of the primary document if it is xml"""
         sgml = self.sgml()
-        return sgml.xml()
+        xml_content = sgml.xml()
+        if not xml_content:
+            # Fallback: download XML from homepage attachment
+            try:
+                document = self.homepage.primary_xml_document
+                if document and not document.is_binary() and not document.empty:
+                    return document.content
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
+                    httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError):
+                pass  # Offline or network unavailable — return None
+        return xml_content
 
     @lru_cache(maxsize=4)
     def text(self) -> str:
@@ -1825,7 +1843,12 @@ class Filing:
 
     def sgml(self) -> FilingSGML:
         """
-        Read the filing from the local storage path if it exists
+        Read the filing from the local storage path if it exists.
+
+        If the full submission text (.txt) is unavailable due to a transient SEC
+        error, falls back to constructing a minimal FilingSGML from the filing's
+        homepage index page. The fallback provides document attachments with valid
+        URLs but without in-memory content or SGML header metadata.
         """
         if self._sgml:
             return self._sgml
@@ -1840,7 +1863,24 @@ class Filing:
                 self._sgml = get_datamule_filing(self.accession_no)
 
         if self._sgml is None:
-            self._sgml = FilingSGML.from_filing(self)
+            try:
+                self._sgml = FilingSGML.from_filing(self)
+            except (ValueError, Exception) as e:
+                from edgar.sgml.sgml_parser import SECIdentityError, SECFilingNotFoundError, SECHTMLResponseError
+                # Don't fall back on permanent errors — propagate them
+                if isinstance(e, (SECIdentityError, SECFilingNotFoundError)):
+                    raise
+                # Don't fall back on network errors — propagate them so callers
+                # (e.g. xbrl()) can show local-storage-aware error messages
+                if isinstance(e, (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
+                                  httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError)):
+                    raise
+                # Transient content errors (empty response, HTML error page) — fall back to homepage
+                log.warning(
+                    f"SGML fetch failed for {self.accession_no}, "
+                    f"falling back to homepage: {e}"
+                )
+                self._sgml = FilingSGML.from_homepage(self.homepage)
         return self._sgml
 
     @cached_property

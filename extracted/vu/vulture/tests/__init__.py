@@ -17,7 +17,7 @@ WHITELISTS = [
 
 def call_vulture(args, **kwargs):
     return subprocess.call(
-        [sys.executable, "-m", "vulture"] + args, cwd=REPO, **kwargs
+        [sys.executable, "-m", "vulture", *args], cwd=REPO, **kwargs
     )
 
 

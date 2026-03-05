@@ -9,6 +9,57 @@ use crate::utils::skip_context::{is_in_math_context, is_in_mkdocs_markup};
 // Reference definition pattern
 const REF_DEF_REGEX_STR: &str = r#"(?m)^[ ]{0,3}\[([^\]]+)\]:\s*([^\s]+)(?:\s+(?:"([^"]*)"|'([^']*)'))?$"#;
 
+/// Check if a byte position within a line is inside a backtick-delimited code span.
+/// This is a line-level fallback for cases where pulldown-cmark's code span detection
+/// misses spans due to table parsing interference (e.g., pipes inside code spans
+/// in table rows cause pulldown-cmark to misidentify cell boundaries).
+fn is_in_inline_code_on_line(line: &str, byte_pos: usize) -> bool {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+
+    while i < bytes.len() {
+        if bytes[i] == b'`' {
+            let open_start = i;
+            let mut backtick_count = 0;
+            while i < bytes.len() && bytes[i] == b'`' {
+                backtick_count += 1;
+                i += 1;
+            }
+
+            // Search for matching closing backticks
+            let mut j = i;
+            while j < bytes.len() {
+                if bytes[j] == b'`' {
+                    let mut close_count = 0;
+                    while j < bytes.len() && bytes[j] == b'`' {
+                        close_count += 1;
+                        j += 1;
+                    }
+                    if close_count == backtick_count {
+                        // Found matching pair: code span covers open_start..j
+                        if byte_pos >= open_start && byte_pos < j {
+                            return true;
+                        }
+                        i = j;
+                        break;
+                    }
+                } else {
+                    j += 1;
+                }
+            }
+
+            if j >= bytes.len() {
+                // No matching close found, remaining text is not a code span
+                break;
+            }
+        } else {
+            i += 1;
+        }
+    }
+
+    false
+}
+
 mod md050_config;
 use md050_config::MD050Config;
 
@@ -130,8 +181,14 @@ impl MD050StrongStyle {
                 .get(line_num.saturating_sub(1))
                 .is_some_and(|line| is_in_mkdocs_markup(line, col.saturating_sub(1), ctx.flavor));
 
+            // Line-level inline code fallback for cases pulldown-cmark misses
+            let in_inline_code = lines
+                .get(line_num.saturating_sub(1))
+                .is_some_and(|line| is_in_inline_code_on_line(line, col.saturating_sub(1)));
+
             if !skip_context
                 && !ctx.is_in_code_block_or_span(m.start())
+                && !in_inline_code
                 && !self.is_in_link(ctx, m.start())
                 && !self.is_in_html_tag(ctx, m.start())
                 && !self.is_in_html_code_content(ctx, m.start())
@@ -156,8 +213,14 @@ impl MD050StrongStyle {
                 .get(line_num.saturating_sub(1))
                 .is_some_and(|line| is_in_mkdocs_markup(line, col.saturating_sub(1), ctx.flavor));
 
+            // Line-level inline code fallback for cases pulldown-cmark misses
+            let in_inline_code = lines
+                .get(line_num.saturating_sub(1))
+                .is_some_and(|line| is_in_inline_code_on_line(line, col.saturating_sub(1)));
+
             if !skip_context
                 && !ctx.is_in_code_block_or_span(m.start())
+                && !in_inline_code
                 && !self.is_in_link(ctx, m.start())
                 && !self.is_in_html_tag(ctx, m.start())
                 && !self.is_in_html_code_content(ctx, m.start())
@@ -250,6 +313,7 @@ impl Rule for MD050StrongStyle {
 
                 // Skip if this strong text is inside a code block, code span, link, HTML code content, MkDocs markup, or math block
                 if ctx.is_in_code_block_or_span(match_byte_pos)
+                    || is_in_inline_code_on_line(line, m.start())
                     || self.is_in_link(ctx, match_byte_pos)
                     || self.is_in_html_code_content(ctx, match_byte_pos)
                     || is_in_mkdocs_markup(line, m.start(), ctx.flavor)
@@ -341,7 +405,12 @@ impl Rule for MD050StrongStyle {
                 let in_mkdocs_markup = lines
                     .get(line_num.saturating_sub(1))
                     .is_some_and(|line| is_in_mkdocs_markup(line, col.saturating_sub(1), ctx.flavor));
+                // Line-level inline code fallback for cases pulldown-cmark misses
+                let in_inline_code = lines
+                    .get(line_num.saturating_sub(1))
+                    .is_some_and(|line| is_in_inline_code_on_line(line, col.saturating_sub(1)));
                 !ctx.is_in_code_block_or_span(m.start())
+                    && !in_inline_code
                     && !self.is_in_link(ctx, m.start())
                     && !self.is_in_html_tag(ctx, m.start())
                     && !self.is_in_html_code_content(ctx, m.start())
@@ -949,5 +1018,21 @@ This __should be flagged__ text."#;
             fix_result.contains("__test__"),
             "fix() should not modify emphasis inside HTML tags"
         );
+    }
+
+    #[test]
+    fn test_detect_style_ignores_emphasis_in_inline_code_on_table_lines() {
+        // In Consistent mode, detect_style() should not count emphasis markers
+        // inside inline code spans on table cell lines, matching check() and fix().
+        let rule = MD050StrongStyle::new(StrongStyle::Consistent);
+
+        // The only real emphasis is **real** (asterisks). The __code__ inside
+        // backtick code spans should be ignored by detect_style().
+        let content = "| `__code__` | **real** |\n| --- | --- |\n| data | data |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        let style = rule.detect_style(&ctx);
+        // Should detect asterisk as the dominant style (underscore inside code is skipped)
+        assert_eq!(style, Some(StrongStyle::Asterisk));
     }
 }

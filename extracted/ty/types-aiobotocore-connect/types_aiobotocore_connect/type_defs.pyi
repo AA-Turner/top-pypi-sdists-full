@@ -225,6 +225,7 @@ __all__ = (
     "AssociateLambdaFunctionRequestTypeDef",
     "AssociateLexBotRequestTypeDef",
     "AssociatePhoneNumberContactFlowRequestTypeDef",
+    "AssociateQueueEmailAddressesRequestTypeDef",
     "AssociateQueueQuickConnectsRequestTypeDef",
     "AssociateRoutingProfileQueuesRequestTypeDef",
     "AssociateSecurityKeyRequestTypeDef",
@@ -556,6 +557,7 @@ __all__ = (
     "DisassociateLambdaFunctionRequestTypeDef",
     "DisassociateLexBotRequestTypeDef",
     "DisassociatePhoneNumberContactFlowRequestTypeDef",
+    "DisassociateQueueEmailAddressesRequestTypeDef",
     "DisassociateQueueQuickConnectsRequestTypeDef",
     "DisassociateRoutingProfileQueuesRequestTypeDef",
     "DisassociateSecurityKeyRequestTypeDef",
@@ -571,10 +573,12 @@ __all__ = (
     "DownloadUrlMetadataTypeDef",
     "EffectiveHoursOfOperationsTypeDef",
     "EffectiveOverrideHoursTypeDef",
+    "EmailAddressConfigTypeDef",
     "EmailAddressInfoTypeDef",
     "EmailAddressMetadataTypeDef",
     "EmailAddressSearchCriteriaTypeDef",
     "EmailAddressSearchFilterTypeDef",
+    "EmailAddressSummaryTypeDef",
     "EmailAttachmentTypeDef",
     "EmailMessageReferenceTypeDef",
     "EmailRecipientTypeDef",
@@ -894,6 +898,8 @@ __all__ = (
     "ListPromptsRequestPaginateTypeDef",
     "ListPromptsRequestTypeDef",
     "ListPromptsResponseTypeDef",
+    "ListQueueEmailAddressesRequestTypeDef",
+    "ListQueueEmailAddressesResponseTypeDef",
     "ListQueueQuickConnectsRequestPaginateTypeDef",
     "ListQueueQuickConnectsRequestTypeDef",
     "ListQueueQuickConnectsResponseTypeDef",
@@ -1681,6 +1687,9 @@ class AssociatePhoneNumberContactFlowRequestTypeDef(TypedDict):
     PhoneNumberId: str
     InstanceId: str
     ContactFlowId: str
+
+class EmailAddressConfigTypeDef(TypedDict):
+    EmailAddressId: str
 
 class AssociateQueueQuickConnectsRequestTypeDef(TypedDict):
     InstanceId: str
@@ -2766,6 +2775,12 @@ class DisassociatePhoneNumberContactFlowRequestTypeDef(TypedDict):
     PhoneNumberId: str
     InstanceId: str
 
+class DisassociateQueueEmailAddressesRequestTypeDef(TypedDict):
+    InstanceId: str
+    QueueId: str
+    EmailAddressesId: Sequence[str]
+    ClientToken: NotRequired[str]
+
 class DisassociateQueueQuickConnectsRequestTypeDef(TypedDict):
     InstanceId: str
     QueueId: str
@@ -2809,6 +2824,11 @@ class DownloadUrlMetadataTypeDef(TypedDict):
 class EmailAddressInfoTypeDef(TypedDict):
     EmailAddress: str
     DisplayName: NotRequired[str]
+
+class EmailAddressSummaryTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Arn: NotRequired[str]
+    IsDefaultOutboundEmail: NotRequired[bool]
 
 class EmailAttachmentTypeDef(TypedDict):
     FileName: str
@@ -3423,6 +3443,12 @@ class PromptSummaryTypeDef(TypedDict):
     Name: NotRequired[str]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedRegion: NotRequired[str]
+
+class ListQueueEmailAddressesRequestTypeDef(TypedDict):
+    InstanceId: str
+    QueueId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListQueueQuickConnectsRequestTypeDef(TypedDict):
     InstanceId: str
@@ -5098,6 +5124,12 @@ class AssociateHoursOfOperationsRequestTypeDef(TypedDict):
     HoursOfOperationId: str
     ParentHoursOfOperationConfigs: Sequence[ParentHoursOfOperationConfigTypeDef]
 
+class AssociateQueueEmailAddressesRequestTypeDef(TypedDict):
+    InstanceId: str
+    QueueId: str
+    EmailAddressesConfig: Sequence[EmailAddressConfigTypeDef]
+    ClientToken: NotRequired[str]
+
 class AssociateSecurityProfilesRequestTypeDef(TypedDict):
     InstanceId: str
     SecurityProfiles: Sequence[SecurityProfileItemTypeDef]
@@ -5628,6 +5660,7 @@ class CreateQueueRequestTypeDef(TypedDict):
     OutboundEmailConfig: NotRequired[OutboundEmailConfigTypeDef]
     MaxContacts: NotRequired[int]
     QuickConnectIds: NotRequired[Sequence[str]]
+    EmailAddressesConfig: NotRequired[Sequence[EmailAddressConfigTypeDef]]
     Tags: NotRequired[Mapping[str, str]]
 
 class QueueTypeDef(TypedDict):
@@ -5817,6 +5850,13 @@ class InboundAdditionalRecipientsTypeDef(TypedDict):
 class OutboundAdditionalRecipientsTypeDef(TypedDict):
     CcEmailAddresses: NotRequired[Sequence[EmailAddressInfoTypeDef]]
 
+class ListQueueEmailAddressesResponseTypeDef(TypedDict):
+    EmailAddressMetadataList: list[EmailAddressSummaryTypeDef]
+    LastModifiedTime: datetime
+    LastModifiedRegion: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class KinesisVideoStreamConfigTypeDef(TypedDict):
     Prefix: str
     RetentionPeriodHours: int
@@ -5892,10 +5932,12 @@ class EvaluationSummaryTypeDef(TypedDict):
     ContactParticipant: NotRequired[EvaluationContactParticipantTypeDef]
 
 class EvaluationReviewMetadataTypeDef(TypedDict):
-    CreatedTime: datetime
-    CreatedBy: str
     ReviewRequestComments: list[EvaluationReviewRequestCommentTypeDef]
     ReviewId: NotRequired[str]
+    RequestedTime: NotRequired[datetime]
+    RequestedBy: NotRequired[str]
+    CreatedTime: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
 
 EvaluationReviewNotificationRecipientTypeDef = TypedDict(
     "EvaluationReviewNotificationRecipientTypeDef",

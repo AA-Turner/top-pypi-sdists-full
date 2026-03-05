@@ -520,7 +520,9 @@ TEST(XGrammarSerializationTest, TestCompactFSM) {
     ASSERT_TRUE(json_value.is<picojson::object>());
 
     // Test literal string comparison - edges are sorted by CompactFSM
-    std::string expected = "{\"data_\":[[-1,0,2],[97,97,1],[98,98,2]],\"indptr_\":[0,2,3,3]}";
+    std::string expected =
+        "{\"edges\":{\"data_\":[[-1,0,2],[97,97,1],[98,98,2]],\"indptr_\":[0,2,3,3]},\"edge_aux_"
+        "data\":[]}";
     ASSERT_EQ(json_value.serialize(), expected);
 
     CompactFSM deserialized;
@@ -547,7 +549,9 @@ TEST(XGrammarSerializationTest, TestCompactFSM) {
     auto json_value = AutoSerializeJSONValue(compact_fsm);
 
     // Test literal string comparison
-    std::string expected = "{\"data_\":[[97,122,1],[-2,5,2],[-3,0,0]],\"indptr_\":[0,1,2,3]}";
+    std::string expected =
+        "{\"edges\":{\"data_\":[[97,122,1],[-2,5,2],[-3,0,0]],\"indptr_\":[0,1,2,3]},\"edge_aux_"
+        "data\":[]}";
     ASSERT_EQ(json_value.serialize(), expected);
 
     CompactFSM deserialized;
@@ -555,6 +559,76 @@ TEST(XGrammarSerializationTest, TestCompactFSM) {
     ASSERT_FALSE(error.has_value());
 
     ASSERT_EQ(deserialized.NumStates(), compact_fsm.NumStates());
+
+    // Test roundtrip
+    auto json_value2 = AutoSerializeJSONValue(deserialized);
+    ASSERT_EQ(json_value.serialize(), json_value2.serialize());
+  }
+}
+
+TEST(XGrammarSerializationTest, TestCompactFSMWithStartEnd) {
+  using namespace xgrammar;
+
+  // Test simple FSM
+  {
+    FSM fsm(3);
+    fsm.AddEdge(0, 1, 'a', 'a');
+    fsm.AddEdge(1, 2, 'b', 'b');
+    fsm.AddEpsilonEdge(0, 2);
+
+    CompactFSM compact_fsm = fsm.ToCompact();
+    CompactFSMWithStartEnd compact_fsm_with_start_end(compact_fsm, 0, {false, false, true});
+
+    auto json_value = AutoSerializeJSONValue(compact_fsm_with_start_end);
+    ASSERT_TRUE(json_value.is<picojson::array>());
+
+    // Test literal string comparison - edges are sorted by CompactFSM
+    std::string expected =
+        "[{\"edges\":{\"data_\":[[-1,0,2],[97,97,1],[98,98,2]],\"indptr_\":[0,2,3,3]},\"edge_aux_"
+        "data\":[]},0,[2],false,3]";
+    ASSERT_EQ(json_value.serialize(), expected);
+
+    CompactFSMWithStartEnd deserialized;
+    auto error = AutoDeserializeJSONValue(&deserialized, json_value);
+    ASSERT_FALSE(error.has_value());
+
+    // Test basic properties
+    ASSERT_EQ(deserialized.GetFsm().NumStates(), compact_fsm.NumStates());
+    ASSERT_EQ(deserialized.GetStart(), 0);
+    ASSERT_EQ(deserialized.GetEnds(), std::vector<bool>({false, false, true}));
+    ASSERT_EQ(deserialized.GetNumEdges(), 3);
+
+    // Test roundtrip
+    auto json_value2 = AutoSerializeJSONValue(deserialized);
+    ASSERT_EQ(json_value.serialize(), json_value2.serialize());
+  }
+
+  // Test FSM with rule references
+  {
+    FSM fsm(3);
+    fsm.AddEdge(0, 1, 'a', 'z');
+    fsm.AddRuleEdge(1, 2, 5);
+    fsm.AddEOSEdge(2, 0);
+
+    CompactFSM compact_fsm = fsm.ToCompact();
+    CompactFSMWithStartEnd compact_fsm_with_start_end(compact_fsm, 0, {false, false, true});
+
+    auto json_value = AutoSerializeJSONValue(compact_fsm_with_start_end);
+
+    // Test literal string comparison
+    std::string expected =
+        "[{\"edges\":{\"data_\":[[97,122,1],[-2,5,2],[-3,0,0]],\"indptr_\":[0,1,2,3]},\"edge_aux_"
+        "data\":[]},0,[2],false,3]";
+    ASSERT_EQ(json_value.serialize(), expected);
+
+    CompactFSMWithStartEnd deserialized;
+    auto error = AutoDeserializeJSONValue(&deserialized, json_value);
+    ASSERT_FALSE(error.has_value());
+
+    ASSERT_EQ(deserialized.GetFsm().NumStates(), compact_fsm.NumStates());
+    ASSERT_EQ(deserialized.GetStart(), 0);
+    ASSERT_EQ(deserialized.GetEnds(), std::vector<bool>({false, false, true}));
+    ASSERT_EQ(deserialized.GetNumEdges(), 3);
 
     // Test roundtrip
     auto json_value2 = AutoSerializeJSONValue(deserialized);

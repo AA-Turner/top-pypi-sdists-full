@@ -872,6 +872,7 @@ from agilicus_api.model.token_reissue_request import TokenReissueRequest
 from agilicus_api.model.token_revoke import TokenRevoke
 from agilicus_api.model.token_scope import TokenScope
 from agilicus_api.model.token_validity import TokenValidity
+from agilicus_api.model.tokens_resource_permission import TokensResourcePermission
 from agilicus_api.model.trusted_certificate import TrustedCertificate
 from agilicus_api.model.trusted_certificate_bundle import TrustedCertificateBundle
 from agilicus_api.model.trusted_certificate_bundle_label import TrustedCertificateBundleLabel

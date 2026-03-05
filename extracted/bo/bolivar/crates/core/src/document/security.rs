@@ -5,10 +5,9 @@
 use super::saslprep::saslprep;
 use crate::codec::aes::{aes_cbc_decrypt, aes_cbc_encrypt, unpad_aes};
 use crate::codec::arcfour::Arcfour;
-use crate::model::objects::PDFObject;
+use crate::model::objects::PDFDict;
 use crate::{PdfError, Result};
 use sha2::{Digest, Sha256, Sha384, Sha512};
-use std::collections::HashMap;
 
 /// Password padding constant from PDF spec.
 pub const PASSWORD_PADDING: [u8; 32] = [
@@ -22,13 +21,7 @@ pub trait PDFSecurityHandler: Send + Sync {
     ///
     /// The `attrs` parameter is used by V4+ handlers to check if the stream
     /// is metadata (which may be unencrypted per EncryptMetadata setting).
-    fn decrypt(
-        &self,
-        objid: u32,
-        genno: u16,
-        data: &[u8],
-        attrs: Option<&HashMap<String, PDFObject>>,
-    ) -> Vec<u8>;
+    fn decrypt(&self, objid: u32, genno: u16, data: &[u8], attrs: Option<&PDFDict>) -> Vec<u8>;
 
     /// Decrypt a string (may differ from stream decryption in V4+).
     fn decrypt_string(&self, objid: u32, genno: u16, data: &[u8]) -> Vec<u8> {
@@ -36,13 +29,7 @@ pub trait PDFSecurityHandler: Send + Sync {
     }
 
     /// Decrypt a stream with its attributes (may differ from string decryption in V4+).
-    fn decrypt_stream(
-        &self,
-        objid: u32,
-        genno: u16,
-        data: &[u8],
-        attrs: &HashMap<String, PDFObject>,
-    ) -> Vec<u8> {
+    fn decrypt_stream(&self, objid: u32, genno: u16, data: &[u8], attrs: &PDFDict) -> Vec<u8> {
         self.decrypt(objid, genno, data, Some(attrs))
     }
 }
@@ -83,11 +70,7 @@ impl PDFStandardSecurityHandlerV2 {
     /// # Returns
     /// * `Ok(handler)` if authentication succeeds
     /// * `Err` if authentication fails or parameters are invalid
-    pub fn new(
-        encrypt: &HashMap<String, PDFObject>,
-        doc_id: &[Vec<u8>],
-        password: &str,
-    ) -> Result<Self> {
+    pub fn new(encrypt: &PDFDict, doc_id: &[Vec<u8>], password: &str) -> Result<Self> {
         // Extract parameters from encrypt dict
         let r = get_int(encrypt, "R")?;
         let v = get_int_default(encrypt, "V", 0);
@@ -300,13 +283,7 @@ impl PDFStandardSecurityHandlerV2 {
 }
 
 impl PDFSecurityHandler for PDFStandardSecurityHandlerV2 {
-    fn decrypt(
-        &self,
-        objid: u32,
-        genno: u16,
-        data: &[u8],
-        _attrs: Option<&HashMap<String, PDFObject>>,
-    ) -> Vec<u8> {
+    fn decrypt(&self, objid: u32, genno: u16, data: &[u8], _attrs: Option<&PDFDict>) -> Vec<u8> {
         self.decrypt_rc4(objid, genno, data)
     }
 }
@@ -347,11 +324,7 @@ pub struct PDFStandardSecurityHandlerV4 {
 
 impl PDFStandardSecurityHandlerV4 {
     /// Create a new V4 security handler.
-    pub fn new(
-        encrypt: &HashMap<String, PDFObject>,
-        doc_id: &[Vec<u8>],
-        password: &str,
-    ) -> Result<Self> {
+    pub fn new(encrypt: &PDFDict, doc_id: &[Vec<u8>], password: &str) -> Result<Self> {
         let r = get_int(encrypt, "R")?;
         if r != 4 {
             return Err(PdfError::EncryptionError(format!(
@@ -406,7 +379,7 @@ impl PDFStandardSecurityHandlerV4 {
         }
     }
 
-    fn resolve_crypt_method(cf: &HashMap<String, PDFObject>, name: &str) -> Result<CryptMethod> {
+    fn resolve_crypt_method(cf: &PDFDict, name: &str) -> Result<CryptMethod> {
         if name == "Identity" {
             return Ok(CryptMethod::Identity);
         }
@@ -575,7 +548,7 @@ impl PDFStandardSecurityHandlerV4 {
         unpad_aes(&plaintext).to_vec()
     }
 
-    fn is_metadata_stream(&self, attrs: Option<&HashMap<String, PDFObject>>) -> bool {
+    fn is_metadata_stream(&self, attrs: Option<&PDFDict>) -> bool {
         if let Some(attrs) = attrs
             && let Some(t) = attrs.get("Type")
             && let Ok(name) = t.as_name()
@@ -587,13 +560,7 @@ impl PDFStandardSecurityHandlerV4 {
 }
 
 impl PDFSecurityHandler for PDFStandardSecurityHandlerV4 {
-    fn decrypt(
-        &self,
-        objid: u32,
-        genno: u16,
-        data: &[u8],
-        attrs: Option<&HashMap<String, PDFObject>>,
-    ) -> Vec<u8> {
+    fn decrypt(&self, objid: u32, genno: u16, data: &[u8], attrs: Option<&PDFDict>) -> Vec<u8> {
         // Check if we should skip metadata decryption
         if !self.encrypt_metadata && self.is_metadata_stream(attrs) {
             return data.to_vec();
@@ -648,11 +615,7 @@ impl PDFStandardSecurityHandlerV5 {
     pub const SUPPORTED_REVISIONS: [i64; 2] = [5, 6];
 
     /// Create a new V5 security handler.
-    pub fn new(
-        encrypt: &HashMap<String, PDFObject>,
-        _doc_id: &[Vec<u8>],
-        password: &str,
-    ) -> Result<Self> {
+    pub fn new(encrypt: &PDFDict, _doc_id: &[Vec<u8>], password: &str) -> Result<Self> {
         let r = get_int(encrypt, "R")?;
         if !Self::SUPPORTED_REVISIONS.contains(&r) {
             return Err(PdfError::EncryptionError(format!(
@@ -737,7 +700,7 @@ impl PDFStandardSecurityHandlerV5 {
         }
     }
 
-    fn resolve_crypt_method(cf: &HashMap<String, PDFObject>, name: &str) -> Result<CryptMethod> {
+    fn resolve_crypt_method(cf: &PDFDict, name: &str) -> Result<CryptMethod> {
         if name == "Identity" {
             return Ok(CryptMethod::Identity);
         }
@@ -926,7 +889,7 @@ impl PDFStandardSecurityHandlerV5 {
         }
     }
 
-    fn is_metadata_stream(&self, attrs: Option<&HashMap<String, PDFObject>>) -> bool {
+    fn is_metadata_stream(&self, attrs: Option<&PDFDict>) -> bool {
         if let Some(attrs) = attrs
             && let Some(t) = attrs.get("Type")
             && let Ok(name) = t.as_name()
@@ -938,13 +901,7 @@ impl PDFStandardSecurityHandlerV5 {
 }
 
 impl PDFSecurityHandler for PDFStandardSecurityHandlerV5 {
-    fn decrypt(
-        &self,
-        _objid: u32,
-        _genno: u16,
-        data: &[u8],
-        attrs: Option<&HashMap<String, PDFObject>>,
-    ) -> Vec<u8> {
+    fn decrypt(&self, _objid: u32, _genno: u16, data: &[u8], attrs: Option<&PDFDict>) -> Vec<u8> {
         // Check if we should skip metadata decryption
         if !self.encrypt_metadata && self.is_metadata_stream(attrs) {
             return data.to_vec();
@@ -961,7 +918,7 @@ impl PDFSecurityHandler for PDFStandardSecurityHandlerV5 {
 }
 
 /// Helper: Get integer value from encrypt dict.
-fn get_int(encrypt: &HashMap<String, PDFObject>, key: &str) -> Result<i64> {
+fn get_int(encrypt: &PDFDict, key: &str) -> Result<i64> {
     encrypt
         .get(key)
         .ok_or_else(|| PdfError::EncryptionError(format!("Missing {} in /Encrypt", key)))?
@@ -969,7 +926,7 @@ fn get_int(encrypt: &HashMap<String, PDFObject>, key: &str) -> Result<i64> {
 }
 
 /// Helper: Get integer value with default.
-fn get_int_default(encrypt: &HashMap<String, PDFObject>, key: &str, default: i64) -> i64 {
+fn get_int_default(encrypt: &PDFDict, key: &str, default: i64) -> i64 {
     encrypt
         .get(key)
         .and_then(|v| v.as_int().ok())
@@ -977,7 +934,7 @@ fn get_int_default(encrypt: &HashMap<String, PDFObject>, key: &str, default: i64
 }
 
 /// Helper: Get bytes value from encrypt dict.
-fn get_bytes(encrypt: &HashMap<String, PDFObject>, key: &str) -> Result<Vec<u8>> {
+fn get_bytes(encrypt: &PDFDict, key: &str) -> Result<Vec<u8>> {
     encrypt
         .get(key)
         .ok_or_else(|| PdfError::EncryptionError(format!("Missing {} in /Encrypt", key)))?
@@ -986,14 +943,14 @@ fn get_bytes(encrypt: &HashMap<String, PDFObject>, key: &str) -> Result<Vec<u8>>
 }
 
 /// Helper: Get unsigned 32-bit integer (P value handling).
-fn get_uint32(encrypt: &HashMap<String, PDFObject>, key: &str) -> Result<u32> {
+fn get_uint32(encrypt: &PDFDict, key: &str) -> Result<u32> {
     let val = get_int(encrypt, key)?;
     // P can be negative in the PDF (signed interpretation), but we need unsigned
     Ok(val as u32)
 }
 
 /// Helper: Get name value with default.
-fn get_name_default(encrypt: &HashMap<String, PDFObject>, key: &str, default: &str) -> String {
+fn get_name_default(encrypt: &PDFDict, key: &str, default: &str) -> String {
     encrypt
         .get(key)
         .and_then(|v| v.as_name().ok())
@@ -1002,12 +959,12 @@ fn get_name_default(encrypt: &HashMap<String, PDFObject>, key: &str, default: &s
 }
 
 /// Helper: Get dict value.
-fn get_dict(encrypt: &HashMap<String, PDFObject>, key: &str) -> Option<HashMap<String, PDFObject>> {
+fn get_dict(encrypt: &PDFDict, key: &str) -> Option<PDFDict> {
     encrypt.get(key).and_then(|v| v.as_dict().ok()).cloned()
 }
 
 /// Helper: Get bool value with default.
-fn get_bool_default(encrypt: &HashMap<String, PDFObject>, key: &str, default: bool) -> bool {
+fn get_bool_default(encrypt: &PDFDict, key: &str, default: bool) -> bool {
     encrypt
         .get(key)
         .and_then(|v| v.as_bool().ok())
@@ -1016,7 +973,7 @@ fn get_bool_default(encrypt: &HashMap<String, PDFObject>, key: &str, default: bo
 
 /// Create appropriate security handler from /Encrypt dict.
 pub fn create_security_handler(
-    encrypt: &HashMap<String, PDFObject>,
+    encrypt: &PDFDict,
     doc_id: &[Vec<u8>],
     password: &str,
 ) -> Result<Option<Box<dyn PDFSecurityHandler + Send + Sync>>> {

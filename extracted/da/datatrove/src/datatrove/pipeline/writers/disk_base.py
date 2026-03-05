@@ -1,5 +1,7 @@
 import dataclasses
 import os.path
+import random
+import time
 from abc import ABC, abstractmethod
 from collections import Counter
 from string import Template
@@ -11,6 +13,19 @@ from datatrove.io import DataFolderLike, get_datafolder
 from datatrove.pipeline.base import PipelineStep
 from datatrove.utils.logging import logger
 from datatrove.utils.typeshelper import StatHints
+
+
+HF_RETRYABLE_MESSAGES = (
+    "A commit has happened since",
+    "Precondition Failed",
+    "Too Many Requests",
+    "Service Unavailable",
+    "rate limit",
+    "maximum queue size reached",
+    "maximum time in concurrency queue reached",
+    "lfs-verify",
+    "MerkleDB Shard error",
+)
 
 
 class DiskWriter(PipelineStep, ABC):
@@ -26,6 +41,61 @@ class DiskWriter(PipelineStep, ABC):
 
     default_output_filename: str = None
     type = "💽 - WRITER"
+
+    HF_MAX_RETRIES = 12
+    HF_BASE_DELAY = 0.1
+
+    @staticmethod
+    def is_retryable_hf_hub_error(error: Exception) -> bool:
+        """Return True for HF Hub errors we explicitly retry.
+
+        We retry because HF Hub writes can fail transiently under distributed load
+        (for example rate limits, commit races, or short service hiccups). Treating
+        these as hard failures would abort otherwise healthy jobs and can cascade into
+        dependent Slurm jobs never running.
+
+        HF Hub exceptions may expose the transient reason in `server_message` (response
+        payload), but this field is sometimes empty and details only appear in `str(error)`
+        (status code, URL, request id). We normalize that here so every retry call site
+        uses the same matching behavior and we do not miss retryable 429/412/503 cases.
+        """
+        server_message = getattr(error, "server_message", None)
+        error_message = str(server_message) if server_message else str(error)
+        return any(message in error_message for message in HF_RETRYABLE_MESSAGES)
+
+    def _retry_hf_hub_operation(self, operation_name: str, target: str, operation: Callable[[], object]) -> object:
+        """Retry a transient HF Hub operation with exponential backoff."""
+        last_error: Exception | None = None
+        for attempt in range(self.HF_MAX_RETRIES):
+            try:
+                return operation()
+            except Exception as error:
+                if not self.is_retryable_hf_hub_error(error):
+                    raise
+                last_error = error
+                if attempt == self.HF_MAX_RETRIES - 1:
+                    break
+                delay = self.HF_BASE_DELAY * 2**attempt + random.uniform(0, 2)
+                logger.warning(
+                    f"HF Hub {operation_name} error for {target}, retrying in {delay:.1f}s "
+                    f"({attempt + 1}/{self.HF_MAX_RETRIES})..."
+                )
+                time.sleep(delay)
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"Failed HF Hub {operation_name} for {target} after retries.")
+
+    def _get_output_file_with_retry(self, output_filename: str) -> IO:
+        """Get or open an output file with retries on transient HF Hub failures.
+
+        This is mainly used for HF-backed output folders where open calls can
+        fail transiently under high API pressure (for example 429/412 responses).
+        """
+        return self._retry_hf_hub_operation(
+            operation_name="open",
+            target=output_filename,
+            operation=lambda: self.output_mg.get_file(output_filename),
+        )
 
     def __init__(
         self,
@@ -140,14 +210,47 @@ class DiskWriter(PipelineStep, ABC):
         self.close_file(old_filename)
 
     def close_file(self, filename):
-        """
-            Close a file and remove it from the output manager
+        """Close a file and remove it from the output manager.
+
+        Retries on known HF Hub commit race/congestion errors with exponential
+        backoff. On failure, fsspec marks the file closed but the temp file
+        persists, so we retry the upload_file call directly.
+
         Args:
             filename: filename to close
         """
         if self.max_file_size > 0 and filename not in self.output_mg.get_open_files():
             filename = self._get_filename_with_file_id(filename)
-        self.output_mg.pop(filename).close()
+        file_obj = self.output_mg.pop(filename)
+        try:
+            file_obj.close()
+        except Exception as close_error:
+            has_hf_upload_state = (
+                hasattr(file_obj, "fs") and hasattr(file_obj, "temp_file") and hasattr(file_obj, "resolved_path")
+            )
+            if not self.is_retryable_hf_hub_error(close_error) or not has_hf_upload_state:
+                raise
+            # fsspec marks the file closed, but the temp file still exists on disk.
+            # Retry the HF upload_file call directly with exponential backoff.
+            api = file_obj.fs._api
+
+            def _upload() -> None:
+                api.upload_file(
+                    path_or_fileobj=file_obj.temp_file.name,
+                    path_in_repo=file_obj.resolved_path.path_in_repo,
+                    repo_id=file_obj.resolved_path.repo_id,
+                    token=file_obj.fs.token,
+                    repo_type=file_obj.resolved_path.repo_type,
+                    revision=file_obj.resolved_path.revision,
+                )
+
+            self._retry_hf_hub_operation(
+                operation_name="upload",
+                target=filename,
+                operation=_upload,
+            )
+            if os.path.exists(file_obj.temp_file.name):
+                os.remove(file_obj.temp_file.name)
 
     def _get_filename_with_file_id(self, filename):
         """
@@ -179,13 +282,13 @@ class DiskWriter(PipelineStep, ABC):
             # get size of current file
             output_filename = self._get_filename_with_file_id(original_name)
             # we have to switch file!
-            if self.output_mg.get_file(output_filename).tell() >= self.max_file_size:
+            if self._get_output_file_with_retry(output_filename).tell() >= self.max_file_size:
                 self.file_id_counter[original_name] += 1
                 new_output_filename = self._get_filename_with_file_id(original_name)
                 self._on_file_switch(original_name, output_filename, new_output_filename)
                 output_filename = new_output_filename
         # actually write
-        self._write(self.adapter(document), self.output_mg.get_file(output_filename), original_name)
+        self._write(self.adapter(document), self._get_output_file_with_retry(output_filename), original_name)
         self.stat_update(self._get_output_filename(document, "XXXXX", **kwargs))
         self.stat_update(StatHints.total)
         self.update_doc_stats(document)

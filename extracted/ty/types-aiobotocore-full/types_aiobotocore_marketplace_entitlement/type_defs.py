@@ -74,6 +74,7 @@ class EntitlementTypeDef(TypedDict):
     CustomerAWSAccountId: NotRequired[str]
     Value: NotRequired[EntitlementValueTypeDef]
     ExpirationDate: NotRequired[datetime]
+    LicenseArn: NotRequired[str]
 
 
 class GetEntitlementsRequestPaginateTypeDef(TypedDict):

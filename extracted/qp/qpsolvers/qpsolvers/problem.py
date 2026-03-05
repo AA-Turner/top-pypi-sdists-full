@@ -6,7 +6,7 @@
 
 """Model for a quadratic program."""
 
-from typing import List, Optional, Tuple, TypeVar, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import scipy.sparse as spa
@@ -14,8 +14,6 @@ import scipy.sparse as spa
 from .active_set import ActiveSet
 from .conversions import linear_from_box_inequalities
 from .exceptions import ParamError, ProblemError
-
-VectorType = TypeVar("VectorType")
 
 
 class Problem:
@@ -69,8 +67,8 @@ class Problem:
 
     @staticmethod
     def __check_matrix(
-        M: Optional[Union[np.ndarray, spa.csc_matrix]],
-    ) -> Optional[Union[np.ndarray, spa.csc_matrix]]:
+        M: Union[np.ndarray, spa.csc_matrix],
+    ) -> Union[np.ndarray, spa.csc_matrix]:
         """
         Ensure a problem matrix has proper shape.
 
@@ -91,7 +89,7 @@ class Problem:
         return M
 
     @staticmethod
-    def __check_vector(v: VectorType, name: str) -> VectorType:
+    def __check_vector(v: np.ndarray, name: str) -> np.ndarray:
         """
         Ensure a problem vector has proper shape.
 
@@ -106,8 +104,13 @@ class Problem:
         -------
         :
             Same matrix with proper shape.
+
+        Raises
+        ------
+        ProblemError
+            If the vector cannot be flattened.
         """
-        if v is None or v.ndim <= 1:
+        if v.ndim <= 1:
             return v
         if v.shape[0] != 1 and v.shape[1] != 1 or v.ndim > 2:
             raise ProblemError(
@@ -129,12 +132,12 @@ class Problem:
     ) -> None:
         P = Problem.__check_matrix(P)
         q = Problem.__check_vector(q, "q")
-        G = Problem.__check_matrix(G)
-        h = Problem.__check_vector(h, "h")
-        A = Problem.__check_matrix(A)
-        b = Problem.__check_vector(b, "b")
-        lb = Problem.__check_vector(lb, "lb")
-        ub = Problem.__check_vector(ub, "ub")
+        G = Problem.__check_matrix(G) if G is not None else None
+        h = Problem.__check_vector(h, "h") if h is not None else None
+        A = Problem.__check_matrix(A) if A is not None else None
+        b = Problem.__check_vector(b, "b") if b is not None else None
+        lb = Problem.__check_vector(lb, "lb") if lb is not None else None
+        ub = Problem.__check_vector(ub, "ub") if ub is not None else None
         self.P = P
         self.q = q
         self.G = G
@@ -207,6 +210,36 @@ class Problem:
             self.ub,
         )
 
+    def unpack_as_dense(
+        self,
+    ) -> Tuple[
+        np.ndarray,
+        np.ndarray,
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+    ]:
+        """Get problem matrices as a tuple of dense matrices and vectors.
+
+        Returns
+        -------
+        :
+            Tuple ``(P, q, G, h, A, b, lb, ub)`` of problem matrices.
+        """
+        return (
+            self.P.toarray() if isinstance(self.P, spa.csc_matrix) else self.P,
+            self.q,
+            self.G.toarray() if isinstance(self.G, spa.csc_matrix) else self.G,
+            self.h,
+            self.A.toarray() if isinstance(self.A, spa.csc_matrix) else self.A,
+            self.b,
+            self.lb,
+            self.ub,
+        )
+
     def check_constraints(self):
         """Check that problem constraints are properly specified.
 
@@ -226,7 +259,7 @@ class Problem:
 
     def __get_active_inequalities(
         self, active_set: ActiveSet
-    ) -> Optional[np.ndarray]:
+    ) -> Optional[Union[np.ndarray, spa.csc_matrix]]:
         r"""Combine active linear and box inequalities into a single matrix.
 
         Parameters
@@ -306,8 +339,18 @@ class Problem:
         if active_set.ub_indices and self.ub is None:
             raise ProblemError("Upper bound in active set but not in problem")
 
-        P, A = self.P, self.A
-        G_active = self.__get_active_inequalities(active_set)
+        P: np.ndarray = (
+            self.P.toarray() if isinstance(self.P, spa.csc_matrix) else self.P
+        )
+        G_active_full = self.__get_active_inequalities(active_set)
+        G_active: Optional[np.ndarray] = (
+            G_active_full.toarray()
+            if isinstance(G_active_full, spa.csc_matrix)
+            else G_active_full
+        )
+        A: Optional[np.ndarray] = (
+            self.A.toarray() if isinstance(self.A, spa.csc_matrix) else self.A
+        )
         n_G = G_active.shape[0] if G_active is not None else 0
         n_A = A.shape[0] if A is not None else 0
         if G_active is not None and A is not None:
@@ -361,7 +404,11 @@ class Problem:
         """
         np.savez(
             file,
-            P=self.P,
+            P=(
+                self.P.toarray()
+                if isinstance(self.P, spa.csc_matrix)
+                else self.P
+            ),
             q=self.q,
             G=np.array(self.G),
             h=np.array(self.h),

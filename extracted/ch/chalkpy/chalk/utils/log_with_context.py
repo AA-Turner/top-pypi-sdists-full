@@ -10,7 +10,6 @@ import contextvars
 import functools
 import logging
 import logging.config
-import os
 import sys
 import threading
 import types
@@ -18,7 +17,6 @@ from enum import Enum
 from typing import Any, Dict, Mapping, Optional
 from weakref import WeakKeyDictionary
 
-from chalk.utils._ddtrace_version import can_use_ddtrace
 from chalk.utils.missing_dependency import missing_dependency_exception
 
 _LOGGING_CONTEXT: contextvars.ContextVar[Mapping[str, Any]] = contextvars.ContextVar("_LOGGING_CONTEXT", default={})
@@ -172,11 +170,6 @@ def get_json_logging_formatter() -> logging.Formatter:
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
-    if can_use_ddtrace:
-        import ddtrace
-    else:
-        ddtrace = None
-
     class ChalkJsonFormatter(json.JsonFormatter):
         def __init__(self):
             super().__init__(
@@ -192,7 +185,6 @@ def get_json_logging_formatter() -> logging.Formatter:
                     "stack_info",
                 ],
             )
-            self._dd_entity_id = os.getenv("DD_ENTITY_ID", None)
             try:
                 import google.cloud.client
 
@@ -221,30 +213,6 @@ def get_json_logging_formatter() -> logging.Formatter:
             if log_record.get("funcName") is not None:
                 source_location["function"] = log_record["funcName"]
             log_record["logging.googleapis.com/sourceLocation"] = source_location
-            if self._dd_entity_id is not None:
-                log_record["dd.entity_id"] = self._dd_entity_id
-            if ddtrace is not None:
-                if ddtrace.config.env is not None:
-                    log_record["dd.env"] = ddtrace.config.env
-                if ddtrace.config.service is not None:
-                    log_record["dd.service"] = ddtrace.config.service
-                if ddtrace.config.version is not None:
-                    log_record["dd.version"] = ddtrace.config.version
-
-                if (current_trace_context := ddtrace.tracer.current_trace_context()) is not None:
-                    if current_trace_context.trace_id is not None:
-                        log_record["dd.trace_id"] = current_trace_context.trace_id
-                        if self._gcp_project_name is not None:
-                            log_record[
-                                "logging.googleapis.com/trace"
-                            ] = f"projects/{self._gcp_project_name}/traces/{current_trace_context.trace_id}"
-                    if current_trace_context.span_id is not None:
-                        log_record["dd.span_id"] = current_trace_context.span_id
-                        log_record["logging.googleapis.com/spanId"] = current_trace_context.span_id
-                    log_record["logging.googleapis.com/trace_sampled"] = (
-                        current_trace_context.sampling_priority is not None
-                        and current_trace_context.sampling_priority > 0
-                    )
             operation = {}
             if (operation_id := log_record.get(_OPERATION_ID_KEY)) is not None:
                 operation["id"] = operation_id

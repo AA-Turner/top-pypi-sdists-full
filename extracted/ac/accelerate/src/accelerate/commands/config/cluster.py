@@ -26,8 +26,10 @@ from ...utils import (
     is_mps_available,
     is_msamp_available,
     is_musa_available,
+    is_neuron_available,
     is_npu_available,
     is_sdaa_available,
+    is_torchao_available,
     is_transformer_engine_available,
     is_transformers_available,
     is_xpu_available,
@@ -67,6 +69,7 @@ def get_cluster_input():
             "multi-MLU",
             "multi-SDAA",
             "multi-MUSA",
+            "multi-NEURON",
             "TPU",
         ],
         _convert_distributed_mode,
@@ -91,6 +94,7 @@ def get_cluster_input():
         DistributedType.MULTI_XPU,
         DistributedType.MULTI_CPU,
         DistributedType.MULTI_HPU,
+        DistributedType.MULTI_NEURON,
     ]:
         num_machines = _ask_field(
             "How many different machines will you use (use more than 1 for multi-node training)? [1]: ",
@@ -139,15 +143,7 @@ def get_cluster_input():
     else:
         use_cpu = False
 
-    ipex_config = {}
     mpirun_config = {}
-    if use_cpu or is_xpu_available():
-        ipex_config["ipex"] = _ask_field(
-            "Do you want to use Intel PyTorch Extension (IPEX) to speed up training on CPU/XPU? [yes/NO]:",
-            _convert_yes_no_to_bool,
-            default=False,
-            error_message="Please enter yes or no.",
-        )
 
     if use_cpu:
         if distributed_type == DistributedType.MULTI_CPU:
@@ -164,7 +160,6 @@ def get_cluster_input():
                     default="~/hostfile",
                 )
                 mpirun_config["mpirun_hostfile"] = os.path.expanduser(mpirun_hostfile.strip())
-                mpirun_config["mpirun_ccl"] = _ask_field("Enter the number of oneCCL worker threads [1]: ", default=1)
 
     dynamo_config = {}
     use_dynamo = _ask_field(
@@ -226,6 +221,7 @@ def get_cluster_input():
             DistributedType.MULTI_MLU,
             DistributedType.MULTI_SDAA,
             DistributedType.MULTI_MUSA,
+            DistributedType.MULTI_NEURON,
             DistributedType.NO,
         ]
         and not use_mps
@@ -237,6 +233,9 @@ def get_cluster_input():
             error_message="Please enter yes or no.",
         )
         if use_deepspeed:
+            if distributed_type is DistributedType.MULTI_NEURON:
+                raise RuntimeError("DeepSpeed is not supported on Neuron devices.")
+
             distributed_type = DistributedType.DEEPSPEED
             assert is_deepspeed_available(), (
                 "DeepSpeed is not installed => run `pip3 install deepspeed` or build it from source"
@@ -384,6 +383,7 @@ def get_cluster_input():
         DistributedType.MULTI_MUSA,
         DistributedType.MULTI_XPU,
         DistributedType.MULTI_HPU,
+        DistributedType.MULTI_NEURON,
     ]:
         use_fsdp = _ask_field(
             "Do you want to use FullyShardedDataParallel? [yes/NO]: ",
@@ -392,7 +392,10 @@ def get_cluster_input():
             error_message="Please enter yes or no.",
         )
         if use_fsdp:
+            if distributed_type is DistributedType.MULTI_NEURON:
+                raise NotImplementedError("FSDP is not currently supported on Neuron devices.")
             distributed_type = DistributedType.FSDP
+
         if distributed_type == DistributedType.FSDP:
             fsdp_config["fsdp_version"] = _ask_options(
                 "What should be your FSDP version? [2]: ",
@@ -632,10 +635,11 @@ def get_cluster_input():
         DistributedType.MULTI_SDAA,
         DistributedType.MULTI_MUSA,
         DistributedType.MULTI_NPU,
+        DistributedType.MULTI_NEURON,
         DistributedType.XLA,
     ]:
         machine_type = str(distributed_type).split(".")[1].replace("MULTI_", "")
-        if machine_type == "TPU":
+        if machine_type in ["TPU", "NEURON"]:
             machine_type += " cores"
         elif machine_type == "CPU":
             machine_type = "processes"
@@ -672,6 +676,7 @@ def get_cluster_input():
             DistributedType.MULTI_NPU,
             DistributedType.MULTI_XPU,
             DistributedType.MULTI_HPU,
+            DistributedType.MULTI_NEURON,
             DistributedType.NO,
         ]
         and not use_cpu
@@ -689,6 +694,8 @@ def get_cluster_input():
             machine_type = "XPU(s)"
         elif is_hpu_available():
             machine_type = "HPU(s)"
+        elif is_neuron_available():
+            machine_type = "Neuron cores"
         else:
             machine_type = "GPU(s)"
         gpu_ids = _ask_field(
@@ -794,11 +801,13 @@ def get_cluster_input():
             )
             if mixed_precision == "fp8":
                 if not is_fp8_available():
-                    raise ValueError("FP8 (either Transformer Engine or MSAMP) is not installed on this machine.")
+                    raise ValueError(
+                        "FP8 (either torchao, Transformer Engine or MSAMP) is not installed on this machine."
+                    )
                 fp8_config = {}
                 fp8_config["backend"] = _ask_options(
                     "Which FP8 backend do you want to use?",
-                    ["te", "msamp"],
+                    ["ao", "te", "msamp"],
                     _convert_fp8_backend,
                 )
                 if fp8_config["backend"] == "TE":
@@ -871,6 +880,20 @@ def get_cluster_input():
                         default=1,
                     )
 
+                elif fp8_config["backend"] == "AO":
+                    if not is_torchao_available():
+                        raise ValueError("torchao was selected, but it is not installed on this machine.")
+                    fp8_config["enable_fsdp_float8_all_gather"] = _ask_field(
+                        "Do you want to enable FSDP2 float8 all gather? This is recommended for better performance if using FSDP2. [YES/no]: ",
+                        _convert_yes_no_to_bool,
+                        default=True,
+                    )
+                    fp8_config["pad_inner_dim"] = _ask_field(
+                        "Do you want to pad the inner dimension of weight matrices before float8 matmuls? This is required for _scaled_mm which has strict alignment requirements. Note: padding may cause memory spikes. [YES/no]: ",
+                        _convert_yes_no_to_bool,
+                        default=True,
+                    )
+
     if use_dynamo and mixed_precision == "no" and not use_cpu:
         print(
             "Torch dynamo used without mixed precision requires TF32 to be efficient. Accelerate will enable it by default when launching your scripts."
@@ -898,7 +921,6 @@ def get_cluster_input():
         fsdp_config=fsdp_config,
         parallelism_config=parallelism_config,
         megatron_lm_config=megatron_lm_config,
-        ipex_config=ipex_config,
         mpirun_config=mpirun_config,
         use_cpu=use_cpu,
         rdzv_backend=rdzv_backend,

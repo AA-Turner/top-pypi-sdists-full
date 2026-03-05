@@ -41,7 +41,9 @@ class GetFlowByPathResponse200Value:
         skip_expr (Union[Unset, str]): JavaScript expression to conditionally skip the entire flow
         cache_ttl (Union[Unset, float]): Cache duration in seconds for flow results
         cache_ignore_s3_path (Union[Unset, bool]):
-        flow_env (Union[Unset, GetFlowByPathResponse200ValueFlowEnv]): Environment variables available to all steps
+        flow_env (Union[Unset, GetFlowByPathResponse200ValueFlowEnv]): Environment variables available to all steps.
+            Values can be strings, JSON values, or special references: '$var:path' (workspace variable) or '$res:path'
+            (resource).
         priority (Union[Unset, float]): Execution priority (higher numbers run first)
         early_return (Union[Unset, str]): JavaScript expression to return early from the flow
         chat_input_enabled (Union[Unset, bool]): Whether this flow accepts chat-style input

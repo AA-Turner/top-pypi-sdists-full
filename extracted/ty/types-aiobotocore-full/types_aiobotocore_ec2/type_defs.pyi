@@ -96,6 +96,7 @@ from .literals import (
     ConversionTaskStateType,
     CpuManufacturerType,
     DatafeedSubscriptionStateType,
+    DefaultHttpTokensEnforcedStateType,
     DefaultInstanceMetadataEndpointStateType,
     DefaultInstanceMetadataTagsStateType,
     DefaultRouteTableAssociationValueType,
@@ -153,6 +154,7 @@ from .literals import (
     HostnameTypeType,
     HostRecoveryType,
     HostTenancyType,
+    HttpTokensEnforcedStateType,
     HttpTokensStateType,
     HypervisorTypeType,
     IamInstanceProfileAssociationStateType,
@@ -3828,6 +3830,7 @@ class CapacityBlockExtensionOfferingTypeDef(TypedDict):
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
     Tenancy: NotRequired[CapacityReservationTenancyType]
+    ZoneType: NotRequired[str]
 
 class CapacityBlockExtensionTypeDef(TypedDict):
     CapacityReservationId: NotRequired[str]
@@ -3843,6 +3846,7 @@ class CapacityBlockExtensionTypeDef(TypedDict):
     CapacityBlockExtensionEndDate: NotRequired[datetime]
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
+    ZoneType: NotRequired[str]
 
 class CapacityBlockOfferingTypeDef(TypedDict):
     CapacityBlockOfferingId: NotRequired[str]
@@ -3858,6 +3862,7 @@ class CapacityBlockOfferingTypeDef(TypedDict):
     UltraserverType: NotRequired[str]
     UltraserverCount: NotRequired[int]
     CapacityBlockDurationMinutes: NotRequired[int]
+    ZoneType: NotRequired[str]
 
 class CapacityReservationStatusTypeDef(TypedDict):
     CapacityReservationId: NotRequired[str]
@@ -6197,6 +6202,7 @@ class InstanceMetadataDefaultsResponseTypeDef(TypedDict):
     InstanceMetadataTags: NotRequired[InstanceMetadataTagsStateType]
     ManagedBy: NotRequired[ManagedByType]
     ManagedExceptionMessage: NotRequired[str]
+    HttpTokensEnforced: NotRequired[HttpTokensEnforcedStateType]
 
 class GetInstanceTpmEkPubRequestTypeDef(TypedDict):
     InstanceId: str
@@ -7039,6 +7045,7 @@ class ModifyInstanceMetadataDefaultsRequestTypeDef(TypedDict):
     HttpEndpoint: NotRequired[DefaultInstanceMetadataEndpointStateType]
     InstanceMetadataTags: NotRequired[DefaultInstanceMetadataTagsStateType]
     DryRun: NotRequired[bool]
+    HttpTokensEnforced: NotRequired[DefaultHttpTokensEnforcedStateType]
 
 class ModifyInstanceMetadataOptionsRequestTypeDef(TypedDict):
     InstanceId: str
@@ -9996,6 +10003,7 @@ class DescribeCapacityBlockOfferingsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     UltraserverType: NotRequired[str]
     UltraserverCount: NotRequired[int]
+    AllAvailabilityZones: NotRequired[bool]
 
 class DescribeFleetHistoryRequestTypeDef(TypedDict):
     FleetId: str
@@ -10869,6 +10877,7 @@ class DescribeCapacityBlockOfferingsRequestPaginateTypeDef(TypedDict):
     EndDateRange: NotRequired[TimestampTypeDef]
     UltraserverType: NotRequired[str]
     UltraserverCount: NotRequired[int]
+    AllAvailabilityZones: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribePrincipalIdFormatRequestPaginateTypeDef(TypedDict):

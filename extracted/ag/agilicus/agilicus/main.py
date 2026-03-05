@@ -755,6 +755,8 @@ def list_auth_audit_records(ctx, **kwargs):
 @click.option("--show-columns", type=str, default=None)
 @click.option("--reset-columns", is_flag=True, default=False)
 @click.option("--has-resource-or-application-roles", is_flag=True, default=None)
+@click.option("--includes-any-label", type=str, multiple=True, default=None)
+@click.option("--has-label", type=bool, default=None)
 @click.pass_context
 def list_users(ctx, organisation, org_id, show_columns, reset_columns, **kwargs):
     # get all orgs

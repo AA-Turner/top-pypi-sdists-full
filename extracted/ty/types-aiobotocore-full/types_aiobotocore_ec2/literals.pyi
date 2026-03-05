@@ -106,6 +106,7 @@ __all__ = (
     "CurrencyCodeValuesType",
     "CustomerGatewayAvailableWaiterName",
     "DatafeedSubscriptionStateType",
+    "DefaultHttpTokensEnforcedStateType",
     "DefaultInstanceMetadataEndpointStateType",
     "DefaultInstanceMetadataTagsStateType",
     "DefaultRouteTableAssociationValueType",
@@ -336,6 +337,7 @@ __all__ = (
     "HostRecoveryType",
     "HostTenancyType",
     "HostnameTypeType",
+    "HttpTokensEnforcedStateType",
     "HttpTokensStateType",
     "HypervisorTypeType",
     "IamInstanceProfileAssociationStateType",
@@ -901,6 +903,7 @@ CpuManufacturerType = Literal["amazon-web-services", "amd", "apple", "intel"]
 CurrencyCodeValuesType = Literal["USD"]
 CustomerGatewayAvailableWaiterName = Literal["customer_gateway_available"]
 DatafeedSubscriptionStateType = Literal["Active", "Inactive"]
+DefaultHttpTokensEnforcedStateType = Literal["disabled", "enabled", "no-preference"]
 DefaultInstanceMetadataEndpointStateType = Literal["disabled", "enabled", "no-preference"]
 DefaultInstanceMetadataTagsStateType = Literal["disabled", "enabled", "no-preference"]
 DefaultRouteTableAssociationValueType = Literal["disable", "enable"]
@@ -1277,6 +1280,7 @@ HostMaintenanceType = Literal["off", "on"]
 HostRecoveryType = Literal["off", "on"]
 HostTenancyType = Literal["dedicated", "default", "host"]
 HostnameTypeType = Literal["ip-name", "resource-name"]
+HttpTokensEnforcedStateType = Literal["disabled", "enabled"]
 HttpTokensStateType = Literal["optional", "required"]
 HypervisorTypeType = Literal["ovm", "xen"]
 IamInstanceProfileAssociationStateType = Literal[
@@ -1629,6 +1633,19 @@ InstanceTypeType = Literal[
     "c8i.metal-48xl",
     "c8i.metal-96xl",
     "c8i.xlarge",
+    "c8id.12xlarge",
+    "c8id.16xlarge",
+    "c8id.24xlarge",
+    "c8id.2xlarge",
+    "c8id.32xlarge",
+    "c8id.48xlarge",
+    "c8id.4xlarge",
+    "c8id.8xlarge",
+    "c8id.96xlarge",
+    "c8id.large",
+    "c8id.metal-48xl",
+    "c8id.metal-96xl",
+    "c8id.xlarge",
     "cc1.4xlarge",
     "cc2.8xlarge",
     "cg1.4xlarge",
@@ -1730,6 +1747,7 @@ InstanceTypeType = Literal[
     "hpc7g.16xlarge",
     "hpc7g.4xlarge",
     "hpc7g.8xlarge",
+    "hpc8a.96xlarge",
     "hs1.8xlarge",
     "i2.2xlarge",
     "i2.4xlarge",
@@ -2111,6 +2129,19 @@ InstanceTypeType = Literal[
     "m8i.metal-48xl",
     "m8i.metal-96xl",
     "m8i.xlarge",
+    "m8id.12xlarge",
+    "m8id.16xlarge",
+    "m8id.24xlarge",
+    "m8id.2xlarge",
+    "m8id.32xlarge",
+    "m8id.48xlarge",
+    "m8id.4xlarge",
+    "m8id.8xlarge",
+    "m8id.96xlarge",
+    "m8id.large",
+    "m8id.metal-48xl",
+    "m8id.metal-96xl",
+    "m8id.xlarge",
     "mac-m4.metal",
     "mac-m4max.metal",
     "mac-m4pro.metal",
@@ -3563,6 +3594,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

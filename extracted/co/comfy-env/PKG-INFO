@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-env
-Version: 0.2.25
+Version: 0.2.35
 Summary: Environment management for ComfyUI custom nodes - CUDA wheel resolution and process isolation
 Project-URL: Homepage, https://github.com/PozzettiAndrea/comfy-env
 Project-URL: Repository, https://github.com/PozzettiAndrea/comfy-env
@@ -20,6 +20,7 @@ Requires-Python: >=3.10
 Requires-Dist: numpy
 Requires-Dist: pip>=21.0
 Requires-Dist: pre-commit
+Requires-Dist: pyyaml>=6.0
 Requires-Dist: tomli-w>=1.0.0
 Requires-Dist: tomli>=2.0.0
 Requires-Dist: uv>=0.4.0

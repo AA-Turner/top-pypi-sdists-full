@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stream-inflate"
-version = "v0.0.42"
+version = "v0.0.43"
 authors = [
   { name="Michal Charemza", email="michal@charemza.name" },
 ]

@@ -4680,7 +4680,19 @@ class Client(BaseClient):
               cancellationDate
               effectiveEndDate
               currentBillingPeriodEnd
+              currentBillingPeriodStart
+              billingPeriod
               additionalMetaData
+              totalPrice {
+                subTotal {
+                  amount
+                  currency
+                }
+                total {
+                  amount
+                  currency
+                }
+              }
               customer {
                 customerId
                 email
@@ -4695,6 +4707,15 @@ class Client(BaseClient):
               plan {
                 planId: refId
                 displayName
+                description
+                product {
+                  refId
+                  displayName
+                  downgradePlan {
+                    refId
+                    displayName
+                  }
+                }
               }
               addons {
                 quantity

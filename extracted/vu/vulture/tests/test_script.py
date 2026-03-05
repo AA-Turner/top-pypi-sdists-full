@@ -9,7 +9,7 @@ from . import REPO, WHITELISTS, call_vulture
 
 
 def test_module_with_explicit_whitelists():
-    assert call_vulture(["vulture/"] + WHITELISTS) == ExitCode.NoDeadCode
+    assert call_vulture(["vulture/", *WHITELISTS]) == ExitCode.NoDeadCode
 
 
 def test_module_with_implicit_whitelists():

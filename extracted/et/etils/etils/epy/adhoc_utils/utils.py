@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,6 +40,9 @@ def normalize_restrict_and_reload(
   # This allow to call `adhoc(reload='visu3d')` without explicitly set restrict
   if restrict_reload:
     restrict = _remove_duplicate(restrict + reload)
+
+  if '' in reload:
+    raise ValueError(f'reload={reload} contains empty string.')
 
   return restrict, reload
 

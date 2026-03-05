@@ -36,8 +36,10 @@ def upload_widget_file(
         return upload_file(open(path, "rb"), custom_name)
 
     # FileResponse. TODO: check with isinstance without circular import
-    if hasattr(file, "file"):
-        return upload_file(file.file)
+    if hasattr(file, "_url"):
+        if file._url.startswith("http"):
+            return file._url  # already an absolute URL, browser can fetch directly
+        return upload_file(file.file)  # local /_files/ URL (legacy), re-upload
 
     raise ValueError(f"Cannot convert {type(file)}")
 

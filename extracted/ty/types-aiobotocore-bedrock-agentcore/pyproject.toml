@@ -4,10 +4,10 @@
 
 [project]
 name = "types-aiobotocore-bedrock-agentcore"
-version = "3.2.0"
+version = "3.2.1"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for aiobotocore BedrockAgentCore 3.2.0 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for aiobotocore BedrockAgentCore 3.2.1 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

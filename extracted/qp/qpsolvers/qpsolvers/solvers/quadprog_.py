@@ -16,6 +16,7 @@ import warnings
 from typing import Optional
 
 import numpy as np
+import scipy.sparse as spa
 from numpy import hstack, vstack
 from quadprog import solve_qp
 
@@ -66,11 +67,15 @@ def quadprog_solve_problem(
     instance, you can call ``quadprog_solve_qp(P, q, G, h, factorized=True)``.
     See the solver documentation for details.
     """
-    P, q, G, h, A, b, lb, ub = problem.unpack()
     if initvals is not None and verbose:
         warnings.warn("warm-start values are ignored by quadprog")
+
+    if problem.has_sparse:
+        raise ProblemError("problem has sparse matrices")
+    P, q, G, h, A, b, lb, ub = problem.unpack_as_dense()
     if lb is not None or ub is not None:
-        G, h = linear_from_box_inequalities(G, h, lb, ub, use_sparse=False)
+        G_, h = linear_from_box_inequalities(G, h, lb, ub, use_sparse=False)
+        G = G_.toarray() if isinstance(G_, spa.csc_matrix) else G_  # for mypy
     qp_G = P
     qp_a = -q
     qp_C: Optional[np.ndarray] = None
@@ -108,8 +113,6 @@ def quadprog_solve_problem(
             "iterations": iterations,
             "xu": xu,
         }
-    except TypeError as error:
-        raise ProblemError("problem has sparse matrices") from error
     except ValueError as error:
         solution.found = False
         error_message = str(error)

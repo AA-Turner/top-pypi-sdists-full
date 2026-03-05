@@ -27,6 +27,8 @@ Example:
     )
 """
 
+import ctypes
+import ctypes.util
 import json
 import os
 import shutil
@@ -45,8 +47,12 @@ from .base import Worker, WorkerError
 from ...packages.pixi import get_pixi_path
 from ...config.types import DEFAULT_HEALTH_CHECK_TIMEOUT
 
-# Debug logging (set COMFY_ENV_DEBUG=1 to enable)
-_DEBUG = os.environ.get("COMFY_ENV_DEBUG", "").lower() in ("1", "true", "yes")
+# Debug logging — granular categories from debug.py
+from ...debug import (
+    SERIALIZE as _DBG_SERIALIZE, IPC as _DBG_IPC,
+    WORKER as _DBG_WORKER, MODELS as _DBG_MODELS,
+)
+_DEBUG = any((_DBG_SERIALIZE, _DBG_IPC, _DBG_WORKER, _DBG_MODELS))  # backward compat
 
 # =============================================================================
 # Socket IPC utilities - cross-platform with TCP fallback
@@ -295,7 +301,10 @@ def _probe_cuda_ipc() -> bool:
             return False
         torch.cuda.current_device()
         _ = torch.cuda.Event(interprocess=True)
-        _ = torch.empty(1, device="cuda")
+        t = torch.empty(1, device="cuda")
+        # Critical: test reduce_tensor() — fails under cudaMallocAsync
+        import torch.multiprocessing.reductions as reductions
+        reductions.reduce_tensor(t)
         _cuda_ipc_supported = True
     except Exception:
         _cuda_ipc_supported = False
@@ -318,11 +327,11 @@ def _serialize_cuda_ipc(t) -> dict:
             if (list(t.size()) == cached["tensor_size"]
                     and list(t.stride()) == cached["tensor_stride"]
                     and t.storage_offset() == cached.get("tensor_offset", 0)):
-                if _DEBUG:
+                if _DBG_IPC:
                     print(f"[comfy-env] CUDA IPC cache hit — forwarding handle (no clone)", file=sys.stderr, flush=True)
                 return cached
             # View of the same storage — forward handle with adjusted shape
-            if _DEBUG:
+            if _DBG_IPC:
                 print(f"[comfy-env] CUDA IPC cache hit (view) — forwarding handle with adjusted shape", file=sys.stderr, flush=True)
             return {**cached, "tensor_size": list(t.size()),
                     "tensor_stride": list(t.stride()),
@@ -396,6 +405,261 @@ def _deserialize_cuda_ipc(data: dict):
     return tensor
 
 
+# =============================================================================
+# Pool IPC - shareable CUDA memory pool (cudaMallocAsync-compatible)
+# Gated by COMFY_ENV_POOL_IPC=1 environment variable.
+# Worker -> Parent: zero-copy via cudaMemPoolExportPointer
+# Parent -> Worker: CPU shared memory (can't change ComfyUI's allocator)
+# Worker A -> Worker B: zero-copy via cross-worker pool handle forwarding
+# =============================================================================
+
+_POOL_IPC_ENABLED = os.environ.get("COMFY_ENV_POOL_IPC", "").lower() in ("1", "true", "yes")
+
+_pool_ipc_metadata_cache: Dict[int, dict] = {}
+_pool_ipc_cache_tensors: Dict[int, Any] = {}
+_active_worker_pool = None  # set per-call before _from_shm
+_parent_shareable_pool = None  # set once if PATCH_SHAREABLE_POOL is enabled
+
+
+def _pool_ipc_available() -> bool:
+    return _POOL_IPC_ENABLED and sys.platform == "linux"
+
+
+# --- ctypes CUDA pool bindings ---
+
+class _CudaMemPoolPtrExportData(ctypes.Structure):
+    _fields_ = [("reserved", ctypes.c_ubyte * 64)]
+
+
+class _CudaMemPoolProps(ctypes.Structure):
+    _fields_ = [
+        ("allocType", ctypes.c_int),
+        ("handleTypes", ctypes.c_int),
+        ("location_type", ctypes.c_int),
+        ("location_id", ctypes.c_int),
+        ("win32HandleMetaData", ctypes.c_void_p),
+        ("reserved", ctypes.c_ubyte * 56),
+    ]
+
+
+_CUDA_MEM_HANDLE_TYPE_POSIX_FD = 1
+_CUDA_MEM_ALLOCATION_TYPE_PINNED = 1
+_CUDA_MEM_LOCATION_TYPE_DEVICE = 1
+_cudart_lib = None
+
+
+def _get_cudart():
+    global _cudart_lib
+    if _cudart_lib is not None:
+        return _cudart_lib
+    for name in ("libcudart.so", "libcudart.so.12", "libcudart.so.11"):
+        try:
+            _cudart_lib = ctypes.CDLL(name)
+            return _cudart_lib
+        except OSError:
+            continue
+    lib_name = ctypes.util.find_library("cudart")
+    if lib_name:
+        _cudart_lib = ctypes.CDLL(lib_name)
+        return _cudart_lib
+    return None
+
+
+def _cuda_check(err, name):
+    if err != 0:
+        raise RuntimeError(f"{name} returned {err}")
+
+
+def _create_shareable_pool(device=0):
+    cudart = _get_cudart()
+    if not cudart:
+        raise RuntimeError("libcudart not found")
+    props = _CudaMemPoolProps()
+    ctypes.memset(ctypes.addressof(props), 0, ctypes.sizeof(props))
+    props.allocType = _CUDA_MEM_ALLOCATION_TYPE_PINNED
+    props.handleTypes = _CUDA_MEM_HANDLE_TYPE_POSIX_FD
+    props.location_type = _CUDA_MEM_LOCATION_TYPE_DEVICE
+    props.location_id = device
+    pool = ctypes.c_void_p()
+    _cuda_check(cudart.cudaMemPoolCreate(ctypes.byref(pool), ctypes.byref(props)),
+                "cudaMemPoolCreate")
+    return pool
+
+
+def _export_pool_fd(pool):
+    cudart = _get_cudart()
+    fd = ctypes.c_int()
+    _cuda_check(cudart.cudaMemPoolExportToShareableHandle(
+        ctypes.byref(fd), pool,
+        ctypes.c_int(_CUDA_MEM_HANDLE_TYPE_POSIX_FD), ctypes.c_uint(0)),
+        "cudaMemPoolExportToShareableHandle")
+    return fd.value
+
+
+def _import_pool_from_fd(fd):
+    cudart = _get_cudart()
+    pool = ctypes.c_void_p()
+    fd_val = ctypes.c_int(fd)
+    _cuda_check(cudart.cudaMemPoolImportFromShareableHandle(
+        ctypes.byref(pool), ctypes.byref(fd_val),
+        ctypes.c_int(_CUDA_MEM_HANDLE_TYPE_POSIX_FD), ctypes.c_uint(0)),
+        "cudaMemPoolImportFromShareableHandle")
+    return pool
+
+
+def _set_device_pool(device, pool):
+    cudart = _get_cudart()
+    _cuda_check(cudart.cudaDeviceSetMemPool(ctypes.c_int(device), pool),
+                "cudaDeviceSetMemPool")
+
+
+def _export_pointer(ptr):
+    cudart = _get_cudart()
+    export_data = _CudaMemPoolPtrExportData()
+    _cuda_check(cudart.cudaMemPoolExportPointer(
+        ctypes.byref(export_data), ctypes.c_void_p(ptr)),
+        "cudaMemPoolExportPointer")
+    return bytes(export_data)
+
+
+def _import_pointer(pool, export_data_bytes):
+    cudart = _get_cudart()
+    export_data = _CudaMemPoolPtrExportData.from_buffer_copy(export_data_bytes)
+    ptr = ctypes.c_void_p()
+    _cuda_check(cudart.cudaMemPoolImportPointer(
+        ctypes.byref(ptr), pool, ctypes.byref(export_data)),
+        "cudaMemPoolImportPointer")
+    return ptr.value
+
+
+def _trim_pool(pool, min_bytes=0):
+    cudart = _get_cudart()
+    _cuda_check(cudart.cudaMemPoolTrimTo(pool, ctypes.c_size_t(min_bytes)),
+                "cudaMemPoolTrimTo")
+
+
+# cudaMemPoolAttr enum values
+_CUDA_MEMPOOL_ATTR_RESERVED_MEM_CURRENT = 3
+_CUDA_MEMPOOL_ATTR_USED_MEM_CURRENT = 5
+
+
+def _get_pool_mem_stats(pool):
+    """Query reserved and active bytes from a CUDA memory pool."""
+    cudart = _get_cudart()
+    if not cudart or not pool:
+        return 0, 0
+    reserved = ctypes.c_size_t(0)
+    active = ctypes.c_size_t(0)
+    cudart.cudaMemPoolGetAttribute(
+        pool, ctypes.c_int(_CUDA_MEMPOOL_ATTR_RESERVED_MEM_CURRENT),
+        ctypes.byref(reserved))
+    cudart.cudaMemPoolGetAttribute(
+        pool, ctypes.c_int(_CUDA_MEMPOOL_ATTR_USED_MEM_CURRENT),
+        ctypes.byref(active))
+    return reserved.value, active.value
+
+
+# --- FD passing (SCM_RIGHTS) ---
+
+def _send_fd(sock, fd):
+    import array as _array
+    sock.sendmsg([b'\x00'],
+                 [(socket.SOL_SOCKET, socket.SCM_RIGHTS, _array.array('i', [fd]))])
+
+
+def _recv_fd(sock, timeout=10.0):
+    import array as _array
+    sock.settimeout(timeout)
+    try:
+        msg, ancdata, flags, addr = sock.recvmsg(1, socket.CMSG_LEN(4))
+        for level, type_, data in ancdata:
+            if level == socket.SOL_SOCKET and type_ == socket.SCM_RIGHTS:
+                fds = _array.array('i')
+                fds.frombytes(data[:fds.itemsize])
+                return fds[0]
+        raise RuntimeError("No FD in ancillary data")
+    finally:
+        sock.settimeout(None)
+
+
+# --- Parent-side PoolIPC deserialization ---
+
+class _PoolPtr:
+    """Wrap imported CUDA pointer for __cuda_array_interface__."""
+    def __init__(self, ptr, nbytes):
+        self.__cuda_array_interface__ = {
+            'shape': (nbytes,), 'typestr': '|u1',
+            'data': (ptr, False), 'version': 3,
+        }
+
+
+def _deserialize_pool_ipc(data, source_pool):
+    """Deserialize CUDA tensor from pool pointer import (parent side)."""
+    import torch
+    export_data_bytes = base64.b64decode(data["export_data"])
+    imported_ptr = _import_pointer(source_pool, export_data_bytes)
+    device_idx = data["device_idx"]
+    dtype = getattr(torch, data["dtype"].split(".")[-1])
+    storage_size = data["storage_size"]
+
+    raw = torch.as_tensor(_PoolPtr(imported_ptr, storage_size),
+                          device=torch.device(f"cuda:{device_idx}"))
+    tensor = torch.empty([], dtype=dtype, device=f"cuda:{device_idx}")
+    tensor.set_(raw.untyped_storage(), data["tensor_offset"],
+                tuple(data["tensor_size"]), tuple(data["tensor_stride"]))
+    tensor.requires_grad_(data["requires_grad"])
+
+    # Cache for cross-worker forwarding
+    try:
+        sid = id(tensor.untyped_storage())
+        _pool_ipc_metadata_cache[sid] = data
+        _pool_ipc_cache_tensors[sid] = tensor
+    except Exception:
+        pass
+    return tensor
+
+
+def _serialize_pool_ipc_parent(t):
+    """Serialize CUDA tensor via pool pointer export (parent side, zero-copy)."""
+    import torch
+    # Check cache
+    try:
+        storage_id = id(t.untyped_storage())
+        cached = _pool_ipc_metadata_cache.get(storage_id)
+        if cached is not None:
+            if (list(t.size()) == cached["tensor_size"]
+                    and list(t.stride()) == cached["tensor_stride"]
+                    and t.storage_offset() == cached.get("tensor_offset", 0)):
+                return cached
+            return {**cached, "tensor_size": list(t.size()),
+                    "tensor_stride": list(t.stride()),
+                    "tensor_offset": t.storage_offset()}
+    except Exception:
+        pass
+
+    torch.cuda.current_stream().synchronize()
+    storage = t.untyped_storage()
+    export_data = _export_pointer(storage.data_ptr())
+
+    result = {
+        "__type__": "PoolIPC",
+        "export_data": base64.b64encode(export_data).decode("ascii"),
+        "storage_size": storage.size(),
+        "dtype": str(t.dtype),
+        "tensor_size": list(t.size()),
+        "tensor_stride": list(t.stride()),
+        "tensor_offset": t.storage_offset(),
+        "device_idx": t.device.index or 0,
+        "requires_grad": t.requires_grad,
+    }
+    try:
+        _pool_ipc_metadata_cache[id(t.untyped_storage())] = result
+        _pool_ipc_cache_tensors[id(t.untyped_storage())] = t
+    except Exception:
+        pass
+    return result
+
+
 def _prepare_trimesh_for_pickle(mesh):
     """
     Prepare a trimesh object for cross-Python-version pickling.
@@ -458,9 +722,14 @@ def _to_shm(obj, registry, visited=None):
         visited[obj_id] = result
         return result
 
-    # torch.Tensor -> CUDA IPC (zero-copy GPU) or PyTorch native shared memory (zero-copy CPU)
+    # torch.Tensor -> Pool IPC / CUDA IPC (zero-copy GPU) or PyTorch native shared memory (zero-copy CPU)
     if t == 'Tensor':
-        # CUDA IPC: zero-copy GPU-to-GPU transfer (Linux only)
+        # Pool IPC: zero-copy via shareable pool (parent has shareable pool enabled)
+        if obj.is_cuda and _parent_shareable_pool is not None:
+            result = _serialize_pool_ipc_parent(obj)
+            visited[obj_id] = result
+            return result
+        # Legacy CUDA IPC: zero-copy GPU-to-GPU transfer (Linux only)
         if obj.is_cuda and _probe_cuda_ipc():
             result = _serialize_cuda_ipc(obj)
             visited[obj_id] = result
@@ -590,6 +859,12 @@ def _from_shm(obj, unlink=True):
             return [_from_shm(v, unlink) for v in obj]
         return obj
 
+    # PoolIPC -> zero-copy CUDA tensor via shareable pool (worker -> parent)
+    if obj.get("__type__") == "PoolIPC":
+        if _active_worker_pool is not None:
+            return _deserialize_pool_ipc(obj, _active_worker_pool)
+        raise RuntimeError("PoolIPC received but no worker pool handle available")
+
     # CudaIPC -> zero-copy CUDA tensor deserialization
     if obj.get("__type__") == "CudaIPC":
         return _deserialize_cuda_ipc(obj)
@@ -671,18 +946,25 @@ def _cleanup_shm(registry):
 
 
 def _cleanup_ipc_cache():
-    """Remove stale entries from the CUDA IPC handle forwarding cache."""
-    if not _cuda_ipc_cache_tensors:
-        return
+    """Remove stale entries from CUDA IPC and Pool IPC forwarding caches."""
     try:
         import torch
-        dead = [k for k, t in _cuda_ipc_cache_tensors.items()
-                if not isinstance(t, torch.Tensor) or t.storage().size() == 0]
+        # Legacy CUDA IPC cache
+        if _cuda_ipc_cache_tensors:
+            dead = [k for k, t in _cuda_ipc_cache_tensors.items()
+                    if not isinstance(t, torch.Tensor) or t.storage().size() == 0]
+            for k in dead:
+                _cuda_ipc_metadata_cache.pop(k, None)
+                _cuda_ipc_cache_tensors.pop(k, None)
+        # Pool IPC cache
+        if _pool_ipc_cache_tensors:
+            dead = [k for k, t in _pool_ipc_cache_tensors.items()
+                    if not isinstance(t, torch.Tensor) or t.storage().size() == 0]
+            for k in dead:
+                _pool_ipc_metadata_cache.pop(k, None)
+                _pool_ipc_cache_tensors.pop(k, None)
     except Exception:
-        dead = []
-    for k in dead:
-        _cuda_ipc_metadata_cache.pop(k, None)
-        _cuda_ipc_cache_tensors.pop(k, None)
+        pass
 
 
 # =============================================================================
@@ -794,8 +1076,18 @@ try:
 except Exception:
     pass
 
-# Debug logging (set COMFY_ENV_DEBUG=1 to enable)
-_DEBUG = os.environ.get("COMFY_ENV_DEBUG", "").lower() in ("1", "true", "yes")
+# Debug logging — granular categories (env vars propagate from parent)
+def _dbg_on(var):
+    return os.environ.get(var, "").lower() in ("1", "true", "yes")
+_DBG_ALL = _dbg_on("COMFY_ENV_DEBUG")
+_DBG_SERIALIZE = _DBG_ALL or _dbg_on("COMFY_ENV_DEBUG_SERIALIZE")
+_DBG_IPC = _DBG_ALL or _dbg_on("COMFY_ENV_DEBUG_IPC")
+_DBG_WORKER = _DBG_ALL or _dbg_on("COMFY_ENV_DEBUG_WORKER")
+_DBG_MODELS = _DBG_ALL or _dbg_on("COMFY_ENV_DEBUG_MODELS")
+_DBG_STACKTRACE = _DBG_ALL or _dbg_on("COMFY_ENV_DEBUG_STACKTRACE")
+_DBG_VRAM = _DBG_ALL or _dbg_on("COMFY_ENV_DEBUG_VRAM")
+_DBG_WATCHDOG = _DBG_ALL or _dbg_on("COMFY_ENV_DEBUG_WATCHDOG")
+_DEBUG = any((_DBG_SERIALIZE, _DBG_IPC, _DBG_WORKER, _DBG_MODELS))
 
 # Watchdog: dump all thread stacks every 60 seconds to catch hangs
 import threading
@@ -821,17 +1113,17 @@ def _watchdog():
             f.write("=== END ===\\n")
             f.flush()
 
-        # Also print (only if debug enabled)
-        if _DEBUG:
+        # Also print (only if watchdog debug enabled)
+        if _DBG_WATCHDOG:
             print(f"\\n=== WATCHDOG TICK {tick} ===", flush=True)
             print(dump, flush=True)
             print("=== END ===\\n", flush=True)
 
-# Only start watchdog when debugging (still logs to file if needed)
-if _DEBUG:
+# Start watchdog when its own flag or any debug is on (always logs to file, only prints if _DBG_WATCHDOG)
+if _DBG_WATCHDOG or _DEBUG:
     _watchdog_thread = threading.Thread(target=_watchdog, daemon=True)
     _watchdog_thread.start()
-if _DEBUG:
+if _DBG_WATCHDOG:
     print(f"[worker] Watchdog started, logging to: {_watchdog_log}", flush=True)
 
 # File-based logging for debugging (persists even if stdout/stderr are swallowed)
@@ -851,6 +1143,52 @@ def wlog(msg):
     # fills up and causes deadlock (parent blocked on recv, worker blocked on print)
 
 wlog(f"[worker] === Worker starting, log file: {_worker_log_file} ===")
+
+# VRAM poller: background thread that detects GPU memory changes
+_vram_poll_transport = None  # set in main() after transport is available
+if _DBG_VRAM:
+    def _vram_poller():
+        import time as _vt
+        threshold = 200 * 1024 * 1024  # 200MB — ignore attention transients
+        min_interval = 1.0              # max 1 log/sec
+        last_alloc = 0
+        last_log_time = 0.0
+        peak_alloc = 0
+        _torch = None
+        while True:
+            _vt.sleep(0.1)
+            try:
+                if _torch is None:
+                    import torch as _torch
+                    if not _torch.cuda.is_available():
+                        return
+                alloc = _torch.cuda.memory_allocated()
+                if alloc > peak_alloc:
+                    peak_alloc = alloc
+                delta = alloc - last_alloc
+                now = _vt.time()
+                if abs(delta) >= threshold and (now - last_log_time) >= min_interval:
+                    alloc_mb = alloc // (1024 * 1024)
+                    reserved_mb = _torch.cuda.memory_reserved() // (1024 * 1024)
+                    sign = "+" if delta > 0 else ""
+                    delta_mb = delta // (1024 * 1024)
+                    peak_mb = peak_alloc // (1024 * 1024)
+                    msg = f"[VRAM] {sign}{delta_mb}MB (now {alloc_mb}MB) reserved={reserved_mb}MB peak={peak_mb}MB"
+                    wlog(msg)
+                    if _vram_poll_transport is not None:
+                        try:
+                            _vram_poll_transport.send({"type": "log", "message": msg})
+                        except Exception:
+                            pass
+                    last_alloc = alloc
+                    last_log_time = now
+            except ImportError:
+                pass  # torch not yet imported, retry next tick
+            except Exception:
+                pass
+    _vram_thread = threading.Thread(target=_vram_poller, daemon=True)
+    _vram_thread.start()
+    wlog("[worker] VRAM poller started (200MB threshold, 100ms poll, 1s cooldown)")
 
 # Debug: print PATH at startup (only if debug enabled)
 if _DEBUG:
@@ -956,12 +1294,15 @@ def _probe_cuda_ipc():
             return False
         torch.cuda.current_device()
         _ = torch.cuda.Event(interprocess=True)
-        _ = torch.empty(1, device="cuda")
+        t = torch.empty(1, device="cuda")
+        # Critical: test reduce_tensor() — fails under cudaMallocAsync
+        import torch.multiprocessing.reductions as reductions
+        reductions.reduce_tensor(t)
         _cuda_ipc_supported = True
-        wlog("[worker] CUDA IPC supported")
-    except Exception:
+        wlog("[worker] CUDA IPC supported (legacy)")
+    except Exception as e:
         _cuda_ipc_supported = False
-        wlog("[worker] CUDA IPC not supported")
+        wlog(f"[worker] CUDA IPC not supported: {e}")
     return _cuda_ipc_supported
 
 # IPC handle forwarding cache (worker-side, for passthrough tensors)
@@ -1047,6 +1388,201 @@ def _deserialize_cuda_ipc(data):
     return tensor
 
 
+# =============================================================================
+# Pool IPC - shareable CUDA memory pool (worker side)
+# =============================================================================
+
+_POOL_IPC_ENABLED = os.environ.get("COMFY_ENV_POOL_IPC", "").lower() in ("1", "true", "yes")
+_pool_ipc_ok = False
+_our_pool = None
+_pool_ipc_metadata_cache = {}
+_pool_ipc_cache_tensors = {}
+
+import ctypes
+import ctypes.util
+
+class _CudaMemPoolPtrExportData(ctypes.Structure):
+    _fields_ = [("reserved", ctypes.c_ubyte * 64)]
+
+class _CudaMemPoolProps(ctypes.Structure):
+    _fields_ = [
+        ("allocType", ctypes.c_int),
+        ("handleTypes", ctypes.c_int),
+        ("location_type", ctypes.c_int),
+        ("location_id", ctypes.c_int),
+        ("win32HandleMetaData", ctypes.c_void_p),
+        ("reserved", ctypes.c_ubyte * 56),
+    ]
+
+_CUDA_MEM_HANDLE_TYPE_POSIX_FD = 1
+_CUDA_MEM_ALLOCATION_TYPE_PINNED = 1
+_CUDA_MEM_LOCATION_TYPE_DEVICE = 1
+_cudart_lib = None
+
+def _get_cudart():
+    global _cudart_lib
+    if _cudart_lib is not None:
+        return _cudart_lib
+    for name in ("libcudart.so", "libcudart.so.12", "libcudart.so.11"):
+        try:
+            _cudart_lib = ctypes.CDLL(name)
+            return _cudart_lib
+        except OSError:
+            continue
+    lib_name = ctypes.util.find_library("cudart")
+    if lib_name:
+        _cudart_lib = ctypes.CDLL(lib_name)
+        return _cudart_lib
+    return None
+
+def _cuda_check(err, name):
+    if err != 0:
+        raise RuntimeError(f"{name} returned {err}")
+
+def _create_shareable_pool(device=0):
+    cudart = _get_cudart()
+    if not cudart:
+        raise RuntimeError("libcudart not found")
+    props = _CudaMemPoolProps()
+    ctypes.memset(ctypes.addressof(props), 0, ctypes.sizeof(props))
+    props.allocType = _CUDA_MEM_ALLOCATION_TYPE_PINNED
+    props.handleTypes = _CUDA_MEM_HANDLE_TYPE_POSIX_FD
+    props.location_type = _CUDA_MEM_LOCATION_TYPE_DEVICE
+    props.location_id = device
+    pool = ctypes.c_void_p()
+    _cuda_check(cudart.cudaMemPoolCreate(ctypes.byref(pool), ctypes.byref(props)),
+                "cudaMemPoolCreate")
+    return pool
+
+def _export_pool_fd(pool):
+    cudart = _get_cudart()
+    fd = ctypes.c_int()
+    _cuda_check(cudart.cudaMemPoolExportToShareableHandle(
+        ctypes.byref(fd), pool,
+        ctypes.c_int(_CUDA_MEM_HANDLE_TYPE_POSIX_FD), ctypes.c_uint(0)),
+        "cudaMemPoolExportToShareableHandle")
+    return fd.value
+
+def _set_device_pool(device, pool):
+    cudart = _get_cudart()
+    _cuda_check(cudart.cudaDeviceSetMemPool(ctypes.c_int(device), pool),
+                "cudaDeviceSetMemPool")
+
+def _export_pointer(ptr):
+    cudart = _get_cudart()
+    export_data = _CudaMemPoolPtrExportData()
+    _cuda_check(cudart.cudaMemPoolExportPointer(
+        ctypes.byref(export_data), ctypes.c_void_p(ptr)),
+        "cudaMemPoolExportPointer")
+    return bytes(export_data)
+
+def _trim_pool(pool, min_bytes=0):
+    cudart = _get_cudart()
+    _cuda_check(cudart.cudaMemPoolTrimTo(pool, ctypes.c_size_t(min_bytes)),
+                "cudaMemPoolTrimTo")
+
+def _import_pool_from_fd(fd):
+    cudart = _get_cudart()
+    pool = ctypes.c_void_p()
+    fd_val = ctypes.c_int(fd)
+    _cuda_check(cudart.cudaMemPoolImportFromShareableHandle(
+        ctypes.byref(pool), ctypes.byref(fd_val),
+        ctypes.c_int(_CUDA_MEM_HANDLE_TYPE_POSIX_FD), ctypes.c_uint(0)),
+        "cudaMemPoolImportFromShareableHandle")
+    return pool
+
+def _import_pointer(pool, export_data_bytes):
+    cudart = _get_cudart()
+    export_data = _CudaMemPoolPtrExportData.from_buffer_copy(export_data_bytes)
+    ptr = ctypes.c_void_p()
+    _cuda_check(cudart.cudaMemPoolImportPointer(
+        ctypes.byref(ptr), pool, ctypes.byref(export_data)),
+        "cudaMemPoolImportPointer")
+    return ptr.value
+
+class _PoolPtr:
+    def __init__(self, ptr, nbytes):
+        self.__cuda_array_interface__ = {
+            'shape': (nbytes,), 'typestr': '|u1',
+            'data': (ptr, False), 'version': 3,
+        }
+
+def _deserialize_pool_ipc(data, source_pool):
+    import torch
+    export_data_bytes = _b64.b64decode(data["export_data"])
+    imported_ptr = _import_pointer(source_pool, export_data_bytes)
+    device_idx = data["device_idx"]
+    dtype = getattr(torch, data["dtype"].split(".")[-1])
+    storage_size = data["storage_size"]
+    raw = torch.as_tensor(_PoolPtr(imported_ptr, storage_size),
+                          device=torch.device(f"cuda:{device_idx}"))
+    tensor = torch.empty([], dtype=dtype, device=f"cuda:{device_idx}")
+    tensor.set_(raw.untyped_storage(), data["tensor_offset"],
+                tuple(data["tensor_size"]), tuple(data["tensor_stride"]))
+    tensor.requires_grad_(data["requires_grad"])
+    return tensor
+
+def _send_fd(sock, fd):
+    import array as _array
+    sock.sendmsg([b'\\x00'],
+                 [(socket.SOL_SOCKET, socket.SCM_RIGHTS, _array.array('i', [fd]))])
+
+def _recv_fd(sock, timeout=10.0):
+    import array as _array
+    sock.settimeout(timeout)
+    try:
+        msg, ancdata, flags, addr = sock.recvmsg(1, socket.CMSG_LEN(4))
+        for level, type_, data in ancdata:
+            if level == socket.SOL_SOCKET and type_ == socket.SCM_RIGHTS:
+                fds = _array.array('i')
+                fds.frombytes(data[:fds.itemsize])
+                return fds[0]
+        raise RuntimeError("No FD in ancillary data")
+    finally:
+        sock.settimeout(None)
+
+def _serialize_pool_ipc(t):
+    """Serialize CUDA tensor via pool pointer export (zero-copy)."""
+    import torch
+    # Check forwarding cache
+    try:
+        storage_id = id(t.untyped_storage())
+        cached = _pool_ipc_metadata_cache.get(storage_id)
+        if cached is not None:
+            if (list(t.size()) == cached["tensor_size"]
+                    and list(t.stride()) == cached["tensor_stride"]
+                    and t.storage_offset() == cached.get("tensor_offset", 0)):
+                return cached
+            return {**cached, "tensor_size": list(t.size()),
+                    "tensor_stride": list(t.stride()),
+                    "tensor_offset": t.storage_offset()}
+    except Exception:
+        pass
+
+    torch.cuda.current_stream().synchronize()
+    storage = t.untyped_storage()
+    export_data = _export_pointer(storage.data_ptr())
+
+    result = {
+        "__type__": "PoolIPC",
+        "export_data": _b64.b64encode(export_data).decode("ascii"),
+        "storage_size": storage.size(),
+        "dtype": str(t.dtype),
+        "tensor_size": list(t.size()),
+        "tensor_stride": list(t.stride()),
+        "tensor_offset": t.storage_offset(),
+        "device_idx": t.device.index or 0,
+        "requires_grad": t.requires_grad,
+    }
+    # Cache for future forwarding
+    try:
+        _pool_ipc_metadata_cache[id(t.untyped_storage())] = result
+        _pool_ipc_cache_tensors[id(t.untyped_storage())] = t
+    except Exception:
+        pass
+    return result
+
+
 def _prepare_trimesh_for_pickle(mesh):
     """
     Prepare a trimesh object for cross-Python-version pickling.
@@ -1107,14 +1643,23 @@ def _to_shm(obj, registry, visited=None):
         return visited[obj_id]
     t = type(obj).__name__
 
-    # Tensor -> CUDA IPC (zero-copy) or PyTorch native shared memory
+    # Tensor -> Pool IPC (zero-copy, async-safe) or legacy CUDA IPC or CPU shm
     if t == 'Tensor':
         import torch
-        # CUDA IPC: zero-copy GPU-to-GPU transfer (Linux only)
-        if obj.is_cuda and _probe_cuda_ipc():
-            result = _serialize_cuda_ipc(obj)
-            visited[obj_id] = result
-            return result
+        if obj.is_cuda:
+            # Pool IPC: zero-copy via shareable pool (cudaMallocAsync-safe)
+            if _pool_ipc_ok and _our_pool is not None:
+                try:
+                    result = _serialize_pool_ipc(obj)
+                    visited[obj_id] = result
+                    return result
+                except Exception as e:
+                    wlog(f"[worker] Pool IPC serialize failed: {e}, falling back")
+            # Legacy CUDA IPC (only works without cudaMallocAsync)
+            if _probe_cuda_ipc():
+                result = _serialize_cuda_ipc(obj)
+                visited[obj_id] = result
+                return result
         tensor = obj.detach().cpu().contiguous()
         result = _serialize_tensor_native(tensor, registry)
         visited[obj_id] = result
@@ -1237,12 +1782,20 @@ def _deserialize_tensor_native(data):
 
 def _from_shm(obj, _depth=0, _key="root"):
     """Reconstruct from shared memory metadata. Does NOT unlink - caller handles that."""
-    if _DEBUG and isinstance(obj, dict) and any(k in obj for k in ("__type__", "__shm_np__", "tensor_size")):
+    if _DBG_SERIALIZE and isinstance(obj, dict) and any(k in obj for k in ("__type__", "__shm_np__", "tensor_size")):
         print(f"[comfy-env] _from_shm got dict with keys: {list(obj.keys())[:5]}", file=sys.stderr, flush=True)
     if not isinstance(obj, dict):
         if isinstance(obj, list):
             return [_from_shm(v, _depth+1, f"{_key}[{i}]") for i, v in enumerate(obj)]
         return obj
+
+    # PoolIPC -> zero-copy CUDA tensor via shareable pool (parent -> worker)
+    if obj.get("__type__") == "PoolIPC":
+        wlog(f"[_from_shm] {_key}: PoolIPC tensor_size={obj.get('tensor_size')}")
+        if _parent_pool is not None:
+            return _deserialize_pool_ipc(obj, _parent_pool)
+        wlog(f"[_from_shm] {_key}: PoolIPC but no parent pool, falling back to error")
+        raise RuntimeError("PoolIPC received but no parent pool handle available")
 
     # CudaIPC -> zero-copy CUDA tensor deserialization
     if obj.get("__type__") == "CudaIPC":
@@ -1252,11 +1805,11 @@ def _from_shm(obj, _depth=0, _key="root"):
     # TensorRef -> use PyTorch's native deserialization (both directions)
     if obj.get("__type__") == "TensorRef":
         wlog(f"[_from_shm] {_key}: TensorRef tensor_size={obj.get('tensor_size')}")
-        if _DEBUG:
+        if _DBG_SERIALIZE:
             print(f"[comfy-env] DESERIALIZE TensorRef: tensor_size={obj.get('tensor_size')}", file=sys.stderr, flush=True)
         tensor = _deserialize_tensor_native(obj)
         wlog(f"[_from_shm] {_key}: TensorRef deserialized shape={tensor.shape}")
-        if _DEBUG:
+        if _DBG_SERIALIZE:
             print(f"[comfy-env] DESERIALIZED tensor shape: {tensor.shape}", file=sys.stderr, flush=True)
         # Convert back to numpy if it was originally numpy
         if obj.get("__was_numpy__"):
@@ -1554,6 +2107,9 @@ def main():
     # Connect to host process
     sock = _connect(socket_addr)
     transport = SocketTransport(sock)
+    # Give the VRAM poller access to transport for sending log messages to parent
+    global _vram_poll_transport
+    _vram_poll_transport = transport
     wlog("[worker] Connected, waiting for config...")
 
     # Read config as first message
@@ -1830,7 +2386,58 @@ def main():
 
     # Signal ready
     transport.send({"status": "ready"})
-    wlog("[worker] Ready, entering request loop...")
+    wlog("[worker] Ready")
+
+    # --- Pool IPC handshake: create shareable pool and send FD to parent ---
+    global _pool_ipc_ok, _our_pool
+    if _POOL_IPC_ENABLED and sys.platform == "linux":
+        try:
+            import torch as _pt
+            if _pt.cuda.is_available():
+                device = _pt.cuda.current_device()
+                _our_pool = _create_shareable_pool(device)
+                _set_device_pool(device, _our_pool)
+                wlog(f"[worker] Pool IPC: created shareable pool on device {device}")
+
+                # Patch empty_cache to also trim our pool
+                _orig_empty_cache = _pt.cuda.empty_cache
+                def _patched_empty_cache():
+                    _orig_empty_cache()
+                    try:
+                        if _our_pool is not None:
+                            _trim_pool(_our_pool, 0)
+                    except Exception:
+                        pass
+                _pt.cuda.empty_cache = _patched_empty_cache
+
+                # Send pool FD to parent
+                pool_fd = _export_pool_fd(_our_pool)
+                _send_fd(sock, pool_fd)
+                os.close(pool_fd)
+                transport.send({"type": "pool_fd_sent", "device": device})
+                _pool_ipc_ok = True
+                wlog("[worker] Pool IPC: handshake complete")
+        except Exception as e:
+            wlog(f"[worker] Pool IPC setup failed: {e}, using CPU shm fallback")
+            _pool_ipc_ok = False
+            _our_pool = None
+
+    # --- Receive parent's shareable pool FD (for parent→worker zero-copy) ---
+    _parent_pool = None
+    try:
+        msg = transport.recv(timeout=5)
+        if msg and msg.get("type") == "parent_pool_fd_sent":
+            parent_fd = _recv_fd(sock, timeout=5)
+            _parent_pool = _import_pool_from_fd(parent_fd)
+            os.close(parent_fd)
+            wlog("[worker] Pool IPC: imported parent pool for parent→worker zero-copy")
+        else:
+            wlog("[worker] No parent shareable pool (parent→worker uses CPU shm)")
+    except Exception as e:
+        wlog(f"[worker] Parent pool import skipped: {e}")
+        _parent_pool = None
+
+    wlog("[worker] Entering request loop...")
 
     # Process requests
     request_num = 0
@@ -2055,6 +2662,7 @@ class SubprocessWorker(Worker):
         self._server_socket: Optional[socket.socket] = None
         self._socket_addr: Optional[str] = None
         self._transport: Optional[SocketTransport] = None
+        self._worker_pool = None  # imported pool handle for PoolIPC (worker's shareable pool)
 
         # Stderr inherits from parent (no pipe -- avoids tqdm/\r deadlock)
 
@@ -2124,6 +2732,11 @@ class SubprocessWorker(Worker):
             except:
                 pass
             self._server_socket = None
+        self._worker_pool = None
+        # Clear stale pool IPC caches — pointer export data from dead worker's
+        # pool is invalid and would corrupt CUDA state if reused with new pool
+        _pool_ipc_metadata_cache.clear()
+        _pool_ipc_cache_tensors.clear()
 
     def _worker_exit_diagnostic(self) -> str:
         """Collect diagnostic info when the worker process dies unexpectedly."""
@@ -2228,7 +2841,7 @@ class SubprocessWorker(Worker):
         # For pixi environments, use "pixi run python" to get proper environment activation
         # (CONDA_PREFIX, Library paths, etc.) which fixes DLL loading issues with bpy
         is_pixi = '.pixi' in str(self.python)
-        if _DEBUG:
+        if _DBG_WORKER:
             print(f"[SubprocessWorker] is_pixi={is_pixi}, python={self.python}", flush=True)
         if is_pixi:
             # Find pixi project root (parent of .pixi directory)
@@ -2237,7 +2850,7 @@ class SubprocessWorker(Worker):
                 pixi_project = pixi_project.parent
             pixi_project = pixi_project.parent  # Go up from .pixi to project root
             pixi_toml = pixi_project / "pixi.toml"
-            if _DEBUG:
+            if _DBG_WORKER:
                 print(f"[SubprocessWorker] pixi_toml={pixi_toml}, exists={pixi_toml.exists()}", flush=True)
 
             if pixi_toml.exists():
@@ -2264,7 +2877,7 @@ class SubprocessWorker(Worker):
             cmd = [str(self.python), str(self._worker_script), self._socket_addr]
             launch_env = env
 
-        if _DEBUG:
+        if _DBG_WORKER:
             print(f"[SubprocessWorker] launching cmd={cmd[:3]}...", flush=True)
             if launch_env:
                 path_sep = ";" if sys.platform == "win32" else ":"
@@ -2323,6 +2936,41 @@ class SubprocessWorker(Worker):
         if msg.get("status") != "ready":
             raise RuntimeError(f"{self.name}: Unexpected ready message: {msg}")
 
+        # --- Pool IPC handshake (receive worker's shareable pool FD) ---
+        self._worker_pool = None
+        if _pool_ipc_available() and _has_af_unix():
+            try:
+                worker_fd = _recv_fd(client_sock, timeout=5)
+                confirm = self._transport.recv(timeout=5)
+                if confirm and confirm.get("type") == "pool_fd_sent":
+                    self._worker_pool = _import_pool_from_fd(worker_fd)
+                    os.close(worker_fd)
+                    if _DBG_IPC:
+                        print(f"[{self.name}] Pool IPC: imported worker pool", file=sys.stderr, flush=True)
+                else:
+                    os.close(worker_fd)
+            except Exception as e:
+                if _DBG_IPC:
+                    print(f"[{self.name}] Pool IPC handshake failed: {e}", file=sys.stderr, flush=True)
+                self._worker_pool = None
+
+        # --- Send parent's shareable pool FD to worker (for parent→worker zero-copy) ---
+        if _parent_shareable_pool is not None and _has_af_unix():
+            try:
+                parent_pool_fd = _export_pool_fd(_parent_shareable_pool)
+                self._transport.send({"type": "parent_pool_fd_sent"})
+                _send_fd(client_sock, parent_pool_fd)
+                os.close(parent_pool_fd)
+                if _DBG_IPC:
+                    print(f"[{self.name}] Pool IPC: sent parent pool FD to worker",
+                          file=sys.stderr, flush=True)
+            except Exception as e:
+                if _DBG_IPC:
+                    print(f"[{self.name}] Parent pool FD send failed: {e}",
+                          file=sys.stderr, flush=True)
+        else:
+            self._transport.send({"type": "no_parent_pool"})
+
     def call(
         self,
         func: Callable,
@@ -2350,7 +2998,7 @@ class SubprocessWorker(Worker):
     def _handle_callback(self, request: dict) -> dict:
         """Execute a callback request from the worker."""
         method = request.get("method")
-        if _DEBUG:
+        if _DBG_WORKER:
             print(f"[SubprocessWorker] callback '{method}' from call_id={request.get('call_id')}", file=sys.stderr, flush=True)
         handler = self._callback_handlers.get(method)
         if not handler:
@@ -2368,7 +3016,7 @@ class SubprocessWorker(Worker):
             raise RuntimeError(f"{self.name}: Transport not initialized")
 
         call_id = request.get("call_id")
-        if _DEBUG:
+        if _DBG_WORKER:
             msg_type = request.get("type", request.get("method", "?"))
             print(f"[SubprocessWorker] call_id={call_id} sending {msg_type}", file=sys.stderr, flush=True)
 
@@ -2448,14 +3096,14 @@ class SubprocessWorker(Worker):
             Return value of the method.
         """
         import sys
-        if _DEBUG:
+        if _DBG_WORKER:
             print(f"[SubprocessWorker] call_method: {module_name}.{class_name}.{method_name}", file=sys.stderr, flush=True)
 
         with self._lock:
-            if _DEBUG:
+            if _DBG_WORKER:
                 print(f"[SubprocessWorker] acquired lock, ensuring started...", file=sys.stderr, flush=True)
             self._ensure_started()
-            if _DEBUG:
+            if _DBG_WORKER:
                 print(f"[SubprocessWorker] worker started/confirmed", file=sys.stderr, flush=True)
 
             timeout = timeout or 600.0
@@ -2464,14 +3112,14 @@ class SubprocessWorker(Worker):
             try:
                 # Serialize kwargs to shared memory
                 if kwargs:
-                    if _DEBUG:
+                    if _DBG_SERIALIZE:
                         for k, v in kwargs.items():
                             if hasattr(v, 'shape'):
                                 print(f"[comfy-env] PRE-SERIALIZE '{k}' shape: {v.shape}", file=sys.stderr, flush=True)
-                    if _DEBUG:
+                    if _DBG_SERIALIZE:
                         print(f"[SubprocessWorker] serializing kwargs to shm...", file=sys.stderr, flush=True)
                     kwargs_meta = _to_shm(kwargs, shm_registry)
-                    if _DEBUG:
+                    if _DBG_SERIALIZE:
                         print(f"[SubprocessWorker] created {len(shm_registry)} shm blocks", file=sys.stderr, flush=True)
                 else:
                     kwargs_meta = None
@@ -2487,10 +3135,10 @@ class SubprocessWorker(Worker):
                     "self_state": _serialize_for_ipc(self_state) if self_state else None,
                     "kwargs": kwargs_meta,
                 }
-                if _DEBUG:
+                if _DBG_WORKER:
                     print(f"[SubprocessWorker] sending request via socket...", file=sys.stderr, flush=True)
                 response = self._send_request(request, timeout)
-                if _DEBUG:
+                if _DBG_WORKER:
                     print(f"[SubprocessWorker] got response: {response.get('status')}", file=sys.stderr, flush=True)
 
                 if response.get("status") == "error":
@@ -2505,7 +3153,12 @@ class SubprocessWorker(Worker):
                 # Reconstruct result from shared memory
                 result_meta = response.get("result")
                 if result_meta is not None:
-                    return _from_shm(result_meta)
+                    global _active_worker_pool
+                    _active_worker_pool = self._worker_pool
+                    try:
+                        return _from_shm(result_meta)
+                    finally:
+                        _active_worker_pool = None
                 return None
 
             finally:
@@ -2547,7 +3200,12 @@ class SubprocessWorker(Worker):
 
                 result_meta = response.get("result")
                 if result_meta is not None:
-                    return _from_shm(result_meta)
+                    global _active_worker_pool
+                    _active_worker_pool = self._worker_pool
+                    try:
+                        return _from_shm(result_meta)
+                    finally:
+                        _active_worker_pool = None
                 return None
 
             finally:

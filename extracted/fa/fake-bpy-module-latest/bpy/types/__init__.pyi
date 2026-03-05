@@ -66673,13 +66673,13 @@ class Node(bpy_struct):
     """ (default "", never None)"""
 
     bl_height_default: float
-    """ (in [0, inf], default 0.0)"""
+    """ Default height of the node when it is created (mostly unused, see Height) (in [0, inf], default 0.0)"""
 
     bl_height_max: float
-    """ (in [0, inf], default 0.0)"""
+    """ When changing the node's size, it can have at most this height (mostly unused, see Height) (in [0, inf], default 0.0)"""
 
     bl_height_min: float
-    """ (in [0, inf], default 0.0)"""
+    """ When changing the node's size, it has at least this height (mostly unused, see Height) (in [0, inf], default 0.0)"""
 
     bl_icon: Literal[bpy.stub_internal.rna_enums.IconItems]
     """ The node icon (default 'NODE')"""
@@ -66694,13 +66694,13 @@ class Node(bpy_struct):
     """ Legacy unique node type identifier, redundant with bl_idname property (default "", readonly, never None)"""
 
     bl_width_default: float
-    """ (in [0, inf], default 0.0)"""
+    """ Default width of the node when it is created (in [0, inf], default 0.0)"""
 
     bl_width_max: float
-    """ (in [0, inf], default 0.0)"""
+    """ When changing the node's size, it can have at most this width (in [0, inf], default 0.0)"""
 
     bl_width_min: float
-    """ (in [0, inf], default 0.0)"""
+    """ When changing the node's size, it has at least this width (in [0, inf], default 0.0)"""
 
     color: mathutils.Color
     """ Custom color of the node body (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
@@ -66727,13 +66727,13 @@ class Node(bpy_struct):
     """ Node header color tag (default 'NONE', readonly)"""
 
     dimensions: mathutils.Vector
-    """ Absolute bounding box dimensions of the node (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
+    """ Absolute bounding box dimensions of the node after it was displayed (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
 
     height: float
-    """ Height of the node (in [-inf, inf], default 0.0)"""
+    """ Height of the node. This property holds true data only under certain circumstances, e.g. for a Frame node after the node graph was displayed. For most types of nodes, the displayed height is based on the node's contents and not reflected in this property. (in [-inf, inf], default 0.0)"""
 
     hide: bool
-    """ (default False)"""
+    """ Node collapsed state (default False)"""
 
     inputs: typing.Any
     """ (default None, readonly)"""
@@ -66760,13 +66760,13 @@ class Node(bpy_struct):
     """ (default None, readonly)"""
 
     parent: Node | None
-    """ Parent this node is attached to"""
+    """ Parent this node is attached to, e.g. a Frame node"""
 
     select: bool
     """ Node selection state (default False)"""
 
     show_options: bool
-    """ (default False)"""
+    """ Whether the node options are visible, e.g. the selected data-block of a node group node (default False)"""
 
     show_preview: bool
     """ (default False)"""
@@ -84709,6 +84709,11 @@ class Scene(ID, bpy_struct):
 
     objects: typing.Any
     """ (default None, readonly)"""
+
+    playback_loop_mode: typing.Literal[
+        "INFINITE", "STOP_END_FRAME", "STOP_START_FRAME", "RESTORE", "BOUNCE"
+    ]
+    """ What to do when playback reaches the last frame (default 'INFINITE')"""
 
     render: RenderSettings | None
     """ (readonly, never None)"""
@@ -103997,7 +104002,7 @@ class ToolSettings(bpy_struct):
     """ Thickness of annotation strokes (in [1, 10], default 3)"""
 
     auto_keying_mode: typing.Literal["ADD_REPLACE_KEYS", "REPLACE_KEYS"]
-    """ Mode of automatic keyframe insertion for objects, bones and masks (default 'ADD_REPLACE_KEYS')"""
+    """ Can add additional constraints on when auto keying can insert keyframes (default 'ADD_REPLACE_KEYS')"""
 
     curve_paint_settings: CurvePaintSettings | None
     """ (readonly, never None)"""
@@ -104230,7 +104235,7 @@ class ToolSettings(bpy_struct):
     """ For channels with cyclic extrapolation, keyframe insertion is automatically remapped inside the cycle time range, and keeps ends in sync. Curves newly added to actions with a Manual Frame Range and Cyclic Animation are automatically made cyclic. (default False)"""
 
     use_keyframe_insert_auto: bool
-    """ Automatic keyframe insertion for objects, bones and masks (default True)"""
+    """ Automatically insert keyframes on modified properties (default True)"""
 
     use_keyframe_insert_keyingset: bool
     """ Automatic keyframe insertion using active Keying Set only (default False)"""

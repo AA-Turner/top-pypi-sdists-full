@@ -28,12 +28,6 @@ from ..exceptions import ProblemError
 from ..problem import Problem
 from ..solution import Solution
 
-_cvxopt_available = True
-try:
-    from cvxopt import amd, spmatrix  # noqa: F401
-except ImportError:
-    _cvxopt_available = False
-
 
 def sip_solve_problem(
     problem: Problem,
@@ -141,16 +135,20 @@ def sip_solve_problem(
     Check the `Settings` struct in the `solver code
     <https://github.com/joaospinto/sip/blob/main/sip/types.hpp>`__ for details.
     """
-    P, q, G, h, A, b, lb, ub = problem.unpack()
+    P, q, G_, h, A_, b, lb, ub = problem.unpack()
     if lb is not None or ub is not None:
-        G, h = linear_from_box_inequalities(
-            G, h, lb, ub, use_sparse=problem.has_sparse
+        G_, h = linear_from_box_inequalities(
+            G_, h, lb, ub, use_sparse=problem.has_sparse
         )
     n: int = q.shape[0]
 
     # SIP does not support A, b, G, and h to be None.
-    G = G if G is not None else spa.csr_matrix(np.zeros((0, n)))
-    A = A if A is not None else spa.csr_matrix(np.zeros((0, n)))
+    G: Union[np.ndarray, spa.csc_matrix, spa.csr_matrix] = (
+        G_ if G_ is not None else spa.csr_matrix(np.zeros((0, n)))
+    )
+    A: Union[np.ndarray, spa.csc_matrix, spa.csr_matrix] = (
+        A_ if A_ is not None else spa.csr_matrix(np.zeros((0, n)))
+    )
     h = np.zeros((0,)) if h is None else h
     b = np.zeros((0,)) if b is None else b
 
@@ -239,17 +237,17 @@ def sip_solve_problem(
     pd.is_jacobian_c_transposed = True
     pd.is_jacobian_g_transposed = True
 
-    vars = sip.Variables(pd)
+    vars_ = sip.Variables(pd)
 
     if initvals is not None:
-        vars.x[:] = initvals
+        vars_.x[:] = initvals  # type: ignore[index]
     else:
-        vars.x[:] = 0.0
+        vars_.x[:] = 0.0  # type: ignore[index]
 
-    vars.s[:] = 1.0
-    vars.y[:] = 0.0
-    vars.e[:] = 0.0
-    vars.z[:] = 1.0
+    vars_.s[:] = 1.0  # type: ignore[index]
+    vars_.y[:] = 0.0  # type: ignore[index]
+    vars_.e[:] = 0.0  # type: ignore[index]
+    vars_.z[:] = 1.0  # type: ignore[index]
 
     ss = sip.Settings()
     ss.max_iterations = 100
@@ -280,11 +278,11 @@ def sip_solve_problem(
     def mc(mci: sip.ModelCallbackInput) -> sip.ModelCallbackOutput:
         mco = sip.ModelCallbackOutput()
 
-        Px = P.T @ mci.x
+        Px = P.T @ mci.x  # type: ignore[operator]
 
         mco.f = 0.5 * np.dot(Px, mci.x) + np.dot(q, mci.x)
-        mco.c = A @ mci.x - b
-        mco.g = G @ mci.x - h
+        mco.c = A @ mci.x - b  # type: ignore[operator]
+        mco.g = G @ mci.x - h  # type: ignore[operator]
 
         mco.gradient_f = Px + q
         mco.jacobian_c = A
@@ -295,16 +293,19 @@ def sip_solve_problem(
 
     solver = sip.Solver(ss, qs, pd, mc)
 
-    output = solver.solve(vars)
+    output = solver.solve(vars_)
 
     solution = Solution(problem)
-    solution.extras = {"sip_output": output, "sip_vars": vars}
+    solution.extras = {"sip_output": output, "sip_vars": vars_}
     solution.found = output.exit_status == sip.Status.SOLVED
-    solution.obj = 0.5 * np.dot(P.T @ vars.x, vars.x) + np.dot(q, vars.x)
-    solution.x = vars.x
-    solution.y = vars.y
-    if h is not None and vars.z is not None:
-        z_sip = np.array(vars.z)
+    solution.obj = 0.5 * np.dot(
+        P.T @ vars_.x,  # type: ignore[operator]
+        vars_.x,
+    ) + np.dot(q, vars_.x)
+    solution.x = np.array(vars_.x)
+    solution.y = np.array(vars_.y)
+    if h is not None and vars_.z is not None:
+        z_sip = np.array(vars_.z)
         z, z_box = split_dual_linear_box(z_sip, lb, ub)
         solution.z = z
         solution.z_box = z_box
@@ -372,5 +373,11 @@ def sip_solve_qp(
         Primal solution to the QP, if found, otherwise ``None``.
     """
     problem = Problem(P, q, G, h, A, b, lb, ub)
-    solution = sip_solve_problem(problem, initvals, verbose, **kwargs)
+    solution = sip_solve_problem(
+        problem,
+        initvals,
+        verbose,
+        allow_non_psd_P,
+        **kwargs,
+    )
     return solution.x if solution.found else None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auto-py-to-exe
-Version: 2.48.1
+Version: 2.49.0
 Summary: Converts .py to .exe using a simple graphical interface.
 Home-page: https://github.com/brentvollebregt/auto-py-to-exe
 Author: Brent Vollebregt
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Requires-Python: >=3.6
@@ -87,7 +88,7 @@ Slovenski README [tukaj](./README-Slovenian.md)
 
 ### Prerequisites
 
-- Python: 3.6-3.12
+- Python: 3.6-3.14
 
 _To have the interface displayed in the images, you will need Chrome. If Chrome is not installed or `--default-browser` is passed, the default browser will be used._
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 11.0.0
+Version: 11.0.2
 Summary: 🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family
 Keywords: Alacritty,Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Apple Terminal,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,Circle CI,Cirrus CI,Claude Code,Cline,CloudLinux OS,CodeBuild,Command Prompt,Contour,Cursor,Cygwin,Dash,Debian,DragonFly BSD,Exherbo Linux,Fedora,Fish,foot,FreeBSD,Generic Linux,Gentoo Linux,Ghostty,GitHub Actions runner,GitLab CI,GNOME Terminal,GNU Screen,GNU/Hurd,Guix System,Haiku,Heroku CI,Hyper,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),iTerm2,Kali Linux,Kitty,Konsole,Korn shell,KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Raspbian,RedHat Enterprise Linux,Rio,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,Tabby,tcsh,TeamCity,Tilix,tmux,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,VS Code Terminal,WebAssembly (32-bit),WebAssembly (64-bit),WezTerm,Windows,Windows Subsystem for Linux,Windows Terminal,x86-64 (AMD64),XenServer,Xonsh,xterm,Zellij,Zsh
 Author: Kevin Deldycke
@@ -79,7 +79,7 @@ Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.0
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v11.0.2
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues

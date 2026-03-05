@@ -6,7 +6,6 @@ import sys
 from fnmatch import fnmatch, fnmatchcase
 from functools import partial
 from pathlib import Path
-from typing import List
 
 from vulture import lines, noqa, utils
 from vulture.config import InputError, make_config
@@ -120,13 +119,13 @@ class Item:
     """
 
     __slots__ = (
-        "name",
-        "typ",
+        "confidence",
         "filename",
         "first_lineno",
         "last_lineno",
         "message",
-        "confidence",
+        "name",
+        "typ",
     )
 
     def __init__(
@@ -167,17 +166,16 @@ class Item:
         filename = utils.format_path(self.filename)
         if self.typ == "unreachable_code":
             return f"# {self.message} ({filename}:{self.first_lineno})"
-        else:
-            prefix = ""
-            if self.typ in ["attribute", "method", "property"]:
-                prefix = "_."
-            return (
-                f"{prefix}{self.name}  # unused {self.typ} "
-                f"({filename}:{self.first_lineno:d})"
-            )
+        prefix = ""
+        if self.typ in ["attribute", "method", "property"]:
+            prefix = "_."
+        return (
+            f"{prefix}{self.name}  # unused {self.typ} "
+            f"({filename}:{self.first_lineno:d})"
+        )
 
     def _tuple(self):
-        return (self.filename, self.first_lineno, self.name)
+        return self.filename, self.first_lineno, self.name
 
     def __repr__(self):
         return repr(self.name)
@@ -287,7 +285,7 @@ class Vulture(ast.NodeVisitor):
             self._log("Scanning:", module)
             try:
                 module_string = utils.read_file(module)
-            except utils.VultureInputException as err:  # noqa: F841
+            except utils.VultureInputException as err:
                 self._log(
                     f"Error: Could not read file {module} - {err}\n"
                     f"Try to change the encoding to UTF-8.",
@@ -316,7 +314,7 @@ class Vulture(ast.NodeVisitor):
 
     def get_unused_code(
         self, min_confidence=0, sort_by_size=False
-    ) -> List[Item]:
+    ) -> list[Item]:
         """
         Return ordered list of unused Item objects.
         """
@@ -324,10 +322,10 @@ class Vulture(ast.NodeVisitor):
             raise ValueError("min_confidence must be between 0 and 100.")
 
         def by_name(item):
-            return (str(item.filename).lower(), item.first_lineno)
+            return str(item.filename).lower(), item.first_lineno
 
         def by_size(item):
-            return (item.size,) + by_name(item)
+            return item.size, *by_name(item)
 
         unused_code = (
             self.unused_attrs

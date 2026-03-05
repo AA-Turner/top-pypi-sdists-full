@@ -12,8 +12,26 @@ from edgar.attachments import Attachment, Attachments, get_document_type
 from edgar.httprequests import stream_with_retry
 from edgar.sgml.filing_summary import FilingSummary
 from edgar.sgml.sgml_header import FilingHeader
-from edgar.sgml.sgml_parser import SGMLDocument, SGMLFormatType, SGMLParser, SECHTMLResponseError, parse_document
+from edgar.sgml.sgml_parser import SGMLDocument, SGMLFormatType, SGMLParser, parse_document
 from edgar.sgml.tools import is_xml
+
+
+def _fetch_url_directly(url: str) -> str:
+    """
+    Fetch URL content directly with a fresh httpx client, completely bypassing
+    the HTTP cache layer.
+
+    This is used as a retry mechanism when the cached response is empty or invalid.
+    The httpxthrottlecache library reuses a single client instance, so its
+    bypass_cache parameter has no effect after the client is first created.
+    """
+    import httpx
+    from edgar.core import get_identity
+
+    headers = {"User-Agent": get_identity()}
+    with httpx.Client(headers=headers) as client:
+        response = client.get(url)
+        return response.text
 
 __all__ = ['iter_documents', 'list_documents', 'FilingSGML', 'FilingHeader']
 
@@ -406,29 +424,19 @@ class FilingSGML:
         # Read content once
         content = read_content_as_string(source)
 
-        try:
-            # Parse header and documents
-            header, documents = parse_submission_text(content)
-        except (ValueError, SECHTMLResponseError) as e:
-            # If the cached response was empty/truncated/error, retry once bypassing cache.
-            # This handles the case where a transient SEC outage returned an empty or error
-            # response that was cached permanently by the cache-forever rule.
-            is_url = isinstance(source, str) and source.startswith("http")
-            is_transient = (
-                isinstance(e, SECHTMLResponseError)
-                or "empty or truncated" in str(e)
-                or "error page" in str(e)
-                or "request was denied" in str(e)
+        # If content is empty/truncated and source is a URL, the cache may have stored
+        # a bad response from a transient SEC outage. Retry with a direct fetch.
+        is_url = isinstance(source, str) and source.startswith("http")
+        if is_url and len(content.strip()) < 50:
+            import logging
+            logging.getLogger(__name__).info(
+                f"Cached response is empty/truncated ({len(content)} bytes) for {source}, "
+                f"retrying with direct fetch"
             )
-            if is_url and is_transient:
-                import logging
-                logging.getLogger(__name__).info(
-                    f"Retrying fetch with cache bypass for {source} due to: {e}"
-                )
-                content = read_content_as_string(source, bypass_cache=True)
-                header, documents = parse_submission_text(content)
-            else:
-                raise
+            content = _fetch_url_directly(source)
+
+        # Parse header and documents
+        header, documents = parse_submission_text(content)
 
         # Create FilingSGML instance
         return cls(header=header, documents=documents)
@@ -470,6 +478,29 @@ class FilingSGML:
         Direct dictionary lookup for O(1) performance.
         """
         return self._documents_by_name.get(filename)
+
+    @classmethod
+    def from_homepage(cls, homepage: 'FilingHomepage') -> 'FilingSGML':
+        """
+        Create a minimal FilingSGML from a FilingHomepage as a fallback when the
+        full submission text (.txt) is unavailable.
+
+        The resulting instance has an empty header and no in-memory document content,
+        but its attachments property is overridden with the homepage's attachments,
+        which have valid URLs for downloading individual documents.
+
+        Args:
+            homepage: A FilingHomepage loaded from the filing's -index.html page
+
+        Returns:
+            FilingSGML: Minimal instance with homepage-sourced attachments
+        """
+        from edgar.sgml.sgml_header import FilingHeader
+        header = FilingHeader(text="", filing_metadata={})
+        instance = cls(header=header, documents=defaultdict(list))
+        # Override the cached_property with the homepage's attachments directly
+        instance.__dict__['attachments'] = homepage.attachments
+        return instance
 
     @classmethod
     def from_filing(cls, filing: 'Filing') -> 'FilingSGML':

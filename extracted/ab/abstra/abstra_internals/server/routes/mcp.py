@@ -14,6 +14,8 @@ def get_editor_bp(main_controller: MainController):
 
     return mcp_bp(
         [
+            docs_controller.get_forms_guide,
+            docs_controller.get_forms_examples,
             docs_controller.read_abstra_docs,
             requires_approval(main_controller.execute_code_snippet),
             docs_controller.list_all_modules_in_abstra_lib,

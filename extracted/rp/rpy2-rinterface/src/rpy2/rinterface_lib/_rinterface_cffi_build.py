@@ -211,15 +211,23 @@ def createbuilder_api():
     c_ext.add_lib(
         *(situation.get_r_flags(r_home, '--ldflags'))
     )
-    c_ext.add_lib(
-        *(situation.get_r_libs(r_home, 'BLAS_LIBS'))
-    )
+    # On Windows, R.dll already embeds the necessary BLAS routines via
+    # Rblas.dll, which it loads at runtime.  Linking BLAS_LIBS separately
+    # is not needed and may introduce MinGW-specific libraries (e.g.
+    # -lgfortran, -lm, -lquadmath) that are not available as MSVC-style
+    # import libraries, causing link errors in some build configurations.
+    if os.name != 'nt':
+        c_ext.add_lib(
+            *(situation.get_r_libs(r_home, 'BLAS_LIBS'))
+        )
     c_ext.add_include(
         *situation.get_r_flags(r_home, '--cppflags')
     )
-    c_ext.extra_link_args.append(
-        f'-Wl,-rpath,{situation.get_rlib_rpath(r_home)}'
-    )
+    # -Wl,-rpath is a POSIX/ELF linker concept not applicable on Windows.
+    if os.name != 'nt':
+        c_ext.extra_link_args.append(
+            f'-Wl,-rpath,{situation.get_rlib_rpath(r_home)}'
+        )
     # TODO: What is this about?
     if 'RPY2_RLEN_LONG' in definitions:
         definitions['RPY2_RLEN_LONG'] = True

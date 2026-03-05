@@ -1,21 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cysystemd
-Version: 2.0.1
+Version: 2.0.5
 Summary: systemd wrapper in Cython
-Home-page: http://github.com/mosquito/cysystemd
+Home-page: https://github.com/mosquito/cysystemd
 Author: Dmitry Orlov <me@mosquito.su>
 Author-email: me@mosquito.su
 License: Apache 2.0
-Keywords: systemd,python,daemon,sd_notify,cython
+Project-URL: Source, https://github.com/mosquito/cysystemd
+Project-URL: Tracker, https://github.com/mosquito/cysystemd/issues
+Project-URL: Releases, https://github.com/mosquito/cysystemd/releases
+Keywords: systemd,cython,daemon,sd_notify,sd_watchdog,journald,journal,logging,linux,asyncio,libsystemd,syslog,service,notify
 Platform: POSIX
-Classifier: Development Status :: 4 - Beta
-Classifier: Environment :: Console
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: No Input/Output (Daemon)
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Education
-Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
-Classifier: Natural Language :: Russian
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
@@ -26,13 +27,31 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System
+Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Operating System
-Requires-Python: >3.6, <4
+Classifier: Topic :: System :: Systems Administration
+Classifier: Typing :: Typed
+Requires-Python: >=3.8, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 ![pypi version](https://img.shields.io/pypi/v/cysystemd.svg) ![](https://img.shields.io/pypi/pyversions/cysystemd.svg)  ![License](https://img.shields.io/pypi/l/cysystemd.svg)
 
@@ -59,6 +78,11 @@ source code instead.**
 ```bash
 pip install --no-binary=:all: cysystemd
 ```
+
+### Installation via Debian packages
+
+Pre-built `.deb` packages are available for Debian/Ubuntu in the
+[GitHub Releases](https://github.com/mosquito/cysystemd/releases) page.
 
 ### Installation from PyPI
 

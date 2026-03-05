@@ -353,6 +353,7 @@ class ImageAnnotations:
     def __init__(
         self,
         *,
+        timestamp: Timestamp | None = None,
         circles: list[CircleAnnotation] | None = None,
         points: list[PointsAnnotation] | None = None,
         texts: list[TextAnnotation] | None = None,

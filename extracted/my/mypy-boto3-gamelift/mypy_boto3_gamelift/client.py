@@ -182,6 +182,8 @@ from .type_defs import (
     GetGameSessionLogUrlOutputTypeDef,
     GetInstanceAccessInputTypeDef,
     GetInstanceAccessOutputTypeDef,
+    GetPlayerConnectionDetailsInputTypeDef,
+    GetPlayerConnectionDetailsOutputTypeDef,
     ListAliasesInputTypeDef,
     ListAliasesOutputTypeDef,
     ListBuildsInputTypeDef,
@@ -749,7 +751,7 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DescribeFleetAttributesInputTypeDef]
     ) -> DescribeFleetAttributesOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_fleet_attributes.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/client/#describe_fleet_attributes)
@@ -909,7 +911,7 @@ class GameLiftClient(BaseClient):
         self, **kwargs: Unpack[DescribeInstancesInputTypeDef]
     ) -> DescribeInstancesOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2.
+        <b>This API works with the following fleet types:</b>EC2, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_instances.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/client/#describe_instances)
@@ -1041,6 +1043,17 @@ class GameLiftClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/get_instance_access.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/client/#get_instance_access)
+        """
+
+    def get_player_connection_details(
+        self, **kwargs: Unpack[GetPlayerConnectionDetailsInputTypeDef]
+    ) -> GetPlayerConnectionDetailsOutputTypeDef:
+        """
+        <b>This API works with the following fleet types:</b> EC2 (server SDK 5.x or
+        later), Container.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/get_player_connection_details.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/client/#get_player_connection_details)
         """
 
     def list_aliases(self, **kwargs: Unpack[ListAliasesInputTypeDef]) -> ListAliasesOutputTypeDef:

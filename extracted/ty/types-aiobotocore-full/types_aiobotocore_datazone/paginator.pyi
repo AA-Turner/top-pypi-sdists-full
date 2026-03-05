@@ -44,6 +44,7 @@ Usage::
         ListSubscriptionTargetsPaginator,
         ListSubscriptionsPaginator,
         ListTimeSeriesDataPointsPaginator,
+        QueryGraphPaginator,
         SearchGroupProfilesPaginator,
         SearchListingsPaginator,
         SearchPaginator,
@@ -87,6 +88,7 @@ Usage::
         list_subscription_targets_paginator: ListSubscriptionTargetsPaginator = client.get_paginator("list_subscription_targets")
         list_subscriptions_paginator: ListSubscriptionsPaginator = client.get_paginator("list_subscriptions")
         list_time_series_data_points_paginator: ListTimeSeriesDataPointsPaginator = client.get_paginator("list_time_series_data_points")
+        query_graph_paginator: QueryGraphPaginator = client.get_paginator("query_graph")
         search_group_profiles_paginator: SearchGroupProfilesPaginator = client.get_paginator("search_group_profiles")
         search_listings_paginator: SearchListingsPaginator = client.get_paginator("search_listings")
         search_paginator: SearchPaginator = client.get_paginator("search")
@@ -167,6 +169,8 @@ from .type_defs import (
     ListSubscriptionTargetsOutputTypeDef,
     ListTimeSeriesDataPointsInputPaginateTypeDef,
     ListTimeSeriesDataPointsOutputTypeDef,
+    QueryGraphInputPaginateTypeDef,
+    QueryGraphOutputTypeDef,
     SearchGroupProfilesInputPaginateTypeDef,
     SearchGroupProfilesOutputTypeDef,
     SearchInputPaginateTypeDef,
@@ -217,6 +221,7 @@ __all__ = (
     "ListSubscriptionTargetsPaginator",
     "ListSubscriptionsPaginator",
     "ListTimeSeriesDataPointsPaginator",
+    "QueryGraphPaginator",
     "SearchGroupProfilesPaginator",
     "SearchListingsPaginator",
     "SearchPaginator",
@@ -804,6 +809,24 @@ class ListTimeSeriesDataPointsPaginator(_ListTimeSeriesDataPointsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/ListTimeSeriesDataPoints.html#DataZone.Paginator.ListTimeSeriesDataPoints.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#listtimeseriesdatapointspaginator)
+        """
+
+if TYPE_CHECKING:
+    _QueryGraphPaginatorBase = AioPaginator[QueryGraphOutputTypeDef]
+else:
+    _QueryGraphPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class QueryGraphPaginator(_QueryGraphPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/QueryGraph.html#DataZone.Paginator.QueryGraph)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#querygraphpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[QueryGraphInputPaginateTypeDef]
+    ) -> AioPageIterator[QueryGraphOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/paginator/QueryGraph.html#DataZone.Paginator.QueryGraph.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/paginators/#querygraphpaginator)
         """
 
 if TYPE_CHECKING:

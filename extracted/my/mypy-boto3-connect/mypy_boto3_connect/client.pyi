@@ -125,6 +125,7 @@ from .type_defs import (
     AssociateLambdaFunctionRequestTypeDef,
     AssociateLexBotRequestTypeDef,
     AssociatePhoneNumberContactFlowRequestTypeDef,
+    AssociateQueueEmailAddressesRequestTypeDef,
     AssociateQueueQuickConnectsRequestTypeDef,
     AssociateRoutingProfileQueuesRequestTypeDef,
     AssociateSecurityKeyRequestTypeDef,
@@ -343,6 +344,7 @@ from .type_defs import (
     DisassociateLambdaFunctionRequestTypeDef,
     DisassociateLexBotRequestTypeDef,
     DisassociatePhoneNumberContactFlowRequestTypeDef,
+    DisassociateQueueEmailAddressesRequestTypeDef,
     DisassociateQueueQuickConnectsRequestTypeDef,
     DisassociateRoutingProfileQueuesRequestTypeDef,
     DisassociateSecurityKeyRequestTypeDef,
@@ -460,6 +462,8 @@ from .type_defs import (
     ListPredefinedAttributesResponseTypeDef,
     ListPromptsRequestTypeDef,
     ListPromptsResponseTypeDef,
+    ListQueueEmailAddressesRequestTypeDef,
+    ListQueueEmailAddressesResponseTypeDef,
     ListQueueQuickConnectsRequestTypeDef,
     ListQueueQuickConnectsResponseTypeDef,
     ListQueuesRequestTypeDef,
@@ -899,6 +903,18 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_phone_number_contact_flow.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_phone_number_contact_flow)
+        """
+
+    def associate_queue_email_addresses(
+        self, **kwargs: Unpack[AssociateQueueEmailAddressesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associates a set of email addresses with a queue to enable agents to select
+        different "From" (system) email addresses when replying to inbound email
+        contacts or initiating outbound email contacts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_queue_email_addresses.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#associate_queue_email_addresses)
         """
 
     def associate_queue_quick_connects(
@@ -2266,6 +2282,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_phone_number_contact_flow)
         """
 
+    def disassociate_queue_email_addresses(
+        self, **kwargs: Unpack[DisassociateQueueEmailAddressesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Removes the association between a set of email addresses and a queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_queue_email_addresses.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#disassociate_queue_email_addresses)
+        """
+
     def disassociate_queue_quick_connects(
         self, **kwargs: Unpack[DisassociateQueueQuickConnectsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -2903,6 +2929,18 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_prompts.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_prompts)
+        """
+
+    def list_queue_email_addresses(
+        self, **kwargs: Unpack[ListQueueEmailAddressesRequestTypeDef]
+    ) -> ListQueueEmailAddressesResponseTypeDef:
+        """
+        Lists all email addresses that are currently associated with a specific queue,
+        providing details about which "From" email addresses agents can select when
+        handling email contacts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_queue_email_addresses.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_queue_email_addresses)
         """
 
     def list_queue_quick_connects(

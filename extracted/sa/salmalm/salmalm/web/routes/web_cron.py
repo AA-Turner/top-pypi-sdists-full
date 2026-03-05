@@ -2,35 +2,20 @@
 
 
 class WebCronMixin:
-    GET_ROUTES = {
-        "/api/cron": "_get_cron",
-    }
-    POST_ROUTES = {
-        "/api/cron/add": "_post_api_cron_add",
-        "/api/cron/delete": "_post_api_cron_delete",
-        "/api/cron/toggle": "_post_api_cron_toggle",
-        "/api/cron/run": "_post_api_cron_run",
-    }
-
     """Mixin providing cron route handlers."""
 
     def _get_cron(self):
         """Get cron."""
-        user = self._require_auth("user")
-        if not user:
+        if not self._require_auth("user"):
             return
         from salmalm.core import _llm_cron
-        jobs = _llm_cron.list_jobs() if _llm_cron else []
-        if user.get("role") != "admin":
-            _uid = user.get("id")
-            jobs = [j for j in jobs if j.get("owner_user_id") == _uid]
-        self._json({"jobs": jobs})
+
+        self._json({"jobs": _llm_cron.list_jobs() if _llm_cron else []})
 
     def _post_api_cron_add(self):
         """Post api cron add."""
         body = self._body
-        user = self._require_auth("user")
-        if not user:
+        if not self._require_auth("user"):
             return
         from salmalm.core import _llm_cron
 
@@ -38,10 +23,7 @@ class WebCronMixin:
             self._json({"ok": False, "error": "Cron not available"}, 500)
             return
         name = body.get("name", "untitled")
-        try:
-            interval = int(body.get("interval", 3600))
-        except (TypeError, ValueError):
-            interval = 3600
+        interval = int(body.get("interval", 3600))
         prompt = body.get("prompt", "")
         run_at = body.get("run_at", "")  # HH:MM or ISO datetime
         if not prompt:
@@ -52,42 +34,32 @@ class WebCronMixin:
             if len(run_at) <= 5:  # HH:MM format → daily
                 schedule = {
                     "kind": "cron",
-                    "expr": (lambda _p: f"{_p[1].zfill(2)} {_p[0].zfill(2)} * * *" if len(_p) == 2 else "0 9 * * *")(run_at.split(':', 1)),
+                    "expr": f"{run_at.split(':')[1]} {run_at.split(':')[0]} * * *",
                 }
             else:  # ISO datetime → one-shot
                 schedule = {"kind": "at", "time": run_at}
         else:
             schedule = {"kind": "every", "seconds": interval}
-        timeout_seconds = int(body.get("timeout_seconds", 120) or 120)
-        job = _llm_cron.add_job(name, schedule, prompt, owner_user_id=user.get("id"), timeout_seconds=timeout_seconds)
+        job = _llm_cron.add_job(name, schedule, prompt)
         self._json({"ok": True, "job": job})
 
     def _post_api_cron_delete(self):
         """Post api cron delete."""
         body = self._body
-        user = self._require_auth("user")
-        if not user:
+        if not self._require_auth("user"):
             return
         from salmalm.core import _llm_cron
 
         job_id = body.get("id", "")
-        if _llm_cron:
-            for j in _llm_cron.jobs:
-                if j.get("id") != job_id:
-                    continue
-                if user.get("role") != "admin" and j.get("owner_user_id") != user.get("id"):
-                    self._json({"ok": False, "error": "Forbidden"}, 403)
-                    return
-                if _llm_cron.remove_job(job_id):
-                    self._json({"ok": True})
-                    return
-        self._json({"ok": False, "error": "Job not found"}, 404)
+        if _llm_cron and _llm_cron.remove_job(job_id):
+            self._json({"ok": True})
+        else:
+            self._json({"ok": False, "error": "Job not found"}, 404)
 
     def _post_api_cron_toggle(self):
         """Post api cron toggle."""
         body = self._body
-        user = self._require_auth("user")
-        if not user:
+        if not self._require_auth("user"):
             return
         from salmalm.core import _llm_cron
 
@@ -95,9 +67,6 @@ class WebCronMixin:
         if _llm_cron:
             for j in _llm_cron.jobs:
                 if j["id"] == job_id:
-                    if user.get("role") != "admin" and j.get("owner_user_id") != user.get("id"):
-                        self._json({"ok": False, "error": "Forbidden"}, 403)
-                        return
                     j["enabled"] = not j["enabled"]
                     _llm_cron.save_jobs()
                     self._json({"ok": True, "enabled": j["enabled"]})
@@ -107,8 +76,7 @@ class WebCronMixin:
     def _post_api_cron_run(self):
         """POST /api/cron/run — Execute a cron job immediately."""
         body = self._body
-        user = self._require_auth("user")
-        if not user:
+        if not self._require_auth("user"):
             return
         from salmalm.core import _llm_cron
 
@@ -116,100 +84,9 @@ class WebCronMixin:
         if _llm_cron:
             for j in _llm_cron.jobs:
                 if j["id"] == job_id:
-                    if user.get("role") != "admin" and j.get("owner_user_id") != user.get("id"):
-                        self._json({"ok": False, "error": "Forbidden"}, 403)
-                        return
                     import threading
 
                     threading.Thread(target=_llm_cron._execute_job, args=(j,), daemon=True).start()
                     self._json({"ok": True, "message": "Job triggered"})
                     return
         self._json({"ok": False, "error": "Job not found"}, 404)
-
-
-# ── FastAPI router ────────────────────────────────────────────────────────────
-import asyncio as _asyncio
-from fastapi import APIRouter as _APIRouter, Request as _Request, Depends as _Depends, Query as _Query
-from fastapi.responses import JSONResponse as _JSON, Response as _Response, HTMLResponse as _HTML, StreamingResponse as _SR, RedirectResponse as _RR
-from salmalm.web.fastapi_deps import require_auth as _auth, optional_auth as _optauth
-
-router = _APIRouter()
-
-@router.get("/api/cron")
-async def get_cron(_u=_Depends(_auth)):
-    from salmalm.core import _llm_cron
-    jobs = _llm_cron.list_jobs() if _llm_cron else []
-    if _u.get("role") != "admin":
-        jobs = [j for j in jobs if j.get("owner_user_id") == _u.get("id")]
-    return _JSON(content={"jobs": jobs})
-
-@router.post("/api/cron/add")
-async def post_cron_add(request: _Request, _u=_Depends(_auth)):
-    from salmalm.core import _llm_cron
-    body = await request.json()
-    if not _llm_cron:
-        return _JSON(content={"ok": False, "error": "Cron not available"}, status_code=500)
-    name = body.get("name", "untitled")
-    try:
-        interval = int(body.get("interval", 3600))
-    except (TypeError, ValueError):
-        interval = 3600
-    prompt = body.get("prompt", "")
-    run_at = body.get("run_at", "")
-    if not prompt:
-        return _JSON(content={"ok": False, "error": "Prompt required"}, status_code=400)
-    if run_at:
-        if len(run_at) <= 5:
-            schedule = {"kind": "cron", "expr": (lambda _p: f"{_p[1].zfill(2)} {_p[0].zfill(2)} * * *" if len(_p) == 2 else "0 9 * * *")(run_at.split(':', 1))}
-        else:
-            schedule = {"kind": "at", "time": run_at}
-    else:
-        schedule = {"kind": "every", "seconds": interval}
-    timeout_seconds = int(body.get("timeout_seconds", 120) or 120)
-    job = _llm_cron.add_job(name, schedule, prompt, owner_user_id=_u.get("id"), timeout_seconds=timeout_seconds)
-    return _JSON(content={"ok": True, "job": job})
-
-@router.post("/api/cron/delete")
-async def post_cron_delete(request: _Request, _u=_Depends(_auth)):
-    from salmalm.core import _llm_cron
-    body = await request.json()
-    job_id = body.get("id", "")
-    if _llm_cron:
-        for j in _llm_cron.jobs:
-            if j.get("id") != job_id:
-                continue
-            if _u.get("role") != "admin" and j.get("owner_user_id") != _u.get("id"):
-                return _JSON(content={"ok": False, "error": "Forbidden"}, status_code=403)
-            if _llm_cron.remove_job(job_id):
-                return _JSON(content={"ok": True})
-    return _JSON(content={"ok": False, "error": "Job not found"}, status_code=404)
-
-@router.post("/api/cron/toggle")
-async def post_cron_toggle(request: _Request, _u=_Depends(_auth)):
-    from salmalm.core import _llm_cron
-    body = await request.json()
-    job_id = body.get("id", "")
-    if _llm_cron:
-        for j in _llm_cron.jobs:
-            if j["id"] == job_id:
-                if _u.get("role") != "admin" and j.get("owner_user_id") != _u.get("id"):
-                    return _JSON(content={"ok": False, "error": "Forbidden"}, status_code=403)
-                j["enabled"] = not j["enabled"]
-                _llm_cron.save_jobs()
-                return _JSON(content={"ok": True, "enabled": j["enabled"]})
-    return _JSON(content={"ok": False, "error": "Job not found"}, status_code=404)
-
-@router.post("/api/cron/run")
-async def post_cron_run(request: _Request, _u=_Depends(_auth)):
-    import threading
-    from salmalm.core import _llm_cron
-    body = await request.json()
-    job_id = body.get("id", "")
-    if _llm_cron:
-        for j in _llm_cron.jobs:
-            if j["id"] == job_id:
-                if _u.get("role") != "admin" and j.get("owner_user_id") != _u.get("id"):
-                    return _JSON(content={"ok": False, "error": "Forbidden"}, status_code=403)
-                threading.Thread(target=_llm_cron._execute_job, args=(j,), daemon=True).start()
-                return _JSON(content={"ok": True, "message": "Job triggered"})
-    return _JSON(content={"ok": False, "error": "Job not found"}, status_code=404)

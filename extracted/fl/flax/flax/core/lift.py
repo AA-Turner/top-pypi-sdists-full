@@ -828,6 +828,7 @@ def vmap(
         any_vmapped_axis_sharded = any(
             jax.typeof(x).sharding.spec[i] == spmd_axis_name
             for x, i in zip(args_flat, axes_flat)
+            if i is not None
         )
         if any_vmapped_axis_sharded:
           rngs = jax.sharding.reshard(rngs, jax.P(spmd_axis_name))
@@ -1801,6 +1802,7 @@ def _broadcast_prefix_tree(prefix_tree: Any, full_tree: Any) -> list[Any]:
       lambda x, subtree: bcast_flat.extend([x] * num_leaves_fn(subtree)),
       prefix_tree,
       full_tree,
+      is_leaf=lambda x: x is None,
   )
   return bcast_flat
 

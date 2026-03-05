@@ -30,6 +30,7 @@ class EventConnectionArgs:
                  region: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a EventConnection resource.
+
         :param pulumi.Input['EventConnectionAuthParametersArgs'] auth_parameters: Parameters used for authorization. A maximum of 1 are allowed. Documented below.
         :param pulumi.Input[_builtins.str] authorization_type: Type of authorization to use for the connection. One of `API_KEY`,`BASIC`,`OAUTH_CLIENT_CREDENTIALS`.
         :param pulumi.Input[_builtins.str] description: Description for the connection. Maximum of 512 characters.
@@ -150,6 +151,7 @@ class _EventConnectionState:
                  secret_arn: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering EventConnection resources.
+
         :param pulumi.Input[_builtins.str] arn: The Amazon Resource Name (ARN) of the connection.
         :param pulumi.Input['EventConnectionAuthParametersArgs'] auth_parameters: Parameters used for authorization. A maximum of 1 are allowed. Documented below.
         :param pulumi.Input[_builtins.str] authorization_type: Type of authorization to use for the connection. One of `API_KEY`,`BASIC`,`OAUTH_CLIENT_CREDENTIALS`.
@@ -424,6 +426,40 @@ class EventConnection(pulumi.CustomResource):
             })
         ```
 
+        ### OAuth Authorization With Connectivity Parameters
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        test = aws.cloudwatch.EventConnection("test",
+            name="private-api-connection",
+            description="A connection to a private API",
+            authorization_type="OAUTH_CLIENT_CREDENTIALS",
+            auth_parameters={
+                "connectivity_parameters": {
+                    "resource_parameters": {
+                        "resource_configuration_arn": "arn:aws:vpc-lattice:us-east-1:12345678910:resourceconfiguration/rcfg-12345678910",
+                    },
+                },
+                "oauth": {
+                    "authorization_endpoint": "https://private-api.example.com/auth",
+                    "http_method": "POST",
+                    "client_parameters": {
+                        "client_id": "1234567890",
+                        "client_secret": "Pass1234!",
+                    },
+                    "oauth_http_parameters": {
+                        "bodies": [{
+                            "key": "grant_type",
+                            "value": "client_credentials",
+                            "is_value_secret": False,
+                        }],
+                    },
+                },
+            })
+        ```
+
         ### CMK Encryption
 
         ```python
@@ -492,6 +528,7 @@ class EventConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import aws:cloudwatch/eventConnection:EventConnection test ngrok-connection
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -631,6 +668,40 @@ class EventConnection(pulumi.CustomResource):
             })
         ```
 
+        ### OAuth Authorization With Connectivity Parameters
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        test = aws.cloudwatch.EventConnection("test",
+            name="private-api-connection",
+            description="A connection to a private API",
+            authorization_type="OAUTH_CLIENT_CREDENTIALS",
+            auth_parameters={
+                "connectivity_parameters": {
+                    "resource_parameters": {
+                        "resource_configuration_arn": "arn:aws:vpc-lattice:us-east-1:12345678910:resourceconfiguration/rcfg-12345678910",
+                    },
+                },
+                "oauth": {
+                    "authorization_endpoint": "https://private-api.example.com/auth",
+                    "http_method": "POST",
+                    "client_parameters": {
+                        "client_id": "1234567890",
+                        "client_secret": "Pass1234!",
+                    },
+                    "oauth_http_parameters": {
+                        "bodies": [{
+                            "key": "grant_type",
+                            "value": "client_credentials",
+                            "is_value_secret": False,
+                        }],
+                    },
+                },
+            })
+        ```
+
         ### CMK Encryption
 
         ```python
@@ -699,6 +770,7 @@ class EventConnection(pulumi.CustomResource):
         ```sh
         $ pulumi import aws:cloudwatch/eventConnection:EventConnection test ngrok-connection
         ```
+
 
         :param str resource_name: The name of the resource.
         :param EventConnectionArgs args: The arguments to use to populate this resource's properties.

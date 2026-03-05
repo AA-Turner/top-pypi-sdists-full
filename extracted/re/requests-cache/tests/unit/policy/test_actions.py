@@ -327,6 +327,92 @@ def test_update_from_cached_response__vary_headers(
 
 
 @pytest.mark.parametrize(
+    'vary, cached_headers, new_headers, expect_vary_key_set',
+    [
+        # Vary mismatch: secondary key should be set (and differ from base key)
+        ({'Vary': 'Accept'}, {'Accept': 'application/json'}, {'Accept': 'text/html'}, True),
+        # Vary match: no secondary key needed
+        ({'Vary': 'Accept'}, {'Accept': 'application/json'}, {'Accept': 'application/json'}, False),
+        # Vary: * always misses, but no secondary lookup is possible
+        ({'Vary': '*'}, {'Accept': 'application/json'}, {'Accept': 'application/json'}, False),
+        # No Vary header: no secondary key
+        ({}, {}, {}, False),
+        # Vary: Cookie with matching cookies: no secondary key (cookies match, so cache hit)
+        ({'Vary': 'Cookie'}, {}, {}, False),
+    ],
+)
+def test_vary_cache_key(vary, cached_headers, new_headers, expect_vary_key_set):
+    cached_response = CachedResponse(
+        headers=vary,
+        request=Request(method='GET', url='https://site.com/img.jpg', headers=cached_headers),
+    )
+    request = Request(method='GET', url='https://site.com/img.jpg', headers=new_headers)
+    actions = CacheActions.from_request('key', request)
+    actions.update_from_cached_response(cached_response, create_key=create_key)
+
+    if expect_vary_key_set:
+        assert actions.vary_cache_key is not None
+        assert actions.vary_cache_key != actions.cache_key
+    else:
+        assert actions.vary_cache_key is None
+
+
+def test_vary_cache_key__merges_user_match_headers():
+    """vary_cache_key should incorporate user match_headers along with Vary headers"""
+    cached_response = CachedResponse(
+        headers={'Vary': 'Accept'},
+        request=Request(
+            method='GET',
+            url='https://site.com/img.jpg',
+            headers={'Accept': 'application/json', 'Authorization': 'Bearer token1'},
+        ),
+    )
+    request = Request(
+        method='GET',
+        url='https://site.com/img.jpg',
+        headers={'Accept': 'text/html', 'Authorization': 'Bearer token2'},
+    )
+    settings = CacheSettings(match_headers=['Authorization'])
+    actions = CacheActions.from_request('key', request, settings=settings)
+    actions.update_from_cached_response(cached_response, create_key=create_key)
+
+    assert actions.vary_cache_key is not None
+
+    # The secondary key should differ from a key built with only Vary headers
+    request_2 = Request(
+        method='GET',
+        url='https://site.com/img.jpg',
+        headers={'Accept': 'text/html', 'Authorization': 'Bearer token_different'},
+    )
+    actions_2 = CacheActions.from_request('key', request_2, settings=settings)
+    actions_2.update_from_cached_response(cached_response, create_key=create_key)
+    assert actions_2.vary_cache_key != actions.vary_cache_key
+
+
+def test_vary_cache_key__match_all():
+    """vary_cache_key should be set when match_headers=True (match all headers)"""
+    cached_response = CachedResponse(
+        headers={'Vary': 'Accept'},
+        request=Request(
+            method='GET',
+            url='https://site.com/img.jpg',
+            headers={'Accept': 'application/json'},
+        ),
+    )
+    request = Request(
+        method='GET',
+        url='https://site.com/img.jpg',
+        headers={'Accept': 'text/html'},
+    )
+    settings = CacheSettings(match_headers=True)
+    actions = CacheActions.from_request('key', request, settings=settings)
+    actions.update_from_cached_response(cached_response, create_key=create_key)
+
+    assert actions.vary_cache_key is not None
+    assert actions.vary_cache_key != actions.cache_key
+
+
+@pytest.mark.parametrize(
     'cached_cookies, new_cookies, expected_match',
     [
         ({'session': 'abc123'}, {'session': 'abc123'}, True),
@@ -399,6 +485,8 @@ def test_update_from_cached_response__vary_cookie_and_headers():
 
     # Should be a cache miss because Accept header differs
     assert actions.send_request is True
+    # Cookies match, so secondary key is set for the differing Accept header
+    assert actions.vary_cache_key is not None
 
 
 @pytest.mark.parametrize('max_stale, usable', [(5, False), (15, True)])
@@ -519,6 +607,30 @@ def test_update_from_response__revalidate(mock_utcnow, cache_headers, validator_
 
     assert actions.expires == mock_utcnow()
     assert actions.skip_write is False
+
+
+@pytest.mark.parametrize(
+    'read_only, headers_changed, expected_skip_write',
+    [
+        (False, False, True),  # Nothing changed: skip_write should be True (optimization)
+        (False, True, False),  # Headers changed, not read_only: should write
+        (True, False, True),  # read_only: should remain True even if nothing changed
+        (True, True, True),  # read_only + headers changed: skip_write must remain True
+    ],
+)
+def test_update_revalidated_response__skip_write(read_only, headers_changed, expected_skip_write):
+    """skip_write should be True when read_only=True or when nothing changed,
+    and False when headers/expiration changed and read_only=False
+    """
+    actions = CacheActions.from_request(
+        'key', BASIC_REQUEST, CacheSettings(cache_control=True, read_only=read_only)
+    )
+    cached_response = get_mock_response(headers={'ETag': ETAG})
+    cached_response.expires = None
+    new_headers = {'ETag': ETAG, 'X-Custom-Header': 'new'} if headers_changed else {'ETag': ETAG}
+    new_response = get_mock_response(status_code=304, headers=new_headers)
+    actions.update_revalidated_response(new_response, cached_response)
+    assert actions.skip_write is expected_skip_write
 
 
 def test_update_revalidated_response__transfer_encoding():

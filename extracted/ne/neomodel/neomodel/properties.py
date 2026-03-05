@@ -137,8 +137,8 @@ class Property(metaclass=ABCMeta):
         db_property: str | None = None,
         label: str | None = None,
         help_text: str | None = None,
-        **kwargs: dict[str, Any],
-    ):
+        **kwargs: Any,
+    ) -> None:
         if default is not None and required:
             raise ValueError(
                 "The arguments `required` and `default` are mutually exclusive."
@@ -273,7 +273,7 @@ class StringProperty(NormalizedProperty):
         choices: Any | None = None,
         max_length: int | None = None,
         **kwargs: Any,
-    ):
+    ) -> None:
         if max_length is not None:
             if choices is not None:
                 raise ValueError(

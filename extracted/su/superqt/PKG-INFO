@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: superqt
-Version: 0.7.8
+Version: 0.8.0
 Summary: Missing widgets and components for PyQt/PySide
 Project-URL: Documentation, https://pyapp-kit.github.io/superqt/
 Project-URL: Source, https://github.com/pyapp-kit/superqt
@@ -17,15 +17,15 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Desktop Environment
 Classifier: Topic :: Software Development :: User Interfaces
 Classifier: Topic :: Software Development :: Widget Sets
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: pygments>=2.4.0
 Requires-Dist: qtpy>=2.4.0
 Requires-Dist: typing-extensions>=4.12.0; python_version >= '3.13'
@@ -49,10 +49,6 @@ Requires-Dist: pyqt5>=5.15.10; extra == 'pyqt5'
 Provides-Extra: pyqt6
 Requires-Dist: pyqt6!=6.6,>=6.4.0; extra == 'pyqt6'
 Requires-Dist: pyqt6!=6.6,>=6.7.0; (python_version >= '3.12') and extra == 'pyqt6'
-Provides-Extra: pyside2
-Requires-Dist: numpy<2,>=1.19; (python_version < '3.11') and extra == 'pyside2'
-Requires-Dist: numpy<2,>=1.26; (python_version >= '3.11' and python_version < '3.13') and extra == 'pyside2'
-Requires-Dist: pyside2>=5.15; extra == 'pyside2'
 Provides-Extra: pyside6
 Requires-Dist: pyside6!=6.5.0,!=6.5.1,!=6.6.2,>=6.4.0; extra == 'pyside6'
 Requires-Dist: pyside6>=6.7.0; (python_version >= '3.12') and extra == 'pyside6'
@@ -77,9 +73,9 @@ that are not provided in the native QtWidgets module.
 Components are tested on:
 
 - macOS, Windows, & Linux
-- Python 3.9 and above
+- Python 3.10 and above
 - PyQt5 (5.11 and above) & PyQt6
-- PySide2 (5.11 and above) & PySide6
+- PySide6
 
 ## Documentation
 

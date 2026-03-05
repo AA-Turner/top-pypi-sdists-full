@@ -115,6 +115,7 @@ pub(super) struct Slide {
 pub(super) struct ParserConfig {
     pub(super) extract_images: bool,
     pub(super) include_slide_comment: bool,
+    pub(super) plain: bool,
 }
 
 impl Default for ParserConfig {
@@ -122,6 +123,7 @@ impl Default for ParserConfig {
         Self {
             extract_images: true,
             include_slide_comment: false,
+            plain: false,
         }
     }
 }

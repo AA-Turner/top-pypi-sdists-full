@@ -82,7 +82,11 @@ def is_repeated_blocks(module: torch.nn.Module) -> bool:
     is useful to determine whether we should apply regional compilation to the module.
     """
 
-    return isinstance(module, torch.nn.ModuleList) and all(isinstance(m, module[0].__class__) for m in module)
+    return (
+        isinstance(module, torch.nn.ModuleList)
+        and len(module) > 0
+        and all(isinstance(m, module[0].__class__) for m in module)
+    )
 
 
 def has_repeated_blocks(module: torch.nn.Module) -> bool:
@@ -240,12 +244,15 @@ def extract_model_from_parallel(
     is_compiled = is_compiled_module(model)
     has_compiled = has_compiled_regions(model)
 
+    compiled_model = None
     if is_compiled:
         compiled_model = model
         model = model._orig_mod
     elif has_compiled:
-        compiled_model = model
-        model = model.__dict__["_orig_mod"]
+        # Skip if top-level not compiled, subs stay wrapped
+        if "_orig_mod" in model.__dict__:
+            compiled_model = model
+            model = model.__dict__["_orig_mod"]
 
     if is_deepspeed_available():
         from deepspeed import DeepSpeedEngine
@@ -289,7 +296,7 @@ def extract_model_from_parallel(
         if getattr(model, "_converted_to_transformer_engine", False):
             convert_model(model, to_transformer_engine=False)
 
-    if keep_torch_compile:
+    if keep_torch_compile and compiled_model is not None:
         if is_compiled:
             compiled_model._orig_mod = model
             model = compiled_model

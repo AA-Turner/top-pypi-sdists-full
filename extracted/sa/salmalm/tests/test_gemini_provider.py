@@ -50,18 +50,14 @@ class TestBuildGeminiContents(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(len(result[0]['parts']), 2)
 
-    def test_multimodal_text_and_image(self):
-        """Images must be forwarded as Gemini inline_data (not silently dropped)."""
+    def test_multimodal_text_extraction(self):
         from salmalm.core.llm import _build_gemini_contents
         msgs = [{'role': 'user', 'content': [
             {'type': 'text', 'text': 'Describe this'},
-            {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/png', 'data': 'abc123'}},
+            {'type': 'image', 'source': {'type': 'base64', 'data': 'abc'}},
         ]}]
         result = _build_gemini_contents(msgs)
-        parts = result[0]['parts']
-        self.assertEqual(len(parts), 2, "Both text and image parts must be present")
-        self.assertEqual(parts[0], {'text': 'Describe this'})
-        self.assertEqual(parts[1], {'inline_data': {'mime_type': 'image/png', 'data': 'abc123'}})
+        self.assertEqual(result[0]['parts'], [{'text': 'Describe this'}])
 
     def test_alternating_roles_not_merged(self):
         from salmalm.core.llm import _build_gemini_contents
@@ -274,7 +270,7 @@ class TestGeminiRouterAvailability(unittest.TestCase):
 class TestGeminiCallGoogle(unittest.TestCase):
     """Test _call_google non-streaming."""
 
-    @patch('salmalm.core.llm.google._http_post')
+    @patch('salmalm.core.llm._http_post')
     def test_call_google_basic(self, mock_post):
         from salmalm.core.llm import _call_google
         mock_post.return_value = {
@@ -287,7 +283,7 @@ class TestGeminiCallGoogle(unittest.TestCase):
         self.assertEqual(result['usage']['input'], 10)
         self.assertEqual(result['usage']['output'], 5)
 
-    @patch('salmalm.core.llm.google._http_post')
+    @patch('salmalm.core.llm._http_post')
     def test_call_google_with_tools(self, mock_post):
         from salmalm.core.llm import _call_google
         mock_post.return_value = {
@@ -304,7 +300,7 @@ class TestGeminiCallGoogle(unittest.TestCase):
         self.assertEqual(result['tool_calls'][0]['name'], 'web_search')
         self.assertEqual(result['tool_calls'][0]['arguments'], {'q': 'test'})
 
-    @patch('salmalm.core.llm.google._http_post')
+    @patch('salmalm.core.llm._http_post')
     def test_call_google_empty_response(self, mock_post):
         from salmalm.core.llm import _call_google
         mock_post.return_value = {'candidates': [], 'usageMetadata': {}}

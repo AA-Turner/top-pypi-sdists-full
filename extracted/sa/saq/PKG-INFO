@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: saq
-Version: 0.26.1
+Version: 0.26.3
 Summary: Distributed Python job queue with asyncio and redis
 Home-page: https://github.com/tobymao/saq
 Author: Toby Mao
@@ -48,6 +48,7 @@ Requires-Dist: aiohttp; extra == "dev"
 Requires-Dist: aiohttp_basicauth; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pandas; extra == "dev"
 Requires-Dist: psycopg[pool]>=3.2.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: redis<7.0,>=4.2; extra == "dev"

@@ -95,6 +95,9 @@ exclude = ["plato/v1"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests that require real Chronos VMs and API keys (PLATO_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY)",
+]
 
 [dependency-groups]
 dev = [

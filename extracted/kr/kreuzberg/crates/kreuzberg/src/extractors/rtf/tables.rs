@@ -1,6 +1,6 @@
 //! Table extraction and state management for RTF documents.
 
-use crate::extraction::cells_to_markdown;
+use crate::extraction::{cells_to_markdown, cells_to_text};
 use crate::types::Table;
 
 /// State machine for tracking table construction during RTF parsing.
@@ -57,8 +57,9 @@ impl TableState {
         self.rows.is_empty() && self.current_row.is_empty() && self.current_cell.is_empty()
     }
 
-    /// Finalize the table and convert it to a Table struct.
-    pub fn finalize(mut self) -> Option<Table> {
+    /// Finalize the table with format control. If `plain` is true, the table
+    /// text representation uses tab-separated format instead of markdown pipes.
+    pub fn finalize_with_format(mut self, plain: bool) -> Option<Table> {
         if self.in_row || !self.current_cell.is_empty() || !self.current_row.is_empty() {
             self.push_row();
         }
@@ -67,7 +68,11 @@ impl TableState {
             return None;
         }
 
-        let markdown = cells_to_markdown(&self.rows);
+        let markdown = if plain {
+            cells_to_text(&self.rows)
+        } else {
+            cells_to_markdown(&self.rows)
+        };
         Some(Table {
             cells: self.rows,
             markdown,

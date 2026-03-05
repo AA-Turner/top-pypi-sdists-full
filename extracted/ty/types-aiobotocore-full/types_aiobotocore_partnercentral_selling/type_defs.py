@@ -251,6 +251,7 @@ __all__ = (
     "SubmitOpportunityRequestTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
+    "TargetCloseDateFilterTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateEngagementContextPayloadTypeDef",
@@ -592,6 +593,11 @@ class ListEngagementResourceAssociationsRequestTypeDef(TypedDict):
 class OpportunitySortTypeDef(TypedDict):
     SortOrder: SortOrderType
     SortBy: OpportunitySortNameType
+
+
+class TargetCloseDateFilterTypeDef(TypedDict):
+    AfterTargetCloseDate: NotRequired[str]
+    BeforeTargetCloseDate: NotRequired[str]
 
 
 class ListOpportunityFromEngagementTaskSummaryTypeDef(TypedDict):
@@ -1359,6 +1365,7 @@ class ListOpportunitiesRequestPaginateTypeDef(TypedDict):
     LifeCycleReviewStatus: NotRequired[Sequence[ReviewStatusType]]
     CustomerCompanyName: NotRequired[Sequence[str]]
     CreatedDate: NotRequired[CreatedDateFilterTypeDef]
+    TargetCloseDate: NotRequired[TargetCloseDateFilterTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1373,6 +1380,7 @@ class ListOpportunitiesRequestTypeDef(TypedDict):
     LifeCycleReviewStatus: NotRequired[Sequence[ReviewStatusType]]
     CustomerCompanyName: NotRequired[Sequence[str]]
     CreatedDate: NotRequired[CreatedDateFilterTypeDef]
+    TargetCloseDate: NotRequired[TargetCloseDateFilterTypeDef]
 
 
 class LifeCycleTypeDef(TypedDict):

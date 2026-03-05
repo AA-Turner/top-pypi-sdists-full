@@ -35,23 +35,12 @@ from salmalm.security.crypto import log
 
 # ── JSON-RPC helpers ──────────────────────────────────────────
 
-MCP_ALLOWED_COMMAND_PREFIXES = ("npx ", "uvx ", "python ", "python3 ", "node ")
-MCP_BLOCKED_COMMAND_CHARS = set(";|&`$(){}[]<>\n")
-
-
-def is_safe_mcp_command(command: str) -> bool:
-    """Validate MCP add command using static allowlist + shell metacharacter denylist."""
-    cmd = str(command or "").strip()
-    return bool(cmd) and cmd.startswith(MCP_ALLOWED_COMMAND_PREFIXES) and not any(
-        ch in MCP_BLOCKED_COMMAND_CHARS for ch in cmd
-    )
-
 _rpc_id = 0
 _rpc_id_lock = threading.Lock()
 
 
 def _next_id() -> int:
-    """Thread-safe monotonic RPC ID generator."""
+    """Thread-safe RPC request ID generator."""
     global _rpc_id
     with _rpc_id_lock:
         _rpc_id += 1
@@ -331,6 +320,17 @@ class MCPServer:
 # ══════════════════════════════════════════════════════════════
 
 
+def _sanitize_mcp_desc(desc: str, max_len: int = 500) -> str:
+    """Strip injection-prone content from MCP tool descriptions."""
+    import re
+    # Remove common prompt injection patterns
+    desc = re.sub(r'(?i)(system\s*override|ignore\s*previous|you\s*must|you\s*are\s*now)', '[FILTERED]', desc)
+    # Strip control characters and excessive whitespace
+    desc = re.sub(r'[\x00-\x1f\x7f]', ' ', desc)
+    desc = re.sub(r'\s{3,}', '  ', desc)
+    return desc[:max_len]
+
+
 class MCPClientConnection:
     """A connection to a single external MCP server (stdio transport)."""
 
@@ -348,13 +348,19 @@ class MCPClientConnection:
         self._lock = threading.Lock()
         self._connected = False
         self._rpc_responses: Dict[int, dict] = {}
-        self._rpc_responses_lock = threading.Lock()
         self._reader_thread: Optional[threading.Thread] = None
 
     def connect(self) -> bool:
         """Start the MCP server subprocess and initialize."""
         try:
-            full_env = {**os.environ, **self.env}
+            # Sanitize env: only forward safe vars, strip secrets
+            import re as _re
+            _SECRET_PAT = _re.compile(r"(?i)(API[_-]?KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|AUTH|VAULT)")
+            _SAFE_BASE = {"PATH", "HOME", "USER", "LANG", "TMPDIR", "TERM", "SHELL",
+                          "XDG_RUNTIME_DIR", "XDG_DATA_HOME", "XDG_CONFIG_HOME"}
+            full_env = {k: v for k, v in os.environ.items()
+                        if k in _SAFE_BASE or not _SECRET_PAT.search(k)}
+            full_env.update(self.env)  # explicit user overrides allowed
             self._process = subprocess.Popen(
                 self.command,
                 stdin=subprocess.PIPE,
@@ -434,8 +440,7 @@ class MCPClientConnection:
                 try:
                     msg = json.loads(line)
                     if "id" in msg:
-                        with self._rpc_responses_lock:
-                            self._rpc_responses[msg["id"]] = msg
+                        self._rpc_responses[msg["id"]] = msg
                 except json.JSONDecodeError:
                     continue
         except Exception as e:
@@ -459,14 +464,11 @@ class MCPClientConnection:
         # Wait for response
         deadline = time.time() + timeout
         while time.time() < deadline:
-            with self._rpc_responses_lock:
-                if rid in self._rpc_responses:
-                    return self._rpc_responses.pop(rid)
+            if rid in self._rpc_responses:
+                return self._rpc_responses.pop(rid)
             time.sleep(0.05)
-        with self._rpc_responses_lock:
-            self._rpc_responses.pop(rid, None)
         log.warning(f"MCP timeout ({self.name}): {method}")
-        raise TimeoutError(f"MCP timeout ({self.name}): {method}")
+        return None
 
     def _send_notification(self, method: str, params: Optional[dict] = None):
         """Send JSON-RPC notification (no id, no response expected)."""
@@ -489,26 +491,19 @@ class MCPClientConnection:
         """Call a tool on the remote MCP server."""
         if not self._connected:
             return None
-        try:
-            resp = self._send_request(
-                "tools/call",
-                {
-                    "name": name,
-                    "arguments": arguments or {},
-                },
-                timeout=timeout or 30,
-            )
-        except TimeoutError as e:
-            return f"MCP Timeout: {e}"
+        resp = self._send_request(
+            "tools/call",
+            {
+                "name": name,
+                "arguments": arguments or {},
+            },
+            timeout=timeout,
+        )
         if resp and "result" in resp:
             result = resp["result"]
             contents = result.get("content", [])
             texts = [c.get("text", "") for c in contents if c.get("type") == "text"]
-            text = "\n".join(texts) if texts else str(result)
-            if len(text) > 50_000:
-                suffix = "[truncated]"
-                text = text[: 50_000 - len(suffix)] + suffix
-            return text
+            return "\n".join(texts) if texts else str(result)
         if resp and "error" in resp:
             return f"MCP Error: {resp['error'].get('message', 'unknown')}"
         return None
@@ -517,18 +512,11 @@ class MCPClientConnection:
         """Read a resource from the remote MCP server."""
         if not self._connected:
             return None
-        try:
-            resp = self._send_request("resources/read", {"uri": uri}, timeout=30)
-        except TimeoutError:
-            return None
+        resp = self._send_request("resources/read", {"uri": uri})
         if resp and "result" in resp:
             contents = resp["result"].get("contents", [])
             texts = [c.get("text", "") for c in contents]
-            text = "\n".join(texts) if texts else None
-            if text and len(text) > 50_000:
-                suffix = "[truncated]"
-                text = text[: 50_000 - len(suffix)] + suffix
-            return text
+            return "\n".join(texts) if texts else None
         return None
 
 
@@ -594,7 +582,7 @@ class MCPManager:
                 tools.append(
                     {
                         "name": f"mcp_{name}_{tool['name']}",
-                        "description": f"[MCP:{name}] {tool.get('description', '')}",
+                        "description": f"[MCP:{name}] {_sanitize_mcp_desc(tool.get('description', ''))}",
                         "input_schema": tool.get("inputSchema", {"type": "object", "properties": {}}),
                         "_mcp_server": name,
                         "_mcp_tool": tool["name"],
@@ -664,8 +652,7 @@ async def _run_server_stdio():
         logging.root.removeHandler(handler)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-    from salmalm.tools.tool_handlers import execute_tool
-    from salmalm.tools.tool_registry import get_all_tools as TOOL_DEFINITIONS
+    from salmalm.tools import TOOL_DEFINITIONS, execute_tool
 
     server = MCPServer()
 

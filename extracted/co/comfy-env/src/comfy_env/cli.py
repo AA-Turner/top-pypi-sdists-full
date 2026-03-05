@@ -1,6 +1,7 @@
 """CLI for comfy-env."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -44,6 +45,12 @@ def main(args: Optional[List[str]] = None) -> int:
     p.add_argument("--config", "-c", type=str, help="Config path")
     p.add_argument("--dry-run", action="store_true", help="Preview only")
 
+    # settings
+    sub.add_parser("settings", help="Configure comfy-env settings")
+
+    # debug (alias for settings, opens on Debug tab)
+    sub.add_parser("debug", help="Toggle debug logging categories")
+
     # cleanup
     sub.add_parser("cleanup", help="Remove orphaned environments")
 
@@ -55,7 +62,7 @@ def main(args: Optional[List[str]] = None) -> int:
     commands = {
         "init": cmd_init, "generate": cmd_generate, "install": cmd_install,
         "info": cmd_info, "doctor": cmd_doctor, "apt-install": cmd_apt_install,
-        "cleanup": cmd_cleanup,
+        "settings": cmd_settings, "debug": cmd_debug, "cleanup": cmd_cleanup,
     }
 
     try:
@@ -231,6 +238,273 @@ def cmd_apt_install(args) -> int:
     subprocess.run(prefix + ["apt-get", "update"], capture_output=False)
     result = subprocess.run(prefix + ["apt-get", "install", "-y"] + packages, capture_output=False)
     return result.returncode
+
+
+def _read_env_file(path):
+    """Read KEY=VALUE file, return set of enabled keys."""
+    enabled = set()
+    if path.exists():
+        try:
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    if v.strip().lower() in ("1", "true", "yes"):
+                        enabled.add(k.strip())
+        except Exception:
+            pass
+    return enabled
+
+
+def cmd_settings(args) -> int:
+    """Configure comfy-env settings (tabbed TUI)."""
+    return _open_settings_tui(initial_tab=0)
+
+
+def cmd_debug(args) -> int:
+    """Toggle debug logging categories (alias for settings, opens on Debug tab)."""
+    return _open_settings_tui(initial_tab=1)
+
+
+def _open_settings_tui(initial_tab=0) -> int:
+    from .debug import CATEGORIES as DEBUG_CATEGORIES, SETTINGS_FILE as DEBUG_FILE
+    from .settings import (GENERAL_SETTINGS, GENERAL_DEFAULTS, SETTINGS_FILE as GENERAL_FILE,
+                           PATCH_SETTINGS, PATCH_DEFAULTS)
+
+    # Read current state
+    debug_enabled = _read_env_file(DEBUG_FILE)
+    general_enabled = _read_env_file(GENERAL_FILE)
+    patch_enabled = _read_env_file(GENERAL_FILE)  # patches stored in same file
+
+    # Also check live env vars
+    for var, _ in DEBUG_CATEGORIES:
+        if os.environ.get(var, "").lower() in ("1", "true", "yes"):
+            debug_enabled.add(var)
+    for var, _ in GENERAL_SETTINGS:
+        val = os.environ.get(var, "")
+        if val.lower() in ("1", "true", "yes"):
+            general_enabled.add(var)
+        elif val == "" and GENERAL_DEFAULTS.get(var, False):
+            general_enabled.add(var)  # default on
+    for var, _ in PATCH_SETTINGS:
+        val = os.environ.get(var, "")
+        if val.lower() in ("1", "true", "yes"):
+            patch_enabled.add(var)
+        elif val == "" and PATCH_DEFAULTS.get(var, False):
+            patch_enabled.add(var)
+
+    tabs = [
+        ("General", GENERAL_SETTINGS, general_enabled, GENERAL_FILE),
+        ("Debug", DEBUG_CATEGORIES, debug_enabled, DEBUG_FILE),
+        ("Patches", PATCH_SETTINGS, patch_enabled, GENERAL_FILE),
+    ]
+
+    try:
+        import curses
+        return _settings_tui(curses, tabs, initial_tab)
+    except ImportError:
+        return _settings_text(tabs, initial_tab)
+
+
+def _settings_tui(curses, tabs, initial_tab):
+    """Curses-based tabbed settings TUI."""
+
+    tab_names = [t[0] for t in tabs]
+    tab_items = [t[1] for t in tabs]  # list of [(var, label), ...]
+    tab_selected = [[var in t[2] for var, _ in t[1]] for t in tabs]
+    tab_files = [t[3] for t in tabs]
+
+    active_tab = initial_tab
+    cursor = 0
+    status_msg = ""
+
+    def cur_items():
+        return tab_items[active_tab]
+
+    def cur_sel():
+        return tab_selected[active_tab]
+
+    def n_items():
+        return len(cur_items())
+
+    def draw(stdscr):
+        nonlocal active_tab, cursor, status_msg
+        curses.curs_set(0)
+        if curses.has_colors():
+            curses.start_color()
+            curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
+            curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
+            curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)
+
+        while True:
+            stdscr.erase()
+            h, w = stdscr.getmaxyx()
+            stdscr.addstr(0, 2, "comfy-env settings", curses.A_BOLD)
+            stdscr.addstr(1, 2, "\u2501" * min(40, w - 4))
+
+            # Tab bar
+            col = 2
+            for i, name in enumerate(tab_names):
+                if i == active_tab:
+                    label = f" \u25b8 {name} "
+                    attr = curses.A_BOLD | curses.A_REVERSE
+                else:
+                    label = f"   {name} "
+                    attr = curses.A_DIM
+                if col + len(label) < w:
+                    stdscr.addstr(2, col, label, attr)
+                col += len(label) + 1
+
+            # Checkboxes
+            items = cur_items()
+            sel = cur_sel()
+            ni = n_items()
+            for i, (var, label) in enumerate(items):
+                y = i + 4
+                if y >= h - 4:
+                    break
+                check = "x" if sel[i] else " "
+                # Debug tab: master switch indicator
+                if active_tab == 1 and i > 0 and sel[0] and not sel[i]:
+                    check = "*"
+                attr = curses.A_REVERSE if cursor == i else 0
+                line = f"  [{check}] {label:<48s} {var}"
+                stdscr.addstr(y, 0, line[:w-1], attr)
+
+            # Button row
+            btn_y = ni + 5
+            if btn_y < h - 2:
+                apply_attr = curses.A_REVERSE | curses.A_BOLD if cursor == ni else curses.A_BOLD
+                stdscr.addstr(btn_y, 2, "[ Apply & Exit ]", apply_attr)
+                quit_attr = curses.A_REVERSE if cursor == ni + 1 else 0
+                stdscr.addstr(btn_y, 22, "[ Quit ]", quit_attr)
+
+            # Help
+            help_y = btn_y + 2
+            if help_y < h:
+                stdscr.addstr(help_y, 2,
+                              "Tab/\u2190\u2192 switch tab  \u2191\u2193 navigate  Space toggle  q quit",
+                              curses.A_DIM)
+                if active_tab == 1 and help_y + 1 < h:
+                    stdscr.addstr(help_y + 1, 2, "* = enabled via master switch",
+                                  curses.A_DIM)
+
+            # Status message
+            if status_msg:
+                sy = help_y + 2 if active_tab == 1 else help_y + 1
+                if sy < h:
+                    color = curses.color_pair(1) if curses.has_colors() else curses.A_BOLD
+                    stdscr.addstr(sy, 2, status_msg, color)
+
+            stdscr.refresh()
+            key = stdscr.getch()
+            status_msg = ""
+
+            ni = n_items()  # refresh after potential tab switch
+
+            if key in (ord('q'), ord('Q'), 27):  # q or ESC
+                return 0
+            elif key == 9 or key == curses.KEY_RIGHT:  # Tab or Right
+                active_tab = (active_tab + 1) % len(tabs)
+                cursor = 0
+            elif key == curses.KEY_LEFT:
+                active_tab = (active_tab - 1) % len(tabs)
+                cursor = 0
+            elif key == curses.KEY_UP and cursor > 0:
+                cursor -= 1
+            elif key == curses.KEY_DOWN and cursor < n_items() + 1:
+                cursor += 1
+            elif key in (ord(' '), curses.KEY_ENTER, 10, 13):
+                ni = n_items()
+                if cursor < ni:
+                    cur_sel()[cursor] = not cur_sel()[cursor]
+                elif cursor == ni:
+                    _save_all_settings(tab_items, tab_selected, tab_files)
+                    return 0
+                elif cursor == ni + 1:
+                    return 0
+            elif key in (ord('a'), ord('A')):
+                _save_all_settings(tab_items, tab_selected, tab_files)
+                return 0
+
+    return curses.wrapper(draw)
+
+
+def _settings_text(tabs, initial_tab):
+    """Simple text fallback for systems without curses."""
+    tab_items = [t[1] for t in tabs]
+    tab_selected = [[var in t[2] for var, _ in t[1]] for t in tabs]
+    tab_files = [t[3] for t in tabs]
+
+    print("comfy-env settings")
+    print("=" * 40)
+    offset = 0
+    offsets = []
+    for ti, (name, items, _, _) in enumerate(tabs):
+        print(f"\n  --- {name} ---")
+        offsets.append(offset)
+        for i, (var, label) in enumerate(items):
+            check = "x" if tab_selected[ti][i] else " "
+            if ti == 1 and i > 0 and tab_selected[ti][0] and not tab_selected[ti][i]:
+                check = "*"
+            print(f"  {offset + i}. [{check}] {label:<48s} {var}")
+        offset += len(items)
+    print()
+    print("Enter numbers to toggle (space-separated), 'save' to save, 'quit' to exit:")
+
+    while True:
+        try:
+            line = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            return 0
+        if line.lower() in ("q", "quit", "exit"):
+            return 0
+        if line.lower() in ("s", "save"):
+            _save_all_settings(tab_items, tab_selected, tab_files)
+            print("Saved.")
+            return 0
+        for part in line.split():
+            try:
+                idx = int(part)
+                # Find which tab and local index
+                for ti in range(len(tabs)):
+                    if idx < offsets[ti] + len(tab_items[ti]):
+                        local = idx - offsets[ti]
+                        if 0 <= local < len(tab_items[ti]):
+                            tab_selected[ti][local] = not tab_selected[ti][local]
+                        break
+            except ValueError:
+                pass
+        # Redisplay
+        for ti, (name, items, _, _) in enumerate(tabs):
+            print(f"\n  --- {name} ---")
+            for i, (var, label) in enumerate(items):
+                check = "x" if tab_selected[ti][i] else " "
+                if ti == 1 and i > 0 and tab_selected[ti][0] and not tab_selected[ti][i]:
+                    check = "*"
+                print(f"  {offsets[ti] + i}. [{check}] {label:<48s} {var}")
+
+
+def _save_all_settings(tab_items, tab_selected, tab_files):
+    """Write settings to their respective files (merges tabs sharing the same file)."""
+    # Group by file path (General and Patches may share the same file)
+    from collections import defaultdict
+    file_entries = defaultdict(list)  # filepath -> [(var, enabled), ...]
+    for items, selected, filepath in zip(tab_items, tab_selected, tab_files):
+        for i, (var, _) in enumerate(items):
+            file_entries[filepath].append((var, selected[i]))
+            # Update current process env
+            os.environ[var] = "1" if selected[i] else "0"
+
+    for filepath, entries in file_entries.items():
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        lines = ["# comfy-env settings (managed by `comfy-env settings`)\n"]
+        for var, enabled in entries:
+            lines.append(f"{var}={'1' if enabled else '0'}\n")
+        filepath.write_text("".join(lines))
+
+    unique_files = list(dict.fromkeys(str(f) for f in tab_files))
+    print(f"Saved to {', '.join(unique_files)}")
 
 
 def cmd_cleanup(args) -> int:

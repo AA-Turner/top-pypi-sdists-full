@@ -22695,6 +22695,8 @@ class scout_asset_api_AssetSortField(ConjureEnumType):
     '''NAME'''
     CREATED_AT = 'CREATED_AT'
     '''CREATED_AT'''
+    MOST_RECENT_RUN_START = 'MOST_RECENT_RUN_START'
+    '''MOST_RECENT_RUN_START'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -28445,28 +28447,241 @@ scout_channelvariables_api_ChannelVariable.__qualname__ = "ChannelVariable"
 scout_channelvariables_api_ChannelVariable.__module__ = "nominal_api.scout_channelvariables_api"
 
 
+class scout_channelvariables_api_ChannelVariableComputeExpression(ConjureUnionType):
+    _v1: Optional["scout_channelvariables_api_ChannelVariableComputeExpressionV1"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', scout_channelvariables_api_ChannelVariableComputeExpressionV1)
+        }
+
+    def __init__(
+            self,
+            v1: Optional["scout_channelvariables_api_ChannelVariableComputeExpressionV1"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional["scout_channelvariables_api_ChannelVariableComputeExpressionV1"]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_channelvariables_api_ChannelVariableComputeExpressionVisitor):
+            raise ValueError('{} is not an instance of scout_channelvariables_api_ChannelVariableComputeExpressionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+scout_channelvariables_api_ChannelVariableComputeExpression.__name__ = "ChannelVariableComputeExpression"
+scout_channelvariables_api_ChannelVariableComputeExpression.__qualname__ = "ChannelVariableComputeExpression"
+scout_channelvariables_api_ChannelVariableComputeExpression.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: "scout_channelvariables_api_ChannelVariableComputeExpressionV1") -> Any:
+        pass
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionVisitor.__name__ = "ChannelVariableComputeExpressionVisitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionVisitor.__qualname__ = "ChannelVariableComputeExpressionVisitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionVisitor.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionInput(ConjureUnionType):
+    _variable: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'variable': ConjureFieldDefinition('variable', scout_channelvariables_api_ChannelVariableName)
+        }
+
+    def __init__(
+            self,
+            variable: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (variable is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if variable is not None:
+                self._variable = variable
+                self._type = 'variable'
+
+        elif type_of_union == 'variable':
+            if variable is None:
+                raise ValueError('a union value must not be None')
+            self._variable = variable
+            self._type = 'variable'
+
+    @builtins.property
+    def variable(self) -> Optional[str]:
+        return self._variable
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor):
+            raise ValueError('{} is not an instance of scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'variable' and self.variable is not None:
+            return visitor._variable(self.variable)
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionInput.__name__ = "ChannelVariableComputeExpressionInput"
+scout_channelvariables_api_ChannelVariableComputeExpressionInput.__qualname__ = "ChannelVariableComputeExpressionInput"
+scout_channelvariables_api_ChannelVariableComputeExpressionInput.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor:
+
+    @abstractmethod
+    def _variable(self, variable: str) -> Any:
+        pass
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor.__name__ = "ChannelVariableComputeExpressionInputVisitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor.__qualname__ = "ChannelVariableComputeExpressionInputVisitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionV1(ConjureUnionType):
+    _python: Optional["scout_channelvariables_api_ChannelVariableComputeExpressionV1Python"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'python': ConjureFieldDefinition('python', scout_channelvariables_api_ChannelVariableComputeExpressionV1Python)
+        }
+
+    def __init__(
+            self,
+            python: Optional["scout_channelvariables_api_ChannelVariableComputeExpressionV1Python"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (python is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if python is not None:
+                self._python = python
+                self._type = 'python'
+
+        elif type_of_union == 'python':
+            if python is None:
+                raise ValueError('a union value must not be None')
+            self._python = python
+            self._type = 'python'
+
+    @builtins.property
+    def python(self) -> Optional["scout_channelvariables_api_ChannelVariableComputeExpressionV1Python"]:
+        return self._python
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_channelvariables_api_ChannelVariableComputeExpressionV1Visitor):
+            raise ValueError('{} is not an instance of scout_channelvariables_api_ChannelVariableComputeExpressionV1Visitor'.format(visitor.__class__.__name__))
+        if self._type == 'python' and self.python is not None:
+            return visitor._python(self.python)
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionV1.__name__ = "ChannelVariableComputeExpressionV1"
+scout_channelvariables_api_ChannelVariableComputeExpressionV1.__qualname__ = "ChannelVariableComputeExpressionV1"
+scout_channelvariables_api_ChannelVariableComputeExpressionV1.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionV1Visitor:
+
+    @abstractmethod
+    def _python(self, python: "scout_channelvariables_api_ChannelVariableComputeExpressionV1Python") -> Any:
+        pass
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionV1Visitor.__name__ = "ChannelVariableComputeExpressionV1Visitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionV1Visitor.__qualname__ = "ChannelVariableComputeExpressionV1Visitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionV1Visitor.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionV1Python(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'expression': ConjureFieldDefinition('expression', str),
+            'input_map': ConjureFieldDefinition('inputMap', Dict[str, scout_channelvariables_api_ChannelVariableComputeExpressionInput])
+        }
+
+    __slots__: List[str] = ['_expression', '_input_map']
+
+    def __init__(self, expression: str, input_map: Dict[str, "scout_channelvariables_api_ChannelVariableComputeExpressionInput"]) -> None:
+        self._expression = expression
+        self._input_map = input_map
+
+    @builtins.property
+    def expression(self) -> str:
+        """The python code string representing the compute for this variable.
+Can be up to 10000 characters long.
+        """
+        return self._expression
+
+    @builtins.property
+    def input_map(self) -> Dict[str, "scout_channelvariables_api_ChannelVariableComputeExpressionInput"]:
+        """A map of inputs by the name they're referenced by in the expression.
+Inputs can be other channel variables.
+        """
+        return self._input_map
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionV1Python.__name__ = "ChannelVariableComputeExpressionV1Python"
+scout_channelvariables_api_ChannelVariableComputeExpressionV1Python.__qualname__ = "ChannelVariableComputeExpressionV1Python"
+scout_channelvariables_api_ChannelVariableComputeExpressionV1Python.__module__ = "nominal_api.scout_channelvariables_api"
+
+
 class scout_channelvariables_api_ComputeNodeWithContext(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'compute_node': ConjureFieldDefinition('computeNode', scout_compute_api_ComputeNode),
-            'context': ConjureFieldDefinition('context', scout_channelvariables_api_WorkbookContext)
+            'context': ConjureFieldDefinition('context', scout_channelvariables_api_WorkbookContext),
+            'compute_expression': ConjureFieldDefinition('computeExpression', OptionalTypeWrapper[scout_channelvariables_api_ChannelVariableComputeExpression])
         }
 
-    __slots__: List[str] = ['_compute_node', '_context']
+    __slots__: List[str] = ['_compute_node', '_context', '_compute_expression']
 
-    def __init__(self, compute_node: "scout_compute_api_ComputeNode", context: "scout_channelvariables_api_WorkbookContext") -> None:
+    def __init__(self, compute_node: "scout_compute_api_ComputeNode", context: "scout_channelvariables_api_WorkbookContext", compute_expression: Optional["scout_channelvariables_api_ChannelVariableComputeExpression"] = None) -> None:
         self._compute_node = compute_node
         self._context = context
+        self._compute_expression = compute_expression
 
     @builtins.property
     def compute_node(self) -> "scout_compute_api_ComputeNode":
+        """Graph representation of the compute for a channel variable.
+        """
         return self._compute_node
 
     @builtins.property
     def context(self) -> "scout_channelvariables_api_WorkbookContext":
         return self._context
+
+    @builtins.property
+    def compute_expression(self) -> Optional["scout_channelvariables_api_ChannelVariableComputeExpression"]:
+        """Code representation of the compute for a channel variable. Should be equivalent to the computeNode.
+        """
+        return self._compute_expression
 
 
 scout_channelvariables_api_ComputeNodeWithContext.__name__ = "ComputeNodeWithContext"
@@ -44161,18 +44376,22 @@ class scout_comparisonnotebook_api_ComputeNodeWithContext(ConjureBeanType):
         return {
             'compute_node': ConjureFieldDefinition('computeNode', scout_compute_api_ComputeNode),
             'context': ConjureFieldDefinition('context', scout_comparisonnotebook_api_ComparisonWorkbookContext),
-            'supplemental_context': ConjureFieldDefinition('supplementalContext', scout_comparisonnotebook_api_SupplementalComparisonWorkbookContext)
+            'supplemental_context': ConjureFieldDefinition('supplementalContext', scout_comparisonnotebook_api_SupplementalComparisonWorkbookContext),
+            'compute_expression': ConjureFieldDefinition('computeExpression', OptionalTypeWrapper[scout_channelvariables_api_ChannelVariableComputeExpression])
         }
 
-    __slots__: List[str] = ['_compute_node', '_context', '_supplemental_context']
+    __slots__: List[str] = ['_compute_node', '_context', '_supplemental_context', '_compute_expression']
 
-    def __init__(self, compute_node: "scout_compute_api_ComputeNode", context: "scout_comparisonnotebook_api_ComparisonWorkbookContext", supplemental_context: "scout_comparisonnotebook_api_SupplementalComparisonWorkbookContext") -> None:
+    def __init__(self, compute_node: "scout_compute_api_ComputeNode", context: "scout_comparisonnotebook_api_ComparisonWorkbookContext", supplemental_context: "scout_comparisonnotebook_api_SupplementalComparisonWorkbookContext", compute_expression: Optional["scout_channelvariables_api_ChannelVariableComputeExpression"] = None) -> None:
         self._compute_node = compute_node
         self._context = context
         self._supplemental_context = supplemental_context
+        self._compute_expression = compute_expression
 
     @builtins.property
     def compute_node(self) -> "scout_compute_api_ComputeNode":
+        """Graph representation of the compute for a variable.
+        """
         return self._compute_node
 
     @builtins.property
@@ -44182,6 +44401,12 @@ class scout_comparisonnotebook_api_ComputeNodeWithContext(ConjureBeanType):
     @builtins.property
     def supplemental_context(self) -> "scout_comparisonnotebook_api_SupplementalComparisonWorkbookContext":
         return self._supplemental_context
+
+    @builtins.property
+    def compute_expression(self) -> Optional["scout_channelvariables_api_ChannelVariableComputeExpression"]:
+        """Code representation of the compute for a variable. Should be equivalent to the computeNode.
+        """
+        return self._compute_expression
 
 
 scout_comparisonnotebook_api_ComputeNodeWithContext.__name__ = "ComputeNodeWithContext"
@@ -51915,8 +52140,11 @@ class scout_compute_api_ExtractEnumFromStructSeries(ConjureBeanType):
 
     @builtins.property
     def field_path(self) -> List["scout_compute_api_StringConstant"]:
-        """Path to the field to extract as an enum series. Nested fields are separated by periods and field names cannot contain periods.
-Will filter out invalid paths and paths to sub structures.
+        """Path segments that are joined to locate a nested enum field. Use dots to traverse
+objects (e.g. `a.b.c`) and 0-based brackets to index into arrays (e.g. `items[0].value`).
+A bare numeric name like `0` refers to an object key named "0"; use `[0]` to index
+into an array. Rows where the path is invalid or resolves to a nested object rather
+than a scalar are filtered out.
         """
         return self._field_path
 
@@ -51949,8 +52177,11 @@ class scout_compute_api_ExtractNumericFromStructSeries(ConjureBeanType):
 
     @builtins.property
     def field_path(self) -> List["scout_compute_api_StringConstant"]:
-        """Path to the field to extract as a numeric series. Nested fields are separated by periods and field names cannot contain periods.
-Will filter out invalid paths and values that cannot be converted to the specified type.
+        """Path segments that are joined to locate a nested numeric field. Use dots to traverse
+objects (e.g. `a.b.c`) and 0-based brackets to index into arrays (e.g. `items[0].value`).
+A bare numeric name like `0` refers to an object key named "0"; use [0] to index
+into an array. Rows where the path is invalid or the value cannot be converted to the
+specified type are filtered out.
         """
         return self._field_path
 
@@ -51987,8 +52218,11 @@ class scout_compute_api_ExtractStructFromStructSeries(ConjureBeanType):
 
     @builtins.property
     def field_path(self) -> List["scout_compute_api_StringConstant"]:
-        """Path to the field to extract as a struct. Nested fields are separated by periods and field names cannot contain periods.
-Returns an empty struct if the path is invalid or does not resolve to a valid JSON struct.
+        """Path segments that are joined to locate a nested struct field. Use dots to traverse
+objects (e.g. `a.b.c`) and 0-based brackets to index into arrays (e.g. `items[0].value`).
+A bare numeric name like `0` refers to an object key named "0"; use [0] to index
+into an array. Returns an empty struct when the path does not resolve to a valid
+JSON object.
         """
         return self._field_path
 
@@ -54880,6 +55114,43 @@ scout_compute_api_NotSeries.__qualname__ = "NotSeries"
 scout_compute_api_NotSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_NthRange(ConjureBeanType):
+    """Select the Nth range (0-indexed) from a range series.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_RangeSeries),
+            'index': ConjureFieldDefinition('index', scout_compute_api_IntegerConstant),
+            'sort_order': ConjureFieldDefinition('sortOrder', scout_compute_api_RangeSortOrder)
+        }
+
+    __slots__: List[str] = ['_input', '_index', '_sort_order']
+
+    def __init__(self, index: "scout_compute_api_IntegerConstant", input: "scout_compute_api_RangeSeries", sort_order: "scout_compute_api_RangeSortOrder") -> None:
+        self._input = input
+        self._index = index
+        self._sort_order = sort_order
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_RangeSeries":
+        return self._input
+
+    @builtins.property
+    def index(self) -> "scout_compute_api_IntegerConstant":
+        return self._index
+
+    @builtins.property
+    def sort_order(self) -> "scout_compute_api_RangeSortOrder":
+        return self._sort_order
+
+
+scout_compute_api_NthRange.__name__ = "NthRange"
+scout_compute_api_NthRange.__qualname__ = "NthRange"
+scout_compute_api_NthRange.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_Numeric1dArraySeries(ConjureUnionType):
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
@@ -54976,6 +55247,62 @@ class scout_compute_api_Numeric1dArraySeriesVisitor:
 scout_compute_api_Numeric1dArraySeriesVisitor.__name__ = "Numeric1dArraySeriesVisitor"
 scout_compute_api_Numeric1dArraySeriesVisitor.__qualname__ = "Numeric1dArraySeriesVisitor"
 scout_compute_api_Numeric1dArraySeriesVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_NumericAggregation(ConjureUnionType):
+    _percentile: Optional["scout_compute_api_Percentile"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'percentile': ConjureFieldDefinition('percentile', scout_compute_api_Percentile)
+        }
+
+    def __init__(
+            self,
+            percentile: Optional["scout_compute_api_Percentile"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (percentile is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if percentile is not None:
+                self._percentile = percentile
+                self._type = 'percentile'
+
+        elif type_of_union == 'percentile':
+            if percentile is None:
+                raise ValueError('a union value must not be None')
+            self._percentile = percentile
+            self._type = 'percentile'
+
+    @builtins.property
+    def percentile(self) -> Optional["scout_compute_api_Percentile"]:
+        return self._percentile
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_NumericAggregationVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_NumericAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'percentile' and self.percentile is not None:
+            return visitor._percentile(self.percentile)
+
+
+scout_compute_api_NumericAggregation.__name__ = "NumericAggregation"
+scout_compute_api_NumericAggregation.__qualname__ = "NumericAggregation"
+scout_compute_api_NumericAggregation.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_NumericAggregationVisitor:
+
+    @abstractmethod
+    def _percentile(self, percentile: "scout_compute_api_Percentile") -> Any:
+        pass
+
+
+scout_compute_api_NumericAggregationVisitor.__name__ = "NumericAggregationVisitor"
+scout_compute_api_NumericAggregationVisitor.__qualname__ = "NumericAggregationVisitor"
+scout_compute_api_NumericAggregationVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_NumericAggregationFunction(ConjureEnumType):
@@ -58717,6 +59044,27 @@ scout_compute_api_RangeSeriesVisitor.__qualname__ = "RangeSeriesVisitor"
 scout_compute_api_RangeSeriesVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_RangeSortOrder(ConjureEnumType):
+    """Sort order for selecting ranges. ASC selects from earliest to latest,
+DESC selects from latest to earliest.
+    """
+
+    ASC = 'ASC'
+    '''ASC'''
+    DESC = 'DESC'
+    '''DESC'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_RangeSortOrder.__name__ = "RangeSortOrder"
+scout_compute_api_RangeSortOrder.__qualname__ = "RangeSortOrder"
+scout_compute_api_RangeSortOrder.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_RangeSummary(ConjureBeanType):
     """Summary of a set of ranges
     """
@@ -59770,6 +60118,7 @@ class scout_compute_api_SelectValue(ConjureUnionType):
     _last_point: Optional["scout_compute_api_Series"] = None
     _last_value_point: Optional["scout_compute_api_Series"] = None
     _last_range: Optional["scout_compute_api_RangeSeries"] = None
+    _nth_range: Optional["scout_compute_api_NthRange"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -59779,7 +60128,8 @@ class scout_compute_api_SelectValue(ConjureUnionType):
             'first_range': ConjureFieldDefinition('firstRange', scout_compute_api_RangeSeries),
             'last_point': ConjureFieldDefinition('lastPoint', scout_compute_api_Series),
             'last_value_point': ConjureFieldDefinition('lastValuePoint', scout_compute_api_Series),
-            'last_range': ConjureFieldDefinition('lastRange', scout_compute_api_RangeSeries)
+            'last_range': ConjureFieldDefinition('lastRange', scout_compute_api_RangeSeries),
+            'nth_range': ConjureFieldDefinition('nthRange', scout_compute_api_NthRange)
         }
 
     def __init__(
@@ -59790,10 +60140,11 @@ class scout_compute_api_SelectValue(ConjureUnionType):
             last_point: Optional["scout_compute_api_Series"] = None,
             last_value_point: Optional["scout_compute_api_Series"] = None,
             last_range: Optional["scout_compute_api_RangeSeries"] = None,
+            nth_range: Optional["scout_compute_api_NthRange"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (first_point is not None) + (first_value_point is not None) + (first_range is not None) + (last_point is not None) + (last_value_point is not None) + (last_range is not None) != 1:
+            if (first_point is not None) + (first_value_point is not None) + (first_range is not None) + (last_point is not None) + (last_value_point is not None) + (last_range is not None) + (nth_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if first_point is not None:
@@ -59814,6 +60165,9 @@ class scout_compute_api_SelectValue(ConjureUnionType):
             if last_range is not None:
                 self._last_range = last_range
                 self._type = 'lastRange'
+            if nth_range is not None:
+                self._nth_range = nth_range
+                self._type = 'nthRange'
 
         elif type_of_union == 'firstPoint':
             if first_point is None:
@@ -59845,6 +60199,11 @@ class scout_compute_api_SelectValue(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._last_range = last_range
             self._type = 'lastRange'
+        elif type_of_union == 'nthRange':
+            if nth_range is None:
+                raise ValueError('a union value must not be None')
+            self._nth_range = nth_range
+            self._type = 'nthRange'
 
     @builtins.property
     def first_point(self) -> Optional["scout_compute_api_Series"]:
@@ -59870,6 +60229,10 @@ class scout_compute_api_SelectValue(ConjureUnionType):
     def last_range(self) -> Optional["scout_compute_api_RangeSeries"]:
         return self._last_range
 
+    @builtins.property
+    def nth_range(self) -> Optional["scout_compute_api_NthRange"]:
+        return self._nth_range
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_SelectValueVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_SelectValueVisitor'.format(visitor.__class__.__name__))
@@ -59885,6 +60248,8 @@ class scout_compute_api_SelectValue(ConjureUnionType):
             return visitor._last_value_point(self.last_value_point)
         if self._type == 'lastRange' and self.last_range is not None:
             return visitor._last_range(self.last_range)
+        if self._type == 'nthRange' and self.nth_range is not None:
+            return visitor._nth_range(self.nth_range)
 
 
 scout_compute_api_SelectValue.__name__ = "SelectValue"
@@ -59916,6 +60281,10 @@ class scout_compute_api_SelectValueVisitor:
 
     @abstractmethod
     def _last_range(self, last_range: "scout_compute_api_RangeSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _nth_range(self, nth_range: "scout_compute_api_NthRange") -> Any:
         pass
 
 
@@ -61269,17 +61638,19 @@ Summarization strategy should be specified.
             'input': ConjureFieldDefinition('input', scout_compute_api_Series),
             'output_format': ConjureFieldDefinition('outputFormat', OptionalTypeWrapper[scout_compute_api_OutputFormat]),
             'numeric_output_fields': ConjureFieldDefinition('numericOutputFields', OptionalTypeWrapper[List[scout_compute_api_NumericOutputField]]),
+            'numeric_aggregations': ConjureFieldDefinition('numericAggregations', Dict[str, scout_compute_api_NumericAggregation]),
             'resolution': ConjureFieldDefinition('resolution', OptionalTypeWrapper[int]),
             'buckets': ConjureFieldDefinition('buckets', OptionalTypeWrapper[int]),
             'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', OptionalTypeWrapper[scout_compute_api_SummarizationStrategy])
         }
 
-    __slots__: List[str] = ['_input', '_output_format', '_numeric_output_fields', '_resolution', '_buckets', '_summarization_strategy']
+    __slots__: List[str] = ['_input', '_output_format', '_numeric_output_fields', '_numeric_aggregations', '_resolution', '_buckets', '_summarization_strategy']
 
-    def __init__(self, input: "scout_compute_api_Series", buckets: Optional[int] = None, numeric_output_fields: Optional[List["scout_compute_api_NumericOutputField"]] = None, output_format: Optional["scout_compute_api_OutputFormat"] = None, resolution: Optional[int] = None, summarization_strategy: Optional["scout_compute_api_SummarizationStrategy"] = None) -> None:
+    def __init__(self, input: "scout_compute_api_Series", numeric_aggregations: Dict[str, "scout_compute_api_NumericAggregation"], buckets: Optional[int] = None, numeric_output_fields: Optional[List["scout_compute_api_NumericOutputField"]] = None, output_format: Optional["scout_compute_api_OutputFormat"] = None, resolution: Optional[int] = None, summarization_strategy: Optional["scout_compute_api_SummarizationStrategy"] = None) -> None:
         self._input = input
         self._output_format = output_format
         self._numeric_output_fields = numeric_output_fields
+        self._numeric_aggregations = numeric_aggregations
         self._resolution = resolution
         self._buckets = buckets
         self._summarization_strategy = summarization_strategy
@@ -61299,6 +61670,12 @@ Summarization strategy should be specified.
         """The fields to output from the summarization. Applies only to Arrow format numeric series.
         """
         return self._numeric_output_fields
+
+    @builtins.property
+    def numeric_aggregations(self) -> Dict[str, "scout_compute_api_NumericAggregation"]:
+        """Additional numeric aggregations per decimation bucket (e.g. percentiles). Map key is the name of the column in the result.
+        """
+        return self._numeric_aggregations
 
     @builtins.property
     def resolution(self) -> Optional[int]:
@@ -66941,12 +67318,12 @@ class scout_compute_resolved_api_ExtractEnumFromStructSeriesNode(ConjureBeanType
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_StructSeriesNode),
-            'field_path': ConjureFieldDefinition('fieldPath', str)
+            'field_path': ConjureFieldDefinition('fieldPath', List[scout_compute_resolved_api_StructFieldPathToken])
         }
 
     __slots__: List[str] = ['_input', '_field_path']
 
-    def __init__(self, field_path: str, input: "scout_compute_resolved_api_StructSeriesNode") -> None:
+    def __init__(self, field_path: List["scout_compute_resolved_api_StructFieldPathToken"], input: "scout_compute_resolved_api_StructSeriesNode") -> None:
         self._input = input
         self._field_path = field_path
 
@@ -66955,7 +67332,7 @@ class scout_compute_resolved_api_ExtractEnumFromStructSeriesNode(ConjureBeanType
         return self._input
 
     @builtins.property
-    def field_path(self) -> str:
+    def field_path(self) -> List["scout_compute_resolved_api_StructFieldPathToken"]:
         return self._field_path
 
 
@@ -66970,28 +67347,28 @@ class scout_compute_resolved_api_ExtractNumericFromStructSeriesNode(ConjureBeanT
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_StructSeriesNode),
-            'field_path': ConjureFieldDefinition('fieldPath', str),
-            'data_type': ConjureFieldDefinition('dataType', scout_compute_api_NumericDataType)
+            'data_type': ConjureFieldDefinition('dataType', scout_compute_api_NumericDataType),
+            'field_path': ConjureFieldDefinition('fieldPath', List[scout_compute_resolved_api_StructFieldPathToken])
         }
 
-    __slots__: List[str] = ['_input', '_field_path', '_data_type']
+    __slots__: List[str] = ['_input', '_data_type', '_field_path']
 
-    def __init__(self, data_type: "scout_compute_api_NumericDataType", field_path: str, input: "scout_compute_resolved_api_StructSeriesNode") -> None:
+    def __init__(self, data_type: "scout_compute_api_NumericDataType", field_path: List["scout_compute_resolved_api_StructFieldPathToken"], input: "scout_compute_resolved_api_StructSeriesNode") -> None:
         self._input = input
-        self._field_path = field_path
         self._data_type = data_type
+        self._field_path = field_path
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_StructSeriesNode":
         return self._input
 
     @builtins.property
-    def field_path(self) -> str:
-        return self._field_path
-
-    @builtins.property
     def data_type(self) -> "scout_compute_api_NumericDataType":
         return self._data_type
+
+    @builtins.property
+    def field_path(self) -> List["scout_compute_resolved_api_StructFieldPathToken"]:
+        return self._field_path
 
 
 scout_compute_resolved_api_ExtractNumericFromStructSeriesNode.__name__ = "ExtractNumericFromStructSeriesNode"
@@ -67005,12 +67382,12 @@ class scout_compute_resolved_api_ExtractStructFromStructSeriesNode(ConjureBeanTy
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_StructSeriesNode),
-            'field_path': ConjureFieldDefinition('fieldPath', str)
+            'field_path': ConjureFieldDefinition('fieldPath', List[scout_compute_resolved_api_StructFieldPathToken])
         }
 
     __slots__: List[str] = ['_input', '_field_path']
 
-    def __init__(self, field_path: str, input: "scout_compute_resolved_api_StructSeriesNode") -> None:
+    def __init__(self, field_path: List["scout_compute_resolved_api_StructFieldPathToken"], input: "scout_compute_resolved_api_StructSeriesNode") -> None:
         self._input = input
         self._field_path = field_path
 
@@ -67019,7 +67396,7 @@ class scout_compute_resolved_api_ExtractStructFromStructSeriesNode(ConjureBeanTy
         return self._input
 
     @builtins.property
-    def field_path(self) -> str:
+    def field_path(self) -> List["scout_compute_resolved_api_StructFieldPathToken"]:
         return self._field_path
 
 
@@ -68464,6 +68841,41 @@ class scout_compute_resolved_api_NotSeriesNode(ConjureBeanType):
 scout_compute_resolved_api_NotSeriesNode.__name__ = "NotSeriesNode"
 scout_compute_resolved_api_NotSeriesNode.__qualname__ = "NotSeriesNode"
 scout_compute_resolved_api_NotSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_NthRangeNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_RangesNode),
+            'index': ConjureFieldDefinition('index', int),
+            'sort_order': ConjureFieldDefinition('sortOrder', scout_compute_resolved_api_RangeSortOrder)
+        }
+
+    __slots__: List[str] = ['_input', '_index', '_sort_order']
+
+    def __init__(self, index: int, input: "scout_compute_resolved_api_RangesNode", sort_order: "scout_compute_resolved_api_RangeSortOrder") -> None:
+        self._input = input
+        self._index = index
+        self._sort_order = sort_order
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_RangesNode":
+        return self._input
+
+    @builtins.property
+    def index(self) -> int:
+        return self._index
+
+    @builtins.property
+    def sort_order(self) -> "scout_compute_resolved_api_RangeSortOrder":
+        return self._sort_order
+
+
+scout_compute_resolved_api_NthRangeNode.__name__ = "NthRangeNode"
+scout_compute_resolved_api_NthRangeNode.__qualname__ = "NthRangeNode"
+scout_compute_resolved_api_NthRangeNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_NumericArraySeriesNode(ConjureUnionType):
@@ -70025,6 +70437,24 @@ scout_compute_resolved_api_RangeMap.__qualname__ = "RangeMap"
 scout_compute_resolved_api_RangeMap.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_RangeSortOrder(ConjureEnumType):
+
+    ASC = 'ASC'
+    '''ASC'''
+    DESC = 'DESC'
+    '''DESC'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_resolved_api_RangeSortOrder.__name__ = "RangeSortOrder"
+scout_compute_resolved_api_RangeSortOrder.__qualname__ = "RangeSortOrder"
+scout_compute_resolved_api_RangeSortOrder.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_RangesNode(ConjureUnionType):
     _boolean_to_ranges: Optional["scout_compute_resolved_api_BooleanToRangesNode"] = None
     _duration_filter: Optional["scout_compute_resolved_api_DurationFilterRangesNode"] = None
@@ -71054,6 +71484,62 @@ scout_compute_resolved_api_ResolvedNodeVisitor.__qualname__ = "ResolvedNodeVisit
 scout_compute_resolved_api_ResolvedNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_ResolvedNumericAggregation(ConjureUnionType):
+    _percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'percentile': ConjureFieldDefinition('percentile', scout_compute_resolved_api_ResolvedPercentile)
+        }
+
+    def __init__(
+            self,
+            percentile: Optional["scout_compute_resolved_api_ResolvedPercentile"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (percentile is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if percentile is not None:
+                self._percentile = percentile
+                self._type = 'percentile'
+
+        elif type_of_union == 'percentile':
+            if percentile is None:
+                raise ValueError('a union value must not be None')
+            self._percentile = percentile
+            self._type = 'percentile'
+
+    @builtins.property
+    def percentile(self) -> Optional["scout_compute_resolved_api_ResolvedPercentile"]:
+        return self._percentile
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_ResolvedNumericAggregationVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_ResolvedNumericAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'percentile' and self.percentile is not None:
+            return visitor._percentile(self.percentile)
+
+
+scout_compute_resolved_api_ResolvedNumericAggregation.__name__ = "ResolvedNumericAggregation"
+scout_compute_resolved_api_ResolvedNumericAggregation.__qualname__ = "ResolvedNumericAggregation"
+scout_compute_resolved_api_ResolvedNumericAggregation.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ResolvedNumericAggregationVisitor:
+
+    @abstractmethod
+    def _percentile(self, percentile: "scout_compute_resolved_api_ResolvedPercentile") -> Any:
+        pass
+
+
+scout_compute_resolved_api_ResolvedNumericAggregationVisitor.__name__ = "ResolvedNumericAggregationVisitor"
+scout_compute_resolved_api_ResolvedNumericAggregationVisitor.__qualname__ = "ResolvedNumericAggregationVisitor"
+scout_compute_resolved_api_ResolvedNumericAggregationVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_ResolvedPercentile(ConjureBeanType):
     """The value at the specified percentile within the time window.
     """
@@ -71590,34 +72076,31 @@ scout_compute_resolved_api_SelectNewestPointsSeriesNode.__module__ = "nominal_ap
 class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
     _first_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
     _first_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
-    _first_range: Optional["scout_compute_resolved_api_RangesNode"] = None
     _last_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
     _last_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None
-    _last_range: Optional["scout_compute_resolved_api_RangesNode"] = None
+    _nth_range: Optional["scout_compute_resolved_api_NthRangeNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'first_point': ConjureFieldDefinition('firstPoint', scout_compute_resolved_api_SeriesNode),
             'first_value_point': ConjureFieldDefinition('firstValuePoint', scout_compute_resolved_api_SeriesNode),
-            'first_range': ConjureFieldDefinition('firstRange', scout_compute_resolved_api_RangesNode),
             'last_point': ConjureFieldDefinition('lastPoint', scout_compute_resolved_api_SeriesNode),
             'last_value_point': ConjureFieldDefinition('lastValuePoint', scout_compute_resolved_api_SeriesNode),
-            'last_range': ConjureFieldDefinition('lastRange', scout_compute_resolved_api_RangesNode)
+            'nth_range': ConjureFieldDefinition('nthRange', scout_compute_resolved_api_NthRangeNode)
         }
 
     def __init__(
             self,
             first_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
             first_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
-            first_range: Optional["scout_compute_resolved_api_RangesNode"] = None,
             last_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
             last_value_point: Optional["scout_compute_resolved_api_SeriesNode"] = None,
-            last_range: Optional["scout_compute_resolved_api_RangesNode"] = None,
+            nth_range: Optional["scout_compute_resolved_api_NthRangeNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (first_point is not None) + (first_value_point is not None) + (first_range is not None) + (last_point is not None) + (last_value_point is not None) + (last_range is not None) != 1:
+            if (first_point is not None) + (first_value_point is not None) + (last_point is not None) + (last_value_point is not None) + (nth_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if first_point is not None:
@@ -71626,18 +72109,15 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
             if first_value_point is not None:
                 self._first_value_point = first_value_point
                 self._type = 'firstValuePoint'
-            if first_range is not None:
-                self._first_range = first_range
-                self._type = 'firstRange'
             if last_point is not None:
                 self._last_point = last_point
                 self._type = 'lastPoint'
             if last_value_point is not None:
                 self._last_value_point = last_value_point
                 self._type = 'lastValuePoint'
-            if last_range is not None:
-                self._last_range = last_range
-                self._type = 'lastRange'
+            if nth_range is not None:
+                self._nth_range = nth_range
+                self._type = 'nthRange'
 
         elif type_of_union == 'firstPoint':
             if first_point is None:
@@ -71649,11 +72129,6 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._first_value_point = first_value_point
             self._type = 'firstValuePoint'
-        elif type_of_union == 'firstRange':
-            if first_range is None:
-                raise ValueError('a union value must not be None')
-            self._first_range = first_range
-            self._type = 'firstRange'
         elif type_of_union == 'lastPoint':
             if last_point is None:
                 raise ValueError('a union value must not be None')
@@ -71664,11 +72139,11 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._last_value_point = last_value_point
             self._type = 'lastValuePoint'
-        elif type_of_union == 'lastRange':
-            if last_range is None:
+        elif type_of_union == 'nthRange':
+            if nth_range is None:
                 raise ValueError('a union value must not be None')
-            self._last_range = last_range
-            self._type = 'lastRange'
+            self._nth_range = nth_range
+            self._type = 'nthRange'
 
     @builtins.property
     def first_point(self) -> Optional["scout_compute_resolved_api_SeriesNode"]:
@@ -71679,10 +72154,6 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
         return self._first_value_point
 
     @builtins.property
-    def first_range(self) -> Optional["scout_compute_resolved_api_RangesNode"]:
-        return self._first_range
-
-    @builtins.property
     def last_point(self) -> Optional["scout_compute_resolved_api_SeriesNode"]:
         return self._last_point
 
@@ -71691,8 +72162,8 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
         return self._last_value_point
 
     @builtins.property
-    def last_range(self) -> Optional["scout_compute_resolved_api_RangesNode"]:
-        return self._last_range
+    def nth_range(self) -> Optional["scout_compute_resolved_api_NthRangeNode"]:
+        return self._nth_range
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_SelectValueNodeVisitor):
@@ -71701,14 +72172,12 @@ class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):
             return visitor._first_point(self.first_point)
         if self._type == 'firstValuePoint' and self.first_value_point is not None:
             return visitor._first_value_point(self.first_value_point)
-        if self._type == 'firstRange' and self.first_range is not None:
-            return visitor._first_range(self.first_range)
         if self._type == 'lastPoint' and self.last_point is not None:
             return visitor._last_point(self.last_point)
         if self._type == 'lastValuePoint' and self.last_value_point is not None:
             return visitor._last_value_point(self.last_value_point)
-        if self._type == 'lastRange' and self.last_range is not None:
-            return visitor._last_range(self.last_range)
+        if self._type == 'nthRange' and self.nth_range is not None:
+            return visitor._nth_range(self.nth_range)
 
 
 scout_compute_resolved_api_SelectValueNode.__name__ = "SelectValueNode"
@@ -71727,10 +72196,6 @@ class scout_compute_resolved_api_SelectValueNodeVisitor:
         pass
 
     @abstractmethod
-    def _first_range(self, first_range: "scout_compute_resolved_api_RangesNode") -> Any:
-        pass
-
-    @abstractmethod
     def _last_point(self, last_point: "scout_compute_resolved_api_SeriesNode") -> Any:
         pass
 
@@ -71739,7 +72204,7 @@ class scout_compute_resolved_api_SelectValueNodeVisitor:
         pass
 
     @abstractmethod
-    def _last_range(self, last_range: "scout_compute_resolved_api_RangesNode") -> Any:
+    def _nth_range(self, nth_range: "scout_compute_resolved_api_NthRangeNode") -> Any:
         pass
 
 
@@ -72277,6 +72742,129 @@ scout_compute_resolved_api_StorageLocatorVisitor.__qualname__ = "StorageLocatorV
 scout_compute_resolved_api_StorageLocatorVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_StructFieldPathIndex(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', int)
+        }
+
+    __slots__: List[str] = ['_value']
+
+    def __init__(self, value: int) -> None:
+        self._value = value
+
+    @builtins.property
+    def value(self) -> int:
+        return self._value
+
+
+scout_compute_resolved_api_StructFieldPathIndex.__name__ = "StructFieldPathIndex"
+scout_compute_resolved_api_StructFieldPathIndex.__qualname__ = "StructFieldPathIndex"
+scout_compute_resolved_api_StructFieldPathIndex.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_StructFieldPathKey(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', str)
+        }
+
+    __slots__: List[str] = ['_value']
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    @builtins.property
+    def value(self) -> str:
+        return self._value
+
+
+scout_compute_resolved_api_StructFieldPathKey.__name__ = "StructFieldPathKey"
+scout_compute_resolved_api_StructFieldPathKey.__qualname__ = "StructFieldPathKey"
+scout_compute_resolved_api_StructFieldPathKey.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_StructFieldPathToken(ConjureUnionType):
+    _key: Optional["scout_compute_resolved_api_StructFieldPathKey"] = None
+    _index: Optional["scout_compute_resolved_api_StructFieldPathIndex"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'key': ConjureFieldDefinition('key', scout_compute_resolved_api_StructFieldPathKey),
+            'index': ConjureFieldDefinition('index', scout_compute_resolved_api_StructFieldPathIndex)
+        }
+
+    def __init__(
+            self,
+            key: Optional["scout_compute_resolved_api_StructFieldPathKey"] = None,
+            index: Optional["scout_compute_resolved_api_StructFieldPathIndex"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (key is not None) + (index is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if key is not None:
+                self._key = key
+                self._type = 'key'
+            if index is not None:
+                self._index = index
+                self._type = 'index'
+
+        elif type_of_union == 'key':
+            if key is None:
+                raise ValueError('a union value must not be None')
+            self._key = key
+            self._type = 'key'
+        elif type_of_union == 'index':
+            if index is None:
+                raise ValueError('a union value must not be None')
+            self._index = index
+            self._type = 'index'
+
+    @builtins.property
+    def key(self) -> Optional["scout_compute_resolved_api_StructFieldPathKey"]:
+        return self._key
+
+    @builtins.property
+    def index(self) -> Optional["scout_compute_resolved_api_StructFieldPathIndex"]:
+        return self._index
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_StructFieldPathTokenVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_StructFieldPathTokenVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'key' and self.key is not None:
+            return visitor._key(self.key)
+        if self._type == 'index' and self.index is not None:
+            return visitor._index(self.index)
+
+
+scout_compute_resolved_api_StructFieldPathToken.__name__ = "StructFieldPathToken"
+scout_compute_resolved_api_StructFieldPathToken.__qualname__ = "StructFieldPathToken"
+scout_compute_resolved_api_StructFieldPathToken.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_StructFieldPathTokenVisitor:
+
+    @abstractmethod
+    def _key(self, key: "scout_compute_resolved_api_StructFieldPathKey") -> Any:
+        pass
+
+    @abstractmethod
+    def _index(self, index: "scout_compute_resolved_api_StructFieldPathIndex") -> Any:
+        pass
+
+
+scout_compute_resolved_api_StructFieldPathTokenVisitor.__name__ = "StructFieldPathTokenVisitor"
+scout_compute_resolved_api_StructFieldPathTokenVisitor.__qualname__ = "StructFieldPathTokenVisitor"
+scout_compute_resolved_api_StructFieldPathTokenVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_StructSeriesNode(ConjureUnionType):
     _raw: Optional["scout_compute_resolved_api_ResolvedSeries"] = None
     _extract_from_struct: Optional["scout_compute_resolved_api_ExtractStructFromStructSeriesNode"] = None
@@ -72543,16 +73131,18 @@ class scout_compute_resolved_api_SummarizeSeriesNode(ConjureBeanType):
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_SeriesNode),
             'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', scout_compute_api_SummarizationStrategy),
             'output_format': ConjureFieldDefinition('outputFormat', scout_compute_api_OutputFormat),
-            'numeric_output_fields': ConjureFieldDefinition('numericOutputFields', OptionalTypeWrapper[List[scout_compute_api_NumericOutputField]])
+            'numeric_output_fields': ConjureFieldDefinition('numericOutputFields', OptionalTypeWrapper[List[scout_compute_api_NumericOutputField]]),
+            'numeric_aggregations': ConjureFieldDefinition('numericAggregations', Dict[str, scout_compute_resolved_api_ResolvedNumericAggregation])
         }
 
-    __slots__: List[str] = ['_input', '_summarization_strategy', '_output_format', '_numeric_output_fields']
+    __slots__: List[str] = ['_input', '_summarization_strategy', '_output_format', '_numeric_output_fields', '_numeric_aggregations']
 
-    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", output_format: "scout_compute_api_OutputFormat", summarization_strategy: "scout_compute_api_SummarizationStrategy", numeric_output_fields: Optional[List["scout_compute_api_NumericOutputField"]] = None) -> None:
+    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", numeric_aggregations: Dict[str, "scout_compute_resolved_api_ResolvedNumericAggregation"], output_format: "scout_compute_api_OutputFormat", summarization_strategy: "scout_compute_api_SummarizationStrategy", numeric_output_fields: Optional[List["scout_compute_api_NumericOutputField"]] = None) -> None:
         self._input = input
         self._summarization_strategy = summarization_strategy
         self._output_format = output_format
         self._numeric_output_fields = numeric_output_fields
+        self._numeric_aggregations = numeric_aggregations
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_SeriesNode":
@@ -72569,6 +73159,10 @@ class scout_compute_resolved_api_SummarizeSeriesNode(ConjureBeanType):
     @builtins.property
     def numeric_output_fields(self) -> Optional[List["scout_compute_api_NumericOutputField"]]:
         return self._numeric_output_fields
+
+    @builtins.property
+    def numeric_aggregations(self) -> Dict[str, "scout_compute_resolved_api_ResolvedNumericAggregation"]:
+        return self._numeric_aggregations
 
 
 scout_compute_resolved_api_SummarizeSeriesNode.__name__ = "SummarizeSeriesNode"

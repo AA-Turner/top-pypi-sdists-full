@@ -9,20 +9,8 @@ import urllib.request
 from pathlib import Path
 
 from salmalm.security.crypto import vault
-from salmalm.core import audit_log, get_session
-from salmalm.utils.chunker import load_config_from_file, CHANNEL_TELEGRAM
 
 log = logging.getLogger(__name__)
-
-_ALLOWED_TG_DOC_EXTENSIONS = {
-    # Images
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff",
-    # Documents
-    ".txt", ".md", ".pdf", ".csv", ".json", ".xml", ".yaml", ".yml",
-    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".zip",
-    # Audio
-    ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac",
-}
 
 
 class TelegramMediaMixin:
@@ -87,7 +75,6 @@ class TelegramMediaMixin:
 
         Returns (text, file_info, image_data). file_info="__HANDLED__" if message was fully handled.
         """
-        chat_id = msg.get("chat", {}).get("id")   # needed for send_typing/send_message calls below
         text = msg.get("text", "") or msg.get("caption", "") or ""
         file_info = None
         _image_data = None
@@ -113,28 +100,15 @@ class TelegramMediaMixin:
             try:
                 data, fname = self._download_file(doc["file_id"])
                 doc_fname = doc.get("file_name", fname)
-                doc_fname = Path(doc_fname).name
-                doc_ext = Path(doc_fname).suffix.lower()
-                if doc_ext not in _ALLOWED_TG_DOC_EXTENSIONS:
-                    log.warning(f"[CLIP] Rejected Telegram document extension: {doc_ext or '<none>'}")
-                    file_info = f"[📎 File type not allowed: {doc_ext or 'unknown'}]"
-                    return (text, file_info, _image_data)
                 # Auto-detect agent import ZIP
                 if doc_fname.endswith(".zip") and "agent-export" in doc_fname.lower():
                     self.send_typing(chat_id)
                     from salmalm.utils.migration import import_agent
 
-                    _tg_uid = str(msg.get("from", {}).get("id", "")) or str(chat_id)
-                    result = import_agent(data, user_id=_tg_uid)
+                    result = import_agent(data)
                     self.send_message(chat_id, f"📦 **Agent Import / 에이전트 가져오기**\n\n{result.summary()}")
                     return (text, "__HANDLED__", None)
-                upload_dir = (WORKSPACE_DIR / "uploads").resolve()  # noqa: F405
-                save_path = (upload_dir / doc_fname).resolve()
-                if not save_path.is_relative_to(upload_dir):
-                    fallback_name = f"tg_doc_{int(time.time())}_{secrets.token_hex(4)}{doc_ext}"
-                    log.warning(f"[CLIP] Rejected traversal-like Telegram filename: {doc_fname!r}")
-                    save_path = (upload_dir / fallback_name).resolve()
-                assert save_path.is_relative_to(upload_dir)
+                save_path = WORKSPACE_DIR / "uploads" / doc_fname  # noqa: F405
                 save_path.parent.mkdir(exist_ok=True)
                 save_path.write_bytes(data)
                 file_info = f"[📎 File saved: uploads/{save_path.name} ({len(data) // 1024}KB)]"
@@ -261,7 +235,7 @@ class TelegramMediaMixin:
             pass
 
         _start = time.time()
-        from salmalm.core.engine import process_message
+        from salmalm.core.engine_pipeline import process_message
 
         # Pass session-level model override (same as web_chat.py)
         _model_ov = getattr(_sess_obj, "model_override", None)
@@ -269,14 +243,20 @@ class TelegramMediaMixin:
             _model_ov = None
 
         try:
-            response = await process_message(
-                session_id,
-                text,
-                model_override=_model_ov,
-                image_data=_image_data,
-                on_token=_on_stream_token,
-                on_status=_on_status,
+            response = await asyncio.wait_for(
+                process_message(
+                    session_id,
+                    text,
+                    model_override=_model_ov,
+                    image_data=_image_data,
+                    on_token=_on_stream_token,
+                    on_status=_on_status,
+                ),
+                timeout=300,
             )
+        except asyncio.TimeoutError:
+            log.error("Telegram process_message timeout (300s)")
+            response = "⚠️ 응답 시간 초과"
         except Exception as e:
             log.error(f"Telegram process_message error: {e}")
             response = f"⚠️ 일시적 오류가 발생했습니다. 다시 시도해주세요.\n(Error: {type(e).__name__})"

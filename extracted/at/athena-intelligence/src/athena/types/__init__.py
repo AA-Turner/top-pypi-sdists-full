@@ -39,6 +39,7 @@ if typing.TYPE_CHECKING:
     from .database_column_info import DatabaseColumnInfo
     from .database_data_response import DatabaseDataResponse
     from .database_mutation_response import DatabaseMutationResponse
+    from .database_sql_response import DatabaseSqlResponse
     from .database_status_response import DatabaseStatusResponse
     from .database_table_info import DatabaseTableInfo
     from .database_table_schema_response import DatabaseTableSchemaResponse
@@ -120,6 +121,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DatabaseColumnInfo": ".database_column_info",
     "DatabaseDataResponse": ".database_data_response",
     "DatabaseMutationResponse": ".database_mutation_response",
+    "DatabaseSqlResponse": ".database_sql_response",
     "DatabaseStatusResponse": ".database_status_response",
     "DatabaseTableInfo": ".database_table_info",
     "DatabaseTableSchemaResponse": ".database_table_schema_response",
@@ -225,6 +227,7 @@ __all__ = [
     "DatabaseColumnInfo",
     "DatabaseDataResponse",
     "DatabaseMutationResponse",
+    "DatabaseSqlResponse",
     "DatabaseStatusResponse",
     "DatabaseTableInfo",
     "DatabaseTableSchemaResponse",

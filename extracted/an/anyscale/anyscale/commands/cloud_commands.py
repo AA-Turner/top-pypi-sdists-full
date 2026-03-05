@@ -909,6 +909,12 @@ def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
     default=False,
     help="Skip cloud resource verification.",
 )
+@click.option(
+    "--migrate-dm-to-im",
+    is_flag=True,
+    default=False,
+    help="Migrate GCP cloud resources from Deployment Manager to Infrastructure Manager. Only applicable for GCP clouds with Anyscale-managed resources.",
+)
 def cloud_update(  # noqa: PLR0913
     cloud_name: Optional[str],
     name: Optional[str],
@@ -919,6 +925,7 @@ def cloud_update(  # noqa: PLR0913
     resources_file: Optional[str],
     enable_head_node_fault_tolerance: bool,
     skip_verification: bool,
+    migrate_dm_to_im: bool,
 ) -> None:
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
@@ -934,6 +941,7 @@ def cloud_update(  # noqa: PLR0913
         functional_verify=functional_verify,
         yes=yes,
         skip_verification=skip_verification,
+        migrate_dm_to_im=migrate_dm_to_im,
     )
 
 

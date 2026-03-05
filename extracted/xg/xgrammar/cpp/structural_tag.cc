@@ -7,6 +7,7 @@
 #include <picojson.h>
 #include <xgrammar/exception.h>
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,7 +15,6 @@
 #include "grammar_functor.h"
 #include "grammar_impl.h"
 #include "json_schema_converter.h"
-#include "support/logging.h"
 #include "support/recursion_guard.h"
 #include "support/utils.h"
 #include "xgrammar/grammar.h"
@@ -42,8 +42,8 @@ class StructuralTagParser {
    */
   Result<Format, ISTError> ParseFormat(const picojson::value& value);
   Result<ConstStringFormat, ISTError> ParseConstStringFormat(const picojson::object& value);
-  Result<JSONSchemaFormat, ISTError> ParseJSONSchemaFormat(const picojson::object& value);
-  Result<QwenXmlParameterFormat, ISTError> ParseQwenXmlParameterFormat(const picojson::object& value
+  Result<JSONSchemaFormat, ISTError> ParseJSONSchemaFormat(
+      const picojson::object& value, std::optional<std::string> style_override = std::nullopt
   );
   Result<AnyTextFormat, ISTError> ParseAnyTextFormat(const picojson::object& value);
   Result<GrammarFormat, ISTError> ParseGrammarFormat(const picojson::object& value);
@@ -124,7 +124,7 @@ Result<Format, ISTError> StructuralTagParser::ParseFormat(const picojson::value&
     } else if (type == "tags_with_separator") {
       return Result<Format, ISTError>::Convert(ParseTagsWithSeparatorFormat(obj));
     } else if (type == "qwen_xml_parameter") {
-      return Result<Format, ISTError>::Convert(ParseQwenXmlParameterFormat(obj));
+      return Result<Format, ISTError>::Convert(ParseJSONSchemaFormat(obj, "qwen_xml"));
     } else if (type == "grammar") {
       return Result<Format, ISTError>::Convert(ParseGrammarFormat(obj));
     } else if (type == "regex") {
@@ -175,16 +175,14 @@ Result<ConstStringFormat, ISTError> StructuralTagParser::ParseConstStringFormat(
 ) {
   // value is required.
   auto value_it = obj.find("value");
-  if (value_it == obj.end() || !value_it->second.is<std::string>() ||
-      value_it->second.get<std::string>().empty()) {
-    return ResultErr<ISTError>("ConstString format must have a value field with a non-empty string"
-    );
+  if (value_it == obj.end() || !value_it->second.is<std::string>()) {
+    return ResultErr<ISTError>("ConstString format must have a value field with a string");
   }
   return ResultOk<ConstStringFormat>(value_it->second.get<std::string>());
 }
 
 Result<JSONSchemaFormat, ISTError> StructuralTagParser::ParseJSONSchemaFormat(
-    const picojson::object& obj
+    const picojson::object& obj, std::optional<std::string> style_override
 ) {
   // json_schema is required.
   auto json_schema_it = obj.find("json_schema");
@@ -194,23 +192,23 @@ Result<JSONSchemaFormat, ISTError> StructuralTagParser::ParseJSONSchemaFormat(
         "JSON schema format must have a json_schema field with a object or boolean value"
     );
   }
-  // here introduces a serialization/deserialization overhead; try to avoid it in the future.
-  return ResultOk<JSONSchemaFormat>(json_schema_it->second.serialize(false));
-}
-
-Result<QwenXmlParameterFormat, ISTError> StructuralTagParser::ParseQwenXmlParameterFormat(
-    const picojson::object& obj
-) {
-  // json_schema is required.
-  auto json_schema_it = obj.find("json_schema");
-  if (json_schema_it == obj.end() ||
-      !(json_schema_it->second.is<picojson::object>() || json_schema_it->second.is<bool>())) {
-    return ResultErr<ISTError>(
-        "Qwen XML Parameter format must have a json_schema field with a object or boolean value"
-    );
+  std::string style = "json";
+  if (style_override.has_value()) {
+    style = *style_override;
+  } else {
+    auto it = obj.find("style");
+    if (it != obj.end() && it->second.is<std::string>()) {
+      style = it->second.get<std::string>();
+      if (style != "json" && style != "qwen_xml" && style != "minimax_xml" &&
+          style != "deepseek_xml") {
+        return ResultErr<ISTError>(
+            "style must be \"json\", \"qwen_xml\", \"minimax_xml\", or \"deepseek_xml\""
+        );
+      }
+    }
   }
   // here introduces a serialization/deserialization overhead; try to avoid it in the future.
-  return ResultOk<QwenXmlParameterFormat>(json_schema_it->second.serialize(false));
+  return ResultOk<JSONSchemaFormat>(json_schema_it->second.serialize(false), style);
 }
 
 Result<AnyTextFormat, ISTError> StructuralTagParser::ParseAnyTextFormat(const picojson::object& obj
@@ -507,7 +505,6 @@ class StructuralTagAnalyzer {
   using FormatPtrVariant = std::variant<
       ConstStringFormat*,
       JSONSchemaFormat*,
-      QwenXmlParameterFormat*,
       AnyTextFormat*,
       GrammarFormat*,
       RegexFormat*,
@@ -526,7 +523,6 @@ class StructuralTagAnalyzer {
   // stack logics.
   std::optional<ISTError> VisitSub(ConstStringFormat* format);
   std::optional<ISTError> VisitSub(JSONSchemaFormat* format);
-  std::optional<ISTError> VisitSub(QwenXmlParameterFormat* format);
   std::optional<ISTError> VisitSub(AnyTextFormat* format);
   std::optional<ISTError> VisitSub(GrammarFormat* format);
   std::optional<ISTError> VisitSub(RegexFormat* format);
@@ -627,10 +623,6 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(ConstStringFormat* forma
 }
 
 std::optional<ISTError> StructuralTagAnalyzer::VisitSub(JSONSchemaFormat* format) {
-  return std::nullopt;
-}
-
-std::optional<ISTError> StructuralTagAnalyzer::VisitSub(QwenXmlParameterFormat* format) {
   return std::nullopt;
 }
 
@@ -762,7 +754,6 @@ class StructuralTagGrammarConverter {
   Result<int, ISTError> Visit(const Format& format);
   Result<int, ISTError> VisitSub(const ConstStringFormat& format);
   Result<int, ISTError> VisitSub(const JSONSchemaFormat& format);
-  Result<int, ISTError> VisitSub(const QwenXmlParameterFormat& format);
   Result<int, ISTError> VisitSub(const AnyTextFormat& format);
   Result<int, ISTError> VisitSub(const GrammarFormat& format);
   Result<int, ISTError> VisitSub(const RegexFormat& format);
@@ -810,21 +801,38 @@ Result<int, ISTError> StructuralTagGrammarConverter::Visit(const Format& format)
 }
 
 Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const ConstStringFormat& format) {
-  auto expr = grammar_builder_.AddByteString(format.value);
+  auto expr = format.value.empty() ? grammar_builder_.AddEmptyStr()
+                                   : grammar_builder_.AddByteString(format.value);
   auto sequence_expr = grammar_builder_.AddSequence({expr});
   auto choices_expr = grammar_builder_.AddChoices({sequence_expr});
   return ResultOk(grammar_builder_.AddRuleWithHint("const_string", choices_expr));
 }
 
 Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const JSONSchemaFormat& format) {
-  auto sub_grammar = Grammar::FromJSONSchema(format.json_schema);
-  auto added_root_rule_id = SubGrammarAdder().Apply(&grammar_builder_, sub_grammar);
-  return ResultOk(added_root_rule_id);
-}
-
-Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const QwenXmlParameterFormat& format
-) {
-  auto sub_grammar = Grammar::FromEBNF(QwenXMLToolCallingToEBNF(format.xml_schema));
+  const static std::unordered_map<std::string, std::function<std::string(const std::string&)>>
+      style_to_grammar_converter = {
+          {"json",
+           [&](const std::string& json_schema) -> std::string {
+             return JSONSchemaToEBNF(json_schema);
+           }},
+          {"qwen_xml",
+           [&](const std::string& json_schema) -> std::string {
+             return QwenXMLToolCallingToEBNF(json_schema);
+           }},
+          {"minimax_xml",
+           [&](const std::string& json_schema) -> std::string {
+             return MiniMaxXMLToolCallingToEBNF(json_schema);
+           }},
+          {"deepseek_xml",
+           [&](const std::string& json_schema) -> std::string {
+             return DeepSeekXMLToolCallingToEBNF(json_schema);
+           }},
+      };
+  auto converter = style_to_grammar_converter.find(format.style);
+  if (converter == style_to_grammar_converter.end()) {
+    return ResultErr<ISTError>("Unsupported parsing type: " + format.style);
+  }
+  auto sub_grammar = Grammar::FromEBNF(converter->second(format.json_schema));
   auto added_root_rule_id = SubGrammarAdder().Apply(&grammar_builder_, sub_grammar);
   return ResultOk(added_root_rule_id);
 }
@@ -842,16 +850,14 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const RegexFormat&
 }
 
 Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const AnyTextFormat& format) {
-  if (!format.detected_end_strs_.empty()) {
-    // Filter out empty strings
-    std::vector<std::string> non_empty_ends;
-    for (const auto& s : format.detected_end_strs_) {
-      if (!s.empty()) {
-        non_empty_ends.push_back(s);
-      }
+  // Filter out empty strings
+  std::vector<std::string> non_empty_ends;
+  for (const auto& s : format.detected_end_strs_) {
+    if (!s.empty()) {
+      non_empty_ends.push_back(s);
     }
-    XGRAMMAR_DCHECK(!non_empty_ends.empty())
-        << "At least one detected end string must be non-empty";
+  }
+  if (!non_empty_ends.empty()) {
     // TagDispatch supports multiple stop strings
     auto tag_dispatch_expr = grammar_builder_.AddTagDispatch(
         Grammar::Impl::TagDispatch{{}, false, non_empty_ends, false, format.excludes}
@@ -1097,14 +1103,13 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TriggeredTag
   // Step 3.2 Add TagDispatch.
   int32_t rule_expr_id;
   bool loop_after_dispatch = !format.stop_after_first;
-  if (!format.detected_end_strs_.empty()) {
-    // Filter out empty strings
-    std::vector<std::string> non_empty_ends;
-    for (const auto& s : format.detected_end_strs_) {
-      if (!s.empty()) {
-        non_empty_ends.push_back(s);
-      }
+  std::vector<std::string> non_empty_ends;
+  for (const auto& s : format.detected_end_strs_) {
+    if (!s.empty()) {
+      non_empty_ends.push_back(s);
     }
+  }
+  if (!non_empty_ends.empty()) {
     rule_expr_id = grammar_builder_.AddTagDispatch(Grammar::Impl::TagDispatch{
         tag_rule_pairs, false, non_empty_ends, loop_after_dispatch, format.excludes
     });

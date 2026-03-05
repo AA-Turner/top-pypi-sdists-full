@@ -163,12 +163,11 @@ def piqp_solve_problem(
     This list is not exhaustive. Check out the `solver documentation
     <https://predict-epfl.github.io/piqp/interfaces/settings>`__ for details.
     """
-    P, q, G, h, A, b, lb, ub = problem.unpack()
-    n: int = q.shape[0]
-
     if initvals is not None and verbose:
         warnings.warn("warm-start values are ignored by PIQP")
 
+    P, q, G, h, A, b, lb, ub = problem.unpack()
+    n: int = q.shape[0]
     if G is None and h is not None:
         raise ProblemError(
             "Inconsistent inequalities: G is not set but h is set"
@@ -187,20 +186,29 @@ def piqp_solve_problem(
         or (G is not None and not isinstance(G, np.ndarray))
         or (A is not None and not isinstance(A, np.ndarray))
     )
-    G_piqp = (
+    G_piqp: Union[np.ndarray, spa.csc_matrix] = (
         G
         if G is not None
-        else spa.csc_matrix(np.zeros((0, n))) if use_csc else np.zeros((0, n))
+        else spa.csc_matrix(np.zeros((0, n)))
+        if use_csc
+        else np.zeros((0, n))
     )
-    A_piqp = (
+    A_piqp: Union[np.ndarray, spa.csc_matrix] = (
         A
         if A is not None
-        else spa.csc_matrix(np.zeros((0, n))) if use_csc else np.zeros((0, n))
+        else spa.csc_matrix(np.zeros((0, n)))
+        if use_csc
+        else np.zeros((0, n))
     )
     h_piqp = np.zeros((0,)) if h is None else h
     b_piqp = np.zeros((0,)) if b is None else b
     if use_csc:
-        P, G_piqp, A_piqp = ensure_sparse_matrices("piqp", P, G_piqp, A_piqp)
+        P, G_piqp_sparse, A_piqp_sparse = ensure_sparse_matrices(
+            "piqp", P, G_piqp, A_piqp
+        )
+        assert G_piqp_sparse is not None and A_piqp_sparse is not None
+        G_piqp = G_piqp_sparse
+        A_piqp = A_piqp_sparse
 
     solver = __select_backend(backend, use_csc)
     solver.settings.verbose = verbose
@@ -251,13 +259,13 @@ def piqp_solve_problem(
 
 def piqp_solve_qp(
     P: Union[np.ndarray, spa.csc_matrix],
-    q: Union[np.ndarray, spa.csc_matrix],
+    q: np.ndarray,
     G: Optional[Union[np.ndarray, spa.csc_matrix]] = None,
-    h: Optional[Union[np.ndarray, spa.csc_matrix]] = None,
+    h: Optional[np.ndarray] = None,
     A: Optional[Union[np.ndarray, spa.csc_matrix]] = None,
-    b: Optional[Union[np.ndarray, spa.csc_matrix]] = None,
-    lb: Optional[Union[np.ndarray, spa.csc_matrix]] = None,
-    ub: Optional[Union[np.ndarray, spa.csc_matrix]] = None,
+    b: Optional[np.ndarray] = None,
+    lb: Optional[np.ndarray] = None,
+    ub: Optional[np.ndarray] = None,
     initvals: Optional[np.ndarray] = None,
     verbose: bool = False,
     backend: Optional[str] = None,

@@ -1,6 +1,6 @@
 [project]
 name = "uipath"
-version = "2.10.3"
+version = "2.10.5"
 description = "Python SDK and CLI for UiPath Platform, enabling programmatic interaction with automation services, process management, and deployment tools."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
@@ -146,6 +146,10 @@ show_missing = true
 
 [tool.coverage.run]
 source = ["src"]
+
+[tool.uv.sources]
+uipath-core = { path = "../uipath-core", editable = true }
+uipath-platform = { path = "../uipath-platform", editable = true }
 
 [[tool.uv.index]]
 name = "testpypi"

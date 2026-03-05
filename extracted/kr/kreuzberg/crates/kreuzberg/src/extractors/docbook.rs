@@ -17,7 +17,7 @@
 
 use crate::Result;
 use crate::core::config::ExtractionConfig;
-use crate::extraction::cells_to_markdown;
+use crate::extraction::{cells_to_markdown, cells_to_text};
 use crate::plugins::{DocumentExtractor, Plugin};
 use crate::types::{ExtractionResult, Metadata, Table};
 use async_trait::async_trait;
@@ -73,7 +73,7 @@ type DocBookParseResult = (String, String, Option<String>, Option<String>, Vec<T
 
 /// Single-pass DocBook parser that extracts all content in one document traversal.
 /// Returns: (content, title, author, date, tables)
-fn parse_docbook_single_pass(content: &str) -> Result<DocBookParseResult> {
+fn parse_docbook_single_pass(content: &str, plain: bool) -> Result<DocBookParseResult> {
     let mut reader = Reader::from_str(content);
     let mut output = String::new();
     let mut title = String::new();
@@ -119,7 +119,9 @@ fn parse_docbook_single_pass(content: &str) -> Result<DocBookParseResult> {
                     "title" if title_extracted => {
                         let section_title = extract_element_text(&mut reader)?;
                         if !section_title.is_empty() {
-                            output.push_str("## ");
+                            if !plain {
+                                output.push_str("## ");
+                            }
                             output.push_str(&section_title);
                             output.push_str("\n\n");
                         }
@@ -145,9 +147,14 @@ fn parse_docbook_single_pass(content: &str) -> Result<DocBookParseResult> {
                     "programlisting" | "screen" => {
                         let code_text = extract_element_text(&mut reader)?;
                         if !code_text.is_empty() {
-                            output.push_str("```\n");
+                            if !plain {
+                                output.push_str("```\n");
+                            }
                             output.push_str(&code_text);
-                            output.push_str("\n```\n\n");
+                            if !plain {
+                                output.push_str("\n```");
+                            }
+                            output.push_str("\n\n");
                         }
                     }
 
@@ -161,8 +168,10 @@ fn parse_docbook_single_pass(content: &str) -> Result<DocBookParseResult> {
                     }
                     "listitem" if state.in_list => {
                         state.in_list_item = true;
-                        let prefix = if list_type == "ordered" { "1. " } else { "- " };
-                        output.push_str(prefix);
+                        if !plain {
+                            let prefix = if list_type == "ordered" { "1. " } else { "- " };
+                            output.push_str(prefix);
+                        }
                         let item_text = extract_element_text(&mut reader)?;
                         if !item_text.is_empty() {
                             output.push_str(&item_text);
@@ -172,7 +181,9 @@ fn parse_docbook_single_pass(content: &str) -> Result<DocBookParseResult> {
                     }
 
                     "blockquote" => {
-                        output.push_str("> ");
+                        if !plain {
+                            output.push_str("> ");
+                        }
                         let quote_text = extract_element_text(&mut reader)?;
                         if !quote_text.is_empty() {
                             output.push_str(&quote_text);
@@ -183,7 +194,11 @@ fn parse_docbook_single_pass(content: &str) -> Result<DocBookParseResult> {
                     "figure" => {
                         let figure_text = extract_element_text(&mut reader)?;
                         if !figure_text.is_empty() {
-                            output.push_str("**Figure:** ");
+                            if !plain {
+                                output.push_str("**Figure:** ");
+                            } else {
+                                output.push_str("Figure: ");
+                            }
                             output.push_str(&figure_text);
                             output.push_str("\n\n");
                         }
@@ -238,6 +253,12 @@ fn parse_docbook_single_pass(content: &str) -> Result<DocBookParseResult> {
                     "table" | "informaltable" if state.in_table => {
                         if !current_table.is_empty() {
                             let markdown = cells_to_markdown(&current_table);
+                            if plain {
+                                output.push_str(&cells_to_text(&current_table));
+                            } else {
+                                output.push_str(&markdown);
+                            }
+                            output.push('\n');
                             tables.push(Table {
                                 cells: current_table.clone(),
                                 markdown,
@@ -373,12 +394,15 @@ impl DocumentExtractor for DocbookExtractor {
         mime_type: &str,
         config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
-        let _ = config;
+        let plain = matches!(
+            config.output_format,
+            crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
+        );
         let docbook_content = std::str::from_utf8(content)
             .map(|s| s.to_string())
             .unwrap_or_else(|_| String::from_utf8_lossy(content).to_string());
 
-        let (extracted_content, title, author, date, tables) = parse_docbook_single_pass(&docbook_content)?;
+        let (extracted_content, title, author, date, tables) = parse_docbook_single_pass(&docbook_content, plain)?;
 
         let mut metadata = Metadata::default();
         let mut subject_parts = Vec::new();
@@ -430,8 +454,8 @@ impl DocumentExtractor for DocbookExtractor {
         )
     )]
     async fn extract_file(&self, path: &Path, mime_type: &str, config: &ExtractionConfig) -> Result<ExtractionResult> {
-        let bytes = tokio::fs::read(path).await?;
-        self.extract_bytes(&bytes, mime_type, config).await
+        let content = tokio::fs::read(path).await?;
+        self.extract_bytes(&content, mime_type, config).await
     }
 
     fn supported_mime_types(&self) -> &[&str] {
@@ -480,7 +504,7 @@ mod tests {
   <para>Test content.</para>
 </article>"#;
 
-        let (content, title, _, _, _) = parse_docbook_single_pass(docbook).expect("Parse failed");
+        let (content, title, _, _, _) = parse_docbook_single_pass(docbook, false).expect("Parse failed");
         assert_eq!(title, "Test Article");
         assert!(content.contains("Test content"));
     }
@@ -507,7 +531,7 @@ mod tests {
   </table>
 </article>"#;
 
-        let (_, _, _, _, tables) = parse_docbook_single_pass(docbook).expect("Table extraction failed");
+        let (_, _, _, _, tables) = parse_docbook_single_pass(docbook, false).expect("Table extraction failed");
         assert_eq!(tables.len(), 1);
         assert_eq!(tables[0].cells.len(), 2);
         assert_eq!(tables[0].cells[0], vec!["Col1", "Col2"]);

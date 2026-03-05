@@ -1,6 +1,6 @@
 [package]
 name = "zen-python"
-version = "0.51.0"
+version = "0.52.0"
 edition = "2021"
 license = "MIT"
 publish = false
@@ -21,6 +21,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 rust_decimal = { workspace = true, features = ["maths-nopanic"] }
 tokio-util = { version = "0.7", features = ["rt"] }
-zen-engine = { path = "../../core/engine" }
-zen-expression = { path = "../../core/expression" }
+zen-engine = { path = "../../core/engine", features = ["arbitrary_precision"] }
+zen-expression = { path = "../../core/expression", features = ["arbitrary_precision"] }
 zen-tmpl = { path = "../../core/template" }

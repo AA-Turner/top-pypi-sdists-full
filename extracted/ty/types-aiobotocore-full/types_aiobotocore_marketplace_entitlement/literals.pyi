@@ -32,7 +32,7 @@ __all__ = (
 )
 
 GetEntitlementFilterNameType = Literal[
-    "CUSTOMER_AWS_ACCOUNT_ID", "CUSTOMER_IDENTIFIER", "DIMENSION"
+    "CUSTOMER_AWS_ACCOUNT_ID", "CUSTOMER_IDENTIFIER", "DIMENSION", "LICENSE_ARN"
 ]
 GetEntitlementsPaginatorName = Literal["get_entitlements"]
 MarketplaceEntitlementServiceServiceName = Literal["marketplace-entitlement"]
@@ -179,6 +179,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

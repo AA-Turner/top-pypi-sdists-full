@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::time::Duration;
 
 use percent_encoding::AsciiSet;
-use reqwest::header::{HeaderMap, AUTHORIZATION, USER_AGENT};
+use reqwest::header::{AUTHORIZATION, HeaderMap, USER_AGENT};
 use reqwest::{Method, StatusCode};
 use thiserror::Error;
 
@@ -11,6 +11,8 @@ use crate::library_version::{get_sdk_language, get_sdk_version};
 use super::types::{DeviceResponse, ErrorResponse, RtcCredentials};
 
 const DEFAULT_API_URL: &str = "https://api.foxglove.dev";
+
+const MAX_ERROR_RESPONSE_LEN: u64 = 16_384;
 
 const PATH_ENCODING: AsciiSet = percent_encoding::NON_ALPHANUMERIC
     .remove(b'-')
@@ -58,6 +60,12 @@ pub(crate) enum RequestError {
         headers: Box<HeaderMap>,
     },
 
+    #[error("error response {status} too large")]
+    ErrorResponseTooLarge {
+        status: StatusCode,
+        headers: Box<HeaderMap>,
+    },
+
     #[error("failed to parse response: {0}")]
     ParseResponse(#[source] serde_json::Error),
 }
@@ -77,7 +85,8 @@ impl FoxgloveApiClientError {
         match self {
             Self::Request(
                 RequestError::MalformedErrorResponse { status, .. }
-                | RequestError::ErrorResponse { status, .. },
+                | RequestError::ErrorResponse { status, .. }
+                | RequestError::ErrorResponseTooLarge { status, .. },
             ) => Some(*status),
             _ => None,
         }
@@ -103,10 +112,19 @@ impl RequestBuilder {
         let status = response.status();
         if status.is_client_error() || status.is_server_error() {
             let headers = Box::new(response.headers().clone());
+            if response
+                .content_length()
+                .is_some_and(|len| len > MAX_ERROR_RESPONSE_LEN)
+            {
+                return Err(RequestError::ErrorResponseTooLarge { status, headers });
+            }
             let body = response
                 .bytes()
                 .await
                 .map_err(RequestError::LoadResponseBytes)?;
+            if body.len() as u64 > MAX_ERROR_RESPONSE_LEN {
+                return Err(RequestError::ErrorResponseTooLarge { status, headers });
+            }
             match serde_json::from_slice::<ErrorResponse>(&body) {
                 Ok(error) => {
                     return Err(RequestError::ErrorResponse {
@@ -283,8 +301,8 @@ impl<A> FoxgloveApiClientBuilder<A> {
 #[cfg(test)]
 mod tests {
     use crate::api_client::test_utils::{
-        create_test_api_client, create_test_server, TEST_DEVICE_ID, TEST_DEVICE_TOKEN,
-        TEST_PROJECT_ID,
+        TEST_DEVICE_ID, TEST_DEVICE_TOKEN, TEST_PROJECT_ID, create_test_api_client,
+        create_test_server,
     };
 
     use super::DeviceToken;

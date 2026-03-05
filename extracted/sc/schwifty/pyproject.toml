@@ -51,16 +51,15 @@ packages = [
     "schwifty",
 ]
 
-[tool.pytest.pytest.ini_options]
-addopts = """
-  --pyargs schwifty
-  --doctest-modules
-  --junit-xml test-results.xml
-  --cov-report xml
-  --cov-report term-missing
-"""
+[tool.pytest]
+minversion = "9.0"
+addopts = [
+    "--pyargs", "schwifty",
+    "--doctest-modules",
+    "--junit-xml", "test-results.xml",
+]
 console_output_style = "progress"
-doctest_optionflags = "ALLOW_UNICODE IGNORE_EXCEPTION_DETAIL"
+doctest_optionflags = ["ALLOW_UNICODE", "IGNORE_EXCEPTION_DETAIL"]
 
 [tool.ruff]
 target-version = "py310"
@@ -104,5 +103,23 @@ exclude = ["docs"]
 
 [dependency-groups]
 dev = [
-    "pytest >=8.1.1,<9",
+    "coverage==7.13.*",
+    "freezegun==1.5.*",
+    "pytest==9.0.*",
+    "ruff==0.15.*",
+    "mypy==1.19.*",
+]
+doc = [
+    "doc8==2.0.*",
+    "pygments==2.16.*",
+]
+scripts = [
+    "beautifulsoup4",
+    "boltons",
+    "camelot-py",
+    "requests",
+    "xlrd>=2.0.1",
+    "pandas",
+    "openpyxl",
+    "lxml",
 ]

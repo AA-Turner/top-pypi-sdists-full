@@ -5,6 +5,8 @@ import tempfile
 import pandas
 import requests
 
+from scripts.remap import convert_to_v2
+
 
 URL = "https://www.nbb.be/doc/be/be/protocol/full_list_current.xlsx"
 
@@ -17,7 +19,7 @@ def process():
 
     with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
         fp.write(r.content)
-        datas = pandas.read_excel(fp.name, skiprows=1, sheet_name=0, dtype=str, engine="openpyxl")
+        datas = pandas.read_excel(fp, skiprows=1, sheet_name=0, dtype=str, engine="openpyxl")
 
     datas.fillna("", inplace=True)
 
@@ -37,9 +39,9 @@ def process():
         )
 
     print(f"Fetched {len(registry)} bank records")
-    return registry
+    return convert_to_v2(registry)
 
 
 if __name__ == "__main__":
-    with open("schwifty/bank_registry/generated_be.json", "w") as fp:
+    with open("schwifty/bank_registry/generated_be.v2.json", "w") as fp:
         json.dump(process(), fp, indent=2)

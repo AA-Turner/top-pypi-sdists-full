@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dockerflow
-Version: 2026.1.26
+Version: 2026.3.4
 Summary: Python tools and helpers for Mozilla's Dockerflow
 Home-page: https://github.com/mozilla-services/python-dockerflow
 Author: Mozilla Services Engineering

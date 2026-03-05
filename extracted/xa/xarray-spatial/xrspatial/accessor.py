@@ -63,9 +63,17 @@ class XrsSpatialDataArrayAccessor:
         from .flow_direction_dinf import flow_direction_dinf
         return flow_direction_dinf(self._obj, **kwargs)
 
+    def flow_direction_mfd(self, **kwargs):
+        from .flow_direction_mfd import flow_direction_mfd
+        return flow_direction_mfd(self._obj, **kwargs)
+
     def flow_accumulation(self, **kwargs):
         from .flow_accumulation import flow_accumulation
         return flow_accumulation(self._obj, **kwargs)
+
+    def flow_accumulation_mfd(self, **kwargs):
+        from .flow_accumulation_mfd import flow_accumulation_mfd
+        return flow_accumulation_mfd(self._obj, **kwargs)
 
     def watershed(self, pour_points, **kwargs):
         from .watershed import watershed
@@ -173,6 +181,32 @@ class XrsSpatialDataArrayAccessor:
         from .focal import mean
         return mean(self._obj, **kwargs)
 
+    def bilateral(self, **kwargs):
+        from .bilateral import bilateral
+        return bilateral(self._obj, **kwargs)
+
+    def glcm_texture(self, **kwargs):
+        from .glcm import glcm_texture
+        return glcm_texture(self._obj, **kwargs)
+
+    # ---- Morphological ----
+
+    def morph_erode(self, **kwargs):
+        from .morphology import morph_erode
+        return morph_erode(self._obj, **kwargs)
+
+    def morph_dilate(self, **kwargs):
+        from .morphology import morph_dilate
+        return morph_dilate(self._obj, **kwargs)
+
+    def morph_opening(self, **kwargs):
+        from .morphology import morph_opening
+        return morph_opening(self._obj, **kwargs)
+
+    def morph_closing(self, **kwargs):
+        from .morphology import morph_closing
+        return morph_closing(self._obj, **kwargs)
+
     # ---- Proximity / Distance ----
 
     def proximity(self, **kwargs):
@@ -235,6 +269,22 @@ class XrsSpatialDataArrayAccessor:
         from .zonal import regions
         return regions(self._obj, **kwargs)
 
+    # ---- Diffusion ----
+
+    def diffuse(self, **kwargs):
+        from .diffusion import diffuse
+        return diffuse(self._obj, **kwargs)
+
+    # ---- Dasymetric ----
+
+    def disaggregate(self, values, weight, **kwargs):
+        from .dasymetric import disaggregate
+        return disaggregate(self._obj, values, weight, **kwargs)
+
+    def pycnophylactic(self, values, **kwargs):
+        from .dasymetric import pycnophylactic
+        return pycnophylactic(self._obj, values, **kwargs)
+
     # ---- Terrain generation ----
 
     def generate_terrain(self, **kwargs):
@@ -251,11 +301,29 @@ class XrsSpatialDataArrayAccessor:
         from .mahalanobis import mahalanobis
         return mahalanobis([self._obj] + list(other_bands), **kwargs)
 
+    # ---- Interpolation ----
+
+    def idw(self, x, y, z, **kwargs):
+        from .interpolate import idw
+        return idw(x, y, z, self._obj, **kwargs)
+
+    def kriging(self, x, y, z, **kwargs):
+        from .interpolate import kriging
+        return kriging(x, y, z, self._obj, **kwargs)
+
+    def spline(self, x, y, z, **kwargs):
+        from .interpolate import spline
+        return spline(x, y, z, self._obj, **kwargs)
+
     # ---- Raster to vector ----
 
     def polygonize(self, **kwargs):
         from .polygonize import polygonize
         return polygonize(self._obj, **kwargs)
+
+    def contours(self, **kwargs):
+        from .contour import contours
+        return contours(self._obj, **kwargs)
 
     # ---- Fire ----
 
@@ -286,6 +354,16 @@ class XrsSpatialDataArrayAccessor:
     def kbdi(self, max_temp_agg, precip_agg, annual_precip, **kwargs):
         from .fire import kbdi
         return kbdi(self._obj, max_temp_agg, precip_agg, annual_precip, **kwargs)
+
+    # ---- Multispectral (self = green band for water indices) ----
+
+    def ndwi(self, nir_agg, **kwargs):
+        from .multispectral import ndwi
+        return ndwi(self._obj, nir_agg, **kwargs)
+
+    def mndwi(self, swir_agg, **kwargs):
+        from .multispectral import mndwi
+        return mndwi(self._obj, swir_agg, **kwargs)
 
     # ---- Multispectral (self = NIR band) ----
 
@@ -369,9 +447,17 @@ class XrsSpatialDatasetAccessor:
         from .flow_direction_dinf import flow_direction_dinf
         return flow_direction_dinf(self._obj, **kwargs)
 
+    def flow_direction_mfd(self, **kwargs):
+        from .flow_direction_mfd import flow_direction_mfd
+        return flow_direction_mfd(self._obj, **kwargs)
+
     def flow_accumulation(self, **kwargs):
         from .flow_accumulation import flow_accumulation
         return flow_accumulation(self._obj, **kwargs)
+
+    def flow_accumulation_mfd(self, **kwargs):
+        from .flow_accumulation_mfd import flow_accumulation_mfd
+        return flow_accumulation_mfd(self._obj, **kwargs)
 
     def watershed(self, pour_points, **kwargs):
         from .watershed import watershed
@@ -471,6 +557,38 @@ class XrsSpatialDatasetAccessor:
         from .focal import mean
         return mean(self._obj, **kwargs)
 
+    def bilateral(self, **kwargs):
+        from .bilateral import bilateral
+        return bilateral(self._obj, **kwargs)
+
+    def glcm_texture(self, **kwargs):
+        from .glcm import glcm_texture
+        return glcm_texture(self._obj, **kwargs)
+
+    # ---- Morphological ----
+
+    def morph_erode(self, **kwargs):
+        from .morphology import morph_erode
+        return morph_erode(self._obj, **kwargs)
+
+    def morph_dilate(self, **kwargs):
+        from .morphology import morph_dilate
+        return morph_dilate(self._obj, **kwargs)
+
+    def morph_opening(self, **kwargs):
+        from .morphology import morph_opening
+        return morph_opening(self._obj, **kwargs)
+
+    def morph_closing(self, **kwargs):
+        from .morphology import morph_closing
+        return morph_closing(self._obj, **kwargs)
+
+    # ---- Diffusion ----
+
+    def diffuse(self, **kwargs):
+        from .diffusion import diffuse
+        return diffuse(self._obj, **kwargs)
+
     # ---- Proximity ----
 
     def proximity(self, **kwargs):
@@ -512,6 +630,14 @@ class XrsSpatialDatasetAccessor:
         return flame_length(self._obj, **kwargs)
 
     # ---- Multispectral (band mapping via kwargs) ----
+
+    def ndwi(self, green, nir, **kwargs):
+        from .multispectral import ndwi
+        return ndwi(self._obj, green=green, nir=nir, **kwargs)
+
+    def mndwi(self, green, swir, **kwargs):
+        from .multispectral import mndwi
+        return mndwi(self._obj, green=green, swir=swir, **kwargs)
 
     def ndvi(self, nir, red, **kwargs):
         from .multispectral import ndvi

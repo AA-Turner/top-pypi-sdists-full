@@ -15,7 +15,7 @@ auth_mod.AUTH_DB = _test_db
 
 from salmalm.web.auth import (
     AuthManager, RateLimiter, RateLimitExceeded, TokenManager,
-    _hash_password, _verify_password
+    _hash_password, _verify_password, _reset_auth_db_cache,
 )
 
 
@@ -96,6 +96,7 @@ class TestAuthManager(unittest.TestCase):
     def setUp(self):
         if _test_db.exists():
             _test_db.unlink()
+        _reset_auth_db_cache()  # invalidate thread-local when DB file is replaced
         self.am = AuthManager()
         self.am._initialized = False
 

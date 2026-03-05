@@ -86,7 +86,7 @@ class StringFilter(FilterBase):
         return self
 
 
-CollectionOperator = Literal[Operator.eq, Operator.contains, Operator.not_in]
+CollectionOperator = Literal[Operator.eq, Operator.contains, Operator.one_of, Operator.not_in]
 
 
 class CollectionFilter(FilterBase):
@@ -104,7 +104,7 @@ class CollectionFilter(FilterBase):
         operator = self.operator
         value = self.value
         match operator:
-            case Operator.not_in:
+            case Operator.not_in | Operator.one_of:
                 if not isinstance(value, list):
                     raise ValueError(f"Value must be a list for operator {operator}.")
             case Operator.eq | Operator.contains:

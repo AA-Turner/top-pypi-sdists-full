@@ -297,7 +297,8 @@ class PlatoVMRuntime(Runtime):
             env_exports = " ".join(f'export {k}="{v}";' for var in env_vars for k, v in [var.split("=", 1)])
             workdir = self.workspace.agent_mount_path if self.workspace else "/workspace"
             agent_cmd = (
-                f'{env_exports} cd {workdir} && plato-agent-runner run --instruction-b64 "{ctx.instruction_b64}"'
+                f'{env_exports} export PATH="/root/.local/bin:$PATH"; '
+                f'cd {workdir} && plato-agent-runner run --instruction-b64 "{ctx.instruction_b64}"'
             )
 
             exit_code = await run_ssh_streaming(

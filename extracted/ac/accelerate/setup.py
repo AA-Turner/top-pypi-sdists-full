@@ -56,14 +56,14 @@ extras["sagemaker"] = [
 
 setup(
     name="accelerate",
-    version="1.12.0",
+    version="1.13.0",
     description="Accelerate",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     keywords="deep learning",
     license="Apache",
-    author="The HuggingFace team",
-    author_email="zach.mueller@huggingface.co",
+    author="The Hugging Face team",
+    author_email="transformers@huggingface.co",
     url="https://github.com/huggingface/accelerate",
     package_dir={"": "src"},
     packages=find_packages("src"),

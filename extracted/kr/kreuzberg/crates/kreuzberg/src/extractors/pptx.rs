@@ -63,6 +63,10 @@ impl DocumentExtractor for PptxExtractor {
         config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let extract_images = config.images.as_ref().is_some_and(|img| img.extract_images);
+        let plain = matches!(
+            config.output_format,
+            crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
+        );
 
         let pptx_result = {
             #[cfg(feature = "tokio-runtime")]
@@ -77,6 +81,7 @@ impl DocumentExtractor for PptxExtractor {
                             &content_owned,
                             extract_images,
                             pages_config.as_ref(),
+                            plain,
                         )
                     })
                     .await
@@ -84,13 +89,18 @@ impl DocumentExtractor for PptxExtractor {
                         crate::error::KreuzbergError::parsing(format!("PPTX extraction task failed: {}", e))
                     })??
                 } else {
-                    crate::extraction::pptx::extract_pptx_from_bytes(content, extract_images, config.pages.as_ref())?
+                    crate::extraction::pptx::extract_pptx_from_bytes(
+                        content,
+                        extract_images,
+                        config.pages.as_ref(),
+                        plain,
+                    )?
                 }
             }
 
             #[cfg(not(feature = "tokio-runtime"))]
             {
-                crate::extraction::pptx::extract_pptx_from_bytes(content, extract_images, config.pages.as_ref())?
+                crate::extraction::pptx::extract_pptx_from_bytes(content, extract_images, config.pages.as_ref(), plain)?
             }
         };
 
@@ -164,8 +174,12 @@ impl DocumentExtractor for PptxExtractor {
 
         let extract_images = config.images.as_ref().is_some_and(|img| img.extract_images);
 
+        let plain = matches!(
+            config.output_format,
+            crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
+        );
         let pptx_result =
-            crate::extraction::pptx::extract_pptx_from_path(path_str, extract_images, config.pages.as_ref())?;
+            crate::extraction::pptx::extract_pptx_from_path(path_str, extract_images, config.pages.as_ref(), plain)?;
 
         let mut additional: AHashMap<Cow<'static, str>, serde_json::Value> = AHashMap::new();
         additional.insert(Cow::Borrowed("slide_count"), serde_json::json!(pptx_result.slide_count));

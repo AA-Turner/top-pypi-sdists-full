@@ -139,6 +139,10 @@ class TestIPBanList(unittest.TestCase):
         for _ in range(3):
             self.ban_list.record_violation("persist.test")
 
+        # Give the daemon persist thread time to finish writing
+        import time as _time
+        _time.sleep(0.2)
+
         # Create a fresh instance — should load ban from DB
         import salmalm.web.auth as auth_mod
         from salmalm.web.auth import IPBanList

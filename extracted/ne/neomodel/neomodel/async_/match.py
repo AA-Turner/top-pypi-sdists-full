@@ -2,7 +2,9 @@ import inspect
 import re
 import string
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Optional, Union
+from typing import Any, AsyncIterator, Iterable, Union
+
+from typing_extensions import Self
 
 from neomodel._async_compat.util import AsyncUtil
 from neomodel.async_ import relationship_manager
@@ -14,7 +16,7 @@ from neomodel.match_q import Q, QBase
 from neomodel.properties import AliasProperty, ArrayProperty, Property
 from neomodel.semantic_filters import FulltextFilter, VectorFilter
 from neomodel.typing import Subquery, Transformation
-from neomodel.util import RelationshipDirection
+from neomodel.util import RelationshipDirection, deprecated
 
 CYPHER_ACTIONS_WITH_SIDE_EFFECT_EXPR = re.compile(r"(?i:MERGE|CREATE|DELETE|DETACH)")
 
@@ -160,6 +162,7 @@ _SPECIAL_OPERATOR_INSENSITIVE = "(?i)"
 _SPECIAL_OPERATOR_ISNULL = "IS NULL"
 _SPECIAL_OPERATOR_ISNOTNULL = "IS NOT NULL"
 _SPECIAL_OPERATOR_REGEX = "=~"
+_SPECIAL_OPERATOR_EXISTS = "EXISTS"
 
 _UNARY_OPERATORS = (_SPECIAL_OPERATOR_ISNULL, _SPECIAL_OPERATOR_ISNOTNULL)
 
@@ -196,6 +199,7 @@ OPERATOR_TABLE = {
     "isnull": _SPECIAL_OPERATOR_ISNULL,
     "regex": _SPECIAL_OPERATOR_REGEX,
     "exact": "=",
+    "exists": "EXISTS",
 }
 # add all regex operators
 OPERATOR_TABLE.update(_REGEX_OPERATOR_TABLE)
@@ -241,6 +245,13 @@ def _handle_special_operators(
             raise ValueError(f"Value must be a bool for isnull operation on {key}")
         operator = "IS NULL" if value else "IS NOT NULL"
         deflated_value = None
+    elif operator == _SPECIAL_OPERATOR_EXISTS:
+        if not isinstance(value, bool):
+            raise ValueError(f"Value must be a bool for exists operation on {key}")
+        operator = (
+            f"NOT {_SPECIAL_OPERATOR_EXISTS}" if not value else _SPECIAL_OPERATOR_EXISTS
+        )
+        deflated_value = value
     elif operator in _REGEX_OPERATOR_TABLE.values():
         deflated_value = property_obj.deflate(value)
         if not isinstance(deflated_value, str):
@@ -307,6 +318,7 @@ def _process_filter_key(
         prop,
     ) = _initialize_filter_args_variables(cls, key)
 
+    hop_name = None
     for part in re.split(path_split_regex, key):
         defined_props = current_class.defined_properties(rels=True)
         # update defined props dictionary with relationship properties if
@@ -320,6 +332,7 @@ def _process_filter_key(
                 defined_props[part].lookup_node_class()
                 current_class = defined_props[part].definition["node_class"]
                 current_rel_model = defined_props[part].definition["model"]
+                hop_name = part
         elif part in OPERATOR_TABLE:
             operator = OPERATOR_TABLE[part]
             prop, _ = prop.rsplit("__", 1)
@@ -332,7 +345,11 @@ def _process_filter_key(
 
     if leaf_prop is None:
         raise ValueError(f"Badly formed filter, no property found in {key}")
-    if is_rel_property and current_rel_model:
+
+    if hop_name == leaf_prop:
+        # Path ended on a hop, not a property
+        property_obj = None
+    elif is_rel_property and current_rel_model:
         property_obj = getattr(current_rel_model, leaf_prop)
     else:
         property_obj = getattr(current_class, leaf_prop)
@@ -387,6 +404,71 @@ def process_has_args(
             raise ValueError("Expecting True / False / NodeSet got: " + repr(value))
 
     return match, dont_match
+
+
+def generate_traversal_from_path(
+    relation: "Path",
+    source_class: Any,
+    create_ids: bool = False,
+    node_id_generator=None,
+    rel_id_generator=None,
+    namespace: str | None = None,
+):
+    """
+    Generator function to construct a cypher traversal from the given path.
+    """
+    path: str = relation.value
+    stmt: str = ""
+    source_class_iterator = source_class
+    parts = re.split(path_split_regex, path)
+    rel_iterator: str = ""
+    for index, part in enumerate(parts):
+        relationship = getattr(source_class_iterator, part)
+        if rel_iterator:
+            rel_iterator += "__"
+        rel_iterator += part
+        # build source
+        if "node_class" not in relationship.definition:
+            relationship.lookup_node_class()
+        lhs_name = None
+        if not stmt:
+            lhs_label = source_class_iterator.__label__
+            lhs_name = lhs_label.lower()
+            if create_ids and not namespace:
+                lhs_ident = f"{lhs_name}:{lhs_label}"
+            else:
+                lhs_ident = lhs_name
+        else:
+            lhs_ident = stmt
+
+        rel_ident = None
+        rhs_name = None
+        rhs_label = relationship.definition["node_class"].__label__
+        if create_ids:
+            rel_ident = rel_id_generator()
+            if relation.relation_filtering:
+                rhs_name = rel_ident
+                rhs_ident = f":{rhs_label}"
+            else:
+                if index + 1 == len(parts) and relation.alias:
+                    # If an alias is defined, use it to store the last hop in the path
+                    rhs_name = relation.alias
+                else:
+                    rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
+                    rhs_name = node_id_generator(rhs_name, rel_iterator)
+                rhs_ident = f"{rhs_name}:{rhs_label}"
+        else:
+            rhs_ident = f":{rhs_label}"
+
+        stmt = _rel_helper(
+            lhs=lhs_ident,
+            rhs=rhs_ident,
+            ident=rel_ident,
+            direction=relationship.definition["direction"],
+            relation_type=relationship.definition["relation_type"],
+        )
+        yield stmt, lhs_name, rhs_name, rel_ident, part, source_class_iterator
+        source_class_iterator = relationship.definition["node_class"]
 
 
 class QueryAST:
@@ -657,54 +739,27 @@ class AsyncQueryBuilder:
     def build_traversal_from_path(
         self, relation: "Path", source_class: Any
     ) -> tuple[str, Any]:
-        path: str = relation.value
-        stmt: str = ""
-        source_class_iterator = source_class
-        parts = re.split(path_split_regex, path)
         subgraph = self._ast.subgraph
-        rel_iterator: str = ""
-        already_present = False
-        existing_rhs_name = ""
-        for index, part in enumerate(parts):
+        generator = generate_traversal_from_path(
+            relation,
+            source_class,
+            True,
+            self.create_node_identifier,
+            self.create_relation_identifier,
+            self._subquery_namespace,
+        )
+        for index, items in enumerate(generator):
+            stmt, lhs_name, rhs_name, rel_ident, part, source_class_iterator = items
             relationship = getattr(source_class_iterator, part)
-            if rel_iterator:
-                rel_iterator += "__"
-            rel_iterator += part
-            # build source
-            if "node_class" not in relationship.definition:
-                relationship.lookup_node_class()
-            if not stmt:
-                lhs_label = source_class_iterator.__label__
-                lhs_name = lhs_label.lower()
-                lhs_ident = f"{lhs_name}:{lhs_label}"
-                if not index:
-                    # This is the first one, we make sure that 'return'
-                    # contains the primary node so _contains() works
-                    # as usual
-                    self._ast.return_clause = lhs_name
-                    if self._subquery_namespace:
-                        # Don't include label in identifier if we are in a subquery
-                        lhs_ident = lhs_name
-                elif relation.include_nodes_in_return:
-                    self._additional_return(lhs_name)
-            else:
-                lhs_ident = stmt
+
+            if not index:
+                # This is the first one, we make sure that 'return'
+                # contains the primary node so _contains() works
+                # as usual
+                self._ast.return_clause = lhs_name
+                self._additional_return(lhs_name)
 
             already_present = part in subgraph
-            rel_ident = self.create_relation_identifier()
-            rhs_label = relationship.definition["node_class"].__label__
-            if relation.relation_filtering:
-                rhs_name = rel_ident
-                rhs_ident = f":{rhs_label}"
-            else:
-                if index + 1 == len(parts) and relation.alias:
-                    # If an alias is defined, use it to store the last hop in the path
-                    rhs_name = relation.alias
-                else:
-                    rhs_name = f"{rhs_label.lower()}_{rel_iterator}"
-                    rhs_name = self.create_node_identifier(rhs_name, rel_iterator)
-                rhs_ident = f"{rhs_name}:{rhs_label}"
-
             if relation.include_nodes_in_return and not already_present:
                 self._additional_return(rhs_name)
 
@@ -725,14 +780,6 @@ class AsyncQueryBuilder:
                 ]
             if relation.include_rels_in_return and not already_present:
                 self._additional_return(rel_ident)
-            stmt = _rel_helper(
-                lhs=lhs_ident,
-                rhs=rhs_ident,
-                ident=rel_ident,
-                direction=relationship.definition["direction"],
-                relation_type=relationship.definition["relation_type"],
-            )
-            source_class_iterator = relationship.definition["node_class"]
             subgraph = subgraph[part]["children"]
 
         if not already_present:
@@ -840,6 +887,11 @@ class AsyncQueryBuilder:
         if operator in _UNARY_OPERATORS:
             # unary operators do not have a parameter
             statement = f"{ident}.{prop} {operator}"
+        elif _SPECIAL_OPERATOR_EXISTS in operator:
+            statement = list(
+                generate_traversal_from_path(Path(prop), self.node_set.source)
+            )[-1][0]
+            statement = f"{'NOT ' if not val else ''}EXISTS {{ {statement} }}"
         else:
             place_holder = self._register_place_holder(ident + "_" + prop)
             if operator == _SPECIAL_OPERATOR_ARRAY_IN:
@@ -862,21 +914,22 @@ class AsyncQueryBuilder:
         source_class: type[AsyncStructuredNode],
     ) -> None:
         for prop, op_and_val in filters.items():
-            is_rel_filter = "|" in prop
-            target_class = source_class
-            is_optional_relation = False
-            if "__" in prop or is_rel_filter:
-                (
-                    ident,
-                    prop,
-                    target_class,
-                    is_optional_relation,
-                ) = self._parse_path(source_class, prop)
             operator, val = op_and_val
-            if not is_rel_filter:
-                prop = target_class.defined_properties(rels=False)[
-                    prop
-                ].get_db_property_name(prop)
+            is_optional_relation = False
+            if _SPECIAL_OPERATOR_EXISTS not in operator:
+                is_rel_filter = "|" in prop
+                target_class = source_class
+                if "__" in prop or is_rel_filter:
+                    (
+                        ident,
+                        prop,
+                        target_class,
+                        is_optional_relation,
+                    ) = self._parse_path(source_class, prop)
+                if not is_rel_filter:
+                    prop = target_class.defined_properties(rels=False)[
+                        prop
+                    ].get_db_property_name(prop)
             statement = self._finalize_filter_statement(operator, ident, prop, val)
             target.append((statement, is_optional_relation))
 
@@ -1254,7 +1307,7 @@ class AsyncQueryBuilder:
             else:
                 # Create a session for streaming
                 # Note: We need to keep the session open during iteration
-                async with adb.driver.session(
+                async with adb.driver.session(  # type: ignore
                     database=adb._database_name,
                     impersonated_user=adb.impersonated_user,
                 ) as session:
@@ -1376,7 +1429,7 @@ class AsyncBaseSet:
 
         raise ValueError("Expecting StructuredNode instance")
 
-    async def get_item(self, key: int | slice) -> Optional["AsyncBaseSet"]:
+    async def get_item(self, key: int | slice) -> Self | AsyncStructuredNode:
         if isinstance(key, slice):
             if key.stop and key.start:
                 self.limit = key.stop - key.start
@@ -1388,13 +1441,12 @@ class AsyncBaseSet:
 
             return self
 
-        if isinstance(key, int):
-            self.skip = key
-            self.limit = 1
+        self.skip = key
+        self.limit = 1
 
-            ast = await self.query_cls(self).build_ast()
-            _first_item = [node async for node in ast._execute()][0]
-            return _first_item
+        ast = await self.query_cls(self).build_ast()
+        _first_item = [node async for node in ast._execute()][0]
+        return _first_item
 
 
 @dataclass
@@ -1585,7 +1637,7 @@ class AsyncNodeSet(AsyncBaseSet):
         results = [node async for node in ast._execute(lazy)]
         return results
 
-    async def get(self, lazy: bool = False, **kwargs: Any) -> Any:
+    async def get(self, lazy: bool = False, **kwargs: Any) -> AsyncStructuredNode:
         """
         Retrieve one node from the set matching supplied parameters
         :param lazy: False by default, specify True to get nodes with id only without the parameters.
@@ -1599,7 +1651,7 @@ class AsyncNodeSet(AsyncBaseSet):
             raise self.source_class.DoesNotExist(repr(kwargs))
         return result[0]
 
-    async def get_or_none(self, **kwargs: Any) -> Any:
+    async def get_or_none(self, **kwargs: Any) -> AsyncStructuredNode | None:
         """
         Retrieve a node from the set matching supplied parameters or return none
 
@@ -1611,7 +1663,7 @@ class AsyncNodeSet(AsyncBaseSet):
         except self.source_class.DoesNotExist:
             return None
 
-    async def first(self, **kwargs: Any) -> Any:
+    async def first(self, **kwargs: Any) -> AsyncStructuredNode:
         """
         Retrieve the first node from the set matching supplied parameters
 
@@ -1624,7 +1676,7 @@ class AsyncNodeSet(AsyncBaseSet):
         else:
             raise self.source_class.DoesNotExist(repr(kwargs))
 
-    async def first_or_none(self, **kwargs: Any) -> Any:
+    async def first_or_none(self, **kwargs: Any) -> Self | None:
         """
         Retrieve the first node from the set matching supplied parameters or return none
 
@@ -1637,7 +1689,7 @@ class AsyncNodeSet(AsyncBaseSet):
             pass
         return None
 
-    def filter(self, *args: Any, **kwargs: Any) -> "AsyncBaseSet":
+    def filter(self, *args: Any, **kwargs: Any) -> Self:
         """
         Apply filters to the existing nodes in the set.
 
@@ -1703,7 +1755,7 @@ class AsyncNodeSet(AsyncBaseSet):
 
         return self
 
-    def exclude(self, *args: Any, **kwargs: Any) -> "AsyncBaseSet":
+    def exclude(self, *args: Any, **kwargs: Any) -> Self:
         """
         Exclude nodes from the NodeSet via filters.
 
@@ -1714,13 +1766,16 @@ class AsyncNodeSet(AsyncBaseSet):
             self.q_filters = Q(self.q_filters & ~Q(*args, **kwargs))
         return self
 
-    def has(self, **kwargs: Any) -> "AsyncBaseSet":
+    @deprecated(
+        "This method is deprecated and set to be removed in a future release. Please use .filter(has_rel__exists=True) instead."
+    )
+    def has(self, **kwargs: Any) -> Self:
         must_match, dont_match = process_has_args(self.source_class, kwargs)
         self.must_match.update(must_match)
         self.dont_match.update(dont_match)
         return self
 
-    def order_by(self, *props: Any) -> "AsyncBaseSet":
+    def order_by(self, *props: Any) -> Self:
         """
         Order by properties. Prepend with minus to do descending. Pass None to
         remove ordering.
@@ -1766,14 +1821,12 @@ class AsyncNodeSet(AsyncBaseSet):
             item.alias = alias
         return item
 
-    def unique_variables(self, *paths: str) -> "AsyncNodeSet":
+    def unique_variables(self, *paths: str) -> Self:
         """Generate unique variable names for the given paths."""
         self._unique_variables = list(paths)
         return self
 
-    def traverse(
-        self, *paths: tuple[str, ...], **aliased_paths: dict
-    ) -> "AsyncNodeSet":
+    def traverse(self, *paths: tuple[str, ...], **aliased_paths: dict) -> Self:
         """Specify a set of paths to traverse."""
         relations = []
         for path in paths:
@@ -1785,7 +1838,7 @@ class AsyncNodeSet(AsyncBaseSet):
         self.relations_to_fetch = relations
         return self
 
-    def annotate(self, *vars: tuple, **aliased_vars: tuple) -> "AsyncNodeSet":
+    def annotate(self, *vars: tuple, **aliased_vars: tuple) -> Self:
         """Annotate node set results with extra variables."""
 
         def register_extra_var(
@@ -1871,10 +1924,11 @@ class AsyncNodeSet(AsyncBaseSet):
 
     async def subquery(
         self,
-        nodeset: "AsyncNodeSet",
+        nodeset: Self,
         return_set: list[str],
-        initial_context: list[str] | None = None,
-    ) -> "AsyncNodeSet":
+        initial_context: list[str | NodeNameResolver | RelationNameResolver | RawCypher]
+        | None = None,
+    ) -> Self:
         """Add a subquery to this node set.
 
         A subquery is a regular cypher query but executed within the context of a CALL
@@ -1905,9 +1959,9 @@ class AsyncNodeSet(AsyncBaseSet):
             ):
                 raise RuntimeError(f"Variable '{var}' is not returned by subquery.")
         if initial_context:
-            for var in initial_context:
-                if not isinstance(var, str) and not isinstance(
-                    var, (NodeNameResolver, RelationNameResolver, RawCypher)
+            for context_var in initial_context:
+                if not isinstance(context_var, str) and not isinstance(
+                    context_var, (NodeNameResolver, RelationNameResolver, RawCypher)
                 ):
                     raise ValueError(
                         f"Wrong variable specified in initial context, should be a string or an instance of NodeNameResolver or RelationNameResolver"
@@ -1927,7 +1981,7 @@ class AsyncNodeSet(AsyncBaseSet):
         vars: dict[str, Transformation],
         distinct: bool = False,
         ordering: list | None = None,
-    ) -> "AsyncNodeSet":
+    ) -> Self:
         if not vars:
             raise ValueError(
                 "You must provide one variable at least when calling intermediate_transform()"
@@ -2003,7 +2057,7 @@ class AsyncTraversal(AsyncBaseSet):
         self.name = name
         self.filters: list = []
 
-    def match(self, **kwargs: Any) -> "AsyncTraversal":
+    def match(self, **kwargs: dict[str, Any]) -> "AsyncTraversal":
         """
         Traverse relationships with properties matching the given parameters.
 

@@ -545,6 +545,7 @@ __all__ = (
     "DescribeClusterResponseTypeDef",
     "DescribeClusterSummaryTypeDef",
     "DescribeFollowerChannelSettingsTypeDef",
+    "DescribeInferenceSettingsTypeDef",
     "DescribeInputDeviceRequestTypeDef",
     "DescribeInputDeviceResponseTypeDef",
     "DescribeInputDeviceThumbnailRequestTypeDef",
@@ -660,6 +661,7 @@ __all__ = (
     "HlsTimedMetadataScheduleActionSettingsTypeDef",
     "HlsWebdavSettingsTypeDef",
     "Id3SegmentTaggingScheduleActionSettingsTypeDef",
+    "InferenceSettingsTypeDef",
     "InputAttachmentOutputTypeDef",
     "InputAttachmentTypeDef",
     "InputAttachmentUnionTypeDef",
@@ -1341,6 +1343,10 @@ class DescribeAnywhereSettingsTypeDef(TypedDict):
     ClusterId: NotRequired[str]
 
 
+class DescribeInferenceSettingsTypeDef(TypedDict):
+    FeedArn: NotRequired[str]
+
+
 class InputSpecificationTypeDef(TypedDict):
     Codec: NotRequired[InputCodecType]
     MaximumBitrate: NotRequired[InputMaximumBitrateType]
@@ -1443,6 +1449,10 @@ class CreateChannelPlacementGroupRequestTypeDef(TypedDict):
     Nodes: NotRequired[Sequence[str]]
     RequestId: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+
+
+class InferenceSettingsTypeDef(TypedDict):
+    FeedArn: NotRequired[str]
 
 
 class MaintenanceCreateSettingsTypeDef(TypedDict):
@@ -6010,6 +6020,7 @@ class ChannelSummaryTypeDef(TypedDict):
     UsedChannelEngineVersions: NotRequired[list[ChannelEngineVersionResponseTypeDef]]
     LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[list[str]]
+    InferenceSettings: NotRequired[DescribeInferenceSettingsTypeDef]
 
 
 class OutputGroupOutputTypeDef(TypedDict):
@@ -6153,6 +6164,7 @@ class ChannelTypeDef(TypedDict):
     ChannelEngineVersion: NotRequired[ChannelEngineVersionResponseTypeDef]
     LinkedChannelSettings: NotRequired[DescribeLinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[list[str]]
+    InferenceSettings: NotRequired[DescribeInferenceSettingsTypeDef]
 
 
 class DeleteChannelResponseTypeDef(TypedDict):
@@ -6178,6 +6190,7 @@ class DeleteChannelResponseTypeDef(TypedDict):
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
+    InferenceSettings: DescribeInferenceSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6204,6 +6217,7 @@ class DescribeChannelResponseTypeDef(TypedDict):
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
+    InferenceSettings: DescribeInferenceSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6231,6 +6245,7 @@ class RestartChannelPipelinesResponseTypeDef(TypedDict):
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
+    InferenceSettings: DescribeInferenceSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6257,6 +6272,7 @@ class StartChannelResponseTypeDef(TypedDict):
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
+    InferenceSettings: DescribeInferenceSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6283,6 +6299,7 @@ class StopChannelResponseTypeDef(TypedDict):
     ChannelEngineVersion: ChannelEngineVersionResponseTypeDef
     LinkedChannelSettings: DescribeLinkedChannelSettingsTypeDef
     ChannelSecurityGroups: list[str]
+    InferenceSettings: DescribeInferenceSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6352,6 +6369,7 @@ class CreateChannelRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[Sequence[str]]
+    InferenceSettings: NotRequired[InferenceSettingsTypeDef]
 
 
 class UpdateChannelRequestTypeDef(TypedDict):
@@ -6370,6 +6388,7 @@ class UpdateChannelRequestTypeDef(TypedDict):
     AnywhereSettings: NotRequired[AnywhereSettingsTypeDef]
     LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[Sequence[str]]
+    InferenceSettings: NotRequired[InferenceSettingsTypeDef]
 
 
 class BatchUpdateScheduleRequestTypeDef(TypedDict):

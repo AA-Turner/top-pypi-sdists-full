@@ -381,42 +381,34 @@ def _patch_perplexity():
         logger.warning("Failed to patch Perplexity", error=str(e))
 
 def _patch_composio():
-    """Auto-configure Composio SDK to route through CodeWords proxy.
+    """Monkey patch Composio to auto-inject CodeWords proxy settings.
 
-    Unlike other patches that monkey-patch __init__, Composio natively reads
-    COMPOSIO_BASE_URL and COMPOSIO_API_KEY from environment variables.
-    This patch:
-    1. Sets COMPOSIO_BASE_URL to point to the CodeWords composio proxy (if not already set)
-    2. Sets COMPOSIO_API_KEY to the caller's CW API key (if not already set)
-    3. Disables Composio telemetry to prevent data leaking to telemetry.composio.dev
+    The Composio SDK ignores the COMPOSIO_BASE_URL env var at the high-level
+    Composio class (it only reads kwargs). This patch injects base_url and
+    api_key into Composio.__init__, matching the OpenAI/Anthropic pattern.
     """
     try:
-        import composio  # noqa: F401 — only to check if SDK is installed
+        from composio import Composio as OriginalComposio
+        if hasattr(OriginalComposio, '_codewords_patched'):
+            return
 
-        # Set env vars for the Composio SDK to pick up automatically.
-        # The SDK reads these in its __init__ before any user code runs.
-        if not os.environ.get('COMPOSIO_BASE_URL'):
+        _original_init = OriginalComposio.__init__
+
+        def _enhanced_init(self, provider=None, **kwargs):
             runtime_uri = os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai')
-            os.environ['COMPOSIO_BASE_URL'] = urljoin(runtime_uri, 'run/composio')
+            kwargs.setdefault('api_key', os.environ.get('CODEWORDS_API_KEY'))
+            kwargs.setdefault('base_url', urljoin(runtime_uri, 'run/composio'))
+            kwargs['allow_tracking'] = False
+            _original_init(self, provider=provider, **kwargs)
 
-        if not os.environ.get('COMPOSIO_API_KEY'):
-            cw_key = os.environ.get('CODEWORDS_API_KEY')
-            if cw_key:
-                os.environ['COMPOSIO_API_KEY'] = cw_key
-
-        # Disable telemetry
-        try:
-            from composio.utils.logging import allow_tracking
-            allow_tracking.set(False)
-        except (ImportError, AttributeError):
-            pass
-
-        logger.debug("Composio auto-configured for CodeWords proxy")
+        OriginalComposio.__init__ = _enhanced_init
+        OriginalComposio._codewords_patched = True
+        logger.debug("Composio patched for CodeWords auto-configuration")
 
     except ImportError:
         pass
     except Exception as e:
-        logger.warning("Failed to configure Composio", error=str(e))
+        logger.warning("Failed to patch Composio", error=str(e))
 
 # Import redis_client from separate module (lazy loading)
 from .redis import redis_client

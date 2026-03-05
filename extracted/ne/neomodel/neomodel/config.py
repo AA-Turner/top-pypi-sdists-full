@@ -148,6 +148,13 @@ class NeomodelConfig:
             "description": "Threshold in seconds for slow query logging (0 = disabled)",
         },
     )
+    allow_reload: bool = field(
+        default=False,
+        metadata={
+            "env_var": "NEOMODEL_ALLOW_RELOAD",
+            "description": "Allow node class redefinitions (issues warning instead of error)",
+        },
+    )
 
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -498,6 +505,16 @@ class _ConfigModule:
     @SLOW_QUERIES.setter
     def SLOW_QUERIES(self, value: float) -> None:
         _set_attr("slow_queries", value)
+
+    @property
+    def ALLOW_RELOAD(
+        self,
+    ) -> bool:
+        return _get_attr("allow_reload")
+
+    @ALLOW_RELOAD.setter
+    def ALLOW_RELOAD(self, value: bool) -> None:
+        _set_attr("allow_reload", value)
 
 
 # Create the module instance for backward compatibility

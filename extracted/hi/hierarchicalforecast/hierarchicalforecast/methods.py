@@ -18,10 +18,12 @@ from hierarchicalforecast.utils import (
     _ma_cov,
     _shrunk_covariance_schaferstrimmer_no_nans,
     _shrunk_covariance_schaferstrimmer_with_nans,
+    get_num_threads,
     is_strictly_hierarchical,
+    set_num_threads,
 )
 
-from .probabilistic_methods import PERMBU, Bootstrap, Normality
+from .probabilistic_methods import PERMBU, Bootstrap, Conformal, Normality
 
 
 class HReconciler:
@@ -84,6 +86,15 @@ class HReconciler:
                 y_insample=y_insample,
                 y_hat_insample=y_hat_insample,
                 num_samples=num_samples,
+                seed=seed,
+            )
+        elif intervals_method == "conformal":
+            sampler = Conformal(
+                S=S,
+                P=P,
+                y_hat=y_hat,
+                y_cal=y_insample,
+                y_hat_cal=y_hat_insample,
                 seed=seed,
             )
         else:
@@ -225,7 +236,7 @@ class BottomUp(HReconciler):
             y_insample (Optional[np.ndarray], optional): In-sample values of size (`base`, `horizon`). Default is None.
             y_hat_insample (Optional[np.ndarray], optional): In-sample forecast values of size (`base`, `horizon`). Default is None.
             sigmah (Optional[np.ndarray], optional): Estimated standard deviation of the conditional marginal distribution. Default is None.
-            intervals_method (Optional[str], optional): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`. Default is None.
+            intervals_method (Optional[str], optional): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`. Default is None.
             num_samples (Optional[int], optional): Number of samples for probabilistic coherent distribution. Default is None.
             seed (Optional[int], optional): Seed for reproducibility. Default is None.
             tags (Optional[dict[str, np.ndarray]], optional): Tags for hierarchical structure. Default is None.
@@ -273,7 +284,7 @@ class BottomUp(HReconciler):
             y_hat_insample (Optional[np.ndarray], optional): In-sample forecast values of size (`base`, `insample_size`). Default is None.
             sigmah (Optional[np.ndarray], optional): Estimated standard deviation of the conditional marginal distribution. Default is None.
             level (Optional[list[int]], optional): float list 0-100, confidence levels for prediction intervals. Default is None.
-            intervals_method (Optional[str], optional): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`. Default is None.
+            intervals_method (Optional[str], optional): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`. Default is None.
             num_samples (Optional[int], optional): Number of samples for probabilistic coherent distribution. Default is None.
             seed (Optional[int], optional): Seed for reproducibility. Default is None.
             tags (Optional[dict[str, np.ndarray]], optional): Tags for hierarchical structure. Default is None.
@@ -590,10 +601,6 @@ class TopDown(HReconciler):
             prop = np.nanmean(y_btm / y_top, axis=1)
         elif self.method == "proportion_averages":
             prop = np.nanmean(y_btm, axis=1) / np.nanmean(y_top)
-        elif self.method == "forecast_proportions":
-            raise NotImplementedError(
-                f"Fit method not implemented for {self.method} yet"
-            )
         else:
             raise ValueError(f"Unknown method {self.method}")
 
@@ -632,7 +639,7 @@ class TopDown(HReconciler):
             y_insample (np.ndarray): Insample values of size (`base`, `insample_size`). Optional for `forecast_proportions` method.
             y_hat_insample (np.ndarray): Insample forecast values of size (`base`, `insample_size`). Optional for `forecast_proportions` method.
             sigmah (np.ndarray): Estimated standard deviation of the conditional marginal distribution.
-            interval_method (str): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`.
+            intervals_method (str): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`.
             num_samples (int): Number of samples for probabilistic coherent distribution.
             seed (int): Seed for reproducibility.
             tags (dict[str, np.ndarray]): Each key is a level and each value its `S` indices.
@@ -683,7 +690,7 @@ class TopDown(HReconciler):
             y_hat_insample (np.ndarray): Insample forecast values of size (`base`, `insample_size`). Optional for `forecast_proportions` method. Default is None.
             sigmah (np.ndarray): Estimated standard deviation of the conditional marginal distribution. Default is None.
             level (list[int]): float list 0-100, confidence levels for prediction intervals. Default is None.
-            intervals_method (str): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`. Default is None.
+            intervals_method (str): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`. Default is None.
             num_samples (int): Number of samples for probabilistic coherent distribution. Default is None.
             seed (int): Seed for reproducibility.
 
@@ -808,8 +815,6 @@ class TopDownSparse(TopDown):
             prop = np.mean(y_btm / y_top, 1)
         elif self.method == "proportion_averages":
             prop = np.mean(y_btm, 1) / np.mean(y_top)
-        elif self.method == "forecast_proportions":
-            raise ValueError(f"Fit method not yet implemented for {self.method}.")
         else:
             raise ValueError(f"{self.method} is an unknown disaggregation method.")
 
@@ -981,7 +986,7 @@ class MiddleOut(HReconciler):
             y_hat_insample (np.ndarray): In-sample forecast values of size (`base`, `insample_size`). Only used for `forecast_proportions`. Default is None.
             sigmah (np.ndarray): Estimated standard deviation of the conditional marginal distribution. Default is None.
             level (list[int]): Confidence levels for prediction intervals. Default is None.
-            intervals_method (str): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`. Default is None.
+            intervals_method (str): Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`. Default is None.
             num_samples (int): Number of samples for probabilistic coherent distribution. Default is None.
             seed (int): Seed for reproducibility. Default is None.
 
@@ -1252,7 +1257,7 @@ class MinTrace(HReconciler):
         method (str): One of `ols`, `wls_struct`, `wls_var`, `mint_shrink`, `mint_cov`, `emint`.
         nonnegative (bool): Reconciled forecasts should be nonnegative?
         mint_shr_ridge (float): Ridge numeric protection to MinTrace-shr covariance estimator.
-        num_threads (int): Number of threads to use for solving the optimization problems (when nonnegative=True).
+        num_threads (int): Number of threads for the C++ covariance backend (OpenMP) and for solving the optimization problems (when nonnegative=True).
 
     References:
     - [Wickramasuriya, S. L., Athanasopoulos, G., & Hyndman, R. J. (2019). "Optimal forecast reconciliation for hierarchical and grouped time series through trace minimization". Journal of the American Statistical Association, 114 , 804-819. doi:10.1080/01621459.2018.1448825.](https://robjhyndman.com/publications/mint/).
@@ -1267,7 +1272,7 @@ class MinTrace(HReconciler):
         self,
         method: str,
         nonnegative: bool = False,
-        mint_shr_ridge: float | None = 2e-8,
+        mint_shr_ridge: float = 2e-8,
         num_threads: int = 1,
     ):
         if method not in ["ols", "wls_struct", "wls_var", "mint_cov", "mint_shrink", "emint"]:
@@ -1280,14 +1285,34 @@ class MinTrace(HReconciler):
         if method == "mint_shrink":
             self.mint_shr_ridge = mint_shr_ridge
         self.num_threads = num_threads
-        if not self.nonnegative and self.num_threads > 1:
-            warnings.warn("`num_threads` is only used when `nonnegative=True`")
         # Store init params for naming (excluding internal flags like insample, num_threads)
         self._init_params = {"method": method, "nonnegative": nonnegative}
         if method == "mint_shrink":
             self._init_params["mint_shr_ridge"] = mint_shr_ridge
 
     def _get_PW_matrices(
+        self,
+        S: np.ndarray,
+        y_hat: np.ndarray,
+        y_insample: np.ndarray | None = None,
+        y_hat_insample: np.ndarray | None = None,
+    ):
+        # Temporarily set OpenMP threads to match num_threads
+        prev_threads = get_num_threads()
+        if self.num_threads != prev_threads:
+            set_num_threads(self.num_threads)
+        try:
+            return self._get_PW_matrices_impl(
+                S=S,
+                y_hat=y_hat,
+                y_insample=y_insample,
+                y_hat_insample=y_hat_insample,
+            )
+        finally:
+            if self.num_threads != prev_threads:
+                set_num_threads(prev_threads)
+
+    def _get_PW_matrices_impl(
         self,
         S: np.ndarray,
         y_hat: np.ndarray,
@@ -1473,7 +1498,7 @@ class MinTrace(HReconciler):
             y_insample: Insample values of size (`base`, `insample_size`). Only used with "wls_var", "mint_cov", "mint_shrink".
             y_hat_insample: Insample forecast values of size (`base`, `insample_size`). Only used with "wls_var", "mint_cov", "mint_shrink"
             sigmah: Estimated standard deviation of the conditional marginal distribution.
-            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`.
+            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`.
             num_samples: Number of samples for probabilistic coherent distribution.
             seed: Seed for reproducibility.
             tags: Each key is a level and each value its `S` indices.
@@ -1571,7 +1596,7 @@ class MinTrace(HReconciler):
             y_hat_insample: Insample fitted values of size (`base`, `insample_size`). Only used by `wls_var`, `mint_cov`, `mint_shrink`
             sigmah: Estimated standard deviation of the conditional marginal distribution.
             level: float list 0-100, confidence levels for prediction intervals.
-            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`.
+            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`.
             num_samples: Number of samples for probabilistic coherent distribution.
             seed: Seed for reproducibility.
             tags: Each key is a level and each value its `S` indices.
@@ -1617,7 +1642,7 @@ class MinTraceSparse(MinTrace):
     Args:
         method (str): One of `ols`, `wls_struct`, or `wls_var`.
         nonnegative (bool): Return non-negative reconciled forecasts.
-        num_threads (int): Number of threads to execute non-negative quadratic programming calls.
+        num_threads (int): Number of threads for non-negative quadratic programming calls.
         qp (bool): Implement non-negativity constraint with a quadratic programming approach. Setting
         this to True generally gives better results, but at the expense of higher cost to compute.
     """
@@ -1748,7 +1773,7 @@ class MinTraceSparse(MinTrace):
             y_insample: Insample values of size (`base`, `insample_size`). Only used with "wls_var".
             y_hat_insample: Insample forecast values of size (`base`, `insample_size`). Only used with "wls_var"
             sigmah: Estimated standard deviation of the conditional marginal distribution.
-            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`.
+            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`.
             num_samples: Number of samples for probabilistic coherent distribution.
             seed: Seed for reproducibility.
             tags: Each key is a level and each value its `S` indices.
@@ -1955,6 +1980,12 @@ class OptimalCombination(MinTrace):
             raise ValueError(
                 f"Unknown method `{method}`. Choose from `ols`, `wls_struct`."
             )
+        warnings.warn(
+            "OptimalCombination is deprecated and will be removed in a future version. "
+            "Use MinTrace(method='ols') or MinTrace(method='wls_struct') instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(
             method=method, nonnegative=nonnegative, num_threads=num_threads
         )
@@ -2085,7 +2116,7 @@ class ERM(HReconciler):
             y_insample: Train values of size (`base`, `insample_size`).
             y_hat_insample: Insample train predictions of size (`base`, `insample_size`).
             sigmah: Estimated standard deviation of the conditional marginal distribution.
-            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`.
+            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`.
             num_samples: Number of samples for probabilistic coherent distribution.
             seed: Seed for reproducibility.
             tags: Each key is a level and each value its `S` indices.
@@ -2137,7 +2168,7 @@ class ERM(HReconciler):
             y_hat_insample: Insample train predictions of size (`base`, `insample_size`).
             sigmah: Estimated standard deviation of the conditional marginal distribution.
             level: float list 0-100, confidence levels for prediction intervals.
-            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`.
+            intervals_method: Sampler for prediction intervals, one of `normality`, `bootstrap`, `permbu`, `conformal`.
             num_samples: Number of samples for probabilistic coherent distribution.
             seed: Seed for reproducibility.
             tags: Each key is a level and each value its `S` indices.

@@ -249,7 +249,7 @@ def parse_tags_kv_to_str_map(pairs: Iterable[str]) -> Dict[str, str]:
 def parse_connection_string(connection_str: str) -> ConnectionConfig:
     """Parse a connection string in key=value,key=value format.
 
-    Expected format: connection_type=databricks,connection_name=my-conn
+    Expected format: type=databricks,name=my-conn
 
     Args:
         connection_str: Connection specification string.
@@ -275,24 +275,22 @@ def parse_connection_string(connection_str: str) -> ConnectionConfig:
         conn_dict[key.strip()] = value.strip()
 
     # Validate required fields
-    if "connection_type" not in conn_dict:
+    if "type" not in conn_dict:
         raise click.ClickException(
-            "Connection must specify 'connection_type' (e.g., connection_type=databricks)."
+            "Connection must specify 'type' (e.g., type=databricks)."
         )
-    if "connection_name" not in conn_dict:
+    if "name" not in conn_dict:
         raise click.ClickException(
-            "Connection must specify 'connection_name' (e.g., connection_name=my-conn)."
+            "Connection must specify 'name' (e.g., name=my-conn)."
         )
 
-    # Validate and convert connection_type
+    # Validate and convert connection type
     try:
-        connection_type = ConnectionType.validate(conn_dict["connection_type"])
+        connection_type = ConnectionType.validate(conn_dict["type"])
     except ValueError as e:
         raise click.ClickException(str(e)) from None
 
-    return ConnectionConfig(
-        connection_type=connection_type, connection_name=conn_dict["connection_name"],
-    )
+    return ConnectionConfig(type=connection_type, name=conn_dict["name"],)
 
 
 def parse_connections(connections: Tuple[str, ...]) -> List[ConnectionConfig]:

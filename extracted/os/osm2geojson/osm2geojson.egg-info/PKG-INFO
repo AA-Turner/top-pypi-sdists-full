@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: osm2geojson
-Version: 0.3.1
+Version: 0.3.2
 Summary: Parse OSM and Overpass JSON
 Author-email: Parfeniuk Mykola <mikola.parfenyuck@gmail.com>
 License: MIT

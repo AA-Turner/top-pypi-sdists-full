@@ -35,7 +35,7 @@ from sqlalchemy import (
     inspect,
     text,
 )
-from sqlalchemy.exc import DBAPIError, NoSuchTableError, OperationalError
+from sqlalchemy.exc import ArgumentError, DBAPIError, NoSuchTableError, OperationalError
 from sqlalchemy.sql import and_, literal, not_, or_, select
 from sqlalchemy.sql.ddl import CreateTable
 from sqlalchemy.testing.assertions import eq_
@@ -170,6 +170,17 @@ def test_connect_args():
         engine.dispose()
 
 
+def test_get_server_version_info(engine_testaccount):
+    with engine_testaccount.connect() as conn:
+        direct_version = conn.execute(text("SELECT CURRENT_VERSION()")).scalar()
+        version_info = engine_testaccount.dialect._get_server_version_info(conn)
+
+    assert direct_version is not None
+    assert version_info == tuple(
+        int(part) for part in direct_version.split()[0].split(".")
+    )
+
+
 def test_boolean_query_argument_parsing():
     engine = create_engine(
         URL(
@@ -183,6 +194,91 @@ def test_boolean_query_argument_parsing():
         assert connection.validate_default_parameters is True
     finally:
         connection.close()
+        engine.dispose()
+
+
+def test_query_tag_appears_in_query_history():
+    """
+    Tests that query_tag actually appears in Snowflake's query history.
+    """
+    test_query_tag = "sqlalchemy_history_test_tag"
+    engine = create_engine(
+        URL(
+            **CONNECTION_PARAMETERS,
+        ),
+        connect_args={
+            "session_parameters": {
+                "QUERY_TAG": test_query_tag,
+            }
+        },
+    )
+
+    try:
+        with engine.connect() as conn:
+            # Execute a simple query
+            with conn.begin():
+                conn.execute(text("SELECT 1; -- query tag test"))
+
+            # Query the query history to verify the tag
+            result = conn.execute(
+                text(
+                    """
+                    SELECT QUERY_TAG
+                    FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY_BY_SESSION())
+                    WHERE QUERY_TEXT = 'SELECT 1; -- query tag test'
+                    ORDER BY START_TIME DESC LIMIT 1
+                    """
+                )
+            )
+            row = result.fetchone()
+            assert row is not None, "Query should be found in history"
+            assert row[0] == test_query_tag, f"Query tag should be '{test_query_tag}'"
+    finally:
+        engine.dispose()
+
+
+def test_query_tag_per_query():
+    """
+    Tests setting query_tag dynamically per query or per set of SQL actions
+    using ALTER SESSION SET QUERY_TAG.
+    """
+    engine = create_engine(URL(**CONNECTION_PARAMETERS))
+    try:
+        with engine.connect() as conn:
+            # Set query_tag for first set of operations
+            with conn.begin():
+                conn.execute(text("ALTER SESSION SET QUERY_TAG = 'batch_job_1'"))
+                conn.execute(text("SELECT 1; -- batch 1 query"))
+
+            # Change query_tag for second set of operations
+            with conn.begin():
+                conn.execute(text("ALTER SESSION SET QUERY_TAG = 'batch_job_2'"))
+                conn.execute(text("SELECT 2; -- batch 2 query"))
+
+            # Reset query_tag (unset it)
+            with conn.begin():
+                conn.execute(text("ALTER SESSION UNSET QUERY_TAG"))
+                conn.execute(text("SELECT 3; -- no tag query"))
+
+            # Verify the query tags in history
+            result = conn.execute(
+                text(
+                    """
+                    SELECT QUERY_TEXT, QUERY_TAG
+                    FROM TABLE(INFORMATION_SCHEMA.QUERY_HISTORY_BY_SESSION())
+                    WHERE QUERY_TEXT LIKE 'SELECT %; -- batch%'
+                       OR QUERY_TEXT LIKE 'SELECT %; -- no tag%'
+                    ORDER BY START_TIME DESC
+                    """
+                )
+            )
+            rows = result.fetchall()
+            query_tags = {row[0]: row[1] for row in rows}
+
+            assert query_tags.get("SELECT 1; -- batch 1 query") == "batch_job_1"
+            assert query_tags.get("SELECT 2; -- batch 2 query") == "batch_job_2"
+            assert query_tags.get("SELECT 3; -- no tag query") in (None, "")
+    finally:
         engine.dispose()
 
 
@@ -418,6 +514,49 @@ def test_insert_tables(engine_testaccount):
             # drop tables
             addresses.drop(engine_testaccount)
             users.drop(engine_testaccount)
+
+
+def test_ilike_support(engine_testaccount):
+    metadata = MetaData()
+    table = Table(
+        f"ilike_test_{random_string(5)}",
+        metadata,
+        Column("id", Integer, primary_key=True),
+        Column("value", String),
+    )
+    metadata.create_all(engine_testaccount)
+
+    cases = [
+        # (query_pattern, escape, negate, expected_query_result)
+        ("casesens%", None, False, ["CaseSensitive", "casesensitive"]),
+        ("casesens%", None, True, ["pattern_test", "pattern_%", "patternstest"]),
+        ("pattern_%", None, False, ["pattern_test", "pattern_%", "patternstest"]),
+        ("pattern\\_%", "\\", False, ["pattern_test", "pattern_%"]),
+        ("pattern\\_\\%", "\\", False, ["pattern_%"]),
+    ]
+
+    try:
+        with engine_testaccount.begin() as conn:
+            conn.execute(
+                table.insert(),
+                [
+                    {"id": 1, "value": "CaseSensitive"},
+                    {"id": 2, "value": "casesensitive"},
+                    {"id": 3, "value": "pattern_test"},
+                    {"id": 4, "value": "pattern_%"},
+                    {"id": 5, "value": "patternstest"},
+                ],
+            )
+
+            for pattern, escape, negate, expected in cases:
+                clause = table.c.value.ilike(pattern, escape=escape)
+                if negate:
+                    clause = ~clause
+
+                rows = conn.execute(select(table.c.value).where(clause)).scalars().all()
+                assert sorted(rows) == sorted(expected)
+    finally:
+        metadata.drop_all(engine_testaccount)
 
 
 def test_table_does_not_exist(engine_testaccount):
@@ -1535,20 +1674,20 @@ def test_for_exception_in_query_all_columns(engine_testaccount, db_parameters):
 
     exception_instance = DBAPIError.instance(
         """
-            SELECT /* sqlalchemy:_get_schema_columns */
-                   ic.table_name,
-                   ic.column_name,
-                   ic.data_type,
-                   ic.character_maximum_length,
-                   ic.numeric_precision,
-                   ic.numeric_scale,
-                   ic.is_nullable,
-                   ic.column_default,
-                   ic.is_identity,
-                   ic.comment
-              FROM information_schema.columns ic
-             WHERE ic.table_schema='schema_name'
-             ORDER BY ic.ordinal_position""",
+        SELECT /* sqlalchemy:_get_schema_columns */
+            ic.table_name,
+            ic.column_name,
+            ic.data_type,
+            ic.character_maximum_length,
+            ic.numeric_precision,
+            ic.numeric_scale,
+            ic.is_nullable,
+            ic.column_default,
+            ic.is_identity,
+            ic.comment
+        FROM information_schema.columns ic
+        WHERE ic.table_schema = 'schema_name'
+        ORDER BY ic.ordinal_position""",
         {"table_schema": "TESTSCHEMA"},
         ProgrammingError(
             "Information schema query returned too much data. Please repeat query with more "
@@ -1634,10 +1773,10 @@ def test_column_type_schema(engine_testaccount):
             f"""\
 CREATE TEMP TABLE {table_name} (
     C1 BIGINT, C2 BINARY, C3 BOOLEAN, C4 CHAR, C5 CHARACTER, C6 DATE, C7 DATETIME, C8 DEC,
-    C9 DECIMAL, C10 DOUBLE, C11 FLOAT, C12 INT, C13 INTEGER, C14 NUMBER, C15 REAL, C16 BYTEINT,
-    C17 SMALLINT, C18 STRING, C19 TEXT, C20 TIME, C21 TIMESTAMP, C22 TIMESTAMP_TZ, C23 TIMESTAMP_LTZ,
-    C24 TIMESTAMP_NTZ, C25 TINYINT, C26 VARBINARY, C27 VARCHAR, C28 VARIANT, C29 OBJECT, C30 ARRAY, C31 GEOGRAPHY,
-    C32 GEOMETRY
+    C9 DECIMAL, C10 DECFLOAT, C11 DOUBLE, C12 FLOAT, C13 INT, C14 INTEGER, C15 NUMBER, C16 REAL,
+    C17 BYTEINT, C18 SMALLINT, C19 STRING, C20 TEXT, C21 TIME, C22 TIMESTAMP, C23 TIMESTAMP_TZ,
+    C24 TIMESTAMP_LTZ, C25 TIMESTAMP_NTZ, C26 TINYINT, C27 VARBINARY, C28 VARCHAR, C29 VARIANT,
+    C30 OBJECT, C31 ARRAY, C32 GEOGRAPHY, C33 GEOMETRY, C34 VECTOR(INT, 2)
 )
 """
         )
@@ -1820,6 +1959,118 @@ CREATE OR REPLACE TEMP TABLE {table_name}
             and columns[0]["name"] == "col"
             and columns[1]["name"] == ""
         )
+
+
+def test_normalize_name_empty_string_does_not_crash(engine_testaccount):
+    """Reflection should handle empty string table names without crashing.
+
+    Reported as: SNOW-593204
+    https://github.com/snowflakedb/snowflake-sqlalchemy/issues/296
+
+    The bug occurred when SHOW TABLES returned a row with an empty string as the
+    table name. Snowflake accepts "" (quoted empty string) as a valid identifier.
+
+    The normalize_name() method would call _requires_quotes(name.lower())
+    which tried to access value[0] on an empty string, causing:
+        IndexError: string index out of range
+
+    The fix (name_utils.py lines 16-17) returns early when name == "", preventing
+    the call to _requires_quotes() on an empty string.
+
+    This test creates a table with empty string name and verifies that
+    MetaData.reflect() handles it without crashing with IndexError.
+
+    Note: Empty string column names are not tested because SQLAlchemy core
+    explicitly disallows empty column names (raises ArgumentError).
+    """
+    schema = f"TEST_NORMALIZE_EMPTY_{random_string(5, choices=string.ascii_uppercase)}"
+    normalized_schema = schema.lower()
+    with engine_testaccount.connect() as conn:
+        conn.execute(text(f"CREATE OR REPLACE SCHEMA {schema}"))
+        conn.execute(
+            text(f"CREATE OR REPLACE TABLE {schema}.NORMAL_TABLE (ID INTEGER)")
+        )
+        conn.execute(
+            text(f'CREATE OR REPLACE TABLE {schema}."" (ID INTEGER, NAME STRING)')
+        )
+
+        try:
+            md = MetaData(schema=normalized_schema)
+            md.reflect(bind=engine_testaccount)
+
+            table_keys = list(md.tables.keys())
+
+            assert any(
+                "normal_table" in key for key in table_keys
+            ), f"Expected normal_table in {table_keys}"
+
+            empty_string_as_table_identifier = f"{normalized_schema}."
+            assert (
+                empty_string_as_table_identifier in table_keys
+            ), f"Expected empty string table '{empty_string_as_table_identifier}' in {table_keys}"
+
+            empty_table = md.tables[empty_string_as_table_identifier]
+            assert empty_table.name == ""
+            col_names = [c.name.lower() for c in empty_table.columns]
+            assert "id" in col_names
+            assert "name" in col_names
+        finally:
+            conn.execute(text(f"DROP SCHEMA IF EXISTS {schema}"))
+
+
+def test_empty_column_names_not_supported_by_sqlalchemy():
+    """SQLAlchemy core disallows empty string column names with ArgumentError.
+
+    Related to: SNOW-593204
+    https://github.com/snowflakedb/snowflake-sqlalchemy/issues/296
+
+    While Snowflake accepts "" (quoted empty string) as a valid column identifier,
+    SQLAlchemy itself rejects empty column names at Table construction time.
+    This means even if a Snowflake table has an empty-string column, reflecting
+    it through SQLAlchemy would not produce a usable Column object.
+
+    This test documents this SQLAlchemy-level limitation so it is explicit
+    rather than buried in a docstring note.
+    """
+    with pytest.raises(
+        ArgumentError,
+        match="Column must be constructed with a non-blank name",
+    ):
+        Table("some_table", MetaData(), Column("", Integer))
+
+
+def test_reflect_schema_none_does_not_crash(engine_testaccount):
+    """MetaData().reflect() without schema should not crash with TypeError.
+
+    Reported as: SNOW-2852779
+    https://github.com/snowflakedb/snowflake-sqlalchemy/issues/623
+
+    When MetaData().reflect() is called without specifying a schema,
+    and the dialect's default schema is used, _denormalize_quote_join could
+    receive None arguments causing:
+        TypeError: reduce() of empty iterable with no initial value
+    """
+    table_name = "t_reflect_schema_none_test"
+
+    with engine_testaccount.connect() as conn:
+        conn.execute(text(f"CREATE OR REPLACE TABLE {table_name} (id INTEGER)"))
+        conn.commit()
+
+    try:
+        md = MetaData()
+
+        md.reflect(bind=engine_testaccount, views=True)
+
+        table_names = [k.lower() for k in md.tables.keys()]
+
+        assert any(
+            table_name in name for name in table_names
+        ), f"Expected {table_name} in reflected metadata, got {list(md.tables.keys())}"
+
+    finally:
+        with engine_testaccount.connect() as conn:
+            conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+            conn.commit()
 
 
 @pytest.mark.pandas

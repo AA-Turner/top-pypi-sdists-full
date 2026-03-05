@@ -259,12 +259,23 @@ class ExtraVersionOption(ExtraOption):
             # which the user's CLI is implemented.
             return frame
 
-        # Our heuristics to locate the CLI implementation failed.
+        # Our heuristics to locate the CLI implementation failed. Fall back to
+        # the outermost frame in the stack. This happens in Nuitka-compiled
+        # binaries where the entry point module's ``__name__`` may be a
+        # submodule of the Click ecosystem package (e.g.
+        # ``click_extra.__main__``) and all frames get skipped.
         logger = logging.getLogger("click_extra")
         count_size = len(str(len(frame_chain)))
         for counter, (p_name, f_name) in enumerate(frame_chain):
             logger.debug(f"Frame {counter:<{count_size}} # {p_name}:{f_name}")
-        raise RuntimeError("Could not find the frame in which the CLI is implemented.")
+
+        # The outermost frame is the last one returned by inspect.stack().
+        outermost = inspect.stack()[-1].frame
+        logger.debug(
+            "cli_frame heuristics exhausted, falling back to outermost frame: "
+            f"{outermost.f_globals.get('__name__')}:{outermost.f_code.co_name}"
+        )
+        return outermost
 
     @cached_property
     def module(self) -> ModuleType:
@@ -370,6 +381,21 @@ class ExtraVersionOption(ExtraOption):
                     # Get the callback's globals (where __version__ might be defined).
                     callback_globals = getattr(callback, "__globals__", {})
                     version = callback_globals.get("__version__")
+
+        # If still not found, check the parent package. This handles
+        # ``__main__`` entry points where ``__version__`` is defined in
+        # the package's ``__init__.py`` (e.g. Nuitka-compiled binaries).
+        # Skip modules belonging to the Click ecosystem because
+        # ``cli_frame()`` may resolve to a CliRunner frame instead of
+        # the user's module, producing false-positive lookups.
+        if (
+            version is None
+            and self.package_name
+            and self.module_name.split(".")[0] not in ("click", "click_extra", "cloup")
+        ):
+            parent = sys.modules.get(self.package_name)
+            if parent:
+                version = getattr(parent, "__version__", None)
 
         if version is not None and not isinstance(version, str):
             raise ValueError(
@@ -519,17 +545,18 @@ class ExtraVersionOption(ExtraOption):
 
             # Replace only the string literal in-place using AST
             # positions, preserving surrounding content and quoting.
-            lines = source.splitlines(keepends=True)
-            line = lines[node.value.end_lineno - 1]
-            # end_col_offset points past the closing quote.
+            end_lineno = node.value.end_lineno
             col_end = node.value.end_col_offset
+            assert end_lineno is not None and col_end is not None
+            lines = source.splitlines(keepends=True)
+            line = lines[end_lineno - 1]
             # The closing quote character.
             quote = line[col_end - 1]
             # Insert the local version just before the closing quote.
             new_line = (
                 line[: col_end - 1] + "+" + local_version + quote + line[col_end:]
             )
-            lines[node.value.end_lineno - 1] = new_line
+            lines[end_lineno - 1] = new_line
             file_path.write_text("".join(lines), encoding="utf-8")
 
             logging.info(

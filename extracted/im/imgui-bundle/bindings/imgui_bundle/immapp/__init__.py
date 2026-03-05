@@ -1,5 +1,4 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
-import importlib.util
 from imgui_bundle import _imgui_bundle as _native_bundle
 from imgui_bundle._imgui_bundle import immapp_cpp as immapp_cpp  # type: ignore
 from imgui_bundle._imgui_bundle.immapp_cpp import (  # type: ignore
@@ -48,9 +47,13 @@ from imgui_bundle._imgui_bundle.hello_imgui import (  # type: ignore
     SimpleRunnerParams as SimpleRunnerParams,
 )
 
+# Import async support
+from imgui_bundle.immapp.run_async_overloads import run_async as run_async
+
+# Import notebook convenience API
+from imgui_bundle.immapp import nb as nb
 
 manual_render = _native_bundle.immapp_cpp.manual_render
-
 __all__ = [
     "clock_seconds",
     "default_node_editor_context",
@@ -63,6 +66,7 @@ __all__ = [
     "pixels_to_em",
     "pixel_size_to_em",
     "run",
+    "run_async",
     "run_with_markdown",
     "AddOnsParams",
     "icons_fontawesome",  # v4
@@ -81,9 +85,14 @@ __all__ = [
     "widget_with_resize_handle_in_node_editor",
     "widget_with_resize_handle_in_node_editor_em",
     "immapp_code_utils",
+    "nb",
 ]
 
 
-if importlib.util.find_spec("IPython") is not None:
-    from imgui_bundle.immapp.immapp_notebook import run_nb as run_nb
-    __all__.append("run_nb")
+def run_nb(*args, **kwargs):
+    """run_nb: alias for immapp.run, kept for backward compatibility.
+    Was intended to be used in Jupyter notebooks. Now immapp.run is patched to work in notebooks.
+    """
+    return run(*args, **kwargs)
+
+__all__.append("run_nb")

@@ -37,12 +37,11 @@ from accelerate.test_utils import (
     torch_device,
 )
 from accelerate.test_utils.testing import require_torch_min_version, require_transformers
-from accelerate.utils.imports import is_hpu_available, is_transformers_available, is_xccl_available
+from accelerate.utils.imports import is_hpu_available, is_transformers_available
 
 
 if is_transformers_available():
     from transformers import AutoConfig, AutoModel
-    from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 
 
 def manage_process_group(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -50,18 +49,18 @@ def manage_process_group(func: Callable[..., Any]) -> Callable[..., Any]:
 
     def wrapped(*args: Any, **kwargs: Any) -> Any:
         torch_accelerator_module = getattr(torch, torch_device, torch.cuda)
-        # FIXME currently, we still need specify "ccl" backend to use torch-ccl,
-        #       pytorch built-in xccl will be available from PyTorch 2.9, will remove this after we have xccl
-        if torch_device == "xpu" and not is_xccl_available():
-            dist.init_process_group(backend="ccl", world_size=torch_accelerator_module.device_count())
-        elif torch_device == "hpu" and is_hpu_available(init_hccl=True):
-            dist.init_process_group(backend="hccl", world_size=torch_accelerator_module.device_count())
-        else:
-            dist.init_process_group(world_size=torch_accelerator_module.device_count())
+        initialized_here = False
+        if not dist.is_initialized():
+            if torch_device == "hpu" and is_hpu_available(init_hccl=True):
+                dist.init_process_group(backend="hccl", world_size=torch_accelerator_module.device_count())
+            else:
+                dist.init_process_group(world_size=torch_accelerator_module.device_count())
+            initialized_here = True
         try:
             return func(*args, **kwargs)
         finally:
-            dist.destroy_process_group()
+            if initialized_here:
+                dist.destroy_process_group()
 
     return wrapped
 
@@ -74,7 +73,7 @@ def load_checkpoint_and_dispatch_fsdp2():
     pretrained_model_name_or_path = "bigscience/bloom-560m"
     model_path = hf_hub_download("bigscience/bloom-560m", "pytorch_model.bin")
 
-    model = AutoModel.from_pretrained(pretrained_model_name_or_path, device_map=device)
+    model = AutoModel.from_pretrained(pretrained_model_name_or_path, device_map=device, torch_dtype=torch.float32)
     assert isinstance(model, nn.Module)
 
     with init_empty_weights():
@@ -82,6 +81,8 @@ def load_checkpoint_and_dispatch_fsdp2():
         fsdp2_model = AutoModel.from_config(config)
         fsdp2_model.tie_weights()
         assert isinstance(fsdp2_model, nn.Module)
+
+    from transformers.models.gpt2.modeling_gpt2 import GPT2Block
 
     mesh = init_device_mesh(device.type, (dist.get_world_size(),))
     fsdp2_model, _ = _recursive_wrap(
@@ -164,7 +165,7 @@ def load_checkpoint_and_dispatch_ddp():
     pretrained_model_name_or_path = "bigscience/bloom-560m"
     model_path = hf_hub_download("bigscience/bloom-560m", "pytorch_model.bin")
 
-    model = AutoModel.from_pretrained(pretrained_model_name_or_path, device_map=device)
+    model = AutoModel.from_pretrained(pretrained_model_name_or_path, device_map=device, torch_dtype=torch.float32)
     assert isinstance(model, nn.Module)
 
     with init_empty_weights():
@@ -253,7 +254,7 @@ if __name__ == "__main__":
     if args.fsdp2:
         load_checkpoint_and_dispatch_fsdp2()
     elif args.ddp:
-        load_checkpoint_and_dispatch_ddp
+        load_checkpoint_and_dispatch_ddp()
     elif args.no_broadcast_from_rank0:
         load_checkpoint_and_dispatch_no_broadcast_from_rank0()
     else:

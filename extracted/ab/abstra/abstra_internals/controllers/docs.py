@@ -1,8 +1,12 @@
+from pathlib import Path
+
 import requests
 
 from abstra_internals.environment import DOCS_URL
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.utils.sdk import SDKContractParser
+
+_AI_GUIDES_DIR = Path(__file__).parent.parent / "ai_guides"
 
 
 class DocsController:
@@ -41,6 +45,48 @@ class DocsController:
         url = DOCS_URL + (path or "/llms.txt")
         menu_content = requests.get(url).text
         return menu_content
+
+    def get_forms_guide(self):
+        """
+        Returns the guide for writing Abstra Form stages.
+
+        Call this before writing any Form code. Contains:
+        - run() structure and call frequency rules
+        - All step types with their execution model (static, reactive, computation, generator)
+        - The reactive re-execution model and side-effect rules
+        - Live validation with errors=[]
+        - Button behavior and patterns (approval workflow, ExitButton, empty buttons)
+        - Task handling in Forms (get_tasks vs get_trigger_task)
+        - Common bad patterns and their fixes
+
+        Returns:
+            str: Markdown guide for Form best practices.
+
+        Copywritings:
+            Get the forms guide
+            Reading forms guide...
+        """
+        return self.read_abstra_docs("/docs/md/workflow/forms/step-types.md")
+
+    def get_forms_examples(self):
+        """
+        Returns annotated code examples for common Abstra Form patterns.
+
+        Call this before writing any Form code, alongside get_forms_guide.
+        Contains real-world examples covering multi-step forms, approval workflows,
+        task processing, file uploads, authentication, and more.
+
+        Returns:
+            str: Annotated Form code examples.
+
+        Copywritings:
+            Get forms examples
+            Reading forms examples...
+        """
+        path = _AI_GUIDES_DIR / "forms_examples.md"
+        if not path.exists():
+            return "No examples available yet."
+        return path.read_text()
 
     def list_all_modules_in_abstra_lib(self):
         """

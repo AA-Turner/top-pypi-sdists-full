@@ -91,12 +91,12 @@ impl DocumentExtractor for BibtexExtractor {
                     let key = entry.key.clone();
                     let entry_type = entry.entry_type.clone();
 
-                    formatted_entries.push_str(&format!("@{} {{\n", entry_type));
-                    formatted_entries.push_str(&format!("  key = {},\n", key));
+                    // Format as @type{key, with key on the same line
+                    formatted_entries.push_str(&format!("@{}{{{},\n", entry_type, key));
 
                     for (field_name, field_chunks) in &entry.fields {
                         let field_text = field_chunks.format_verbatim();
-                        formatted_entries.push_str(&format!("  {} = {},\n", field_name, field_text));
+                        formatted_entries.push_str(&format!("  {} = {{{}}},\n", field_name, field_text));
 
                         if field_name.to_lowercase() == "author" {
                             let authors_text = field_chunks.format_verbatim();

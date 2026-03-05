@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-sqlalchemy
-Version: 1.8.2
+Version: 1.9.0
 Summary: Snowflake SQLAlchemy Dialect
 Project-URL: Changelog, https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/DESCRIPTION.md
 Project-URL: Documentation, https://docs.snowflake.com/en/user-guide/sqlalchemy.html
@@ -39,7 +39,6 @@ Requires-Python: >=3.8
 Requires-Dist: snowflake-connector-python<5.0.0
 Requires-Dist: sqlalchemy>=1.4.19
 Provides-Extra: development
-Requires-Dist: mock; extra == 'development'
 Requires-Dist: numpy; extra == 'development'
 Requires-Dist: pre-commit; extra == 'development'
 Requires-Dist: pytest; extra == 'development'
@@ -64,7 +63,47 @@ Description-Content-Type: text/markdown
 
 Snowflake SQLAlchemy runs on the top of the Snowflake Connector for Python as a [dialect](http://docs.sqlalchemy.org/en/latest/dialects/) to bridge a Snowflake database and SQLAlchemy applications.
 
-
+Table of contents:
+<!-- TOC -->
+* [Snowflake SQLAlchemy](#snowflake-sqlalchemy)
+  * [Prerequisites](#prerequisites)
+    * [Snowflake Connector for Python](#snowflake-connector-for-python)
+    * [Data Analytics and Web Application Frameworks (Optional)](#data-analytics-and-web-application-frameworks-optional)
+  * [Installing Snowflake SQLAlchemy](#installing-snowflake-sqlalchemy)
+  * [Verifying Your Installation](#verifying-your-installation)
+  * [Parameters and Behavior](#parameters-and-behavior)
+    * [Connection Parameters](#connection-parameters)
+      * [Escaping Special Characters such as `%, @` signs in Passwords](#escaping-special-characters-such-as---signs-in-passwords)
+      * [Using a proxy server](#using-a-proxy-server)
+      * [Using session parameters](#using-session-parameters)
+    * [Opening and Closing Connection](#opening-and-closing-connection)
+    * [Auto-increment Behavior](#auto-increment-behavior)
+    * [Object Name Case Handling](#object-name-case-handling)
+    * [Index Support](#index-support)
+      * [Single Column Index](#single-column-index)
+      * [Multi-Column Index](#multi-column-index)
+    * [Numpy Data Type Support](#numpy-data-type-support)
+    * [DECFLOAT Data Type Support](#decfloat-data-type-support)
+      * [DECFLOAT Precision](#decfloat-precision)
+    * [VECTOR Data Type Support](#vector-data-type-support)
+    * [Cache Column Metadata](#cache-column-metadata)
+    * [VARIANT, ARRAY and OBJECT Support](#variant-array-and-object-support)
+    * [Structured Data Types Support](#structured-data-types-support)
+      * [MAP](#map)
+      * [OBJECT](#object)
+      * [ARRAY](#array)
+    * [CLUSTER BY Support](#cluster-by-support)
+    * [Alembic Support](#alembic-support)
+    * [Key Pair Authentication Support](#key-pair-authentication-support)
+    * [Merge Command Support](#merge-command-support)
+    * [CopyIntoStorage Support](#copyintostorage-support)
+    * [Iceberg Table with Snowflake Catalog support](#iceberg-table-with-snowflake-catalog-support)
+    * [Hybrid Table support](#hybrid-table-support)
+    * [Dynamic Tables support](#dynamic-tables-support)
+    * [Notes](#notes)
+  * [Verifying Package Signatures](#verifying-package-signatures)
+  * [Support](#support)
+<!-- TOC -->
 
 ## Prerequisites
 
@@ -240,6 +279,44 @@ engine = create_engine(URL(
 
 Use the supported environment variables, `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY` to configure a proxy server.
 
+#### Using session parameters
+
+Snowflake [session parameters](https://docs.snowflake.com/en/sql-reference/parameters#session-parameters) (such as [`QUERY_TAG`](https://docs.snowflake.com/en/sql-reference/parameters#query-tag)) cannot be set directly through the `URL` helper.
+Instead, pass them via the `connect_args` parameter of `create_engine`, using the `session_parameters` dict — the same way you would [through the Python connector](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#setting-session-parameters):
+
+```python
+from snowflake.sqlalchemy import URL
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    URL(
+        # CONNECTION_PARAMETERS
+    ),
+    connect_args={
+        "session_parameters": {
+            "QUERY_TAG": "SOME_QUERY_TAGS",
+        }
+    },
+)
+```
+
+Session parameters set this way apply to all queries executed within the session.
+To change a session parameter for specific queries mid-session, use `ALTER SESSION`:
+
+```python
+from sqlalchemy import text
+
+with engine.connect() as conn:
+    conn.execute(text("ALTER SESSION SET QUERY_TAG = 'batch_job_1'"))
+    conn.execute(text("..."))  # Uses 'batch_job_1'
+
+    conn.execute(text("ALTER SESSION SET QUERY_TAG = 'batch_job_2'"))
+    conn.execute(text("..."))  # Uses 'batch_job_2'
+
+    conn.execute(text("ALTER SESSION UNSET QUERY_TAG"))
+    conn.execute(text("..."))  # No tag
+```
+
 ### Opening and Closing Connection
 
 Open a connection by executing `engine.connect()`; avoid using `engine.execute()`. Make certain to close the connection by executing `connection.close()` before
@@ -358,6 +435,116 @@ The following `NumPy` data types are supported:
 - numpy.int64
 - numpy.float64
 - numpy.datatime64
+
+### DECFLOAT Data Type Support
+
+Snowflake SQLAlchemy supports the `DECFLOAT` data type, which provides decimal floating-point with up to 38 significant digits. For more information, see the [Snowflake DECFLOAT documentation](https://docs.snowflake.com/en/sql-reference/data-types-numeric#decfloat).
+
+```python
+from sqlalchemy import Column, Integer, MetaData, Table
+from snowflake.sqlalchemy import DECFLOAT
+
+metadata = MetaData()
+t = Table('my_table', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('value', DECFLOAT()),
+)
+metadata.create_all(engine)
+```
+
+#### DECFLOAT Precision
+
+The Snowflake Python connector uses Python's `decimal` module context when converting `DECFLOAT` values to Python `Decimal` objects. Python's default decimal context precision is 28 digits, which can truncate `DECFLOAT` values that use up to 38 digits.
+
+To preserve full 38-digit precision, add `enable_decfloat=True` to the connection URL:
+
+```python
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    'snowflake://testuser1:0123456@abc123/testdb/public?warehouse=testwh&enable_decfloat=True'
+)
+```
+
+Or using the `snowflake.sqlalchemy.URL` helper:
+
+```python
+from snowflake.sqlalchemy import URL
+from sqlalchemy import create_engine
+
+engine = create_engine(URL(
+    account = 'abc123',
+    user = 'testuser1',
+    password = '0123456',
+    database = 'testdb',
+    schema = 'public',
+    warehouse = 'testwh',
+    enable_decfloat = True,
+))
+```
+
+**Note**: `DECFLOAT` does not support special values (`inf`, `-inf`, `NaN`) unlike `FLOAT`.
+
+**Why is `enable_decfloat` not enabled by default?** Enabling it sets `decimal.getcontext().prec = 38`, which modifies Python's thread-local decimal context and affects all `Decimal` operations in that thread, not just database queries. To avoid unexpected side effects on application code, the dialect emits a warning when `DECFLOAT` values are retrieved without full precision enabled, guiding users to opt-in explicitly.
+
+### VECTOR Data Type Support
+
+Snowflake SQLAlchemy supports the `VECTOR` data type with varying element type and dimension.
+For more information, see the [Snowflake documentation](https://docs.snowflake.com/en/sql-reference/data-types-vector).
+
+```python
+from sqlalchemy import Column, Integer, Float, MetaData, Table
+from snowflake.sqlalchemy import VECTOR
+
+metadata = MetaData()
+t = Table('my_table', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('int_vec', VECTOR(Integer, 20)),
+    Column('float_vec', VECTOR(Float, 40)),
+)
+metadata.create_all(engine)
+```
+
+### Timestamp and Timezone Support
+
+Snowflake SQLAlchemy provides three Snowflake-specific timestamp types that map directly to their Snowflake counterparts:
+
+```python
+from sqlalchemy import Column, Integer, MetaData, Table, create_engine
+from snowflake.sqlalchemy import TIMESTAMP_NTZ, TIMESTAMP_TZ, TIMESTAMP_LTZ
+
+engine = create_engine(...)
+metadata = MetaData()
+t = Table('events', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('created_at', TIMESTAMP_NTZ()),   # TIMESTAMP WITHOUT TIME ZONE
+    Column('scheduled_at', TIMESTAMP_TZ()),  # TIMESTAMP WITH TIME ZONE
+    Column('logged_at', TIMESTAMP_LTZ()),    # TIMESTAMP WITH LOCAL TIME ZONE
+)
+metadata.create_all(engine)
+```
+
+SQLAlchemy's generic `DateTime` and `TIMESTAMP` types also support timezone-aware columns via the `timezone` parameter. When `timezone=True` is set, the dialect emits `TIMESTAMP_TZ` instead of the default `TIMESTAMP_NTZ`:
+
+```python
+from sqlalchemy import Column, DateTime, Integer, MetaData, Table, create_engine
+from sqlalchemy.types import TIMESTAMP
+
+engine = create_engine(...)
+metadata = MetaData()
+t = Table('events', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('naive_ts', DateTime()),                 # produces TIMESTAMP_NTZ
+    Column('aware_ts', DateTime(timezone=True)),    # produces TIMESTAMP_TZ
+    Column('naive_ts2', TIMESTAMP()),               # produces TIMESTAMP_NTZ
+    Column('aware_ts2', TIMESTAMP(timezone=True)),  # produces TIMESTAMP_TZ
+)
+metadata.create_all(engine)
+```
+
+This also applies when using pandas `to_sql()` with timezone-aware datetime columns, which infers `DateTime(timezone=True)` automatically (see [#199](https://github.com/snowflakedb/snowflake-sqlalchemy/issues/199)).
+
+**Note on `Time` and timezones:** SQLAlchemy's `Time` type accepts a `timezone` parameter, but [Snowflake's TIME data type does not support time zones](https://docs.snowflake.com/en/sql-reference/data-types-datetime#time). Using `Time(timezone=True)` will compile to plain `TIME` and the `timezone` flag will have no effect. If you need to store time data with time-zone information, use a timestamp type such as `TIMESTAMP_TZ` or `DateTime(timezone=True)` instead.
 
 ### Cache Column Metadata
 

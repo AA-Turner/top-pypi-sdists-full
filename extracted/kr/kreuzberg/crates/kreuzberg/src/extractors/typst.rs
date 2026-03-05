@@ -231,9 +231,27 @@ impl TypstParser {
         let mut lines = self.content.lines().peekable();
         let mut in_code_block = false;
         let mut code_block_fence = String::new();
+        let mut in_set_document = false;
+        let mut paren_depth: i32 = 0;
 
         while let Some(line) = lines.next() {
             let trimmed = line.trim();
+
+            // Skip multi-line #set document(...) blocks
+            if in_set_document {
+                for ch in trimmed.chars() {
+                    match ch {
+                        '(' => paren_depth += 1,
+                        ')' => paren_depth -= 1,
+                        _ => {}
+                    }
+                }
+                if paren_depth <= 0 {
+                    in_set_document = false;
+                    paren_depth = 0;
+                }
+                continue;
+            }
 
             if trimmed.starts_with("```") {
                 if in_code_block {
@@ -264,6 +282,22 @@ impl TypstParser {
                 continue;
             }
 
+            // Skip #set document(...) - may span multiple lines
+            if trimmed.starts_with("#set document(") {
+                paren_depth = 0;
+                for ch in trimmed.chars() {
+                    match ch {
+                        '(' => paren_depth += 1,
+                        ')' => paren_depth -= 1,
+                        _ => {}
+                    }
+                }
+                if paren_depth > 0 {
+                    in_set_document = true;
+                }
+                continue;
+            }
+
             if trimmed.starts_with("#set ") || trimmed.starts_with("#let ") {
                 continue;
             }
@@ -272,8 +306,16 @@ impl TypstParser {
                 continue;
             }
 
+            // Skip layout directives
+            if trimmed.starts_with("#pagebreak")
+                || trimmed.starts_with("#colbreak")
+                || trimmed.starts_with("#v(")
+                || trimmed.starts_with("#h(")
+            {
+                continue;
+            }
+
             if trimmed.starts_with("#table(") {
-                output.push_str("TABLE:\n");
                 let table_content = self.extract_table_content(trimmed, &mut lines);
                 output.push_str(&table_content);
                 output.push('\n');
@@ -286,11 +328,8 @@ impl TypstParser {
                     let heading_level = trimmed.chars().take_while(|&c| c == '=').count();
                     let heading_text = trimmed[heading_level..].trim();
 
-                    for _ in 0..heading_level {
-                        output.push('=');
-                    }
-                    output.push(' ');
                     output.push_str(heading_text);
+                    let _ = heading_level;
                     output.push('\n');
                     continue;
                 }
@@ -344,7 +383,6 @@ impl TypstParser {
     where
         I: Iterator<Item = &'a str>,
     {
-        let mut table_content = String::new();
         let mut content = first_line.to_string();
         let mut bracket_depth = 0;
         let mut paren_depth = 0;
@@ -377,6 +415,18 @@ impl TypstParser {
             }
         }
 
+        // Extract column count from `columns: N`
+        let num_cols = {
+            let col_re = Regex::new(r"columns:\s*(\d+)").ok();
+            col_re
+                .and_then(|re| re.captures(&content))
+                .and_then(|caps| caps.get(1))
+                .and_then(|m| m.as_str().parse::<usize>().ok())
+                .unwrap_or(0)
+        };
+
+        // Collect all cell texts
+        let mut cells: Vec<String> = Vec::new();
         let mut in_bracket = false;
         let mut cell = String::new();
         for ch in content.chars() {
@@ -387,11 +437,8 @@ impl TypstParser {
                 }
                 ']' => {
                     if in_bracket {
-                        let trimmed = cell.trim();
-                        if !trimmed.is_empty() {
-                            table_content.push_str(trimmed);
-                            table_content.push_str(" | ");
-                        }
+                        let trimmed = cell.trim().to_string();
+                        cells.push(trimmed);
                         in_bracket = false;
                         cell.clear();
                     }
@@ -403,8 +450,21 @@ impl TypstParser {
             }
         }
 
-        if table_content.ends_with(" | ") {
-            table_content.truncate(table_content.len() - 3);
+        // Arrange cells into rows
+        let mut table_content = String::new();
+        if num_cols > 0 && !cells.is_empty() {
+            for (i, cell_text) in cells.iter().enumerate() {
+                if i > 0 && i % num_cols == 0 {
+                    table_content.push('\n');
+                }
+                if i % num_cols > 0 {
+                    table_content.push('\t');
+                }
+                table_content.push_str(cell_text);
+            }
+        } else {
+            // Fallback: join all cells with separator
+            table_content = cells.join(" | ");
         }
 
         table_content
@@ -452,7 +512,9 @@ impl TypstParser {
                         }
                     }
                 }
-                '#' if chars.peek() == Some(&'l') => {
+                '#' => {
+                    // Skip the # prefix for Typst function calls like #link
+                    // The link extraction happens later in extract_link_text
                     result.push(ch);
                 }
                 _ => {
@@ -465,13 +527,13 @@ impl TypstParser {
     }
 
     fn extract_link_text(&self, line: &str) -> String {
-        let pattern = r#"link\("([^"]*)"\)\[([^\]]*)\]"#;
+        // Handle #link("url")[text] pattern - extract just the display text
+        let pattern = r#"#?link\("([^"]*)"\)\[([^\]]*)\]"#;
         if let Ok(re) = Regex::new(pattern) {
             return re
                 .replace_all(line, |caps: &regex::Captures| {
-                    let url = caps.get(1).map(|m| m.as_str()).unwrap_or("");
                     let text = caps.get(2).map(|m| m.as_str()).unwrap_or("");
-                    format!("[{}]({})", text, url)
+                    text.to_string()
                 })
                 .to_string();
         }
@@ -524,8 +586,8 @@ More content
 
         let (output, _) = TypstExtractor::extract_from_typst(content);
 
-        assert!(output.contains("= Level 1"));
-        assert!(output.contains("== Level 2"));
+        assert!(output.contains("Level 1"));
+        assert!(output.contains("Level 2"));
     }
 
     #[test]

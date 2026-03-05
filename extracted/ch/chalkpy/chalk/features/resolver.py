@@ -114,6 +114,7 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from chalk.features import Underscore
+    from chalk.features.incremental import IncrementalConfig
     from chalk.features.underscore import UnderscoreAttr, UnderscoreCall, UnderscoreCast, UnderscoreFunction
     from chalk.ml.model_version import ModelVersion
     from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
@@ -641,6 +642,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         partitioned_by: tuple[Feature, ...] | None,
         data_lineage: Dict[str, Dict[str, Dict[str, List[str]]]] | None,
         sql_settings: SQLResolverSettings | None,
+        incremental_settings: IncrementalConfig | None = None,
         resource_group: str | None = None,
         output_row_order: Literal["one-to-one"] | None = None,
         venv: str | None = None,
@@ -689,6 +691,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self._partitioned_by = partitioned_by
         self._data_lineage = data_lineage
         self._sql_settings = sql_settings
+        self.incremental_settings = incremental_settings
         self.output_row_order = output_row_order
         self.postprocessing = postprocessing
         super().__init__()
@@ -2184,6 +2187,7 @@ def online(
     resource_group: str | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
     venv: str | None = None,
+    incremental: IncrementalConfig | None = None,
 ) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
     ...
 
@@ -2216,6 +2220,7 @@ def online(
     resource_group: str | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
     venv: str | None = None,
+    incremental: IncrementalConfig | None = None,
 ) -> Union[Callable[[Callable[P, T]], ResolverProtocol[P, T]], ResolverProtocol[P, T]]:
     """Decorator to create an online resolver.
 
@@ -2413,6 +2418,7 @@ def online(
             partitioned_by=None,
             data_lineage=None,
             sql_settings=None,
+            incremental_settings=incremental,
             resource_group=resource_group,
             output_row_order=output_row_order,
             venv=venv,
@@ -2443,6 +2449,7 @@ def offline(
     partitioned_by: Collection[Any] | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
     venv: str | None = None,
+    incremental: IncrementalConfig | None = None,
 ) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
     ...
 
@@ -2474,6 +2481,7 @@ def offline(
     partitioned_by: Collection[Any] | None = None,
     output_row_order: Literal["one-to-one"] | None = None,
     venv: str | None = None,
+    incremental: IncrementalConfig | None = None,
 ) -> Union[Callable[[Callable[P, T]], Callable[P, T]], ResolverProtocol[P, T]]:
     """Decorator to create an offline resolver.
 
@@ -2658,6 +2666,7 @@ def offline(
             partitioned_by=None,
             data_lineage=None,
             sql_settings=None,
+            incremental_settings=incremental,
             output_row_order=output_row_order,
             venv=venv,
         )

@@ -85,6 +85,7 @@ class Trainer:
                     "grad_accumulation_steps": grad_accumulation_steps,
                     "max_grad_norm": max_grad_norm,
                     "noise_scheduler": noise_scheduler,
+                    "bnb_optimizer": bnb_optimizer,
                 }
             model_cfg_dict["gpus"] = self.accelerator.num_processes
             self.accelerator.init_trackers(
@@ -139,7 +140,7 @@ class Trainer:
 
             self.optimizer = bnb.optim.AdamW8bit(model.parameters(), lr=learning_rate)
         else:
-            self.optimizer = AdamW(model.parameters(), lr=learning_rate)
+            self.optimizer = AdamW(model.parameters(), lr=learning_rate, fused=True)
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
 
     @property
@@ -409,7 +410,7 @@ class Trainer:
                         infer_text = [
                             text_inputs[0] + ([" "] if isinstance(text_inputs[0], list) else " ") + text_inputs[0]
                         ]
-                        with torch.inference_mode():
+                        with torch.inference_mode(), self.accelerator.autocast():
                             generated, _ = self.accelerator.unwrap_model(self.model).sample(
                                 cond=mel_spec[0][:ref_audio_len].unsqueeze(0),
                                 text=infer_text,

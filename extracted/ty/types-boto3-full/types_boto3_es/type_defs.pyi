@@ -26,6 +26,7 @@ from .literals import (
     AutoTuneStateType,
     ConfigChangeStatusType,
     DeploymentStatusType,
+    DeploymentStrategyType,
     DescribePackagesFilterNameType,
     DomainPackageStatusType,
     DomainProcessingStatusTypeType,
@@ -115,6 +116,8 @@ __all__ = (
     "DeletePackageResponseTypeDef",
     "DeleteVpcEndpointRequestTypeDef",
     "DeleteVpcEndpointResponseTypeDef",
+    "DeploymentStrategyOptionsStatusTypeDef",
+    "DeploymentStrategyOptionsTypeDef",
     "DescribeDomainAutoTunesRequestTypeDef",
     "DescribeDomainAutoTunesResponseTypeDef",
     "DescribeDomainChangeProgressRequestTypeDef",
@@ -366,6 +369,9 @@ class ColdStorageOptionsTypeDef(TypedDict):
 class CompatibleVersionsMapTypeDef(TypedDict):
     SourceVersion: NotRequired[str]
     TargetVersions: NotRequired[list[str]]
+
+class DeploymentStrategyOptionsTypeDef(TypedDict):
+    DeploymentStrategy: DeploymentStrategyType
 
 class DomainEndpointOptionsTypeDef(TypedDict):
     EnforceHTTPS: NotRequired[bool]
@@ -732,6 +738,10 @@ class CognitoOptionsStatusTypeDef(TypedDict):
 class GetCompatibleElasticsearchVersionsResponseTypeDef(TypedDict):
     CompatibleElasticsearchVersions: list[CompatibleVersionsMapTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DeploymentStrategyOptionsStatusTypeDef(TypedDict):
+    Options: DeploymentStrategyOptionsTypeDef
+    Status: OptionStatusTypeDef
 
 class DomainEndpointOptionsStatusTypeDef(TypedDict):
     Options: DomainEndpointOptionsTypeDef
@@ -1146,6 +1156,7 @@ class ElasticsearchDomainStatusTypeDef(TypedDict):
     ChangeProgressDetails: NotRequired[ChangeProgressDetailsTypeDef]
     DomainProcessingStatus: NotRequired[DomainProcessingStatusTypeType]
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
 
 class DescribeElasticsearchInstanceTypeLimitsResponseTypeDef(TypedDict):
     LimitsByRole: dict[str, LimitsTypeDef]
@@ -1168,6 +1179,7 @@ class CreateElasticsearchDomainRequestTypeDef(TypedDict):
     AdvancedSecurityOptions: NotRequired[AdvancedSecurityOptionsInputTypeDef]
     AutoTuneOptions: NotRequired[AutoTuneOptionsInputTypeDef]
     TagList: NotRequired[Sequence[TagTypeDef]]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
 
 class UpdateElasticsearchDomainConfigRequestTypeDef(TypedDict):
     DomainName: str
@@ -1185,6 +1197,7 @@ class UpdateElasticsearchDomainConfigRequestTypeDef(TypedDict):
     EncryptionAtRestOptions: NotRequired[EncryptionAtRestOptionsTypeDef]
     AutoTuneOptions: NotRequired[AutoTuneOptionsUnionTypeDef]
     DryRun: NotRequired[bool]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
 
 class ElasticsearchDomainConfigTypeDef(TypedDict):
     ElasticsearchVersion: NotRequired[ElasticsearchVersionStatusTypeDef]
@@ -1203,6 +1216,7 @@ class ElasticsearchDomainConfigTypeDef(TypedDict):
     AutoTuneOptions: NotRequired[AutoTuneOptionsStatusTypeDef]
     ChangeProgressDetails: NotRequired[ChangeProgressDetailsTypeDef]
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
+    DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsStatusTypeDef]
 
 class CreateElasticsearchDomainResponseTypeDef(TypedDict):
     DomainStatus: ElasticsearchDomainStatusTypeDef

@@ -362,23 +362,6 @@ class TermbaseEntryEditor(QDialog):
         metadata_layout = QVBoxLayout()
         metadata_layout.setSpacing(4)
         
-        # Priority
-        priority_layout = QHBoxLayout()
-        priority_label = QLabel("Priority (1=highest, 99=lowest):")
-        priority_label.setStyleSheet("font-weight: bold;")
-        priority_layout.addWidget(priority_label)
-        
-        self.priority_spin = QSpinBox()
-        self.priority_spin.setMinimum(1)
-        self.priority_spin.setMaximum(99)
-        self.priority_spin.setValue(50)
-        self.priority_spin.setToolTip("Lower numbers = higher priority")
-        self.priority_spin.setStyleSheet("padding: 4px; font-size: 11px;")
-        priority_layout.addWidget(self.priority_spin)
-        priority_layout.addStretch()
-        
-        metadata_layout.addLayout(priority_layout)
-        
         # Domain
         domain_label = QLabel("Domain:")
         domain_label.setStyleSheet("font-weight: bold;")
@@ -608,30 +591,28 @@ class TermbaseEntryEditor(QDialog):
         try:
             cursor = self.db_manager.cursor
             cursor.execute("""
-                SELECT source_term, target_term, priority, domain, definition, forbidden,
+                SELECT source_term, target_term, domain, definition, forbidden,
                        notes, project, client
                 FROM termbase_terms
                 WHERE id = ?
             """, (self.term_id,))
-            
+
             row = cursor.fetchone()
             if row:
                 self.term_data = {
                     'source_term': row[0],
                     'target_term': row[1],
-                    'priority': row[2] or 50,
-                    'domain': row[3] or '',
-                    'definition': row[4] or '',  # Legacy field
-                    'forbidden': row[5] or False,
-                    'note': row[6] or '',
-                    'project': row[7] or '',
-                    'client': row[8] or ''
+                    'domain': row[2] or '',
+                    'definition': row[3] or '',  # Legacy field
+                    'forbidden': row[4] or False,
+                    'note': row[5] or '',
+                    'project': row[6] or '',
+                    'client': row[7] or ''
                 }
-                
+
                 # Populate fields
                 self.source_edit.setText(self.term_data['source_term'])
                 self.target_edit.setText(self.term_data['target_term'])
-                self.priority_spin.setValue(self.term_data['priority'])
                 self.domain_edit.setText(self.term_data['domain'])
                 # Use note field if available, otherwise fall back to definition (legacy)
                 note_text = self.term_data['note'] or self.term_data['definition']
@@ -762,28 +743,27 @@ class TermbaseEntryEditor(QDialog):
             cursor = self.db_manager.cursor
             
             # Gather data
-            priority = self.priority_spin.value()
             domain = self.domain_edit.text().strip()
             note = self.note_edit.toPlainText().strip()
             project = self.project_edit.text().strip()
             client = self.client_edit.text().strip()
             forbidden = self.forbidden_check.isChecked()
-            
+
             if self.term_id:
                 # Update existing term
                 cursor.execute("""
                     UPDATE termbase_terms
-                    SET source_term = ?, target_term = ?, priority = ?,
+                    SET source_term = ?, target_term = ?,
                         domain = ?, notes = ?, project = ?, client = ?, forbidden = ?
                     WHERE id = ?
-                """, (source_term, target_term, priority, domain, note, project, client, forbidden, self.term_id))
+                """, (source_term, target_term, domain, note, project, client, forbidden, self.term_id))
             else:
                 # Insert new term
                 cursor.execute("""
                     INSERT INTO termbase_terms
-                    (termbase_id, source_term, target_term, priority, domain, notes, project, client, forbidden)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (self.termbase_id, source_term, target_term, priority, domain, note, project, client, forbidden))
+                    (termbase_id, source_term, target_term, domain, notes, project, client, forbidden)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (self.termbase_id, source_term, target_term, domain, note, project, client, forbidden))
             
             self.db_manager.connection.commit()
             
@@ -842,7 +822,6 @@ class TermbaseEntryEditor(QDialog):
         return {
             'source_term': self.source_edit.text().strip(),
             'target_term': self.target_edit.text().strip(),
-            'priority': self.priority_spin.value(),
             'domain': self.domain_edit.text().strip(),
             'note': self.note_edit.toPlainText().strip(),
             'project': self.project_edit.text().strip(),

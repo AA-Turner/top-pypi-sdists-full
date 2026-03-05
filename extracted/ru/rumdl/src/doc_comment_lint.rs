@@ -75,8 +75,7 @@ fn classify_doc_comment_line(line: &str) -> Option<(DocCommentKind, String, Stri
         return None;
     }
 
-    if trimmed.starts_with("///") {
-        let after = &trimmed[3..];
+    if let Some(after) = trimmed.strip_prefix("///") {
         // Determine the prefix: include the conventional space/tab if present
         let prefix = if after.starts_with(' ') || after.starts_with('\t') {
             format!("///{}", &after[..1])
@@ -84,8 +83,7 @@ fn classify_doc_comment_line(line: &str) -> Option<(DocCommentKind, String, Stri
             "///".to_string()
         };
         Some((DocCommentKind::Outer, leading_ws.to_string(), prefix))
-    } else if trimmed.starts_with("//!") {
-        let after = &trimmed[3..];
+    } else if let Some(after) = trimmed.strip_prefix("//!") {
         let prefix = if after.starts_with(' ') || after.starts_with('\t') {
             format!("//!{}", &after[..1])
         } else {
@@ -106,8 +104,8 @@ fn extract_markdown_from_line(trimmed: &str, kind: DocCommentKind) -> &str {
 
     let after_prefix = &trimmed[prefix.len()..];
     // Strip exactly one leading space if present (conventional rustdoc formatting)
-    if after_prefix.starts_with(' ') {
-        &after_prefix[1..]
+    if let Some(stripped) = after_prefix.strip_prefix(' ') {
+        stripped
     } else {
         after_prefix
     }
@@ -201,10 +199,14 @@ pub fn extract_doc_comment_blocks(content: &str) -> Vec<DocCommentBlock> {
 /// Rules that should be skipped when linting doc comment blocks.
 ///
 /// - MD025: Multiple H1 headings are standard in rustdoc (`# Errors`, `# Examples`, `# Safety`).
+/// - MD033: HTML tags like `<div class="warning">` are required syntax for rustdoc warning blocks.
+/// - MD040: Rustdoc assumes unlabeled code blocks are Rust, so requiring language labels is noise.
 /// - MD041: "First line should be a heading" doesn't apply — doc blocks aren't standalone documents.
 /// - MD047: "File should end with a newline" doesn't apply for the same reason.
+/// - MD051: Rustdoc anchors like `#method.bar` and `#structfield.name` aren't document headings.
 /// - MD052: Intra-doc links like `[crate::io]` are rustdoc syntax, not markdown reference links.
-pub const SKIPPED_RULES: &[&str] = &["MD025", "MD041", "MD047", "MD052"];
+/// - MD054: Shortcut reference style `[crate::module]` is the canonical intra-doc link syntax.
+pub const SKIPPED_RULES: &[&str] = &["MD025", "MD033", "MD040", "MD041", "MD047", "MD051", "MD052", "MD054"];
 
 /// Check all doc comment blocks in a Rust source file and return lint warnings.
 ///

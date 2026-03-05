@@ -10,6 +10,9 @@ def get_editor_bp(main_controller: MainController):
     bp = flask.Blueprint("editor_ai", __name__)
     controller = AiController(main_controller)
 
+    def _get_user_jwt():
+        return flask.request.cookies.get("editor_auth")
+
     @bp.post("/stream")
     @editor_usage
     def _get_next_message():
@@ -19,7 +22,7 @@ def get_editor_bp(main_controller: MainController):
 
         body = AbstraLibApiAiStreamRequest.from_dict(body)
 
-        streamer = controller.send_ai_message(body)
+        streamer = controller.send_ai_message(body, user_jwt=_get_user_jwt())
 
         if streamer is None:
             flask.abort(403)
@@ -35,7 +38,7 @@ def get_editor_bp(main_controller: MainController):
         thread_id = body.get("langGraphThreadId")
         if not thread_id:
             flask.abort(400)
-        controller.abort_thread(thread_id)
+        controller.abort_thread(thread_id, user_jwt=_get_user_jwt())
         return {"success": True}
 
     @bp.get("/history")
@@ -45,7 +48,7 @@ def get_editor_bp(main_controller: MainController):
         limit = int(limit) if limit else 10
         offset = flask.request.args.get("offset")
         offset = int(offset) if offset else 0
-        threads = controller.get_history(limit, offset)
+        threads = controller.get_history(limit, offset, user_jwt=_get_user_jwt())
         if threads is None:
             flask.abort(403)
         return threads
@@ -53,7 +56,7 @@ def get_editor_bp(main_controller: MainController):
     @bp.post("/thread")
     @editor_usage
     def _create_thread():
-        thread = controller.create_thread()
+        thread = controller.create_thread(user_jwt=_get_user_jwt())
         if not thread:
             flask.abort(403)
         return thread.to_dict()
@@ -64,7 +67,7 @@ def get_editor_bp(main_controller: MainController):
         """
         Delete a conversation thread.
         """
-        controller.delete_thread(thread_id)
+        controller.delete_thread(thread_id, user_jwt=_get_user_jwt())
         return {"success": True}
 
     @bp.post("/start-conversation")
@@ -72,7 +75,7 @@ def get_editor_bp(main_controller: MainController):
         """
         Start a new conversation with the AI.
         """
-        conversation = controller.start_conversation()
+        conversation = controller.start_conversation(user_jwt=_get_user_jwt())
         if not conversation:
             flask.abort(403)
         return conversation

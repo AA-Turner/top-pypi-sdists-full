@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,9 +53,8 @@ class _Options(epy.StrEnum):
   LINE = 'l'
   QUIET = 'q'
 
-  @classmethod
-  @property
-  def all_letters(cls) -> set[str]:
+  @epy.classproperty
+  def all_letters(cls) -> set[str]:  # pylint: disable=no-self-argument
     return {option.value for option in cls}
 
 
@@ -105,6 +104,7 @@ def auto_display(activate: bool = True) -> None:
   Args:
     activate: Allow to disable `auto_display`
   """
+
   if not epy.is_notebook():  # No-op outside Colab
     return
 

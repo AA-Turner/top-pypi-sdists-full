@@ -42,6 +42,8 @@ from .paginator import (
 )
 from .type_defs import (
     AddCustomAttributesRequestTypeDef,
+    AddUserPoolClientSecretRequestTypeDef,
+    AddUserPoolClientSecretResponseTypeDef,
     AdminAddUserToGroupRequestTypeDef,
     AdminConfirmSignUpRequestTypeDef,
     AdminCreateUserRequestTypeDef,
@@ -110,6 +112,7 @@ from .type_defs import (
     DeleteTermsRequestTypeDef,
     DeleteUserAttributesRequestTypeDef,
     DeleteUserPoolClientRequestTypeDef,
+    DeleteUserPoolClientSecretRequestTypeDef,
     DeleteUserPoolDomainRequestTypeDef,
     DeleteUserPoolRequestTypeDef,
     DeleteUserRequestTypeDef,
@@ -179,6 +182,8 @@ from .type_defs import (
     ListTermsResponseTypeDef,
     ListUserImportJobsRequestTypeDef,
     ListUserImportJobsResponseTypeDef,
+    ListUserPoolClientSecretsRequestTypeDef,
+    ListUserPoolClientSecretsResponseTypeDef,
     ListUserPoolClientsRequestTypeDef,
     ListUserPoolClientsResponseTypeDef,
     ListUserPoolsRequestTypeDef,
@@ -248,6 +253,7 @@ __all__ = ("CognitoIdentityProviderClient",)
 
 
 class Exceptions(BaseClientExceptions):
+    AccessDeniedException: type[BotocoreClientError]
     AliasExistsException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     CodeDeliveryFailureException: type[BotocoreClientError]
@@ -261,6 +267,7 @@ class Exceptions(BaseClientExceptions):
     ForbiddenException: type[BotocoreClientError]
     GroupExistsException: type[BotocoreClientError]
     InternalErrorException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
     InvalidEmailRoleAccessPolicyException: type[BotocoreClientError]
     InvalidLambdaResponseException: type[BotocoreClientError]
     InvalidOAuthFlowException: type[BotocoreClientError]
@@ -349,6 +356,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/add_custom_attributes.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#add_custom_attributes)
+        """
+
+    async def add_user_pool_client_secret(
+        self, **kwargs: Unpack[AddUserPoolClientSecretRequestTypeDef]
+    ) -> AddUserPoolClientSecretResponseTypeDef:
+        """
+        Creates a new client secret for an existing confidential user pool app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/add_user_pool_client_secret.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#add_user_pool_client_secret)
         """
 
     async def admin_add_user_to_group(
@@ -871,6 +888,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#delete_user_pool_client)
         """
 
+    async def delete_user_pool_client_secret(
+        self, **kwargs: Unpack[DeleteUserPoolClientSecretRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a specific client secret from a user pool app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/delete_user_pool_client_secret.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#delete_user_pool_client_secret)
+        """
+
     async def delete_user_pool_domain(
         self, **kwargs: Unpack[DeleteUserPoolDomainRequestTypeDef]
     ) -> dict[str, Any]:
@@ -1234,6 +1261,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_user_import_jobs.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#list_user_import_jobs)
+        """
+
+    async def list_user_pool_client_secrets(
+        self, **kwargs: Unpack[ListUserPoolClientSecretsRequestTypeDef]
+    ) -> ListUserPoolClientSecretsResponseTypeDef:
+        """
+        Lists all client secrets associated with a user pool app client.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/list_user_pool_client_secrets.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#list_user_pool_client_secrets)
         """
 
     async def list_user_pool_clients(

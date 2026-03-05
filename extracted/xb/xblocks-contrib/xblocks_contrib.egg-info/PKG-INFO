@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xblocks-contrib
-Version: 0.12.1
+Version: 0.13.0
 Summary: core xblocks
 Home-page: https://github.com/openedx/xblocks-contrib
 Author: Open edX Project
@@ -23,10 +23,12 @@ Requires-Dist: ddt
 Requires-Dist: defusedxml
 Requires-Dist: django-statici18n
 Requires-Dist: edx-codejail
+Requires-Dist: edx-django-utils
 Requires-Dist: edx-i18n-tools
 Requires-Dist: edx-opaque-keys
 Requires-Dist: edx-submissions
 Requires-Dist: edx-toggles
+Requires-Dist: edxval
 Requires-Dist: html5lib
 Requires-Dist: nh3
 Requires-Dist: numpy
@@ -36,6 +38,7 @@ Requires-Dist: openedx-django-pyfs
 Requires-Dist: pillow
 Requires-Dist: random2
 Requires-Dist: shapely
+Requires-Dist: wrapt
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -272,6 +275,15 @@ Change Log
 
 Unreleased
 **********
+
+0.13.0 - 2026-03-03
+**********************************************
+
+Added
+=====
+
+* Implemented the Video XBlock, extracted from edx-platform.
+
 
 0.12.1 - 2026-03-03
 **********************************************

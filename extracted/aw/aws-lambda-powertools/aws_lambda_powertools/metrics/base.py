@@ -15,7 +15,7 @@ import os
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aws_lambda_powertools.metrics.exceptions import (
     MetricResolutionError,
@@ -37,7 +37,7 @@ from aws_lambda_powertools.metrics.provider.cold_start import (
     reset_cold_start_flag,  # noqa: F401  # backwards compatibility
 )
 from aws_lambda_powertools.shared import constants
-from aws_lambda_powertools.shared.functions import resolve_env_var_choice
+from aws_lambda_powertools.shared.functions import is_durable_context, resolve_env_var_choice
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
@@ -375,6 +375,10 @@ class MetricManager:
             print(json.dumps(metrics, separators=(",", ":")))
             self.clear_metrics()
 
+    def set_default_dimensions(self, **dimensions: str) -> None:
+        """Persist dimensions across Lambda invocations. Override in subclass."""
+        pass  # pragma: no cover
+
     def log_metrics(
         self,
         lambda_handler: Callable[[dict, Any], Any] | Callable[[dict, Any, dict | None], Any] | None = None,
@@ -428,14 +432,15 @@ class MetricManager:
                 default_dimensions=default_dimensions,
             )
 
-        @functools.wraps(lambda_handler)
+        @functools.wraps(cast("Callable[..., Any]", lambda_handler))
         def decorate(event, context, *args, **kwargs):
+            unwrapped_context = context.lambda_context if is_durable_context(context) else context
             try:
                 if default_dimensions:
                     self.set_default_dimensions(**default_dimensions)
-                response = lambda_handler(event, context, *args, **kwargs)
+                response = lambda_handler(event, unwrapped_context, *args, **kwargs)
                 if capture_cold_start_metric:
-                    self._add_cold_start_metric(context=context)
+                    self._add_cold_start_metric(context=unwrapped_context)
             finally:
                 self.flush_metrics(raise_on_empty_metrics=raise_on_empty_metrics)
 

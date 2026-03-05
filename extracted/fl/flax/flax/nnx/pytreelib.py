@@ -31,7 +31,7 @@ from treescope import rendering_parts
 
 from flax import errors, nnx
 from flax.nnx import (
-  graph,
+  graphlib,
   reprlib,
   tracers,
   visualization,
@@ -44,6 +44,7 @@ BUILDING_DOCS = 'FLAX_DOC_BUILD' in os.environ
 
 A = tp.TypeVar('A')
 P = tp.TypeVar('P', bound='Pytree')
+T = tp.TypeVar('T', bound=type)
 
 DataAnnotation = '__data__'
 Data = tp.Annotated[A, DataAnnotation]
@@ -112,7 +113,7 @@ def data(value: tp.Any = MISSING, /, **kwargs) -> tp.Any:
   return dataclasses.field(**kwargs, metadata=metadata)  # type: ignore[return-value]
 
 
-def register_data_type(type_: type, /) -> None:
+def register_data_type(type_: T, /) -> T:
   """Registers a type as pytree data type recognized by Object.
 
   Custom types registered as data will be automatically recognized
@@ -140,8 +141,16 @@ def register_data_type(type_: type, /) -> None:
 
     assert nnx.is_data(foo.a)  # True
     assert jax.tree.leaves(foo) == [MyType(value=42)]
+
+  Can also be used as a decorator::
+
+    @nnx.register_data_type
+    @dataclass(frozen=True)
+    class MyType:
+      value: int
   """
   DATA_REGISTRY.add(type_)
+  return type_
 
 
 def is_data(value: tp.Any, /) -> bool:
@@ -183,10 +192,21 @@ def is_data(value: tp.Any, /) -> bool:
     A string representing the attribute status.
   """
   return (
-    graph.is_node_leaf(value)
-    or graph.is_graph_node(value)
+    graphlib.is_node_leaf(value)
+    or graphlib.is_graph_node(value)
     or type(value) in DATA_REGISTRY
   )
+
+
+def has_data(value: tp.Any, /) -> list[tp.Any]:
+  visited: set[int] = set()
+  def _is_leaf(x):
+    if id(x) in visited:
+      return True
+    visited.add(id(x))
+    return is_data(x)
+  leaves = jax.tree.leaves(value, is_leaf=_is_leaf)
+  return [leaf for leaf in leaves if is_data(leaf)]
 
 
 StaticAnnotation = '__static__'
@@ -292,7 +312,7 @@ def dataclass(
 def _collect_stats(
   node: tp.Any, node_stats: dict[int, dict[type[Variable], SizeBytes]]
 ):
-  if not graph.is_node(node) and not isinstance(node, Variable):
+  if not graphlib.is_node(node) and not isinstance(node, Variable):
     raise ValueError(f'Expected a graph node or Variable, got {type(node)!r}.')
 
   if id(node) in node_stats:
@@ -310,13 +330,13 @@ def _collect_stats(
       stats[var_type] = size_bytes
 
   else:
-    node_impl = graph.get_node_impl(node)
+    node_impl = graphlib.get_node_impl(node)
     assert node_impl is not None
     node_dict = node_impl.node_dict(node)
     for key, value in node_dict.items():
       if id(value) in node_stats:
         continue
-      if graph.is_node(value) or isinstance(value, Variable):
+      if graphlib.is_node(value) or isinstance(value, Variable):
         _collect_stats(value, node_stats)
         child_stats = node_stats[id(value)]
         for var_type, size_bytes in child_stats.items():
@@ -486,7 +506,7 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
   """Base class for all NNX objects."""
 
   if tp.TYPE_CHECKING:
-    _pytree__nodes: graph.HashableMapping[tp.Any, bool]
+    _pytree__nodes: graphlib.HashableMapping[tp.Any, bool]
     _pytree__state: PytreeState
     _pytree__is_pytree: bool
 
@@ -504,7 +524,7 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
       )
     cls._pytree__is_pytree = pytree
 
-    graph.register_graph_node_type(
+    graphlib.register_graph_node_type(
       type=cls,
       flatten=cls._graph_node_flatten,
       set_key=cls._graph_node_set_key,  # type: ignore
@@ -586,7 +606,7 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
           )
         nodes[name] = is_node
 
-    cls._pytree__nodes = graph.HashableMapping(nodes, copy=False)
+    cls._pytree__nodes = graphlib.HashableMapping(nodes, copy=False)
 
     if pytree:
       jax.tree_util.register_pytree_with_keys(
@@ -649,8 +669,6 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
     object.__setattr__(self, name, value)
 
   def _check_value(self, key, value, new_status: AttributeStatus | None):
-    def _has_data(leaves):
-      return any(is_data(leaf) for leaf in leaves)
 
     def _get_annotations(leaves):
       return {
@@ -665,8 +683,6 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
       visited.add(id(x))
       return False
 
-    visited: set[int] = set()
-    leaves = jax.tree.leaves(value, is_leaf=_has_visited)
     current_is_data = (
         self._pytree__nodes[key] if key in self._pytree__nodes else False
     )
@@ -685,33 +701,40 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
           f' _.{key} = nnx.data(...)\n\n'
       )
 
-    if _has_data(leaves):
+    visited: set[int] = set()
+    leaves = jax.tree.leaves(
+      value, is_leaf=lambda x: _has_visited(x) or is_data(x)
+    )
+    data_leaves = [leaf for leaf in leaves if is_data(leaf)]
+    if data_leaves:
       # check no data in nnx.static assignments
       if new_status is not None:
         if not new_status.is_data and new_status.explicit:
           raise ValueError(
-              f"Found Arrays in value of type '{type(value)}' annotated with "
+              f"Found data in value of type '{type(value)}' annotated with "
               f"nnx.static(...) when setting attribute '{key}' of Pytree type "
               f"'{type(self)}'."
           )
-        if not new_status.explicit and not current_is_data and existing_attr:
+        if not new_status.is_data and not current_is_data:
           base_pytree_type = Pytree
           for t in type(self).mro()[1:]:
             if issubclass(t, nnx.Pytree):
               base_pytree_type = t
               break
+          data_leaves_type_names = {type(leaf).__name__ for leaf in data_leaves}
           raise ValueError(
-            f"Found Arrays on value of type '{type(value)}' assigned to"
+            f"Found data on value of type '{type(value)}' assigned to"
             f" static attribute '{key}' of Pytree type '{type(self)}'. Static"
-            ' attributes should not contain Array values. Consider one of'
+            ' attributes should not contain data values. Consider one of'
             ' the following options:\n\n1. If the attribute is meant to be'
-            ' static, either remove the Array value or wrap it in a static'
-            ' container (e.g., using `nnx.static(...)`).\n2. If the'
-            ' attribute is meant to be data, wrap the value with nnx.data on'
-            f' assignment:\n\n  _.{key} = nnx.data(...)\n\n3. Alternatively,'
+            f' static, remove the data values of type(s):\n\n  {", ".join(data_leaves_type_names)}'
+            f'\n\n2. If the attribute is meant to be data, wrap the value with nnx.data '
+            f' on assignment:\n\n  _.{key} = nnx.data(...)\n\n3. Alternatively,'
             ' annotate the class attribute with nnx.data:\n\n  class'
             f' {type(self).__name__}({base_pytree_type.__name__}):\n   '
-            f' {key}: {type(value).__name__} = nnx.data()\n\n4. Disable pytree'
+            f' {key}: {type(value).__name__} = nnx.data()\n\n4. If the'
+            ' container is a list or dict, try using nnx.List(...) or'
+            ' nnx.Dict(...) instead.\n\n5. Disable pytree'
             ' for this class:\n\n  class'
             f' {type(self).__name__}({base_pytree_type.__name__},'
             ' pytree=False):\n\n'
@@ -724,11 +747,11 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
             base_pytree_type = t
             break
         raise ValueError(
-          f'Found unexpected Arrays on value of type {type(value)} in static'
+          f'Found unexpected data on value of type {type(value)} in static'
           f" attribute '{key}' of Pytree type '{type(self)}'. This is an"
           ' error starting from Flax version 0.12.0.\nConsider one of the'
           ' following options:\n\n1. If the attribute is meant to be static,'
-          ' either remove the Array value or wrap it in a static'
+          ' either remove the data value or wrap it in a static'
           ' container.\n2. Wrap the value with nnx.data on'
           f' assignment:\n\n  _.{key} = nnx.data(...)\n\n3. Annotate the'
           ' class attribute with nnx.data:\n\n  class'
@@ -753,10 +776,10 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
       raise errors.TraceContextError(error_msg())
 
   def __deepcopy__(self: P, memo=None) -> P:
-    graphdef, state = graph.split(self)
+    graphdef, state = graphlib.split(self, graph=True)
     graphdef = deepcopy(graphdef)
     state = deepcopy(state)
-    return graph.merge(graphdef, state)
+    return graphlib.merge(graphdef, state)
 
   def __nnx_repr__(self):
     if OBJECT_CONTEXT.node_stats is None or id(self) not in OBJECT_CONTEXT.node_stats:
@@ -795,10 +818,12 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
       OBJECT_CONTEXT.seen_modules_repr.add(id(self))
 
       for name, value in vars(self).items():
-        if str(name).startswith('_'):
+        if str(name).startswith('_pytree__'):
+          continue
+        if str(name).startswith('_') and not self._pytree__nodes.get(str(name), False):
           continue
 
-        value = jax.tree.map(_to_shape_dtype, value, is_leaf=graph.is_graph_node)
+        value = jax.tree.map(_to_shape_dtype, value, is_leaf=graphlib.is_graph_node)
         yield reprlib.Attr(name, value)
     finally:
       if clear_seen:
@@ -836,7 +861,9 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
         first_line_annotation = None
       children = {}
       for name, value in vars(self).items():
-        if str(name).startswith('_'):
+        if str(name).startswith('_pytree__'):
+          continue
+        if str(name).startswith('_') and not self._pytree__nodes.get(str(name), False):
           continue
         children[name] = value
 
@@ -874,7 +901,7 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
     obj_items = vars(self).items()
     if self._pytree__has_int_keys:
       obj_items = ((_maybe_int(name), value) for name, value in obj_items)
-      key_fn = graph._type_aware_sort
+      key_fn = graphlib._type_aware_sort
     else:
       key_fn = None
     node_attributes = self._pytree__nodes
@@ -907,7 +934,7 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
     obj_items = vars(self).items()
     if self._pytree__has_int_keys:
       obj_items = ((_maybe_int(name), value) for name, value in obj_items)
-      key_fn = graph._type_aware_sort
+      key_fn = graphlib._type_aware_sort
     else:
       key_fn = None
     node_attributes = self._pytree__nodes
@@ -950,9 +977,20 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
   # -------------------------
   def _graph_node_flatten(self):
     obj_items = vars(self).items()
+    if self._pytree__is_pytree:
+      pytree_nodes = self._pytree__nodes
+      obj_items = (
+          (
+              name,
+              nnx.graphlib.DataElem(value)
+              if name in pytree_nodes and pytree_nodes[name]
+              else nnx.graphlib.StaticElem(value),
+          )
+          for name, value in obj_items
+      )
     if self._pytree__has_int_keys:
       obj_items = ((_maybe_int(name), value) for name, value in obj_items)
-      key_fn = graph._type_aware_sort
+      key_fn = graphlib._type_aware_sort
     else:
       key_fn = None
     nodes = sorted(obj_items, key=key_fn)
@@ -983,7 +1021,7 @@ class Pytree(reprlib.Representable, metaclass=PytreeMeta):
     if name in self._pytree__nodes:
       mapping = {k: v for k, v in self._pytree__nodes.items() if k != name}
       object.__setattr__(
-        self, '_pytree__nodes', graph.HashableMapping(mapping, copy=False)
+        self, '_pytree__nodes', graphlib.HashableMapping(mapping, copy=False)
       )
 
     super().__delattr__(name)

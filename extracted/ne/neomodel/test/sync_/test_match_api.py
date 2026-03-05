@@ -26,7 +26,6 @@ from neomodel.sync_.match import (
     Last,
     NodeNameResolver,
     NodeSet,
-    Optional,
     Path,
     QueryBuilder,
     RawCypher,
@@ -1172,6 +1171,36 @@ def test_in_filter_with_array_property():
     assert arabica not in Species.nodes.filter(
         tags__in=no_match
     ), "Species found by tags with not match tags given"
+
+
+@mark_sync_test
+def test_exists_filter():
+    jim = PersonX(name="Jim", age=3).save()
+    tom = PersonX(name="tom", age=33).save()
+    germany = CountryX(code="DE").save()
+    jim.country.connect(germany)
+    tom.country.connect(germany)
+    berlin = CityX(name="Berlin").save()
+    berlin.country.connect(germany)
+    jim.city.connect(berlin)
+
+    with raises(ValueError):
+        result = PersonX.nodes.filter(city__exists="WRONG").all()
+
+    result = PersonX.nodes.filter(city__exists=True)
+    assert result[0] == jim
+    result = PersonX.nodes.filter(city__exists=False)
+    assert result[0] == tom
+    result = PersonX.nodes.filter(city__country__exists=True)
+    assert len(result) == 1
+    result = PersonX.nodes.filter(country__exists=True)
+    assert len(result) == 2
+
+    result = PersonX.nodes.filter(name="Jim", country__exists=True)
+    assert result[0] == jim
+
+    result = PersonX.nodes.filter(city__name="Berlin", country__exists=True)
+    assert result[0][0] == jim
 
 
 @mark_sync_test

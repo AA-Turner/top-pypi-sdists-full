@@ -98,11 +98,10 @@ class TestOAuthManager:
         result = manager.setup('unknown')
         assert '❌' in result
 
-    def test_revoke(self, manager, tmp_path):
+    def test_revoke(self, manager):
         manager._tokens = {'anthropic': {'access_token': 'x'}}
-        fake_path = tmp_path / 'tokens.json'
-        with patch('salmalm.web.oauth._TOKENS_PATH', fake_path), \
-             patch('salmalm.web.oauth._CONFIG_DIR', tmp_path):
+        with patch('salmalm.web.oauth._TOKENS_PATH') as mp:
+            mp.exists.return_value = False
             result = manager.revoke()
         assert 'revoked' in result.lower()
         assert not manager._tokens

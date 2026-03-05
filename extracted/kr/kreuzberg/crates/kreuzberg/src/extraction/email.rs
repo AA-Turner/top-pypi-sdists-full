@@ -185,9 +185,49 @@ pub fn parse_eml_content(data: &[u8]) -> Result<EmailExtractionResult> {
 
     let message_id = message.message_id().map(|id| id.to_string());
 
-    let plain_text = message.body_text(0).map(|s| s.to_string());
+    // Iterate over all body parts to capture content from multipart messages.
+    // Also recurse into nested message/rfc822 parts (multipart/digest emails).
+    //
+    // Important: mail-parser's `body_text()` auto-converts HTML to plain text
+    // using a naive tag-stripping approach that does NOT remove <script> or
+    // <style> content. We only trust `body_text()` when the message has at
+    // least one genuine `text/plain` part (PartType::Text). For HTML-only
+    // emails we fall through to `clean_html_content()` which uses
+    // html-to-markdown-rs or regex-based stripping that properly handles scripts.
+    let has_genuine_text_part = has_genuine_text_body(&message);
+    let plain_text = if has_genuine_text_part {
+        let mut all_text = Vec::new();
+        let mut i = 0;
+        while let Some(text) = message.body_text(i) {
+            all_text.push(text.to_string());
+            i += 1;
+        }
+        // Extract text from nested message/rfc822 sub-messages (e.g. multipart/digest).
+        collect_nested_message_text(&message, &mut all_text);
+        if all_text.is_empty() {
+            None
+        } else {
+            Some(all_text.join("\n\n"))
+        }
+    } else {
+        None
+    };
 
-    let html_content = message.body_html(0).map(|s| s.to_string());
+    let html_content = {
+        let mut all_html = Vec::new();
+        let mut i = 0;
+        while let Some(html) = message.body_html(i) {
+            all_html.push(html.to_string());
+            i += 1;
+        }
+        // Extract HTML from nested message/rfc822 sub-messages.
+        collect_nested_message_html(&message, &mut all_html);
+        if all_html.is_empty() {
+            None
+        } else {
+            Some(all_html.join("\n\n"))
+        }
+    };
 
     let cleaned_text = if let Some(ref plain) = plain_text {
         plain.clone()
@@ -249,6 +289,61 @@ pub fn parse_eml_content(data: &[u8]) -> Result<EmailExtractionResult> {
         attachments,
         metadata,
     })
+}
+
+/// Check whether a message has at least one genuine `text/plain` body part.
+///
+/// `mail-parser`'s `body_text()` auto-converts HTML to plain text using a naive
+/// tag-stripper that doesn't remove `<script>` or `<style>` content. This helper
+/// inspects the actual `PartType` of each `text_body` entry to determine if a
+/// real `text/plain` part exists. For HTML-only messages (all text_body entries
+/// are `PartType::Html`), callers should use `clean_html_content()` instead.
+fn has_genuine_text_body(message: &mail_parser::Message<'_>) -> bool {
+    use mail_parser::PartType;
+    for &part_id in &message.text_body {
+        if let Some(part) = message.parts.get(part_id as usize)
+            && matches!(&part.body, PartType::Text(_))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Recursively collect plain text from nested `message/rfc822` sub-messages.
+///
+/// In `multipart/digest` emails, each part is itself an RFC822 message stored as
+/// `PartType::Message`. The top-level `body_text()` won't return these; we must
+/// recurse into the nested `Message` to extract their text bodies.
+fn collect_nested_message_text(message: &mail_parser::Message<'_>, out: &mut Vec<String>) {
+    use mail_parser::PartType;
+    for part in &message.parts {
+        if let PartType::Message(sub_msg) = &part.body {
+            // Collect direct text bodies from the sub-message.
+            let mut i = 0;
+            while let Some(text) = sub_msg.body_text(i) {
+                out.push(text.to_string());
+                i += 1;
+            }
+            // Recurse further in case of deeply nested messages.
+            collect_nested_message_text(sub_msg, out);
+        }
+    }
+}
+
+/// Recursively collect HTML from nested `message/rfc822` sub-messages.
+fn collect_nested_message_html(message: &mail_parser::Message<'_>, out: &mut Vec<String>) {
+    use mail_parser::PartType;
+    for part in &message.parts {
+        if let PartType::Message(sub_msg) = &part.body {
+            let mut i = 0;
+            while let Some(html) = sub_msg.body_html(i) {
+                out.push(html.to_string());
+                i += 1;
+            }
+            collect_nested_message_html(sub_msg, out);
+        }
+    }
 }
 
 /// Parse .msg file content (Outlook format).
@@ -735,11 +830,15 @@ fn clean_html_content(html: &str) -> String {
         return String::new();
     }
 
-    // Use html-to-markdown converter when available for higher quality conversion
+    // Use html-to-markdown converter in plain text mode when available
     #[cfg(feature = "html")]
     {
-        if let Ok(markdown) = crate::extraction::html::convert_html_to_markdown(html, None, None) {
-            let trimmed = markdown.trim().to_string();
+        if let Ok(text) = crate::extraction::html::convert_html_to_markdown(
+            html,
+            None,
+            Some(crate::core::config::OutputFormat::Plain),
+        ) {
+            let trimmed = text.trim().to_string();
             if !trimmed.is_empty() {
                 return trimmed;
             }
@@ -836,7 +935,18 @@ mod tests {
     fn test_clean_html_with_whitespace() {
         let html = "<div>  Multiple   \n  spaces  </div>";
         let cleaned = clean_html_content(html);
-        assert_eq!(cleaned, "Multiple spaces");
+        assert!(
+            cleaned.contains("Multiple") && cleaned.contains("spaces"),
+            "Should contain text: {}",
+            cleaned
+        );
+        // Whitespace may be collapsed or converted to newlines depending on
+        // whether the html feature is enabled (block-level elements → newlines).
+        assert!(
+            !cleaned.contains("  "),
+            "Should not have consecutive spaces: {}",
+            cleaned
+        );
     }
 
     #[test]
@@ -1225,5 +1335,87 @@ mod tests {
         let _ = script_regex();
         let _ = style_regex();
         let _ = whitespace_regex();
+    }
+
+    #[test]
+    fn test_clean_html_content_multiline_script() {
+        let html = r#"<html>
+<head>
+    <title>HTML Email</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .header { color: blue; }
+        .content { margin: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome to Our Service</h1>
+    </div>
+
+    <div class="content">
+        <p>This email contains <strong>only HTML</strong> content.</p>
+
+        <p>It includes:</p>
+        <ul>
+            <li>HTML entities: &lt;, &gt;, &amp;, &quot;</li>
+            <li>Special characters: €, ©, ®</li>
+            <li>Formatting: <em>italic</em>, <strong>bold</strong></li>
+        </ul>
+
+        <p>The Rust implementation should clean this HTML and extract meaningful text.</p>
+
+        <script>
+            // This script should be removed during HTML cleaning
+            alert('Should not appear in extracted text');
+        </script>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Example Company</p>
+    </footer>
+</body>
+</html>"#;
+        let cleaned = clean_html_content(html);
+        assert!(
+            !cleaned.contains("script should be removed"),
+            "Script content leaked into output: {}",
+            cleaned
+        );
+        assert!(
+            !cleaned.contains("alert("),
+            "Script content leaked into output: {}",
+            cleaned
+        );
+        assert!(cleaned.contains("Welcome to Our Service"));
+    }
+
+    #[test]
+    fn test_html_only_eml_script_stripping() {
+        // Regression test: HTML-only emails must strip <script> content.
+        // mail-parser's body_text() auto-converts HTML to text via a naive
+        // tag-stripper that preserves script content. We must detect this
+        // case and use clean_html_content() instead.
+        let eml_data = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test_documents/email/html_only.eml"
+        ))
+        .expect("html_only.eml should exist");
+        let result = parse_eml_content(&eml_data).unwrap();
+        assert!(
+            !result.cleaned_text.contains("script should be removed"),
+            "Script content leaked into cleaned_text: {}",
+            result.cleaned_text
+        );
+        assert!(
+            !result.cleaned_text.contains("alert("),
+            "Script content leaked into cleaned_text: {}",
+            result.cleaned_text
+        );
+        assert!(
+            result.cleaned_text.contains("Welcome to Our Service"),
+            "Expected content missing from cleaned_text: {}",
+            result.cleaned_text
+        );
     }
 }

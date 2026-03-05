@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import importlib.resources as importlib_resources  # pylint: disable=unused-import
 import itertools
 import pathlib
 import posixpath
@@ -28,7 +29,6 @@ import zipfile
 from etils.epath import abstract_path
 from etils.epath import register
 from etils.epath.typing import PathLike  # pylint: disable=g-importing-member
-import importlib_resources
 
 
 @register.register_path_cls
@@ -115,12 +115,7 @@ def resource_path(package: Union[str, types.ModuleType]) -> abstract_path.Path:
   except AttributeError:
     is_adhoc = True
   else:
-    if isinstance(
-        path, importlib_resources._adapters.CompatibilityFiles.SpecPath  # pylint: disable=protected-access
-    ):
-      is_adhoc = True
-    else:
-      is_adhoc = False
+    is_adhoc = False
 
   if is_adhoc:
     # TODO(b/260333695): `importlib_resources` fail with adhoc imports

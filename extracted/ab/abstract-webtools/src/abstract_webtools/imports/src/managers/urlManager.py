@@ -1,6 +1,138 @@
+from __future__ import annotations
 from ..imports import *
 from ..functions import *
+from dataclasses import asdict as _asdict
 
+
+
+
+
+@dataclass
+class ParsedURL:
+    scheme:   str  = "https"
+    host:     str  = ""
+    port:     int | None = None
+    www:      bool = False
+    name:     str  = ""
+    ext:      str  = ""
+    path:     str  = ""
+    query:    dict = field(default_factory=dict)
+    fragment: str  = ""
+    bare:     bool = False
+
+    @property
+    def netloc(self) -> str:
+        return f"{self.host}:{self.port}" if self.port else self.host
+
+    @property
+    def full_domain(self) -> str:
+        return f"{self.scheme}://{self.netloc}"
+
+    @property
+    def full_url(self) -> str:
+        path = f"/{self.path.lstrip('/')}" if self.path else ""
+        qs   = f"?{urlencode(self.query)}" if self.query else ""
+        frag = f"#{self.fragment}" if self.fragment else ""
+        return f"{self.full_domain}{path}{qs}{frag}"
+
+    # ── dict protocol ────────────────────────────────────────────
+    def _as_dict(self) -> dict:
+        d = _asdict(self)
+        d["netloc"]      = self.netloc
+        d["full_domain"] = self.full_domain
+        d["full_url"]    = self.full_url
+        d["valid_variants"] = []   # bare hosts skip variant probing
+        return d
+
+    def get(self, key, default=None):
+        return self._as_dict().get(key, default)
+
+    def __getitem__(self, key):
+        return self._as_dict()[key]
+
+    def __contains__(self, key):
+        return key in self._as_dict()
+
+
+
+def _is_bare_host(host: str) -> bool:
+    """True for localhost, IPs, and hostnames that have no public TLD."""
+    if not host:
+        return False
+    bare = host.split(":")[0]
+    if bare == "localhost":
+        return True
+    try:
+        ipaddress.ip_address(bare)
+        return True
+    except ValueError:
+        pass
+    # no dot == no TLD
+    return "." not in bare
+
+
+def _parse_query(raw: str) -> dict:
+    if not raw:
+        return {}
+    result = {}
+    for pair in raw.split("&"):
+        if not pair:
+            continue
+        k, _, v = pair.partition("=")
+        result[k] = v
+    return result
+
+
+def parse_url_clean(url: str | None) -> ParsedURL:
+    """
+    Parse a URL into a fully explicit ParsedURL.
+    Never produces None in string fields.
+    Works for: https://example.com/path, http://localhost:8384/, 192.168.1.1:5000
+    """
+    if not url:
+        return ParsedURL()
+
+    url = url.strip()
+
+    # inject scheme if missing so urlparse doesn't mangle netloc into path
+    if "://" not in url:
+        url = f"https://{url}"
+
+    p: ParseResult = urlparse(url)
+
+    scheme = p.scheme or "https"
+    raw_host = p.hostname or ""        # always lowercase, no port
+    port = p.port                      # int or None
+    path = p.path.strip("/")
+    query = _parse_query(p.query)
+    fragment = p.fragment or ""
+
+    www = raw_host.startswith("www.")
+    host_no_www = raw_host.removeprefix("www.")
+    bare = _is_bare_host(host_no_www)
+
+    if bare:
+        name = host_no_www.split(":")[0]
+        ext  = ""
+    else:
+        name, ext = os.path.splitext(host_no_www)
+        if not ext and "." in host_no_www:
+            # splitext only fires on last component — fallback
+            parts = host_no_www.rsplit(".", 1)
+            name, ext = parts[0], f".{parts[1]}"
+
+    return ParsedURL(
+        scheme=scheme,
+        host=raw_host,
+        port=port,
+        www=www,
+        name=name,
+        ext=ext,
+        path=path,
+        query=query,
+        fragment=fragment,
+        bare=bare,
+    )
 class urlManager:
     """
     urlManager for managing and cleaning URLs.
@@ -31,7 +163,10 @@ class urlManager:
         if self._url == None:
             self.parsed = {}
         else:
-            self.parsed = parse_url(self._url,valid_variants=self.valid_variants)
+            if self.valid_variants:
+                self.parsed = parse_url(self._url,valid_variants=self.valid_variants)
+            else:
+                self.parsed = parse_url_clean(self._url)
         if url is None:
             self.clean_urls = self.parsed.get('valid_variants')
             self.url = self.parsed.get('full_url')

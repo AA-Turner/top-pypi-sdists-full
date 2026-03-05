@@ -36,6 +36,7 @@ __all__ = (
     "ConnectionModeType",
     "DataSourceStatusType",
     "DeploymentStatusType",
+    "DeploymentStrategyType",
     "DescribePackagesFilterNameType",
     "DomainHealthType",
     "DomainPackageStatusType",
@@ -131,6 +132,7 @@ DataSourceStatusType = Literal["ACTIVE", "DISABLED"]
 DeploymentStatusType = Literal[
     "COMPLETED", "ELIGIBLE", "IN_PROGRESS", "NOT_ELIGIBLE", "PENDING_UPDATE"
 ]
+DeploymentStrategyType = Literal["CapacityOptimized", "Default"]
 DescribePackagesFilterNameType = Literal[
     "EngineVersion", "PackageID", "PackageName", "PackageOwner", "PackageStatus", "PackageType"
 ]
@@ -483,6 +485,7 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",

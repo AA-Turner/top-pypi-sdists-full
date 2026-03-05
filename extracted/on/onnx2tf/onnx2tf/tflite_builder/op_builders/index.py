@@ -24,6 +24,24 @@ _DTYPE_TO_NP = {
 }
 
 
+def _prefer_int32_index_output_dtype(
+    *,
+    ctx: Any,
+    tensor_name: str,
+    requested_dtype: str,
+) -> str:
+    dtype = str(requested_dtype).upper()
+    if dtype == "INT32":
+        return "INT32"
+    # LiteRT.js cannot consume INT64; prefer INT32 for index-like outputs.
+    tensor = ctx.model_ir.tensors.get(tensor_name, None)
+    if tensor is not None:
+        tensor.dtype = "INT32"
+    if hasattr(ctx, "dtype_map") and isinstance(ctx.dtype_map, dict):
+        ctx.dtype_map[str(tensor_name)] = "INT32"
+    return "INT32"
+
+
 def _propagate_shape(ctx: Any, src_tensor_name: str, dst_tensor_name: str) -> None:
     ctx.ensure_tensor(src_tensor_name)
     ctx.ensure_tensor(dst_tensor_name)
@@ -57,6 +75,34 @@ def _inverse_permutation(perm: list[int]) -> list[int]:
     return inv
 
 
+def _maybe_constantize_topk_k(
+    *,
+    ctx: Any,
+    node: Any,
+    k_input_name: str,
+    values_output_name: str,
+) -> str | None:
+    k_const = ctx.get_constant_array(k_input_name)
+    if k_const is None:
+        return None
+    k_arr = np.asarray(k_const)
+    if int(k_arr.size) != 1:
+        raise NotImplementedError(
+            "TopK k input must be scalar-like (shape [] or [1]) in flatbuffer_direct. "
+            f"op={node.name} k_shape={list(k_arr.shape)}"
+        )
+    k_value = int(np.asarray(k_arr).reshape(-1)[0])
+    if k_value < np.iinfo(np.int32).min or k_value > np.iinfo(np.int32).max:
+        raise NotImplementedError(
+            "TopK constant k is out of INT32 range required by TFLite TOPK_V2. "
+            f"op={node.name} k={k_value}"
+        )
+    return ctx.add_const_tensor(
+        f"{values_output_name}_topk_k_const_i32",
+        np.asarray(k_value, dtype=np.int32),
+    )
+
+
 def _tensor_shape_with_signature(ctx: Any, tensor_name: str) -> list[int]:
     shape = [int(v) for v in ctx.get_tensor_shape(tensor_name)]
     tensor = ctx.model_ir.tensors.get(tensor_name, None)
@@ -71,6 +117,51 @@ def _tensor_shape_with_signature(ctx: Any, tensor_name: str) -> list[int]:
         int(signature[idx]) if int(signature[idx]) < 0 else int(shape[idx])
         for idx in range(len(shape))
     ]
+
+
+def _is_unknown_rank_placeholder_tensor(ctx: Any, tensor_name: str) -> bool:
+    shape = [int(v) for v in list(ctx.get_tensor_shape(tensor_name))]
+    if len(shape) == 0 or not all(int(v) == 1 for v in shape):
+        return False
+    tensor = ctx.model_ir.tensors.get(str(tensor_name), None)
+    if tensor is not None:
+        signature = (
+            [int(v) for v in list(tensor.shape_signature)]
+            if tensor.shape_signature is not None
+            else [int(v) for v in shape]
+        )
+        if len(signature) != len(shape):
+            return False
+        if any(int(v) < 0 for v in signature):
+            return True
+        if len(shape) == 1 and int(signature[0]) == 1:
+            raw_shape = None
+            if hasattr(ctx, "shape_map"):
+                raw_shape = ctx.shape_map.get(str(tensor_name), None)
+            if raw_shape is None:
+                return True
+            if isinstance(raw_shape, (list, tuple)) and len(list(raw_shape)) == 0:
+                return True
+        return False
+    raw_shape = None
+    if hasattr(ctx, "shape_map"):
+        raw_shape = ctx.shape_map.get(str(tensor_name), None)
+    if raw_shape is None:
+        return True
+    if not isinstance(raw_shape, (list, tuple)):
+        return True
+    if len(list(raw_shape)) == 0:
+        return True
+    unresolved = False
+    for dim in list(raw_shape):
+        if isinstance(dim, (int, np.integer)):
+            if int(dim) <= 0:
+                unresolved = True
+                break
+        else:
+            unresolved = True
+            break
+    return bool(unresolved)
 
 
 def _add_reshape_operator(
@@ -160,6 +251,8 @@ def build_gather_op(node: Any, ctx: Any) -> None:
         if output_tensor.shape_signature is not None
         else [int(v) for v in list(output_tensor.shape)]
     )
+    expected_output_rank = int(len(existing_output_signature))
+    scalar_indices_semantics = False
     scalarized_indices_name = indices_name
     indices_shape = [int(v) for v in ctx.get_tensor_shape(indices_name)]
     indices_tensor = ctx.model_ir.tensors.get(indices_name, None)
@@ -206,26 +299,43 @@ def build_gather_op(node: Any, ctx: Any) -> None:
             # can break downstream rank-1 CONCAT size assembly chains.
             scalarize_single_index = False
         if scalarize_single_index:
-            scalar_value = np.asarray(indices_const_arr.reshape(-1)[0], dtype=indices_const_arr.dtype)
+            # Keep scalar indices as rank-1 [1] for broader runtime compatibility.
+            scalar_value = np.asarray(
+                [indices_const_arr.reshape(-1)[0]],
+                dtype=indices_const_arr.dtype,
+            )
             scalarized_indices_name = ctx.add_const_tensor(
-                f"{output_name}_gather_indices_scalar",
+                f"{output_name}_gather_indices_scalar_1d",
                 scalar_value,
             )
-            scalar_tensor = ctx.model_ir.tensors.get(scalarized_indices_name, None)
-            if scalar_tensor is not None:
-                scalar_tensor.shape = []
-                scalar_tensor.shape_signature = []
-            indices_shape = []
-            indices_signature = []
+            indices_shape = [1]
+            indices_signature = [1]
+            scalar_indices_semantics = True
+    elif input_rank > 1 and expected_output_rank == input_rank - 1:
+        # Runtime scalar indices are normalized to shape [1] in IR metadata.
+        # Detect scalar-output gather semantics from output rank contract.
+        if len(indices_signature) == 1 and int(indices_signature[0]) == 1:
+            scalar_indices_semantics = True
+
+    infer_indices_shape = (
+        []
+        if bool(scalar_indices_semantics) and input_rank > 1
+        else [int(v) for v in indices_shape]
+    )
+    infer_indices_signature = (
+        []
+        if bool(scalar_indices_semantics) and input_rank > 1
+        else [int(v) for v in indices_signature]
+    )
 
     inferred_output_shape = (
         [int(v) for v in input_shape[:int(axis)]]
-        + [int(v) for v in indices_shape]
+        + [int(v) for v in infer_indices_shape]
         + [int(v) for v in input_shape[int(axis) + 1:]]
     )
     inferred_output_signature = (
         [int(v) for v in input_signature[:int(axis)]]
-        + [int(v) for v in indices_signature]
+        + [int(v) for v in infer_indices_signature]
         + [int(v) for v in input_signature[int(axis) + 1:]]
     )
     if len(inferred_output_signature) == 0:
@@ -247,17 +357,138 @@ def build_gather_op(node: Any, ctx: Any) -> None:
     output_tensor.shape_signature = [int(v) for v in final_output_signature]
     output_tensor.shape = [int(v) if int(v) >= 0 else 1 for v in final_output_signature]
 
+    gather_indices_name = scalarized_indices_name
+    gather_indices_tensor = ctx.model_ir.tensors.get(gather_indices_name, None)
+    gather_indices_shape = [int(v) for v in ctx.get_tensor_shape(gather_indices_name)]
+    gather_indices_signature = (
+        [int(v) for v in list(gather_indices_tensor.shape_signature)]
+        if gather_indices_tensor is not None and gather_indices_tensor.shape_signature is not None
+        else [int(v) for v in gather_indices_shape]
+    )
+    if bool(scalar_indices_semantics) and len(gather_indices_signature) == 0:
+        scalar_indices_1d_name = ctx.add_intermediate_tensor(
+            f"{output_name}_gather_indices_scalar_1d",
+            dtype=str(ctx.get_tensor_dtype(gather_indices_name)).upper(),
+            shape=[1],
+        )
+        scalar_indices_1d_tensor = ctx.model_ir.tensors.get(scalar_indices_1d_name, None)
+        if scalar_indices_1d_tensor is not None:
+            scalar_indices_1d_tensor.shape_signature = [1]
+            scalar_indices_1d_tensor.shape = [1]
+        scalar_indices_1d_shape_name = ctx.add_const_tensor(
+            f"{output_name}_gather_indices_scalar_1d_shape",
+            np.asarray([1], dtype=np.int32),
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="RESHAPE",
+                inputs=[gather_indices_name, scalar_indices_1d_shape_name],
+                outputs=[scalar_indices_1d_name],
+                options={
+                    "newShape": [1],
+                    "preserveDynamicShape": True,
+                },
+            )
+        )
+        gather_indices_name = scalar_indices_1d_name
+        gather_indices_shape = [1]
+        gather_indices_signature = [1]
+    gather_indices_dtype = str(ctx.get_tensor_dtype(gather_indices_name)).upper()
+    if gather_indices_dtype != "INT32":
+        gather_indices_const = ctx.get_constant_array(gather_indices_name)
+        if gather_indices_const is not None:
+            gather_indices_arr = np.asarray(gather_indices_const)
+            if int(gather_indices_arr.size) > 0:
+                gather_indices_i64 = gather_indices_arr.astype(np.int64, copy=False)
+                i32_info = np.iinfo(np.int32)
+                if bool(np.any(gather_indices_i64 < int(i32_info.min))) or bool(
+                    np.any(gather_indices_i64 > int(i32_info.max))
+                ):
+                    raise NotImplementedError(
+                        "Gather constant indices are out of INT32 range required by TFLite GATHER. "
+                        f"op={node.name} dtype={gather_indices_dtype}"
+                    )
+            gather_indices_name = ctx.add_const_tensor(
+                f"{output_name}_gather_indices_i32_const",
+                gather_indices_arr.astype(np.int32, copy=False),
+            )
+            gather_indices_i32_const_tensor = ctx.model_ir.tensors.get(gather_indices_name, None)
+            if gather_indices_i32_const_tensor is not None:
+                gather_indices_i32_const_tensor.shape_signature = [int(v) for v in gather_indices_signature]
+                gather_indices_i32_const_tensor.shape = [
+                    int(v) if int(v) >= 0 else 1 for v in gather_indices_signature
+                ]
+        else:
+            gather_indices_i32_name = ctx.add_intermediate_tensor(
+                f"{output_name}_gather_indices_i32",
+                dtype="INT32",
+                shape=gather_indices_shape,
+            )
+            gather_indices_i32_tensor = ctx.model_ir.tensors.get(gather_indices_i32_name, None)
+            if gather_indices_i32_tensor is not None:
+                gather_indices_i32_tensor.shape_signature = [int(v) for v in gather_indices_signature]
+                gather_indices_i32_tensor.shape = [
+                    int(v) if int(v) >= 0 else 1 for v in gather_indices_signature
+                ]
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[gather_indices_name],
+                    outputs=[gather_indices_i32_name],
+                    options={
+                        "inDataType": gather_indices_dtype,
+                        "outDataType": "INT32",
+                    },
+                )
+            )
+            gather_indices_name = gather_indices_i32_name
+
+    gather_output_name = output_name
+    if bool(scalar_indices_semantics) and input_rank > 1:
+        gather_output_signature = (
+            [int(v) for v in input_signature[:int(axis)]]
+            + [1]
+            + [int(v) for v in input_signature[int(axis) + 1:]]
+        )
+        gather_output_shape = [int(v) if int(v) >= 0 else 1 for v in gather_output_signature]
+        gather_output_name = ctx.add_intermediate_tensor(
+            f"{output_name}_gather_scalar_1d",
+            dtype=str(ctx.get_tensor_dtype(output_name)).upper(),
+            shape=gather_output_shape,
+        )
+        gather_output_tensor = ctx.model_ir.tensors.get(gather_output_name, None)
+        if gather_output_tensor is not None:
+            gather_output_tensor.shape_signature = [int(v) for v in gather_output_signature]
+            gather_output_tensor.shape = [int(v) for v in gather_output_shape]
+
     ctx.add_operator(
         OperatorIR(
             op_type="GATHER",
-            inputs=[params_name, scalarized_indices_name],
-            outputs=[output_name],
+            inputs=[params_name, gather_indices_name],
+            outputs=[gather_output_name],
             options={
                 "axis": int(axis),
                 "batchDims": int(batch_dims),
             },
         )
     )
+
+    if gather_output_name != output_name:
+        gather_out_shape_const = ctx.add_const_tensor(
+            f"{output_name}_gather_scalar_reshape_shape",
+            np.asarray([int(v) for v in list(output_tensor.shape)], dtype=np.int32),
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="RESHAPE",
+                inputs=[gather_output_name, gather_out_shape_const],
+                outputs=[output_name],
+                options={
+                    "newShape": [int(v) for v in list(output_tensor.shape)],
+                    "preserveDynamicShape": True,
+                },
+            )
+        )
 
 
 def build_gather_nd_op(node: Any, ctx: Any) -> None:
@@ -2052,9 +2283,11 @@ def build_argmax_op(node: Any, ctx: Any) -> None:
         )
 
     keepdims = bool(int(node.attrs.get("keepdims", 1)))
-    output_dtype = str(ctx.get_tensor_dtype(output_name)).upper()
-    if output_dtype not in {"INT32", "INT64"}:
-        output_dtype = "INT64"
+    output_dtype = _prefer_int32_index_output_dtype(
+        ctx=ctx,
+        tensor_name=output_name,
+        requested_dtype=str(ctx.get_tensor_dtype(output_name)).upper(),
+    )
 
     argmax_output_name = output_name
     if keepdims:
@@ -2119,9 +2352,11 @@ def build_argmin_op(node: Any, ctx: Any) -> None:
         )
 
     keepdims = bool(int(node.attrs.get("keepdims", 1)))
-    output_dtype = str(ctx.get_tensor_dtype(output_name)).upper()
-    if output_dtype not in {"INT32", "INT64"}:
-        output_dtype = "INT64"
+    output_dtype = _prefer_int32_index_output_dtype(
+        ctx=ctx,
+        tensor_name=output_name,
+        requested_dtype=str(ctx.get_tensor_dtype(output_name)).upper(),
+    )
 
     argmin_output_name = output_name
     if keepdims:
@@ -2173,8 +2408,14 @@ def build_topk_op(node: Any, ctx: Any) -> None:
     ctx.ensure_tensor(input_name)
     ctx.ensure_tensor(k_name)
     ctx.ensure_tensor(values_output_name)
+    indices_output_dtype = ""
     if indices_output_name != "":
         ctx.ensure_tensor(indices_output_name)
+        indices_output_dtype = _prefer_int32_index_output_dtype(
+            ctx=ctx,
+            tensor_name=indices_output_name,
+            requested_dtype=str(ctx.get_tensor_dtype(indices_output_name)).upper(),
+        )
 
     input_shape = [int(v) for v in ctx.get_tensor_shape(input_name)]
     input_rank = int(len(input_shape))
@@ -2247,54 +2488,61 @@ def build_topk_op(node: Any, ctx: Any) -> None:
         )
         topk_input_name = neg_input_name
 
-    k_for_topk_name = k_name
-    k_dtype = str(ctx.get_tensor_dtype(k_for_topk_name)).upper()
-    if k_dtype != "INT32":
-        k_shape = [int(v) for v in ctx.get_tensor_shape(k_for_topk_name)]
-        k_i32_name = ctx.add_intermediate_tensor(
-            f"{values_output_name}_topk_k_i32",
-            dtype="INT32",
-            shape=k_shape,
-        )
-        ctx.add_operator(
-            OperatorIR(
-                op_type="CAST",
-                inputs=[k_for_topk_name],
-                outputs=[k_i32_name],
-                options={
-                    "inDataType": k_dtype,
-                    "outDataType": "INT32",
-                },
+    k_for_topk_name = _maybe_constantize_topk_k(
+        ctx=ctx,
+        node=node,
+        k_input_name=k_name,
+        values_output_name=values_output_name,
+    )
+    if k_for_topk_name is None:
+        k_for_topk_name = k_name
+        k_dtype = str(ctx.get_tensor_dtype(k_for_topk_name)).upper()
+        if k_dtype != "INT32":
+            k_shape = [int(v) for v in ctx.get_tensor_shape(k_for_topk_name)]
+            k_i32_name = ctx.add_intermediate_tensor(
+                f"{values_output_name}_topk_k_i32",
+                dtype="INT32",
+                shape=k_shape,
             )
-        )
-        k_for_topk_name = k_i32_name
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[k_for_topk_name],
+                    outputs=[k_i32_name],
+                    options={
+                        "inDataType": k_dtype,
+                        "outDataType": "INT32",
+                    },
+                )
+            )
+            k_for_topk_name = k_i32_name
 
-    k_shape = [int(v) for v in ctx.get_tensor_shape(k_for_topk_name)]
-    if len(k_shape) == 1:
-        if int(k_shape[0]) > 1:
+        k_shape = [int(v) for v in ctx.get_tensor_shape(k_for_topk_name)]
+        if len(k_shape) == 1:
+            if int(k_shape[0]) > 1:
+                raise NotImplementedError(
+                    "TopK k input must be scalar-like (shape [] or [1]) in flatbuffer_direct. "
+                    f"op={node.name} k_shape={k_shape}"
+                )
+            k_scalar_name = ctx.add_intermediate_tensor(
+                f"{values_output_name}_topk_k_scalar",
+                dtype="INT32",
+                shape=[],
+            )
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="SQUEEZE",
+                    inputs=[k_for_topk_name],
+                    outputs=[k_scalar_name],
+                    options={"squeezeDims": [0]},
+                )
+            )
+            k_for_topk_name = k_scalar_name
+        elif len(k_shape) != 0:
             raise NotImplementedError(
                 "TopK k input must be scalar-like (shape [] or [1]) in flatbuffer_direct. "
                 f"op={node.name} k_shape={k_shape}"
             )
-        k_scalar_name = ctx.add_intermediate_tensor(
-            f"{values_output_name}_topk_k_scalar",
-            dtype="INT32",
-            shape=[],
-        )
-        ctx.add_operator(
-            OperatorIR(
-                op_type="SQUEEZE",
-                inputs=[k_for_topk_name],
-                outputs=[k_scalar_name],
-                options={"squeezeDims": [0]},
-            )
-        )
-        k_for_topk_name = k_scalar_name
-    elif len(k_shape) != 0:
-        raise NotImplementedError(
-            "TopK k input must be scalar-like (shape [] or [1]) in flatbuffer_direct. "
-            f"op={node.name} k_shape={k_shape}"
-        )
 
     topk_values_shape = (
         [int(values_output_shape[int(v)]) for v in perm_to_last]
@@ -2329,7 +2577,7 @@ def build_topk_op(node: Any, ctx: Any) -> None:
     if indices_output_name != "":
         indices_topk_name = (
             indices_output_name
-            if perm_from_last is None and str(ctx.get_tensor_dtype(indices_output_name)).upper() == "INT32"
+            if perm_from_last is None and indices_output_dtype == "INT32"
             else ctx.add_intermediate_tensor(
                 f"{indices_output_name}_topk_indices_raw",
                 dtype="INT32",
@@ -2394,7 +2642,7 @@ def build_topk_op(node: Any, ctx: Any) -> None:
         indices_transposed_name = (
             indices_output_name
             if indices_output_name != ""
-            and str(ctx.get_tensor_dtype(indices_output_name)).upper() == "INT32"
+            and indices_output_dtype == "INT32"
             else ctx.add_intermediate_tensor(
                 f"{values_output_name}_topk_indices_axis_restored",
                 dtype="INT32",
@@ -2414,7 +2662,7 @@ def build_topk_op(node: Any, ctx: Any) -> None:
         indices_final_i32_name = indices_transposed_name
 
     if indices_output_name != "":
-        indices_dtype = str(ctx.get_tensor_dtype(indices_output_name)).upper()
+        indices_dtype = indices_output_dtype
         if indices_dtype != "INT32":
             ctx.add_operator(
                 OperatorIR(
@@ -2425,6 +2673,19 @@ def build_topk_op(node: Any, ctx: Any) -> None:
                         "inDataType": "INT32",
                         "outDataType": indices_dtype,
                     },
+                )
+            )
+        elif indices_final_i32_name != indices_output_name:
+            shape_name = ctx.add_const_tensor(
+                f"{indices_output_name}_topk_indices_identity_shape",
+                np.asarray([int(v) for v in indices_output_shape], dtype=np.int32),
+            )
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="RESHAPE",
+                    inputs=[indices_final_i32_name, shape_name],
+                    outputs=[indices_output_name],
+                    options={"newShape": [int(v) for v in indices_output_shape]},
                 )
             )
 
@@ -2583,7 +2844,11 @@ def build_nonzero_op(node: Any, ctx: Any) -> None:
     )
 
     transpose_out_name = output_name
-    output_dtype = str(ctx.get_tensor_dtype(output_name)).upper()
+    output_dtype = _prefer_int32_index_output_dtype(
+        ctx=ctx,
+        tensor_name=output_name,
+        requested_dtype=str(ctx.get_tensor_dtype(output_name)).upper(),
+    )
     if output_dtype != "INT64":
         transpose_out_name = ctx.add_intermediate_tensor(
             f"{output_name}_nonzero_i64",
@@ -2751,6 +3016,18 @@ def build_one_hot_op(node: Any, ctx: Any) -> None:
 
 
 def build_gather_elements_op(node: Any, ctx: Any) -> None:
+    def _rank_is_unknown_placeholder(tensor_name: str, shape: list[int]) -> bool:
+        raw_shape = None
+        if hasattr(ctx, "shape_map"):
+            raw_shape = ctx.shape_map.get(str(tensor_name), None)
+        if isinstance(raw_shape, (list, tuple)) and len(list(raw_shape)) > 0:
+            # Rank is known even when dimensions are symbolic/unknown.
+            return False
+        return bool(
+            len(shape) == 1
+            and _is_unknown_rank_placeholder_tensor(ctx, tensor_name)
+        )
+
     data_name = node.inputs[0].name
     indices_name = node.inputs[1].name
     output_name = node.outputs[0].name
@@ -2767,15 +3044,60 @@ def build_gather_elements_op(node: Any, ctx: Any) -> None:
         if output_tensor is not None and output_tensor.shape_signature is not None
         else [int(v) for v in list(output_shape)]
     )
-    if len(data_shape) != len(indices_shape):
+    data_tensor = ctx.model_ir.tensors.get(data_name, None)
+    data_signature = (
+        [int(v) for v in list(data_tensor.shape_signature)]
+        if data_tensor is not None and data_tensor.shape_signature is not None
+        else [int(v) for v in list(data_shape)]
+    )
+    indices_tensor = ctx.model_ir.tensors.get(indices_name, None)
+    indices_signature = (
+        [int(v) for v in list(indices_tensor.shape_signature)]
+        if indices_tensor is not None and indices_tensor.shape_signature is not None
+        else [int(v) for v in list(indices_shape)]
+    )
+    data_rank_unknown = _rank_is_unknown_placeholder(data_name, data_shape)
+    indices_rank_unknown = _rank_is_unknown_placeholder(indices_name, indices_shape)
+    output_rank_unknown = _rank_is_unknown_placeholder(output_name, output_shape)
+
+    if data_rank_unknown and not indices_rank_unknown:
+        data_shape = [int(v) for v in list(indices_shape)]
+        data_signature = [int(v) for v in list(indices_signature)]
+        if data_tensor is not None:
+            data_tensor.shape = [int(v) for v in list(data_shape)]
+            data_tensor.shape_signature = [int(v) for v in list(data_signature)]
+        data_rank_unknown = False
+    elif data_rank_unknown and not output_rank_unknown:
+        data_shape = [int(v) for v in list(output_shape)]
+        data_signature = [int(v) for v in list(output_signature)]
+        if data_tensor is not None:
+            data_tensor.shape = [int(v) for v in list(data_shape)]
+            data_tensor.shape_signature = [int(v) for v in list(data_signature)]
+        data_rank_unknown = False
+
+    if indices_rank_unknown and not output_rank_unknown:
+        indices_shape = [int(v) for v in list(output_shape)]
+        indices_signature = [int(v) for v in list(output_signature)]
+        if indices_tensor is not None:
+            indices_tensor.shape = [int(v) for v in list(indices_shape)]
+            indices_tensor.shape_signature = [int(v) for v in list(indices_signature)]
+        indices_rank_unknown = False
+    replace_to_pseudo_operators = getattr(ctx, "replace_to_pseudo_operators", set())
+    rtpo_gathernd = "gathernd" in set(replace_to_pseudo_operators or set())
+    if len(data_shape) != len(indices_shape) and not data_rank_unknown and not indices_rank_unknown:
         raise NotImplementedError(
             "GatherElements requires data and indices with the same rank in flatbuffer_direct. "
             f"op={node.name} data_shape={data_shape} indices_shape={indices_shape}"
         )
-    if len(indices_shape) != len(output_shape):
+    if len(indices_shape) != len(output_shape) and not indices_rank_unknown and not output_rank_unknown:
         raise NotImplementedError(
             "GatherElements requires output rank equal to indices rank in flatbuffer_direct. "
             f"op={node.name} indices_shape={indices_shape} output_shape={output_shape}"
+        )
+    if data_rank_unknown and indices_rank_unknown and output_rank_unknown:
+        raise NotImplementedError(
+            "GatherElements requires resolvable rank in flatbuffer_direct. "
+            f"op={node.name} data_shape={data_shape} indices_shape={indices_shape} output_shape={output_shape}"
         )
     if any(int(v) <= 0 for v in data_shape):
         raise NotImplementedError(
@@ -2784,6 +3106,10 @@ def build_gather_elements_op(node: Any, ctx: Any) -> None:
         )
 
     rank = len(data_shape)
+    if data_rank_unknown and not indices_rank_unknown:
+        rank = len(indices_shape)
+    elif data_rank_unknown and not output_rank_unknown:
+        rank = len(output_shape)
     axis = int(node.attrs.get("axis", 0))
     if axis < 0:
         axis += rank
@@ -2883,6 +3209,9 @@ def build_gather_elements_op(node: Any, ctx: Any) -> None:
             dtype="INT32",
             shape=[int(v) for v in output_shape] + [int(rank)],
         )
+        coords_tensor = ctx.model_ir.tensors.get(coords_name, None)
+        if coords_tensor is not None:
+            coords_tensor.shape_signature = [int(v) for v in output_signature] + [int(rank)]
         ctx.add_operator(
             OperatorIR(
                 op_type="CONCATENATION",
@@ -2894,12 +3223,228 @@ def build_gather_elements_op(node: Any, ctx: Any) -> None:
                 },
             )
         )
+    else:
+        coords_tensor = ctx.model_ir.tensors.get(coords_name, None)
+        if coords_tensor is not None:
+            coords_tensor.shape_signature = [int(v) for v in output_signature] + [int(rank)]
 
+    if not rtpo_gathernd:
+        ctx.add_operator(
+            OperatorIR(
+                op_type="GATHER_ND",
+                inputs=[data_name, coords_name],
+                outputs=[output_name],
+            )
+        )
+        return
+
+    # -rtpo GatherND: also pseudo-lower GatherElements-generated GATHER_ND path.
+    data_flat_name = ctx.add_intermediate_tensor(
+        f"{output_name}_gather_elements_data_flat",
+        dtype=str(ctx.get_tensor_dtype(data_name)).upper(),
+        shape=[int(np.prod(np.asarray(data_shape, dtype=np.int64)))],
+    )
+    data_flat_shape_const = ctx.add_const_tensor(
+        f"{output_name}_gather_elements_data_flat_shape",
+        np.asarray([-1], dtype=np.int32),
+    )
     ctx.add_operator(
         OperatorIR(
-            op_type="GATHER_ND",
-            inputs=[data_name, coords_name],
+            op_type="RESHAPE",
+            inputs=[data_name, data_flat_shape_const],
+            outputs=[data_flat_name],
+            options={"newShape": [-1], "preserveDynamicShape": True},
+        )
+    )
+
+    axis_steps = []
+    for dim in range(rank):
+        step = 1
+        for next_dim in range(dim + 1, rank):
+            step *= int(data_shape[next_dim])
+        axis_steps.append(int(step))
+    linear_signature = [int(v) for v in output_signature] + [1]
+    linear_shape = [int(v) if int(v) > 0 else 1 for v in linear_signature]
+    linear_acc_name: str | None = None
+    for dim, coord_name in enumerate(coord_tensors):
+        term_name = str(coord_name)
+        step = int(axis_steps[dim])
+        if step != 1:
+            coord_const_arr = ctx.get_constant_array(term_name)
+            if coord_const_arr is not None:
+                # LiteRT.js WebGPU can reject MUL when both inputs are const.
+                # Pre-fold const*const here and keep only one const tensor.
+                term_name = ctx.add_const_tensor(
+                    f"{output_name}_gather_elements_linear_mul_{dim}_const",
+                    np.asarray(coord_const_arr, dtype=np.int32) * np.int32(step),
+                )
+            else:
+                step_const_name = ctx.add_const_tensor(
+                    f"{output_name}_gather_elements_axis_step_{dim}",
+                    np.asarray(step, dtype=np.int32),
+                )
+                term_mul_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_gather_elements_linear_mul_{dim}",
+                    dtype="INT32",
+                    shape=[int(v) for v in linear_shape],
+                )
+                term_mul_tensor = ctx.model_ir.tensors.get(term_mul_name, None)
+                if term_mul_tensor is not None:
+                    term_mul_tensor.shape_signature = [int(v) for v in linear_signature]
+                ctx.add_operator(
+                    OperatorIR(
+                        op_type="MUL",
+                        inputs=[term_name, step_const_name],
+                        outputs=[term_mul_name],
+                        options={"fusedActivationFunction": "NONE"},
+                    )
+                )
+                term_name = str(term_mul_name)
+
+        if linear_acc_name is None:
+            linear_acc_name = term_name
+        else:
+            acc_const_arr = ctx.get_constant_array(linear_acc_name)
+            term_const_arr = ctx.get_constant_array(term_name)
+            if acc_const_arr is not None and term_const_arr is not None:
+                # LiteRT.js WebGPU can reject ADD with two const inputs.
+                linear_acc_name = ctx.add_const_tensor(
+                    f"{output_name}_gather_elements_linear_add_{dim}_const",
+                    np.asarray(acc_const_arr, dtype=np.int32)
+                    + np.asarray(term_const_arr, dtype=np.int32),
+                )
+            else:
+                linear_add_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_gather_elements_linear_add_{dim}",
+                    dtype="INT32",
+                    shape=[int(v) for v in linear_shape],
+                )
+                linear_add_tensor = ctx.model_ir.tensors.get(linear_add_name, None)
+                if linear_add_tensor is not None:
+                    linear_add_tensor.shape_signature = [int(v) for v in linear_signature]
+                ctx.add_operator(
+                    OperatorIR(
+                        op_type="ADD",
+                        inputs=[linear_acc_name, term_name],
+                        outputs=[linear_add_name],
+                        options={"fusedActivationFunction": "NONE"},
+                    )
+                )
+                linear_acc_name = str(linear_add_name)
+
+    if linear_acc_name is None:
+        raise NotImplementedError(
+            f"GatherElements pseudo gathernd path failed to build linear indices. op={node.name}"
+        )
+
+    linear_index_name = ctx.add_intermediate_tensor(
+        f"{output_name}_gather_elements_linear_index",
+        dtype="INT32",
+        shape=[int(v) for v in output_shape],
+    )
+    linear_index_tensor = ctx.model_ir.tensors.get(linear_index_name, None)
+    if linear_index_tensor is not None:
+        linear_index_tensor.shape_signature = [int(v) for v in output_signature]
+    linear_index_shape_const = ctx.add_const_tensor(
+        f"{output_name}_gather_elements_linear_index_shape",
+        np.asarray([int(v) for v in output_shape], dtype=np.int32),
+    )
+    ctx.add_operator(
+        OperatorIR(
+            op_type="RESHAPE",
+            inputs=[linear_acc_name, linear_index_shape_const],
+            outputs=[linear_index_name],
+            options={
+                "newShape": [int(v) for v in output_shape],
+                "preserveDynamicShape": True,
+            },
+        )
+    )
+
+    linear_index_flat_name = ctx.add_intermediate_tensor(
+        f"{output_name}_gather_elements_linear_index_flat",
+        dtype="INT32",
+        shape=[
+            int(
+                max(
+                    1,
+                    int(
+                        np.prod(
+                            np.asarray([int(v) for v in output_shape], dtype=np.int64)
+                        )
+                    ),
+                )
+            )
+        ],
+    )
+    linear_index_flat_tensor = ctx.model_ir.tensors.get(linear_index_flat_name, None)
+    if linear_index_flat_tensor is not None:
+        flat_sig = -1 if any(int(v) < 0 for v in output_signature) else int(
+            np.prod(np.asarray([int(v) for v in output_signature], dtype=np.int64))
+        )
+        linear_index_flat_tensor.shape_signature = [int(flat_sig)]
+        linear_index_flat_tensor.shape = [1 if int(flat_sig) < 0 else int(flat_sig)]
+    linear_index_flat_shape_const = ctx.add_const_tensor(
+        f"{output_name}_gather_elements_linear_index_flat_shape",
+        np.asarray([-1], dtype=np.int32),
+    )
+    ctx.add_operator(
+        OperatorIR(
+            op_type="RESHAPE",
+            inputs=[linear_index_name, linear_index_flat_shape_const],
+            outputs=[linear_index_flat_name],
+            options={
+                "newShape": [-1],
+                "preserveDynamicShape": True,
+            },
+        )
+    )
+
+    gathered_flat_name = ctx.add_intermediate_tensor(
+        f"{output_name}_gather_elements_gathered_flat",
+        dtype=str(ctx.get_tensor_dtype(output_name)).upper(),
+        shape=[
+            int(
+                max(
+                    1,
+                    int(
+                        np.prod(
+                            np.asarray([int(v) for v in output_shape], dtype=np.int64)
+                        )
+                    ),
+                )
+            )
+        ],
+    )
+    gathered_flat_tensor = ctx.model_ir.tensors.get(gathered_flat_name, None)
+    if gathered_flat_tensor is not None:
+        flat_sig = -1 if any(int(v) < 0 for v in output_signature) else int(
+            np.prod(np.asarray([int(v) for v in output_signature], dtype=np.int64))
+        )
+        gathered_flat_tensor.shape_signature = [int(flat_sig)]
+        gathered_flat_tensor.shape = [1 if int(flat_sig) < 0 else int(flat_sig)]
+    ctx.add_operator(
+        OperatorIR(
+            op_type="GATHER",
+            inputs=[data_flat_name, linear_index_flat_name],
+            outputs=[gathered_flat_name],
+            options={"axis": 0},
+        )
+    )
+
+    gathered_out_shape_const = ctx.add_const_tensor(
+        f"{output_name}_gather_elements_gathered_out_shape",
+        np.asarray([int(v) for v in output_shape], dtype=np.int32),
+    )
+    ctx.add_operator(
+        OperatorIR(
+            op_type="RESHAPE",
+            inputs=[gathered_flat_name, gathered_out_shape_const],
             outputs=[output_name],
+            options={
+                "newShape": [int(v) for v in output_shape],
+                "preserveDynamicShape": True,
+            },
         )
     )
 
@@ -2925,9 +3470,11 @@ def build_non_max_suppression_op(node: Any, ctx: Any) -> None:
     if switch_nms_version not in {"v4", "v5"}:
         switch_nms_version = "v4"
     use_nms_v5 = switch_nms_version == "v5"
-    output_dtype = str(ctx.get_tensor_dtype(output_name)).upper()
-    if output_dtype not in _DTYPE_TO_NP:
-        output_dtype = "INT64"
+    output_dtype = _prefer_int32_index_output_dtype(
+        ctx=ctx,
+        tensor_name=output_name,
+        requested_dtype=str(ctx.get_tensor_dtype(output_name)).upper(),
+    )
     if len(boxes_shape) != 3 or len(scores_shape) != 3:
         raise NotImplementedError(
             "NonMaxSuppression currently supports rank-3 boxes/scores only in flatbuffer_direct. "

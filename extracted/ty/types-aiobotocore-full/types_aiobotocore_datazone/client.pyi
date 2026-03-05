@@ -62,6 +62,7 @@ from .paginator import (
     ListSubscriptionsPaginator,
     ListSubscriptionTargetsPaginator,
     ListTimeSeriesDataPointsPaginator,
+    QueryGraphPaginator,
     SearchGroupProfilesPaginator,
     SearchListingsPaginator,
     SearchPaginator,
@@ -319,6 +320,8 @@ from .type_defs import (
     PutDataExportConfigurationInputTypeDef,
     PutEnvironmentBlueprintConfigurationInputTypeDef,
     PutEnvironmentBlueprintConfigurationOutputTypeDef,
+    QueryGraphInputTypeDef,
+    QueryGraphOutputTypeDef,
     RejectPredictionsInputTypeDef,
     RejectPredictionsOutputTypeDef,
     RejectSubscriptionRequestInputTypeDef,
@@ -1825,6 +1828,16 @@ class DataZoneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#put_environment_blueprint_configuration)
         """
 
+    async def query_graph(
+        self, **kwargs: Unpack[QueryGraphInputTypeDef]
+    ) -> QueryGraphOutputTypeDef:
+        """
+        Queries entities in the graph store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/query_graph.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#query_graph)
+        """
+
     async def reject_predictions(
         self, **kwargs: Unpack[RejectPredictionsInputTypeDef]
     ) -> RejectPredictionsOutputTypeDef:
@@ -2516,6 +2529,17 @@ class DataZoneClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_time_series_data_points"]
     ) -> ListTimeSeriesDataPointsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_datazone/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["query_graph"]
+    ) -> QueryGraphPaginator:
         """
         Create a paginator for an operation.
 

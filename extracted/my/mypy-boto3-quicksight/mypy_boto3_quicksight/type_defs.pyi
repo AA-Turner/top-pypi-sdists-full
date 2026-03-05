@@ -2822,6 +2822,7 @@ class CapabilitiesTypeDef(TypedDict):
     PublishWithoutApproval: NotRequired[Literal["DENY"]]
     UseBedrockModels: NotRequired[Literal["DENY"]]
     PerformFlowUiTask: NotRequired[Literal["DENY"]]
+    ApproveFlowShareRequests: NotRequired[Literal["DENY"]]
     UseAgentWebSearch: NotRequired[Literal["DENY"]]
     KnowledgeBase: NotRequired[Literal["DENY"]]
     Action: NotRequired[Literal["DENY"]]
@@ -2997,11 +2998,16 @@ class CapabilitiesTypeDef(TypedDict):
     CreateAndUpdateNewRelicAction: NotRequired[Literal["DENY"]]
     ShareNewRelicAction: NotRequired[Literal["DENY"]]
     UseNewRelicAction: NotRequired[Literal["DENY"]]
+    Topic: NotRequired[Literal["DENY"]]
+    EditVisualWithQ: NotRequired[Literal["DENY"]]
+    BuildCalculatedFieldWithQ: NotRequired[Literal["DENY"]]
+    CreateDashboardExecutiveSummaryWithQ: NotRequired[Literal["DENY"]]
     Space: NotRequired[Literal["DENY"]]
     ChatAgent: NotRequired[Literal["DENY"]]
     CreateChatAgents: NotRequired[Literal["DENY"]]
     Research: NotRequired[Literal["DENY"]]
     SelfUpgradeUserRole: NotRequired[Literal["DENY"]]
+    Extension: NotRequired[Literal["DENY"]]
 
 class CastColumnTypeOperationTypeDef(TypedDict):
     ColumnName: str

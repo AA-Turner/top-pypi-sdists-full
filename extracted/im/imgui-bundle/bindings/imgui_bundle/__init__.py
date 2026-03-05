@@ -1,11 +1,47 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2025 Pascal Thomet - https://github.com/pthom/imgui_bundle
 import os
-from imgui_bundle._imgui_bundle import __bundle_submodules__, __bundle_pyodide__ # type: ignore
-from imgui_bundle._imgui_bundle import __version__, compilation_time
-from typing import Union, Tuple, List
+
+# Workaround for PyOpenGL 3.1.6+ on Wayland: GLFW uses X11/XWayland, but PyOpenGL
+# assumes Wayland EGL and fails to find the GL context. Force X11 backend.
+# Must be set before any `import OpenGL` happens.
+# See https://github.com/pthom/imgui_bundle/issues/321
+if os.getenv("XDG_SESSION_TYPE") == "wayland" and not os.getenv("PYOPENGL_PLATFORM"):
+    os.environ["PYOPENGL_PLATFORM"] = "x11"
+from imgui_bundle._imgui_bundle import __bundle_submodules_available__, __bundle_submodules_disabled__, __bundle_pyodide__ # type: ignore
+from imgui_bundle._imgui_bundle import __version__, __build_number__, compilation_time
+from typing import Union, Tuple, List, overload
 
 def has_submodule(submodule_name):
-    return submodule_name in __bundle_submodules__
+    return submodule_name in __bundle_submodules_available__
+
+
+def info() -> str:
+    """Return information about imgui_bundle: version, compilation time, and available submodules.
+
+    Returns:
+        str: Formatted string with package information
+
+    Example:
+        >>> import imgui_bundle
+        >>> print(imgui_bundle.info())
+        ImGui Bundle v1.92.6
+        Compiled on Jan 26 2026 at 15:49:15
+        Available submodules (16): imgui, imgui.internal, imgui.backends, ...
+    """
+    comp_time = compilation_time()
+
+    # Format submodules list
+    submodules_str = ", ".join(__bundle_submodules_available__)
+
+    info_str = f"ImGui Bundle v{__version__} buil {__build_number__}\n"
+    info_str += f"{comp_time}\n"
+    info_str += f"Available submodules ({len(__bundle_submodules_available__)}): {submodules_str}\n"
+
+    if len(__bundle_submodules_disabled__) > 0:
+        disabled_str = ", ".join(__bundle_submodules_disabled__)
+        info_str += f"Disabled submodules ({len(__bundle_submodules_disabled__)}): {disabled_str}"
+
+    return info_str
 
 
 def _is_pydantic_v2_available() -> bool:
@@ -18,7 +54,16 @@ def _is_pydantic_v2_available() -> bool:
     return major >= 2
 
 
-__all__ = ["__version__", "compilation_time"]
+__all__ = [
+    "__version__",
+    "__build_number__",
+    "compilation_time",
+    "info",
+    "has_submodule",
+    "__bundle_submodules_available__",
+    "__bundle_submodules_disabled__",
+    "__bundle_pyodide__"
+]
 
 
 #
@@ -48,6 +93,35 @@ if has_submodule("imgui"):
         "IM_COL32",
         "imgui_ctx",
     ])
+
+    # Em sizing utilities (DPI-independent sizing)
+    def em_size(v: float = 1.0) -> float:
+        """Returns a size in pixels corresponding to `v` em units.
+
+        1 em = current font size (ImGui::GetFontSize()).
+        Use this for DPI-independent sizing.
+        """
+        return imgui.get_font_size() * v
+
+    @overload
+    def em_to_vec2(x: float, y: float) -> ImVec2: ...
+    @overload
+    def em_to_vec2(v: ImVec2Like) -> ImVec2: ...
+
+    def em_to_vec2(x, y=None) -> ImVec2:
+        """Returns an ImVec2 sized in em units (multiples of font size).
+
+        Can be called as:
+            em_to_vec2(3.0, 2.0)  -> ImVec2 of 3em x 2em
+            em_to_vec2((3.0, 2.0))  -> same, from tuple
+            em_to_vec2(ImVec2(3.0, 2.0))  -> same, from ImVec2
+        """
+        font_size = imgui.get_font_size()
+        if y is None:
+            return ImVec2(font_size * x[0], font_size * x[1])
+        return ImVec2(font_size * x, font_size * y)
+
+    __all__.extend(["em_size", "em_to_vec2"])
 
     # Patch after imgui v1.90.9, where
     # the enum ImGuiDir_ was renamed to ImGuiDir and ImGuiSortDirection_ was renamed to ImGuiSortDirection
@@ -131,6 +205,12 @@ if has_submodule("imcoolbar"):
 if has_submodule("nanovg"):
     from imgui_bundle._imgui_bundle import nanovg as nanovg
     __all__.extend(["nanovg"])
+if has_submodule("im_anim"):
+    from imgui_bundle._imgui_bundle import im_anim as im_anim
+    __all__.extend(["im_anim"])
+if has_submodule("imgui_explorer"):
+    from imgui_bundle._imgui_bundle import imgui_explorer as imgui_explorer
+    __all__.extend(["imgui_explorer"])
 
 if has_submodule("immapp_cpp"):  # immapp is a Python wrapper around immapp_cpp
     from imgui_bundle import immapp as immapp
@@ -162,20 +242,29 @@ if has_submodule("with_glfw"):
 #
 # Pyodide: patch hello_imgui.run and immapp.run to work with Pyodide
 #
-if __bundle_pyodide__:
+if __bundle_pyodide__ and has_submodule("hello_imgui") and has_submodule("immapp_cpp"):
     from imgui_bundle.pyodide_patch_runners import pyodide_do_patch_runners
     pyodide_do_patch_runners()
 
-#
 # Jupyter notebook: patch hello_imgui.run and immapp.run to work with Jupyter notebook
-#
-from imgui_bundle.notebook_patch_runners import notebook_do_patch_runners_if_needed  # noqa: E402
-notebook_do_patch_runners_if_needed()
-from imgui_bundle._patch_runners_add_save_screenshot_param import patch_runners_add_save_screenshot_param  # noqa: E402
-patch_runners_add_save_screenshot_param()
+# run will display a screenshot of the final app state in the notebook output
+# Note: the immapp.nb submodule provides more complete notebook support (async support, etc.)
+if has_submodule("hello_imgui")  and has_submodule("immapp_cpp") and not __bundle_pyodide__:
+    from imgui_bundle.notebook_patch_runners import notebook_do_patch_runners_if_needed  # noqa: E402
+    notebook_do_patch_runners_if_needed()
+    from imgui_bundle._patch_runners_add_save_screenshot_param import patch_runners_add_save_screenshot_param  # noqa: E402
+    patch_runners_add_save_screenshot_param()
 
 #
-# Override assets folder
+# Add async support to hello_imgui
 #
-THIS_DIR = os.path.dirname(__file__)
-hello_imgui.override_assets_folder(THIS_DIR + "/assets")
+if has_submodule("hello_imgui"):
+    from imgui_bundle.hello_imgui_run_async import run_async as _hello_imgui_run_async
+    hello_imgui.run_async = _hello_imgui_run_async  # type: ignore
+
+    # Add notebook convenience API
+    from imgui_bundle import hello_imgui_nb as _hello_imgui_nb_module
+    hello_imgui.nb = _hello_imgui_nb_module  # type: ignore
+
+    THIS_DIR = os.path.dirname(__file__)
+    hello_imgui.override_assets_folder(THIS_DIR + "/assets")

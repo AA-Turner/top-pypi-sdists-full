@@ -58,6 +58,7 @@ class ServiceArgs:
                  wait_for_steady_state: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a Service resource.
+
         :param pulumi.Input['ServiceAlarmsArgs'] alarms: Information about the CloudWatch alarms. See below.
         :param pulumi.Input[_builtins.str] availability_zone_rebalancing: ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are `ENABLED` and `DISABLED`. When creating a new service, if no value is specified, it defaults to `ENABLED` if the service is compatible with AvailabilityZoneRebalancing. When updating an existing service, if no value is specified it defaults to the existing service's AvailabilityZoneRebalancing value. If the service never had an AvailabilityZoneRebalancing value set, Amazon ECS treats this as `DISABLED`.
         :param pulumi.Input[Sequence[pulumi.Input['ServiceCapacityProviderStrategyArgs']]] capacity_provider_strategies: Capacity provider strategies to use for the service. Can be one or more. Updating this argument requires `force_new_deployment = true`. See below. Conflicts with `launch_type`.
@@ -634,6 +635,7 @@ class _ServiceState:
                  wait_for_steady_state: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering Service resources.
+
         :param pulumi.Input['ServiceAlarmsArgs'] alarms: Information about the CloudWatch alarms. See below.
         :param pulumi.Input[_builtins.str] arn: ARN that identifies the service.
         :param pulumi.Input[_builtins.str] availability_zone_rebalancing: ECS automatically redistributes tasks within a service across Availability Zones (AZs) to mitigate the risk of impaired application availability due to underlying infrastructure failures and task lifecycle activities. The valid values are `ENABLED` and `DISABLED`. When creating a new service, if no value is specified, it defaults to `ENABLED` if the service is compatible with AvailabilityZoneRebalancing. When updating an existing service, if no value is specified it defaults to the existing service's AvailabilityZoneRebalancing value. If the service never had an AvailabilityZoneRebalancing value set, Amazon ECS treats this as `DISABLED`.
@@ -1398,13 +1400,65 @@ class Service(pulumi.CustomResource):
             })
         ```
 
+        ### Service Connect with Access Logs
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example_log_group = aws.cloudwatch.LogGroup("example", name="/ecs/example/service-connect")
+        current = aws.get_region()
+        example = aws.ecs.Service("example",
+            name="example",
+            cluster=example_aws_ecs_cluster["id"],
+            task_definition=example_aws_ecs_task_definition["arn"],
+            desired_count=1,
+            service_connect_configuration={
+                "enabled": True,
+                "namespace": example_aws_service_discovery_http_namespace["arn"],
+                "log_configuration": {
+                    "log_driver": "awslogs",
+                    "options": {
+                        "awslogs-group": example_log_group.name,
+                        "awslogs-region": current.name,
+                        "awslogs-stream-prefix": "service-connect",
+                    },
+                },
+                "access_log_configuration": {
+                    "format": "TEXT",
+                    "include_query_parameters": "ENABLED",
+                },
+                "services": [{
+                    "port_name": "http",
+                    "discovery_name": "example",
+                    "client_alias": {
+                        "dnsName": "example",
+                        "port": 8080,
+                    },
+                }],
+            })
+        ```
+
         ## Import
+
+        ### Identity Schema
+
+        #### Required
+
+        * `cluster` (String) The name of the cluster.
+        * `name` (String) The name of the service.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+        * `region` (String) Region where this resource is managed.
 
         Using `pulumi import`, import ECS services using the `name` together with ecs cluster `name`. For example:
 
         ```sh
         $ pulumi import aws:ecs/service:Service imported cluster-name/service-name
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -1611,13 +1665,65 @@ class Service(pulumi.CustomResource):
             })
         ```
 
+        ### Service Connect with Access Logs
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        example_log_group = aws.cloudwatch.LogGroup("example", name="/ecs/example/service-connect")
+        current = aws.get_region()
+        example = aws.ecs.Service("example",
+            name="example",
+            cluster=example_aws_ecs_cluster["id"],
+            task_definition=example_aws_ecs_task_definition["arn"],
+            desired_count=1,
+            service_connect_configuration={
+                "enabled": True,
+                "namespace": example_aws_service_discovery_http_namespace["arn"],
+                "log_configuration": {
+                    "log_driver": "awslogs",
+                    "options": {
+                        "awslogs-group": example_log_group.name,
+                        "awslogs-region": current.name,
+                        "awslogs-stream-prefix": "service-connect",
+                    },
+                },
+                "access_log_configuration": {
+                    "format": "TEXT",
+                    "include_query_parameters": "ENABLED",
+                },
+                "services": [{
+                    "port_name": "http",
+                    "discovery_name": "example",
+                    "client_alias": {
+                        "dnsName": "example",
+                        "port": 8080,
+                    },
+                }],
+            })
+        ```
+
         ## Import
+
+        ### Identity Schema
+
+        #### Required
+
+        * `cluster` (String) The name of the cluster.
+        * `name` (String) The name of the service.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+        * `region` (String) Region where this resource is managed.
 
         Using `pulumi import`, import ECS services using the `name` together with ecs cluster `name`. For example:
 
         ```sh
         $ pulumi import aws:ecs/service:Service imported cluster-name/service-name
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ServiceArgs args: The arguments to use to populate this resource's properties.

@@ -299,67 +299,35 @@ class TermbaseManager:
             return True
     
     def activate_termbase(self, termbase_id: int, project_id: int) -> bool:
-        """Activate termbase for project and assign ranking"""
+        """Activate termbase for project (as background glossary by default)"""
         try:
             cursor = self.db_manager.cursor
-            
+
             self.log(f"🔵 ACTIVATE: termbase_id={termbase_id}, project_id={project_id}")
-            
+
             # Check if activation record already exists
             cursor.execute("""
-                SELECT activated_date FROM termbase_activation 
+                SELECT activated_date FROM termbase_activation
                 WHERE termbase_id = ? AND project_id = ?
             """, (termbase_id, project_id))
             existing = cursor.fetchone()
-            
+
             if existing:
-                # Preserve original activated_date when re-activating
-                # Check if priority is NULL and set default if needed
+                # Re-activate existing record, preserve priority (project glossary flag)
                 cursor.execute("""
-                    SELECT priority FROM termbase_activation 
+                    UPDATE termbase_activation
+                    SET is_active = 1
                     WHERE termbase_id = ? AND project_id = ?
                 """, (termbase_id, project_id))
-                existing_priority = cursor.fetchone()[0]
-                
-                if existing_priority is None:
-                    # Priority is NULL - assign default priority
-                    cursor.execute("""
-                        SELECT COALESCE(MAX(priority), 0) FROM termbase_activation 
-                        WHERE project_id = ? AND is_active = 1
-                    """, (project_id,))
-                    max_priority = cursor.fetchone()[0]
-                    default_priority = max_priority + 1
-                    
-                    cursor.execute("""
-                        UPDATE termbase_activation 
-                        SET is_active = 1, priority = ?
-                        WHERE termbase_id = ? AND project_id = ?
-                    """, (default_priority, termbase_id, project_id))
-                    self.log(f"  ✓ Updated activation record (preserved timestamp, set priority #{default_priority})")
-                else:
-                    # Priority already exists - just update is_active
-                    cursor.execute("""
-                        UPDATE termbase_activation 
-                        SET is_active = 1
-                        WHERE termbase_id = ? AND project_id = ?
-                    """, (termbase_id, project_id))
-                    self.log(f"  ✓ Updated activation record (preserved timestamp and priority #{existing_priority})")
+                self.log(f"  ✓ Re-activated termbase (preserved timestamp)")
             else:
-                # Create new activation record with default priority
-                # Default priority: Find highest existing priority and add 1
-                cursor.execute("""
-                    SELECT COALESCE(MAX(priority), 0) FROM termbase_activation 
-                    WHERE project_id = ? AND is_active = 1
-                """, (project_id,))
-                max_priority = cursor.fetchone()[0]
-                default_priority = max_priority + 1
-                
+                # New activation — background glossary by default (priority=NULL)
                 cursor.execute("""
                     INSERT INTO termbase_activation (termbase_id, project_id, is_active, priority)
-                    VALUES (?, ?, 1, ?)
-                """, (termbase_id, project_id, default_priority))
-                self.log(f"  ✓ Created new activation record with default priority #{default_priority}")
-            
+                    VALUES (?, ?, 1, NULL)
+                """, (termbase_id, project_id))
+                self.log(f"  ✓ Created new activation record (background glossary)")
+
             self.db_manager.connection.commit()
             self.log(f"✓ Activated termbase {termbase_id} for project {project_id}")
             return True
@@ -468,7 +436,7 @@ class TermbaseManager:
                 LEFT JOIN termbase_activation ta ON t.id = ta.termbase_id AND ta.project_id = ?
                 WHERE t.ai_inject = 1
                 AND (ta.is_active = 1 OR (t.is_global = 1 AND ta.is_active IS NULL))
-                ORDER BY ta.priority ASC, t.name ASC
+                ORDER BY CASE WHEN ta.priority = 1 THEN 0 ELSE 1 END ASC, t.name ASC
             """, (proj_id,))
 
             termbases = []
@@ -505,10 +473,10 @@ class TermbaseManager:
 
             for tb in ai_termbases:
                 cursor.execute("""
-                    SELECT source_term, target_term, forbidden, priority
+                    SELECT source_term, target_term, forbidden
                     FROM termbase_terms
                     WHERE termbase_id = ?
-                    ORDER BY priority ASC, source_term ASC
+                    ORDER BY source_term ASC
                 """, (tb['id'],))
 
                 for row in cursor.fetchall():
@@ -516,7 +484,6 @@ class TermbaseManager:
                         'source_term': row[0],
                         'target_term': row[1],
                         'forbidden': bool(row[2]) if row[2] else False,
-                        'priority': row[3] or 99,
                         'termbase_name': tb['name']
                     })
 
@@ -526,35 +493,46 @@ class TermbaseManager:
             self.log(f"✗ Error getting AI inject terms: {e}")
             return []
 
-    def set_termbase_priority(self, termbase_id: int, project_id: int, priority: int) -> bool:
+    def set_termbase_priority(self, termbase_id: int, project_id: int, priority) -> bool:
         """
-        Set manual priority for a termbase in a specific project.
-        Multiple termbases can have the same priority.
-        
+        Set a termbase as Project glossary (priority=1) or Background (priority=None).
+        Only one termbase can be the Project glossary per project (exclusive).
+
         Args:
             termbase_id: Termbase ID
             project_id: Project ID
-            priority: Priority level (1=highest, 2=second, etc.)
-        
+            priority: 1 to set as Project glossary, None/0/other to set as Background
+
         Returns:
             True if successful
         """
         try:
             cursor = self.db_manager.cursor
-            
-            # Update priority in termbase_activation table
+            is_project = (priority == 1)
+
+            if is_project:
+                # Exclusive: clear project glossary flag from all other termbases in this project
+                cursor.execute("""
+                    UPDATE termbase_activation
+                    SET priority = NULL
+                    WHERE project_id = ? AND priority = 1
+                """, (project_id,))
+
+            # Set the requested termbase
+            new_priority = 1 if is_project else None
             cursor.execute("""
-                UPDATE termbase_activation 
+                UPDATE termbase_activation
                 SET priority = ?
                 WHERE termbase_id = ? AND project_id = ?
-            """, (priority, termbase_id, project_id))
-            
+            """, (new_priority, termbase_id, project_id))
+
             if cursor.rowcount == 0:
                 self.log(f"⚠️ No activation record found for termbase {termbase_id}, project {project_id}")
                 return False
-            
+
             self.db_manager.connection.commit()
-            self.log(f"✓ Set termbase {termbase_id} priority to #{priority} for project {project_id}")
+            label = "Project glossary" if is_project else "Background"
+            self.log(f"✓ Set termbase {termbase_id} as {label} for project {project_id}")
             return True
         except Exception as e:
             self.log(f"✗ Error setting termbase priority: {e}")
@@ -733,18 +711,18 @@ class TermbaseManager:
     # ========================================================================
     
     def add_term(self, termbase_id: int, source_term: str, target_term: str,
-                 priority: int = 99, domain: str = "", notes: str = "",
+                 domain: str = "", notes: str = "",
                  project: str = "", client: str = "",
                  forbidden: bool = False, source_lang: Optional[str] = None,
-                 target_lang: Optional[str] = None, term_uuid: Optional[str] = None) -> Optional[int]:
+                 target_lang: Optional[str] = None, term_uuid: Optional[str] = None,
+                 **kwargs) -> Optional[int]:
         """
         Add a term to termbase
-        
+
         Args:
             termbase_id: Termbase ID
             source_term: Source language term
             target_term: Target language term
-            priority: Priority (1=highest, 99=default)
             domain: Domain/category
             notes: Optional notes/definition
             project: Optional project name
@@ -753,7 +731,7 @@ class TermbaseManager:
             source_lang: Source language code
             target_lang: Target language code
             term_uuid: Optional UUID for tracking term across imports/exports
-            
+
         Returns:
             Term ID or None if failed (returns None if duplicate found)
         """
@@ -779,11 +757,11 @@ class TermbaseManager:
                 term_uuid = str(uuid.uuid4())
             
             cursor.execute("""
-                INSERT INTO termbase_terms 
-                (termbase_id, source_term, target_term, priority, domain, notes,
+                INSERT INTO termbase_terms
+                (termbase_id, source_term, target_term, domain, notes,
                  project, client, forbidden, source_lang, target_lang, term_uuid)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (termbase_id, source_term, target_term, priority, domain, notes,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (termbase_id, source_term, target_term, domain, notes,
                   project, client, forbidden, source_lang, target_lang, term_uuid))
             
             self.db_manager.connection.commit()
@@ -800,26 +778,25 @@ class TermbaseManager:
             cursor = self.db_manager.cursor
             
             cursor.execute("""
-                SELECT id, source_term, target_term, priority, domain, notes,
+                SELECT id, source_term, target_term, domain, notes,
                        project, client, forbidden, term_uuid
                 FROM termbase_terms
                 WHERE termbase_id = ?
-                ORDER BY priority ASC, source_term ASC
+                ORDER BY source_term ASC
             """, (termbase_id,))
-            
+
             terms = []
             for row in cursor.fetchall():
                 terms.append({
                     'id': row[0],
                     'source_term': row[1],
                     'target_term': row[2],
-                    'priority': row[3],
-                    'domain': row[4],
-                    'notes': row[5],
-                    'project': row[6],
-                    'client': row[7],
-                    'forbidden': row[8],
-                    'term_uuid': row[9]
+                    'domain': row[3],
+                    'notes': row[4],
+                    'project': row[5],
+                    'client': row[6],
+                    'forbidden': row[7],
+                    'term_uuid': row[8]
                 })
             
             return terms
@@ -828,10 +805,10 @@ class TermbaseManager:
             return []
     
     def update_term(self, term_id: int, source_term: Optional[str] = None,
-                   target_term: Optional[str] = None, priority: Optional[int] = None,
+                   target_term: Optional[str] = None,
                    domain: Optional[str] = None, notes: Optional[str] = None,
                    project: Optional[str] = None, client: Optional[str] = None,
-                   forbidden: Optional[bool] = None) -> bool:
+                   forbidden: Optional[bool] = None, **kwargs) -> bool:
         """Update a term"""
         try:
             cursor = self.db_manager.cursor
@@ -844,9 +821,6 @@ class TermbaseManager:
             if target_term is not None:
                 updates.append("target_term = ?")
                 params.append(target_term)
-            if priority is not None:
-                updates.append("priority = ?")
-                params.append(priority)
             if domain is not None:
                 updates.append("domain = ?")
                 params.append(domain)
@@ -951,29 +925,28 @@ class TermbaseManager:
             # Get full details for matching terms
             placeholders = ','.join('?' * len(matching_term_ids))
             sql = f"""
-                SELECT id, source_term, target_term, priority, domain, definition, forbidden
+                SELECT id, source_term, target_term, domain, definition, forbidden
                 FROM termbase_terms
                 WHERE id IN ({placeholders})
-                ORDER BY priority ASC, source_term ASC
+                ORDER BY source_term ASC
             """
-            
+
             cursor.execute(sql, list(matching_term_ids))
-            
+
             results = []
             for row in cursor.fetchall():
                 term_id = row[0]
-                
+
                 # Add main term
                 results.append({
                     'id': term_id,
                     'source_term': row[1],
                     'target_term': row[2],
-                    'priority': row[3],
-                    'domain': row[4],
-                    'definition': row[5],
-                    'forbidden': row[6]
+                    'domain': row[3],
+                    'definition': row[4],
+                    'forbidden': row[5]
                 })
-                
+
                 # Add target synonyms as separate entries (memoQ style)
                 # Synonyms are ordered by display_order (position 0 = main/preferred)
                 target_synonyms = self.get_synonyms(term_id, language='target')
@@ -982,9 +955,8 @@ class TermbaseManager:
                         'id': term_id,  # Same term ID
                         'source_term': row[1],  # Same source
                         'target_term': syn['synonym_text'],  # Synonym as target
-                        'priority': row[3],
-                        'domain': row[4],
-                        'definition': row[5],
+                        'domain': row[3],
+                        'definition': row[4],
                         'forbidden': syn['forbidden']  # Use synonym's forbidden flag
                     })
             

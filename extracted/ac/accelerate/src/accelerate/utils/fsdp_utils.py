@@ -311,7 +311,13 @@ def load_fsdp_optimizer(fsdp_plugin, accelerator, optimizer, model, input_dir, o
                 else input_dir
             )
             logger.info(f"Loading Optimizer from {ckpt_dir}")
-            optim_state = {"optimizer": optimizer.state_dict()}
+            if fsdp_plugin.fsdp_version == 2:
+                from torch.distributed.checkpoint.state_dict import get_optimizer_state_dict
+
+                optim_state = get_optimizer_state_dict(model, optimizer, options=sd_options)
+            else:
+                optim_state = FSDP.optim_state_dict(model, optimizer)
+            optim_state = {"optimizer": optim_state}
             dist_cp.load(
                 optim_state,
                 checkpoint_id=ckpt_dir,
@@ -458,7 +464,7 @@ def ensure_weights_retied(param_init_fn, model: torch.nn.Module, device: torch.d
     return param_init_fn_tied_param
 
 
-def fsdp2_load_full_state_dict(accelerator, model: torch.nn.Module, full_sd: dict):
+def fsdp2_load_full_state_dict(accelerator, model: torch.nn.Module, full_sd: dict, cpu_offload: bool = False):
     """
     Loads the full state dict (could be only on rank 0) into the sharded model. This is done by broadcasting the
     parameters from rank 0 to all other ranks. This function modifies the model in-place.
@@ -468,6 +474,8 @@ def fsdp2_load_full_state_dict(accelerator, model: torch.nn.Module, full_sd: dic
         model (`torch.nn.Module`):
             The model to load the state dict into, expected to be on meta device or a VRAM spike can occur
         full_sd (`dict`): The full state dict to load, can only be on rank 0
+        cpu_offload (`bool`, defaults to `False`):
+            If True, move sharded parameters to CPU after distribution. Required when FSDP CPU offloading is enabled.
     """
     import torch.distributed as dist
     from torch.distributed.tensor import DTensor, distribute_tensor
@@ -519,6 +527,9 @@ def fsdp2_load_full_state_dict(accelerator, model: torch.nn.Module, full_sd: dic
                 full_param,
             )
             sharded_tensor = _cast_and_contiguous(sharded_tensor, to_contiguous, casting_dtype)
+            # When CPU offloading is enabled, FSDP2's lazy_init expects parameters on CPU
+            if cpu_offload:
+                sharded_tensor = sharded_tensor.to("cpu")
             sharded_sd[param_name] = sharded_tensor
     # We need this else to have a matching `broadcast` for all of the ranks, else we deadlock
     else:
@@ -533,6 +544,9 @@ def fsdp2_load_full_state_dict(accelerator, model: torch.nn.Module, full_sd: dic
                 full_tensor,
             )
             sharded_tensor = _cast_and_contiguous(sharded_tensor, to_contiguous, casting_dtype)
+            # When CPU offloading is enabled, FSDP2's lazy_init expects parameters on CPU
+            if cpu_offload:
+                sharded_tensor = sharded_tensor.to("cpu")
             sharded_sd[param_name] = sharded_tensor
 
     # we set `assign=True` because our params are on meta device
@@ -632,11 +646,16 @@ def fsdp2_prepare_model(accelerator, model: torch.nn.Module) -> torch.nn.Module:
     fsdp2_kwargs = {
         "reshard_after_forward": fsdp2_plugin.reshard_after_forward,
         "offload_policy": fsdp2_plugin.cpu_offload,
-        # `fully_shard` doesn't accept `None` in case of `MixedPrecisionPolicy`
+        # `fully_shard` does not accept `None` in case of `MixedPrecisionPolicy`
         "mp_policy": fsdp2_plugin.mixed_precision_policy or MixedPrecisionPolicy(),
         "mesh": mesh[tuple(accelerator.parallelism_config.fsdp_dim_names)] if mesh is not None else None,
-        "ignored_params": get_parameters_from_modules(fsdp2_plugin.ignored_modules, model, accelerator.device),
     }
+
+    # `ignored_params` is only supported in torch >= 2.7.0
+    if is_torch_version(">=", "2.7.0") and fsdp2_plugin.ignored_modules is not None:
+        fsdp2_kwargs["ignored_params"] = get_parameters_from_modules(
+            fsdp2_plugin.ignored_modules, model, accelerator.device
+        )
 
     model_has_params4bit = False
     for name, param in model.named_parameters():
@@ -680,7 +699,12 @@ def fsdp2_prepare_model(accelerator, model: torch.nn.Module) -> torch.nn.Module:
     if fsdp2_plugin.cpu_ram_efficient_loading:
         # If `cpu_ram_efficient_loading` is enabled, only rank 0 loads the weights
         # Other ranks have an empty model on `meta` device, so we need to distribute the weights properly
-        fsdp2_load_full_state_dict(accelerator, model, original_sd)
+        # When CPU offloading is enabled, parameters need to stay on CPU after distribution
+        from torch.distributed.fsdp import CPUOffloadPolicy
+
+        fsdp2_load_full_state_dict(
+            accelerator, model, original_sd, cpu_offload=isinstance(fsdp2_plugin.cpu_offload, CPUOffloadPolicy)
+        )
 
     if fsdp2_plugin.cpu_ram_efficient_loading and not model_has_params4bit:
         # We re-register the buffers, as they may not be in the state_dict
@@ -707,13 +731,17 @@ def fsdp2_prepare_model(accelerator, model: torch.nn.Module) -> torch.nn.Module:
     # Set it to None if it doesn't exist and do the upcast always
     model_dtype = getattr(model, "dtype", None)
     if accelerator.mixed_precision != "no" and (model_dtype is None or model_dtype != torch.float32):
-        # We upcast the model according to `deepspeed`'s implementation
+        # We upcast the trainable parameters according to `deepspeed`'s implementation
         # More info about this can be found in `accelerator.py:prepare_model`s FSDP1 section
-        model = model.to(torch.float32)
-        if accelerator.is_main_process:
-            # TODO(siro1): Add a warning for each parameter that was upcasted
+        upcasted_params = []
+        for name, param in model.named_parameters():
+            if param.requires_grad and param.dtype != torch.float32:
+                upcasted_params.append(name)
+                param = param.to(torch.float32)
+        if accelerator.is_main_process and upcasted_params:
             warnings.warn(
-                "FSDP upcast of low precision parameters to fp32 (since mixed_precision != 'no') may affect the precision of model checkpoints."
+                "FSDP upcast of low precision parameters to fp32 (since mixed_precision != 'no') may affect the precision of model checkpoints. "
+                f"This effects {len(upcasted_params)} parameters: {upcasted_params}..."
             )
     return model
 

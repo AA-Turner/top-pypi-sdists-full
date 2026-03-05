@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import functools
 import os
 import pathlib
 import typing
 from typing import Any, AnyStr, Iterator, Optional, Type, TypeVar
 
+from etils import epy
 from etils.epath import register
 from etils.epath import stat_utils
 from etils.epath.typing import PathLike  # pylint: disable=g-importing-member
@@ -100,6 +102,23 @@ class Path(pathlib.PurePosixPath):
     raise NotImplementedError
 
   @abstractmethod
+  def listdir(self: _T) -> list[_T]:
+    """Lists files/folders in a directory.
+
+    Colab usage only!
+
+    This is not in the official `pathlib.Path` API, but on Colab,
+    using `list(path.iterdir())` is such a common pattern that it's convenient
+    to have it.
+    """
+    if not epy.is_notebook():
+      raise NotImplementedError(
+          '`listdir()` should only be used in notebooks. For production code,'
+          ' uses the standard `iterdir()` method.'
+      )
+    return list(self.iterdir())
+
+  @abstractmethod
   def glob(self: _T, pattern: str) -> Iterator[_T]:
     """Yields all matching files (of any kind)."""
     # Might be able to implement using `iterdir` (recursivelly for `rglob`).
@@ -123,6 +142,10 @@ class Path(pathlib.PurePosixPath):
     if '~' not in self.parts:  # pytype: disable=attribute-error
       return self
     raise NotImplementedError
+
+  def absolute(self: _T) -> _T:
+    """Returns the absolute path."""
+    return self.resolve()
 
   @abstractmethod
   def resolve(self: _T, strict: bool = False) -> _T:

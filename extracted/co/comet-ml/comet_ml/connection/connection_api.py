@@ -4394,6 +4394,30 @@ class RestApiClient(BaseApiClient):
 
         return self.backend_version
 
+    def get_views(self, project_id, experiment_key=None):
+        """
+        Return all views for a project, optionally filtered by experiment key.
+        """
+        payload = {"projectId": project_id}
+        if experiment_key is not None:
+            payload["experimentKey"] = experiment_key
+        results = self.get_from_endpoint("views/get-all", payload)
+        if results and "views" in results:
+            return results["views"]
+        return []
+
+    def upsert_view(self, project_id, view):
+        """
+        Create or update a view.
+
+        Args:
+            project_id: The project ID.
+            view: A View dataclass instance.
+        """
+        payload = view.to_upsert_payload(project_id)
+        response = self.post_from_endpoint("write/views/upsert", payload)
+        return response.json()
+
     # General methods:
 
     def close(self) -> None:

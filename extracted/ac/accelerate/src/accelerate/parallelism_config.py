@@ -215,6 +215,11 @@ class ParallelismConfig:
         Args:
             device_type (`str`): The type of device for which to build the mesh, e
         """
+        # Skip mesh creation for DeepSpeed SP - DeepSpeed handles its own SP groups
+        # Only skip when SP is actually enabled (sp_size > 1), otherwise user might still want TP/CP/FSDP
+        if self.sp_backend == "deepspeed" and self.sp_size > 1:
+            return None
+
         if is_torch_version(">=", "2.2.0"):
             from torch.distributed.device_mesh import init_device_mesh
         else:
@@ -320,6 +325,14 @@ class ParallelismConfig:
         if self.sp_backend not in valid_sp_backends:
             raise ValueError(f"sp_backend must be one of {valid_sp_backends}, but got {self.sp_backend}")
 
+        # CP and SP are mutually exclusive
+        if self.cp_size > 1 and self.sp_size > 1:
+            raise ValueError(
+                "Context Parallelism (CP) and Sequence Parallelism (SP) are mutually exclusive. "
+                f"Got cp_size={self.cp_size} and sp_size={self.sp_size}. "
+                "Please set either cp_size=1 or sp_size=1."
+            )
+
         if (self.tp_size > 1 or self.cp_size > 1) and self.dp_replicate_size > 1 and self.dp_shard_size == 1:
             raise ValueError(
                 "Tensor/Context parallelism (tp/cp_size > 1) cannot be used with pure data parallelism (dp_replicate_size > 1 and dp_shard_size == 1). "
@@ -349,7 +362,14 @@ class ParallelismConfig:
         if self.total_size == 1:
             self._set_size("dp_replicate", accelerator.num_processes)
 
-        if self.total_size != accelerator.num_processes:
+        # For DeepSpeed SP, DeepSpeed handles global process groups internally.
+        # Skip the total_size == num_processes validation since:
+        # 1. DeepSpeed manages SP groups globally via initialize_sequence_parallel()
+        # 2. num_processes is per-node in multi-node, but total_size is local parallelism config
+        # 3. The actual global parallelism (SP × DP) is handled by DeepSpeed's process groups
+        if self.sp_backend == "deepspeed" and self.sp_size > 1:
+            pass
+        elif self.total_size != accelerator.num_processes:
             raise ValueError(
                 f"ParallelismConfig total_size ({self.total_size}) does not match "
                 f"num_processes ({accelerator.num_processes}). Please adjust dp_replicate_size/ "

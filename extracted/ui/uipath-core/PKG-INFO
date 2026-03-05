@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: uipath-core
-Version: 0.5.4
+Version: 0.5.6
 Summary: UiPath Core abstractions
 Project-URL: Homepage, https://uipath.com
-Project-URL: Repository, https://github.com/UiPath/uipath-core-python
+Project-URL: Repository, https://github.com/UiPath/uipath-python
 Project-URL: Documentation, https://uipath.github.io/uipath-python/
 Maintainer-email: Marius Cosareanu <marius.cosareanu@uipath.com>, Cristian Pufu <cristian.pufu@uipath.com>
-License-File: LICENSE
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

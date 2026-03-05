@@ -8,19 +8,25 @@ pub(super) struct ContentBuilder {
     pub(super) boundaries: Vec<crate::types::PageBoundary>,
     pub(super) page_contents: Vec<crate::types::PageContent>,
     pub(super) config: Option<crate::core::config::PageConfig>,
+    pub(super) plain: bool,
 }
 
 impl ContentBuilder {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(plain: bool) -> Self {
         Self {
             content: String::with_capacity(8192),
             boundaries: Vec::new(),
             page_contents: Vec::new(),
             config: None,
+            plain,
         }
     }
 
-    pub(super) fn with_page_config(capacity: usize, config: Option<crate::core::config::PageConfig>) -> Self {
+    pub(super) fn with_page_config(
+        capacity: usize,
+        config: Option<crate::core::config::PageConfig>,
+        plain: bool,
+    ) -> Self {
         Self {
             content: String::with_capacity(capacity),
             boundaries: if config.is_some() {
@@ -34,6 +40,7 @@ impl ContentBuilder {
                 Vec::with_capacity(0)
             },
             config,
+            plain,
         }
     }
 
@@ -87,7 +94,9 @@ impl ContentBuilder {
 
     pub(super) fn add_title(&mut self, title: &str) {
         if !title.trim().is_empty() {
-            self.content.push_str("# ");
+            if !self.plain {
+                self.content.push_str("# ");
+            }
             self.content.push_str(title.trim());
             self.content.push('\n');
         }
@@ -103,62 +112,76 @@ impl ContentBuilder {
             return;
         }
 
-        // Calculate column widths
-        let mut col_widths = vec![3usize; num_cols];
-        for row in rows {
-            for (i, cell) in row.iter().enumerate() {
-                col_widths[i] = col_widths[i].max(cell.len());
-            }
-        }
-
         self.content.push('\n');
 
-        // Render rows as markdown pipe table
-        for (row_idx, row) in rows.iter().enumerate() {
-            self.content.push('|');
-            for (i, cell) in row.iter().enumerate() {
-                let width = col_widths.get(i).copied().unwrap_or(3);
-                self.content.push_str(&format!(" {:width$} |", cell, width = width));
+        if self.plain {
+            // Plain text: tab-separated cells
+            let owned: Vec<Vec<String>> = rows.to_vec();
+            self.content.push_str(&crate::extraction::cells_to_text(&owned));
+        } else {
+            // Calculate column widths
+            let mut col_widths = vec![3usize; num_cols];
+            for row in rows {
+                for (i, cell) in row.iter().enumerate() {
+                    col_widths[i] = col_widths[i].max(cell.len());
+                }
             }
-            // Pad missing columns
-            for i in row.len()..num_cols {
-                let width = col_widths.get(i).copied().unwrap_or(3);
-                self.content.push_str(&format!(" {:width$} |", "", width = width));
-            }
-            self.content.push('\n');
 
-            // Insert separator after header row (first row)
-            if row_idx == 0 {
+            // Render rows as markdown pipe table
+            for (row_idx, row) in rows.iter().enumerate() {
                 self.content.push('|');
-                for i in 0..num_cols {
+                for (i, cell) in row.iter().enumerate() {
                     let width = col_widths.get(i).copied().unwrap_or(3);
-                    self.content.push_str(&format!(" {} |", "-".repeat(width)));
+                    self.content.push_str(&format!(" {:width$} |", cell, width = width));
+                }
+                // Pad missing columns
+                for i in row.len()..num_cols {
+                    let width = col_widths.get(i).copied().unwrap_or(3);
+                    self.content.push_str(&format!(" {:width$} |", "", width = width));
                 }
                 self.content.push('\n');
+
+                // Insert separator after header row (first row)
+                if row_idx == 0 {
+                    self.content.push('|');
+                    for i in 0..num_cols {
+                        let width = col_widths.get(i).copied().unwrap_or(3);
+                        self.content.push_str(&format!(" {} |", "-".repeat(width)));
+                    }
+                    self.content.push('\n');
+                }
             }
         }
     }
 
     pub(super) fn add_list_item(&mut self, level: u32, is_ordered: bool, text: &str) {
-        let indent_count = level.saturating_sub(1) as usize;
-        for _ in 0..indent_count {
-            self.content.push_str("  ");
-        }
+        if !self.plain {
+            let indent_count = level.saturating_sub(1) as usize;
+            for _ in 0..indent_count {
+                self.content.push_str("  ");
+            }
 
-        let marker = if is_ordered { "1." } else { "-" };
-        self.content.push_str(marker);
-        self.content.push(' ');
+            let marker = if is_ordered { "1." } else { "-" };
+            self.content.push_str(marker);
+            self.content.push(' ');
+        }
         self.content.push_str(text.trim());
         self.content.push('\n');
     }
 
     pub(super) fn add_image(&mut self, _image_id: &str, _slide_number: u32) {
-        self.content.push_str("![image]()\n");
+        if !self.plain {
+            self.content.push_str("![image]()\n");
+        }
     }
 
     pub(super) fn add_notes(&mut self, notes: &str) {
         if !notes.trim().is_empty() {
-            self.content.push_str("\n\n### Notes:\n");
+            if self.plain {
+                self.content.push_str("\n\nNotes:\n");
+            } else {
+                self.content.push_str("\n\n### Notes:\n");
+            }
             self.content.push_str(notes);
             self.content.push('\n');
         }

@@ -69,31 +69,19 @@ class SubAgent:
     def spawn(
         cls, task: str, model: Optional[str] = None, notify_telegram: bool = True, _depth: int = 0, label: str = ""
     ) -> str:
-        """Spawn via v2 SubAgentManagerV2 — unified task registry."""
-        try:
-            from salmalm.features.subagents import subagent_manager as sub_agent_manager
-            task_obj = sub_agent_manager.spawn(
-                description=task,
-                model=model,
-                label=label or task[:40],
-                parent_session="web",
-            )
-            log.info(f"[BOT] Sub-agent {task_obj.task_id} spawned: {task[:80]}")
-            return task_obj.task_id
-        except Exception as e:
-            log.error(f"[SubAgent] v2 spawn failed, falling back: {e}")
-        # ── legacy fallback ──
+        """Spawn a background sub-agent. Returns agent ID."""
         if _depth >= cls.MAX_DEPTH:
             from salmalm.core.exceptions import SessionError
+
             raise SessionError(f"Sub-agent nesting depth limit ({cls.MAX_DEPTH}) reached")
         running = sum(1 for a in cls._agents.values() if a["status"] == "running")
         if running >= cls.MAX_CONCURRENT:
             from salmalm.core.exceptions import SessionError
+
             raise SessionError(f"Max concurrent sub-agents ({cls.MAX_CONCURRENT}) reached")
         with cls._lock:
             cls._counter += 1
-            import uuid as _uuid
-            agent_id = f"sub-{_uuid.uuid4().hex[:8]}"
+            agent_id = f"sub-{cls._counter}"
 
         agent_info = {
             "id": agent_id,
@@ -118,19 +106,9 @@ class SubAgent:
             try:
                 session_id = f"subagent-{agent_id}"
                 session = _core().get_session(session_id)
-                # Clear stale session state to prevent lock conflict on restart
-                try:
-                    from salmalm.features.abort import abort_controller
-                    abort_controller.clear(session_id)
-                except Exception:
-                    pass
-                from salmalm.core.engine import process_message
+                from salmalm.core.engine_pipeline import process_message
 
-                _loop = asyncio.new_event_loop()
-                try:
-                    result = _loop.run_until_complete(process_message(session_id, task, model_override=model))
-                finally:
-                    _loop.close()
+                result = asyncio.run(process_message(session_id, task, model_override=model))
                 agent_info["result"] = result
                 agent_info["status"] = "completed"
                 now = datetime.now(KST)
@@ -381,13 +359,9 @@ class SubAgent:
         # Run in the agent's existing session
         session_id = f"subagent-{agent_id}"
         try:
-            from salmalm.core.engine import process_message
+            from salmalm.core.engine_pipeline import process_message
 
-            _loop = asyncio.new_event_loop()
-            try:
-                result = _loop.run_until_complete(process_message(session_id, message))
-            finally:
-                _loop.close()
+            result = asyncio.run(process_message(session_id, message))
             agent["result"] = result  # Update with latest result
             return f"🤖 [{agent_id}] responded:\n\n{result[:3000]}"
         except Exception as e:
@@ -429,13 +403,9 @@ class SubAgent:
                 return {"ok": True, "agent_id": aid, "status": "steered"}
 
             # Completed — re-run with steering message
-            from salmalm.core.engine import process_message
+            from salmalm.core.engine_pipeline import process_message
 
-            _loop = asyncio.new_event_loop()
-            try:
-                result = _loop.run_until_complete(process_message(session_id, message, model_override=agent.get("model")))
-            finally:
-                _loop.close()
+            result = asyncio.run(process_message(session_id, message, model_override=agent.get("model")))
             agent["result"] = result
             return {"ok": True, "agent_id": aid, "status": "steered", "result": result[:500]}
         except Exception as e:
@@ -460,13 +430,9 @@ class SubAgent:
                 return {"ok": True, "from": from_id, "to": tid, "status": "queued"}
 
             # If target is completed, re-process
-            from salmalm.core.engine import process_message
+            from salmalm.core.engine_pipeline import process_message
 
-            _loop = asyncio.new_event_loop()
-            try:
-                result = _loop.run_until_complete(process_message(session_id, message, model_override=target.get("model")))
-            finally:
-                _loop.close()
+            result = asyncio.run(process_message(session_id, message, model_override=target.get("model")))
             target["result"] = result
             return {"ok": True, "from": from_id, "to": tid, "status": "delivered", "result": result[:500]}
         except Exception as e:

@@ -42,6 +42,7 @@ from .utils import (
     is_bnb_available,
     is_mlu_available,
     is_musa_available,
+    is_neuron_available,
     is_npu_available,
     is_sdaa_available,
     is_xpu_available,
@@ -110,8 +111,9 @@ def init_on_device(device: torch.device, include_buffers: Optional[bool] = None)
     import torch.nn as nn
     from accelerate import init_on_device
 
+    # init model on specified device(e.g., "cuda", "xpu" and so on)
     with init_on_device(device=torch.device("cuda")):
-        tst = nn.Linear(100, 100)  # on `cuda` device
+        tst = nn.Linear(100, 100)  # on specified device
     ```
     """
     if include_buffers is None:
@@ -132,7 +134,11 @@ def init_on_device(device: torch.device, include_buffers: Optional[bool] = None)
             param_cls = type(module._parameters[name])
             kwargs = module._parameters[name].__dict__
             kwargs["requires_grad"] = param.requires_grad
+            # Pop non-constructor attributes before creating the parameter, then restore them after
+            _is_hf_initialized = kwargs.pop("_is_hf_initialized", None)
             module._parameters[name] = param_cls(module._parameters[name].to(device), **kwargs)
+            if _is_hf_initialized is not None:
+                module._parameters[name]._is_hf_initialized = _is_hf_initialized
 
     def register_empty_buffer(module, name, buffer, persistent=True):
         old_register_buffer(module, name, buffer, persistent=persistent)
@@ -231,7 +237,7 @@ def cpu_offload_with_hook(
             The model to offload.
         execution_device(`str`, `int` or `torch.device`, *optional*):
             The device on which the model should be executed. Will default to the MPS device if it's available, then
-            GPU 0 if there is a GPU, and finally to the CPU.
+            device 0 if there is an accelerator device, and finally to the CPU.
         prev_module_hook (`UserCpuOffloadHook`, *optional*):
             The hook sent back by this function for a previous model in the pipeline you are running. If passed, its
             offload method will be called just before the forward of the model to which this hook is attached.
@@ -239,9 +245,9 @@ def cpu_offload_with_hook(
     Example:
 
     ```py
-    model_1, hook_1 = cpu_offload_with_hook(model_1, cuda_device)
-    model_2, hook_2 = cpu_offload_with_hook(model_2, cuda_device, prev_module_hook=hook_1)
-    model_3, hook_3 = cpu_offload_with_hook(model_3, cuda_device, prev_module_hook=hook_2)
+    model_1, hook_1 = cpu_offload_with_hook(model_1, device)
+    model_2, hook_2 = cpu_offload_with_hook(model_2, device, prev_module_hook=hook_1)
+    model_3, hook_3 = cpu_offload_with_hook(model_3, device, prev_module_hook=hook_2)
 
     hid_1 = model_1(input)
     for i in range(50):
@@ -357,7 +363,7 @@ def dispatch_model(
     # We need to force hook for quantized model that can't be moved with to()
     if getattr(model, "quantization_method", "bitsandbytes") == "bitsandbytes":
         # since bnb 0.43.2, we can move 4-bit model
-        if getattr(model, "is_loaded_in_8bit", False) or (
+        if (getattr(model, "is_loaded_in_8bit", False) and not is_bnb_available(min_version="0.48.0")) or (
             getattr(model, "is_loaded_in_4bit", False) and not is_bnb_available(min_version="0.43.2")
         ):
             force_hooks = True
@@ -446,7 +452,7 @@ def dispatch_model(
         # Attaching the hook may break tied weights, so we retie them
         retie_parameters(model, tied_params)
 
-        # add warning to cuda and to method
+        # add warning on `to` method
         def add_warning(fn, model):
             @wraps(fn)
             def wrapper(*args, **kwargs):
@@ -476,6 +482,8 @@ def dispatch_model(
             model.musa = add_warning(model.musa, model)
         elif is_xpu_available():
             model.xpu = add_warning(model.xpu, model)
+        elif is_neuron_available():
+            model.neuron = add_warning(model.neuron, model)
         else:
             model.cuda = add_warning(model.cuda, model)
 
@@ -498,6 +506,8 @@ def dispatch_model(
             device = f"sdaa:{device}"
         elif is_musa_available() and isinstance(device, int):
             device = f"musa:{device}"
+        elif is_neuron_available() and isinstance(device, int):
+            device = f"neuron:{device}"
         if device != "disk":
             model.to(device)
         else:

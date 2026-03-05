@@ -51,7 +51,7 @@ impl JupyterExtractor {
     }
 
     /// Extract content from a Jupyter notebook.
-    fn extract_notebook(content: &[u8]) -> Result<NotebookContent> {
+    fn extract_notebook(content: &[u8], plain: bool) -> Result<NotebookContent> {
         let notebook: Value = serde_json::from_slice(content)
             .map_err(|e| crate::KreuzbergError::parsing(format!("Failed to parse JSON: {}", e)))?;
 
@@ -75,7 +75,14 @@ impl JupyterExtractor {
 
         if let Some(cells) = notebook.get("cells").and_then(|c| c.as_array()) {
             for (cell_idx, cell) in cells.iter().enumerate() {
-                Self::extract_cell(cell, cell_idx, &mut extracted_content, &mut metadata, &mut images)?;
+                Self::extract_cell(
+                    cell,
+                    cell_idx,
+                    &mut extracted_content,
+                    &mut metadata,
+                    &mut images,
+                    plain,
+                )?;
             }
         }
 
@@ -89,12 +96,13 @@ impl JupyterExtractor {
         content: &mut String,
         _metadata: &mut AHashMap<Cow<'static, str>, Value>,
         images: &mut Vec<ExtractedImage>,
+        plain: bool,
     ) -> Result<()> {
         let cell_type = cell.get("cell_type").and_then(|t| t.as_str()).unwrap_or("unknown");
 
         match cell_type {
             "markdown" => Self::extract_markdown_cell(cell, content)?,
-            "code" => Self::extract_code_cell(cell, cell_idx, content, images)?,
+            "code" => Self::extract_code_cell(cell, cell_idx, content, images, plain)?,
             "raw" => Self::extract_raw_cell(cell, content)?,
             _ => {}
         }
@@ -122,6 +130,7 @@ impl JupyterExtractor {
         cell_idx: usize,
         content: &mut String,
         images: &mut Vec<ExtractedImage>,
+        plain: bool,
     ) -> Result<()> {
         if let Some(source) = cell.get("source") {
             let cell_text = Self::extract_source(source);
@@ -133,7 +142,7 @@ impl JupyterExtractor {
 
         if let Some(outputs) = cell.get("outputs").and_then(|o| o.as_array()) {
             for output in outputs {
-                Self::extract_output(output, cell_idx, content, images)?;
+                Self::extract_output(output, cell_idx, content, images, plain)?;
             }
         }
 
@@ -166,13 +175,14 @@ impl JupyterExtractor {
         cell_idx: usize,
         content: &mut String,
         images: &mut Vec<ExtractedImage>,
+        plain: bool,
     ) -> Result<()> {
         let output_type = output.get("output_type").and_then(|t| t.as_str()).unwrap_or("unknown");
 
         match output_type {
             "stream" => Self::extract_stream_output(output, content)?,
             "execute_result" | "display_data" => {
-                Self::extract_data_output(output, cell_idx, content, images)?;
+                Self::extract_data_output(output, cell_idx, content, images, plain)?;
             }
             "error" => Self::extract_error_output(output, content)?,
             _ => {}
@@ -200,6 +210,7 @@ impl JupyterExtractor {
         cell_idx: usize,
         content: &mut String,
         images: &mut Vec<ExtractedImage>,
+        plain_mode: bool,
     ) -> Result<()> {
         if let Some(data) = output.get("data").and_then(|d| d.as_object()) {
             // Prefer text/plain first - it has the most readable tokens for quality scoring
@@ -214,8 +225,9 @@ impl JupyterExtractor {
             }
 
             // Also include markdown/HTML content — these often contain richer
-            // semantic information than text/plain (e.g. descriptive fallback text)
-            {
+            // semantic information than text/plain (e.g. descriptive fallback text).
+            // Skip these for plain text output mode.
+            if !plain_mode {
                 for mime_type in &["text/markdown", "text/html"] {
                     if let Some(mime_content) = data.get(*mime_type) {
                         let mime_text = Self::extract_source(mime_content);
@@ -355,7 +367,11 @@ impl DocumentExtractor for JupyterExtractor {
         mime_type: &str,
         config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
-        let (extracted_content, additional_metadata, extracted_images) = Self::extract_notebook(content)?;
+        let plain = matches!(
+            config.output_format,
+            crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
+        );
+        let (extracted_content, additional_metadata, extracted_images) = Self::extract_notebook(content, plain)?;
 
         let mut metadata_additional = AHashMap::new();
         for (key, value) in additional_metadata {

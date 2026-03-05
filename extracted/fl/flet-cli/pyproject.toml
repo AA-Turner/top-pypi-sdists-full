@@ -1,18 +1,19 @@
 [project]
 name = "flet-cli"
-version = "0.81.0"
+version = "0.82.0"
 description = "Flet CLI"
 authors = [{ name = "Appveyor Systems Inc.", email = "hello@flet.dev" }]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "flet",
+    "flet==0.82.0",
     "watchdog >=4.0.0",
     "packaging >=25.0",
     "qrcode >=7.4.2",
     "tomli >= 1.1.0 ; python_version < '3.11'",
-    "cookiecutter >=2.6.0"
+    "cookiecutter >=2.6.0",
+    "chardet <6"
 ]
 
 [project.urls]

@@ -1,7 +1,6 @@
 """Agent tools: sub_agent, skill_manage, plugin_manage, cron_manage, mcp_manage, node_manage."""
 
 import json
-import os
 from salmalm.security.crypto import log
 from salmalm.tools.tool_registry import register
 from salmalm.core import SubAgent, SkillLoader
@@ -9,54 +8,37 @@ from salmalm.core import SubAgent, SkillLoader
 
 @register("sub_agent")
 def _agent_spawn(args):
-    return (
-        f"🤖 Sub-agent spawned: [{SubAgent.spawn(args.get('task', ''), model=args.get('model'))}]\nTask: {args.get('task', '')[:100]}"
-        if args.get("task")
-        else "❌ Task is required — please provide a 'task' parameter describing what the sub-agent should do."
-    )
+    if not args.get("task"):
+        return "❌ Task is required"
+    try:
+        from salmalm.features.subagents import subagent_manager
+        task = subagent_manager.spawn(
+            description=args["task"],
+            model=args.get("model"),
+        )
+        return f"🤖 Sub-agent spawned: [{task.task_id}]\nTask: {args['task'][:100]}\nResults will be auto-reported when done."
+    except Exception as _e:
+        log.warning(f"[AGENT] subagent_manager.spawn failed, falling back: {_e}")
+        return f"🤖 Sub-agent spawned: [{SubAgent.spawn(args['task'], model=args.get('model'))}]\nTask: {args['task'][:100]}"
 
 
 def _agent_list(args):
-    lines = []
-    # v2 tasks
-    try:
-        from salmalm.features.subagents import subagent_manager
-        for task in subagent_manager._tasks.values():
-            icon = "🟢" if task.status == "running" else "✅" if task.status == "completed" else "❌"
-            lines.append(f"{icon} [{task.task_id}] {task.label or task.description[:40]} — {task.status} ({task.elapsed_s}s)")
-    except Exception:
-        pass
-    # legacy
     agents = SubAgent.list_agents()
-    for a in agents:
-        if a.get("id") not in {l.split("[")[1].split("]")[0] for l in lines if "[" in l}:
-            icon = "🟢" if a["status"] == "running" else "✅" if a["status"] == "completed" else "❌"
-            lines.append(f"{icon} [{a['id']}] {a['task']} — {a['status']}")
-    return "\n".join(lines) if lines else "📋 No sub-agents."
+    if not agents:
+        return "📋 No running sub-agents."
+    return "\n".join(
+        f"{'🟢' if a['status'] == 'running' else '✅' if a['status'] == 'completed' else '❌'} [{a['id']}] {a['task']} — {a['status']}"
+        for a in agents
+    )
 
 
 def _agent_result(args):
-    aid = args.get("agent_id", "").strip()
-    # Try v2 first
-    try:
-        from salmalm.features.subagents import subagent_manager
-        task = subagent_manager.get_task(aid)
-        if task:
-            label = task.label or task.description[:40]
-            if task.status == "running":
-                return f"⏳ [{task.task_id}] '{label}' still running ({task.elapsed_s}s, {task.turns_used} turns)"
-            if task.status == "completed":
-                return f"✅ [{task.task_id}] '{label}' ({task.elapsed_s}s, {task.turns_used} turns)\n\n{task.result}"
-            return f"❌ [{task.task_id}] '{label}' {task.status}: {task.error}"
-    except Exception:
-        pass
-    # Fallback: legacy SubAgent._agents
-    info = SubAgent.get_result(aid)
+    info = SubAgent.get_result(args.get("agent_id", ""))
     if "error" in info:
         return f"❌ {info['error']}"
     if info["status"] == "running":
-        return f"⏳ [{aid}] Still running.\nStarted: {info['started']}"
-    return f"{'✅' if info['status'] == 'completed' else '❌'} [{aid}] {info['status']}\nStarted: {info['started']}\nFinished: {info['completed']}\n\n{info.get('result', '')[:3000]}"
+        return f"⏳ [{args.get('agent_id', '')}] Still running.\nStarted: {info['started']}"
+    return f"{'✅' if info['status'] == 'completed' else '❌'} [{args.get('agent_id', '')}] {info['status']}\nStarted: {info['started']}\nFinished: {info['completed']}\n\n{info.get('result', '')[:3000]}"
 
 
 def _agent_send(args):
@@ -70,25 +52,11 @@ def _agent_stop(args):
 
 
 def _agent_log(args):
-    aid = args.get("agent_id", "").strip()
-    if not aid:
-        return "❌ agent_id is required"
-    # Try v2
-    try:
-        from salmalm.features.subagents import subagent_manager
-        task = subagent_manager.get_task(aid)
-        if task:
-            msgs = task.messages[-20:]
-            lines = [f"📜 Transcript [{task.task_id}] ({len(task.messages)} messages, showing last {len(msgs)})"]
-            for m in msgs:
-                role = m.get("role", "?")
-                icon = "👤" if role == "user" else "🤖" if role == "assistant" else "🔧"
-                content = str(m.get("content", ""))[:300]
-                lines.append(f"{icon} {role}: {content}")
-            return "\n".join(lines)
-    except Exception:
-        pass
-    return SubAgent.get_log(aid, limit=args.get("limit", 20))
+    return (
+        SubAgent.get_log(args.get("agent_id", ""), limit=args.get("limit", 20))
+        if args.get("agent_id")
+        else "❌ agent_id is required"
+    )
 
 
 def _agent_info(args):
@@ -191,16 +159,12 @@ def handle_plugin_manage(args: dict) -> str:
 def handle_cron_manage(args: dict) -> str:
     """Handle cron manage."""
     from salmalm.core import _llm_cron
-    from salmalm.core.core import get_current_user_id
 
     if not _llm_cron:
         return "❌ LLM cron manager not initialized"
-    current_user_id = get_current_user_id()
     action = args.get("action", "list")
     if action == "list":
         jobs = _llm_cron.list_jobs()
-        if current_user_id is not None:
-            jobs = [j for j in jobs if j.get("owner_user_id") == current_user_id]
         if not jobs:
             return "⏰ No scheduled jobs."
         lines = ["⏰ **Scheduled Jobs:**"]
@@ -217,22 +181,10 @@ def handle_cron_manage(args: dict) -> str:
         if not schedule:
             return "❌ schedule is required (kind: cron/every/at)"
         model = args.get("model")
-        timeout_seconds = int(args.get("timeout_seconds", 120) or 120)
-        job = _llm_cron.add_job(
-            name_,
-            schedule,
-            prompt,
-            model=model,
-            owner_user_id=current_user_id,
-            timeout_seconds=timeout_seconds,
-        )
+        job = _llm_cron.add_job(name_, schedule, prompt, model=model)
         return f"⏰ Job registered: [{job['id']}] {name_}"
     elif action == "remove":
         job_id = args.get("job_id", "")
-        if current_user_id is not None:
-            target = next((j for j in _llm_cron.jobs if j.get("id") == job_id), None)
-            if target and target.get("owner_user_id") != current_user_id:
-                return "❌ Permission denied for this job"
         if _llm_cron.remove_job(job_id):
             return f"⏰ Job removed: {job_id}"
         return f"❌ Job not found: {job_id}"
@@ -240,8 +192,6 @@ def handle_cron_manage(args: dict) -> str:
         job_id = args.get("job_id", "")
         for j in _llm_cron.jobs:
             if j["id"] == job_id:
-                if current_user_id is not None and j.get("owner_user_id") != current_user_id:
-                    return "❌ Permission denied for this job"
                 j["enabled"] = not j["enabled"]
                 _llm_cron.save_jobs()
                 return f"⏰ {j['name']}: {'enabled' if j['enabled'] else 'disabled'}"
@@ -252,7 +202,7 @@ def handle_cron_manage(args: dict) -> str:
 @register("mcp_manage")
 def handle_mcp_manage(args: dict) -> str:
     """Handle mcp manage."""
-    from salmalm.features.mcp import mcp_manager, is_safe_mcp_command
+    from salmalm.features.mcp import mcp_manager
 
     action = args.get("action", "list")
     if action == "list":
@@ -265,15 +215,10 @@ def handle_mcp_manage(args: dict) -> str:
             lines.append(f"  {status} {s['name']} — {s['tools']} tools ({' '.join(s['command'])})")
         return "\n".join(lines)
     elif action == "add":
-        if not os.environ.get("SALMALM_MCP_ADD_ENABLED"):
-            return "❌ MCP add is disabled. Set SALMALM_MCP_ADD_ENABLED to enable."
         sname = args.get("name", "")
         cmd_str = args.get("command", "")
         if not sname or not cmd_str:
             return "❌ name and command are required"
-        cmd_str = str(cmd_str).strip()
-        if not is_safe_mcp_command(cmd_str):
-            return "MCP server command not allowed. Must use npx, uvx, python, or node."
         cmd_list = cmd_str.split()
         env = args.get("env", {})
         ok = mcp_manager.add_server(sname, cmd_list, env=env)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qhchina
-Version: 0.1.38
+Version: 0.1.39
 Summary: A Python package for NLP tasks related to Chinese text.
 Author-email: Maciej Kurzynski <makurz@gmail.com>
 License: MIT

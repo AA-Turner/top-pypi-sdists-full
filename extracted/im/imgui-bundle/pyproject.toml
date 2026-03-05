@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.9.1", "nanobind>=2.4.0"]
+requires = ["scikit-build-core>=0.11.0", "nanobind>=2.4.0"]
 build-backend = "scikit_build_core.build"
 
 # To debug build backend, replace by:
@@ -10,7 +10,8 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "imgui-bundle"
-version = "1.92.5"  # Remember to mirror changes on line 2 of main CMakeLists! This mirrors IMGUI_VERSION_NUM in imgui.h
+version = "1.92.600"  # Based on ImGui 1.92.6 - Remember to mirror changes on line 3 of main CMakeLists! Version = ImGui patch × 100 + bundle release. (also remember to update ci_scripts/pyodide_local_build/test_browser/test_local_pyodide.html and test_cdn_pyodide_local_wheel.html with the new version.)
+
 description="Dear ImGui Bundle: From expressive code to powerful GUIs in no time. A fast, feature-rich, cross-platform toolkit for C++ and Python."
 readme = "bindings/imgui_bundle/Readme_pypi.md"
 authors = [ { name = "Pascal Thomet", email = "pthomet@gmail.com" } ]
@@ -65,7 +66,7 @@ full = [
     "PyGLM"
 ]
 # For development and testing
-test = ["pytest"]
+test = ["pytest", "pytest-asyncio"]
 
 
 
@@ -83,7 +84,37 @@ imgui_bundle_demo="imgui_bundle.demos_python.demo_imgui_bundle:main"
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
 wheel.packages = ["bindings/imgui_bundle"]
-sdist.exclude = ["bindings/imgui_bundle/doc", "devel_docs"]
+sdist.exclude = [
+    ".git",
+    ".github",
+    "external/*/.git",
+    "ci_scripts",
+    "docs",
+    "imgui_bundle_assets",  # only for C++ apps
+    # Build artifacts
+    "build*",
+    "external/*/build*",
+    "_skbuild",
+    "*.so",
+    "*.dylib",
+    "*.dll",
+    "*.pyd",
+    "*.egg-info",
+    "__pycache__",
+    # Virtual environments
+    "venv*",
+    ".venv*",
+    "v3*",
+    # Dependency managers & pip outputs
+    "vcpkg",
+    "dist",
+    "wheelhouse",
+]
+
+# Exclude demo directories to reduce wheel size (set IMGUI_BUNDLE_EXCLUDE_DEMOS=1 to activate)
+[[tool.scikit-build.overrides]]
+if.env.IMGUI_BUNDLE_EXCLUDE_DEMOS = true
+wheel.exclude = ["imgui_bundle/demos_cpp/**", "imgui_bundle/demos_python/**", "imgui_bundle/demos_assets/**"]
 
 cmake.version = ">=3.26.1"
 build.verbose = true
@@ -101,11 +132,12 @@ profile = "black"
 build-verbosity = 1
 
 # Target python versions:
-build = ["cp312-*", "cp313-*", "cp314-*"]
+build = ["cp311-*", "cp312-*", "cp313-*", "cp314-*"]
 
-# Tests
-test-requires = "pytest"
-test-command = "pytest {project}/tests"  # cibuildwheel doc says pytest {package}/tests !
+# Tests : we ignore the python GUI tests here, as they require a display
+# (note: those tests are run in the pip.yml GitHub actions workflows)
+test-requires = ["pytest", "pytest-asyncio"]
+test-command = "pytest {project}/tests --ignore={project}/tests/tests_python_gui"
 
 
 #------------------------------------
@@ -122,14 +154,10 @@ before-build = "uname -a"
 # test-skip = ["*-macosx_arm64 *-macosx_universal2:arm64"]
 test-skip = ["*"]
 # Environment variables
-# IMGUIBUNDLE_OPENCV_FETCH_SOURCE => Will fetch, build and install a very-minimalist OpenCV
 environment = { MACOSX_DEPLOYMENT_TARGET="14.0" }
 
-# Architectures
-# -------------
-# archs = ["universal2"] # building universal2 fails miserably at this time: see comment in external/immvision/find_opencv.cmake
-# So, we build separately for x86_64 and arm64
-archs = ["x86_64", "arm64"]
+# Apple Silicon only — Intel Macs discontinued in 2020, GitHub dropping Intel runners in 2027.
+archs = ["arm64"]
 
 #------------------------------------
 # linux wheels options
@@ -138,9 +166,9 @@ archs = ["x86_64", "arm64"]
 skip = ["*i686"]
 test-skip = ["*-musllinux_*"] #  issue with OpenGL on musllinux
 # Environment variables
-# IMGUIBUNDLE_OPENCV_FETCH_SOURCE => Will fetch, build and install a very-minimalist OpenCV
-# environment = { IMGUIBUNDLE_OPENCV_FETCH_SOURCE="ON" }
 environment-pass = ["IMMVISION_OPENCV_GIT_REPO"]  # pass alternative git repo to docker build containers
+# Pre-built OpenCV: built once in before-all, reused by all Python versions
+environment = { CMAKE_PREFIX_PATH="/opt/opencv_minimalist", OpenCV_STATIC="ON" }
 
 
 # Install glfw dev packages on manylinux:
@@ -162,17 +190,44 @@ environment-pass = ["IMMVISION_OPENCV_GIT_REPO"]  # pass alternative git repo to
 # sudo apt-get install -y xorg-dev libgl1-mesa-dev libglfw3-dev libglew-dev xvfb
 
 # sudo apt-get install -y libgl1-mesa-dev
-before-all = "yum install -y libXcursor-devel libXi-devel libXinerama-devel libXrandr-devel mesa-libGL-devel"
+before-all = "yum install -y libXcursor-devel libXi-devel libXinerama-devel libXrandr-devel mesa-libGL-devel && bash {project}/external/immvision/immvision/cmake/build_opencv.sh /opt/opencv_minimalist"
 [[tool.cibuildwheel.overrides]]
 select = "*-musllinux*"
-before-all = "apk add xorg-server-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev mesa-dev mesa-gl"
+before-all = "apk add xorg-server-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev mesa-dev mesa-gl cmake curl bash && bash {project}/external/immvision/immvision/cmake/build_opencv.sh /opt/opencv_minimalist"
 
 #------------------------------------
 # windows wheels options
 #------------------------------------
 [tool.cibuildwheel.windows]
 skip = ["*win32"]
+# Pre-built static OpenCV: built once in before-all, reused by all Python versions.
+# This replaces the previous opencv_world.dll download, making wheels ~14MB smaller.
+# We use CMAKE_PREFIX_PATH (not OpenCV_DIR) because the install layout varies by
+# MSVC version — find_package(OpenCV) searches standard subdirectories under the prefix.
+before-all = "bash {project}/external/immvision/immvision/cmake/build_opencv.sh C:/opencv_minimalist"
+environment = { CMAKE_PREFIX_PATH="C:/opencv_minimalist", OpenCV_STATIC="ON" }
 
-# Environment variables
-# IMGUIBUNDLE_OPENCV_FETCH_SOURCE => Download a precompiled version of opencv4.6.0
-# environment = { IMGUIBUNDLE_OPENCV_WIN_USE_OFFICIAL_PREBUILT_460="ON" }
+#------------------------------------
+# android wheels
+#------------------------------------
+# Android wheel support is experimental, and available in a separate branch (not officially supported at the moment)
+# See: https://github.com/pthom/imgui_bundle/tree/android-wheel
+# Related PR: https://github.com/pthom/imgui_bundle/pull/438
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Custom Build Configurations
+# ═══════════════════════════════════════════════════════════════════════════
+# You may disable some submodules of imgui_bundle if you do not need them.
+# Common cases are:
+# 1. to disable immvision (to avoid the OpenCV dependency)
+#    Pass -DIMGUI_BUNDLE_WITH_IMMVISION=OFF, e.g.:
+#        CMAKE_ARGS="-DIMGUI_BUNDLE_WITH_IMMVISION=OFF" pip install -v .
+#    or
+#        CMAKE_ARGS="-DIMGUI_BUNDLE_WITH_IMMVISION=OFF" python -m build --wheel
+#
+# 2. to disable hello_imgui (to avoid the windowing dependencies)
+#   Pass -DIMGUI_BUNDLE_WITH_HELLO_IMGUI=OFF, e.g.:
+#        CMAKE_ARGS="-DIMGUI_BUNDLE_WITH_HELLO_IMGUI=OFF" pip install -v .
+#   If you disable hello_imgui, several dependent modules will be auto-disabled:
+#     immapp, imgui_md, im_file_dialog, imgui_tex_inspect, immvision, imgui_test_engine, and the glfw backend.
+

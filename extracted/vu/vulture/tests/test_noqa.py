@@ -28,11 +28,11 @@ def test_noqa_regex_present(line, codes):
 @pytest.mark.parametrize(
     "line",
     [
-        ("# noqa: 123V"),
-        ("# noqa explanation: V012"),
-        ("# noqa: ,V101"),
-        ("# noqa: #noqa: V102"),
-        ("# noqa: # noqa: V102"),
+        "# noqa: 123V",
+        "# noqa explanation: V012",
+        "# noqa: ,V101",
+        "# noqa: #noqa: V102",
+        "# noqa: # noqa: V102",
     ],
 )
 def test_noqa_regex_no_groups(line):
@@ -41,7 +41,7 @@ def test_noqa_regex_no_groups(line):
 
 @pytest.mark.parametrize(
     "line",
-    [("#noqa"), ("##noqa"), ("# n o q a"), ("#NOQA"), ("# Hello, noqa")],
+    ["#noqa", "##noqa", "# n o q a", "#NOQA", "# Hello, noqa"],
 )
 def test_noqa_regex_not_present(line):
     assert not NOQA_REGEXP.search(line)
@@ -215,7 +215,7 @@ class Foo:
     check(v.unused_classes, [])
 
 
-def test_noqa_unreacahble_code(v):
+def test_noqa_unreachable_code(v):
     v.scan(
         """\
 def shave_sheep(sheep):

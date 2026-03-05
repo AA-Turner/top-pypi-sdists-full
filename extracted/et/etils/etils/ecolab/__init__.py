@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ from etils.ecolab.patch_utils import patch_graphviz
 from etils.ecolab.patch_utils import set_verbose
 from etils.ecolab.pyjs_com import js_import as pyjs_import
 from etils.ecolab.pyjs_com import register_js_fn
+from etils.ecolab.tabs import iter_tab
 from etils.epy.adhoc_utils.module_utils import clear_cached_modules
 
 # Activate auto-display by default

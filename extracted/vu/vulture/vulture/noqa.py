@@ -9,7 +9,7 @@ NOQA_REGEXP = re.compile(
     # `# noqa: E123`
     # `# noqa: E123,W451,F921`
     # `# NoQA: E123,W451,F921`
-    r"# noqa(?::[\s]?(?P<codes>([A-Z]+[0-9]+(?:[,\s]+)?)+))?",
+    r"# noqa(?::\s?(?P<codes>([A-Z]+[0-9]+(?:[,\s]+)?)+))?",
     re.IGNORECASE,
 )
 

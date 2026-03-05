@@ -16,6 +16,7 @@ Usage::
         DescribeAlarmsPaginator,
         DescribeAnomalyDetectorsPaginator,
         GetMetricDataPaginator,
+        ListAlarmMuteRulesPaginator,
         ListDashboardsPaginator,
         ListMetricsPaginator,
     )
@@ -28,6 +29,7 @@ Usage::
         describe_alarms_paginator: DescribeAlarmsPaginator = client.get_paginator("describe_alarms")
         describe_anomaly_detectors_paginator: DescribeAnomalyDetectorsPaginator = client.get_paginator("describe_anomaly_detectors")
         get_metric_data_paginator: GetMetricDataPaginator = client.get_paginator("get_metric_data")
+        list_alarm_mute_rules_paginator: ListAlarmMuteRulesPaginator = client.get_paginator("list_alarm_mute_rules")
         list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
         list_metrics_paginator: ListMetricsPaginator = client.get_paginator("list_metrics")
     ```
@@ -49,6 +51,8 @@ from .type_defs import (
     DescribeAnomalyDetectorsOutputTypeDef,
     GetMetricDataInputPaginateTypeDef,
     GetMetricDataOutputTypeDef,
+    ListAlarmMuteRulesInputPaginateTypeDef,
+    ListAlarmMuteRulesOutputTypeDef,
     ListDashboardsInputPaginateTypeDef,
     ListDashboardsOutputTypeDef,
     ListMetricsInputPaginateTypeDef,
@@ -65,6 +69,7 @@ __all__ = (
     "DescribeAlarmsPaginator",
     "DescribeAnomalyDetectorsPaginator",
     "GetMetricDataPaginator",
+    "ListAlarmMuteRulesPaginator",
     "ListDashboardsPaginator",
     "ListMetricsPaginator",
 )
@@ -139,6 +144,24 @@ class GetMetricDataPaginator(_GetMetricDataPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/paginator/GetMetricData.html#CloudWatch.Paginator.GetMetricData.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/paginators/#getmetricdatapaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAlarmMuteRulesPaginatorBase = AioPaginator[ListAlarmMuteRulesOutputTypeDef]
+else:
+    _ListAlarmMuteRulesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListAlarmMuteRulesPaginator(_ListAlarmMuteRulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/paginator/ListAlarmMuteRules.html#CloudWatch.Paginator.ListAlarmMuteRules)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/paginators/#listalarmmuterulespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAlarmMuteRulesInputPaginateTypeDef]
+    ) -> AioPageIterator[ListAlarmMuteRulesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/paginator/ListAlarmMuteRules.html#CloudWatch.Paginator.ListAlarmMuteRules.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/paginators/#listalarmmuterulespaginator)
         """
 
 if TYPE_CHECKING:

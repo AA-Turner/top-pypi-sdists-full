@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-writer
-Version: 0.52.6
+Version: 0.53.0
 Summary: OpenTelemetry Writer instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-writer
 Author-email: Yan Tolstoy <yan.talstoi@writer.com>, "Writer, Inc." <dev-feedback@writer.com>

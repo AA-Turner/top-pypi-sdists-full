@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: edx-when
-Version: 3.1.0
+Version: 3.2.1
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-when
 Author: edX
@@ -25,17 +25,6 @@ Requires-Dist: edx-django-utils
 Requires-Dist: edx-drf-extensions
 Requires-Dist: edx-opaque-keys
 Requires-Dist: xblock
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 edx-when
 =============================
@@ -131,6 +120,13 @@ Change Log
 
 Unreleased
 ~~~~~~~~~~
+[3.2.1] - 2026-02-20
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Add distinct query by block and user in get_overrides_for_course to prevent duplicate overrides when a user has multiple overrides for the same block.
+
+[3.2.0] - 2026-01-12
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Extend ContentDate/UserDate models to support enhanced assignment metadata and future scheduling use cases.
 
 [3.1.0] - 2026-01-09
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

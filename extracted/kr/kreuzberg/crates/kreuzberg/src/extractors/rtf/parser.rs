@@ -50,7 +50,7 @@ const SKIP_DESTINATIONS: &[&str] = &[
 /// 5. Extracting text while skipping formatting groups
 /// 6. Detecting and extracting image metadata (\pict sections)
 /// 7. Normalizing whitespace
-pub fn extract_text_from_rtf(content: &str) -> (String, Vec<Table>) {
+pub fn extract_text_from_rtf(content: &str, plain: bool) -> (String, Vec<Table>) {
     let mut result = String::new();
     let mut chars = content.chars().peekable();
     let mut tables: Vec<Table> = Vec::new();
@@ -73,9 +73,9 @@ pub fn extract_text_from_rtf(content: &str) -> (String, Vec<Table>) {
         }
     };
 
-    let finalize_table = |state_opt: &mut Option<TableState>, tables: &mut Vec<Table>| {
+    let finalize_table = move |state_opt: &mut Option<TableState>, tables: &mut Vec<Table>| {
         if let Some(state) = state_opt.take()
-            && let Some(table) = state.finalize()
+            && let Some(table) = state.finalize_with_format(plain)
         {
             tables.push(table);
         }
@@ -175,6 +175,7 @@ pub fn extract_text_from_rtf(content: &str) -> (String, Vec<Table>) {
                                 &mut tables,
                                 &ensure_table,
                                 &finalize_table,
+                                plain,
                             );
                         }
                     }
@@ -236,6 +237,7 @@ fn handle_control_word(
     tables: &mut Vec<Table>,
     ensure_table: &dyn Fn(&mut Option<TableState>),
     finalize_table: &dyn Fn(&mut Option<TableState>, &mut Vec<Table>),
+    plain: bool,
 ) {
     match control_word {
         // Unicode escape: \u1234 (signed integer)
@@ -266,7 +268,7 @@ fn handle_control_word(
         }
         "pict" => {
             let image_metadata = extract_image_metadata(chars);
-            if !image_metadata.is_empty() {
+            if !image_metadata.is_empty() && !plain {
                 result.push('!');
                 result.push('[');
                 result.push_str("image");
@@ -335,20 +337,32 @@ fn handle_control_word(
             if !result.is_empty() && !result.ends_with('\n') {
                 result.push('\n');
             }
-            if !result.ends_with('|') {
+            if !plain && !result.ends_with('|') {
                 result.push('|');
                 result.push(' ');
             }
         }
         "cell" => {
-            if !result.ends_with('|') {
-                if !result.ends_with(' ') && !result.is_empty() {
+            if let Some(state) = table_state.as_mut()
+                && state.in_row
+            {
+                state.push_cell();
+            }
+            if plain {
+                // In plain mode, separate cells with pipes in the result string
+                if !result.ends_with('|') && !result.ends_with('\n') && !result.is_empty() {
+                    result.push('|');
+                }
+            } else {
+                if !result.ends_with('|') {
+                    if !result.ends_with(' ') && !result.is_empty() {
+                        result.push(' ');
+                    }
+                    result.push('|');
+                }
+                if !result.ends_with(' ') {
                     result.push(' ');
                 }
-                result.push('|');
-            }
-            if !result.ends_with(' ') {
-                result.push(' ');
             }
         }
         "row" => {
@@ -358,7 +372,7 @@ fn handle_control_word(
             {
                 state.push_row();
             }
-            if !result.ends_with('|') {
+            if !plain && !result.ends_with('|') {
                 result.push('|');
             }
             if !result.ends_with('\n') {

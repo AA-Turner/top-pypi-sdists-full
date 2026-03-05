@@ -36,6 +36,7 @@ from .literals import (
     CapacityProviderStatusType,
     CapacityProviderTypeType,
     CapacityProviderUpdateStatusType,
+    CapacityReservationPreferenceType,
     ClusterFieldType,
     CompatibilityType,
     ConnectivityType,
@@ -120,6 +121,7 @@ __all__ = (
     "CanaryConfigurationTypeDef",
     "CapacityProviderStrategyItemTypeDef",
     "CapacityProviderTypeDef",
+    "CapacityReservationRequestTypeDef",
     "ClusterConfigurationTypeDef",
     "ClusterServiceConnectDefaultsRequestTypeDef",
     "ClusterServiceConnectDefaultsTypeDef",
@@ -552,6 +554,11 @@ class CapacityProviderStrategyItemTypeDef(TypedDict):
 class TagTypeDef(TypedDict):
     key: NotRequired[str]
     value: NotRequired[str]
+
+
+class CapacityReservationRequestTypeDef(TypedDict):
+    reservationGroupArn: NotRequired[str]
+    reservationPreference: NotRequired[CapacityReservationPreferenceType]
 
 
 class ManagedStorageConfigurationTypeDef(TypedDict):
@@ -2351,6 +2358,7 @@ class InstanceLaunchTemplateOutputTypeDef(TypedDict):
     capacityOptionType: NotRequired[CapacityOptionTypeType]
     instanceRequirements: NotRequired[InstanceRequirementsRequestOutputTypeDef]
     fipsEnabled: NotRequired[bool]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
 
 
 InstanceRequirementsRequestUnionTypeDef = Union[
@@ -2693,6 +2701,7 @@ class InstanceLaunchTemplateTypeDef(TypedDict):
     capacityOptionType: NotRequired[CapacityOptionTypeType]
     instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
     fipsEnabled: NotRequired[bool]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
 
 
 class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
@@ -2701,6 +2710,7 @@ class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
     storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
     monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
     instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
 
 
 class TaskDefinitionTypeDef(TypedDict):

@@ -52,5 +52,28 @@ pub fn normalize_whitespace(s: &str) -> String {
         }
     }
 
-    result.trim().to_string()
+    // Remove spurious spaces before/after punctuation marks that result from RTF group boundaries
+    let result = result.trim().to_string();
+    let mut cleaned = String::with_capacity(result.len());
+    let chars: Vec<char> = result.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if chars[i] == ' '
+            && i + 1 < chars.len()
+            && matches!(chars[i + 1], '.' | ',' | ';' | ':' | '!' | '?' | '|')
+            && (i == 0 || chars[i - 1] != ' ')
+        {
+            // Skip the space before punctuation/pipe
+            i += 1;
+            continue;
+        }
+        if chars[i] == ' ' && i > 0 && chars[i - 1] == '|' {
+            // Skip the space after pipe (table cell separator)
+            i += 1;
+            continue;
+        }
+        cleaned.push(chars[i]);
+        i += 1;
+    }
+    cleaned
 }

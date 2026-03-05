@@ -154,10 +154,13 @@ def install(
         _install_node_dependencies(cfg.node_reqs, node_dir, log, dry_run)
         _reinstall_main_requirements(node_dir, log, dry_run)
 
-    if _is_comfy_env_enabled():
+    from .settings import INSTALL_ISOLATED, INSTALL_MAIN
+    if INSTALL_ISOLATED:
         _install_isolated_subdirs(node_dir, log, dry_run)
-    else:
-        log("\n[comfy-env] Isolation disabled (USE_COMFY_ENV=0)")
+    if INSTALL_MAIN:
+        _install_to_main_env(node_dir, log, dry_run)
+    if not INSTALL_ISOLATED and not INSTALL_MAIN:
+        log("\n[comfy-env] Both install targets disabled — nothing to install")
 
     log("\nInstallation complete!")
     return True
@@ -307,6 +310,37 @@ def _ensure_detect_scripts(build_base: Path) -> None:
         pass
 
 
+def _save_resolved_manifest(
+    build_dir: Path,
+    py_version: Optional[str],
+    torch_version: Optional[str],
+    cuda_version: Optional[str],
+    host_torch: Optional[str],
+    resolved_wheels: dict,
+    fallback_used: bool,
+) -> None:
+    """Save resolved environment details to resolved.yaml for debugging."""
+    import yaml
+    from .environment.cache import _get_version
+    manifest = {
+        "python_version": py_version,
+        "torch_version": torch_version,
+        "cuda_version": cuda_version,
+        "host_torch_version": host_torch,
+        "platform": sys.platform,
+        "comfy_env_version": _get_version(),
+        "fallback_used": fallback_used,
+        "cuda_wheels": resolved_wheels,
+    }
+    try:
+        (build_dir / "resolved.yaml").write_text(
+            yaml.dump(manifest, default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
 def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], None], dry_run: bool) -> None:
     """Install dependencies into an isolated pixi environment (for comfy-env.toml subdirs only)."""
     from .packages.pixi import ensure_pixi
@@ -424,6 +458,8 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
         cuda_version = torch_version = None
         cuda_override = torch_override = None
         force_install_torch = False
+        host_torch = None
+        resolved_wheels = {}
         pytorch_packages = {"torch", "torchvision", "torchaudio"}
         cuda_wheels_packages = [p for p in cfg.cuda_packages if p not in pytorch_packages]
 
@@ -455,6 +491,7 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
                     missing = check_all_wheels_available(cuda_wheels_packages, host_torch, cuda_version, py_version)
                     if missing is None:
                         torch_version = host_torch
+                        torch_override = host_torch
                         log(f"[comfy-env] All cuda-wheels available for "
                             f"cu{cuda_version}/torch{torch_version}/py{py_version} — will share_torch")
                     else:
@@ -500,10 +537,12 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
             uv_path = _find_uv()
             log(f"[comfy-env] Installing cuda-wheels packages (uv={uv_path}, python={python_path})")
 
+            resolved_wheels = {}
             for package in cuda_wheels_packages:
                 wheel_url = get_wheel_url(package, torch_version, cuda_version, py_version)
                 if not wheel_url:
                     raise RuntimeError(f"No wheel for {package} (cu{cuda_version}/torch{torch_version}/py{py_version})")
+                resolved_wheels[package] = wheel_url
                 log(f"  {package} from {wheel_url}")
                 cmd = [uv_path, "pip", "install", "--python", str(python_path), "--no-deps", "--no-cache", wheel_url]
                 result = subprocess.run(cmd, capture_output=True, text=True)
@@ -518,6 +557,11 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
         try: _rmtree(node_dir / ".pixi")
         except OSError: pass
 
+        manifest_py = cfg.python or f"{sys.version_info.major}.{sys.version_info.minor}"
+        _save_resolved_manifest(
+            build_dir, manifest_py, torch_version, cuda_version,
+            host_torch, resolved_wheels, force_install_torch,
+        )
         done_marker.touch()
         _save_env_metadata(build_dir, node_dir, config_path)
         log(f"[comfy-env] Install log: {build_dir / 'install.log'}")
@@ -535,6 +579,89 @@ def _install_isolated_subdirs(node_dir: Path, log: Callable[[str], None], dry_ru
         log(f"\n[isolated] {config_file.parent.relative_to(node_dir)}")
         if not dry_run:
             _install_via_pixi(load_config(config_file), config_file.parent, log, dry_run)
+
+
+def _install_to_main_env(node_dir: Path, log: Callable[[str], None], dry_run: bool) -> None:
+    """Install deps from comfy-env.toml files into the main Python env (isolation disabled)."""
+    import subprocess
+
+    log("\n[comfy-env] Isolation disabled — installing to main env")
+    all_pypi = {}
+    cuda_packages = []
+    conda_warnings = []
+
+    for config_file in node_dir.rglob(CONFIG_FILE_NAME):
+        if config_file.parent == node_dir:
+            continue
+        cfg = load_config(config_file)
+        rel = config_file.parent.relative_to(node_dir)
+        pypi = cfg.pixi_passthrough.get("pypi-dependencies", {})
+        conda = cfg.pixi_passthrough.get("dependencies", {})
+        if pypi:
+            log(f"  [{rel}] PyPI: {', '.join(pypi.keys())}")
+            all_pypi.update(pypi)
+        if cfg.cuda_packages:
+            cuda_packages.extend(cfg.cuda_packages)
+        if conda:
+            conda_warnings.append((rel, list(conda.keys())))
+
+    if conda_warnings:
+        for rel, pkgs in conda_warnings:
+            log(f"  WARNING: [{rel}] has conda deps ({', '.join(pkgs)}) — cannot install to main env")
+
+    if not all_pypi and not cuda_packages:
+        log("  No packages to install")
+        return
+
+    # Convert pypi dep specs to pip install args
+    pip_args = []
+    for name, spec in all_pypi.items():
+        if isinstance(spec, dict):
+            version = spec.get("version", "*")
+            extras = spec.get("extras", [])
+            pkg = name
+            if extras:
+                pkg = f"{name}[{','.join(extras)}]"
+            if version and version != "*":
+                pkg = f"{pkg}{version}"
+            pip_args.append(pkg)
+        elif isinstance(spec, str) and spec != "*":
+            pip_args.append(f"{name}{spec}")
+        else:
+            pip_args.append(name)
+
+    # cuda_packages that aren't torch/torchvision/torchaudio need cuda-wheels
+    pytorch_packages = {"torch", "torchvision", "torchaudio"}
+    cuda_only = [p for p in cuda_packages if p not in pytorch_packages]
+    if cuda_only:
+        try:
+            from .packages.cuda_wheels import get_wheel_url
+            from .detection import get_recommended_cuda_version
+            import torch
+            torch_ver = ".".join(torch.__version__.split(".")[:2])
+            cuda_ver = get_recommended_cuda_version()
+            py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+            for package in cuda_only:
+                url = get_wheel_url(package, torch_ver, cuda_ver, py_ver)
+                if url:
+                    pip_args.append(url)
+                    log(f"  {package} from {url}")
+                else:
+                    log(f"  WARNING: No cuda-wheel for {package} (cu{cuda_ver}/torch{torch_ver}/py{py_ver})")
+        except Exception as e:
+            log(f"  WARNING: Could not resolve cuda-wheels: {e}")
+
+    if pip_args:
+        log(f"\n  pip install {' '.join(pip_args)}")
+        if not dry_run:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install"] + pip_args,
+                capture_output=True, text=True,
+            )
+            if result.returncode != 0:
+                log(f"  WARNING: pip install failed:\n{result.stderr}")
+            else:
+                log("  Installed successfully")
 
 
 def verify_installation(packages: List[str], log: Callable[[str], None] = print) -> bool:

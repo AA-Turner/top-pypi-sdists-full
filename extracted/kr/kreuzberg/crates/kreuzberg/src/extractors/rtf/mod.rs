@@ -90,8 +90,12 @@ impl DocumentExtractor for RtfExtractor {
         _config: &ExtractionConfig,
     ) -> Result<ExtractionResult> {
         let rtf_content = String::from_utf8_lossy(content);
+        let plain = matches!(
+            _config.output_format,
+            crate::core::config::OutputFormat::Plain | crate::core::config::OutputFormat::Structured
+        );
 
-        let (extracted_text, tables) = extract_text_from_rtf(&rtf_content);
+        let (extracted_text, tables) = extract_text_from_rtf(&rtf_content, plain);
         let metadata_map = extract_rtf_metadata(&rtf_content, &extracted_text);
 
         Ok(ExtractionResult {
@@ -144,7 +148,32 @@ mod tests {
     fn test_simple_rtf_extraction() {
         let _extractor = RtfExtractor;
         let rtf_content = r#"{\rtf1 Hello World}"#;
-        let (extracted, _) = extract_text_from_rtf(rtf_content);
+        let (extracted, _) = extract_text_from_rtf(rtf_content, false);
         assert!(extracted.contains("Hello") || extracted.contains("World"));
+    }
+
+    #[test]
+    fn test_plain_text_no_image_markdown() {
+        let rtf_content = r#"{\rtf1 Before image {\pict\jpegblip\picw100\pich100 ffd8ffe0} After image}"#;
+        let (plain, _) = extract_text_from_rtf(rtf_content, true);
+        assert!(!plain.contains("!["), "Plain text should not contain image markdown");
+        assert!(
+            !plain.contains("]("),
+            "Plain text should not contain image markdown links"
+        );
+
+        let (md, _) = extract_text_from_rtf(rtf_content, false);
+        assert!(md.contains("![image]"), "Markdown output should contain image markers");
+    }
+
+    #[test]
+    fn test_plain_text_table_uses_pipes() {
+        let rtf_content = r#"{\rtf1 {\trowd Cell1\cell Cell2\cell\row}}"#;
+        let (plain, tables) = extract_text_from_rtf(rtf_content, true);
+        assert!(
+            plain.contains('|'),
+            "Plain text should use pipe delimiters for table cells"
+        );
+        assert!(!tables.is_empty(), "Tables should still be extracted");
     }
 }

@@ -50,6 +50,7 @@ from .imports import (
     is_msamp_available,
     is_musa_available,
     is_npu_available,
+    is_torchao_available,
     is_transformer_engine_available,
     is_xpu_available,
 )
@@ -314,7 +315,14 @@ class AORecipeKwargs(KwargsHandler):
 
     Args:
         config (`torchao.float8.Float8LinearConfig`, *optional*, default to `None`):
-            The configuration for the FP8 training. In general, the default config should be sufficient.
+            The configuration for the FP8 training. If `None`, a default config will be created with sensible
+            defaults for most use cases:
+            - `pad_inner_dim=True`: Pads matrix dimensions to be divisible by 16, required for `torch._scaled_mm`
+              operations to prevent runtime errors.
+            - `enable_fsdp_float8_all_gather=True`: Enables FP8 all-gather for FSDP2. This provides memory bandwidth
+              savings by casting parameters before the all-gather operation, saving 50% bandwidth compared to BF16.
+
+            You can override these defaults by providing your own `Float8LinearConfig` instance.
         module_filter_func (`Callable`, *optional*, default to `None`):
             Optional function that must take in a module and layer name, and returns a boolean indicating whether the
             module should be converted to FP8. Defaults to `accelerate.utils.ao.filter_linear_layers`. See it for an
@@ -323,6 +331,28 @@ class AORecipeKwargs(KwargsHandler):
 
     config: Optional["Float8LinearConfig"] = None
     module_filter_func: Optional[Callable] = None
+    pad_inner_dim: Optional[bool] = None
+    enable_fsdp_float8_all_gather: Optional[bool] = None
+
+    def __post_init__(self):
+        env_prefix = "ACCELERATE_FP8_"
+        if not is_torchao_available():
+            raise ImportError("TorchAO is not available. Please install it or use a different backend.")
+
+        if self.config is None:
+            from torchao.float8 import Float8LinearConfig
+
+            # Check environment variables for overrides
+            if self.pad_inner_dim is None:
+                self.pad_inner_dim = parse_flag_from_env(env_prefix + "PAD_INNER_DIM", default=True)
+            if self.enable_fsdp_float8_all_gather is None:
+                self.enable_fsdp_float8_all_gather = parse_flag_from_env(
+                    env_prefix + "ENABLE_FSDP_FLOAT8_ALL_GATHER", default=True
+                )
+            self.config = Float8LinearConfig(
+                pad_inner_dim=self.pad_inner_dim,
+                enable_fsdp_float8_all_gather=self.enable_fsdp_float8_all_gather,
+            )
 
 
 @dataclass
@@ -582,6 +612,7 @@ class DistributedType(str, enum.Enum):
         - **MULTI_NPU** -- Distributed on multiple NPUs.
         - **MULTI_XPU** -- Distributed on multiple XPUs.
         - **MULTI_HPU** -- Distributed on multiple HPUs.
+        - **MULTI_NEURON** -- Distributed on multiple Neuron cores.
         - **DEEPSPEED** -- Using DeepSpeed.
         - **XLA** -- Using TorchXLA.
     """
@@ -600,6 +631,7 @@ class DistributedType(str, enum.Enum):
     XLA = "XLA"
     MEGATRON_LM = "MEGATRON_LM"
     MULTI_HPU = "MULTI_HPU"
+    MULTI_NEURON = "MULTI_NEURON"
 
 
 class SageMakerDistributedType(str, enum.Enum):
@@ -681,8 +713,6 @@ class DynamoBackend(str, BaseEnum):
           more](https://github.com/pytorch/xla/blob/r2.0/docs/dynamo.md)
         - **TORCHXLA_TRACE_ONCE** -- Uses Pytorch/XLA with TorchDynamo optimization, for inference. [Read
           more](https://github.com/pytorch/xla/blob/r2.0/docs/dynamo.md)
-        - **IPEX** -- Uses IPEX for inference on CPU. Inference only. [Read
-          more](https://github.com/intel/intel-extension-for-pytorch).
         - **TVM** -- Uses Apache TVM for inference optimizations. [Read more](https://tvm.apache.org/)
         - **HPU_BACKEND** -- Uses HPU backend for inference optimizations.
 
@@ -702,7 +732,6 @@ class DynamoBackend(str, BaseEnum):
     TENSORRT = "TENSORRT"
     AOT_TORCHXLA_TRACE_ONCE = "AOT_TORCHXLA_TRACE_ONCE"
     TORCHXLA_TRACE_ONCE = "TORCHXLA_TRACE_ONCE"
-    IPEX = "IPEX"
     TVM = "TVM"
     HPU_BACKEND = "HPU_BACKEND"
 
@@ -761,6 +790,7 @@ class RNGType(BaseEnum):
     XLA = "xla"
     XPU = "xpu"
     HPU = "hpu"
+    NEURON = "neuron"
     GENERATOR = "generator"
 
 
@@ -2354,6 +2384,33 @@ class MegatronLMPlugin:
 
     tp_degree: int = field(default=None, metadata={"help": "tensor parallelism degree."})
     pp_degree: int = field(default=None, metadata={"help": "pipeline parallelism degree."})
+    use_custom_fsdp: bool = field(default=None, metadata={"help": "use custom fsdp."})
+    overlap_cpu_optimizer_d2h_h2d: bool = field(
+        default=None, metadata={"help": "overlap CPU optimizer step, gradients D2H and updated parameters H2D."}
+    )
+    no_load_optim: bool = field(default=None, metadata={"help": "do not load optimizer."})
+    eod_mask_loss: bool = field(default=None, metadata={"help": "use eod mask loss."})
+    no_save_optim: bool = field(default=None, metadata={"help": "do not save optimizer."})
+    optimizer_cpu_offload: bool = field(default=None, metadata={"help": "use CPU offload for optimizer."})
+    use_precision_aware_optimizer: bool = field(default=None, metadata={"help": "use precision aware optimizer."})
+    decoder_last_pipeline_num_layers: int = field(
+        default=None,
+        metadata={
+            "help": "decoder last pipeline number of layers, default None is even split of transformer layers across all pipeline stages."
+        },
+    )
+    recompute_granularity: str = field(default=None, metadata={"help": "recompute granularity (full, selective)."})
+    recompute_method: str = field(default=None, metadata={"help": "recompute method (uniform, block)."})
+    recompute_num_layers: int = field(default=None, metadata={"help": "number of layers to recompute."})
+    attention_backend: bool = field(default=None, metadata={"help": "enable attention backend."})
+    expert_model_parallel_size: int = field(default=None, metadata={"help": "expert model parallel size."})
+    context_parallel_size: int = field(default=None, metadata={"help": "context parallel size."})
+    attention_dropout: float = field(default=None, metadata={"help": "attention dropout rate."})
+    hidden_dropout: float = field(default=None, metadata={"help": "hidden dropout rate."})
+    attention_softmax_in_fp32: bool = field(default=None, metadata={"help": "use fp32 for attention softmax."})
+    expert_tensor_parallel_size: int = field(default=None, metadata={"help": "expert tensor parallel size."})
+    calculate_per_token_loss: bool = field(default=None, metadata={"help": "calculate per token loss."})
+    use_rotary_position_embeddings: bool = field(default=None, metadata={"help": "use rotary position embeddings."})
     num_micro_batches: int = field(default=None, metadata={"help": "number of micro-batches."})
     gradient_clipping: float = field(
         default=None,
@@ -2527,6 +2584,31 @@ class MegatronLMPlugin:
             self.tp_degree = int(os.environ.get(prefix + "TP_DEGREE", 1))
         if self.pp_degree is None:
             self.pp_degree = int(os.environ.get(prefix + "PP_DEGREE", 1))
+        if self.use_custom_fsdp is None:
+            self.use_custom_fsdp = str_to_bool(os.environ.get(prefix + "USE_CUSTOM_FSDP", "False")) == 1
+        if self.no_load_optim is None:
+            self.no_load_optim = str_to_bool(os.environ.get(prefix + "NO_LOAD_OPTIM", "False")) == 1
+        if self.eod_mask_loss is None:
+            self.eod_mask_loss = str_to_bool(os.environ.get(prefix + "EOD_MASK_LOSS", "False")) == 1
+        if self.no_save_optim is None:
+            self.no_save_optim = str_to_bool(os.environ.get(prefix + "NO_SAVE_OPTIM", "False")) == 1
+        if self.optimizer_cpu_offload is None:
+            self.optimizer_cpu_offload = str_to_bool(os.environ.get(prefix + "OPTIMIZER_CPU_OFFLOAD", "False")) == 1
+        if self.overlap_cpu_optimizer_d2h_h2d is None:
+            self.overlap_cpu_optimizer_d2h_h2d = (
+                str_to_bool(os.environ.get(prefix + "OVERLAP_CPU_OPTIMIZER_D2H_H2D", "False")) == 1
+            )
+        if self.use_precision_aware_optimizer is None:
+            self.use_precision_aware_optimizer = (
+                str_to_bool(os.environ.get(prefix + "USE_PRECISION_AWARE_OPTIMIZER", "False")) == 1
+            )
+        if self.decoder_last_pipeline_num_layers is None:
+            if os.environ.get(prefix + "DECODER_LAST_PIPELINE_NUM_LAYERS") is not None:
+                self.decoder_last_pipeline_num_layers = int(
+                    os.environ.get(prefix + "DECODER_LAST_PIPELINE_NUM_LAYERS", 0)
+                )
+            else:
+                self.decoder_last_pipeline_num_layers = None
         if self.num_micro_batches is None:
             self.num_micro_batches = int(os.environ.get(prefix + "NUM_MICRO_BATCHES", 1))
         if self.gradient_clipping is None:
@@ -2539,6 +2621,36 @@ class MegatronLMPlugin:
             )
         if self.sequence_parallelism is None:
             self.sequence_parallelism = str_to_bool(os.environ.get(prefix + "SEQUENCE_PARALLELISM", "False")) == 1
+        if self.recompute_granularity is None:
+            self.recompute_granularity = os.environ.get(prefix + "RECOMPUTE_GRANULARITY", "full")
+        if self.recompute_method is None:
+            self.recompute_method = os.environ.get(prefix + "RECOMPUTE_METHOD", "uniform")
+        if self.recompute_num_layers is None:
+            self.recompute_num_layers = int(os.environ.get(prefix + "RECOMPUTE_NUM_LAYERS", 1))
+        if self.attention_backend is None:
+            self.attention_backend = str_to_bool(os.environ.get(prefix + "ATTENTION_BACKEND", "True")) == 1
+        if self.expert_model_parallel_size is None:
+            self.expert_model_parallel_size = int(os.environ.get(prefix + "EXPERT_MODEL_PARALLEL_SIZE", 1))
+        if self.context_parallel_size is None:
+            self.context_parallel_size = int(os.environ.get(prefix + "CONTEXT_PARALLEL_SIZE", 2))
+        if self.attention_dropout is None:
+            self.attention_dropout = float(os.environ.get(prefix + "ATTENTION_DROPOUT", "0.0"))
+        if self.hidden_dropout is None:
+            self.hidden_dropout = float(os.environ.get(prefix + "HIDDEN_DROPOUT", "0.0"))
+        if self.attention_softmax_in_fp32 is None:
+            self.attention_softmax_in_fp32 = (
+                str_to_bool(os.environ.get(prefix + "ATTENTION_SOFTMAX_IN_FP32", "True")) == 1
+            )
+        if self.expert_tensor_parallel_size is None:
+            self.expert_tensor_parallel_size = int(os.environ.get(prefix + "EXPERT_TENSOR_PARALLEL_SIZE", 1))
+        if self.calculate_per_token_loss is None:
+            self.calculate_per_token_loss = (
+                str_to_bool(os.environ.get(prefix + "CALCULATE_PER_TOKEN_LOSS", "True")) == 1
+            )
+        if self.use_rotary_position_embeddings is None:
+            self.use_rotary_position_embeddings = (
+                str_to_bool(os.environ.get(prefix + "USE_ROTARY_POSITION_EMBEDDINGS", "True")) == 1
+            )
 
         if self.pp_degree > 1 or self.use_distributed_optimizer:
             self.DDP_impl = "local"
@@ -2568,9 +2680,27 @@ class MegatronLMPlugin:
             "megatron_dataset_flag": self.megatron_dataset_flag,
             "eval_iters": self.eval_iters,
             "eval_interval": self.eval_interval,
+            "use_custom_fsdp": self.use_custom_fsdp,
+            "no_load_optim": self.no_load_optim,
+            "eod_mask_loss": self.eod_mask_loss,
+            "no_save_optim": self.no_save_optim,
+            "optimizer_cpu_offload": self.optimizer_cpu_offload,
+            "overlap_cpu_optimizer_d2h_h2d": self.overlap_cpu_optimizer_d2h_h2d,
+            "use_precision_aware_optimizer": self.use_precision_aware_optimizer,
+            "decoder_last_pipeline_num_layers": self.decoder_last_pipeline_num_layers,
+            "recompute_granularity": self.recompute_granularity,
+            "recompute_method": self.recompute_method,
+            "recompute_num_layers": self.recompute_num_layers,
+            "attention_backend": self.attention_backend,
+            "expert_model_parallel_size": self.expert_model_parallel_size,
+            "context_parallel_size": self.context_parallel_size,
+            "attention_dropout": self.attention_dropout,
+            "hidden_dropout": self.hidden_dropout,
+            "attention_softmax_in_fp32": self.attention_softmax_in_fp32,
+            "expert_tensor_parallel_size": self.expert_tensor_parallel_size,
+            "calculate_per_token_loss": self.calculate_per_token_loss,
+            "use_rotary_position_embeddings": self.use_rotary_position_embeddings,
         }
-        if self.recompute_activations:
-            self.megatron_lm_default_args["recompute_granularity"] = "selective"
         if self.tensorboard_dir is not None:
             self.megatron_lm_default_args["tensorboard_dir"] = self.tensorboard_dir
             if self.set_all_logging_options:
@@ -2808,6 +2938,90 @@ def parse_llama_config(megatron_lm_plugin, model, batch_data):
     megatron_lm_plugin.megatron_lm_default_args["max_position_embeddings"] = max_position_embeddings
     megatron_lm_plugin.megatron_lm_default_args["seq_length"] = megatron_lm_plugin.seq_length
     megatron_lm_plugin.megatron_lm_default_args["model_return_dict"] = model.config.return_dict
+
+
+@add_model_config_to_megatron_parser("glm4_moe")
+def parse_glm4_moe_config(megatron_lm_plugin, model, batch_data):
+    model_type_name = "gpt"
+    num_layers = model.config.num_hidden_layers
+    pretraining_flag = False
+    hidden_size = model.config.hidden_size
+    num_attention_heads = model.config.num_attention_heads
+    orig_vocab_size = model.config.vocab_size
+
+    max_position_embeddings = model.config.max_position_embeddings
+    seq_length = getattr(model.config, "max_sequence_length", None)
+    if megatron_lm_plugin.seq_length is None:
+        if seq_length is not None:
+            megatron_lm_plugin.seq_length = seq_length
+        elif megatron_lm_plugin.decoder_seq_length is not None:
+            megatron_lm_plugin.seq_length = megatron_lm_plugin.decoder_seq_length
+        elif batch_data is not None:
+            megatron_lm_plugin.seq_length = batch_data["input_ids"].shape[1]
+        else:
+            megatron_lm_plugin.seq_length = max_position_embeddings
+
+    megatron_lm_plugin.megatron_lm_default_args["return_logits"] = megatron_lm_plugin.return_logits
+    megatron_lm_plugin.megatron_lm_default_args["tokenizer_type"] = "HuggingFaceTokenizer"
+    megatron_lm_plugin.megatron_lm_default_args["model_type_name"] = model_type_name
+    megatron_lm_plugin.megatron_lm_default_args["num_layers"] = num_layers
+    megatron_lm_plugin.megatron_lm_default_args["pretraining_flag"] = pretraining_flag
+    megatron_lm_plugin.megatron_lm_default_args["hidden_size"] = hidden_size
+    megatron_lm_plugin.megatron_lm_default_args["num_attention_heads"] = num_attention_heads
+    megatron_lm_plugin.megatron_lm_default_args["kv_channels"] = model.config.head_dim
+    megatron_lm_plugin.megatron_lm_default_args["orig_vocab_size"] = orig_vocab_size
+    megatron_lm_plugin.megatron_lm_default_args["max_position_embeddings"] = max_position_embeddings
+    megatron_lm_plugin.megatron_lm_default_args["seq_length"] = megatron_lm_plugin.seq_length
+    megatron_lm_plugin.megatron_lm_default_args["model_return_dict"] = model.config.return_dict
+    megatron_lm_plugin.megatron_lm_default_args["position_embedding_type"] = "rope"
+    megatron_lm_plugin.megatron_lm_default_args["original_model_type"] = model.config.model_type
+    megatron_lm_plugin.megatron_lm_default_args["qk_layernorm"] = (
+        model.config.use_qk_norm
+    )  # this is true for glm4.5 but False for glm4.5-air.
+    megatron_lm_plugin.megatron_lm_default_args["add_bias_linear"] = False
+    megatron_lm_plugin.megatron_lm_default_args["group_query_attention"] = True
+    megatron_lm_plugin.megatron_lm_default_args["num_query_groups"] = model.config.num_key_value_heads
+    megatron_lm_plugin.megatron_lm_default_args["ffn_hidden_size"] = model.config.intermediate_size
+    megatron_lm_plugin.megatron_lm_default_args["add_qkv_bias"] = True
+    megatron_lm_plugin.megatron_lm_default_args["normalization"] = "RMSNorm"
+    megatron_lm_plugin.megatron_lm_default_args["rotary-percent"] = 0.5
+    megatron_lm_plugin.megatron_lm_default_args["swiglu"] = True
+    megatron_lm_plugin.megatron_lm_default_args["moe_ffn_hidden_size"] = model.config.moe_intermediate_size
+    megatron_lm_plugin.megatron_lm_default_args["moe_shared_expert_intermediate_size"] = (
+        model.config.moe_intermediate_size
+    )
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_pre_softmax"] = True
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_score_function"] = "sigmoid"
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_enable_expert_bias"] = True
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_bias_update_rate"] = 0
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_load_balancing_type"] = "seq_aux_loss"
+    megatron_lm_plugin.megatron_lm_default_args["moe_token_dispatcher_type"] = "alltoall"
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_topk"] = model.config.num_experts_per_tok
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_topk_scaling_factor"] = model.config.routed_scaling_factor
+    megatron_lm_plugin.megatron_lm_default_args["moe_layer_freq"] = [0] * model.config.first_k_dense_replace + [1] * (
+        model.config.num_hidden_layers - model.config.first_k_dense_replace
+    )
+    megatron_lm_plugin.megatron_lm_default_args["num_experts"] = model.config.n_routed_experts
+    megatron_lm_plugin.megatron_lm_default_args["moe_grouped_gemm"] = True
+    megatron_lm_plugin.megatron_lm_default_args["moe_router_dtype"] = "fp32"
+    megatron_lm_plugin.megatron_lm_default_args["moe_permute_fusion"] = True
+    megatron_lm_plugin.megatron_lm_default_args["moe_aux_loss_coeff"] = 0
+    megatron_lm_plugin.megatron_lm_default_args["rotary_base"] = model.config.rope_theta
+    megatron_lm_plugin.megatron_lm_default_args["rope_type"] = "rope"
+    megatron_lm_plugin.megatron_lm_default_args["rotary_percent"] = model.config.partial_rotary_factor
+    megatron_lm_plugin.megatron_lm_default_args["norm_epsilon"] = 1e-3
+    megatron_lm_plugin.megatron_lm_default_args["use_flash_attn"] = True
+    megatron_lm_plugin.megatron_lm_default_args["eos_token_id"] = model.config.eos_token_id
+    if getattr(model.config, "fp8_param", False):
+        megatron_lm_plugin.megatron_lm_default_args["fp8"] = model.config.fp8
+        megatron_lm_plugin.megatron_lm_default_args["fp8_param"] = model.config.fp8_param
+        megatron_lm_plugin.megatron_lm_default_args["fp8_param_gather"] = model.config.fp8_param_gather
+        megatron_lm_plugin.megatron_lm_default_args["fp8_recipe"] = model.config.fp8_recipe
+    megatron_lm_plugin.megatron_lm_default_args["bf16"] = model.config.bf16
+    megatron_lm_plugin.megatron_lm_default_args[
+        "untie_embeddings_and_output_weights"
+    ] = not model.config.tie_word_embeddings
+    logger.info(f"Parsed GLM4 MoE config: {megatron_lm_plugin.megatron_lm_default_args}")
 
 
 @dataclass

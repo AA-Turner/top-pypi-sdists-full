@@ -20,7 +20,7 @@ def make_directory(directory=None,path=None):
     if directory==None:
         directory=os.getcwd()
     if path:
-        directory = os.path.join(base_dir,path)
+        directory = os.path.join(directory,path)
     os.makedirs(directory,exist_ok=True)
     return directory
 def get_paths(*paths):
@@ -174,7 +174,7 @@ class usurpManager():
             'Accept-Language': 'en-US,en;q=0.5',
             "Access-Control-Allow-Origin": "*"})
 
-    def process_page(self,url, depth, base_domain):
+    def process_page_(self,url, depth, base_domain):
         """
         Process a single page: download assets, save HTML, and crawl links.
         """
@@ -226,7 +226,38 @@ class usurpManager():
                 time.sleep(self.WAIT_BETWEEN_REQUESTS)
                 self.process_page(normalized_link, depth + 1, base_domain)
 
+    def process_page(self, url, depth, base_domain):
+        if url in self.visited_pages or depth > self.MAX_DEPTH:
+            return
+        self.visited_pages.add(url)
 
+        response = self.session.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")  # single fetch, one soup
+
+        for tag in soup.find_all(['img', 'script', 'link']):
+            attr = 'src' if tag.name != 'link' else 'href'
+            asset_url = tag.get(attr)
+            if not asset_url:
+                continue
+
+            full_asset_url = urljoin(url, asset_url.split('#')[0])  # urljoin handles relative correctly
+            parsed_asset = urlparse(full_asset_url)
+
+            if full_asset_url not in self.downloaded_assets:
+                self.downloaded_assets.add(full_asset_url)
+                try:
+                    r = self.session.get(full_asset_url, stream=True)  # use the managed session
+                    asset_path = parsed_asset.path.lstrip('/')
+                    if asset_path:
+                        full_path = currate_full_path(os.path.join(self.OUTPUT_DIR, asset_path))
+                        with open(full_path, 'wb') as f:      # binary — handles css, images, js
+                            f.write(r.content)
+                except Exception as e:
+                    print(f"Failed asset {full_asset_url}: {e}")
+
+            tag[attr] = '/' + parsed_asset.path.lstrip('/')
+
+        save_page(url, str(soup), self.OUTPUT_DIR)
     def main(self):
         # Ensure output directory exists
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)

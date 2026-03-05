@@ -396,3 +396,16 @@ Here is a link with code in the hover text:
         "MD050 should not report any issues with Issue #118 document"
     );
 }
+
+/// Test for issue #482: __or__ in code spans in table cells should not be flagged as emphasis
+#[test]
+fn test_issue_482_no_emphasis_warning_in_table_code_spans() {
+    let content = "Each relies on **left-hand** operations and **right-hand** operations.\n\n| Operation | Left-Hand Method | Right-Hand Method |\n|-----------|------------------|-------------------|\n| `x & y`   | `__and__`        | `__rand__`        |\n| `x | y`   | `__or__`         | `__ror__`         |\n| `x ^ y`   | `__xor__`        | `__rxor__`        |\n";
+    let ctx = rumdl_lib::lint_context::LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let rule = MD050StrongStyle::default();
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Should not flag __or__ in table code spans as emphasis, got: {result:?}"
+    );
+}

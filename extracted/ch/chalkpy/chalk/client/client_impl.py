@@ -1561,6 +1561,12 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
                 connect_timeout=connect_timeout,
             )
         if r.status_code in (401, 403):
+            message = None
+            try:
+                response_json = r.json()
+                message = response_json.get("detail") or response_json.get("message")
+            except Exception:
+                pass
             # Consider filtering sensitive headers
             sensitive_headers = {"set-cookie", "cookie", "authorization", "x-api-key", "x-auth-token"}
             safe_headers = {k: v for k, v in r.headers.items() if k.lower() not in sensitive_headers}
@@ -1586,6 +1592,7 @@ from the command line from '{os.getcwd()}'. If you are still having trouble, ple
 Additional Details:
 Response Status Code: {r.status_code}
 {f"Reason for Failure: {r.reason}" if r.reason else ""}
+{f"Error Message: {message}" if message else ""}
 Response Headers: {formatted_headers}
 """,
             )

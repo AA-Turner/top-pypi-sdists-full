@@ -260,6 +260,13 @@ Whether or not to log migrations. Defaults to true.
 """
 
 ENV_PHOENIX_DANGEROUSLY_DISABLE_MIGRATIONS = "PHOENIX_DANGEROUSLY_DISABLE_MIGRATIONS"
+
+ENV_PHOENIX_DANGEROUSLY_ENABLE_AGENTS = "PHOENIX_DANGEROUSLY_ENABLE_AGENTS"
+"""
+Whether or not to enable the agents feature (the /chat endpoint). Defaults to False.
+
+This is an unreleased feature and should only be enabled for development or testing.
+"""
 """
 Whether or not to disable migrations. Defaults to None / False.
 
@@ -291,6 +298,10 @@ Forbid login via password and disable the creation of local users, which log in 
 This can be helpful in setups where authentication is handled entirely through OAUTH2.
 """
 ENV_PHOENIX_DISABLE_RATE_LIMIT = "PHOENIX_DISABLE_RATE_LIMIT"
+ENV_PHOENIX_DISABLE_BRUTE_FORCE_LOGIN_PROTECTION = "PHOENIX_DISABLE_BRUTE_FORCE_LOGIN_PROTECTION"
+ENV_PHOENIX_BRUTE_FORCE_LOGIN_PROTECTION_MAX_ATTEMPTS = (
+    "PHOENIX_BRUTE_FORCE_LOGIN_PROTECTION_MAX_ATTEMPTS"
+)
 ENV_PHOENIX_SECRET = "PHOENIX_SECRET"
 """
 The secret key used for signing JWTs. It must be at least 32 characters long and include at least
@@ -1087,6 +1098,21 @@ def get_env_disable_rate_limit() -> bool:
     Gets the value of the PHOENIX_DISABLE_RATE_LIMIT environment variable.
     """
     return _bool_val(ENV_PHOENIX_DISABLE_RATE_LIMIT, False)
+
+
+def get_env_disable_brute_force_login_protection() -> bool:
+    """
+    Gets the value of the PHOENIX_DISABLE_BRUTE_FORCE_LOGIN_PROTECTION environment variable.
+    """
+    return _bool_val(ENV_PHOENIX_DISABLE_BRUTE_FORCE_LOGIN_PROTECTION, False)
+
+
+def get_env_brute_force_login_protection_max_attempts() -> int:
+    """
+    Gets the value of the PHOENIX_BRUTE_FORCE_LOGIN_PROTECTION_MAX_ATTEMPTS environment variable.
+    Defaults to 5 if not set.
+    """
+    return _int_val(ENV_PHOENIX_BRUTE_FORCE_LOGIN_PROTECTION_MAX_ATTEMPTS, 5)
 
 
 def get_env_phoenix_secret() -> Secret:
@@ -3074,6 +3100,10 @@ def _get_default_idp_display_name(idp_name: str) -> str:
 
 def get_env_disable_migrations() -> bool:
     return _bool_val(ENV_PHOENIX_DANGEROUSLY_DISABLE_MIGRATIONS, False)
+
+
+def get_env_dangerously_enable_agents() -> bool:
+    return _bool_val(ENV_PHOENIX_DANGEROUSLY_ENABLE_AGENTS, False)
 
 
 def get_env_mask_internal_server_errors() -> bool:

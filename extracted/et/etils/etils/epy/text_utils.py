@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,13 @@ _BRACE_TO_BRACES = {
     '[': ('[', ']'),
     '{': ('{', '}'),
 }
+
+
+class _Repr(str):
+  """Display `str.__repr__` without quotes `'`."""
+
+  def __repr__(self):
+    return str(self)
 
 
 @dataclasses.dataclass
@@ -72,6 +79,8 @@ class Lines:
   )
   ```
   """
+
+  Repr = _Repr  # pylint: disable=invalid-name
 
   def __init__(self, *, indent: int = 4):
     self._lines: list[_Line] = []
@@ -218,21 +227,23 @@ def pprint(obj: Any) -> None:
 @reprlib.recursive_repr()
 def pretty_repr(obj: Any) -> str:
   """Pretty `repr(obj)` for nested list, dict, dataclasses,..."""
-  return pretty_repr_top_level(obj)
+  return pretty_repr_top_level(obj, force=False)
 
 
-def pretty_repr_top_level(obj: Any, *, force: bool = False) -> str:
+def pretty_repr_top_level(obj: Any, *, force: bool = True) -> str:
   """Pretty `repr(obj)` for nested list, dict, dataclasses,...
 
   This version do not use `@reprlib.recursive_repr()` to avoid bug when used
   inside `__repr__`:
 
   ```python
+  @dataclasses.dataclass  # Or @attrs.frozen,...
   class A:
+
     def __repr__(self):
       return epy.pretty_repr_top_level(self)
 
-  epy.pretty_repr(A())  # Do not display `...`
+  print(repr(A()))
   ```
 
   Args:
@@ -273,6 +284,13 @@ def pretty_repr_top_level(obj: Any, *, force: bool = False) -> str:
     return Lines.make_block(
         content={pretty_repr(k): v for k, v in obj.items()},
         braces='{',
+        equal=': ',
+    )
+  elif _is_dict_subclass(obj, force=force):  # pylint: disable=unidiomatic-typecheck
+    return Lines.make_block(
+        header=obj.__class__.__name__,
+        content={pretty_repr(k): v for k, v in obj.items()},
+        braces=('({', '})'),
         equal=': ',
     )
   elif _is_datclass(obj, force=force):
@@ -347,15 +365,13 @@ def pretty_repr_top_level(obj: Any, *, force: bool = False) -> str:
         content=formatted_params,
         braces=('(', ')]>'),
     )
+  elif force:
+    raise ValueError(
+        '`epy.pretty_repr_top_level` should only be called on `@dataclasses`,'
+        f' `attrs`,... objects. Got {type(obj)!r}'
+    )
   else:
     return repr(obj)
-
-
-class _Repr(str):
-  """Display `str.__repr__` without quotes `'`."""
-
-  def __repr__(self):
-    return str(self)
 
 
 def has_default_repr(cls: Any) -> bool:
@@ -439,6 +455,20 @@ def _is_userdict(obj: Any, *, force: bool = False) -> bool:
   if force:  # Force pretty-print even if custom `__repr__`
     return True
   if type(obj).__repr__ == collections.UserDict.__repr__:  # Default repr
+    return True
+  return False  # Custom repr, do not pretty-print
+
+
+def _is_dict_subclass(obj: Any, *, force: bool = False) -> bool:
+  """Returns `True` if the object is a dict subclass."""
+  if not isinstance(obj, dict):
+    return False
+  if force:  # Force pretty-print even if custom `__repr__`
+    return True
+  if type(obj).__repr__ in (  # Default repr
+      dict.__repr__,
+      collections.OrderedDict.__repr__,
+  ):
     return True
   return False  # Custom repr, do not pretty-print
 

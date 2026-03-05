@@ -2,6 +2,16 @@
 https://github.com/pthom/hello_imgui
 """
 
+###############################################################################
+# This file is a part of Dear ImGui Bundle, NOT a part of Hello ImGui
+# -----------------------------------------------------------------------------
+# hello_imgui.pyi is the equivalent of hello_imgui.h, using the bindings
+# provided by Dear ImGui Bundle.
+#
+# It is automatically generated (using https://pthom.github.io/litgen/),
+# and is generally very close to the C++ version. Comments, docs are identical.
+###############################################################################
+
 # ruff: noqa: F811, B008, F821
 from typing import List, Any, Callable, Tuple, Optional, overload, Dict
 import numpy as np
@@ -21,6 +31,9 @@ from imgui_bundle.imgui import (
 )
 
 from imgui_bundle.imgui import test_engine
+
+# Notebook convenience API (injected at runtime)
+from . import hello_imgui_nb as nb  # noqa: F401
 
 # Manual code
 import imgui_bundle.imgui
@@ -415,12 +428,49 @@ def asset_exists(asset_relative_filename: str) -> bool:
     """Returns True if this asset file exists"""
     pass
 
+# @@md
+
+# @@md#AssetsSearchPaths
+
 # void SetAssetsFolder(const std::string& folder);    /* original C++ signature */
 @overload
 def set_assets_folder(folder: str) -> None:
     """Sets the assets folder location
     (when using this, automatic assets installation on mobile platforms may not work)
     """
+    pass
+
+# Assets search paths provide additional locations where assets can be found,
+# giving a unified view across multiple folders. When loading an asset, the
+# search order is:
+#   1. The main assets folder (set by SetAssetsFolder(), or the default
+#      platform-specific locations such as exe_folder/assets)
+#   2. Each search path added by AddAssetsSearchPath(), in order
+#   3. Other built-in platform-specific fallback locations
+#
+# The first match wins. This is useful when assets are split across
+# directories — for example, core assets (fonts, icons) in one folder
+# and demo-specific assets (extra images, specialty fonts) in another.
+#
+# Note: search paths are a runtime-only mechanism. Unlike the main assets
+# folder (which CMake can bundle into the application for mobile/emscripten),
+# search path folders are not automatically embedded at compile time.
+# They are intended for desktop or Python usage where the filesystem
+# is directly accessible.
+
+# void AddAssetsSearchPath(const std::string& folder);    /* original C++ signature */
+def add_assets_search_path(folder: str) -> None:
+    """Add a folder to the asset search paths."""
+    pass
+
+# void ClearAssetsSearchPaths();    /* original C++ signature */
+def clear_assets_search_paths() -> None:
+    """Remove all previously added search paths."""
+    pass
+
+# const std::vector<std::string>& GetAssetsSearchPaths();    /* original C++ signature */
+def get_assets_search_paths() -> List[str]:
+    """Return the current list of search paths."""
     pass
 
 # @@md
@@ -833,6 +883,10 @@ def darcula(
 def show_theme_tweak_gui_window(p_open: Optional[bool] = None) -> Optional[bool]:
     pass
 
+# ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#                       hello_imgui/hello_imgui_font.h included by hello_imgui.h                               //
+# //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 # @@md#Fonts
 
 # When loading fonts, use
@@ -1233,6 +1287,14 @@ class AppWindowParams:
     # Full screen windows cannot be hidden.
     hidden: bool = False
 
+    # bool topMost = false;    /* original C++ signature */
+    # `topMost`: _bool, default = false_. Should the window stay on top of other windows.
+    # This is taken into account dynamically (you can change this at runtime).
+    # Note: This is only supported on desktop platforms (Windows, macOS, Linux).
+    # On mobile platforms (iOS, Android) and web (Emscripten), this setting is ignored.
+    # This setting is also ignored when the window is in fullscreen mode.
+    top_most: bool = False
+
     # --------------- Borderless window params ------------------
 
     # bool   borderless = false;    /* original C++ signature */
@@ -1295,7 +1357,7 @@ class AppWindowParams:
     # Do read https://github.com/pthom/hello_imgui/issues/112 for info about the possible gotchas
     # (This API is not stable, as the name suggests, and this is not supported)
     repaint_during_resize_gotcha_reentrant_repaint: bool = False
-    # AppWindowParams(std::string windowTitle = std::string(), WindowGeometry windowGeometry = WindowGeometry(), bool restorePreviousGeometry = false, bool resizable = true, bool hidden = false, bool borderless = false, bool borderlessMovable = true, bool borderlessResizable = true, bool borderlessClosable = true, ImVec4 borderlessHighlightColor = ImVec4(0.2f, 0.4f, 1.f, 0.3f), EdgeInsets edgeInsets = EdgeInsets(), bool handleEdgeInsets = true, EmscriptenKeyboardElement emscriptenKeyboardElement = EmscriptenKeyboardElement::Default, bool repaintDuringResize_GotchaReentrantRepaint = false);    /* original C++ signature */
+    # AppWindowParams(std::string windowTitle = std::string(), WindowGeometry windowGeometry = WindowGeometry(), bool restorePreviousGeometry = false, bool resizable = true, bool hidden = false, bool topMost = false, bool borderless = false, bool borderlessMovable = true, bool borderlessResizable = true, bool borderlessClosable = true, ImVec4 borderlessHighlightColor = ImVec4(0.2f, 0.4f, 1.f, 0.3f), EdgeInsets edgeInsets = EdgeInsets(), bool handleEdgeInsets = true, EmscriptenKeyboardElement emscriptenKeyboardElement = EmscriptenKeyboardElement::Default, bool repaintDuringResize_GotchaReentrantRepaint = false);    /* original C++ signature */
     def __init__(
         self,
         window_title: str = "",
@@ -1303,6 +1365,7 @@ class AppWindowParams:
         restore_previous_geometry: bool = False,
         resizable: bool = True,
         hidden: bool = False,
+        top_most: bool = False,
         borderless: bool = False,
         borderless_movable: bool = True,
         borderless_resizable: bool = True,
@@ -1840,6 +1903,11 @@ class RunnerCallbacks:
     #  It is a good place to add new dockable windows.
     pre_new_frame: VoidFunction = EmptyVoidFunction()
 
+    # VoidFunction PostNewFrame = EmptyVoidFunction();    /* original C++ signature */
+    # `PostNewFrame`: You can here add a function that will be called at each frame,
+    #  just after the call to ImGui::NewFrame(), and before any Gui code.
+    post_new_frame: VoidFunction = EmptyVoidFunction()
+
     # VoidFunction BeforeImGuiRender = EmptyVoidFunction();    /* original C++ signature */
     # `BeforeImGuiRender`: You can here add a function that will be called at each frame,
     #  after the user Gui code, and just before the call to
@@ -1865,6 +1933,14 @@ class RunnerCallbacks:
     # after the dockable windows are rendered.
     post_render_dockable_windows: VoidFunction = EmptyVoidFunction()
 
+    # VoidFunction ThemeChanged = EmptyVoidFunction();    /* original C++ signature */
+    # `ThemeChanged`: You can here add a function that will be called
+    #  immediately after `ImGuiTheme::ApplyTheme` has been executed. This is
+    #  typically triggered when the user clicks a theme menu item in the menubar,
+    #  allowing custom drawings or UI elements to update their colors right after
+    #  the theme change.
+    theme_changed: VoidFunction = EmptyVoidFunction()
+
     # AnyEventCallback AnyBackendEventCallback = EmptyEventCallback();    /* original C++ signature */
     # `AnyBackendEventCallback`:
     #  Callbacks for events from a specific backend. _Only implemented for SDL.
@@ -1875,7 +1951,7 @@ class RunnerCallbacks:
     any_backend_event_callback: AnyEventCallback = EmptyEventCallback()
 
     # --------------- Mobile callbacks -------------------
-    # RunnerCallbacks(VoidFunction ShowGui = EmptyVoidFunction(), VoidFunction ShowMenus = EmptyVoidFunction(), VoidFunction ShowAppMenuItems = EmptyVoidFunction(), VoidFunction ShowStatus = EmptyVoidFunction(), VoidFunction PostInit_AddPlatformBackendCallbacks = EmptyVoidFunction(), VoidFunction PostInit = EmptyVoidFunction(), VoidFunction LoadAdditionalFonts = ImGuiDefaultSettings::LoadDefaultFont_WithFontAwesomeIcons, DefaultIconFont defaultIconFont = DefaultIconFont::FontAwesome4, VoidFunction SetupImGuiConfig = ImGuiDefaultSettings::SetupDefaultImGuiConfig, VoidFunction SetupImGuiStyle = ImGuiDefaultSettings::SetupDefaultImGuiStyle, VoidFunction RegisterTests = EmptyVoidFunction(), bool registerTestsCalled = false, VoidFunction BeforeExit = EmptyVoidFunction(), VoidFunction BeforeExit_PostCleanup = EmptyVoidFunction(), VoidFunction PreNewFrame = EmptyVoidFunction(), VoidFunction BeforeImGuiRender = EmptyVoidFunction(), VoidFunction AfterSwap = EmptyVoidFunction(), VoidFunction CustomBackground = EmptyVoidFunction(), VoidFunction PostRenderDockableWindows = EmptyVoidFunction(), AnyEventCallback AnyBackendEventCallback = EmptyEventCallback());    /* original C++ signature */
+    # RunnerCallbacks(VoidFunction ShowGui = EmptyVoidFunction(), VoidFunction ShowMenus = EmptyVoidFunction(), VoidFunction ShowAppMenuItems = EmptyVoidFunction(), VoidFunction ShowStatus = EmptyVoidFunction(), VoidFunction PostInit_AddPlatformBackendCallbacks = EmptyVoidFunction(), VoidFunction PostInit = EmptyVoidFunction(), VoidFunction LoadAdditionalFonts = ImGuiDefaultSettings::LoadDefaultFont_WithFontAwesomeIcons, DefaultIconFont defaultIconFont = DefaultIconFont::FontAwesome4, VoidFunction SetupImGuiConfig = ImGuiDefaultSettings::SetupDefaultImGuiConfig, VoidFunction SetupImGuiStyle = ImGuiDefaultSettings::SetupDefaultImGuiStyle, VoidFunction RegisterTests = EmptyVoidFunction(), bool registerTestsCalled = false, VoidFunction BeforeExit = EmptyVoidFunction(), VoidFunction BeforeExit_PostCleanup = EmptyVoidFunction(), VoidFunction PreNewFrame = EmptyVoidFunction(), VoidFunction PostNewFrame = EmptyVoidFunction(), VoidFunction BeforeImGuiRender = EmptyVoidFunction(), VoidFunction AfterSwap = EmptyVoidFunction(), VoidFunction CustomBackground = EmptyVoidFunction(), VoidFunction PostRenderDockableWindows = EmptyVoidFunction(), VoidFunction ThemeChanged = EmptyVoidFunction(), AnyEventCallback AnyBackendEventCallback = EmptyEventCallback());    /* original C++ signature */
     def __init__(
         self,
         show_gui: Optional[VoidFunction] = None,
@@ -1893,10 +1969,12 @@ class RunnerCallbacks:
         before_exit: Optional[VoidFunction] = None,
         before_exit_post_cleanup: Optional[VoidFunction] = None,
         pre_new_frame: Optional[VoidFunction] = None,
+        post_new_frame: Optional[VoidFunction] = None,
         before_imgui_render: Optional[VoidFunction] = None,
         after_swap: Optional[VoidFunction] = None,
         custom_background: Optional[VoidFunction] = None,
         post_render_dockable_windows: Optional[VoidFunction] = None,
+        theme_changed: Optional[VoidFunction] = None,
         any_backend_event_callback: Optional[AnyEventCallback] = None,
     ) -> None:
         """Auto-generated default constructor with named params
@@ -1917,10 +1995,12 @@ class RunnerCallbacks:
                 * BeforeExit: EmptyVoidFunction()
                 * BeforeExit_PostCleanup: EmptyVoidFunction()
                 * PreNewFrame: EmptyVoidFunction()
+                * PostNewFrame: EmptyVoidFunction()
                 * BeforeImGuiRender: EmptyVoidFunction()
                 * AfterSwap: EmptyVoidFunction()
                 * CustomBackground: EmptyVoidFunction()
                 * PostRenderDockableWindows: EmptyVoidFunction()
+                * ThemeChanged: EmptyVoidFunction()
                 * AnyBackendEventCallback: EmptyEventCallback()
         """
         pass
@@ -2120,7 +2200,7 @@ class DockingSplit:
     # `nodeFlags`: *ImGuiDockNodeFlags_ (enum)*.
     #  Flags to apply to the new dock space
     #  (enable/disable resizing, splitting, tab bar, etc.)
-    node_flags: ImGuiDockNodeFlags = DockNodeFlags_.none
+    node_flags: ImGuiDockNodeFlags = ImGuiDockNodeFlags_None
 
     # DockingSplit(const DockSpaceName& initialDock_ = "", const DockSpaceName& newDock_ = "",    /* original C++ signature */
     #                  ImGuiDir direction_ = ImGuiDir_Down, float ratio_ = 0.25f,
@@ -2139,8 +2219,8 @@ class DockingSplit:
 
         Python bindings defaults:
             If any of the params below is None, then its default value below will be used:
-                * direction_: Dir.down
-                * nodeFlags_: DockNodeFlags_.none
+                * direction_: ImGuiDir_Down
+                * nodeFlags_: ImGuiDockNodeFlags_None
         """
         pass
 
@@ -2219,7 +2299,7 @@ class DockableWindow:
     # ImGuiCond  windowSizeCondition = ImGuiCond_FirstUseEver;    /* original C++ signature */
     # `windowSizeCondition`: _ImGuiCond, default=ImGuiCond_FirstUseEver_.
     #  When to apply the window size.
-    window_size_condition: ImGuiCond = Cond_.first_use_ever
+    window_size_condition: ImGuiCond = ImGuiCond_FirstUseEver
 
     # ImVec2 windowPosition = ImVec2(0.f, 0.f);    /* original C++ signature */
     # `windowPos`: _ImVec2, default=(0., 0.) (i.e let the app decide)_.
@@ -2229,7 +2309,7 @@ class DockableWindow:
     # ImGuiCond  windowPositionCondition = ImGuiCond_FirstUseEver;    /* original C++ signature */
     # `windowPosCondition`: _ImGuiCond, default=ImGuiCond_FirstUseEver_.
     #  When to apply the window position.
-    window_position_condition: ImGuiCond = Cond_.first_use_ever
+    window_position_condition: ImGuiCond = ImGuiCond_FirstUseEver
 
     # DockableWindow(    /* original C++ signature */
     #         const std::string & label_ = "",
@@ -2306,7 +2386,7 @@ class DockingParams:
     #  Most flags are inherited by children dock spaces.
     #  You can also set flags for specific dock spaces via `DockingSplit.nodeFlags`
     main_dock_space_node_flags: ImGuiDockNodeFlags = (
-        DockNodeFlags_.passthru_central_node
+        ImGuiDockNodeFlags_PassthruCentralNode
     )
 
     # --------------- Layout handling -----------------------------
@@ -2362,7 +2442,7 @@ class DockingParams:
             If any of the params below is None, then its default value below will be used:
                 * dockingSplits: List[DockingSplit]()
                 * dockableWindows: List[DockableWindow]()
-                * mainDockSpaceNodeFlags: DockNodeFlags_.passthru_central_node
+                * mainDockSpaceNodeFlags: ImGuiDockNodeFlags_PassthruCentralNode
         """
         pass
 
@@ -2686,6 +2766,14 @@ class RendererBackendType(enum.IntEnum):
 
 # @@md
 
+# std::string PlatformBackendTypeToString(PlatformBackendType platformBackendType);    /* original C++ signature */
+def platform_backend_type_to_string(platform_backend_type: PlatformBackendType) -> str:
+    pass
+
+# std::string RendererBackendTypeToString(RendererBackendType rendererBackendType);    /* original C++ signature */
+def renderer_backend_type_to_string(renderer_backend_type: RendererBackendType) -> str:
+    pass
+
 # --------------------------------------------------------------------------------------------------------------------
 
 # @@md#IniFolderType
@@ -2759,15 +2847,26 @@ def ini_folder_location(ini_folder_type: IniFolderType) -> str:
 # @@md#FpsIdling
 
 class FpsIdlingMode(enum.IntEnum):
-    """FpsIdlingMode is an enum that describes the different modes of idling when rendering the GUI.
-    - Sleep: the application will sleep when idling to reduce CPU usage.
-    - EarlyReturn: rendering will return immediately when idling.
-      This is specifically designed for event-driven, and real-time applications.
-      Avoid using it in a tight loop without pauses, as it may cause excessive CPU consumption.
-    - Auto: use platform-specific default behavior.
-       On most platforms, it will sleep. On Emscripten, `Render()` will return immediately
-       to avoid blocking the main thread.
-    Note: you can override the default behavior by explicitly setting Sleep or EarlyReturn.
+    """FpsIdlingMode is an enum that describes the different modes of idling
+    when rendering the GUI.
+
+    - Sleep:
+        The application sleeps when idling in order to reduce CPU usage.
+
+    - EarlyReturn:
+        Rendering returns immediately when idling.
+        This is designed for event-driven or real-time applications,
+        including Jupyter/async usage and web applications.
+        Avoid using EarlyReturn inside a tight CPU loop without pauses,
+        as it may cause excessive CPU consumption.
+
+    - Auto:
+        Use platform-specific default behavior.
+        On most native platforms, it will sleep.
+        On Emscripten, Render() will always return immediately
+        to avoid blocking the main browser thread.
+
+    Note: you can override the default behavior by explicitly choosing Sleep or EarlyReturn.
     """
 
     # Sleep,    /* original C++ signature */
@@ -2779,47 +2878,99 @@ class FpsIdlingMode(enum.IntEnum):
     auto = enum.auto()  # (= 2)
 
 class FpsIdling:
-    """FpsIdling is a struct that contains Fps Idling parameters"""
+    """FpsIdling is a struct that contains parameters controlling the application's
+    frame pacing, idling behavior, and performance.
+
+    It provides tools to:
+      - lower CPU/GPU usage during inactivity,
+      - control maximum refresh speed,
+      - enable/disable synchronization to the monitor refresh rate,
+      - adapt frame pacing for special environments (notebooks, web, etc.).
+    """
 
     # float fpsIdle = 9.f;    /* original C++ signature */
-    # `fpsIdle`: _float, default=9_.
-    #  ImGui applications can consume a lot of CPU, since they update the screen
-    #  very frequently. In order to reduce the CPU usage, the FPS is reduced when
-    #  no user interaction is detected.
-    #  This is ok most of the time but if you are displaying animated widgets
-    #  (for example a live video), you may want to ask for a faster refresh:
-    #  either increase fpsIdle, or set it to 0 for maximum refresh speed
-    #  (you can change this value during the execution depending on your application
-    #  refresh needs)
+    # `fpsIdle`: _float, default = 9_.
+    #
+    # When the application is idling (no user interaction detected), its FPS
+    # will be reduced to this value in order to save CPU and GPU resources.
+    #
+    # For animated or real-time widgets (e.g., live video), you may need a
+    # higher idle refresh rate, or even disable idling entirely.
+    #
+    # Set fpsIdle = 0. for maximum refresh speed during idling.
     fps_idle: float = 9.0
 
     # float timeActiveAfterLastEvent = 3.f;    /* original C++ signature */
-    # `timeActiveAfterLastEvent`: _float, default=3._.
-    #  Time in seconds after the last event before the application is considered idling.
+    # `timeActiveAfterLastEvent`: _float, default = 3._.
+    #
+    # The duration (in seconds) after the last user event before the
+    # application switches to idling mode.
     time_active_after_last_event: float = 3.0
 
-    # bool  enableIdling = true;    /* original C++ signature */
-    # `enableIdling`: _bool, default=true_.
-    #  Disable idling by setting this to False.
-    #  (this can be changed dynamically during execution)
+    # bool enableIdling = true;    /* original C++ signature */
+    # `enableIdling`: _bool, default = true_.
+    #
+    # Enables or disables idling. When disabled, the application renders at
+    # full speed regardless of user activity.
+    #
+    # This can be changed dynamically during execution.
     enable_idling: bool = True
 
-    # bool  isIdling = false;    /* original C++ signature */
-    # `isIdling`: bool (dynamically updated during execution)
-    #  This bool will be updated during the application execution,
-    #  and will be set to True when it is idling.
+    # bool isIdling = false;    /* original C++ signature */
+    # `isIdling`: _bool (updated dynamically)_.
+    #
+    # This boolean is updated internally at runtime, and becomes True when
+    # the application is considered idle.
     is_idling: bool = False
 
-    # bool  rememberEnableIdling = false;    /* original C++ signature */
-    # `rememberEnableIdling`: _bool, default=true_.
-    #  If True, the last value of enableIdling is restored from the settings at startup.
+    # bool rememberEnableIdling = false;    /* original C++ signature */
+    # `rememberEnableIdling`: _bool, default = False.
+    #
+    # If True, the value of enableIdling will be restored from previous
+    # saved settings on startup.
     remember_enable_idling: bool = False
 
     # FpsIdlingMode fpsIdlingMode = FpsIdlingMode::Auto;    /* original C++ signature */
-    # `fpsIdlingMode`: _FpsIdlingMode, default=FpsIdlingMode::Automatic_.
-    # Sets the mode of idling when rendering the GUI (Sleep, EarlyReturn, Automatic)
+    # `fpsIdlingMode`: _FpsIdlingMode, default = FpsIdlingMode::Auto_.
+    #
+    # Controls how idling is implemented internally:
+    #   - Sleep: sleep while idling (minimizes CPU usage)
+    #   - EarlyReturn: return immediately when idling (best for notebooks and async use)
+    #   - Auto: platform-specific behavior
     fps_idling_mode: FpsIdlingMode = FpsIdlingMode.auto
-    # FpsIdling(float fpsIdle = 9.f, float timeActiveAfterLastEvent = 3.f, bool enableIdling = true, bool isIdling = false, bool rememberEnableIdling = false, FpsIdlingMode fpsIdlingMode = FpsIdlingMode::Auto);    /* original C++ signature */
+
+    # bool vsyncToMonitor = true;    /* original C++ signature */
+    # `vsyncToMonitor`: _bool, default = true_.
+    #
+    # If True, rendering is synchronized with the monitor refresh rate (commonly
+    # known as *VSync*). This limits the frame rate to the display frequency
+    # (e.g., 60 Hz, 120 Hz) and prevents unnecessary CPU/GPU load.
+    # *Only implemented with OpenGL*
+    #
+    # If False, rendering runs as fast as possible, or is limited by `fpsMax`.
+    # This is useful for benchmarking, offscreen rendering, or Jupyter/async workflows.
+    #
+    # Internally, this maps to the backend swap interval (e.g. glfwSwapInterval).
+    vsync_to_monitor: bool = True
+
+    # float fpsMax = 0.f;    /* original C++ signature */
+    # `fpsMax`: _float, default = 0._ (unlimited).
+    #
+    # Sets an explicit upper limit on the frame rate when not idling.
+    #
+    # This is particularly useful when:
+    #   - vsyncToMonitor is False,
+    #   - you want to avoid >1000 FPS rendering loops,
+    #   - preventing excessive CPU/GPU usage on high-performance machines,
+    #   - ensuring fairness in cooperative async environments.
+    #
+    # If fpsMax > 0, the application ensures that each frame takes at least
+    # (1 / fpsMax) seconds to render.
+    #
+    # When both vsyncToMonitor and fpsMax are enabled:
+    #   - The lower (stricter) limit dominates.
+    fps_max: float = 0.0
+    # FpsIdling(float fpsIdle = 9.f, float timeActiveAfterLastEvent = 3.f, bool enableIdling = true, bool isIdling = false, bool rememberEnableIdling = false, FpsIdlingMode fpsIdlingMode = FpsIdlingMode::Auto, bool vsyncToMonitor = true, float fpsMax = 0.f);    /* original C++ signature */
     def __init__(
         self,
         fps_idle: float = 9.0,
@@ -2828,6 +2979,8 @@ class FpsIdling:
         is_idling: bool = False,
         remember_enable_idling: bool = False,
         fps_idling_mode: FpsIdlingMode = FpsIdlingMode.auto,
+        vsync_to_monitor: bool = True,
+        fps_max: float = 0.0,
     ) -> None:
         """Auto-generated default constructor with named params"""
         pass
@@ -2930,6 +3083,14 @@ class RunnerParams:
     # `iniFilename_useAppWindowTitle`: _bool, default = true_.
     # Shall the iniFilename be derived from appWindowParams.windowTitle (if not empty)
     ini_filename_use_app_window_title: bool = True
+    # bool iniDisable = false;    /* original C++ signature */
+    # `iniDisable`: _bool, default = false_.
+    # If True, do not save or load any settings to or from an ini file.
+    ini_disable: bool = False
+    # bool iniClearPreviousSettings = false;    /* original C++ signature */
+    # `iniClearPreviousSettings`: _bool, default = false_.
+    # If True, delete any previous settings ini file at application startup.
+    ini_clear_previous_settings: bool = False
 
     # --------------- Exit -------------------
 
@@ -2974,7 +3135,7 @@ class RunnerParams:
     # (only used on emscripten: 0 stands for "let the app or the browser decide")
     emscripten_fps: int = 0
 
-    # RunnerParams(RunnerCallbacks callbacks = RunnerCallbacks(), AppWindowParams appWindowParams = AppWindowParams(), ImGuiWindowParams imGuiWindowParams = ImGuiWindowParams(), DockingParams dockingParams = DockingParams(), std::vector<DockingParams> alternativeDockingLayouts = std::vector<DockingParams>(), bool rememberSelectedAlternativeLayout = true, BackendPointers backendPointers = BackendPointers(), RendererBackendOptions rendererBackendOptions = RendererBackendOptions(), PlatformBackendType platformBackendType = PlatformBackendType::FirstAvailable, RendererBackendType rendererBackendType = RendererBackendType::FirstAvailable, IniFolderType iniFolderType = IniFolderType::CurrentFolder, std::string iniFilename = "", bool iniFilename_useAppWindowTitle = true, bool appShallExit = false, FpsIdling fpsIdling = FpsIdling(), DpiAwareParams dpiAwareParams = DpiAwareParams(), bool useImGuiTestEngine = false, int emscripten_fps = 0);    /* original C++ signature */
+    # RunnerParams(RunnerCallbacks callbacks = RunnerCallbacks(), AppWindowParams appWindowParams = AppWindowParams(), ImGuiWindowParams imGuiWindowParams = ImGuiWindowParams(), DockingParams dockingParams = DockingParams(), std::vector<DockingParams> alternativeDockingLayouts = std::vector<DockingParams>(), bool rememberSelectedAlternativeLayout = true, BackendPointers backendPointers = BackendPointers(), RendererBackendOptions rendererBackendOptions = RendererBackendOptions(), PlatformBackendType platformBackendType = PlatformBackendType::FirstAvailable, RendererBackendType rendererBackendType = RendererBackendType::FirstAvailable, IniFolderType iniFolderType = IniFolderType::CurrentFolder, std::string iniFilename = "", bool iniFilename_useAppWindowTitle = true, bool iniDisable = false, bool iniClearPreviousSettings = false, bool appShallExit = false, FpsIdling fpsIdling = FpsIdling(), DpiAwareParams dpiAwareParams = DpiAwareParams(), bool useImGuiTestEngine = false, int emscripten_fps = 0);    /* original C++ signature */
     def __init__(
         self,
         callbacks: Optional[RunnerCallbacks] = None,
@@ -2990,6 +3151,8 @@ class RunnerParams:
         ini_folder_type: IniFolderType = IniFolderType.current_folder,
         ini_filename: str = "",
         ini_filename_use_app_window_title: bool = True,
+        ini_disable: bool = False,
+        ini_clear_previous_settings: bool = False,
         app_shall_exit: bool = False,
         fps_idling: Optional[FpsIdling] = None,
         dpi_aware_params: Optional[DpiAwareParams] = None,
@@ -3017,8 +3180,8 @@ class RunnerParams:
 
 # @@md#IniIniSettingsLocation
 
-# std::string IniSettingsLocation(const RunnerParams& runnerParams);    /* original C++ signature */
-def ini_settings_location(runner_params: RunnerParams) -> str:
+# std::optional<std::string> IniSettingsLocation(const RunnerParams& runnerParams);    /* original C++ signature */
+def ini_settings_location(runner_params: RunnerParams) -> Optional[str]:
     """IniSettingsLocation returns the path to the ini file for the application settings."""
     pass
 
@@ -3095,10 +3258,16 @@ class SimpleRunnerParams:
     #      HelloImGui::GetRunnerParams()->fpsIdling.enableIdling = False;
     enable_idling: bool = True
 
+    # bool topMost = false;    /* original C++ signature */
+    # `topMost`: _bool, default=false_.
+    #  If True, the window will stay on top of other windows (desktop platforms only).
+    #  Useful especially when running from notebooks to keep the app visible above the browser.
+    top_most: bool = False
+
     # RunnerParams ToRunnerParams() const;    /* original C++ signature */
     def to_runner_params(self) -> RunnerParams:
         pass
-    # SimpleRunnerParams(VoidFunction guiFunction = EmptyVoidFunction(), std::string windowTitle = "", bool windowSizeAuto = false, bool windowRestorePreviousGeometry = false, ScreenSize windowSize = DefaultWindowSize, float fpsIdle = 9.f, bool enableIdling = true);    /* original C++ signature */
+    # SimpleRunnerParams(VoidFunction guiFunction = EmptyVoidFunction(), std::string windowTitle = "", bool windowSizeAuto = false, bool windowRestorePreviousGeometry = false, ScreenSize windowSize = DefaultWindowSize, float fpsIdle = 9.f, bool enableIdling = true, bool topMost = false);    /* original C++ signature */
     def __init__(
         self,
         gui_function: Optional[VoidFunction] = None,
@@ -3108,6 +3277,7 @@ class SimpleRunnerParams:
         window_size: Optional[ScreenSize] = None,
         fps_idle: float = 9.0,
         enable_idling: bool = True,
+        top_most: bool = False,
     ) -> None:
         """Auto-generated default constructor with named params
 
@@ -3300,7 +3470,8 @@ def run(simple_params: SimpleRunnerParams) -> None:
 #     bool windowSizeAuto = false,
 #     bool windowRestorePreviousGeometry = false,
 #     const ScreenSize &windowSize = DefaultWindowSize,
-#     float fpsIdle = 10.f
+#     float fpsIdle = 10.f,
+#     bool topMost = false
 # );
 @overload
 def run(
@@ -3310,6 +3481,7 @@ def run(
     window_restore_previous_geometry: bool = False,
     window_size: Optional[ScreenSize] = None,
     fps_idle: float = 10.0,
+    top_most: bool = False,
 ) -> None:
     """Runs an application, by providing the Gui function, the window title, etc.
 
@@ -3544,15 +3716,15 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
     #     By default,
     #       - On Emscripten, `ManualRender::Render()` will return immediately to avoid blocking the main thread.
     #       - On other platforms, it will sleep
-    #  2. If initialized with `RunnerParams`, a copy of the `RunnerParams` will be made
+    #  2. If initialized with `RunnerParams`, a reference to the user's `RunnerParams` is kept
     #     (which can be accessed with `HelloImGui::GetRunnerParams()`).
 
-    # void SetupFromRunnerParams(const RunnerParams& runnerParams);    /* original C++ signature */
+    # void SetupFromRunnerParams(RunnerParams& runnerParams);    /* original C++ signature */
     @staticmethod
     def setup_from_runner_params(runner_params: RunnerParams) -> None:
         """Initializes the rendering with the full customizable `RunnerParams`.
         This will initialize the platform backend (SDL, Glfw, etc.) and the rendering backend (OpenGL, Vulkan, etc.).
-        A distinct copy of `RunnerParams` is stored internally.
+        A reference to the user's `RunnerParams` is kept internally (similar to HelloImGui::Run).
         """
         pass
     # void SetupFromSimpleRunnerParams(const SimpleRunnerParams& simpleParams);    /* original C++ signature */
@@ -3568,7 +3740,8 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
     #         bool windowSizeAuto = false,
     #         bool windowRestorePreviousGeometry = false,
     #         const ScreenSize& windowSize = DefaultWindowSize,
-    #         float fpsIdle = 10.f
+    #         float fpsIdle = 10.f,
+    #         bool topMost = false
     #     );
     @staticmethod
     def setup_from_gui_function(
@@ -3578,6 +3751,7 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
         window_restore_previous_geometry: bool = False,
         window_size: Optional[ScreenSize] = None,
         fps_idle: float = 10.0,
+        top_most: bool = False,
     ) -> None:
         """Initializes the renderer with a simple GUI function and additional parameters.
          This will initialize the platform backend (SDL, Glfw, etc.) and the rendering backend (OpenGL, Vulkan, etc.).
@@ -3607,6 +3781,72 @@ class manual_render:  # Proxy class that introduces typings for the *submodule* 
 
 # </litgen_stub>
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  AUTOGENERATED CODE END !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# =========================== HelloImGui::run_async ==================================
+# Async support for non-blocking GUI execution
+
+@overload
+async def run_async(runner_params: RunnerParams) -> None:
+    """Run a HelloImGui application asynchronously using RunnerParams.
+
+    This function will run until the application exits (user closes window or app_shall_exit is set).
+    Use this when you need full control over the async lifecycle.
+
+    Example:
+        async def my_app():
+            runner = hello_imgui.RunnerParams()
+            runner.callbacks.show_gui = my_gui_function
+            await hello_imgui.run_async(runner)
+            print("GUI closed")
+
+        asyncio.run(my_app())
+    """
+    ...
+
+@overload
+async def run_async(simple_params: SimpleRunnerParams) -> None:
+    """Run a HelloImGui application asynchronously using SimpleRunnerParams.
+
+    Example:
+        simple = hello_imgui.SimpleRunnerParams()
+        simple.gui_function = my_gui_function
+        simple.window_title = "My App"
+        await hello_imgui.run_async(simple)
+    """
+    ...
+
+@overload
+async def run_async(
+    gui_function: VoidFunction,
+    window_title: str = "",
+    window_size_auto: bool = False,
+    window_restore_previous_geometry: bool = False,
+    window_size: Optional[ScreenSize] = None,
+    fps_idle: float = 10.0,
+    top_most: bool = False,
+) -> None:
+    """Run a HelloImGui application asynchronously using a GUI function and parameters.
+
+    Args:
+        gui_function: The GUI function to call each frame
+        window_title: Window title
+        window_size_auto: Auto-size window to fit content
+        window_restore_previous_geometry: Restore window size/position from previous run
+        window_size: Window size in pixels (width, height)
+        fps_idle: FPS when application is idle
+        top_most: Keep window on top of others
+
+    Example:
+        await hello_imgui.run_async(
+            my_gui_function,
+            window_title="My App",
+            window_size_auto=True,
+            fps_idle=10.0
+        )
+    """
+    ...
+
+# ============================== Screenshot Utils =============================
 
 def final_app_window_screenshot() -> np.ndarray:
     """Return a screenshot of the final screen of the last (exited) app"""

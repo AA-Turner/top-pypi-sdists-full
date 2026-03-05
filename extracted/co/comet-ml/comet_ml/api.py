@@ -46,6 +46,7 @@ from ._typing import (
 )
 from .api_objects import model
 from .api_objects.model import ModelStatusConfiguration
+from .api_objects.view import View
 from .common_experiment import CommonExperiment
 from .config import get_api_key, get_config
 from .connection.connection_factory import get_rest_api_client
@@ -1479,6 +1480,62 @@ class APIExperiment(CommonExperiment):
         results = self._api._client.get_experiment_tags(self.id)
         if results:
             return results["tags"]
+
+    def get_views(self):
+        """
+        Get all views scoped to this experiment.
+
+        Returns:
+            list: A list of View objects for this experiment.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            experiment = comet_ml.APIExperiment(
+                previous_experiment="EXPERIMENT-KEY"
+            )
+            views = experiment.get_views()
+            for view in views:
+                print(view.name)
+            ```
+        """
+        raw_views = self._api._client.get_views(self.project_id, experiment_key=self.id)
+        return [View.from_payload_dict(v) for v in raw_views]
+
+    def create_view(self, view):
+        """
+        Create or update a view scoped to this experiment.
+
+        Args:
+            view (View): A View instance. The experiment_key will be set
+                automatically.
+
+        Returns:
+            View or None: The created View, or None on failure.
+
+        Raises:
+            ValueError: If the view name is empty.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+            from comet_ml.api_objects.view import View
+
+            comet_ml.login()
+            experiment = comet_ml.APIExperiment(
+                previous_experiment="EXPERIMENT-KEY"
+            )
+            view = View(name="My Dashboard")
+            created = experiment.create_view(view)
+            ```
+        """
+        view.experiment_key = self.id
+        result = self._api._client.upsert_view(self.project_id, view)
+        if result:
+            return View.from_payload_dict(result)
+        return None
 
     def get_parameters_summary(self, parameter=None):
         """
@@ -5551,6 +5608,76 @@ class API(object):
             workspace, project_name, project_description, public
         )
         return results
+
+    def get_views(self, workspace, project_name):
+        """
+        Get all views for a project.
+
+        Args:
+            workspace (str): The name of the workspace.
+            project_name (str): The name of the project.
+
+        Returns:
+            list: A list of View objects.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+            views = api.get_views("my-workspace", "my-project")
+            for view in views:
+                print(view.name)
+            ```
+        """
+        project_json = self.get_project(workspace, project_name)
+        if project_json:
+            project_id = project_json["projectId"]
+            raw_views = self._client.get_views(project_id)
+            return [View.from_payload_dict(v) for v in raw_views]
+        else:
+            raise ValueError(
+                "unknown project %r in workspace %r" % (project_name, workspace)
+            )
+
+    def create_view(self, workspace, project_name, view):
+        """
+        Create or update a view for a project.
+
+        Args:
+            workspace (str): The name of the workspace.
+            project_name (str): The name of the project.
+            view (View): A View instance with at least a non-empty name.
+
+        Returns:
+            View or None: The created View, or None on failure.
+
+        Raises:
+            ValueError: If the view name is empty or the project is not found.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+            from comet_ml.api_objects.view import View
+
+            comet_ml.login()
+            api = comet_ml.API()
+            view = View(name="My Dashboard")
+            created = api.create_view("my-workspace", "my-project", view)
+            ```
+        """
+        project_json = self.get_project(workspace, project_name)
+        if project_json:
+            project_id = project_json["projectId"]
+            result = self._client.upsert_view(project_id, view)
+            if result:
+                return View.from_payload_dict(result)
+            return None
+        else:
+            raise ValueError(
+                "unknown project %r in workspace %r" % (project_name, workspace)
+            )
 
     def update_project(
         self,

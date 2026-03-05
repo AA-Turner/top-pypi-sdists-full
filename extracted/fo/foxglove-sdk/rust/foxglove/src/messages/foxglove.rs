@@ -387,6 +387,9 @@ pub struct Grid {
 #[cfg_attr(feature = "serde", derive(::serde::Serialize, ::serde::Deserialize))]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImageAnnotations {
+    /// Timestamp of the image annotations. When set, individual annotation timestamps will be ignored.
+    #[prost(message, optional, tag = "5")]
+    pub timestamp: ::core::option::Option<crate::messages::Timestamp>,
     /// Circle annotations
     #[prost(message, repeated, tag = "1")]
     pub circles: ::prost::alloc::vec::Vec<CircleAnnotation>,

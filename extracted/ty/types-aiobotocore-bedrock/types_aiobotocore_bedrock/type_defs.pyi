@@ -71,6 +71,7 @@ from .literals import (
     ModelCustomizationType,
     ModelImportJobStatusType,
     ModelInvocationJobStatusType,
+    ModelInvocationTypeType,
     ModelModalityType,
     ModelStatusType,
     OfferTypeType,
@@ -1008,6 +1009,10 @@ class FilterAttributeTypeDef(TypedDict):
 
 class FoundationModelLifecycleTypeDef(TypedDict):
     status: FoundationModelLifecycleStatusType
+    startOfLifeTime: NotRequired[datetime]
+    endOfLifeTime: NotRequired[datetime]
+    legacyTime: NotRequired[datetime]
+    publicExtendedAccessTime: NotRequired[datetime]
 
 class GetAutomatedReasoningPolicyAnnotationsRequestTypeDef(TypedDict):
     policyArn: str
@@ -2834,6 +2839,7 @@ class GetModelInvocationJobResponseTypeDef(TypedDict):
     vpcConfig: VpcConfigOutputTypeDef
     timeoutDurationInHours: int
     jobExpirationTime: datetime
+    modelInvocationType: ModelInvocationTypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ModelInvocationJobSummaryTypeDef(TypedDict):
@@ -2852,6 +2858,7 @@ class ModelInvocationJobSummaryTypeDef(TypedDict):
     vpcConfig: NotRequired[VpcConfigOutputTypeDef]
     timeoutDurationInHours: NotRequired[int]
     jobExpirationTime: NotRequired[datetime]
+    modelInvocationType: NotRequired[ModelInvocationTypeType]
 
 class CustomMetricDefinitionOutputTypeDef(TypedDict):
     name: str
@@ -2897,6 +2904,7 @@ class CreateModelInvocationJobRequestTypeDef(TypedDict):
     vpcConfig: NotRequired[VpcConfigUnionTypeDef]
     timeoutDurationInHours: NotRequired[int]
     tags: NotRequired[Sequence[TagTypeDef]]
+    modelInvocationType: NotRequired[ModelInvocationTypeType]
 
 class ModelCustomizationJobSummaryTypeDef(TypedDict):
     jobArn: str

@@ -79,6 +79,7 @@ from .literals import (
     ProjectStatusType,
     ProtocolType,
     RejectRuleBehaviorType,
+    RelationDirectionType,
     ResourceTagSourceType,
     RuleActionType,
     RuleScopeSelectionModeType,
@@ -131,6 +132,7 @@ __all__ = (
     "AddPolicyGrantInputTypeDef",
     "AddPolicyGrantOutputTypeDef",
     "AddToProjectMemberPoolPolicyGrantDetailTypeDef",
+    "AdditionalAttributesTypeDef",
     "AggregationListItemTypeDef",
     "AggregationOutputItemTypeDef",
     "AggregationOutputTypeDef",
@@ -321,6 +323,8 @@ __all__ = (
     "DomainUnitUserPropertiesTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionConfigurationTypeDef",
+    "EntityPatternPaginatorTypeDef",
+    "EntityPatternTypeDef",
     "EnvironmentActionSummaryTypeDef",
     "EnvironmentBlueprintConfigurationItemTypeDef",
     "EnvironmentBlueprintSummaryTypeDef",
@@ -471,6 +475,7 @@ __all__ = (
     "LikeExpressionTypeDef",
     "LineageEventSummaryTypeDef",
     "LineageInfoTypeDef",
+    "LineageNodeItemTypeDef",
     "LineageNodeReferenceTypeDef",
     "LineageNodeSummaryTypeDef",
     "LineageNodeTypeItemTypeDef",
@@ -581,6 +586,8 @@ __all__ = (
     "ListingSummaryItemTypeDef",
     "ListingSummaryTypeDef",
     "ManagedEndpointCredentialsTypeDef",
+    "MatchClausePaginatorTypeDef",
+    "MatchClauseTypeDef",
     "MatchOffsetTypeDef",
     "MatchRationaleItemTypeDef",
     "MemberDetailsTypeDef",
@@ -651,6 +658,9 @@ __all__ = (
     "PutDataExportConfigurationInputTypeDef",
     "PutEnvironmentBlueprintConfigurationInputTypeDef",
     "PutEnvironmentBlueprintConfigurationOutputTypeDef",
+    "QueryGraphInputPaginateTypeDef",
+    "QueryGraphInputTypeDef",
+    "QueryGraphOutputTypeDef",
     "RecommendationConfigurationTypeDef",
     "RedshiftClusterStorageTypeDef",
     "RedshiftCredentialConfigurationTypeDef",
@@ -673,6 +683,7 @@ __all__ = (
     "RejectRuleTypeDef",
     "RejectSubscriptionRequestInputTypeDef",
     "RejectSubscriptionRequestOutputTypeDef",
+    "RelationPatternTypeDef",
     "RelationalFilterConfigurationOutputTypeDef",
     "RelationalFilterConfigurationTypeDef",
     "RelationalFilterConfigurationUnionTypeDef",
@@ -682,6 +693,7 @@ __all__ = (
     "ResourceTagTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
+    "ResultItemTypeDef",
     "RevokeSubscriptionInputTypeDef",
     "RevokeSubscriptionOutputTypeDef",
     "RowFilterConfigurationOutputTypeDef",
@@ -881,6 +893,9 @@ class AwsConsoleLinkParametersTypeDef(TypedDict):
 
 class AddToProjectMemberPoolPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
+
+class AdditionalAttributesTypeDef(TypedDict):
+    formNames: NotRequired[Sequence[str]]
 
 class AggregationListItemTypeDef(TypedDict):
     attribute: str
@@ -2198,6 +2213,11 @@ ManagedEndpointCredentialsTypeDef = TypedDict(
     },
 )
 
+class RelationPatternTypeDef(TypedDict):
+    relationType: Literal["LINEAGE"]
+    relationDirection: RelationDirectionType
+    maxPathLength: NotRequired[int]
+
 class MatchOffsetTypeDef(TypedDict):
     startOffset: NotRequired[int]
     endOffset: NotRequired[int]
@@ -2631,6 +2651,27 @@ UpdateGroupProfileOutputTypeDef = TypedDict(
 class BatchGetAttributeOutputTypeDef(TypedDict):
     attributeIdentifier: str
     forms: NotRequired[list[FormOutputTypeDef]]
+
+LineageNodeItemTypeDef = TypedDict(
+    "LineageNodeItemTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "typeName": str,
+        "name": NotRequired[str],
+        "description": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+        "typeRevision": NotRequired[str],
+        "sourceIdentifier": NotRequired[str],
+        "eventTimestamp": NotRequired[datetime],
+        "formsOutput": NotRequired[list[FormOutputTypeDef]],
+        "upstreamLineageNodeIds": NotRequired[list[str]],
+        "downstreamLineageNodeIds": NotRequired[list[str]],
+    },
+)
 
 class ListAccountsInAccountPoolOutputTypeDef(TypedDict):
     items: list[AccountInfoOutputTypeDef]
@@ -4205,6 +4246,9 @@ class BatchGetAttributesMetadataOutputTypeDef(TypedDict):
     errors: list[AttributeErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ResultItemTypeDef(TypedDict):
+    lineageNode: NotRequired[LineageNodeItemTypeDef]
+
 CreateAccountPoolOutputTypeDef = TypedDict(
     "CreateAccountPoolOutputTypeDef",
     {
@@ -4770,6 +4814,11 @@ EnvironmentConfigurationUserParameterUnionTypeDef = Union[
     EnvironmentConfigurationUserParameterTypeDef, EnvironmentConfigurationUserParameterOutputTypeDef
 ]
 
+class EntityPatternPaginatorTypeDef(TypedDict):
+    entityType: Literal["LINEAGE_NODE"]
+    identifier: str
+    filters: NotRequired[FilterClausePaginatorTypeDef]
+
 class SearchInputPaginateTypeDef(TypedDict):
     domainIdentifier: str
     searchScope: InventorySearchScopeType
@@ -4800,6 +4849,11 @@ class SearchTypesInputPaginateTypeDef(TypedDict):
     filters: NotRequired[FilterClausePaginatorTypeDef]
     sort: NotRequired[SearchSortTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class EntityPatternTypeDef(TypedDict):
+    entityType: Literal["LINEAGE_NODE"]
+    identifier: str
+    filters: NotRequired[FilterClauseTypeDef]
 
 class SearchInputTypeDef(TypedDict):
     domainIdentifier: str
@@ -5222,6 +5276,11 @@ class UpdateGlossaryTermInputTypeDef(TypedDict):
     termRelations: NotRequired[TermRelationsUnionTypeDef]
     status: NotRequired[GlossaryTermStatusType]
 
+class QueryGraphOutputTypeDef(TypedDict):
+    items: list[ResultItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class CreateAccountPoolInputTypeDef(TypedDict):
     domainIdentifier: str
     name: str
@@ -5362,6 +5421,14 @@ class UpdateProjectInputTypeDef(TypedDict):
     environmentDeploymentDetails: NotRequired[EnvironmentDeploymentDetailsUnionTypeDef]
     userParameters: NotRequired[Sequence[EnvironmentConfigurationUserParameterUnionTypeDef]]
     projectProfileVersion: NotRequired[str]
+
+class MatchClausePaginatorTypeDef(TypedDict):
+    relationPattern: NotRequired[RelationPatternTypeDef]
+    entityPattern: NotRequired[EntityPatternPaginatorTypeDef]
+
+class MatchClauseTypeDef(TypedDict):
+    relationPattern: NotRequired[RelationPatternTypeDef]
+    entityPattern: NotRequired[EntityPatternTypeDef]
 
 class GlueRunConfigurationInputTypeDef(TypedDict):
     relationalFilterConfigurations: Sequence[RelationalFilterConfigurationUnionTypeDef]
@@ -5652,6 +5719,19 @@ PolicyGrantPrincipalUnionTypeDef = Union[
 EnvironmentConfigurationUnionTypeDef = Union[
     EnvironmentConfigurationTypeDef, EnvironmentConfigurationOutputTypeDef
 ]
+
+class QueryGraphInputPaginateTypeDef(TypedDict):
+    domainIdentifier: str
+    match: Sequence[MatchClausePaginatorTypeDef]
+    additionalAttributes: NotRequired[AdditionalAttributesTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class QueryGraphInputTypeDef(TypedDict):
+    domainIdentifier: str
+    match: Sequence[MatchClauseTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    additionalAttributes: NotRequired[AdditionalAttributesTypeDef]
 
 class DataSourceConfigurationInputTypeDef(TypedDict):
     glueRunConfiguration: NotRequired[GlueRunConfigurationInputTypeDef]

@@ -1,6 +1,13 @@
 # coding=utf-8
 from .._impl import (
     scout_channelvariables_api_ChannelVariable as ChannelVariable,
+    scout_channelvariables_api_ChannelVariableComputeExpression as ChannelVariableComputeExpression,
+    scout_channelvariables_api_ChannelVariableComputeExpressionInput as ChannelVariableComputeExpressionInput,
+    scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor as ChannelVariableComputeExpressionInputVisitor,
+    scout_channelvariables_api_ChannelVariableComputeExpressionV1 as ChannelVariableComputeExpressionV1,
+    scout_channelvariables_api_ChannelVariableComputeExpressionV1Python as ChannelVariableComputeExpressionV1Python,
+    scout_channelvariables_api_ChannelVariableComputeExpressionV1Visitor as ChannelVariableComputeExpressionV1Visitor,
+    scout_channelvariables_api_ChannelVariableComputeExpressionVisitor as ChannelVariableComputeExpressionVisitor,
     scout_channelvariables_api_ChannelVariableName as ChannelVariableName,
     scout_channelvariables_api_ComputeNodeWithContext as ComputeNodeWithContext,
     scout_channelvariables_api_ComputeSpec as ComputeSpec,
@@ -14,6 +21,13 @@ from .._impl import (
 
 __all__ = [
     'ChannelVariable',
+    'ChannelVariableComputeExpression',
+    'ChannelVariableComputeExpressionVisitor',
+    'ChannelVariableComputeExpressionInput',
+    'ChannelVariableComputeExpressionInputVisitor',
+    'ChannelVariableComputeExpressionV1',
+    'ChannelVariableComputeExpressionV1Visitor',
+    'ChannelVariableComputeExpressionV1Python',
     'ChannelVariableName',
     'ComputeNodeWithContext',
     'ComputeSpec',

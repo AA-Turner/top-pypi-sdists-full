@@ -36,6 +36,78 @@ from salmalm.core.core_messages import search_messages, delete_message, edit_mes
 
 # ============================================================
 _usage_lock = threading.Lock()  # Usage tracking (separate to avoid contention)
+
+# ── Hook registry (avoids core → features/web reverse dependencies) ──────────
+# All hooks are registered at startup by bootstrap._register_usage_hooks().
+# This keeps core/ free of reverse imports to features/ and web/.
+from typing import Callable as _Callable
+
+# Usage hooks: fn(user_id, cost, tokens)
+_usage_hooks: list[_Callable] = []
+
+# Abort hooks: fn(session_id) -> Optional[str]  (returns partial response or None)
+_abort_hooks: list[_Callable] = []
+
+# WS notification hooks: fn(session_id, event_type, data) -> None
+_ws_notify_hooks: list[_Callable] = []
+
+# Usage tracking hooks (detailed): fn(session_id, model, inp, out, cost, intent)
+_usage_detail_hooks: list[_Callable] = []
+
+
+def register_abort_hook(fn: "_Callable") -> None:
+    """Register a hook called to check/clear abort state for a session.
+    Signature: fn(session_id: str) -> Optional[str] (partial text or None)
+    """
+    _abort_hooks.append(fn)
+
+
+def check_abort_via_hook(session_id: str):
+    """Check abort state through registered hooks (no direct features import)."""
+    for hook in _abort_hooks:
+        try:
+            result = hook(session_id)
+            if result is not None:
+                return result
+        except Exception as _e:
+            log.debug("abort hook error: %s", _e)
+    return None
+
+
+def register_ws_notify_hook(fn: "_Callable") -> None:
+    """Register a hook to push WS notifications from core layer.
+    Signature: fn(session_id: str, event_type: str, data: dict) -> None
+    """
+    _ws_notify_hooks.append(fn)
+
+
+def notify_ws_via_hook(session_id: str, event_type: str, data: dict) -> None:
+    """Push a WS event through registered hooks (no direct web.ws import)."""
+    for hook in _ws_notify_hooks:
+        try:
+            hook(session_id, event_type, data)
+        except Exception as _e:
+            log.debug("ws notify hook error: %s", _e)
+
+
+def register_usage_detail_hook(fn: "_Callable") -> None:
+    """Register a detailed usage tracking hook.
+    Signature: fn(session_id, model, inp, out, cost, intent) -> None
+    """
+    _usage_detail_hooks.append(fn)
+
+
+def register_usage_hook(fn: "_Callable") -> None:
+    """Register a callback invoked after every track_usage() call.
+
+    Hooks are called with keyword arguments:
+        fn(user_id=<int|None>, cost=<float>, tokens=<int>)
+
+    Use this instead of importing salmalm.features.* or salmalm.web.* from
+    core.py — those imports create a reverse dependency that complicates
+    testing and circular-import analysis.
+    """
+    _usage_hooks.append(fn)
 _thread_local = threading.local()  # Thread-local DB connections + user context
 
 
@@ -64,65 +136,6 @@ def _atexit_close_db():
 _atexit.register(_atexit_close_db)
 
 
-_ownership_migration_done = False
-_ownership_migration_lock = threading.Lock()
-
-
-def _run_ownership_migration(conn) -> None:
-    """One-time migration: assign NULL-owner sessions to admin user.
-
-    Idempotent — tracked in schema_migrations table.
-    Single-user mode: all NULL sessions → admin.
-    Multi-user mode: same (best-effort; we can't know original owner).
-    """
-    global _ownership_migration_done
-    if _ownership_migration_done:
-        return
-    with _ownership_migration_lock:
-        if _ownership_migration_done:
-            return
-        try:
-            row = conn.execute(
-                "SELECT 1 FROM schema_migrations WHERE migration_id=?",
-                ("session_ownership_v1",),
-            ).fetchone()
-            if row:
-                _ownership_migration_done = True
-                return
-
-            # Find admin user id
-            try:
-                admin_row = conn.execute(
-                    "SELECT id FROM users WHERE role IN ('admin','owner') ORDER BY id LIMIT 1"
-                ).fetchone()
-            except sqlite3.OperationalError:
-                # users table may not exist yet in local/single-user startup path
-                _ownership_migration_done = True
-                return
-            if not admin_row:
-                # No users yet — single-user/local mode, skip migration
-                _ownership_migration_done = True
-                return
-            admin_id = admin_row[0]
-
-            # Assign all NULL-owner sessions to admin
-            updated = conn.execute(
-                "UPDATE session_store SET user_id=? WHERE user_id IS NULL",
-                (admin_id,),
-            ).rowcount
-            conn.execute(
-                "INSERT INTO schema_migrations (migration_id, applied_at) VALUES (?, datetime('now'))",
-                ("session_ownership_v1",),
-            )
-            conn.commit()
-            if updated:
-                log.info(f"[MIGRATION] session_ownership_v1: assigned {updated} NULL-owner sessions to admin #{admin_id}")
-            _ownership_migration_done = True
-        except Exception as e:
-            log.warning(f"[MIGRATION] session_ownership_v1 failed (non-fatal): {e}")
-            _ownership_migration_done = True  # Don't retry — avoid blocking startup
-
-
 def _get_db() -> sqlite3.Connection:
     """Get thread-local SQLite connection (reused across calls, WAL mode)."""
     conn = getattr(_thread_local, "audit_conn", None)
@@ -144,72 +157,104 @@ def _get_db() -> sqlite3.Connection:
                 _all_db_connections.append(_weakref.ref(conn))
             except TypeError:
                 _all_db_connections.append(conn)
-        # Auto-create tables on first connection per thread
-        conn.execute("""CREATE TABLE IF NOT EXISTS audit_log (
+        # Auto-create tables and run versioned migrations on first connection per thread
+        _run_db_migrations(conn)
+        _thread_local.audit_conn = conn
+    return conn
+
+
+# ── DB schema version table + migrations ─────────────────────────────────────
+# Replaces the previous pattern of 8 bare ALTER TABLE try/except blocks.
+# Each entry in _DB_MIGRATIONS is (version: int, sql: str).
+# Migrations run once in order; schema_version tracks the highest applied.
+_DB_MIGRATIONS: list = [
+    # v1: baseline tables
+    (1, """CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ts TEXT NOT NULL, event TEXT NOT NULL,
             detail TEXT, prev_hash TEXT, hash TEXT NOT NULL
-        )""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS usage_stats (
+         )"""),
+    (1, """CREATE TABLE IF NOT EXISTS usage_stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             ts TEXT NOT NULL, model TEXT NOT NULL,
             input_tokens INTEGER, output_tokens INTEGER, cost REAL,
-            user_id INTEGER
-        )""")
-        # Migration: add user_id column to existing databases
-        try:
-            conn.execute("ALTER TABLE usage_stats ADD COLUMN user_id INTEGER")
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent migration)
-        except Exception as _e:
-            log.warning(f"[DB] Migration error (usage_stats.user_id): {_e}")
-            raise
-        conn.execute("""CREATE TABLE IF NOT EXISTS usage_detail (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ts TEXT NOT NULL, session_id TEXT, model TEXT NOT NULL,
-            input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0,
-            cost REAL DEFAULT 0.0, intent TEXT DEFAULT ''
-        )""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS session_store (
+            user_id INTEGER DEFAULT NULL
+         )"""),
+    (1, """CREATE TABLE IF NOT EXISTS session_store (
             session_id TEXT PRIMARY KEY,
             messages TEXT NOT NULL,
             updated_at TEXT NOT NULL
-        )""")
-        try:
-            conn.execute("ALTER TABLE session_store ADD COLUMN parent_session_id TEXT DEFAULT NULL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent)
-        try:
-            conn.execute("ALTER TABLE session_store ADD COLUMN branch_index INTEGER DEFAULT NULL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent)
-        try:
-            conn.execute('ALTER TABLE session_store ADD COLUMN title TEXT DEFAULT ""')
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent)
-        try:
-            conn.execute("ALTER TABLE session_store ADD COLUMN user_id INTEGER DEFAULT NULL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent)
-        try:
-            conn.execute("ALTER TABLE session_store ADD COLUMN session_meta TEXT DEFAULT '{}'")
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent)
-        conn.execute("""CREATE TABLE IF NOT EXISTS session_message_backup (
+         )"""),
+    (1, """CREATE TABLE IF NOT EXISTS session_message_backup (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT NOT NULL,
             messages_json TEXT NOT NULL,
             removed_at TEXT NOT NULL,
             reason TEXT DEFAULT 'rollback'
-        )""")
-        conn.execute("""CREATE TABLE IF NOT EXISTS schema_migrations (
-            migration_id TEXT PRIMARY KEY,
-            applied_at TEXT NOT NULL
-        )""")
-        conn.commit()
-        _run_ownership_migration(conn)
-        _thread_local.audit_conn = conn
-    return conn
+         )"""),
+    # v2: session_store column additions
+    (2, "ALTER TABLE session_store ADD COLUMN parent_session_id TEXT DEFAULT NULL"),
+    (2, "ALTER TABLE session_store ADD COLUMN branch_index INTEGER DEFAULT NULL"),
+    (2, 'ALTER TABLE session_store ADD COLUMN title TEXT DEFAULT ""'),
+    (2, "ALTER TABLE session_store ADD COLUMN user_id INTEGER DEFAULT NULL"),
+    # v3: usage_stats user_id (was missing — caused silent INSERT failures pre-v0.27.57)
+    (3, "ALTER TABLE usage_stats ADD COLUMN user_id INTEGER DEFAULT NULL"),
+    # v4: session metadata blob
+    (4, "ALTER TABLE session_store ADD COLUMN session_meta TEXT DEFAULT '{}'"),
+    # v5: session groups
+    (5, """CREATE TABLE IF NOT EXISTS session_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            color TEXT DEFAULT '#6366f1',
+            sort_order INTEGER DEFAULT 0,
+            collapsed INTEGER DEFAULT 0
+         )"""),
+    (5, "ALTER TABLE session_store ADD COLUMN group_id INTEGER DEFAULT NULL"),
+    # v6: usage_detail — moved here from track_usage() hot path (DDL-per-call removed)
+    (6, """CREATE TABLE IF NOT EXISTS usage_detail (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts TEXT NOT NULL,
+            session_id TEXT,
+            model TEXT NOT NULL,
+            input_tokens INTEGER DEFAULT 0,
+            output_tokens INTEGER DEFAULT 0,
+            cost REAL DEFAULT 0.0,
+            intent TEXT DEFAULT ''
+         )"""),
+]
+
+_SCHEMA_VERSION = max(v for v, _ in _DB_MIGRATIONS)
+
+
+def _run_db_migrations(conn: sqlite3.Connection) -> None:
+    """Apply pending schema migrations to an open connection."""
+    # Schema version table (idempotent)
+    conn.execute("""CREATE TABLE IF NOT EXISTS schema_version (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+    )""")
+    conn.commit()
+
+    applied = {row[0] for row in conn.execute("SELECT version FROM schema_version").fetchall()}
+    import datetime as _dt
+    now = _dt.datetime.utcnow().isoformat()
+
+    for version, sql in _DB_MIGRATIONS:
+        if version in applied:
+            continue
+        try:
+            conn.execute(sql)
+        except Exception as _mig_err:
+            # ALTER TABLE on existing column → silently skip (idempotent)
+            log.debug("[DB] Migration v%d skip (%s): %s", version, sql[:60], _mig_err)
+        # Mark version applied (INSERT OR IGNORE — multiple sqls per version)
+        conn.execute(
+            "INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)",
+            (version, now),
+        )
+
+    conn.commit()
+    log.debug("[DB] Schema at v%d (%d applied)", _SCHEMA_VERSION, len(applied))
 
 
 # ── Audit log batching ──
@@ -341,7 +386,6 @@ _metrics = {
     "total_tokens_in": 0,
     "total_tokens_out": 0,
 }
-_metrics_lock = threading.Lock()
 
 # Hard cost cap — stop all LLM calls after this threshold (per session lifetime)
 # Override with SALMALM_COST_CAP env var (in USD)
@@ -449,10 +493,10 @@ def track_usage(model: str, input_tokens: int, output_tokens: int, user_id: Opti
                 ),
             )  # noqa: F405
             conn.commit()
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent)
-        # Also record to usage_detail for dashboard daily/monthly charts
-        # Table is created in _get_db() init — no CREATE TABLE needed here
+        except Exception as e:
+            log.debug(f"Suppressed: {e}")
+        # Also record to usage_detail for dashboard daily/monthly charts.
+        # DDL removed from hot path — table is now created via _DB_MIGRATIONS (v6).
         try:
             conn2 = _get_db()
             conn2.execute(
@@ -463,23 +507,14 @@ def track_usage(model: str, input_tokens: int, output_tokens: int, user_id: Opti
             conn2.commit()
         except Exception as e:
             log.debug(f"usage_detail write: {e}")
-    # ── Side effects OUTSIDE _usage_lock ─────────────────────────────────────
-    # record_cost() and add_usage() acquire their own locks.  Calling them
-    # inside _usage_lock creates a lock-ordering hazard (potential deadlock)
-    # and holds the global usage lock while doing DB I/O.
-    if user_id:
-        try:
-            from salmalm.features.users import user_manager
-
-            user_manager.record_cost(user_id, cost)
-        except Exception as e:
-            log.debug(f"Quota record error: {e}")
-    try:
-        from salmalm.web.auth import daily_quota as _dq
-        _quota_uid = str(user_id) if user_id else "anonymous"
-        _dq.add_usage(_quota_uid, input_tokens + output_tokens)
-    except Exception as _e:
-        log.debug("daily_quota.add_usage failed: %s", _e)
+        # Notify registered usage hooks (avoids core→features/web reverse dependency).
+        # Hooks are registered at startup by features/web layers via register_usage_hook().
+        _tokens_total = input_tokens + output_tokens
+        for _hook in _usage_hooks:
+            try:
+                _hook(user_id=user_id, cost=cost, tokens=_tokens_total)
+            except Exception as _he:
+                log.debug("usage hook error: %s", _he)
 
 
 def get_usage_report() -> dict:
@@ -515,8 +550,8 @@ class ModelRouter:
                 if vault_model and vault_model != "auto":
                     self.force_model = vault_model
                     log.info(f"[FIX] Restored model from vault: {vault_model}")
-        except sqlite3.OperationalError:
-            pass  # Column already exists (idempotent)
+        except Exception as e:
+            log.debug(f"Suppressed: {e}")
 
     def set_force_model(self, model: Optional[str]) -> None:
         """Set and persist model preference."""
@@ -625,7 +660,6 @@ from salmalm.core.session_store import (  # noqa: E402, F401
     _tg_bot,
     get_telegram_bot,
     set_telegram_bot,
-    _llm_cron,
     _sessions,
     _session_lock,
     _cleanup_sessions,
@@ -829,7 +863,6 @@ __all__ = [
     "check_cost_cap",
     "CostCapExceeded",
     "_metrics",
-    "_metrics_lock",
     "compact_messages",
     "get_session",
     "write_daily_log",

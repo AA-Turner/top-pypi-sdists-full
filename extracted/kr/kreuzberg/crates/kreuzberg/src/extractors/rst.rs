@@ -74,9 +74,21 @@ impl RstExtractor {
                 && line.contains(':')
                 && let Some((key, value)) = Self::parse_field_list_line(line)
             {
-                Self::add_metadata_field(&key, &value, metadata);
-                output.push_str(&value);
-                output.push('\n');
+                // Collect continuation lines (indented lines that follow)
+                let mut full_value = value.clone();
+                while i + 1 < lines.len() {
+                    let next = lines[i + 1];
+                    if !next.is_empty() && (next.starts_with("   ") || next.starts_with("\t")) {
+                        full_value.push('\n');
+                        full_value.push_str(next);
+                        i += 1;
+                    } else {
+                        break;
+                    }
+                }
+                Self::add_metadata_field(&key, &full_value, metadata);
+                // Output the field list in preserved format
+                output.push_str(&format!(":{}: {}\n", key, full_value));
                 i += 1;
                 continue;
             }
@@ -91,19 +103,20 @@ impl RstExtractor {
                 }
             }
 
-            if line.trim().starts_with(".. code-block::") {
-                let lang = line.trim_start_matches(".. code-block::").trim().to_string();
-                if !lang.is_empty() {
-                    output.push_str("code-block: ");
-                    output.push_str(&lang);
-                    output.push('\n');
-                }
+            if line.trim().starts_with(".. code-block::") || line.trim().starts_with(".. code::") {
+                // Preserve the directive line
+                output.push_str(line.trim());
+                output.push('\n');
                 i += 1;
+                // Preserve empty line after directive
+                while i < lines.len() && lines[i].trim().is_empty() {
+                    output.push('\n');
+                    i += 1;
+                }
+                // Preserve indented content
                 while i < lines.len() && (lines[i].starts_with("   ") || lines[i].is_empty()) {
-                    if !lines[i].is_empty() {
-                        output.push_str(lines[i]);
-                        output.push('\n');
-                    }
+                    output.push_str(lines[i]);
+                    output.push('\n');
                     i += 1;
                 }
                 continue;
@@ -120,7 +133,7 @@ impl RstExtractor {
                 continue;
             }
 
-            if line.trim().ends_with("::") {
+            if line.trim().ends_with("::") && !line.trim().starts_with(".. ") {
                 if let Some(display_text) = line.strip_suffix("::")
                     && !display_text.trim().is_empty()
                 {
@@ -165,10 +178,13 @@ impl RstExtractor {
                     || directive.starts_with("hint::")
                     || directive.starts_with("tip::")
                 {
+                    // Preserve the directive marker
+                    output.push_str(trimmed);
+                    output.push('\n');
                     i += 1;
                     while i < lines.len() && (lines[i].starts_with("   ") || lines[i].is_empty()) {
                         if !lines[i].is_empty() {
-                            output.push_str(lines[i].trim());
+                            output.push_str(lines[i]);
                             output.push('\n');
                         }
                         i += 1;

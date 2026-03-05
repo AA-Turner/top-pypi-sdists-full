@@ -16,7 +16,7 @@ def _get_kwargs(
 
     return {
         "method": "delete",
-        "url": "/srch/index/delete/{idx_name}".format(
+        "url": "/indexer/delete/{idx_name}".format(
             idx_name=idx_name,
         ),
     }
@@ -43,7 +43,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Response[Any]:
-    """Restart container and delete the index to recreate it.
+    """Clear an index and restart the indexer.
 
     Args:
         idx_name (ClearIndexIdxName):
@@ -72,7 +72,7 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
 ) -> Response[Any]:
-    """Restart container and delete the index to recreate it.
+    """Clear an index and restart the indexer.
 
     Args:
         idx_name (ClearIndexIdxName):

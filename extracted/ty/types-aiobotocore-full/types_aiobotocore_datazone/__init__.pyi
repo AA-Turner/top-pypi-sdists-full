@@ -44,6 +44,7 @@ Usage::
         ListSubscriptionTargetsPaginator,
         ListSubscriptionsPaginator,
         ListTimeSeriesDataPointsPaginator,
+        QueryGraphPaginator,
         SearchGroupProfilesPaginator,
         SearchListingsPaginator,
         SearchPaginator,
@@ -89,6 +90,7 @@ Usage::
     list_subscription_targets_paginator: ListSubscriptionTargetsPaginator = client.get_paginator("list_subscription_targets")
     list_subscriptions_paginator: ListSubscriptionsPaginator = client.get_paginator("list_subscriptions")
     list_time_series_data_points_paginator: ListTimeSeriesDataPointsPaginator = client.get_paginator("list_time_series_data_points")
+    query_graph_paginator: QueryGraphPaginator = client.get_paginator("query_graph")
     search_group_profiles_paginator: SearchGroupProfilesPaginator = client.get_paginator("search_group_profiles")
     search_listings_paginator: SearchListingsPaginator = client.get_paginator("search_listings")
     search_paginator: SearchPaginator = client.get_paginator("search")
@@ -131,6 +133,7 @@ from .paginator import (
     ListSubscriptionsPaginator,
     ListSubscriptionTargetsPaginator,
     ListTimeSeriesDataPointsPaginator,
+    QueryGraphPaginator,
     SearchGroupProfilesPaginator,
     SearchListingsPaginator,
     SearchPaginator,
@@ -175,6 +178,7 @@ __all__ = (
     "ListSubscriptionTargetsPaginator",
     "ListSubscriptionsPaginator",
     "ListTimeSeriesDataPointsPaginator",
+    "QueryGraphPaginator",
     "SearchGroupProfilesPaginator",
     "SearchListingsPaginator",
     "SearchPaginator",

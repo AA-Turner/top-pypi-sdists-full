@@ -27,6 +27,7 @@ class TargetGroupAttachmentArgs:
                  region: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a TargetGroupAttachment resource.
+
         :param pulumi.Input[_builtins.str] target_group_arn: The ARN of the target group with which to register targets.
         :param pulumi.Input[_builtins.str] target_id: The ID of the target. This is the Instance ID for an instance, or the container ID for an ECS container. If the target type is `ip`, specify an IP address. If the target type is `lambda`, specify the Lambda function ARN. If the target type is `alb`, specify the ALB ARN.
                
@@ -133,6 +134,7 @@ class _TargetGroupAttachmentState:
                  target_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering TargetGroupAttachment resources.
+
         :param pulumi.Input[_builtins.str] availability_zone: The Availability Zone where the IP address of the target is to be registered. If the private IP address is outside of the VPC scope, this value must be set to `all`.
         :param pulumi.Input[_builtins.int] port: The port on which targets receive traffic.
         :param pulumi.Input[_builtins.str] quic_server_id: Server ID for the targets, consisting of the 0x prefix followed by 16 hexadecimal characters. The value must be unique at the listener level. Required if `lb.TargetGroup` protocol is `QUIC` or `TCP_QUIC`. Not valid with other protocols. Forces replacement if modified.
@@ -306,7 +308,26 @@ class TargetGroupAttachment(pulumi.CustomResource):
 
         ## Import
 
-        You cannot import Target Group Attachments.
+        ### Identity Schema
+
+        #### Required
+
+        * `target_group_arn` - (String) ARN of the target group.
+        * `target_id` - (String) ID of the target (instance ID, IP address, Lambda ARN, or ALB ARN).
+
+        #### Optional
+
+        * `port` - (Number) Port on which targets receive traffic.
+        * `availability_zone` - (String) Availability zone where the target is registered.
+        * `account_id` - (String) AWS Account where this resource is managed.
+        * `region` - (String) Region where this resource is managed.
+
+        Using `pulumi import`, import Target Group Attachments using the same format. For example:
+
+        ```sh
+        $ pulumi import aws:lb/targetGroupAttachment:TargetGroupAttachment example arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/my-tg/abc123,i-0123456789abcdef0,8080
+        ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -388,7 +409,26 @@ class TargetGroupAttachment(pulumi.CustomResource):
 
         ## Import
 
-        You cannot import Target Group Attachments.
+        ### Identity Schema
+
+        #### Required
+
+        * `target_group_arn` - (String) ARN of the target group.
+        * `target_id` - (String) ID of the target (instance ID, IP address, Lambda ARN, or ALB ARN).
+
+        #### Optional
+
+        * `port` - (Number) Port on which targets receive traffic.
+        * `availability_zone` - (String) Availability zone where the target is registered.
+        * `account_id` - (String) AWS Account where this resource is managed.
+        * `region` - (String) Region where this resource is managed.
+
+        Using `pulumi import`, import Target Group Attachments using the same format. For example:
+
+        ```sh
+        $ pulumi import aws:lb/targetGroupAttachment:TargetGroupAttachment example arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/my-tg/abc123,i-0123456789abcdef0,8080
+        ```
+
 
         :param str resource_name: The name of the resource.
         :param TargetGroupAttachmentArgs args: The arguments to use to populate this resource's properties.

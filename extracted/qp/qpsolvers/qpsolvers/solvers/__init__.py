@@ -293,7 +293,7 @@ hpipm_solve_problem: Optional[
 hpipm_solve_qp: Optional[
     Callable[
         [
-            Union[ndarray, csc_matrix],
+            ndarray,
             ndarray,
             Optional[ndarray],
             Optional[ndarray],
@@ -335,7 +335,7 @@ jaxopt_osqp_solve_problem: Optional[
 jaxopt_osqp_solve_qp: Optional[
     Callable[
         [
-            Union[ndarray, csc_matrix],
+            ndarray,
             ndarray,
             Optional[ndarray],
             Optional[ndarray],
@@ -494,14 +494,14 @@ piqp_solve_qp: Optional[
     Callable[
         [
             Union[ndarray, csc_matrix],
-            Union[ndarray, csc_matrix],
+            ndarray,
             Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
             Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
             bool,
             Optional[str],
         ],
@@ -513,7 +513,7 @@ piqp_solve_problem: Optional[
     Callable[
         [
             Problem,
-            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
             bool,
             Optional[str],
         ],
@@ -539,14 +539,14 @@ proxqp_solve_qp: Optional[
     Callable[
         [
             Union[ndarray, csc_matrix],
-            Union[ndarray, csc_matrix],
+            ndarray,
             Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
             Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
             bool,
             Optional[str],
         ],
@@ -558,7 +558,7 @@ proxqp_solve_problem: Optional[
     Callable[
         [
             Problem,
-            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
             bool,
             Optional[str],
         ],
@@ -584,14 +584,14 @@ qpalm_solve_qp: Optional[
     Callable[
         [
             Union[ndarray, csc_matrix],
-            Union[ndarray, csc_matrix],
+            ndarray,
             Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
             Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
-            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
             bool,
         ],
         Optional[ndarray],
@@ -602,7 +602,7 @@ qpalm_solve_problem: Optional[
     Callable[
         [
             Problem,
-            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
             bool,
         ],
         Solution,
@@ -635,11 +635,11 @@ qpax_solve_problem: Optional[
 qpax_solve_qp: Optional[
     Callable[
         [
-            Union[ndarray, csc_matrix],
             ndarray,
-            Optional[Union[ndarray, csc_matrix]],
+            ndarray,
             Optional[ndarray],
-            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
+            Optional[ndarray],
             Optional[ndarray],
             Optional[ndarray],
             Optional[ndarray],
@@ -744,6 +744,48 @@ try:
     solve_function["qpswift"] = qpswift_solve_problem
     available_solvers.append("qpswift")
     dense_solvers.append("qpswift")
+except ImportError:
+    pass
+
+
+# QTQP
+# ====
+
+qtqp_solve_problem: Optional[
+    Callable[
+        [
+            Problem,
+            Optional[ndarray],
+            bool,
+        ],
+        Solution,
+    ]
+] = None
+
+qtqp_solve_qp: Optional[
+    Callable[
+        [
+            Union[ndarray, csc_matrix],
+            ndarray,
+            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
+            Optional[Union[ndarray, csc_matrix]],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
+            Optional[ndarray],
+            bool,
+        ],
+        Optional[ndarray],
+    ]
+] = None
+
+try:
+    from .qtqp_ import qtqp_solve_problem, qtqp_solve_qp
+
+    solve_function["qtqp"] = qtqp_solve_problem
+    available_solvers.append("qtqp")
+    sparse_solvers.append("qtqp")
 except ImportError:
     pass
 
@@ -904,6 +946,7 @@ __all__ = [
     "qpax_solve_qp",
     "qpoases_solve_qp",
     "qpswift_solve_qp",
+    "qtqp_solve_qp",
     "quadprog_solve_qp",
     "scs_solve_qp",
     "sip_solve_qp",

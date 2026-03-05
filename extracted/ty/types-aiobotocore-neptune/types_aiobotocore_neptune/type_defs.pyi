@@ -324,14 +324,6 @@ class ServerlessV2ScalingConfigurationTypeDef(TypedDict):
     MinCapacity: NotRequired[float]
     MaxCapacity: NotRequired[float]
 
-class CreateGlobalClusterMessageTypeDef(TypedDict):
-    GlobalClusterIdentifier: str
-    SourceDBClusterIdentifier: NotRequired[str]
-    Engine: NotRequired[str]
-    EngineVersion: NotRequired[str]
-    DeletionProtection: NotRequired[bool]
-    StorageEncrypted: NotRequired[bool]
-
 class DBClusterEndpointTypeDef(TypedDict):
     DBClusterEndpointIdentifier: NotRequired[str]
     DBClusterIdentifier: NotRequired[str]
@@ -779,6 +771,16 @@ class CreateEventSubscriptionMessageTypeDef(TypedDict):
     SourceIds: NotRequired[Sequence[str]]
     Enabled: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateGlobalClusterMessageTypeDef(TypedDict):
+    GlobalClusterIdentifier: str
+    SourceDBClusterIdentifier: NotRequired[str]
+    Engine: NotRequired[str]
+    EngineVersion: NotRequired[str]
+    DeletionProtection: NotRequired[bool]
+    DatabaseName: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    StorageEncrypted: NotRequired[bool]
 
 class TagListMessageTypeDef(TypedDict):
     TagList: list[TagTypeDef]
@@ -1325,10 +1327,12 @@ class GlobalClusterTypeDef(TypedDict):
     Status: NotRequired[str]
     Engine: NotRequired[str]
     EngineVersion: NotRequired[str]
+    DatabaseName: NotRequired[str]
     StorageEncrypted: NotRequired[bool]
     DeletionProtection: NotRequired[bool]
     GlobalClusterMembers: NotRequired[list[GlobalClusterMemberTypeDef]]
     FailoverState: NotRequired[FailoverStateTypeDef]
+    TagList: NotRequired[list[TagTypeDef]]
 
 class ResourcePendingMaintenanceActionsTypeDef(TypedDict):
     ResourceIdentifier: NotRequired[str]

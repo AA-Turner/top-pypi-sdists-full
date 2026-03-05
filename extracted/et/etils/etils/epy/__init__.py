@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ from etils.epy import typing
 from etils.epy.adhoc_utils.binary_import import binary_adhoc
 from etils.epy.contextlib import ContextManager
 from etils.epy.contextlib import ExitStack
+from etils.epy.descriptors import classproperty
+from etils.epy.env_utils import getuser
 from etils.epy.env_utils import is_notebook
 from etils.epy.env_utils import is_test
 from etils.epy.itertools import groupby

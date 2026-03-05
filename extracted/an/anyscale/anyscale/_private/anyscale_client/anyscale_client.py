@@ -184,7 +184,7 @@ def handle_api_exceptions(func):
         try:
             return func(*args, **kwargs)
         except (ApiException, InternalApiException, ExternalApiException) as e:
-            if e.status >= 400 and e.status < 500:
+            if (e.status >= 400 and e.status < 500) or e.status == 599:
                 try:
                     body_dict = json.loads(e.body)
                     msg = body_dict["error"]["detail"]

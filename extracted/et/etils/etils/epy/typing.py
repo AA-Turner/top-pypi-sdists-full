@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,3 +18,4 @@ from __future__ import annotations
 
 _JsonLeaf = str | float | int | bool | None
 Json = _JsonLeaf | dict[_JsonLeaf, "Json"] | list["Json"] | tuple["Json", ...]
+JsonDict = dict[str, Json]

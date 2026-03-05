@@ -49,6 +49,8 @@ from chalk.features._encoding.protobuf import (
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
 from chalk.features._encoding.rich import TRich
 from chalk.features._encoding.serialized_rich_type import SerializedRichType
+from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
+from chalk.features.incremental import IncrementalConfig
 from chalk.features.pseudofeatures import PSEUDONAMESPACE
 from chalk.features.resolver import (
     Cron,
@@ -1215,6 +1217,11 @@ class ToProtoConverter:
             static_operation=static_operation,
             static_operation_dataframe=static_operation_dataframe,
             sql_settings=ToProtoConverter.convert_sql_settings(r.sql_settings) if r.sql_settings else None,
+            incremental_settings=(
+                ToProtoConverter.convert_incremental_config(r.incremental_settings)
+                if r.incremental_settings is not None
+                else None
+            ),
             output_row_order=r.output_row_order,
             venv=r.venv,
             underscore_expr=postprocessing_underscore_expr,
@@ -1616,5 +1623,44 @@ class ToProtoConverter:
             settings.lookback_period.FromTimedelta(source.lookback_period)
         if source.incremental_column is not None:
             settings.incremental_column = source.incremental_column
+
+        return settings
+
+    @classmethod
+    def convert_incremental_config(cls, source: IncrementalConfig) -> pb.IncrementalSettings:
+        """Converts a user-facing IncrementalConfig to a pb.IncrementalSettings proto message."""
+        if source.mode == "row":
+            mode = pb.IncrementalMode.INCREMENTAL_MODE_ROW
+        elif source.mode == "group":
+            mode = pb.IncrementalMode.INCREMENTAL_MODE_GROUP
+        elif source.mode == "parameter":
+            mode = pb.IncrementalMode.INCREMENTAL_MODE_PARAMETER
+        else:
+            assert_never(source.mode)
+
+        if source.incremental_timestamp == "feature_time":
+            timestamp_mode = pb.IncrementalTimestampMode.INCREMENTAL_TIMESTAMP_MODE_FEATURE_TIME
+        elif source.incremental_timestamp == "resolver_execution_time":
+            timestamp_mode = pb.IncrementalTimestampMode.INCREMENTAL_TIMESTAMP_MODE_RESOLVER_EXECUTION_TIME
+        else:
+            assert_never(source.incremental_timestamp)
+
+        settings = pb.IncrementalSettings(
+            mode=mode,
+            timestamp_mode=timestamp_mode,
+        )
+        if source.lookback_period is not None:
+            lookback_td = (
+                parse_chalk_duration(source.lookback_period)
+                if isinstance(source.lookback_period, str)
+                else source.lookback_period
+            )
+            settings.lookback_period.FromTimedelta(lookback_td)
+        if source.incremental_column is not None:
+            col = source.incremental_column
+            if isinstance(col, FeatureWrapper):
+                settings.incremental_column = unwrap_feature(col).root_fqn
+            else:
+                settings.incremental_column = str(col)
 
         return settings

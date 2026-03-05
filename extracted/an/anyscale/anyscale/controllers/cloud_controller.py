@@ -933,6 +933,7 @@ class CloudController(BaseController):
         project_id: str,
         anyscale_access_service_account: str,
         provider_name: str,
+        deployment_manager_id: Optional[str] = None,
     ):
         """Update cloud record with resources from Infrastructure Manager outputs."""
         gcp_utils = try_import_gcp_utils()
@@ -970,12 +971,207 @@ class CloudController(BaseController):
                 if memorystore_config
                 else None,
                 infrastructure_manager_id=deployment_name,
+                deployment_manager_id=deployment_manager_id,
             ),
         )
 
         self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
             cloud_id=cloud_id, cloud_deployment=cloud_resource,
         )
+
+    def _log_plan_output(self, plan_log: str) -> None:
+        """Log the Terraform plan section so user sees what will be imported/updated.
+        IM preview logs do not include attribute-level diff, only resource-level lines.
+        """
+        if not plan_log:
+            return
+        lines = [
+            line
+            for line in plan_log.splitlines()
+            if "Refreshing state" in line
+            or "Refresh complete" in line
+            or "Plan to import" in line
+            or "Plan to update" in line
+            or line.strip().startswith("Plan:")
+            or (line.strip().startswith("Outputs:") and "Outputs:" in line)
+        ]
+        if lines:
+            self.log.info("Terraform plan:\n" + "\n".join(lines))
+
+    def migrate_cloud_resource_dm_to_im(  # noqa: PLR0913
+        self,
+        factory: Any,
+        cloud_id: str,
+        region: str,
+        cloud_resource: CloudDeployment,
+        anyscale_aws_account: str,
+        organization_id: str,
+    ) -> None:
+        """Migrate a single GCP VM CloudDeployment from Deployment Manager to Infrastructure Manager.
+        """
+        setup_utils = try_import_gcp_managed_setup_utils()
+
+        gcp_config = cloud_resource.gcp_config
+        if isinstance(gcp_config, dict):
+            gcp_config = GCPConfig(**gcp_config)
+
+        project_id = gcp_config.project_id
+        deployment_manager_id = gcp_config.deployment_manager_id
+        anyscale_access_sa = gcp_config.anyscale_service_account_email
+        anyscale_access_sa_name = anyscale_access_sa.split("@")[0]
+        provider_name = gcp_config.provider_name
+        # provider_name is "projects/.../workloadIdentityPools/{pool}/providers/anyscale-access"
+        pool_name = provider_name.rsplit("/providers/", 1)[0]
+
+        cloud_id_dash = cloud_id.replace("_", "-").lower()
+        enable_hnft = gcp_config.memorystore_instance_name is not None
+        enable_filestore = cloud_resource.file_storage is not None
+
+        # Step 1: get the names of all GCP resources currently managed by DM
+        dm_resources = setup_utils.get_deployment_resources(
+            factory, deployment_manager_id, project_id, anyscale_access_sa_name
+        )
+
+        # Step 1b: pre-flight — abort before if naming missmatch as it would trigger a tf replacement
+        dm_firewall_policy_name = dm_resources.get(
+            "gcp-types/compute-v1:networkFirewallPolicies"
+        )
+        try:
+            setup_utils.validate_migration_resource_names(
+                cloud_id_dash=cloud_id_dash,
+                dm_resources=dm_resources,
+                firewall_policy_name_override=dm_firewall_policy_name,
+            )
+        except ValueError as e:
+            raise ClickException(str(e))
+
+        # Step 2: generate imports.tf so Terraform imports rather than recreates
+        imports_tf = setup_utils.generate_migration_imports_tf(
+            project_id=project_id,
+            region=region,
+            cloud_id_dash=cloud_id_dash,
+            dm_resources=dm_resources,
+            anyscale_access_service_account_name=anyscale_access_sa_name,
+        )
+
+        # Step 2b: run IM preview (terraform plan only) and require clean plan
+        self.log.info("Running Infrastructure Manager preview (terraform plan)...")
+        plan_log = setup_utils.run_infra_manager_preview(
+            factory=factory,
+            project_id=project_id,
+            region=region,
+            deployment_name=cloud_id_dash,
+            cloud_id_underscore=cloud_id,
+            anyscale_access_service_account_name=anyscale_access_sa_name,
+            workload_identity_pool_name=pool_name,
+            anyscale_aws_account=anyscale_aws_account,
+            organization_id=organization_id,
+            enable_head_node_fault_tolerance=enable_hnft,
+            enable_filestore=enable_filestore,
+            extra_tf_files={"imports.tf": imports_tf},
+            resource_id_override=cloud_id_dash,
+            firewall_policy_name=dm_firewall_policy_name,
+        )
+        plan_ok, plan_msg = setup_utils.parse_terraform_plan_for_migration(plan_log)
+
+        # Print plan output
+        self._log_plan_output(plan_log)
+        if not plan_ok:
+            msg = f"DM to IM migration failed: {plan_msg}"
+            if getenv("ANYSCALE_DEBUG") == "1":
+                excerpt = plan_log[-4000:] if len(plan_log) > 4000 else plan_log
+                msg += "\n\nLast lines of plan output:\n" + excerpt
+            raise ClickException(msg)
+        # Step 3: create the IM deployment; Terraform imports all existing resources.
+        # Pass the actual DM firewall policy name so that main.tf uses the correct name
+        # rather than deriving it from resource_id (which may differ when the DM deployment
+        # name has a token suffix, e.g. for GCP resources added to non-GCP clouds).
+
+        setup_utils.run_infra_manager_deployment(
+            factory=factory,
+            project_id=project_id,
+            region=region,
+            deployment_name=cloud_id_dash,
+            cloud_id_underscore=cloud_id,
+            anyscale_access_service_account_name=anyscale_access_sa_name,
+            workload_identity_pool_name=pool_name,
+            anyscale_aws_account=anyscale_aws_account,
+            organization_id=organization_id,
+            enable_head_node_fault_tolerance=enable_hnft,
+            enable_filestore=enable_filestore,
+            extra_tf_files={"imports.tf": imports_tf},
+            resource_id_override=cloud_id_dash,
+            firewall_policy_name=dm_firewall_policy_name,
+        )
+
+        # Step 4: update the existing cloud resource to set IM id while keeping DM id
+        gcp_config = cloud_resource.gcp_config
+        if isinstance(gcp_config, dict):
+            gcp_config = GCPConfig(**gcp_config)
+        gcp_config.infrastructure_manager_id = cloud_id_dash
+        cloud_resource.gcp_config = gcp_config
+        self.api_client.update_cloud_resources_api_v2_clouds_cloud_id_resources_put(
+            cloud_id=cloud_id, cloud_deployment=[cloud_resource],
+        )
+
+        # Step 5: abandon DM — removes DM tracking, leaves GCP resources untouched
+        # Done last so a failure here only leaves an orphaned DM record, not a broken cloud.
+        setup_utils.abandon_gcp_deployment(factory, project_id, deployment_manager_id)
+
+    def migrate_gcp_dm_to_im(self, cloud_id: str) -> None:
+        """Iterate over all GCP VM cloud resources managed by DM and migrate each to IM."""
+
+        gcp_utils = try_import_gcp_utils()
+
+        anyscale_aws_account = (
+            self.api_client.get_anyscale_aws_account_api_v2_clouds_anyscale_aws_account_get().result.anyscale_aws_account
+        )
+        organization_id = get_organization_id(self.api_client)
+
+        cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+            cloud_id=cloud_id
+        ).results
+
+        to_migrate = [
+            self._convert_decorated_cloud_resource_to_cloud_deployment(r)
+            for r in cloud_resources
+            if (
+                r.gcp_config
+                and r.gcp_config.deployment_manager_id
+                and not r.gcp_config.infrastructure_manager_id
+            )
+        ]
+
+        if not to_migrate:
+            self.log.info("No GCP VM resources eligible for DM->IM migration found.")
+            return
+
+        self.log.info(
+            f"Found {len(to_migrate)} resource(s) to migrate from Deployment Manager to Infrastructure Manager."
+        )
+
+        for resource in to_migrate:
+            gcp_config = resource.gcp_config
+            dm_id = gcp_config.get("deployment_manager_id")
+            project_id = gcp_config.get("project_id")
+            region = resource.region
+            if not project_id:
+                raise ClickException(
+                    f"Cannot determine GCP project_id for resource with deployment_manager_id={dm_id}."
+                )
+            factory = gcp_utils.get_google_cloud_client_factory(self.log, project_id)
+            self.log.info(f"Migrating resource with deployment_manager_id={dm_id}...")
+            self.migrate_cloud_resource_dm_to_im(
+                factory=factory,
+                cloud_id=cloud_id,
+                region=region,
+                cloud_resource=resource,
+                anyscale_aws_account=anyscale_aws_account,
+                organization_id=organization_id,
+            )
+            self.log.info(f"Successfully migrated {dm_id} to Infrastructure Manager.")
+
+        self.log.info("Migration complete.")
 
     def prepare_for_managed_cloud_setup(
         self,
@@ -1579,7 +1775,7 @@ class CloudController(BaseController):
             cloud_id=cloud_id, is_enabled=is_enabled,
         )
 
-    def update_cloud(  # noqa: PLR0912, C901
+    def update_cloud(  # noqa: PLR0912, PLR0913, C901
         self,
         cloud_name: Optional[str],
         cloud_id: Optional[str],
@@ -1589,6 +1785,7 @@ class CloudController(BaseController):
         resources_file: Optional[str] = None,
         yes: bool = False,
         skip_verification: bool = False,
+        migrate_dm_to_im: bool = False,
     ) -> None:
         functions_to_verify = self._validate_functional_verification_args(
             functional_verify
@@ -1602,7 +1799,12 @@ class CloudController(BaseController):
         if enable_auto_add_user is not None:
             self._update_auto_add_user_field(enable_auto_add_user, cloud)
 
-        if cloud.is_bring_your_own_resource or cloud.is_bring_your_own_resource is None:
+        if migrate_dm_to_im:
+            assert cloud_id is not None  # get_cloud_id_and_name raises if unresolvable
+            self.migrate_gcp_dm_to_im(cloud_id=cloud_id)
+        elif (
+            cloud.is_bring_your_own_resource or cloud.is_bring_your_own_resource is None
+        ):
             # Customer-managed resources (cloud register), use resources file.
             if resources_file:
                 self.update_cloud_resources(

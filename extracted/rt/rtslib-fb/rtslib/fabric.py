@@ -107,7 +107,6 @@ Example: self._path = f"{self.configfs_dir}/{my_cfs_dir}"
 
 '''
 
-import os
 from contextlib import suppress
 from functools import partial
 from pathlib import Path
@@ -451,7 +450,7 @@ class SRPTFabricModule(_BaseFabricModule):
 
     @property
     def wwns(self):
-        for wwn_file in Path("/sys/class/infiniband").glob("**/ports/*/gids/0"):
+        for wwn_file in Path("/sys/class/infiniband").glob("*/ports/*/gids/0"):
             yield f"ib.{fread(wwn_file).replace(':', '')}"
 
 
@@ -550,6 +549,6 @@ class FabricModule:
     @classmethod
     def list_registered_drivers(cls):
         try:
-            return os.listdir('/sys/module/target_core_mod/holders')
+            return [p.name for p in Path('/sys/module/target_core_mod/holders').iterdir()]
         except OSError:
             return []

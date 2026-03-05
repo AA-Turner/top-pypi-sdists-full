@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-python-dateutil"
-version = "2.9.0.20260302"
+version = "2.9.0.20260305"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for python-dateutil"
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`5a9544f5b00a6bb8943a33f5da9af61c02adddfb`](https://github.com/python/typeshed/commit/5a9544f5b00a6bb8943a33f5da9af61c02adddfb).
+[`e108320b29046c7801de4df4168892b8099490bc`](https://github.com/python/typeshed/commit/e108320b29046c7801de4df4168892b8099490bc).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

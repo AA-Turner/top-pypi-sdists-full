@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import abc
+import functools
 import typing as tp
 
 import jax
@@ -21,7 +22,7 @@ from flax import struct
 from flax import typing
 from flax.nnx.pytreelib import Pytree
 from flax.typing import Missing, PathParts
-from flax.nnx import graph, variablelib
+from flax.nnx import graphlib, variablelib
 
 
 A = tp.TypeVar('A')
@@ -56,13 +57,13 @@ def check_consistent_aliasing(
   node_id_to_variable: dict[int, tp.Any] = {}
 
   # collect all paths and prefixes for each node
-  for path, value in graph.iter_graph(node):
-    if graph.is_graph_node(value) or isinstance(value, graph.Variable):
+  for path, value in graphlib.iter_graph(node, graph=True):
+    if graphlib.is_graph_node(value) or isinstance(value, graphlib.Variable):
       if isinstance(value, Pytree):
         value._check_valid_context(
           lambda: f'Trying to extract graph node from different trace level, got {value!r}'
         )
-      if isinstance(value, graph.Variable):
+      if isinstance(value, graphlib.Variable):
         if not value._can_update:
           raise ValueError(
             f'Cannot extract graph node from different trace level, got {value!r}'
@@ -128,27 +129,27 @@ def broadcast_prefix(
     prefix_tree,
     full_tree,
     is_leaf=lambda x: isinstance(x, variablelib.Variable)
-    or graph.is_graph_node(x)
+    or graphlib.is_graph_node(x)
     or (prefix_is_leaf is not None and prefix_is_leaf(x)),
   )
   return result
 
 
 class GraphDefState(struct.PyTreeNode):
-  graphdef: graph.GraphDef[tp.Any] = struct.field(pytree_node=False)
-  state: graph.GraphState = struct.field(pytree_node=True)
+  graphdef: graphlib.GraphDef[tp.Any] = struct.field(pytree_node=False)
+  state: graphlib.GraphState = struct.field(pytree_node=True)
 
 S = tp.TypeVar(
-  'S', bound=graph.GraphState | graph.GraphFlatState | list[tp.Any]
+  'S', bound=graphlib.GraphState | graphlib.GraphFlatState | list[tp.Any]
 )
 
 class NodeStates(struct.PyTreeNode):
-  _graphdef: graph.GraphDef[tp.Any] | None
+  _graphdef: graphlib.GraphDef[tp.Any] | None
   states: tuple[tp.Any, ...]
   metadata: tp.Any = struct.field(pytree_node=False)
 
   @property
-  def graphdef(self) -> graph.GraphDef[tp.Any]:
+  def graphdef(self) -> graphlib.GraphDef[tp.Any]:
     if self._graphdef is None:
       raise ValueError('No graphdef available')
     return self._graphdef
@@ -164,7 +165,7 @@ class NodeStates(struct.PyTreeNode):
   @classmethod
   def from_split(
     cls,
-    graphdef: graph.GraphDef[tp.Any] | None,
+    graphdef: graphlib.GraphDef[tp.Any] | None,
     state: tp.Any,
     /,
     *states: tp.Any,
@@ -192,7 +193,7 @@ class NodeStates(struct.PyTreeNode):
 
 
 def default_split_fn(
-  ctx: graph.SplitContext, path: KeyPath, prefix: Prefix, leaf: Leaf
+  ctx: graphlib.SplitContext, path: KeyPath, prefix: Prefix, leaf: Leaf
 ) -> tp.Any:
   return NodeStates.from_split(*ctx.split(leaf))
 
@@ -203,7 +204,7 @@ def to_tree(
   *,
   prefix: tp.Any = Missing,
   split_fn: tp.Callable[
-    [graph.SplitContext, KeyPath, Prefix, Leaf], tp.Any
+    [graphlib.SplitContext, KeyPath, Prefix, Leaf], tp.Any
   ] = default_split_fn,
   map_non_graph_nodes: bool = False,
   ctxtag: tp.Hashable | None = None,
@@ -211,39 +212,39 @@ def to_tree(
 ) -> tp.Any:
   if prefix is Missing or prefix is None:
     # fast path, no need for prefix broadcasting or consistent aliasing checks
-    with graph.split_context(ctxtag) as split_ctx:
+    with graphlib.split_context(ctxtag) as split_ctx:
       return jax.tree.map(
         lambda x: split_fn(split_ctx, (), prefix, x)
         if map_non_graph_nodes
-        or graph.is_graph_node(x)
+        or graphlib.is_graph_node(x)
         or isinstance(x, variablelib.Variable)
         else x,
         tree,
         is_leaf=lambda x: isinstance(x, variablelib.Variable)
-        or graph.is_graph_node(x),
+        or graphlib.is_graph_node(x),
       )
   leaf_prefixes = broadcast_prefix(
     prefix,
     tree,
     prefix_is_leaf=lambda x: x is None
     or isinstance(x, variablelib.Variable)
-    or graph.is_graph_node(x),
+    or graphlib.is_graph_node(x),
     tree_is_leaf=lambda x: isinstance(x, variablelib.Variable)
-    or graph.is_graph_node(x),
+    or graphlib.is_graph_node(x),
   )
   leaf_keys, treedef = jax.tree_util.tree_flatten_with_path(
     tree,
     is_leaf=lambda x: isinstance(x, variablelib.Variable)
-    or graph.is_graph_node(x),
+    or graphlib.is_graph_node(x),
   )
 
   assert len(leaf_keys) == len(leaf_prefixes)
   leaves_out = []
   node_prefixes: dict[int, list[tuple[PathParts, tp.Any]]] = {}
 
-  with graph.split_context(ctxtag) as split_ctx:
+  with graphlib.split_context(ctxtag) as split_ctx:
     for (keypath, leaf), leaf_prefix in zip(leaf_keys, leaf_prefixes):
-      if graph.is_graph_node(leaf) or isinstance(leaf, variablelib.Variable):
+      if graphlib.is_graph_node(leaf) or isinstance(leaf, variablelib.Variable):
         if check_aliasing:
           check_consistent_aliasing(
             leaf, leaf_prefix, node_prefixes=node_prefixes
@@ -260,7 +261,7 @@ def to_tree(
 
 
 def merge_tree_node(
-  ctx: graph.MergeContext, path: KeyPath, prefix: Prefix, leaf: Leaf
+  ctx: graphlib.MergeContext, path: KeyPath, prefix: Prefix, leaf: Leaf
 ) -> tp.Any:
   if not isinstance(leaf, NodeStates):
     raise ValueError(f'Expected TreeNode, got {type(leaf)} at path {path}')
@@ -277,7 +278,7 @@ def from_tree(
   *,
   prefix: tp.Any = Missing,
   merge_fn: tp.Callable[
-    [graph.MergeContext, KeyPath, Prefix, Leaf], tp.Any
+    [graphlib.MergeContext, KeyPath, Prefix, Leaf], tp.Any
   ] = merge_tree_node,
   is_node_leaf: tp.Callable[[Leaf], bool] = is_tree_node,
   is_leaf: tp.Callable[[Leaf], bool] = is_tree_node,
@@ -287,7 +288,7 @@ def from_tree(
 ) -> tp.Any:
   if prefix is Missing or prefix is None:
     # fast path, no need for prefix broadcasting or consistent aliasing checks
-    with graph.merge_context(ctxtag, is_inner) as merge_ctx:
+    with graphlib.merge_context(ctxtag, is_inner) as merge_ctx:
 
       def maybe_split(x):
         if (
@@ -311,7 +312,7 @@ def from_tree(
   assert len(leaf_keys) == len(leaf_prefixes)
   leaves_out = []
 
-  with graph.merge_context(ctxtag, is_inner) as merge_ctx:
+  with graphlib.merge_context(ctxtag, is_inner) as merge_ctx:
     for (keypath, leaf), leaf_prefix in zip(leaf_keys, leaf_prefixes):
       if (
         map_non_graph_nodes
@@ -327,11 +328,11 @@ def from_tree(
 def clear_non_graph_nodes(tree):
   return jax.tree.map(
     lambda x: x
-    if graph.is_graph_node(x) or isinstance(x, variablelib.Variable)
+    if graphlib.is_graph_node(x) or isinstance(x, variablelib.Variable)
     else None,
     tree,
     is_leaf=lambda x: isinstance(x, variablelib.Variable)
-    or graph.is_graph_node(x),
+    or graphlib.is_graph_node(x),
   )
 
 
@@ -422,7 +423,7 @@ def mask_variable_updates(
     keep_fn = lambda _, cur, snap: False
 
   def _mask_updates(jax_path, current, snapshot):
-    path = graph.jax_to_nnx_path(jax_path)
+    path = graphlib.jax_to_nnx_path(jax_path)
     if isinstance(current, variablelib.Variable) and (
         keep_fn(path, current, snapshot) or _variable_changed(current, snapshot)
     ):
@@ -453,3 +454,38 @@ def apply_variable_updates(args_tree: A, updates_tree: A) -> None:
     seen[var_id] = path
     if update is not None:
       variable.update_from_state(update)
+
+
+def treemap_copy_args(f):
+  @functools.wraps(f)
+  def wrapper(*args, **kwargs):
+    args, kwargs = jax.tree.map(lambda x: x, (args, kwargs))
+    return f(*args, **kwargs)
+  return wrapper
+
+
+def check_same_variables(inputs, outputs, transform_name: str = ''):
+  def _check(in_leaf, out_leaf):
+    if isinstance(in_leaf, variablelib.Variable) and in_leaf is not out_leaf:
+      raise ValueError(
+        f'{transform_name} Variable identity must be preserved '
+        'across iterations.'
+      )
+  is_leaf = lambda x: x is None or isinstance(x, variablelib.Variable)
+  jax.tree.map(
+    _check, inputs, outputs,
+    is_leaf=is_leaf,
+  )
+
+
+def update_carry_variables(init_val, val_out):
+  def _update(in_leaf, out_leaf):
+    if isinstance(in_leaf, variablelib.Variable):
+      in_leaf.update_from_state(out_leaf)
+      return in_leaf
+    return out_leaf
+
+  return jax.tree.map(
+    _update, init_val, val_out,
+    is_leaf=lambda x: isinstance(x, variablelib.Variable),
+  )

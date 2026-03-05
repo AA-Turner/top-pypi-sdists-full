@@ -32,56 +32,50 @@ class ConnectionConfig(ModelBase):
     """Configuration for a third-party connection.
 
     Connections allow workloads (jobs, workspaces, etc.) to access external services
-    like Databricks Unity Catalog. Each connection is identified by its connection
-    type and name.
+    like Databricks Unity Catalog. Each connection is identified by its type and name.
 
-    This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com)
-    to request enablement.
+    This feature is in beta preview. Contact [Anyscale support](mailto:support@anyscale.com) to request enablement.
     """
 
     __doc_py_example__ = """\
 from anyscale._private.models.integrations import ConnectionConfig, ConnectionType
 
 connection = ConnectionConfig(
-    connection_type=ConnectionType.DATABRICKS,
-    connection_name="my-databricks-connection",
+    type=ConnectionType.DATABRICKS,
+    name="my-databricks-connection",
 )
 """
 
     __doc_yaml_example__ = """\
 connections:
-  - connection_type: databricks
-    connection_name: my-databricks-connection
+  - type: databricks
+    name: my-databricks-connection
 """
 
-    connection_type: ConnectionType = field(
+    type: ConnectionType = field(
         metadata={"docstring": "The type of connection (e.g., DATABRICKS)."},
     )
 
-    def _validate_connection_type(
-        self, connection_type: ConnectionType
-    ) -> ConnectionType:
-        if not isinstance(connection_type, ConnectionType):
+    def _validate_type(self, type: ConnectionType) -> ConnectionType:  # noqa: A002
+        if not isinstance(type, ConnectionType):
             raise TypeError(
-                f"'connection_type' must be a 'ConnectionType' (it is {type(connection_type)})."
+                f"'type' must be a 'ConnectionType' (it is {type.__class__})."
             )
-        return connection_type
+        return type
 
-    connection_name: str = field(
+    name: str = field(
         metadata={
             "docstring": "The name of the connection as registered in the organization settings.",
         },
     )
 
-    def _validate_connection_name(self, connection_name: str):
-        if not isinstance(connection_name, str):
-            raise TypeError(
-                f"'connection_name' must be a string (it is {type(connection_name)})."
-            )
-        if not connection_name:
-            raise ValueError("'connection_name' cannot be empty.")
-        if not re.match(CONNECTION_NAME_VALIDATION_REGEX_PATTERN, connection_name):
+    def _validate_name(self, name: str):
+        if not isinstance(name, str):
+            raise TypeError(f"'name' must be a string (it is {type(name)}).")
+        if not name:
+            raise ValueError("'name' cannot be empty.")
+        if not re.match(CONNECTION_NAME_VALIDATION_REGEX_PATTERN, name):
             raise ValueError(
-                "'connection_name' can only contain alphanumeric characters, "
+                "'name' can only contain alphanumeric characters, "
                 "periods, dashes, and underscores."
             )

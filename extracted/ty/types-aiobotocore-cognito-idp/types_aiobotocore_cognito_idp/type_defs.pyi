@@ -85,6 +85,8 @@ __all__ = (
     "AccountTakeoverActionsTypeTypeDef",
     "AccountTakeoverRiskConfigurationTypeTypeDef",
     "AddCustomAttributesRequestTypeDef",
+    "AddUserPoolClientSecretRequestTypeDef",
+    "AddUserPoolClientSecretResponseTypeDef",
     "AdminAddUserToGroupRequestTypeDef",
     "AdminConfirmSignUpRequestTypeDef",
     "AdminCreateUserConfigTypeTypeDef",
@@ -136,6 +138,7 @@ __all__ = (
     "BlobTypeDef",
     "ChallengeResponseTypeTypeDef",
     "ChangePasswordRequestTypeDef",
+    "ClientSecretDescriptorTypeTypeDef",
     "CloudWatchLogsConfigurationTypeTypeDef",
     "CodeDeliveryDetailsTypeTypeDef",
     "CompleteWebAuthnRegistrationRequestTypeDef",
@@ -177,6 +180,7 @@ __all__ = (
     "DeleteTermsRequestTypeDef",
     "DeleteUserAttributesRequestTypeDef",
     "DeleteUserPoolClientRequestTypeDef",
+    "DeleteUserPoolClientSecretRequestTypeDef",
     "DeleteUserPoolDomainRequestTypeDef",
     "DeleteUserPoolRequestTypeDef",
     "DeleteUserRequestTypeDef",
@@ -265,6 +269,8 @@ __all__ = (
     "ListTermsResponseTypeDef",
     "ListUserImportJobsRequestTypeDef",
     "ListUserImportJobsResponseTypeDef",
+    "ListUserPoolClientSecretsRequestTypeDef",
+    "ListUserPoolClientSecretsResponseTypeDef",
     "ListUserPoolClientsRequestPaginateTypeDef",
     "ListUserPoolClientsRequestTypeDef",
     "ListUserPoolClientsResponseTypeDef",
@@ -391,6 +397,23 @@ class AccountTakeoverActionTypeTypeDef(TypedDict):
     Notify: bool
     EventAction: AccountTakeoverEventActionTypeType
 
+class AddUserPoolClientSecretRequestTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+    ClientSecret: NotRequired[str]
+
+class ClientSecretDescriptorTypeTypeDef(TypedDict):
+    ClientSecretId: NotRequired[str]
+    ClientSecretValue: NotRequired[str]
+    ClientSecretCreateDate: NotRequired[datetime]
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
 class AdminAddUserToGroupRequestTypeDef(TypedDict):
     UserPoolId: str
     Username: str
@@ -409,13 +432,6 @@ class MessageTemplateTypeTypeDef(TypedDict):
 class AttributeTypeTypeDef(TypedDict):
     Name: str
     Value: NotRequired[str]
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 class AdminDeleteUserAttributesRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -759,6 +775,11 @@ class DeleteUserPoolClientRequestTypeDef(TypedDict):
     UserPoolId: str
     ClientId: str
 
+class DeleteUserPoolClientSecretRequestTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+    ClientSecretId: str
+
 class DeleteUserPoolDomainRequestTypeDef(TypedDict):
     Domain: str
     UserPoolId: str
@@ -943,6 +964,11 @@ class ListUserImportJobsRequestTypeDef(TypedDict):
     MaxResults: int
     PaginationToken: NotRequired[str]
 
+class ListUserPoolClientSecretsRequestTypeDef(TypedDict):
+    UserPoolId: str
+    ClientId: str
+    NextToken: NotRequired[str]
+
 class ListUserPoolClientsRequestTypeDef(TypedDict):
     UserPoolId: str
     MaxResults: NotRequired[int]
@@ -1108,39 +1134,9 @@ class AccountTakeoverActionsTypeTypeDef(TypedDict):
     MediumAction: NotRequired[AccountTakeoverActionTypeTypeDef]
     HighAction: NotRequired[AccountTakeoverActionTypeTypeDef]
 
-class AdminCreateUserConfigTypeTypeDef(TypedDict):
-    AllowAdminCreateUserOnly: NotRequired[bool]
-    UnusedAccountValidityDays: NotRequired[int]
-    InviteMessageTemplate: NotRequired[MessageTemplateTypeTypeDef]
-
-class AdminCreateUserRequestTypeDef(TypedDict):
-    UserPoolId: str
-    Username: str
-    UserAttributes: NotRequired[Sequence[AttributeTypeTypeDef]]
-    ValidationData: NotRequired[Sequence[AttributeTypeTypeDef]]
-    TemporaryPassword: NotRequired[str]
-    ForceAliasCreation: NotRequired[bool]
-    MessageAction: NotRequired[MessageActionTypeType]
-    DesiredDeliveryMediums: NotRequired[Sequence[DeliveryMediumTypeType]]
-    ClientMetadata: NotRequired[Mapping[str, str]]
-
-class AdminUpdateUserAttributesRequestTypeDef(TypedDict):
-    UserPoolId: str
-    Username: str
-    UserAttributes: Sequence[AttributeTypeTypeDef]
-    ClientMetadata: NotRequired[Mapping[str, str]]
-
-class DeviceTypeTypeDef(TypedDict):
-    DeviceKey: NotRequired[str]
-    DeviceAttributes: NotRequired[list[AttributeTypeTypeDef]]
-    DeviceCreateDate: NotRequired[datetime]
-    DeviceLastModifiedDate: NotRequired[datetime]
-    DeviceLastAuthenticatedDate: NotRequired[datetime]
-
-class UpdateUserAttributesRequestTypeDef(TypedDict):
-    UserAttributes: Sequence[AttributeTypeTypeDef]
-    AccessToken: str
-    ClientMetadata: NotRequired[Mapping[str, str]]
+class AddUserPoolClientSecretResponseTypeDef(TypedDict):
+    ClientSecretDescriptor: ClientSecretDescriptorTypeTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociateSoftwareTokenResponseTypeDef(TypedDict):
     SecretCode: str
@@ -1183,6 +1179,11 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListUserPoolClientSecretsResponseTypeDef(TypedDict):
+    ClientSecrets: list[ClientSecretDescriptorTypeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class StartWebAuthnRegistrationResponseTypeDef(TypedDict):
     CredentialCreationOptions: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1196,6 +1197,40 @@ class VerifySoftwareTokenResponseTypeDef(TypedDict):
     Status: VerifySoftwareTokenResponseTypeType
     Session: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class AdminCreateUserConfigTypeTypeDef(TypedDict):
+    AllowAdminCreateUserOnly: NotRequired[bool]
+    UnusedAccountValidityDays: NotRequired[int]
+    InviteMessageTemplate: NotRequired[MessageTemplateTypeTypeDef]
+
+class AdminCreateUserRequestTypeDef(TypedDict):
+    UserPoolId: str
+    Username: str
+    UserAttributes: NotRequired[Sequence[AttributeTypeTypeDef]]
+    ValidationData: NotRequired[Sequence[AttributeTypeTypeDef]]
+    TemporaryPassword: NotRequired[str]
+    ForceAliasCreation: NotRequired[bool]
+    MessageAction: NotRequired[MessageActionTypeType]
+    DesiredDeliveryMediums: NotRequired[Sequence[DeliveryMediumTypeType]]
+    ClientMetadata: NotRequired[Mapping[str, str]]
+
+class AdminUpdateUserAttributesRequestTypeDef(TypedDict):
+    UserPoolId: str
+    Username: str
+    UserAttributes: Sequence[AttributeTypeTypeDef]
+    ClientMetadata: NotRequired[Mapping[str, str]]
+
+class DeviceTypeTypeDef(TypedDict):
+    DeviceKey: NotRequired[str]
+    DeviceAttributes: NotRequired[list[AttributeTypeTypeDef]]
+    DeviceCreateDate: NotRequired[datetime]
+    DeviceLastModifiedDate: NotRequired[datetime]
+    DeviceLastAuthenticatedDate: NotRequired[datetime]
+
+class UpdateUserAttributesRequestTypeDef(TypedDict):
+    UserAttributes: Sequence[AttributeTypeTypeDef]
+    AccessToken: str
+    ClientMetadata: NotRequired[Mapping[str, str]]
 
 class AdminDisableProviderForUserRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -1544,6 +1579,7 @@ class CreateUserPoolClientRequestTypeDef(TypedDict):
     UserPoolId: str
     ClientName: str
     GenerateSecret: NotRequired[bool]
+    ClientSecret: NotRequired[str]
     RefreshTokenValidity: NotRequired[int]
     AccessTokenValidity: NotRequired[int]
     IdTokenValidity: NotRequired[int]

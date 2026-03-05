@@ -1,4 +1,4 @@
-# Copyright 2025 The etils Authors.
+# Copyright 2026 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,8 +74,7 @@ class _ObjectUpdater:
     """Update the class."""
     self._type_updates[old] = new
 
-    for key in list(old.__dict__.keys()):
-      old_obj = getattr(old, key)
+    for key, old_obj in list(old.__dict__.items()):
 
       try:
         new_obj = getattr(new, key)
@@ -164,7 +163,8 @@ class _ObjectUpdater:
     refs = gc.get_referrers(*self._type_updates.keys())
     for ref in refs:
       if (new := self._type_updates.get(type(ref))) is not None:
-        object.__setattr__(ref, "__class__", new)
+        ref_type = type if isinstance(ref, type) else object
+        ref_type.__setattr__(ref, "__class__", new)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -356,7 +356,7 @@ def _update_old_module(
 
 def _belong_to_module(obj: Any, module: types.ModuleType) -> bool:
   """Returns `True` if the instance, class, function belong to module."""
-  return hasattr(obj, "__module__") and obj.__module__ == module.__name__
+  return inspect.getattr_static(obj, "__module__", None) == module.__name__
 
 
 def _wrap_fn(old_fn, new_fn):

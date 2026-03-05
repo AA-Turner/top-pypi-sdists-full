@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import deque
 from collections.abc import AsyncIterator, Iterator
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import (
     Any,
     AsyncGenerator,
@@ -11,7 +11,6 @@ from typing import (
     Iterable,
     Mapping,
     Optional,
-    Sequence,
     TypeVar,
     cast,
 )
@@ -34,6 +33,7 @@ from phoenix.db.helpers import (
 from phoenix.server.api.auth import IsLocked, IsNotReadOnly, IsNotViewer
 from phoenix.server.api.context import Context
 from phoenix.server.api.evaluators import (
+    BaseEvaluator,
     EvaluationResult,
     evaluation_result_to_model,
     get_evaluator_project_ids,
@@ -100,13 +100,6 @@ initialize_playground_clients()
 
 RepetitionNumber: TypeAlias = int
 DatasetExampleNodeID: TypeAlias = GlobalID
-DatasetExampleRowID: TypeAlias = int
-ChatCompletionResult: TypeAlias = tuple[
-    DatasetExampleRowID,
-    RepetitionNumber,
-    Optional[Tracer],
-    Optional[models.ExperimentRun],
-]
 ChatStream: TypeAlias = AsyncGenerator[ChatCompletionSubscriptionPayload, None]
 
 
@@ -114,8 +107,10 @@ async def _stream_single_chat_completion(
     *,
     input: ChatCompletionInput,
     llm_client: "PlaygroundStreamingClient[Any]",
-    repetition_number: int,
-    results: asyncio.Queue[tuple[Tracer, int]],
+    repetition_number: RepetitionNumber,
+    db: DbSessionFactory,
+    project_id: int,
+    on_span_insertion: Callable[[], None],
     span_cost_calculator: SpanCostCalculator,
 ) -> ChatStream:
     messages: list[PlaygroundMessage] = [
@@ -152,32 +147,12 @@ async def _stream_single_chat_completion(
             repetition_number=repetition_number,
         )
 
-    await results.put((tracer, repetition_number))
-
-
-async def _chat_completion_span_result_payloads(
-    *,
-    db: DbSessionFactory,
-    results: Sequence[tuple[Tracer, int]],
-    project_id: int,
-    on_span_insertion: Callable[[], None],
-) -> ChatStream:
-    if not results:
-        return
-    db_spans: list[models.Span] = []
-    repetition_numbers: list[int] = []
+    db_traces = tracer.get_db_traces(project_id=project_id)
     async with db() as session:
-        for tracer, repetition_number in results:
-            db_traces = await tracer.save_db_traces(session=session, project_id=project_id)
-            if not db_traces:
-                continue
-            db_trace = db_traces[0]
-            if not db_trace.spans:
-                continue
-            db_span = db_trace.spans[0]
-            db_spans.append(db_span)
-            repetition_numbers.append(repetition_number)
-    for db_span, repetition_number in zip(db_spans, repetition_numbers):
+        session.add_all(db_traces)
+        await session.flush()
+    if db_traces and db_traces[0].spans:
+        db_span = db_traces[0].spans[0]
         yield ChatCompletionSubscriptionResult(
             span=Span(id=db_span.id, db_record=db_span),
             repetition_number=repetition_number,
@@ -185,29 +160,15 @@ async def _chat_completion_span_result_payloads(
         on_span_insertion()
 
 
-def _is_span_result_payloads_stream(
-    stream: ChatStream,
-) -> bool:
-    """
-    Checks if the given generator was instantiated from
-    `_chat_completion_span_result_payloads`
-    """
-    return stream.ag_code == _chat_completion_span_result_payloads.__code__  # type: ignore[attr-defined,no-any-return,unused-ignore]
-
-
 async def _cleanup_chat_completion_resources(
     in_progress: list[
         tuple[
-            Optional[int],
+            RepetitionNumber,
             ChatStream,
             asyncio.Task[ChatCompletionSubscriptionPayload],
         ]
     ],
-    not_started: deque[tuple[int, ChatStream]],
-    results: asyncio.Queue[tuple[Tracer, int]],
-    db: DbSessionFactory,
-    project_id: int,
-    on_span_insertion: Callable[[], None],
+    not_started: deque[tuple[RepetitionNumber, ChatStream]],
 ) -> None:
     """
     Cleanup all resources on cancellation or error. MUST be called in a finally block.
@@ -252,44 +213,18 @@ async def _cleanup_chat_completion_resources(
             return_exceptions=True,
         )
 
-    # 5. Flush results queue to database (important for data integrity)
-    if not results.empty():
-        remaining: list[tuple[Tracer, int]] = []
-        while not results.empty():
-            try:
-                remaining.append(results.get_nowait())
-            except asyncio.QueueEmpty:
-                break
-
-        if remaining:
-            logger.info(f"Flushing {len(remaining)} remaining spans to database")
-            try:
-                async for _ in _chat_completion_span_result_payloads(
-                    db=db,
-                    results=remaining,
-                    project_id=project_id,
-                    on_span_insertion=on_span_insertion,
-                ):
-                    pass
-            except Exception as e:
-                logger.error(f"Error flushing results: {e}")
-
     logger.info("Resource cleanup complete")
 
 
 async def _cleanup_chat_completion_over_dataset_resources(
     in_progress: list[
         tuple[
-            Optional[DatasetExampleNodeID],
+            DatasetExampleNodeID,
             ChatStream,
             asyncio.Task[ChatCompletionSubscriptionPayload],
         ]
     ],
     not_started: list[tuple[DatasetExampleNodeID, ChatStream]],
-    results: asyncio.Queue[ChatCompletionResult],
-    db: DbSessionFactory,
-    project_id: int,
-    experiment_id: int,
 ) -> None:
     """
     Cleanup all resources on cancellation or error. MUST be called in a finally block.
@@ -334,28 +269,6 @@ async def _cleanup_chat_completion_over_dataset_resources(
             return_exceptions=True,
         )
 
-    # 5. Flush results queue to database (important for data integrity)
-    if not results.empty():
-        remaining: list[ChatCompletionResult] = []
-        while not results.empty():
-            try:
-                remaining.append(results.get_nowait())
-            except asyncio.QueueEmpty:
-                break
-
-        if remaining:
-            logger.info(f"Flushing {len(remaining)} remaining results to database")
-            try:
-                async for _ in _chat_completion_result_payloads(
-                    db=db,
-                    results=remaining,
-                    project_id=project_id,
-                    experiment_id=experiment_id,
-                ):
-                    pass
-            except Exception as e:
-                logger.error(f"Error flushing results: {e}")
-
     logger.info("Resource cleanup complete")
 
 
@@ -386,15 +299,18 @@ class Subscription:
                     )
                 )
 
-        results: asyncio.Queue[tuple[Tracer, int]] = asyncio.Queue()
-        not_started: deque[tuple[int, ChatStream]] = deque(
+        not_started: deque[tuple[RepetitionNumber, ChatStream]] = deque(
             (
                 repetition_number,
                 _stream_single_chat_completion(
                     input=input,
                     llm_client=llm_client,
                     repetition_number=repetition_number,
-                    results=results,
+                    db=info.context.db,
+                    project_id=playground_project_id,
+                    on_span_insertion=lambda: info.context.event_queue.put(
+                        SpanInsertEvent(ids=(playground_project_id,))
+                    ),
                     span_cost_calculator=info.context.span_cost_calculator,
                 ),
             )
@@ -402,15 +318,12 @@ class Subscription:
         )
         in_progress: list[
             tuple[
-                Optional[int],
+                RepetitionNumber,
                 ChatStream,
                 asyncio.Task[ChatCompletionSubscriptionPayload],
             ]
         ] = []
         max_in_progress = 3
-        write_batch_size = 10
-        write_interval = timedelta(seconds=10)
-        last_write_time = datetime.now()
 
         try:
             while not_started or in_progress:
@@ -431,66 +344,24 @@ class Subscription:
                         del in_progress[idx]  # removes exhausted stream
                     except asyncio.TimeoutError:
                         del in_progress[idx]  # removes timed-out stream
-                        if repetition_number is not None:
-                            yield ChatCompletionSubscriptionError(
-                                message="Playground task timed out",
-                                repetition_number=repetition_number,
-                            )
+                        yield ChatCompletionSubscriptionError(
+                            message="Playground task timed out",
+                            repetition_number=repetition_number,
+                        )
                     except Exception as error:
                         del in_progress[idx]  # removes failed stream
-                        if repetition_number is not None:
-                            yield ChatCompletionSubscriptionError(
-                                message="An unexpected error occurred",
-                                repetition_number=repetition_number,
-                            )
+                        yield ChatCompletionSubscriptionError(
+                            message="An unexpected error occurred",
+                            repetition_number=repetition_number,
+                        )
                         logger.exception(error)
                     else:
                         task = _create_task_with_timeout(stream)
                         in_progress[idx] = (repetition_number, stream, task)
-
-                    exceeded_write_batch_size = results.qsize() >= write_batch_size
-                    exceeded_write_interval = datetime.now() - last_write_time > write_interval
-                    write_already_in_progress = any(
-                        _is_span_result_payloads_stream(stream) for _, stream, _ in in_progress
-                    )
-                    if (
-                        not results.empty()
-                        and (exceeded_write_batch_size or exceeded_write_interval)
-                        and not write_already_in_progress
-                    ):
-                        result_payloads_stream = _chat_completion_span_result_payloads(
-                            db=info.context.db,
-                            results=_drain_no_wait(results),
-                            project_id=playground_project_id,
-                            on_span_insertion=lambda: info.context.event_queue.put(
-                                SpanInsertEvent(ids=(playground_project_id,))
-                            ),
-                        )
-                        task = _create_task_with_timeout(result_payloads_stream)
-                        in_progress.append((None, result_payloads_stream, task))
-                        last_write_time = datetime.now()
-
-            # Process remaining results
-            if remaining_results := await _drain(results):
-                async for result_payload in _chat_completion_span_result_payloads(
-                    db=info.context.db,
-                    results=remaining_results,
-                    project_id=playground_project_id,
-                    on_span_insertion=lambda: info.context.event_queue.put(
-                        SpanInsertEvent(ids=(playground_project_id,))
-                    ),
-                ):
-                    yield result_payload
         finally:
             await _cleanup_chat_completion_resources(
                 in_progress=in_progress,
                 not_started=not_started,
-                results=results,
-                db=info.context.db,
-                project_id=playground_project_id,
-                on_span_insertion=lambda: info.context.event_queue.put(
-                    SpanInsertEvent(ids=(playground_project_id,))
-                ),
             )
 
     @strawberry.subscription(permission_classes=[IsNotReadOnly, IsNotViewer, IsLocked])  # type: ignore
@@ -615,7 +486,6 @@ class Subscription:
             experiment=to_gql_experiment(experiment)
         )  # eagerly yields experiment so it can be linked by consumers of the subscription
 
-        results: asyncio.Queue[ChatCompletionResult] = asyncio.Queue()
         not_started: list[tuple[DatasetExampleNodeID, ChatStream]] = [
             (
                 GlobalID(DatasetExample.__name__, str(revision.dataset_example_id)),
@@ -623,10 +493,16 @@ class Subscription:
                     input=input,
                     llm_client=llm_client,
                     revision=revision,
-                    results=results,
+                    db=info.context.db,
                     repetition_number=repetition_number,
                     span_cost_calculator=info.context.span_cost_calculator,
                     experiment_id=experiment.id,
+                    playground_project_id=playground_project_id,
+                    on_span_insertion=lambda: info.context.event_queue.put(
+                        SpanInsertEvent(ids=(playground_project_id,))
+                    ),
+                    evaluators=evaluators,
+                    evaluator_project_ids=project_ids,
                 ),
             )
             for revision in revisions
@@ -636,15 +512,12 @@ class Subscription:
         ]
         in_progress: list[
             tuple[
-                Optional[DatasetExampleNodeID],
+                DatasetExampleNodeID,
                 ChatStream,
                 asyncio.Task[ChatCompletionSubscriptionPayload],
             ]
         ] = []
         max_in_progress = 3
-        write_batch_size = 10
-        write_interval = timedelta(seconds=10)
-        last_write_time = datetime.now()
         try:
             while not_started or in_progress:
                 while not_started and len(in_progress) < max_in_progress:
@@ -664,139 +537,24 @@ class Subscription:
                         del in_progress[idx]  # removes exhausted stream
                     except asyncio.TimeoutError:
                         del in_progress[idx]  # removes timed-out stream
-                        if example_id is not None:
-                            yield ChatCompletionSubscriptionError(
-                                message="Playground task timed out", dataset_example_id=example_id
-                            )
+                        yield ChatCompletionSubscriptionError(
+                            message="Playground task timed out", dataset_example_id=example_id
+                        )
                     except Exception as error:
                         del in_progress[idx]  # removes failed stream
-                        if example_id is not None:
-                            yield ChatCompletionSubscriptionError(
-                                message="An unexpected error occurred",
-                                dataset_example_id=example_id,
-                            )
+                        yield ChatCompletionSubscriptionError(
+                            message="An unexpected error occurred",
+                            dataset_example_id=example_id,
+                        )
                         logger.exception(error)
                     else:
                         task = _create_task_with_timeout(stream)
                         in_progress[idx] = (example_id, stream, task)
-
-                    exceeded_write_batch_size = results.qsize() >= write_batch_size
-                    exceeded_write_interval = datetime.now() - last_write_time > write_interval
-                    write_already_in_progress = any(
-                        _is_result_payloads_stream(stream) for _, stream, _ in in_progress
-                    )
-                    if (
-                        not results.empty()
-                        and (exceeded_write_batch_size or exceeded_write_interval)
-                        and not write_already_in_progress
-                    ):
-                        result_payloads_stream = _chat_completion_result_payloads(
-                            db=info.context.db,
-                            results=_drain_no_wait(results),
-                            project_id=playground_project_id,
-                            experiment_id=experiment.id,
-                        )
-                        task = _create_task_with_timeout(result_payloads_stream)
-                        in_progress.append((None, result_payloads_stream, task))
-                        last_write_time = datetime.now()
-
-            # Process remaining results
-            if remaining_results := await _drain(results):
-                async for result_payload in _chat_completion_result_payloads(
-                    db=info.context.db,
-                    results=remaining_results,
-                    project_id=playground_project_id,
-                    experiment_id=experiment.id,
-                ):
-                    yield result_payload
         finally:
             await _cleanup_chat_completion_over_dataset_resources(
                 in_progress=in_progress,
                 not_started=not_started,
-                results=results,
-                db=info.context.db,
-                project_id=playground_project_id,
-                experiment_id=experiment.id,
             )
-
-        if input.evaluators:
-            # Process revisions in reverse order to match the order in which chat completions
-            # were executed, since not_started pops from the right
-            for revision in reversed(revisions):
-                example_id = GlobalID(DatasetExample.__name__, str(revision.dataset_example_id))
-                for repetition_number in range(1, input.repetitions + 1):
-                    async with info.context.db() as session:
-                        run = await session.scalar(  # pyright: ignore
-                            select(models.ExperimentRun).where(
-                                models.ExperimentRun.experiment_id == experiment.id,
-                                models.ExperimentRun.dataset_example_id
-                                == revision.dataset_example_id,
-                                models.ExperimentRun.repetition_number == repetition_number,
-                            )
-                        )
-                    if run is None or run.error is not None:
-                        continue
-                    context_dict: dict[str, Any] = {
-                        "input": revision.input,
-                        "reference": revision.output,
-                        "output": run.output.get("task_output", run.output),
-                        "metadata": revision.metadata_,
-                    }
-                    for evaluator, evaluator_input, project_id in zip(
-                        evaluators, input.evaluators, project_ids
-                    ):
-                        name = str(evaluator_input.name)
-                        configs = get_evaluator_output_configs(evaluator_input, evaluator)
-                        tracer: Tracer | None = None
-                        if input.tracing_enabled:
-                            tracer = Tracer(span_cost_calculator=info.context.span_cost_calculator)
-
-                        eval_results: list[EvaluationResult] = await evaluator.evaluate(
-                            context=context_dict,
-                            input_mapping=evaluator_input.input_mapping.to_orm(),
-                            name=name,
-                            output_configs=configs,
-                            tracer=tracer,
-                        )
-
-                        trace: Trace | None = None
-                        if tracer is not None:
-                            async with info.context.db() as session:
-                                db_traces = await tracer.save_db_traces(
-                                    session=session, project_id=project_id
-                                )
-                            if db_traces:
-                                db_trace = db_traces[0]
-                                trace = Trace(id=db_trace.id, db_record=db_trace)
-
-                        for result in eval_results:
-                            if result["error"] is not None:
-                                yield EvaluationChunk(
-                                    evaluator_name=name,
-                                    error=result["error"],
-                                    trace=trace,
-                                    dataset_example_id=example_id,
-                                    repetition_number=repetition_number,
-                                )
-                                continue
-                            annotation_model = evaluation_result_to_model(
-                                result,
-                                experiment_run_id=run.id,
-                            )
-                            async with info.context.db() as session:
-                                session.add(annotation_model)
-                                await session.flush()
-                            evaluation_chunk = EvaluationChunk(
-                                evaluator_name=name,
-                                experiment_run_evaluation=ExperimentRunAnnotation(
-                                    id=annotation_model.id,
-                                    db_record=annotation_model,
-                                ),
-                                trace=trace,
-                                dataset_example_id=example_id,
-                                repetition_number=repetition_number,
-                            )
-                            yield evaluation_chunk
 
 
 async def _stream_chat_completion_over_dataset_example(
@@ -804,13 +562,18 @@ async def _stream_chat_completion_over_dataset_example(
     input: ChatCompletionOverDatasetInput,
     llm_client: "PlaygroundStreamingClient[Any]",
     revision: models.DatasetExampleRevision,
-    repetition_number: int,
-    results: asyncio.Queue[ChatCompletionResult],
+    repetition_number: RepetitionNumber,
+    db: DbSessionFactory,
     span_cost_calculator: SpanCostCalculator,
     experiment_id: int,
+    playground_project_id: int,
+    on_span_insertion: Callable[[], None],
+    evaluators: list[BaseEvaluator],
+    evaluator_project_ids: list[int],
 ) -> ChatStream:
     example_id = GlobalID(DatasetExample.__name__, str(revision.dataset_example_id))
     invocation_parameters = llm_client.construct_invocation_parameters(input.invocation_parameters)
+    db_run: Optional[models.ExperimentRun] = None
     messages: list[PlaygroundMessage] = [
         create_playground_message(
             message.role,
@@ -849,23 +612,25 @@ async def _stream_chat_completion_over_dataset_example(
             dataset_example_id=example_id,
             repetition_number=repetition_number,
         )
-        await results.put(
-            (
-                revision.dataset_example_id,
-                repetition_number,
-                None,
-                models.ExperimentRun(
-                    experiment_id=experiment_id,
-                    dataset_example_id=revision.dataset_example_id,
-                    trace_id=None,
-                    output={},
-                    repetition_number=repetition_number,
-                    start_time=format_start_time,
-                    end_time=format_end_time,
-                    error=str(error),
-                    trace=None,
-                ),
-            )
+        db_run = models.ExperimentRun(
+            experiment_id=experiment_id,
+            dataset_example_id=revision.dataset_example_id,
+            trace_id=None,
+            output={},
+            repetition_number=repetition_number,
+            start_time=format_start_time,
+            end_time=format_end_time,
+            error=str(error),
+            trace=None,
+        )
+        async with db() as session:
+            session.add(db_run)
+            await session.flush()
+        yield ChatCompletionSubscriptionResult(
+            span=None,
+            experiment_run=ExperimentRun(id=db_run.id, db_record=db_run),
+            dataset_example_id=GlobalID(DatasetExample.__name__, str(revision.dataset_example_id)),
+            repetition_number=repetition_number,
         )
         return
 
@@ -886,70 +651,88 @@ async def _stream_chat_completion_over_dataset_example(
             dataset_example_id=example_id,
             repetition_number=repetition_number,
         )
-    await results.put((revision.dataset_example_id, repetition_number, tracer, None))
-
-
-async def _chat_completion_result_payloads(
-    *,
-    db: DbSessionFactory,
-    project_id: int,
-    experiment_id: int,
-    results: Sequence[ChatCompletionResult],
-) -> ChatStream:
-    if not results:
-        return
-    example_ids: list[int] = []
-    repetition_numbers: list[int] = []
-    db_spans: list[models.Span | None] = []
-    db_runs: list[models.ExperimentRun] = []
-    async with db() as session:
-        for example_id, repetition_number, tracer, run in results:
-            if tracer is not None:
-                db_traces = await tracer.save_db_traces(session=session, project_id=project_id)
-                if not db_traces:
-                    continue
-                db_trace = db_traces[0]
-                if not db_trace.spans:
-                    continue
-                db_span = db_trace.spans[0]
-                db_run = get_db_experiment_run(
-                    db_span,
-                    db_trace,
-                    experiment_id=experiment_id,
-                    example_id=example_id,
-                    repetition_number=repetition_number,
-                )
-                session.add(db_run)
-                example_ids.append(example_id)
-                repetition_numbers.append(repetition_number)
-                db_spans.append(db_span)
-                db_runs.append(db_run)
-            elif run is not None:
-                session.add(run)
-                example_ids.append(example_id)
-                repetition_numbers.append(repetition_number)
-                db_spans.append(None)
-                db_runs.append(run)
-        await session.flush()
-    for example_id, repetition_number, maybe_db_span, db_run in zip(
-        example_ids, repetition_numbers, db_spans, db_runs
-    ):
-        yield ChatCompletionSubscriptionResult(
-            span=Span(id=maybe_db_span.id, db_record=maybe_db_span) if maybe_db_span else None,
-            experiment_run=ExperimentRun(id=db_run.id, db_record=db_run),
-            dataset_example_id=GlobalID(DatasetExample.__name__, str(example_id)),
+    task_db_traces = tracer.get_db_traces(project_id=playground_project_id)
+    task_db_trace = task_db_traces[0] if task_db_traces else None
+    all_db_traces: list[models.Trace] = list(task_db_traces)
+    if task_db_trace is not None and task_db_trace.spans:
+        db_span = task_db_trace.spans[0]
+        db_run = get_db_experiment_run(
+            db_span,
+            task_db_trace,
+            experiment_id=experiment_id,
+            example_id=revision.dataset_example_id,
             repetition_number=repetition_number,
         )
-
-
-def _is_result_payloads_stream(
-    stream: ChatStream,
-) -> bool:
-    """
-    Checks if the given generator was instantiated from
-    `_chat_completion_result_payloads`
-    """
-    return stream.ag_code == _chat_completion_result_payloads.__code__  # type: ignore[attr-defined,no-any-return,unused-ignore]
+    if db_run is not None and not db_run.error and evaluators and evaluator_project_ids:
+        context_dict: dict[str, Any] = {
+            "input": revision.input,
+            "reference": revision.output,
+            "output": db_run.output["task_output"],
+            "metadata": revision.metadata_,
+        }
+        for evaluator, evaluator_input, eval_project_id in zip(
+            evaluators, input.evaluators, evaluator_project_ids
+        ):
+            name = str(evaluator_input.name)
+            configs = get_evaluator_output_configs(evaluator_input, evaluator)
+            eval_tracer: Optional[Tracer] = None
+            if input.tracing_enabled:
+                eval_tracer = Tracer(span_cost_calculator=span_cost_calculator)
+            eval_results: list[EvaluationResult] = await evaluator.evaluate(
+                context=context_dict,
+                input_mapping=evaluator_input.input_mapping.to_orm(),
+                name=name,
+                output_configs=configs,
+                tracer=eval_tracer,
+            )
+            if eval_tracer is not None:
+                all_db_traces.extend(eval_tracer.get_db_traces(project_id=eval_project_id))
+            db_run.annotations.extend([evaluation_result_to_model(r) for r in eval_results])
+    # Capture annotation objects from the in-memory collections before the session takes
+    # ownership and expires them on flush/close, making lazy loads impossible afterward.
+    # The same Python objects get their IDs back-filled during flush and remain accessible
+    # as detached objects (primary keys are always available on detached instances).
+    pre_captured_annotations = list(db_run.annotations) if db_run is not None else []
+    async with db() as session:
+        session.add_all(all_db_traces)
+        if db_run is not None:
+            session.add(db_run)
+        await session.flush()
+    if all_db_traces:
+        on_span_insertion()
+    if db_run is None:
+        return
+    task_db_trace = all_db_traces[0] if all_db_traces else None
+    maybe_db_span = task_db_trace.spans[0] if task_db_trace and task_db_trace.spans else None
+    yield ChatCompletionSubscriptionResult(
+        span=Span(id=maybe_db_span.id, db_record=maybe_db_span) if maybe_db_span else None,
+        experiment_run=ExperimentRun(id=db_run.id, db_record=db_run),
+        dataset_example_id=GlobalID(DatasetExample.__name__, str(revision.dataset_example_id)),
+        repetition_number=repetition_number,
+    )
+    if pre_captured_annotations:
+        traces_by_trace_id = {t.trace_id: t for t in all_db_traces}
+        for annotation in pre_captured_annotations:
+            eval_db_trace = (
+                traces_by_trace_id.get(annotation.trace_id) if annotation.trace_id else None
+            )
+            yield EvaluationChunk(
+                evaluator_name=annotation.name,
+                experiment_run_evaluation=ExperimentRunAnnotation(
+                    id=annotation.id,
+                    db_record=annotation,
+                )
+                if not annotation.error
+                else None,
+                trace=Trace(id=eval_db_trace.id, db_record=eval_db_trace)
+                if eval_db_trace
+                else None,
+                error=annotation.error,
+                dataset_example_id=GlobalID(
+                    DatasetExample.__name__, str(revision.dataset_example_id)
+                ),
+                repetition_number=repetition_number,
+            )
 
 
 def _create_task_with_timeout(
@@ -985,23 +768,6 @@ async def _wait_for(
         return await task
     except asyncio.CancelledError:
         raise asyncio.TimeoutError()
-
-
-async def _drain(queue: asyncio.Queue[GenericType]) -> list[GenericType]:
-    values: list[GenericType] = []
-    while not queue.empty():
-        values.append(await queue.get())
-    return values
-
-
-def _drain_no_wait(queue: asyncio.Queue[GenericType]) -> list[GenericType]:
-    values: list[GenericType] = []
-    while True:
-        try:
-            values.append(queue.get_nowait())
-        except asyncio.QueueEmpty:
-            break
-    return values
 
 
 async def _as_coroutine(iterable: AsyncIterator[GenericType]) -> GenericType:

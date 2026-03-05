@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.2.0
+Version: 5.3.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -28,7 +28,7 @@ Requires-Dist: packaging>=20.0
 Requires-Dist: pyyaml>=5.1
 Requires-Dist: regex!=2019.12.17
 Requires-Dist: tokenizers<=0.23.0,>=0.22.0
-Requires-Dist: typer-slim
+Requires-Dist: typer
 Requires-Dist: safetensors>=0.4.3
 Requires-Dist: tqdm>=4.27
 Provides-Extra: torch
@@ -53,6 +53,7 @@ Requires-Dist: GitPython<3.1.19; extra == "quality"
 Requires-Dist: urllib3<2.0.0; extra == "quality"
 Requires-Dist: libcst; extra == "quality"
 Requires-Dist: rich; extra == "quality"
+Requires-Dist: ty==0.0.12; extra == "quality"
 Provides-Extra: kernels
 Requires-Dist: kernels<0.11,>=0.10.2; extra == "kernels"
 Provides-Extra: sentencepiece
@@ -143,6 +144,7 @@ Requires-Dist: GitPython<3.1.19; extra == "testing"
 Requires-Dist: urllib3<2.0.0; extra == "testing"
 Requires-Dist: libcst; extra == "testing"
 Requires-Dist: rich; extra == "testing"
+Requires-Dist: ty==0.0.12; extra == "testing"
 Requires-Dist: faiss-cpu; extra == "testing"
 Requires-Dist: datasets>=2.15.0; extra == "testing"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "testing"
@@ -187,6 +189,7 @@ Requires-Dist: GitPython<3.1.19; extra == "deepspeed-testing"
 Requires-Dist: urllib3<2.0.0; extra == "deepspeed-testing"
 Requires-Dist: libcst; extra == "deepspeed-testing"
 Requires-Dist: rich; extra == "deepspeed-testing"
+Requires-Dist: ty==0.0.12; extra == "deepspeed-testing"
 Requires-Dist: faiss-cpu; extra == "deepspeed-testing"
 Requires-Dist: datasets>=2.15.0; extra == "deepspeed-testing"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "deepspeed-testing"
@@ -271,6 +274,7 @@ Requires-Dist: GitPython<3.1.19; extra == "dev"
 Requires-Dist: urllib3<2.0.0; extra == "dev"
 Requires-Dist: libcst; extra == "dev"
 Requires-Dist: rich; extra == "dev"
+Requires-Dist: ty==0.0.12; extra == "dev"
 Requires-Dist: faiss-cpu; extra == "dev"
 Requires-Dist: datasets>=2.15.0; extra == "dev"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"

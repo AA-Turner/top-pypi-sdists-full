@@ -4165,6 +4165,7 @@ class ObjectPropertyModelPropertySourceType(sgqlc.types.Enum):
     * `INGEST`: Ingest
     * `LINEAGE_API`: Lineage API
     * `TAGS_COLLECTION`: Tags Collection
+    * `USE_CASE`: Use Case
     """
 
     __schema__ = schema
@@ -4177,6 +4178,7 @@ class ObjectPropertyModelPropertySourceType(sgqlc.types.Enum):
         "INGEST",
         "LINEAGE_API",
         "TAGS_COLLECTION",
+        "USE_CASE",
     )
 
 
@@ -4260,7 +4262,6 @@ class Permission(sgqlc.types.Enum):
     * `DataExportsAccess`None
     * `DataproductsAccess`None
     * `DataproductsEdit`None
-    * `DataproductsEditAll`None
     * `DataproductsEditTheirOwn`None
     * `GraphqlMutate`None
     * `GraphqlQuery`None
@@ -4294,6 +4295,8 @@ class Permission(sgqlc.types.Enum):
     * `SettingsDomainsList`None
     * `SettingsDomainsViewDetail`None
     * `SettingsEdit`None
+    * `SettingsIngestionAccess`None
+    * `SettingsIngestionEdit`None
     * `SettingsIntegrationsAccess`None
     * `SettingsIntegrationsEdit`None
     * `SettingsMutedDataAccess`None
@@ -4330,7 +4333,6 @@ class Permission(sgqlc.types.Enum):
         "DataExportsAccess",
         "DataproductsAccess",
         "DataproductsEdit",
-        "DataproductsEditAll",
         "DataproductsEditTheirOwn",
         "GraphqlMutate",
         "GraphqlQuery",
@@ -4364,6 +4366,8 @@ class Permission(sgqlc.types.Enum):
         "SettingsDomainsList",
         "SettingsDomainsViewDetail",
         "SettingsEdit",
+        "SettingsIngestionAccess",
+        "SettingsIngestionEdit",
         "SettingsIntegrationsAccess",
         "SettingsIntegrationsEdit",
         "SettingsMutedDataAccess",
@@ -28349,6 +28353,14 @@ class MonitorLabelObject(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -28412,6 +28424,9 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -58353,6 +58368,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -58416,6 +58439,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -58601,6 +58627,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -58664,6 +58698,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -58849,6 +58886,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -58912,6 +58957,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -59097,6 +59145,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -59160,6 +59216,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -59345,6 +59404,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -59408,6 +59475,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -59593,6 +59663,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -59656,6 +59734,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -59841,6 +59922,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -59904,6 +59993,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -60089,6 +60181,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -60152,6 +60252,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -60337,6 +60440,14 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "agent_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentFilterInput)),
+                        graphql_name="agentFilters",
+                        default=None,
+                    ),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -60400,6 +60511,9 @@ class Query(sgqlc.types.Type):
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
+    * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
+      agent. Returns monitors associated with the specified agent(s),
+      identified by agent_name and/or trace_table_mcon.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -87624,6 +87738,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "domain_restrictions",
         "monitor_sql_blocks",
         "sampling_config",
+        "agent_names",
         "entity_mcons",
         "agent_span_filters",
         "filters",
@@ -87813,6 +87928,13 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
 
     sampling_config = sgqlc.types.Field(MonitorSamplingConfig, graphql_name="samplingConfig")
     """Sampling configuration"""
+
+    agent_names = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="agentNames"
+    )
+    """Agent names extracted from sql_blocks.agent_span for agent
+    monitors
+    """
 
     entity_mcons = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="entityMcons")
     """MCONs for monitored tables/views"""

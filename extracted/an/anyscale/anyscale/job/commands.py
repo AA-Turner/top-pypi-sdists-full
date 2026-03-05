@@ -54,8 +54,8 @@ anyscale.job.submit(
         working_dir=".",
         connections=[
             ConnectionConfig(
-                connection_type=ConnectionType.DATABRICKS,
-                connection_name="my-databricks-connection",
+                type=ConnectionType.DATABRICKS,
+                name="my-databricks-connection",
             )
         ],
     ),

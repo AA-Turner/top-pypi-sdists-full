@@ -2,13 +2,13 @@ from __future__ import annotations
 from bs4 import BeautifulSoup
 from wordsegment import load, segment
 
-import time, argparse, logging, re, tempfile, hashlib, cv2, subprocess, threading, importlib, socket, tiktoken
+import time, ipaddress, argparse, logging, re, tempfile, hashlib, cv2, subprocess, threading, importlib, socket, tiktoken
 import pytesseract, requests, shutil, os, sys, unicodedata, urllib.request, json, glob, math, mimetypes 
 
 from typing import *
 from pathlib import Path
 from datetime import datetime, timedelta 
-from urllib.parse import urljoin,quote, parse_qs, urlparse
+from urllib.parse import urljoin,quote, parse_qs, urlparse, urlencode, ParseResult
 from collections import Counter
 
 from PIL import Image
@@ -29,4 +29,5 @@ from urllib.parse import urlparse, urljoin
 import xml.etree.ElementTree as ET
 
 from pdf2image import convert_from_path
+from dataclasses import dataclass, field
 

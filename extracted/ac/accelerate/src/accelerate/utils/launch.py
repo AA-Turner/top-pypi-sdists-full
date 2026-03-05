@@ -27,12 +27,11 @@ from ..commands.config.config_args import SageMakerConfig
 from ..utils import (
     DynamoBackend,
     PrecisionType,
-    is_ccl_available,
     is_fp8_available,
     is_hpu_available,
-    is_ipex_available,
     is_mlu_available,
     is_musa_available,
+    is_neuron_available,
     is_npu_available,
     is_sdaa_available,
     is_torch_xla_available,
@@ -41,6 +40,7 @@ from ..utils import (
 from ..utils.constants import DEEPSPEED_MULTINODE_LAUNCHERS
 from ..utils.other import get_free_port, is_port_in_use, merge_dicts
 from ..utils.versions import compare_versions
+from . import parse_flag_from_env
 from .dataclasses import DistributedType, SageMakerDistributedType
 
 
@@ -146,6 +146,8 @@ def prepare_simple_launcher_cmd_env(args: argparse.Namespace) -> tuple[list[str]
             current_env["ASCEND_RT_VISIBLE_DEVICES"] = args.gpu_ids
         elif is_hpu_available():
             current_env["HABANA_VISIBLE_MODULES"] = args.gpu_ids
+        elif is_neuron_available():
+            current_env["NEURON_RT_VISIBLE_CORES"] = args.gpu_ids
         else:
             current_env["CUDA_VISIBLE_DEVICES"] = args.gpu_ids
     if num_machines > 1:
@@ -156,12 +158,10 @@ def prepare_simple_launcher_cmd_env(args: argparse.Namespace) -> tuple[list[str]
             "When using multiple machines, you need to specify the main process port."
         )
 
-    ccl_worker_count = getattr(args, "mpirun_ccl", 0) if is_ccl_available() else 0
     if (num_processes is not None and num_processes > 1) or num_machines > 1:
         current_env["MASTER_ADDR"] = args.main_process_ip if args.main_process_ip is not None else "127.0.0.1"
         current_env["MASTER_PORT"] = str(args.main_process_port) if args.main_process_port is not None else "29500"
-        current_env["CCL_WORKER_COUNT"] = str(ccl_worker_count)
-    if current_env["ACCELERATE_USE_CPU"]:
+    if parse_flag_from_env(current_env["ACCELERATE_USE_CPU"], False):
         current_env["KMP_AFFINITY"] = "granularity=fine,compact,1,0"
         current_env["KMP_BLOCKTIME"] = str(1)
 
@@ -193,8 +193,6 @@ def prepare_simple_launcher_cmd_env(args: argparse.Namespace) -> tuple[list[str]
     current_env["ACCELERATE_DYNAMO_USE_REGIONAL_COMPILATION"] = str(args.dynamo_use_regional_compilation)
 
     current_env["OMP_NUM_THREADS"] = str(args.num_cpu_threads_per_process)
-    if is_ipex_available():
-        current_env["ACCELERATE_USE_IPEX"] = str(args.ipex).lower()
     if args.enable_cpu_affinity:
         current_env["ACCELERATE_CPU_AFFINITY"] = "1"
     return cmd, current_env
@@ -273,6 +271,8 @@ def prepare_multi_gpu_env(args: argparse.Namespace) -> dict[str, str]:
             current_env["ASCEND_RT_VISIBLE_DEVICES"] = gpu_ids
         elif is_hpu_available():
             current_env["HABANA_VISIBLE_MODULES"] = gpu_ids
+        elif is_neuron_available():
+            current_env["NEURON_RT_VISIBLE_CORES"] = gpu_ids
         else:
             current_env["CUDA_VISIBLE_DEVICES"] = gpu_ids
     mixed_precision = args.mixed_precision.lower()
@@ -335,6 +335,23 @@ def prepare_multi_gpu_env(args: argparse.Namespace) -> dict[str, str]:
         prefix = "MEGATRON_LM_"
         current_env["ACCELERATE_USE_MEGATRON_LM"] = "true"
         current_env[prefix + "TP_DEGREE"] = str(args.megatron_lm_tp_degree)
+        current_env[prefix + "USE_CUSTOM_FSDP"] = str(args.megatron_lm_use_custom_fsdp)
+        if args.megatron_lm_no_load_optim is not None:
+            current_env[prefix + "NO_LOAD_OPTIM"] = str(args.megatron_lm_no_load_optim)
+        if args.megatron_lm_eod_mask_loss is not None:
+            current_env[prefix + "EOD_MASK_LOSS"] = str(args.megatron_lm_eod_mask_loss)
+        if args.megatron_lm_no_save_optim is not None:
+            current_env[prefix + "NO_SAVE_OPTIM"] = str(args.megatron_lm_no_save_optim)
+        if args.megatron_lm_optimizer_cpu_offload is not None:
+            current_env[prefix + "OPTIMIZER_CPU_OFFLOAD"] = str(args.megatron_lm_optimizer_cpu_offload)
+        if args.megatron_lm_use_precision_aware_optimizer is not None:
+            current_env[prefix + "USE_PRECISION_AWARE_OPTIMIZER"] = str(args.megatron_lm_use_precision_aware_optimizer)
+        if args.megatron_lm_overlap_cpu_optimizer_d2h_h2d is not None:
+            current_env[prefix + "OVERLAP_CPU_OPTIMIZER_D2H_H2D"] = str(args.megatron_lm_overlap_cpu_optimizer_d2h_h2d)
+        if args.megatron_lm_decoder_last_pipeline_num_layers is not None:
+            current_env[prefix + "DECODER_LAST_PIPELINE_NUM_LAYERS"] = str(
+                args.megatron_lm_decoder_last_pipeline_num_layers
+            )
         current_env[prefix + "PP_DEGREE"] = str(args.megatron_lm_pp_degree)
         current_env[prefix + "GRADIENT_CLIPPING"] = str(args.megatron_lm_gradient_clipping)
         if args.megatron_lm_num_micro_batches is not None:
@@ -345,6 +362,32 @@ def prepare_multi_gpu_env(args: argparse.Namespace) -> dict[str, str]:
             current_env[prefix + "RECOMPUTE_ACTIVATIONS"] = str(args.megatron_lm_recompute_activations)
         if args.megatron_lm_use_distributed_optimizer is not None:
             current_env[prefix + "USE_DISTRIBUTED_OPTIMIZER"] = str(args.megatron_lm_use_distributed_optimizer)
+        if args.megatron_lm_recompute_granularity is not None:
+            current_env[prefix + "RECOMPUTE_GRANULARITY"] = str(args.megatron_lm_recompute_granularity)
+        if args.megatron_lm_recompute_method is not None:
+            current_env[prefix + "RECOMPUTE_METHOD"] = str(args.megatron_lm_recompute_method)
+        if args.megatron_lm_recompute_num_layers is not None:
+            current_env[prefix + "RECOMPUTE_NUM_LAYERS"] = str(args.megatron_lm_recompute_num_layers)
+        if args.megatron_lm_attention_backend is not None:
+            current_env[prefix + "ATTENTION_BACKEND"] = str(args.megatron_lm_attention_backend)
+        if args.megatron_lm_expert_model_parallel_size is not None:
+            current_env[prefix + "EXPERT_MODEL_PARALLEL_SIZE"] = str(args.megatron_lm_expert_model_parallel_size)
+        if args.megatron_lm_context_parallel_size is not None:
+            current_env[prefix + "CONTEXT_PARALLEL_SIZE"] = str(args.megatron_lm_context_parallel_size)
+        if args.megatron_lm_attention_dropout is not None:
+            current_env[prefix + "ATTENTION_DROPOUT"] = str(args.megatron_lm_attention_dropout)
+        if args.megatron_lm_hidden_dropout is not None:
+            current_env[prefix + "HIDDEN_DROPOUT"] = str(args.megatron_lm_hidden_dropout)
+        if args.megatron_lm_attention_softmax_in_fp32 is not None:
+            current_env[prefix + "ATTENTION_SOFTMAX_IN_FP32"] = str(args.megatron_lm_attention_softmax_in_fp32)
+        if args.megatron_lm_expert_tensor_parallel_size is not None:
+            current_env[prefix + "EXPERT_TENSOR_PARALLEL_SIZE"] = str(args.megatron_lm_expert_tensor_parallel_size)
+        if args.megatron_lm_calculate_per_token_loss is not None:
+            current_env[prefix + "CALCULATE_PER_TOKEN_LOSS"] = str(args.megatron_lm_calculate_per_token_loss)
+        if args.megatron_lm_use_rotary_position_embeddings is not None:
+            current_env[prefix + "USE_ROTARY_POSITION_EMBEDDINGS"] = str(
+                args.megatron_lm_use_rotary_position_embeddings
+            )
 
     current_env["OMP_NUM_THREADS"] = str(args.num_cpu_threads_per_process)
     if args.enable_cpu_affinity:
@@ -499,6 +542,8 @@ def prepare_deepspeed_cmd_env(args: argparse.Namespace) -> tuple[list[str], dict
             current_env["ASCEND_RT_VISIBLE_DEVICES"] = gpu_ids
         elif is_hpu_available():
             current_env["HABANA_VISIBLE_MODULES"] = gpu_ids
+        elif is_neuron_available():
+            current_env["NEURON_RT_VISIBLE_CORES"] = gpu_ids
         else:
             current_env["CUDA_VISIBLE_DEVICES"] = gpu_ids
     try:
@@ -770,6 +815,7 @@ class PrepareForLaunch:
             DistributedType.MULTI_NPU,
             DistributedType.MULTI_XPU,
             DistributedType.MULTI_CPU,
+            DistributedType.MULTI_NEURON,
         ):
             # Prepare the environment for torch.distributed
             os.environ["LOCAL_RANK"] = str(index)

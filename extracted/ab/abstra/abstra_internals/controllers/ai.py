@@ -280,6 +280,7 @@ class AiController:
     def send_ai_message(
         self,
         body: AbstraLibApiAiStreamRequest,
+        user_jwt=None,
     ):
         try:
             processed_content = self._process_content(
@@ -304,31 +305,40 @@ class AiController:
                     tool_calls_approval=body.tool_calls_approval,
                     browser_tools=body.browser_tools,
                     browser_tool_responses=body.browser_tool_responses,
-                )
+                ),
+                user_jwt=user_jwt,
             )
         except Exception as e:
             print(f"Error in send_ai_message: {e}")
             yield RETRY_FLAG
             return
 
-    def get_history(self, limit: int, offset: int):
+    def get_history(self, limit: int, offset: int, user_jwt=None):
         headers = resolve_headers()
         if headers is None:
             return None
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
         return self.repos.ai.get_history(headers, limit, offset)
 
-    def create_thread(self):
+    def create_thread(self, user_jwt=None):
         headers = resolve_headers()
         if headers is None:
             return None
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
         return self.repos.ai.create_thread(headers)
 
-    def delete_thread(self, thread_id: str):
+    def delete_thread(self, thread_id: str, user_jwt=None):
         if headers := resolve_headers():
+            if user_jwt:
+                headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
             return self.repos.ai.delete_thread(headers, thread_id)
 
-    def abort_thread(self, thread_id: str):
+    def abort_thread(self, thread_id: str, user_jwt=None):
         if headers := resolve_headers():
+            if user_jwt:
+                headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
             return self.repos.ai.abort_thread(headers, thread_id)
 
     def init_stages(self, python_files: List[PythonFile]):
@@ -352,7 +362,9 @@ class AiController:
             script.file_path.write_text(file.content, encoding="utf-8")
             script.file_path.write_text(file.content, encoding="utf-8")
 
-    def start_conversation(self):
+    def start_conversation(self, user_jwt=None):
         return self.repos.ai.start_conversation(
-            secret_key=get_tunnel_secret_key(), tunnel_session_path=get_session_path()
+            secret_key=get_tunnel_secret_key(),
+            tunnel_session_path=get_session_path(),
+            user_jwt=user_jwt,
         )

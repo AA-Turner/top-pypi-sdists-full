@@ -7,7 +7,7 @@ import operator
 import re
 import string
 import warnings
-from typing import List
+from typing import Any, List
 
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect, sql
@@ -16,7 +16,7 @@ from sqlalchemy.engine import default
 from sqlalchemy.orm import context
 from sqlalchemy.orm.context import _MapperEntity
 from sqlalchemy.schema import Sequence, Table
-from sqlalchemy.sql import compiler, expression, functions
+from sqlalchemy.sql import compiler, expression, functions, sqltypes
 from sqlalchemy.sql.base import CompileState
 from sqlalchemy.sql.elements import BindParameter, quoted_name
 from sqlalchemy.sql.expression import Executable
@@ -526,6 +526,9 @@ class SnowflakeCompiler(compiler.SQLCompiler):
     def visit_now_func(self, now, **kw):
         return "CURRENT_TIMESTAMP"
 
+    def visit_sysdate_func(self, sysdate, **kw):
+        return "SYSDATE()"
+
     def visit_merge_into(self, merge_into, **kw):
         clauses = " ".join(
             clause._compiler_dispatch(self, **kw) for clause in merge_into.clauses
@@ -778,6 +781,24 @@ class SnowflakeCompiler(compiler.SQLCompiler):
 
     def visit_not_regexp_match_op_binary(self, binary, operator, **kw):
         return f"NOT {self.visit_regexp_match_op_binary(binary, operator, **kw)}"
+
+    def visit_ilike_op_binary(self, binary, operator, **kw):
+        return self._render_ilike(binary, negate=False, **kw)
+
+    def visit_not_ilike_op_binary(self, binary, operator, **kw):
+        return self._render_ilike(binary, negate=True, **kw)
+
+    def _render_ilike(self, binary, negate=False, **kw):
+        left = binary.left._compiler_dispatch(self, **kw)
+        right = binary.right._compiler_dispatch(self, **kw)
+        escape = binary.modifiers.get("escape")
+        escape_clause = (
+            " ESCAPE " + self.render_literal_value(escape, sqltypes.STRINGTYPE)
+            if escape is not None
+            else ""
+        )
+        operator = "NOT ILIKE" if negate else "ILIKE"
+        return f"{left} {operator} {right}{escape_clause}"
 
     def visit_join(self, join, asfrom=False, from_linter=None, **kwargs):
         if from_linter:
@@ -1146,7 +1167,6 @@ class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
         else:
             contents = []
             for key in type_.items_types:
-
                 row_text = f"{key} {type_.items_types[key][0].compile()}"
                 # Type and not null is specified
                 if len(type_.items_types[key]) > 1:
@@ -1157,10 +1177,14 @@ class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
     def visit_BLOB(self, type_, **kw):
         return "BINARY"
 
-    def visit_datetime(self, type_, **kw):
+    def visit_datetime(self, type_: sqltypes.DateTime, **kw: Any) -> str:
+        if type_.timezone:
+            return "TIMESTAMP_TZ"
         return "datetime"
 
-    def visit_DATETIME(self, type_, **kw):
+    def visit_DATETIME(self, type_: sqltypes.DateTime, **kw: Any) -> str:
+        if type_.timezone:
+            return "TIMESTAMP_TZ"
         return "DATETIME"
 
     def visit_TIMESTAMP_NTZ(self, type_, **kw):
@@ -1172,7 +1196,9 @@ class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
     def visit_TIMESTAMP_LTZ(self, type_, **kw):
         return "TIMESTAMP_LTZ"
 
-    def visit_TIMESTAMP(self, type_, **kw):
+    def visit_TIMESTAMP(self, type_: sqltypes.TIMESTAMP, **kw: Any) -> str:
+        if type_.timezone:
+            return "TIMESTAMP_TZ"
         return "TIMESTAMP"
 
     def visit_GEOGRAPHY(self, type_, **kw):
@@ -1180,6 +1206,12 @@ class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
 
     def visit_GEOMETRY(self, type_, **kw):
         return "GEOMETRY"
+
+    def visit_DECFLOAT(self, type_, **kw):
+        return "DECFLOAT"
+
+    def visit_VECTOR(self, type_, **kw):
+        return f"VECTOR({type_.element_type}, {type_.dimension})"
 
 
 construct_arguments = [(Table, {"clusterby": None})]

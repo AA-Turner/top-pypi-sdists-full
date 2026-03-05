@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: discord-protos
-Version: 1.2.120
+Version: 1.2.122
 Summary: Discord user settings protobufs.
 Home-page: https://github.com/dolfies/discord-protos
 Author: Dolfies
@@ -23,6 +23,7 @@ Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: protobuf
+Requires-Dist: mypy-protobuf<6
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

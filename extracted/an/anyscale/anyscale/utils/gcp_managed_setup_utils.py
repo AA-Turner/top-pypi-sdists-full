@@ -1,9 +1,10 @@
 import copy
 import os
+import re
 import secrets
 from string import Template
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from click import ClickException
 from google.api_core.exceptions import BadRequest, Forbidden, NotFound, PermissionDenied
@@ -32,6 +33,9 @@ from anyscale.utils.gcp_utils import GCP_REQUIRED_APIS, GoogleCloudClientFactory
 
 
 GCP_DEPLOYMENT_PREVIEW_TIMEOUT_SECONDS = 300  # 5 minutes
+
+
+INFRA_MANAGER_PREVIEW_TIMEOUT_SECONDS = 600  # 10 minutes for plan-only preview
 
 
 GCP_MEMORYSTORE_RESOURCE_CONFIG_TEMPLATE = """
@@ -577,6 +581,39 @@ def delete_gcp_deployment(
         raise ClickException(
             f"Failed to delete deployment {deployment_name}: {e}. Please delete the resources yourself."
         )
+
+
+def abandon_gcp_deployment(
+    factory: GoogleCloudClientFactory, project_id: str, deployment_name: str,
+):
+    """Remove the DM deployment record without deleting the underlying GCP resources.
+    """
+    deployment_client = factory.build("deploymentmanager", "v2")
+    try:
+        deployment_client.deployments().get(
+            project=project_id, deployment=deployment_name
+        ).execute()
+    except HttpError as e:
+        if e.status_code == 404:
+            return
+        raise ClickException(f"Failed to get deployment {deployment_name}: {e}")
+
+    try:
+        response = (
+            deployment_client.deployments()
+            .delete(
+                project=project_id, deployment=deployment_name, deletePolicy="ABANDON",
+            )
+            .execute()
+        )
+        wait_for_operation_completion(
+            deployment_client,
+            {"operation": response["name"], "project": project_id},
+            f"Abandoning deployment {deployment_name}",
+            timeout=120,
+        )
+    except HttpError as e:
+        raise ClickException(f"Failed to abandon deployment {deployment_name}: {e}")
 
 
 def update_deployment_with_bucket_only(
@@ -1187,8 +1224,12 @@ def run_infra_manager_deployment(  # noqa: PLR0913
     enable_head_node_fault_tolerance: bool,
     enable_filestore: bool = False,
     timeout: int = INFRA_MANAGER_TIMEOUT_SECONDS,
+    extra_tf_files: Optional[Dict[str, str]] = None,
+    resource_id_override: Optional[str] = None,
+    firewall_policy_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Create GCP resources via Infrastructure Manager and return outputs."""
+    """Create GCP resources via Infrastructure Manager and return outputs.
+    """
     # Upload Terraform config to staging bucket
     staging_bucket = f"anyscale-infra-bucket-{project_id}"[:63]
     gcs_prefix = f"infra-manager/{deployment_name}"
@@ -1199,29 +1240,26 @@ def run_infra_manager_deployment(  # noqa: PLR0913
     tf_path = os.path.join(anyscale.conf.ROOT_DIR_PATH, "terraform", "main.tf")
     with open(tf_path) as f:
         bucket.blob(f"{gcs_prefix}/main.tf").upload_from_string(f.read())
+    for filename, content in (extra_tf_files or {}).items():
+        bucket.blob(f"{gcs_prefix}/{filename}").upload_from_string(content)
 
     service_account = _get_or_create_infra_manager_service_account(factory, project_id)
 
     # Create Infrastructure Manager deployment
     infra_manager = factory.build("config", "v1")
-    cloud_id_dash = cloud_id_underscore.replace("_", "-").lower()
-    input_values = {
-        k: {"inputValue": str(v).lower() if isinstance(v, bool) else v}
-        for k, v in {
-            "project_id": project_id,
-            "region": region,
-            "cloud_id": cloud_id_dash,
-            "cloud_id_underscore": cloud_id_underscore,
-            "resource_id": f"{cloud_id_dash[:12]}-{secrets.token_hex(4)}",
-            "anyscale_access_service_account": anyscale_access_service_account_name,
-            "workload_identity_pool_name": workload_identity_pool_name,
-            "anyscale_aws_account": anyscale_aws_account,
-            "organization_id": organization_id,
-            "anyscale_cors_origin": shared_anyscale_conf.ANYSCALE_CORS_ORIGIN,
-            "enable_head_node_fault_tolerance": enable_head_node_fault_tolerance,
-            "enable_filestore": enable_filestore,
-        }.items()
-    }
+    input_values = _build_im_input_values(
+        project_id=project_id,
+        region=region,
+        cloud_id_underscore=cloud_id_underscore,
+        anyscale_access_service_account_name=anyscale_access_service_account_name,
+        workload_identity_pool_name=workload_identity_pool_name,
+        anyscale_aws_account=anyscale_aws_account,
+        organization_id=organization_id,
+        enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
+        enable_filestore=enable_filestore,
+        resource_id_override=resource_id_override,
+        firewall_policy_name=firewall_policy_name,
+    )
 
     operation = (
         infra_manager.projects()
@@ -1333,3 +1371,407 @@ def delete_infra_manager_deployment(
     except HttpError as e:
         if e.status_code != 404:
             raise
+
+
+def _build_im_input_values(  # noqa: PLR0913
+    project_id: str,
+    region: str,
+    cloud_id_underscore: str,
+    anyscale_access_service_account_name: str,
+    workload_identity_pool_name: str,
+    anyscale_aws_account: str,
+    organization_id: str,
+    enable_head_node_fault_tolerance: bool,
+    enable_filestore: bool = False,
+    resource_id_override: Optional[str] = None,
+    firewall_policy_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build input values dict for IM deployment or preview (terraformBlueprint.inputValues)."""
+    cloud_id_dash = cloud_id_underscore.replace("_", "-").lower()
+    input_values_raw = {
+        "project_id": project_id,
+        "region": region,
+        "cloud_id": cloud_id_dash,
+        "cloud_id_underscore": cloud_id_underscore,
+        "resource_id": resource_id_override
+        or f"{cloud_id_dash[:12]}-{secrets.token_hex(4)}",
+        "anyscale_access_service_account": anyscale_access_service_account_name,
+        "workload_identity_pool_name": workload_identity_pool_name,
+        "anyscale_aws_account": anyscale_aws_account,
+        "organization_id": organization_id,
+        "anyscale_cors_origin": shared_anyscale_conf.ANYSCALE_CORS_ORIGIN,
+        "enable_head_node_fault_tolerance": enable_head_node_fault_tolerance,
+        "enable_filestore": enable_filestore,
+    }
+    if firewall_policy_name:
+        input_values_raw["firewall_policy_name"] = firewall_policy_name
+    return {
+        k: {"inputValue": str(v).lower() if isinstance(v, bool) else v}
+        for k, v in input_values_raw.items()
+    }
+
+
+def run_infra_manager_preview(  # noqa: PLR0913, PLR0912, PLR0911, C901
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    region: str,
+    deployment_name: str,
+    cloud_id_underscore: str,
+    anyscale_access_service_account_name: str,
+    workload_identity_pool_name: str,
+    anyscale_aws_account: str,
+    organization_id: str,
+    enable_head_node_fault_tolerance: bool,
+    enable_filestore: bool = False,
+    extra_tf_files: Optional[Dict[str, str]] = None,
+    resource_id_override: Optional[str] = None,
+    firewall_policy_name: Optional[str] = None,
+    timeout: int = INFRA_MANAGER_PREVIEW_TIMEOUT_SECONDS,
+) -> str:
+    """Run an Infrastructure Manager preview (terraform plan only) and return plan log content.
+
+    Uses the same blueprint and inputs as run_infra_manager_deployment. Caller can parse
+    the returned log (e.g. with parse_terraform_plan_for_migration) to validate no
+    create/change/destroy before applying.
+    """
+    staging_bucket = f"anyscale-infra-bucket-{project_id}"[:63]
+    gcs_prefix = f"infra-manager/{deployment_name}"
+    storage_client = factory.storage.Client(project=project_id)
+    bucket = storage_client.bucket(staging_bucket)
+    if not bucket.exists():
+        storage_client.create_bucket(staging_bucket, location=region)
+    tf_path = os.path.join(anyscale.conf.ROOT_DIR_PATH, "terraform", "main.tf")
+    with open(tf_path) as f:
+        bucket.blob(f"{gcs_prefix}/main.tf").upload_from_string(f.read())
+    for filename, content in (extra_tf_files or {}).items():
+        bucket.blob(f"{gcs_prefix}/{filename}").upload_from_string(content)
+
+    service_account = _get_or_create_infra_manager_service_account(factory, project_id)
+    input_values = _build_im_input_values(
+        project_id=project_id,
+        region=region,
+        cloud_id_underscore=cloud_id_underscore,
+        anyscale_access_service_account_name=anyscale_access_service_account_name,
+        workload_identity_pool_name=workload_identity_pool_name,
+        anyscale_aws_account=anyscale_aws_account,
+        organization_id=organization_id,
+        enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
+        enable_filestore=enable_filestore,
+        resource_id_override=resource_id_override,
+        firewall_policy_name=firewall_policy_name,
+    )
+
+    infra_manager = factory.build("config", "v1")
+    # IM preview IDs must be <= 40 characters (API constraint)
+    preview_id = f"mig-{secrets.token_hex(8)}"
+
+    operation = (
+        infra_manager.projects()
+        .locations()
+        .previews()
+        .create(
+            parent=f"projects/{project_id}/locations/{region}",
+            previewId=preview_id,
+            body={
+                "serviceAccount": f"projects/{project_id}/serviceAccounts/{service_account}",
+                "terraformBlueprint": {
+                    "gcsSource": f"gs://{staging_bucket}/{gcs_prefix}",
+                    "inputValues": input_values,
+                },
+            },
+        )
+        .execute()
+    )
+
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        op = (
+            infra_manager.projects()
+            .locations()
+            .operations()
+            .get(name=operation["name"])
+            .execute()
+        )
+        if op.get("done"):
+            if "error" in op:
+                raise ClickException(
+                    f"Infrastructure Manager preview failed: {op['error']}"
+                )
+            break
+        time.sleep(10)
+    else:
+        raise ClickException(
+            f"Infrastructure Manager preview timed out after {timeout}s"
+        )
+
+    preview_name = f"projects/{project_id}/locations/{region}/previews/{preview_id}"
+    preview = (
+        infra_manager.projects().locations().previews().get(name=preview_name).execute()
+    )
+
+    state = preview.get("state", "")
+    if state == "FAILED":
+        err = preview.get("errorStatus") or preview.get("tfErrors") or "Unknown error"
+        raise ClickException(
+            f"Infrastructure Manager preview failed (state={state}): {err}"
+        )
+    if state != "SUCCEEDED":
+        raise ClickException(
+            f"Infrastructure Manager preview did not succeed (state={state}). "
+            "Check the preview in Google Cloud Console."
+        )
+
+    logs_path = preview.get("logs") or (preview.get("previewArtifacts") or {}).get(
+        "artifacts"
+    )
+    if not logs_path or not isinstance(logs_path, str):
+        return ""
+
+    if not logs_path.startswith("gs://"):
+        return ""
+
+    def _blob_text(b: Any) -> str:
+        return b.download_as_bytes().decode("utf-8", errors="replace")
+
+    parts = logs_path[5:].split("/", 1)
+    bucket_name, path = parts[0], (parts[1] if len(parts) > 1 else "").rstrip("/")
+    try:
+        log_bucket = storage_client.bucket(bucket_name)
+        blob = log_bucket.blob(path)
+        if blob.exists():
+            return _blob_text(blob)
+        for name in ("terraform_plan.txt", "content", "log.txt", "build.log"):
+            b = log_bucket.blob(f"{path}/{name}" if path else name)
+            if b.exists():
+                return _blob_text(b)
+        blobs = list(
+            log_bucket.list_blobs(max_results=50, prefix=path + "/" if path else "")
+        )
+        for b in blobs:
+            if b.name.endswith(".txt") or "log" in b.name or "plan" in b.name:
+                content = _blob_text(b)
+                if "Plan:" in content or "No changes" in content:
+                    return content
+        if blobs:
+            return _blob_text(blobs[0])
+    except Exception as e:  # noqa: BLE001
+        raise ClickException(
+            f"Could not fetch preview logs from {logs_path}: {e}"
+        ) from e
+    return ""
+
+
+def parse_terraform_plan_for_migration(plan_log: str) -> Tuple[bool, str]:
+    """Parse Terraform plan log from an IM preview. return (plan_ok, message).
+
+    plan_ok is True only when the plan shows no add, no change, and no destroy
+    (imports only). Any in-place updates (change) cause failure until the drift is understood.
+    """
+    if not plan_log or not plan_log.strip():
+        return False, "No plan output available."
+
+    plan_log_lower = plan_log.lower()
+    if (
+        "no changes" in plan_log_lower
+        and "your infrastructure matches" in plan_log_lower
+    ):
+        return True, "No changes. Your infrastructure matches the configuration."
+
+    match = re.search(
+        r"Plan:\s*"
+        r"(?:(?P<import>\d+)\s+to\s+import,\s*)?"
+        r"(?P<add>\d+)\s+to\s+add,\s*"
+        r"(?P<change>\d+)\s+to\s+change,\s*"
+        r"(?P<destroy>\d+)\s+to\s+destroy",
+        plan_log,
+        re.IGNORECASE,
+    )
+    if match:
+        add = int(match.group("add"))
+        change = int(match.group("change"))
+        destroy = int(match.group("destroy"))
+        if add == 0 and change == 0 and destroy == 0:
+            return True, "Plan shows only imports; no create/change/destroy."
+        return (
+            False,
+            (
+                f"Plan would apply changes: {match.group('add')} to add, "
+                f"{match.group('change')} to change, {match.group('destroy')} to destroy. "
+                "Migration requires a clean plan (imports only; no add/change/destroy)."
+            ),
+        )
+
+    if "error" in plan_log_lower or "terraform failed" in plan_log_lower:
+        return False, "Terraform plan reported errors. Review the plan output above."
+    return False, "Could not parse plan summary. Review the plan output above."
+
+
+def validate_migration_resource_names(
+    cloud_id_dash: str,
+    dm_resources: Dict[str, str],
+    firewall_policy_name_override: Optional[str],
+) -> None:
+    """Verify Terraform config names match DM-created resource names."""
+    # Names Terraform will use, mirroring main.tf logic.
+    tf_names = {
+        "VPC (google_compute_network.vpc)": f"vpc-{cloud_id_dash}",
+        "Subnet (google_compute_subnetwork.subnet)": f"subnet-{cloud_id_dash}",
+        "Firewall policy (google_compute_network_firewall_policy.policy)": (
+            firewall_policy_name_override or f"firewall-policy-{cloud_id_dash}"
+        ),
+        "Storage bucket (google_storage_bucket.bucket)": f"storage-bucket-{cloud_id_dash}",
+        "Cluster node SA (google_service_account.cluster_node)": cloud_id_dash,
+    }
+
+    # Names DM actually created (None means the key is absent → skip that check).
+    dm_names = {
+        "VPC (google_compute_network.vpc)": dm_resources.get("compute.v1.network"),
+        "Subnet (google_compute_subnetwork.subnet)": dm_resources.get(
+            "compute.v1.subnetwork"
+        ),
+        "Firewall policy (google_compute_network_firewall_policy.policy)": dm_resources.get(
+            "gcp-types/compute-v1:networkFirewallPolicies"
+        ),
+        "Storage bucket (google_storage_bucket.bucket)": dm_resources.get(
+            "storage.v1.bucket"
+        ),
+        "Cluster node SA (google_service_account.cluster_node)": dm_resources.get(
+            "iam.v1.serviceAccount"
+        ),
+    }
+
+    mismatches = []
+    for resource, tf_name in tf_names.items():
+        dm_name = dm_names[resource]
+        if dm_name is not None and tf_name != dm_name:
+            mismatches.append(
+                f"  {resource}:\n"
+                f"    Terraform will use : {tf_name!r}\n"
+                f"    DM created         : {dm_name!r}"
+            )
+
+    if mismatches:
+        raise ValueError(
+            "Migration pre-flight check failed. The following resource names in the Terraform "
+            "config do not match what Deployment Manager created. Proceeding would cause "
+            "Terraform to DESTROY and recreate these resources instead of importing them:\n\n"
+            + "\n\n".join(mismatches)
+        )
+
+
+def generate_migration_imports_tf(
+    project_id: str,
+    region: str,
+    cloud_id_dash: str,
+    dm_resources: Dict[str, str],
+    anyscale_access_service_account_name: str,
+) -> str:
+    """Generate the content of imports.tf for migrating a DM-managed cloud to IM.
+    """
+
+    vpc_name = dm_resources.get("compute.v1.network", f"vpc-{cloud_id_dash}")
+    subnet_name = dm_resources.get("compute.v1.subnetwork", f"subnet-{cloud_id_dash}")
+    firewall_policy_name = dm_resources.get(
+        "gcp-types/compute-v1:networkFirewallPolicies",
+        f"firewall-policy-{cloud_id_dash}",
+    )
+    bucket_name = dm_resources.get(
+        "storage.v1.bucket", f"storage-bucket-{cloud_id_dash}"
+    )
+    cluster_node_sa_account_id = dm_resources.get(
+        "iam.v1.serviceAccount", cloud_id_dash
+    )
+
+    anyscale_access_sa_email = (
+        f"{anyscale_access_service_account_name}@{project_id}.iam.gserviceaccount.com"
+    )
+    cluster_node_sa_email = (
+        f"{cluster_node_sa_account_id}@{project_id}.iam.gserviceaccount.com"
+    )
+    # Association name was set by configure_firewall_policy as "{policy}-for-{vpc}"
+    association_name = f"{firewall_policy_name}-for-{vpc_name}"
+
+    def import_block(to: str, resource_id: str) -> str:
+        """Emit a Terraform import block: adopt existing GCP resource into state at `to` using `resource_id`.
+        Example: import_block("google_compute_network.vpc", "projects/my-proj/global/networks/my-vpc")
+        Output:  import { to = google_compute_network.vpc; id = "projects/my-proj/global/networks/my-vpc" }
+        """
+        return f'import {{\n  to = {to}\n  id = "{resource_id}"\n}}'
+
+    blocks = [
+        import_block(
+            "google_compute_network.vpc",
+            f"projects/{project_id}/global/networks/{vpc_name}",
+        ),
+        import_block(
+            "google_compute_subnetwork.subnet", f"{project_id}/{region}/{subnet_name}",
+        ),
+        import_block(
+            "google_compute_network_firewall_policy.policy",
+            f"projects/{project_id}/global/firewallPolicies/{firewall_policy_name}",
+        ),
+        import_block(
+            "google_compute_network_firewall_policy_association.assoc",
+            f"projects/{project_id}/global/firewallPolicies/{firewall_policy_name}/associations/{association_name}",
+        ),
+        import_block(
+            "google_compute_network_firewall_policy_rule.allow_ssh_https",
+            f"projects/{project_id}/global/firewallPolicies/{firewall_policy_name}/rules/1000",
+        ),
+        import_block(
+            "google_compute_network_firewall_policy_rule.allow_internal",
+            f"projects/{project_id}/global/firewallPolicies/{firewall_policy_name}/rules/1001",
+        ),
+        import_block("google_storage_bucket.bucket", bucket_name),
+        import_block(
+            "google_service_account.anyscale_access",
+            f"projects/{project_id}/serviceAccounts/{anyscale_access_sa_email}",
+        ),
+        import_block(
+            "google_service_account.cluster_node",
+            f"projects/{project_id}/serviceAccounts/{cluster_node_sa_email}",
+        ),
+        import_block(
+            "google_service_account_iam_binding.anyscale_token_creator",
+            f"projects/{project_id}/serviceAccounts/{anyscale_access_sa_email} roles/iam.serviceAccountTokenCreator",
+        ),
+        import_block(
+            "google_service_account_iam_binding.anyscale_workload_identity",
+            f"projects/{project_id}/serviceAccounts/{anyscale_access_sa_email} roles/iam.workloadIdentityUser",
+        ),
+        import_block(
+            "google_project_iam_member.anyscale_access_owner",
+            f"{project_id} roles/owner serviceAccount:{anyscale_access_sa_email}",
+        ),
+        import_block(
+            "google_project_iam_member.cluster_artifact_reader",
+            f"{project_id} roles/artifactregistry.reader serviceAccount:{cluster_node_sa_email}",
+        ),
+        import_block(
+            "google_storage_bucket_iam_member.anyscale_bucket_admin",
+            f"b/{bucket_name} roles/storage.admin serviceAccount:{anyscale_access_sa_email}",
+        ),
+        import_block(
+            "google_storage_bucket_iam_member.cluster_bucket_admin",
+            f"b/{bucket_name} roles/storage.admin serviceAccount:{cluster_node_sa_email}",
+        ),
+    ]
+
+    # Optional Memorystore
+    memorystore_name = dm_resources.get("memorystore_name")
+    if memorystore_name:
+        # projects/{project}/locations/{region}/instances/{instance_id}
+        blocks.append(import_block("google_redis_instance.redis[0]", memorystore_name))
+
+    # Optional Filestore
+    filestore_instance = dm_resources.get("filestore_instance")
+    filestore_location = dm_resources.get("filestore_location")
+    if filestore_instance and filestore_location:
+        blocks.append(
+            import_block(
+                "google_filestore_instance.filestore[0]",
+                f"projects/{project_id}/locations/{filestore_location}/instances/{filestore_instance}",
+            )
+        )
+
+    return "\n\n".join(blocks) + "\n"

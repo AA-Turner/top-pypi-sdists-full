@@ -44,7 +44,7 @@ def is_direct_subclass(obj: Any, classinfo: Any) -> bool:
     return False
 
 
-class AsyncRelationshipManager(object):
+class AsyncRelationshipManager:
     """
     Base class for all relationships managed through neomodel.
 
@@ -350,7 +350,7 @@ class AsyncRelationshipManager(object):
         return AsyncTraversal(self.source, self.name, self.definition)
 
     # The methods below simply proxy the match engine.
-    async def get(self, **kwargs: Any) -> AsyncNodeSet:
+    async def get(self, **kwargs: Any):
         """
         Retrieve a related node with the matching node properties.
 
@@ -359,7 +359,7 @@ class AsyncRelationshipManager(object):
         """
         return await AsyncNodeSet(self._new_traversal()).get(**kwargs)
 
-    async def get_or_none(self, **kwargs: dict) -> AsyncNodeSet:
+    async def get_or_none(self, **kwargs: dict):
         """
         Retrieve a related node with the matching node properties or return None.
 
@@ -417,7 +417,7 @@ class AsyncRelationshipManager(object):
         except IndexError:
             return None
 
-    def match(self, **kwargs: dict) -> AsyncNodeSet:
+    def match(self, **kwargs: Any) -> AsyncNodeSet:
         """
         Return set of nodes who's relationship properties match supplied args
 
@@ -457,7 +457,7 @@ class AsyncRelationshipDefinition:
     def __init__(
         self,
         relation_type: str,
-        cls_name: str,
+        cls_name: str | type,
         direction: int,
         manager: type[AsyncRelationshipManager] = AsyncRelationshipManager,
         model: type[AsyncStructuredRel] | None = None,
@@ -513,9 +513,11 @@ class AsyncRelationshipDefinition:
                 adb._NODE_CLASS_REGISTRY[label_set] = model
 
     def _validate_class(
-        self, cls_name: str, model: type[AsyncStructuredRel] | None = None
+        self,
+        cls_name: str | type[AsyncStructuredNode],
+        model: type[AsyncStructuredRel] | None = None,
     ) -> None:
-        if not isinstance(cls_name, (str, object)):
+        if not isinstance(cls_name, str) and not isinstance(cls_name, type):
             raise ValueError("Expected class name or class got " + repr(cls_name))
 
         if model and not issubclass(model, (AsyncStructuredRel,)):
@@ -642,7 +644,7 @@ class AsyncZeroOrMore(AsyncRelationshipManager):
 class AsyncRelationshipTo(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
@@ -659,7 +661,7 @@ class AsyncRelationshipTo(AsyncRelationshipDefinition):
 class AsyncRelationshipFrom(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
@@ -676,7 +678,7 @@ class AsyncRelationshipFrom(AsyncRelationshipDefinition):
 class AsyncRelationship(AsyncRelationshipDefinition):
     def __init__(
         self,
-        cls_name: str,
+        cls_name: str | type,
         relation_type: str,
         cardinality: type[AsyncRelationshipManager] = AsyncZeroOrMore,
         model: type[AsyncStructuredRel] | None = None,
