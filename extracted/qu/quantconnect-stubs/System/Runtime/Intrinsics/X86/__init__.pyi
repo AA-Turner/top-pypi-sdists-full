@@ -4199,6 +4199,52 @@ class Avx512F(System.Runtime.Intrinsics.X86.Avx2, metaclass=abc.ABCMeta):
         ...
 
 
+class Avx512Bmm(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class X64(System.Runtime.Intrinsics.X86.Avx512F.X64, metaclass=abc.ABCMeta):
+        """This class has no documentation."""
+
+        IS_SUPPORTED: bool
+
+    IS_SUPPORTED: bool
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_or_reduction(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_or_reduction(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_xor_reduction(addend: System.Runtime.Intrinsics.Vector256[int], left: System.Runtime.Intrinsics.Vector256[int], right: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def bit_multiply_matrix_16x_16_with_xor_reduction(addend: System.Runtime.Intrinsics.Vector512[int], left: System.Runtime.Intrinsics.Vector512[int], right: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_bits(values: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_bits(values: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector256[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def reverse_bits(values: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+
 class Avx512BW(System.Runtime.Intrinsics.X86.Avx512F, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 

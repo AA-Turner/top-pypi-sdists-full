@@ -38,10 +38,16 @@ def BindingDB_get_ligands_by_uniprot(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"uniprot": uniprot, "affinity_cutoff": affinity_cutoff}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BindingDB_get_ligands_by_uniprot",
-            "arguments": {"uniprot": uniprot, "affinity_cutoff": affinity_cutoff},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

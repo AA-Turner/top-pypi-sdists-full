@@ -10,8 +10,8 @@ from ..common._bindings import resource_override
 from ..common._config import UiPathApiConfig
 from ..common._execution_context import UiPathExecutionContext
 from ..common._folder_context import FolderContext, header_folder
+from ..common._http_config import get_httpx_client_kwargs
 from ..common._models import Endpoint, RequestSpec
-from ..common._ssl_context import get_httpx_client_kwargs
 from ..common.constants import (
     ORCHESTRATOR_STORAGE_BUCKET_DATA_SOURCE,
 )
@@ -1808,7 +1808,7 @@ class ContextGroundingService(FolderContext, BaseService):
             endpoint=Endpoint(f"/ecs_/v2/deeprag/{id}"),
             params={
                 "$expand": "content",
-                "$select": "content,name,createdDate,lastDeepRagStatus",
+                "$select": "id,content,name,createdDate,lastDeepRagStatus,failureReason",
             },
         )
 

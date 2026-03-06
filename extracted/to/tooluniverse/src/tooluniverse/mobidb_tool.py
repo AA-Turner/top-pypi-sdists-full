@@ -16,7 +16,7 @@ from typing import Dict, Any
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 
-MOBIDB_BASE_URL = "https://mobidb.bio.unipd.it/api/download"
+MOBIDB_BASE_URL = "https://mobidb.org/api/download"
 
 
 @register_tool("MobiDBTool")
@@ -44,7 +44,7 @@ class MobiDBTool(BaseTool):
         except requests.exceptions.Timeout:
             return {"error": f"MobiDB API timed out after {self.timeout}s."}
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to MobiDB API (mobidb.bio.unipd.it)."}
+            return {"error": "Failed to connect to MobiDB API (mobidb.org)."}
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
             if status == 404:

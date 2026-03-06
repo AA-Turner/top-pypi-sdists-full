@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-ai-textanalytics
-Version: 5.3.0
+Version: 5.4.0
 Summary: Microsoft Azure Text Analytics Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -11,15 +11,31 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: azure-core>=1.27.0
+Requires-Dist: azure-common>=1.1
+Requires-Dist: isodate>=0.6.1
+Requires-Dist: typing-extensions>=4.0.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure Text Analytics client library for Python
 
@@ -44,6 +60,10 @@ The Azure Cognitive Service for Language is a cloud-based service that provides 
 | [API reference documentation][ta_ref_docs]
 | [Product documentation][language_product_documentation]
 | [Samples][ta_samples]
+
+## _Disclaimer_
+
+_This package supports the following service API versions: 3.0, 3.1, 2022-05-01 and 2023-04-01 (default). Service API version 2025-05-15-preview and later are supported in package `azure-ai-textanalytics` 6.0.0b1+. Please refer this [source code][new_source_code] to check the new location of `azure-ai-textanalytics`._
 
 ## Getting started
 
@@ -850,7 +870,7 @@ Advanced scenarios
 
 ### Additional documentation
 
-For more extensive documentation on Azure Cognitive Service for Language, see the [Language Service documentation][language_product_documentation] on docs.microsoft.com.
+For more extensive documentation on Azure Cognitive Service for Language, see the [Language Service documentation][language_product_documentation] on learn.microsoft.com.
 
 ## Contributing
 
@@ -862,28 +882,29 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 <!-- LINKS -->
 
+[new_source_code]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/cognitivelanguage/azure-ai-textanalytics/azure/ai/textanalytics
 [source_code]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/textanalytics/azure-ai-textanalytics/azure/ai/textanalytics
 [ta_pypi]: https://pypi.org/project/azure-ai-textanalytics/
 [ta_ref_docs]: https://aka.ms/azsdk-python-textanalytics-ref-docs
 [ta_samples]: https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/textanalytics/azure-ai-textanalytics/samples
-[language_product_documentation]: https://docs.microsoft.com/azure/cognitive-services/language-service
+[language_product_documentation]: https://learn.microsoft.com/azure/cognitive-services/language-service
 [azure_subscription]: https://azure.microsoft.com/free/
-[ta_or_cs_resource]: https://docs.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows
+[ta_or_cs_resource]: https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows
 [pip]: https://pypi.org/project/pip/
 [azure_portal_create_ta_resource]: https://ms.portal.azure.com/#create/Microsoft.CognitiveServicesTextAnalytics
-[azure_cli]: https://docs.microsoft.com/cli/azure
+[azure_cli]: https://learn.microsoft.com/cli/azure
 [azure_cli_create_ta_resource]: https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account-cli
-[multi_and_single_service]: https://docs.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows
-[azure_cli_endpoint_lookup]: https://docs.microsoft.com/cli/azure/cognitiveservices/account?view=azure-cli-latest#az-cognitiveservices-account-show
-[azure_portal_get_endpoint]: https://docs.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows#get-the-keys-for-your-resource
-[cognitive_authentication]: https://docs.microsoft.com/azure/cognitive-services/authentication
-[cognitive_authentication_api_key]: https://docs.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows#get-the-keys-for-your-resource
+[multi_and_single_service]: https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows
+[azure_cli_endpoint_lookup]: https://learn.microsoft.com/cli/azure/cognitiveservices/account?view=azure-cli-latest#az-cognitiveservices-account-show
+[azure_portal_get_endpoint]: https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows#get-the-keys-for-your-resource
+[cognitive_authentication]: https://learn.microsoft.com/azure/cognitive-services/authentication
+[cognitive_authentication_api_key]: https://learn.microsoft.com/azure/cognitive-services/cognitive-services-apis-create-account?tabs=multiservice%2Cwindows#get-the-keys-for-your-resource
 [install_azure_identity]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/identity/azure-identity#install-the-package
-[register_aad_app]: https://docs.microsoft.com/azure/cognitive-services/authentication#assign-a-role-to-a-service-principal
-[grant_role_access]: https://docs.microsoft.com/azure/cognitive-services/authentication#assign-a-role-to-a-service-principal
-[cognitive_custom_subdomain]: https://docs.microsoft.com/azure/cognitive-services/cognitive-services-custom-subdomains
-[custom_subdomain]: https://docs.microsoft.com/azure/cognitive-services/authentication#create-a-resource-with-a-custom-subdomain
-[cognitive_authentication_aad]: https://docs.microsoft.com/azure/cognitive-services/authentication#authenticate-with-azure-active-directory
+[register_aad_app]: https://learn.microsoft.com/azure/cognitive-services/authentication#assign-a-role-to-a-service-principal
+[grant_role_access]: https://learn.microsoft.com/azure/cognitive-services/authentication#assign-a-role-to-a-service-principal
+[cognitive_custom_subdomain]: https://learn.microsoft.com/azure/cognitive-services/cognitive-services-custom-subdomains
+[custom_subdomain]: https://learn.microsoft.com/azure/cognitive-services/authentication#create-a-resource-with-a-custom-subdomain
+[cognitive_authentication_aad]: https://learn.microsoft.com/azure/cognitive-services/authentication#authenticate-with-azure-active-directory
 [azure_identity_credentials]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/identity/azure-identity#credentials
 [default_azure_credential]: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/identity/azure-identity#defaultazurecredential
 [service_limits]: https://aka.ms/azsdk/textanalytics/data-limits
@@ -906,14 +927,14 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 [recognize_linked_entities]: https://aka.ms/azsdk-python-textanalytics-recognizelinkedentities
 [extract_key_phrases]: https://aka.ms/azsdk-python-textanalytics-extractkeyphrases
 [detect_language]: https://aka.ms/azsdk-python-textanalytics-detectlanguage
-[language_detection]: https://docs.microsoft.com/azure/cognitive-services/language-service/language-detection/overview
-[language_and_regional_support]: https://docs.microsoft.com/azure/cognitive-services/language-service/language-detection/language-support
-[sentiment_analysis]: https://docs.microsoft.com/azure/cognitive-services/language-service/sentiment-opinion-mining/overview
-[key_phrase_extraction]: https://docs.microsoft.com/azure/cognitive-services/language-service/key-phrase-extraction/overview
+[language_detection]: https://learn.microsoft.com/azure/cognitive-services/language-service/language-detection/overview
+[language_and_regional_support]: https://learn.microsoft.com/azure/cognitive-services/language-service/language-detection/language-support
+[sentiment_analysis]: https://learn.microsoft.com/azure/cognitive-services/language-service/sentiment-opinion-mining/overview
+[key_phrase_extraction]: https://learn.microsoft.com/azure/cognitive-services/language-service/key-phrase-extraction/overview
 [linked_entities_categories]: https://aka.ms/taner
-[linked_entity_recognition]: https://docs.microsoft.com/azure/cognitive-services/language-service/entity-linking/overview
+[linked_entity_recognition]: https://learn.microsoft.com/azure/cognitive-services/language-service/entity-linking/overview
 [pii_entity_categories]: https://aka.ms/azsdk/language/pii
-[named_entity_recognition]: https://docs.microsoft.com/azure/cognitive-services/language-service/named-entity-recognition/overview
+[named_entity_recognition]: https://learn.microsoft.com/azure/cognitive-services/language-service/named-entity-recognition/overview
 [named_entity_categories]: https://aka.ms/taner
 [azure_core_ref_docs]: https://aka.ms/azsdk-python-core-policies
 [azure_core]: https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/core/azure-core/README.md
@@ -957,6 +978,11 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 
 # Release History
+
+## 5.4.0 (2026-02-25)
+
+### Breaking Changes
+- Changed the continuation token format. Continuation tokens generated by previous versions of azure-core are not compatible with this version.
 
 ## 5.3.0 (2023-06-15)
 
@@ -1148,7 +1174,7 @@ Note: this version will be the last to officially support Python 3.5, future ver
 
 ### Features Added
 
-- Added `catagories_filter` to `RecognizePiiEntitiesAction`
+- Added `categories_filter` to `RecognizePiiEntitiesAction`
 - Added `HealthcareEntityCategory`
 - Added AAD support for the `begin_analyze_healthcare_entities` methods.
 
@@ -1199,7 +1225,7 @@ is this diagnosis conditional on a symptom?
 
 **Known Issues**
 
-- `begin_analyze_healthcare_entities` is currently in gated preview and can not be used with AAD credentials. For more information, see [the Text Analytics for Health documentation](https://docs.microsoft.com/azure/cognitive-services/text-analytics/how-tos/text-analytics-for-health?tabs=ner#request-access-to-the-public-preview).
+- `begin_analyze_healthcare_entities` is currently in gated preview and can not be used with AAD credentials. For more information, see [the Text Analytics for Health documentation](https://learn.microsoft.com/azure/cognitive-services/text-analytics/how-tos/text-analytics-for-health?tabs=ner#request-access-to-the-public-preview).
 - At time of this SDK release, the service is not respecting the value passed through `model_version` to `begin_analyze_healthcare_entities`, it only uses the latest model.
 
 ## 5.1.0b5 (2021-02-10)
@@ -1237,7 +1263,7 @@ the service client to the poller object returned from `begin_analyze_healthcare_
 
 **New Features**
 - We have added method `begin_analyze`, which supports long-running batch process of Named Entity Recognition, Personally identifiable Information, and Key Phrase Extraction. To use, you must specify `api_version=TextAnalyticsApiVersion.V3_1_PREVIEW_3` when creating your client.
-- We have added method `begin_analyze_healthcare`, which supports the service's Health API. Since the Health API is currently only available in a gated preview, you need to have your subscription on the service's allow list, and you must specify `api_version=TextAnalyticsApiVersion.V3_1_PREVIEW_3` when creating your client. Note that since this is a gated preview, AAD is not supported. More information [here](https://docs.microsoft.com/azure/cognitive-services/text-analytics/how-tos/text-analytics-for-health?tabs=ner#request-access-to-the-public-preview).
+- We have added method `begin_analyze_healthcare`, which supports the service's Health API. Since the Health API is currently only available in a gated preview, you need to have your subscription on the service's allow list, and you must specify `api_version=TextAnalyticsApiVersion.V3_1_PREVIEW_3` when creating your client. Note that since this is a gated preview, AAD is not supported. More information [here](https://learn.microsoft.com/azure/cognitive-services/text-analytics/how-tos/text-analytics-for-health?tabs=ner#request-access-to-the-public-preview).
 
 
 ## 5.1.0b2 (2020-10-06)

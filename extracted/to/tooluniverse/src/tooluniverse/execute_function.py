@@ -24,7 +24,6 @@ Constants:
     tool_type_mappings: Mapping of tool type strings to their implementation classes
 """
 
-import asyncio
 import copy
 import inspect
 import json
@@ -157,6 +156,8 @@ class ToolCallable:
         Returns:
             Tool execution result (sync) or coroutine (async)
         """
+        import asyncio
+
         function_call = {"name": self.tool_name, "arguments": kwargs}
 
         # Detect if we're in an async context
@@ -170,6 +171,8 @@ class ToolCallable:
 
     def _call_sync(self, function_call, stream_callback, use_cache, validate):
         """Synchronous execution - handles both sync and async tools."""
+        import asyncio
+
         # Check if tool is async
         function_name = function_call.get("name")
         tool_instance = (
@@ -305,6 +308,9 @@ class ToolUniverse:
         hook_config: dict = None,
         hook_type: str = None,
         enable_name_shortening: bool = False,
+        profile: Optional[str] = None,
+        workspace: Optional[str] = None,
+        use_global: bool = False,
     ):
         """
         Initialize the ToolUniverse with tool file configurations.
@@ -323,6 +329,16 @@ class ToolUniverse:
                                              If both hook_config and hook_type are provided, hook_config takes precedence.
             enable_name_shortening (bool, optional): Whether to enable automatic tool name shortening
                                                    for MCP compatibility. Defaults to False.
+            profile (str, optional): URI of a Profile configuration to load automatically
+                                   (e.g. ``"./my-profile.yaml"``, ``"hf:user/repo"``).
+                                   Overrides the ``TOOLUNIVERSE_PROFILE`` environment variable.
+                                   When provided, ``load_profile()`` is called after initialization.
+            workspace (str, optional): Path to the local workspace directory for user-defined
+                                       tools. Overrides the ``TOOLUNIVERSE_HOME`` environment
+                                       variable and the default ``./.tooluniverse`` directory.
+            use_global (bool, optional): When True, use the global ``~/.tooluniverse`` directory
+                                         as the default workspace instead of ``./.tooluniverse``.
+                                         Has no effect if ``workspace`` or ``TOOLUNIVERSE_HOME`` is set.
         """
         # Set log level if specified
         if log_level is not None:
@@ -350,8 +366,9 @@ class ToolUniverse:
         if tool_files is None:
             tool_files = default_tool_files
         elif keep_default_tools:
-            default_tool_files.update(tool_files)
-            tool_files = default_tool_files
+            merged = dict(default_tool_files)
+            merged.update(tool_files)
+            tool_files = merged
         self.tool_files = tool_files
 
         self.logger.debug("Tool files:")
@@ -430,6 +447,111 @@ class ToolUniverse:
         # Initialize dynamic tools namespace
         self.tools = ToolNamespace(self)
 
+        # Phase 5 & 6 – resolve workspace directory
+        # Priority: workspace= param → TOOLUNIVERSE_HOME env → ./.tooluniverse (local)
+        # Use ~/.tooluniverse when use_global=True and no explicit workspace is set.
+        self._workspace_dir: Path = self._resolve_workspace(workspace, use_global)
+
+        # Auto-load .env from workspace directory (secrets stay out of profile.yaml).
+        # Existing env vars are never overwritten (shell / system env always wins).
+        _ws_dotenv = self._workspace_dir / ".env"
+        if _ws_dotenv.exists():
+            try:
+                from dotenv import load_dotenv as _load_dotenv
+
+                _load_dotenv(_ws_dotenv, override=False)
+                self.logger.debug(f"Loaded workspace .env: {_ws_dotenv}")
+            except Exception as _exc:
+                self.logger.debug(f"Could not load workspace .env: {_exc}")
+
+        # Seed workspace with default_profile.yaml on first use (if workspace dir exists
+        # but has no profile.yaml). This gives the user a visible, editable starting point.
+        _ws_profile_yaml = self._workspace_dir / "profile.yaml"
+        if self._workspace_dir.exists() and not _ws_profile_yaml.exists():
+            try:
+                import shutil as _shutil
+
+                _default = Path(__file__).parent / "data" / "default_profile.yaml"
+                if _default.exists():
+                    _shutil.copy2(_default, _ws_profile_yaml)
+                    self.logger.info(
+                        f"Created default profile.yaml in workspace: {_ws_profile_yaml}"
+                    )
+            except Exception as _exc:
+                self.logger.debug(f"Could not seed default profile.yaml: {_exc}")
+
+        # Read workspace profile.yaml (if present) as the base config for this workspace.
+        # This config is used as base when --load merges on top, or auto-applied when no
+        # explicit profile is specified.
+        self._workspace_profile_config: Optional[dict] = None
+        _ws_profile_yaml = self._workspace_dir / "profile.yaml"
+        if _ws_profile_yaml.exists():
+            try:
+                import yaml as _yaml
+
+                with open(_ws_profile_yaml, "r", encoding="utf-8") as _f:
+                    self._workspace_profile_config = _yaml.safe_load(_f) or {}
+            except Exception as _exc:
+                self.logger.debug(f"Could not read workspace profile.yaml: {_exc}")
+
+        # Phase 5 – auto-load Profile
+        # Priority: profile= param → TOOLUNIVERSE_PROFILE env var → workspace profile.yaml
+        effective_profile = profile or os.getenv("TOOLUNIVERSE_PROFILE")
+        if effective_profile:
+            try:
+                # load_profile() will merge workspace profile.yaml as base if present
+                self.load_profile(effective_profile)
+                self.logger.info(f"Auto-loaded Profile: {effective_profile}")
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to auto-load Profile '{effective_profile}': {e}"
+                )
+        elif self._workspace_profile_config is not None:
+            try:
+                # No explicit profile given — auto-apply workspace profile.yaml directly
+                self.load_profile(str(_ws_profile_yaml), _merge_workspace=False)
+                self.logger.info(
+                    f"Auto-loaded workspace profile.yaml: {_ws_profile_yaml}"
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to auto-load workspace profile.yaml: {e}")
+
+    @staticmethod
+    def _resolve_workspace(workspace: Optional[str], use_global: bool = False) -> Path:
+        """
+        Resolve the effective workspace directory.
+
+        Priority order:
+        1. ``workspace`` parameter (if provided) — directory is created if absent
+        2. ``TOOLUNIVERSE_HOME`` environment variable — directory is created if absent
+        3. ``~/.tooluniverse`` when ``use_global=True``
+        4. ``./.tooluniverse`` (current directory, default local mode)
+
+        The default directories (3 & 4) are NOT auto-created; if they do not exist
+        no workspace tools are loaded and workspace profile.yaml is silently skipped.
+        """
+        if workspace:
+            p = Path(workspace)
+            if p.exists() and not p.is_dir():
+                raise ValueError(f"Workspace path exists but is not a directory: {p}")
+            p.mkdir(parents=True, exist_ok=True)
+            return p
+        env_home = os.getenv("TOOLUNIVERSE_HOME")
+        if env_home:
+            p = Path(env_home)
+            if p.exists() and not p.is_dir():
+                raise ValueError(
+                    f"TOOLUNIVERSE_HOME path exists but is not a directory: {p}"
+                )
+            p.mkdir(parents=True, exist_ok=True)
+            return p
+        if use_global:
+            try:
+                return Path.home() / ".tooluniverse"
+            except RuntimeError:
+                pass  # fall through to local default
+        return Path.cwd() / ".tooluniverse"
+
     def register_custom_tool(
         self,
         tool_class,
@@ -490,8 +612,24 @@ class ToolUniverse:
 
             add_annotations_to_tool_config(tool_config)
 
-            self.all_tools.append(tool_config)
             tool_name_in_config = tool_config.get("name", name)
+            # Deduplicate: if a tool with this name already exists, replace it in-place
+            # rather than appending a duplicate entry
+            existing_idx = next(
+                (
+                    i
+                    for i, t in enumerate(self.all_tools)
+                    if isinstance(t, dict) and t.get("name") == tool_name_in_config
+                ),
+                None,
+            )
+            if existing_idx is not None:
+                self.logger.warning(
+                    f"Custom tool '{tool_name_in_config}' already registered; replacing."
+                )
+                self.all_tools[existing_idx] = tool_config
+            else:
+                self.all_tools.append(tool_config)
             self.all_tool_dict[tool_name_in_config] = tool_config
 
             # Handle tool instantiation
@@ -530,7 +668,14 @@ class ToolUniverse:
             if tool_name_in_config not in self.tool_category_dicts[category]:
                 self.tool_category_dicts[category].append(tool_name_in_config)
 
-        self.logger.info(f"Custom tool '{name}' registered successfully!")
+        if tool_config:
+            self.logger.info(f"Custom tool '{name}' registered successfully!")
+        else:
+            self.logger.warning(
+                f"Custom tool '{name}' class registered, but no tool_config was provided. "
+                f"The tool will NOT appear in all_tool_dict and cannot be executed. "
+                f"Pass tool_config={{...}} to make it fully runnable."
+            )
         return name
 
     def force_full_discovery(self):
@@ -625,17 +770,27 @@ class ToolUniverse:
     def generate_env_template(
         self, all_missing_keys, output_file: str = ".env.template"
     ):
-        """Generate a template .env file with all required API keys"""
+        """Generate a template .env file with all required API keys (only writes if content changed)."""
+        content = "# API Keys for ToolUniverse\n# Copy this file to .env and fill in your actual API keys\n\n"
+        for key in sorted(all_missing_keys):
+            content += f"{key}=your_api_key_here\n\n"
+
         try:
-            with open(output_file, "w") as f:
-                f.write("# API Keys for ToolUniverse\n")
-                f.write("# Copy this file to .env and fill in your actual API keys\n\n")
+            try:
+                with open(output_file, "r", encoding="utf-8") as f:
+                    existing = f.read()
+            except OSError:
+                existing = None
 
-                for key in sorted(all_missing_keys):
-                    f.write(f"{key}=your_api_key_here\n\n")
+            if existing == content:
+                return  # no change — don't overwrite
 
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(content)
+
+            verb = "Updated" if existing is not None else "Generated"
             self.logger.info(
-                f"Generated API key template: {output_file}. Copy this file to .env and fill in your API keys"
+                f"{verb} API key template: {output_file}. Copy this file to .env and fill in your API keys"
             )
         except OSError as e:
             self.logger.warning(
@@ -710,6 +865,7 @@ class ToolUniverse:
 
     def load_tools(
         self,
+        categories=None,
         tool_type=None,
         exclude_tools=None,
         exclude_categories=None,
@@ -718,63 +874,70 @@ class ToolUniverse:
         tools_file=None,
         include_tool_types=None,
         exclude_tool_types=None,
+        python_files=None,
+        quiet=True,
     ):
         """
-        Loads tool definitions from JSON files into the instance's tool registry.
-
-        If `tool_type` is None, loads all available tool categories from `self.tool_files`.
-        Otherwise, loads only the specified tool categories.
-
-        After loading, deduplicates tools by their 'name' field and updates the internal tool list.
-        Also refreshes the tool name and description mapping.
+        Load tools into the instance, with optional filtering.
 
         Args:
-            tool_type (list, optional): List of tool category names to load. If None, loads all categories.
-            exclude_tools (list, optional): List of specific tool names to exclude from loading.
-            exclude_categories (list, optional): List of tool categories to exclude from loading.
-            include_tools (list or str, optional): List of specific tool names to include, or path to a text file
-                                                  containing tool names (one per line). If provided, only these tools
-                                                  will be loaded regardless of categories.
-            tool_config_files (dict, optional): Additional tool configuration files to load.
-                                               Format: {"category_name": "/path/to/config.json"}
-            tools_file (str, optional): Path to a text file containing tool names to include (one per line).
-                                       Alternative to include_tools when providing a file path.
-            include_tool_types (list, optional): List of tool types to include (e.g., ["OpenTarget", "ChEMBLTool"]).
-                                                If provided, only tools with these types will be loaded.
-            exclude_tool_types (list, optional): List of tool types to exclude (e.g., ["ToolFinderEmbedding"]).
-                                                Tools with these types will be excluded.
-
-        Side Effects:
-            - Updates `self.all_tools` with loaded and deduplicated tools.
-            - Updates `self.tool_category_dicts` with loaded tools per category.
-            - Calls `self.refresh_tool_name_desc()` to update tool name/description mapping.
-            - Prints the number of tools before and after loading.
+            categories (list, optional): Tool category names to load. If None, all categories
+                are loaded. Use ``list_categories()`` to see available names.
+            tool_type (list, optional): Deprecated alias for ``categories``.
+            exclude_tools (list, optional): Tool names to exclude. Supports glob patterns
+                (e.g. ``["EuropePMC_*"]``).
+            exclude_categories (list, optional): Category names to skip entirely.
+            include_tools (list or str, optional): Only load these tools. Supports glob
+                patterns (e.g. ``["EuropePMC_*", "ChEMBL_*"]``). Pass a file path string
+                to read names from a text file (one per line).
+            tool_config_files (dict, optional): Extra JSON config files to load.
+                Format: ``{"category_name": "/path/to/config.json"}``.
+            tools_file (str, optional): Deprecated. Pass a file path to ``include_tools``
+                instead.
+            python_files (list, optional): List of Python file paths (str or Path) to import
+                as user tools. Each file should contain ``@register_tool``-decorated classes.
+                Example: ``python_files=["/path/to/my_tool.py"]``.
+            include_tool_types (list, optional): Only load tools whose ``type`` field is
+                in this list (e.g. ``["RESTTool", "GraphQLTool"]``).
+            exclude_tool_types (list, optional): Skip tools whose ``type`` field is in
+                this list.
+            quiet (bool, optional): Suppress missing-API-key warnings and
+                ``.env.template`` generation. Default ``True``. Pass ``False``
+                to see which keys are missing.
 
         Examples:
-            # Load specific tools by name
-            tu.load_tools(include_tools=["UniProt_get_entry_by_accession", "ChEMBL_get_molecule_by_chembl_id"])
+            # Load everything (default)
+            tu.load_tools()
 
-            # Load tools from a file
-            tu.load_tools(tools_file="/path/to/tool_names.txt")
+            # Load only two categories
+            tu.load_tools(categories=["ChEMBL", "EuropePMC"])
 
-            # Include only specific tool types
-            tu.load_tools(include_tool_types=["OpenTarget", "ChEMBLTool"])
+            # Load tools by name with glob wildcards
+            tu.load_tools(include_tools=["EuropePMC_*", "ChEMBL_get_molecule_*"])
 
-            # Exclude specific tool types
-            tu.load_tools(exclude_tool_types=["ToolFinderEmbedding", "Unknown"])
-
-            # Load additional config files
-            tu.load_tools(tool_config_files={"custom_tools": "/path/to/custom_tools.json"})
-
-            # Combine multiple options
+            # Combine: exclude one category, exclude specific tools
             tu.load_tools(
-                tool_type=["uniprot", "ChEMBL"],
-                exclude_tools=["problematic_tool"],
-                exclude_tool_types=["Unknown"],
-                tool_config_files={"custom": "/path/to/custom.json"}
+                exclude_categories=["tool_finder"],
+                exclude_tools=["EuropePMC_slow_tool"],
             )
         """
+        # --- backward-compat: tool_type → categories ---
+        if tool_type is not None:
+            warnings.warn(
+                "load_tools(tool_type=...) is deprecated; use categories= instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if categories is None:
+                categories = tool_type
         self.logger.debug(f"Number of tools before load tools: {len(self.all_tools)}")
+
+        # Full reload (no include_tools): clear existing tools so repeated calls
+        # don't accumulate duplicates before deduplication runs.
+        if include_tools is None and tools_file is None:
+            self.all_tools = []
+            self.all_tool_dict = {}
+            self.tool_category_dicts = {}
 
         # Handle tools_file parameter (alternative to include_tools)
         if tools_file:
@@ -818,6 +981,12 @@ class ToolUniverse:
                 f"Excluding tool types: {', '.join(exclude_tool_types_set)}"
             )
         if tool_config_files:
+            if not isinstance(tool_config_files, dict):
+                raise TypeError(
+                    f"tool_config_files must be a dict mapping category names to file paths, "
+                    f"got {type(tool_config_files).__name__}. "
+                    f'Example: tool_config_files={{"my_category": "/path/to/config.json"}}'
+                )
             self.logger.info(
                 f"Loading additional config files: {', '.join(tool_config_files.keys())}"
             )
@@ -838,18 +1007,19 @@ class ToolUniverse:
                     )
 
         # Determine which categories to process
-        if tool_type is None:
+        if categories is None:
             categories_to_load = [
                 cat
                 for cat in all_tool_files.keys()
                 if cat not in exclude_categories_set
             ]
         else:
-            assert isinstance(tool_type, list), (
-                "tool_type must be a list of tool category names"
-            )
+            if not isinstance(categories, list):
+                raise TypeError(
+                    f"categories must be a list of category name strings, got {type(categories).__name__}"
+                )
             categories_to_load = [
-                cat for cat in tool_type if cat not in exclude_categories_set
+                cat for cat in categories if cat not in exclude_categories_set
             ]
 
         # Track existing tools before loading new ones (for merge mode)
@@ -868,11 +1038,10 @@ class ToolUniverse:
 
                     # Handle different data formats
                     if isinstance(loaded_data, dict):
-                        # Convert dict of tools to list of tools
-                        loaded_tool_list = list(loaded_data.values())
-                        self.logger.debug(
-                            f"Converted dict to list: {len(loaded_tool_list)} tools"
-                        )
+                        # A single tool config dict — wrap in a list.
+                        # (list(loaded_data.values()) would produce string "tools".)
+                        loaded_tool_list = [loaded_data]
+                        self.logger.debug(f"Single-dict JSON wrapped into list: 1 tool")
                     elif isinstance(loaded_data, list):
                         loaded_tool_list = loaded_data
                     else:
@@ -886,6 +1055,9 @@ class ToolUniverse:
 
                     for tool in loaded_tool_list:
                         if isinstance(tool, dict):
+                            # Normalize 'tool_name' → 'name' for user-written configs
+                            if "name" not in tool and "tool_name" in tool:
+                                tool["name"] = tool.pop("tool_name")
                             # Set source_file and category for proper annotation derivation
                             if "source_file" not in tool:
                                 tool["source_file"] = all_tool_files[each]
@@ -917,8 +1089,28 @@ class ToolUniverse:
                     f"Tool category '{each}' not found in available tool files"
                 )
 
-        # Load auto-discovered configs from decorators
+        # Import user Python tools so their @register_tool decorators run,
+        # then load all decorator configs (built-in + user) in one pass,
+        # then load user JSON configs last so they take highest priority.
+        workspace_python_files, json_files = self._get_user_tool_files()
+        extra_python_files = []
+        if python_files:
+            from pathlib import Path
+
+            for pf in python_files:
+                p = Path(pf)
+                if not p.exists():
+                    self.logger.warning(f"python_files: file not found: {p}")
+                else:
+                    extra_python_files.append(p)
+        all_python_files = workspace_python_files + extra_python_files
+        if all_python_files:
+            self._import_user_python_tools(all_python_files)
+
         self._load_auto_discovered_configs()
+
+        if json_files:
+            self._load_user_json_configs(json_files)
 
         # Filter and deduplicate tools
         self._filter_and_deduplicate_tools(
@@ -927,6 +1119,7 @@ class ToolUniverse:
             include_tool_types_set,
             exclude_tool_types_set,
             existing_tool_names,
+            quiet=quiet,
         )
 
         # Process MCP Auto Loader tools
@@ -973,6 +1166,7 @@ class ToolUniverse:
         include_tool_types_set=None,
         exclude_tool_types_set=None,
         existing_tool_names=None,
+        quiet=True,
     ):
         """
         Filter tools based on inclusion/exclusion criteria and remove duplicates.
@@ -988,6 +1182,8 @@ class ToolUniverse:
         """
         tool_name_list = []
         dedup_all_tools = []
+        # Maps tool name -> index in dedup_all_tools for O(1) last-seen-wins updates
+        tool_name_to_idx: Dict[str, int] = {}
         all_missing_keys = set()
         duplicate_names = set()
         excluded_tools_count = 0
@@ -1034,12 +1230,16 @@ class ToolUniverse:
                     )
                     continue
 
-                # Keep this existing tool
-                if tool_name not in tool_name_list:
+                # Keep this existing tool (last-seen wins)
+                if tool_name in tool_name_to_idx:
+                    dedup_all_tools[tool_name_to_idx[tool_name]] = each
+                    duplicate_names.add(tool_name)
+                else:
+                    tool_name_to_idx[tool_name] = len(dedup_all_tools)
                     tool_name_list.append(tool_name)
                     dedup_all_tools.append(each)
-                else:
-                    duplicate_names.add(tool_name)
+                # Mark as found so include_tools warnings are not falsely triggered
+                missing_included_tools.discard(tool_name)
                 continue
 
             # If include_tools_set is specified, only include tools in that set
@@ -1081,12 +1281,14 @@ class ToolUniverse:
                     )
                     continue
 
-            # Handle duplicates
-            if tool_name not in tool_name_list:
+            # Last-seen wins: user tools loaded after built-ins naturally override them
+            if tool_name in tool_name_to_idx:
+                dedup_all_tools[tool_name_to_idx[tool_name]] = each
+                duplicate_names.add(tool_name)
+            else:
+                tool_name_to_idx[tool_name] = len(dedup_all_tools)
                 tool_name_list.append(tool_name)
                 dedup_all_tools.append(each)
-            else:
-                duplicate_names.add(tool_name)
 
         # Report statistics
         if duplicate_names:
@@ -1109,36 +1311,232 @@ class ToolUniverse:
 
         # Generate template for missing API keys
         if len(all_missing_keys) > 0:
-            warning(
-                f"Some tools will not be loaded due to missing API keys: {', '.join(all_missing_keys)}"
-            )
-            # info("Generating .env.template file with missing API keys...")
-            self.generate_env_template(all_missing_keys)
+            # Feature-24B-02: allow suppression via TOOLUNIVERSE_QUIET=1 or quiet param
+            # so repeated invocations don't spam the terminal with key warnings.
+            import os as _os
+
+            _env_quiet = _os.environ.get("TOOLUNIVERSE_QUIET", "")
+            if not quiet and not _env_quiet:
+                warning(
+                    f"Some tools will not be loaded due to missing API keys: {', '.join(all_missing_keys)}"
+                )
+                self.generate_env_template(all_missing_keys)
+
+    def _get_user_tool_files(self):
+        """
+        Return (python_files, json_files) from the configured workspace directory.
+
+        ``self._workspace_dir`` is always set (defaults to ``./.tooluniverse`` for
+        local mode, or ``~/.tooluniverse`` when ``use_global=True``).  If the
+        directory does not exist, an empty list pair is returned.
+
+        Supports two layout conventions:
+        - Flat: ``*.py`` / ``*.json`` directly in the workspace root
+        - Organised: ``tools/*.py`` and ``data/`` or ``configs/*.json``
+        """
+        from .profile.loader import ProfileLoader
+
+        python_files = []
+        json_files = []
+
+        if self._workspace_dir is not None:
+            # Single configurable workspace
+            search_roots = [self._workspace_dir]
+        else:
+            # Default: global then local .tooluniverse
+            search_roots = []
+            try:
+                search_roots.append(Path.home() / ".tooluniverse")
+            except RuntimeError:
+                self.logger.debug(
+                    "Could not determine home directory; skipping ~/.tooluniverse scan"
+                )
+            search_roots.append(Path.cwd() / ".tooluniverse")
+
+        for base in search_roots:
+            if not base.exists():
+                continue
+            # Read profile.yaml if present — log pack name, warn on missing env vars
+            from .tool_registry import _read_profile_yaml
+
+            _read_profile_yaml(base, context=f"workspace '{base}'")
+            py_files, js_files = ProfileLoader.get_tool_files_from_dir(base)
+            python_files.extend(py_files)
+            json_files.extend(js_files)
+
+        return python_files, json_files
+
+    def _import_user_python_tools(self, python_files):
+        """
+        Import user Python tool files so their @register_tool decorators run.
+
+        Uses spec_from_file_location so files do not need to live inside the
+        tooluniverse package.  Each file is registered in sys.modules under a
+        name derived from its path hash.  On subsequent calls, the file's mtime
+        is compared to the cached value; if the file was edited, the module is
+        reloaded so the changes take effect without a process restart.
+        """
+        import importlib.util
+        import importlib
+        import sys
+        import hashlib
+
+        if not hasattr(self, "_user_tool_mtimes"):
+            self._user_tool_mtimes: dict = {}
+
+        # importlib.reload() requires that the parent package exists in sys.modules.
+        # Register a stub so reload works correctly when a second ToolUniverse
+        # instance is created in the same process.
+        if "_tooluniverse_user" not in sys.modules:
+            import types
+
+            stub = types.ModuleType("_tooluniverse_user")
+            stub.__path__ = []  # marks it as a package
+            sys.modules["_tooluniverse_user"] = stub
+
+        for py_file in python_files:
+            # Include a short path hash so files with the same stem but different
+            # directories (e.g. flat vs organised layout) get distinct module names.
+            path_hash = hashlib.md5(str(py_file.resolve()).encode()).hexdigest()[:6]
+            module_name = f"_tooluniverse_user.{py_file.stem}_{path_hash}"
+            current_mtime = py_file.stat().st_mtime
+
+            if module_name in sys.modules:
+                cached_mtime = self._user_tool_mtimes.get(module_name)
+                if cached_mtime == current_mtime:
+                    self.logger.debug(f"User tool file unchanged, skipping: {py_file}")
+                    continue
+                # File was edited — reload so the changes take effect.
+                self.logger.info(f"User tool file changed, reloading: {py_file}")
+                try:
+                    importlib.reload(sys.modules[module_name])
+                    self._user_tool_mtimes[module_name] = current_mtime
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to reload user tool file {py_file}: {e}"
+                    )
+                continue
+
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+                module = importlib.util.module_from_spec(spec)
+                # Register before exec so the module is importable from inside itself
+                # and so re-entrant calls don't reload it.
+                sys.modules[module_name] = module
+                spec.loader.exec_module(module)
+                self._user_tool_mtimes[module_name] = current_mtime
+                self.logger.info(f"Loaded user tool file: {py_file}")
+            except Exception as e:
+                # Remove broken module so a later fix-and-retry can reload it
+                sys.modules.pop(module_name, None)
+                self.logger.warning(f"Failed to load user tool file {py_file}: {e}")
+
+    def _load_user_json_configs(self, json_files):
+        """
+        Load JSON tool configs from user directories and append to all_tools.
+
+        Each file may contain a single config dict or a list of config dicts.
+        Files named 'profile.yaml' / 'profile.json' are skipped (handled separately).
+        """
+        from .tool_defaults import add_annotations_to_tool_config
+
+        for json_file in json_files:
+            if json_file.stem in ("profile",):
+                continue
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                configs = [data] if isinstance(data, dict) else data
+                for config in configs:
+                    if not isinstance(config, dict) or "name" not in config:
+                        continue
+                    if "source_file" not in config:
+                        config["source_file"] = str(json_file)
+                    add_annotations_to_tool_config(config)
+                    self.all_tools.append(config)
+                    self.logger.info(
+                        f"Loaded user tool config '{config['name']}' from {json_file}"
+                    )
+            except Exception as e:
+                self.logger.warning(f"Failed to load user config file {json_file}: {e}")
+
+    def _load_tools_from_sources(self, loader, sources: list):
+        """
+        Phase 4: Load Python tool files and JSON configs from external Profile sources.
+
+        Each entry in ``sources`` is a URI (local path, hf:user/repo, GitHub URL,
+        or https:// file URL).  The URI is resolved to a local directory by
+        ``ProfileLoader.resolve_to_local_dir()``, which handles downloading and
+        caching automatically.  The directory is then scanned for tool files
+        using ``ProfileLoader.get_tool_files_from_dir()``.
+
+        Last-seen definition wins: sources are processed in order, so later
+        entries override earlier ones for duplicate tool names.
+
+        Args:
+            loader: ``ProfileLoader`` instance (already has a cache dir).
+            sources: List of URI strings from the Profile config's ``sources`` field.
+        """
+        from .profile.loader import ProfileLoader
+
+        for source_uri in sources:
+            if not isinstance(source_uri, str) or not source_uri.strip():
+                continue
+            try:
+                local_dir = loader.resolve_to_local_dir(source_uri)
+                python_files, json_files = ProfileLoader.get_tool_files_from_dir(
+                    local_dir
+                )
+                if python_files:
+                    self._import_user_python_tools(python_files)
+                if json_files:
+                    self._load_user_json_configs(json_files)
+                self.logger.info(
+                    f"Loaded source '{source_uri}': "
+                    f"{len(python_files)} Python files, {len(json_files)} JSON configs"
+                )
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to load Profile source '{source_uri}': {e}"
+                )
 
     def _load_auto_discovered_configs(self):
         """
-        Load auto-discovered configs from the decorator registry.
+        Load auto-discovered configs from the decorator registry and sub-package
+        list registry.
 
-        This method loads tool configurations that were registered automatically
-        via the @register_tool decorator with config parameter.
+        Configs registered via ``@register_tool(config=...)`` are loaded from
+        the singleton-per-type config registry.  Configs registered by
+        sub-package ``__init__.py`` files via ``register_tool_configs()`` are
+        loaded from the flat list registry — this supports multiple tool
+        instances per class (e.g. JLCSearch has 8 distinct configs).
         """
-        from .tool_registry import get_config_registry
+        from .tool_registry import get_config_registry, get_list_config_registry
 
+        # Build a set of names already present so we never double-add
+        existing_names = {t.get("name") for t in self.all_tools if isinstance(t, dict)}
+
+        # 1. Decorator-registered configs (one per tool type)
         discovered_configs = get_config_registry()
-
         if discovered_configs:
             self.logger.debug(
                 f"Loading {len(discovered_configs)} auto-discovered tool configs"
             )
             for _tool_type, config in discovered_configs.items():
-                # Add to all_tools if not already present
-                if "name" in config and config["name"] not in [
-                    tool.get("name")
-                    for tool in self.all_tools
-                    if isinstance(tool, dict)
-                ]:
+                if "name" in config and config["name"] not in existing_names:
                     self.all_tools.append(config)
+                    existing_names.add(config["name"])
                     self.logger.debug(f"Added auto-discovered config: {config['name']}")
+
+        # 2. Sub-package list configs (multiple instances per tool type)
+        subpkg_configs = get_list_config_registry()
+        if subpkg_configs:
+            self.logger.debug(f"Loading {len(subpkg_configs)} sub-package tool configs")
+            for config in subpkg_configs:
+                if "name" in config and config["name"] not in existing_names:
+                    self.all_tools.append(config)
+                    existing_names.add(config["name"])
+                    self.logger.debug(f"Added sub-package config: {config['name']}")
 
     def _process_mcp_auto_loaders(self):
         """
@@ -1698,6 +2096,12 @@ class ToolUniverse:
         Returns:
             tuple: A tuple containing (tool_name_list, tool_desc_list) after filtering.
         """
+        # Rebuild all_tool_dict from scratch so it always mirrors all_tools exactly.
+        # Without this clear, stale entries from a previous load_tools() call persist
+        # when load_tools() is called with include_tools=[] (which skips the clear at
+        # the top of load_tools()), causing excluded tools to remain in all_tool_dict
+        # even after being correctly removed from all_tools.
+        self.all_tool_dict = {}
         tool_name_list = []
         tool_desc_list = []
         for tool in self.all_tools:
@@ -1732,14 +2136,32 @@ class ToolUniverse:
 
         # Apply filtering if any filter argument is provided
         if any([include_names, exclude_names, include_categories, exclude_categories]):
-            tool_name_list, tool_desc_list = self.filter_tool_lists(
-                tool_name_list,
-                tool_desc_list,
-                include_names=include_names,
-                exclude_names=exclude_names,
-                include_categories=include_categories,
-                exclude_categories=exclude_categories,
-            )
+            candidate_names = set(tool_name_list)
+            if include_categories is not None:
+                include_cat_set = set(include_categories)
+                candidate_names = {
+                    n
+                    for n in candidate_names
+                    if self.all_tool_dict.get(n, {}).get("category") in include_cat_set
+                }
+            if exclude_categories is not None:
+                exclude_cat_set = set(exclude_categories)
+                candidate_names -= {
+                    n
+                    for n in candidate_names
+                    if self.all_tool_dict.get(n, {}).get("category") in exclude_cat_set
+                }
+            if include_names is not None:
+                candidate_names &= set(include_names)
+            if exclude_names is not None:
+                candidate_names -= set(exclude_names)
+            pairs = [
+                (n, d)
+                for n, d in zip(tool_name_list, tool_desc_list)
+                if n in candidate_names
+            ]
+            tool_name_list = [n for n, _ in pairs]
+            tool_desc_list = [d for _, d in pairs]
 
         self.logger.debug(
             f"Number of tools after refresh and filter: {len(tool_name_list)}"
@@ -2212,6 +2634,8 @@ class ToolUniverse:
 
         tool_semaphores: Dict[str, Optional[threading.Semaphore]] = {}
 
+        import asyncio
+
         def run_job(job: _BatchJob):
             semaphore = self._get_tool_semaphore(job, tool_semaphores)
             if semaphore:
@@ -2310,6 +2734,8 @@ class ToolUniverse:
             Result (sync) or coroutine (async) depending on context.
         """
         # Detect if we're in an async context
+        import asyncio
+
         try:
             asyncio.get_running_loop()
             # We're in an async context - return coroutine
@@ -2386,6 +2812,8 @@ class ToolUniverse:
 
         if tool_instance and inspect.iscoroutinefunction(tool_instance.run):
             self.logger.debug(f"Running async tool '{function_name}' in sync context")
+            import asyncio
+
             try:
                 asyncio.get_running_loop()
                 raise RuntimeError(
@@ -2485,6 +2913,8 @@ class ToolUniverse:
 
         Uses return_exceptions=True so one failure does not abort others.
         """
+        import asyncio
+
         tasks = [
             self.run_one_function_async(
                 call,
@@ -2564,12 +2994,16 @@ class ToolUniverse:
 
         # Handle malformed queries gracefully
         if not function_name:
-            return {"error": "Missing or empty function name"}
+            return self._create_dual_format_error(
+                ToolValidationError("Missing or empty function name")
+            )
 
         if not isinstance(arguments, dict):
-            return {
-                "error": f"Arguments must be a dictionary, got {type(arguments).__name__}"
-            }
+            return self._create_dual_format_error(
+                ToolValidationError(
+                    f"Arguments must be a dictionary, got {type(arguments).__name__}"
+                )
+            )
 
         tool_instance = None
         cache_namespace = None
@@ -2626,6 +3060,12 @@ class ToolUniverse:
                 arguments = self._coerce_arguments_to_schema(function_name, arguments)
                 # Update the original dict so coerced arguments are used
                 function_call_json["arguments"] = arguments
+
+            # Strip None values from arguments: optional params default to None in
+            # Python wrappers, but schema validation rejects None for typed params.
+            # None means "not provided" — simply omit such keys.
+            arguments = {k: v for k, v in arguments.items() if v is not None}
+            function_call_json["arguments"] = arguments
 
             # Validate parameters if requested
             if validate:
@@ -2685,6 +3125,7 @@ class ToolUniverse:
                         return self._create_dual_format_error(
                             ToolUnavailableError(
                                 error_msg,
+                                retriable=False,
                                 next_steps=[
                                     "Check tool name spelling",
                                     "Verify tool is available in loaded categories",
@@ -2754,12 +3195,16 @@ class ToolUniverse:
 
         # Handle malformed queries gracefully
         if not function_name:
-            return {"error": "Missing or empty function name"}
+            return self._create_dual_format_error(
+                ToolValidationError("Missing or empty function name")
+            )
 
         if not isinstance(arguments, dict):
-            return {
-                "error": f"Arguments must be a dictionary, got {type(arguments).__name__}"
-            }
+            return self._create_dual_format_error(
+                ToolValidationError(
+                    f"Arguments must be a dictionary, got {type(arguments).__name__}"
+                )
+            )
 
         tool_instance = None
         cache_namespace = None
@@ -2831,6 +3276,7 @@ class ToolUniverse:
                     return self._create_dual_format_error(
                         ToolUnavailableError(
                             error_msg,
+                            retriable=False,
                             next_steps=[
                                 "Manually run tu.load_tools()",
                                 "Check tool configuration",
@@ -2855,6 +3301,7 @@ class ToolUniverse:
                     return self._create_dual_format_error(
                         ToolUnavailableError(
                             error_msg,
+                            retriable=False,
                             next_steps=[
                                 "Check tool name spelling",
                                 "Verify tool is available in loaded categories",
@@ -2946,6 +3393,8 @@ class ToolUniverse:
             # Call with all supported parameters
             result = tool_instance.run(tool_arguments, **kwargs)
             if inspect.iscoroutine(result):
+                import asyncio
+
                 result = asyncio.run(result)
             return result, tool_arguments
 
@@ -2955,11 +3404,15 @@ class ToolUniverse:
             self.logger.debug(f"Falling back to simple run() call: {e}")
             result = tool_instance.run(tool_arguments)
             if inspect.iscoroutine(result):
+                import asyncio
+
                 result = asyncio.run(result)
             return result, tool_arguments
 
     async def _invoke_tool_async(self, tool_instance, tool_arguments, **kwargs):
         """Invoke tool.run, using await for async tools or a thread pool for sync tools."""
+        import asyncio
+
         tool_name = getattr(tool_instance, "name", "unknown")
         if inspect.iscoroutinefunction(tool_instance.run):
             self.logger.debug(f"Executing async tool: {tool_name}")
@@ -3346,12 +3799,15 @@ class ToolUniverse:
         if function_name not in self.all_tool_dict:
             # Try to auto-load tools if dictionary is empty
             if not self._auto_load_tools_if_empty(function_name):
-                return ToolUnavailableError("Failed to auto-load tools")
+                return ToolUnavailableError(
+                    "Failed to auto-load tools", retriable=False
+                )
 
             # Check again after loading
             if function_name not in self.all_tool_dict:
                 return ToolUnavailableError(
-                    f"Tool '{function_name}' not found even after loading tools"
+                    f"Tool '{function_name}' not found even after loading tools",
+                    retriable=False,
                 )
 
         tool_instance = self._get_tool_instance(function_name, cache=True)
@@ -3411,16 +3867,25 @@ class ToolUniverse:
         }
 
     def refresh_tools(self):
-        """Refresh tool discovery (re-discover MCP/remote tools, reload configs)."""
-        # TODO: Implement MCP tool re-discovery
-        # For now, just reload tool configurations
-        self.logger.info("Refreshing tool configurations...")
-        # This could be extended to re-discover MCP tools, reload configs, etc.
-        self.logger.info("Tool refresh completed")
+        """Re-scan workspace and reload all tool configurations.
+
+        Picks up new JSON/Python tool files added to the workspace
+        ``.tooluniverse/tools/`` directory since startup, and re-discovers
+        entry-point plugins installed since the process started. Clears the
+        existing tool registry first so the result is always a clean reload.
+        """
+        self.logger.info("Refreshing tools: clearing registry and reloading...")
+        # Force re-scan of entry-point plugins so newly-installed packages
+        # (pip-installed after this process started) are picked up.
+        from .tool_registry import reset_plugin_discovery
+
+        reset_plugin_discovery()
+        self.load_tools()
+        self.logger.info(f"Tool refresh completed: {len(self.all_tools)} tools loaded")
 
     def eager_load_tools(self, names: Optional[List[str]] = None):
         """Pre-instantiate tools to reduce first-call latency."""
-        tool_names = names or list(self.all_tool_dict.keys())
+        tool_names = names if names is not None else list(self.all_tool_dict.keys())
         self.logger.info(f"Eager loading {len(tool_names)} tools...")
 
         for tool_name in tool_names:
@@ -3800,7 +4265,7 @@ class ToolUniverse:
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.get_one_tool_by_one_name(tool_name)
+        return self.tool_specification(tool_name)
 
     def remove_keys(self, tool_list, invalid_keys):
         """
@@ -3935,16 +4400,31 @@ class ToolUniverse:
             DeprecationWarning,
             stacklevel=2,
         )
-        # Build a set of allowed tool names using select_tools for category filtering
+        # Build a set of allowed tool names using filter_tools + category filtering
         allowed_names = set()
         if any([include_names, exclude_names, include_categories, exclude_categories]):
-            filtered_tools = self.select_tools(
-                include_names=include_names,
-                exclude_names=exclude_names,
-                include_categories=include_categories,
-                exclude_categories=exclude_categories,
+            # Start with all tools, then apply category and name filters
+            candidate_tools = list(self.all_tools)
+            if include_categories is not None:
+                include_cat_set = set(include_categories)
+                candidate_tools = [
+                    t for t in candidate_tools if t.get("category") in include_cat_set
+                ]
+            if exclude_categories is not None:
+                exclude_cat_set = set(exclude_categories)
+                candidate_tools = [
+                    t
+                    for t in candidate_tools
+                    if t.get("category") not in exclude_cat_set
+                ]
+            filtered_tools = self.filter_tools(
+                include_tools=set(include_names) if include_names else None,
+                exclude_tools=set(exclude_names) if exclude_names else None,
             )
-            allowed_names = set(tool["name"] for tool in filtered_tools)
+            # Intersect category-filtered and name-filtered results
+            name_filtered = {t["name"] for t in filtered_tools}
+            cat_filtered = {t["name"] for t in candidate_tools}
+            allowed_names = name_filtered & cat_filtered
         else:
             allowed_names = set(tool_name_list)
 
@@ -3986,38 +4466,72 @@ class ToolUniverse:
         self.load_tools(include_tools=tool_names)
         return len(self.all_tools) - original_count
 
-    def load_space(self, uri: str, **kwargs) -> Dict[str, Any]:
+    def load_profile(
+        self, uri: str, _merge_workspace: bool = True, **kwargs
+    ) -> Dict[str, Any]:
         """
-        Load Space configuration and apply it to the ToolUniverse instance.
+        Load Profile configuration and apply it to the ToolUniverse instance.
 
-        This is a high-level method that loads a Space configuration from various
+        This is a high-level method that loads a Profile configuration from various
         sources (HuggingFace, local files, HTTP URLs) and applies the tool settings
         to the current instance.
 
+        When a workspace ``profile.yaml`` exists and ``_merge_workspace=True`` (the
+        default), the workspace config is used as the base and the loaded config is
+        deep-merged on top — so any key in the loaded config overrides the workspace
+        default.
+
         Args:
-            uri: Space URI (e.g., "hf:user/repo", "./config.yaml", "https://example.com/config.yaml")
-            **kwargs: Additional parameters to override Space configuration
+            uri: Profile URI (e.g., "hf:user/repo", "./config.yaml", "https://example.com/config.yaml")
+            _merge_workspace: Whether to merge the workspace profile.yaml as a base config.
+                              Set to False when auto-applying the workspace yaml itself.
+            **kwargs: Additional parameters to override Profile configuration
                      (e.g., exclude_tools=["tool1"], include_tools=["tool2"])
 
         Returns:
-            dict: The loaded Space configuration
+            dict: The loaded (and possibly merged) Profile configuration
 
         Examples:
             # Load from HuggingFace
-            config = tu.load_space("hf:community/proteomics-toolkit")
+            config = tu.load_profile("hf:community/proteomics-toolkit")
 
             # Load local file with overrides
-            config = tu.load_space("./my-config.yaml", exclude_tools=["slow_tool"])
+            config = tu.load_profile("./my-config.yaml", exclude_tools=["slow_tool"])
 
             # Load from HTTP URL
-            config = tu.load_space("https://example.com/config.yaml")
+            config = tu.load_profile("https://example.com/config.yaml")
         """
         # Lazy import to avoid circular import issues
-        from .space import SpaceLoader
+        from .profile import ProfileLoader
+        from .profile.validator import validate_with_schema
+        import yaml as _yaml
 
-        # Load Space configuration
-        loader = SpaceLoader()
-        config = loader.load(uri)
+        loader = ProfileLoader()
+
+        # If workspace has a profile.yaml and merging is requested, use it as the base
+        # config and deep-merge the explicit URI on top (override wins for same keys).
+        if _merge_workspace and self._workspace_profile_config:
+            raw_config = loader._load_raw(uri)
+            raw_config = loader._resolve_extends(raw_config)
+            merged_raw = ProfileLoader._deep_merge(
+                self._workspace_profile_config, raw_config
+            )
+            yaml_content = _yaml.dump(
+                merged_raw, default_flow_style=False, allow_unicode=True
+            )
+            is_valid, errors, config = validate_with_schema(
+                yaml_content, fill_defaults_flag=True
+            )
+            if not is_valid:
+                error_msg = (
+                    "Merged Profile configuration validation failed:\n"
+                    + "\n".join(f"  - {e}" for e in errors)
+                )
+                raise ValueError(error_msg)
+            self.logger.debug(f"Profile '{uri}' merged with workspace profile.yaml")
+        else:
+            # Load Profile configuration normally
+            config = loader.load(uri)
 
         # Extract tool configuration
         tools_config = config.get("tools", {})
@@ -4026,7 +4540,12 @@ class ToolUniverse:
         tools_file_param = kwargs.get("tools_file")
 
         # Merge with override parameters
-        tool_type = kwargs.get("tool_type") or tools_config.get("categories")
+        # Profile YAML convention: categories: [] means "all categories" (same as omitting
+        # the key).  Convert empty list to None so load_tools() loads everything.
+        _categories_raw = tools_config.get("categories")
+        tool_type = kwargs.get("tool_type") or (
+            _categories_raw if _categories_raw else None
+        )
         exclude_tools = kwargs.get("exclude_tools") or tools_config.get(
             "exclude_tools", []
         )
@@ -4043,6 +4562,11 @@ class ToolUniverse:
             "exclude_tool_types", []
         )
 
+        # Load tools from external sources declared in the Profile
+        sources = config.get("sources", [])
+        if sources:
+            self._load_tools_from_sources(loader, sources)
+
         # Load tools with merged configuration
         self.load_tools(
             tool_type=tool_type,
@@ -4055,10 +4579,20 @@ class ToolUniverse:
         )
 
         # Store the configuration for reference
-        self._current_space_config = config
+        self._current_profile_config = config
 
         # Apply additional configurations (LLM, hooks, etc.)
         try:
+            # Apply log level if present
+            log_level = config.get("log_level")
+            if log_level:
+                self._apply_log_level_config(log_level)
+
+            # Apply cache configuration if present
+            cache_config = config.get("cache")
+            if cache_config:
+                self._apply_cache_config(cache_config)
+
             # Apply LLM configuration if present
             llm_config = config.get("llm_config")
             if llm_config:
@@ -4070,17 +4604,65 @@ class ToolUniverse:
                 self._apply_hooks_config(hooks_config)
 
             # Store metadata
-            self._store_space_metadata(config)
+            self._store_profile_metadata(config)
 
         except Exception as e:
             # Use print since logging might not be available
-            print(f"⚠️  Failed to apply Space configurations: {e}")
+            print(f"⚠️  Failed to apply Profile configurations: {e}")
 
         return config
 
+    def _apply_log_level_config(self, log_level: str):
+        """Apply log level from Profile config."""
+        try:
+            import logging
+
+            logging.getLogger("tooluniverse").setLevel(
+                getattr(logging, log_level, logging.INFO)
+            )
+            self.logger.debug(f"Profile set log level: {log_level}")
+        except Exception as e:
+            self.logger.warning(f"Failed to apply log_level config: {e}")
+
+    def _apply_cache_config(self, cache_config: Dict[str, Any]):
+        """Reconfigure the cache manager from Profile cache settings.
+
+        Only the keys present in cache_config are changed; omitted keys keep
+        their current values.
+        """
+        try:
+            current = self.cache_manager
+            enabled = cache_config.get("enabled", current.enabled)
+            memory_size = cache_config.get("memory_size", current.memory.max_size)
+            ttl = cache_config.get("ttl", current.default_ttl)
+            persist = cache_config.get("persist", current.persistent is not None)
+
+            # Determine persistent path — reuse existing path if persist stays on
+            if persist:
+                persistent_path = (
+                    current.persistent.path if current.persistent is not None else None
+                )
+            else:
+                persistent_path = None
+
+            self.cache_manager = ResultCacheManager(
+                memory_size=memory_size,
+                persistent_path=persistent_path,
+                enabled=enabled,
+                persistence_enabled=persist,
+                singleflight=current.singleflight is not None,
+                default_ttl=ttl if ttl != 0 else None,
+            )
+            self.logger.debug(
+                f"Cache reconfigured: enabled={enabled}, memory_size={memory_size}, "
+                f"ttl={ttl}, persist={persist}"
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to apply cache config: {e}")
+
     def _apply_llm_config(self, llm_config: Dict[str, Any]):
         """
-        Apply LLM configuration from Space.
+        Apply LLM configuration from Profile.
 
         Args:
             llm_config: LLM configuration dictionary
@@ -4089,7 +4671,7 @@ class ToolUniverse:
             import os
 
             # Store LLM configuration
-            self._space_llm_config = llm_config
+            self._profile_llm_config = llm_config
 
             # Set environment variables for LLM configuration
             # Set configuration mode
@@ -4124,13 +4706,13 @@ class ToolUniverse:
 
     def _apply_hooks_config(self, hooks_config: List[Dict[str, Any]]):
         """
-        Apply hooks configuration from Space.
+        Apply hooks configuration from Profile.
 
         Args:
             hooks_config: Hooks configuration list
         """
         try:
-            # Convert Space hooks format to ToolUniverse hook_config format
+            # Convert Profile hooks format to ToolUniverse hook_config format
             hook_config = {
                 "hooks": hooks_config,
                 "global_settings": {
@@ -4156,16 +4738,16 @@ class ToolUniverse:
         except Exception as e:
             print(f"⚠️  Failed to apply hooks configuration: {e}")
 
-    def _store_space_metadata(self, config: Dict[str, Any]):
+    def _store_profile_metadata(self, config: Dict[str, Any]):
         """
-        Store Space metadata for reference.
+        Store Profile metadata for reference.
 
         Args:
-            config: Space configuration dictionary
+            config: Profile configuration dictionary
         """
         try:
             # Store metadata
-            self._space_metadata = {
+            self._profile_metadata = {
                 "name": config.get("name"),
                 "version": config.get("version"),
                 "description": config.get("description"),
@@ -4175,8 +4757,6 @@ class ToolUniverse:
 
             # Check for missing environment variables
             if config.get("required_env"):
-                import os
-
                 missing_env = [
                     env for env in config["required_env"] if not os.getenv(env)
                 ]
@@ -4184,22 +4764,22 @@ class ToolUniverse:
                     print(f"⚠️  Missing environment variables: {', '.join(missing_env)}")
 
         except Exception as e:
-            print(f"⚠️  Failed to store Space metadata: {e}")
+            print(f"⚠️  Failed to store Profile metadata: {e}")
 
-    def get_space_llm_config(self) -> Optional[Dict[str, Any]]:
+    def get_profile_llm_config(self) -> Optional[Dict[str, Any]]:
         """
-        Get the current Space LLM configuration.
+        Get the current Profile LLM configuration.
 
         Returns:
             LLM configuration dictionary or None if not set
         """
-        return getattr(self, "_space_llm_config", None)
+        return getattr(self, "_profile_llm_config", None)
 
-    def get_space_metadata(self) -> Optional[Dict[str, Any]]:
+    def get_profile_metadata(self) -> Optional[Dict[str, Any]]:
         """
-        Get the current Space metadata.
+        Get the current Profile metadata.
 
         Returns:
-            Space metadata dictionary or None if not set
+            Profile metadata dictionary or None if not set
         """
-        return getattr(self, "_space_metadata", None)
+        return getattr(self, "_profile_metadata", None)

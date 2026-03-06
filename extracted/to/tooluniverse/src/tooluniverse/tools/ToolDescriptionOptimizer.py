@@ -47,16 +47,22 @@ def ToolDescriptionOptimizer(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "tool_config": tool_config,
+            "save_to_file": save_to_file,
+            "output_file": output_file,
+            "max_iterations": max_iterations,
+            "satisfaction_threshold": satisfaction_threshold,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ToolDescriptionOptimizer",
-            "arguments": {
-                "tool_config": tool_config,
-                "save_to_file": save_to_file,
-                "output_file": output_file,
-                "max_iterations": max_iterations,
-                "satisfaction_threshold": satisfaction_threshold,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -12,10 +12,10 @@ import sys
 import threading
 import uuid
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import compress
 from types import UnionType
-from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, TypeVar, Union, get_args
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, TypeVar, Union, cast, get_args
 
 import dash
 import plotly
@@ -43,10 +43,7 @@ from dash import (  # lgtm [py/unused-import]; noqa: F401
     register_page,  # noqa: F401
     set_props,  # noqa: F401
 )
-from dash._callback_context import context_value
-from dash._utils import patch_collections_abc
-from dash.dependencies import DashDependency, _Wildcard  # lgtm [py/unused-import]
-from dash.development.base_component import Component
+from dash.dependencies import DashDependency
 from dash.exceptions import PreventUpdate
 from dataclass_wizard import asdict, fromdict
 from flask import session
@@ -54,7 +51,15 @@ from flask_caching.backends import FileSystemCache, RedisCache
 from pydantic import BaseModel  # type: ignore
 
 from dash_extensions import CycleBreaker
+from dash_extensions._typing import Component, ComponentId, context_value
 from dash_extensions.utils import as_list
+
+try:
+    # Dash 3.4.0 moved _Wildcard to a public class. Try importing both before failing to support backwards compatibility
+    from dash.dependencies import Wildcard  # lgtm [py/unused-import]
+except ImportError:
+    from dash.dependencies import _Wildcard as Wildcard  # lgtm [py/unused-import]
+
 
 T = TypeVar("T")
 
@@ -221,7 +226,7 @@ class CallbackBlueprint:
             )
         # Collect the rest.
         self.kwargs: Dict[str, Any] = kwargs
-        self.f = None
+        self.f: Union[Callable[..., Any], str, ClientsideFunction] | None = None
 
     def register(self, app: dash.Dash):  # noqa: C901
         # Collect dependencies.
@@ -248,8 +253,10 @@ class CallbackBlueprint:
     def uid(self) -> str:
         if isinstance(self.f, (ClientsideFunction, str)):
             f_repr = repr(self.f)  # handles clientside functions
-        else:
+        elif self.f is not None:
             f_repr = f"{self.f.__module__}.{self.f.__name__}"  # handles Python functions
+        else:
+            f_repr = "None"
         f_hash = hashlib.md5(f_repr.encode()).digest()
         return str(uuid.UUID(bytes=f_hash, version=4))
 
@@ -263,13 +270,13 @@ class CallbackBlueprint:
         if not isinstance(component_id, dict):
             return False
         # The ALL and ALLSMALLER flags indicate multi output.
-        return any([component_id[k] in [ALLSMALLER, ALL] for k in component_id])
+        return any([component_id[k] in (ALLSMALLER, ALL) for k in component_id])
 
 
 class DashBlueprint:
     def __init__(
         self,
-        transforms: List[DashTransform] = None,
+        transforms: List[DashTransform] | None = None,
         include_global_callbacks: bool = False,
     ):
         self.callbacks: List[CallbackBlueprint] = []
@@ -320,7 +327,7 @@ class DashBlueprint:
         """
         This method resolves the callbacks, i.e. it applies the callback injections.
         """
-        callbacks, clientside_callbacks = self.callbacks, self.clientside_callbacks
+        callbacks, clientside_callbacks = list(self.callbacks), list(self.clientside_callbacks)
         # Add any global callbacks.
         if self.include_global_callbacks:
             callbacks += GLOBAL_BLUEPRINT.callbacks
@@ -372,7 +379,7 @@ class DashBlueprint:
 
     @layout.setter
     def layout(self, value):
-        self._layout_is_function = isinstance(value, patch_collections_abc("Callable"))
+        self._layout_is_function = callable(value)
         self._layout = value
 
 
@@ -532,7 +539,7 @@ class StatefulDashTransform(DashTransform):
         self.components = []
 
 
-def _resolve_transforms(transforms: List[DashTransform]) -> List[DashTransform]:
+def _resolve_transforms(transforms: List[DashTransform] | None) -> List[DashTransform]:
     # Resolve transforms.
     transforms = [] if transforms is None else transforms
     dependent_transforms = []
@@ -679,10 +686,13 @@ def skip_input_signal_add_output_signal(num_outputs, out_flex_key, in_flex_key, 
             args, kwargs, fltr = _skip_inputs(args, kwargs, [in_flex_key, st_flex_key])
             cached_ctx = fltr[1]
             single_output = num_outputs <= 1
-            if cached_ctx is not None and "triggered" in cached_ctx:
-                local_ctx = context_value.get()
-                local_ctx["triggered_inputs"] = cached_ctx["triggered"]
-                context_value.set(local_ctx)
+            if cached_ctx is not None and "triggered" in cached_ctx and context_value is not None:
+                try:
+                    local_ctx = context_value.get()
+                    local_ctx["triggered_inputs"] = cached_ctx["triggered"]
+                    context_value.set(local_ctx)
+                except (LookupError, TypeError, AttributeError, KeyError):
+                    pass
             try:
                 outputs = f(*args, **kwargs)
             except Exception as e:
@@ -690,18 +700,18 @@ def skip_input_signal_add_output_signal(num_outputs, out_flex_key, in_flex_key, 
                     logging.exception(f"Exception raised in blocking callback [{f.__name__}]")
                 outputs = _determine_outputs(single_output)
 
-            return _append_output(outputs, datetime.utcnow().timestamp(), single_output, out_flex_key)
+            return _append_output(outputs, datetime.now(timezone.utc).timestamp(), single_output, out_flex_key)
 
         return decorated_function
 
     return wrapper
 
 
-def _determine_outputs(single_output: bool):
+def _determine_outputs(single_output: bool) -> Any:
     output_spec = dash.callback_context.outputs_list[:-1]
     if single_output:
         return [no_update] * len(output_spec[0]) if isinstance(output_spec[0], list) else no_update
-    outputs = []
+    outputs: List[Any] = []
     for entry in output_spec:
         if isinstance(entry, list):
             outputs.append([dash.no_update] * len(entry))
@@ -904,7 +914,7 @@ def default_prefix_escape(component_id: str):
     return False
 
 
-def apply_prefix(prefix, component_id, escape):
+def apply_prefix(prefix, component_id: ComponentId, escape):
     if escape(component_id):
         return component_id
     if isinstance(component_id, dict):
@@ -913,7 +923,7 @@ def apply_prefix(prefix, component_id, escape):
             if isinstance(component_id[key], int):
                 continue
             # This branch handles the wildcard callbacks.
-            if isinstance(component_id[key], _Wildcard):
+            if isinstance(component_id[key], Wildcard):
                 continue
             # All "normal" props are prefixed.
             component_id[key] = "{}-{}".format(prefix, component_id[key])
@@ -931,13 +941,13 @@ def prefix_recursively(item, key, prefix_func, escape):
 
 def prefix_component(key: str, component: Component, escape: Callable):
     if hasattr(component, "id"):
-        component.id = apply_prefix(key, component.id, escape)
+        component.id = apply_prefix(key, component.id, escape)  # type: ignore[attr-defined]
     if not hasattr(component, "_namespace"):
         return
     # Special handling of dash bootstrap components. TODO: Maybe add others?
     if component._namespace == "dash_bootstrap_components":
         if component._type == "Tooltip":
-            component.target = apply_prefix(key, component.target, escape)
+            component.target = apply_prefix(key, component.target, escape)  # type: ignore[attr-defined]
 
 
 # TODO: Test this one.
@@ -947,7 +957,9 @@ def dynamic_prefix(app: Union[DashBlueprint, DashProxy], component: Component):
     # No transform, just return.
     if len(prefix_transforms) == 0:
         return
-    prefix_transform: PrefixIdTransform = prefix_transforms[0]
+    prefix_transform = cast(
+        PrefixIdTransform, prefix_transforms[0]
+    )  # We know this is PrefixIdTransform from the filter
     prefix_recursively(
         component,
         prefix_transform.prefix,
@@ -1057,7 +1069,7 @@ class MultiplexerTransform(DashTransform):
 def _output_id_without_wildcards(output: Output) -> str:
     i, p = output.component_id, output.component_property
     if isinstance(i, dict):
-        i = json.dumps({k: i[k] for k in sorted(i) if i[k] not in [ALL, MATCH, ALLSMALLER]})
+        i = json.dumps({k: i[k] for k in sorted(i) if not isinstance(i[k], Wildcard)})
     return f"{i}_{p}"
 
 
@@ -1139,7 +1151,7 @@ class DataclassTransform(SerializationTransform):
         if isinstance(data, str):
             data = json.loads(data)
         if isinstance(data, dict):
-            return fromdict(ann, data)
+            return fromdict(ann, data)  # type: ignore[arg-type]
         raise ValueError(f"Unsupported data type for dataclass: {type(data)}")
 
     def _try_dump(self, obj: Any) -> Any:
@@ -1308,12 +1320,12 @@ class Serverside(Generic[T]):
     def __init__(
         self,
         value: T,
-        key: str = None,
-        backend: Union[ServersideBackend, str, None] = None,
+        key: str | None = None,
+        backend: Union[ServersideBackend, str] | None = None,
     ):
         self.value = value
         self.key: str = str(uuid.uuid4()) if key is None else key
-        self.backend_uid: str = backend.uid if isinstance(backend, ServersideBackend) else backend
+        self.backend_uid: str | None = backend.uid if isinstance(backend, ServersideBackend) else backend
 
 
 # endregion

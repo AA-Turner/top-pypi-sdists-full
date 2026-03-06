@@ -28,6 +28,7 @@
 ]]
 local metaKey = KEYS[1]
 local idKey = KEYS[2]
+local delayedKey = KEYS[3]
 local completedKey = KEYS[5]
 local eventsKey = KEYS[6]
 local jobId
@@ -42,6 +43,43 @@ local repeatJobKey = args[8]
 local deduplicationKey = args[9]
 local parentData
 -- Includes
+--[[
+  Function to deduplicate a job.
+]]
+local function deduplicateJobWithoutReplace(deduplicationId, deduplicationOpts, jobId, deduplicationKey,
+    eventsKey, maxEvents)
+    local ttl = deduplicationOpts['ttl']
+    local deduplicationKeyExists
+    if ttl and ttl > 0 then
+        if deduplicationOpts['extend'] then
+            local currentDebounceJobId = rcall('GET', deduplicationKey)
+            if currentDebounceJobId then
+                rcall('SET', deduplicationKey, currentDebounceJobId, 'PX', ttl)
+                rcall("XADD", eventsKey, "MAXLEN", "~", maxEvents, "*", "event", "debounced",
+                    "jobId", currentDebounceJobId, "debounceId", deduplicationId)
+                rcall("XADD", eventsKey, "MAXLEN", "~", maxEvents, "*", "event", "deduplicated", "jobId",
+                    currentDebounceJobId, "deduplicationId", deduplicationId, "deduplicatedJobId", jobId)
+                return currentDebounceJobId
+            else
+                rcall('SET', deduplicationKey, jobId, 'PX', ttl)
+                return
+            end
+        else
+            deduplicationKeyExists = not rcall('SET', deduplicationKey, jobId, 'PX', ttl, 'NX')
+        end
+    else
+        deduplicationKeyExists = not rcall('SET', deduplicationKey, jobId, 'NX')
+    end
+    if deduplicationKeyExists then
+        local currentDebounceJobId = rcall('GET', deduplicationKey)
+        -- TODO remove debounced event in next breaking change
+        rcall("XADD", eventsKey, "MAXLEN", "~", maxEvents, "*", "event", "debounced", "jobId",
+            currentDebounceJobId, "debounceId", deduplicationId)
+        rcall("XADD", eventsKey, "MAXLEN", "~", maxEvents, "*", "event", "deduplicated", "jobId",
+            currentDebounceJobId, "deduplicationId", deduplicationId, "deduplicatedJobId", jobId)
+        return currentDebounceJobId
+    end
+end
 --[[
   Function to get max events value or set by default 10000.
 ]]
@@ -309,6 +347,14 @@ else
         return handleDuplicatedJob(jobIdKey, jobId, parentKey, parent,
             parentData, parentDependenciesKey, completedKey, eventsKey,
             maxEvents, timestamp)
+    end
+end
+local deduplicationId = opts['de'] and opts['de']['id']
+if deduplicationId then
+    local deduplicationJobId = deduplicateJobWithoutReplace(deduplicationId, opts['de'],
+        jobId, deduplicationKey, eventsKey, maxEvents)
+    if deduplicationJobId then
+        return deduplicationJobId
     end
 end
 -- Store the job.

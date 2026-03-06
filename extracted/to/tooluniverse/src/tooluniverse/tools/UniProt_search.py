@@ -50,17 +50,23 @@ def UniProt_search(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query": query,
+            "organism": organism,
+            "limit": limit,
+            "min_length": min_length,
+            "max_length": max_length,
+            "fields": fields,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "UniProt_search",
-            "arguments": {
-                "query": query,
-                "organism": organism,
-                "limit": limit,
-                "min_length": min_length,
-                "max_length": max_length,
-                "fields": fields,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

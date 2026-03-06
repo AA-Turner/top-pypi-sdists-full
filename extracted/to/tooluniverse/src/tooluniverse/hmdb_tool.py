@@ -91,7 +91,7 @@ class HMDBTool(BaseTool):
                     cid = compounds[0].get("id", {}).get("id", {}).get("cid")
                     # Get full compound properties
                     props_response = requests.get(
-                        f"{PUBCHEM_API_URL}/compound/cid/{cid}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,InChIKey,IUPACName/JSON",
+                        f"{PUBCHEM_API_URL}/compound/cid/{cid}/property/MolecularFormula,MolecularWeight,ConnectivitySMILES,InChIKey,IUPACName/JSON",
                         timeout=self.timeout,
                     )
                     if props_response.status_code == 200:
@@ -108,7 +108,7 @@ class HMDBTool(BaseTool):
                                 "name": props.get("IUPACName"),
                                 "chemical_formula": props.get("MolecularFormula"),
                                 "molecular_weight": props.get("MolecularWeight"),
-                                "smiles": props.get("CanonicalSMILES"),
+                                "smiles": props.get("ConnectivitySMILES"),
                                 "inchikey": props.get("InChIKey"),
                             },
                             "metadata": {
@@ -154,9 +154,14 @@ class HMDBTool(BaseTool):
         search_type = arguments.get("search_type", "name")
 
         try:
-            # Use PubChem to search for compounds
+            # Use PubChem to search for compounds (search_type affects endpoint)
+            if search_type == "formula":
+                search_url = f"{PUBCHEM_API_URL}/compound/fastformula/{query}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IUPACName/JSON"
+            else:
+                # Default name search (mass search not supported by PubChem text API)
+                search_url = f"{PUBCHEM_API_URL}/compound/name/{query}/property/MolecularFormula,MolecularWeight,ConnectivitySMILES,IUPACName/JSON"
             response = requests.get(
-                f"{PUBCHEM_API_URL}/compound/name/{query}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IUPACName/JSON",
+                search_url,
                 timeout=self.timeout,
                 headers={"User-Agent": "ToolUniverse/HMDB"},
             )
@@ -172,7 +177,7 @@ class HMDBTool(BaseTool):
                             "name": props.get("IUPACName"),
                             "formula": props.get("MolecularFormula"),
                             "mw": props.get("MolecularWeight"),
-                            "smiles": props.get("CanonicalSMILES"),
+                            "smiles": props.get("ConnectivitySMILES"),
                         }
                     )
 
@@ -226,25 +231,15 @@ class HMDBTool(BaseTool):
                 headers={"User-Agent": "ToolUniverse/HMDB"},
             )
 
-            name = None
             if response.status_code == 200:
                 props = response.json().get("PropertyTable", {}).get("Properties", [{}])
                 if props:
-                    name = props[0].get("IUPACName")
+                    props[0].get("IUPACName")
 
             return {
-                "status": "success",
-                "data": {
-                    "hmdb_id": hmdb_id,
-                    "metabolite_name": name,
-                    "note": "Disease associations are available at HMDB website",
-                    "hmdb_url": f"{HMDB_BASE_URL}/metabolites/{hmdb_id}",
-                },
-                "metadata": {
-                    "source": "HMDB",
-                    "hmdb_id": hmdb_id,
-                    "note": "HMDB does not provide open API. Visit hmdb_url for disease associations.",
-                },
+                "status": "error",
+                "error": "HMDB disease associations are not available via open API. Visit the HMDB website to access disease data.",
+                "hmdb_url": f"{HMDB_BASE_URL}/metabolites/{hmdb_id}",
             }
 
         except requests.exceptions.RequestException as e:

@@ -38,8 +38,13 @@ def G2P_search(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"query": query, "page": page}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "G2P_search", "arguments": {"query": query, "page": page}},
+        {
+            "name": "G2P_search",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

@@ -9,8 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def COSMIC_search_mutations(
-    operation: str,
-    terms: str,
+    operation: Optional[str] = None,
+    terms: Optional[str] = None,
+    query: Optional[str] = None,
     max_results: Optional[int] = 20,
     genome_build: Optional[int] = 37,
     *,
@@ -27,6 +28,8 @@ def COSMIC_search_mutations(
         Operation type (fixed: search)
     terms : str
         Search query - gene name (e.g., BRAF), mutation (e.g., V600E), or mutation ID...
+    query : str
+        Alias for terms. Search query - gene name, mutation, or COSMIC ID.
     max_results : int
         Maximum number of results to return (default: 20, max: 500)
     genome_build : int
@@ -44,15 +47,22 @@ def COSMIC_search_mutations(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "terms": terms,
+            "query": query,
+            "max_results": max_results,
+            "genome_build": genome_build,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "COSMIC_search_mutations",
-            "arguments": {
-                "operation": operation,
-                "terms": terms,
-                "max_results": max_results,
-                "genome_build": genome_build,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

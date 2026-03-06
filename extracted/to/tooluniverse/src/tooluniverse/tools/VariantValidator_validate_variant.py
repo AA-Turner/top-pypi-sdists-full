@@ -41,14 +41,20 @@ def VariantValidator_validate_variant(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "genome_build": genome_build,
+            "variant_description": variant_description,
+            "select_transcripts": select_transcripts,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "VariantValidator_validate_variant",
-            "arguments": {
-                "genome_build": genome_build,
-                "variant_description": variant_description,
-                "select_transcripts": select_transcripts,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -15,10 +15,14 @@ use moyo::MoyoDataset;
 use moyo::base::{
     AngleTolerance, Cell as MoyoCell, Lattice as MoyoLattice, Operation as MoyoOperation,
 };
-use moyo::data::Setting;
+use moyo::data::{
+    BravaisClass, CrystalFamily, GeometricCrystalClass, LatticeSystem, Setting,
+    arithmetic_crystal_class_entry, hall_symbol_entry,
+};
 use nalgebra::{Matrix3, Vector3};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::LazyLock;
 
 /// A symmetry operation represented as a rotation matrix and translation vector.
 /// The rotation is a 3x3 integer matrix (in fractional coordinates) and the
@@ -271,6 +275,72 @@ impl Structure {
         self.site_occupancies.iter().all(|so| so.is_ordered())
     }
 
+    /// True if any site contains more than one species (substitutional disorder).
+    pub fn has_substitutional_disorder(&self) -> bool {
+        self.site_occupancies.iter().any(|so| so.species.len() > 1)
+    }
+
+    /// True if any site has total occupancy < 1 - tol (vacancy disorder).
+    pub fn has_vacancy_disorder(&self, tol: f64) -> bool {
+        self.site_occupancies
+            .iter()
+            .any(|so| so.total_occupancy() < 1.0 - tol)
+    }
+
+    /// Maximum number of distinct species on any single site.
+    pub fn max_species_per_site(&self) -> usize {
+        self.site_occupancies
+            .iter()
+            .map(|so| so.species.len())
+            .max()
+            .unwrap_or(0)
+    }
+
+    /// Minimum total occupancy across all sites. Returns 1.0 for empty structures
+    /// (vacuously, all zero sites are fully occupied).
+    pub fn min_total_occupancy_per_site(&self) -> f64 {
+        self.site_occupancies
+            .iter()
+            .map(|so| so.total_occupancy())
+            .reduce(f64::min)
+            .unwrap_or(1.0)
+    }
+
+    /// Number of sites with disorder (multiple species or partial occupancy).
+    pub fn num_disordered_sites(&self, tol: f64) -> usize {
+        self.site_occupancies
+            .iter()
+            .filter(|so| so.species.len() > 1 || so.total_occupancy() < 1.0 - tol)
+            .count()
+    }
+
+    /// True if any species has an explicit oxidation state annotation.
+    pub fn has_oxidation_states(&self) -> bool {
+        self.site_occupancies.iter().any(|so| {
+            so.species
+                .iter()
+                .any(|(sp, _)| sp.oxidation_state.is_some())
+        })
+    }
+
+    /// Atomic site density in sites/ų.
+    pub fn atomic_density(&self) -> Option<f64> {
+        let vol = self.volume();
+        if vol < 1e-12 {
+            return None;
+        }
+        Some(self.num_sites() as f64 / vol)
+    }
+
+    /// Volume per atomic site in ų.
+    pub fn volume_per_site(&self) -> Option<f64> {
+        let vol = self.volume();
+        if vol < 1e-12 || self.num_sites() == 0 {
+            return None;
+        }
+        Some(vol / self.num_sites() as f64)
+    }
+
     /// Get the dominant species at each site.
     ///
     /// Note: This allocates a new Vec on each call. For performance-critical
@@ -477,6 +547,27 @@ impl Structure {
         Ok(self.get_symmetry_dataset(symprec)?.site_symmetry_symbols)
     }
 
+    /// Number of symmetry operations in the structure's space group.
+    pub fn num_symmetry_operations(&self, symprec: f64) -> Result<usize> {
+        Ok(self.get_symmetry_dataset(symprec)?.operations.len())
+    }
+
+    /// Number of symmetry-inequivalent sites (Wyckoff orbits).
+    pub fn num_unique_sites(&self, symprec: f64) -> Result<usize> {
+        let dataset = self.get_symmetry_dataset(symprec)?;
+        Ok(dataset.orbits.iter().collect::<HashSet<_>>().len())
+    }
+
+    /// Histogram of Wyckoff letters: maps letter to count of sites with that letter.
+    pub fn wyckoff_histogram(&self, symprec: f64) -> Result<HashMap<char, usize>> {
+        let dataset = self.get_symmetry_dataset(symprec)?;
+        let mut hist = HashMap::new();
+        for wyk in &dataset.wyckoffs {
+            *hist.entry(*wyk).or_insert(0) += 1;
+        }
+        Ok(hist)
+    }
+
     /// Get Wyckoff site information for all sites in the structure.
     ///
     /// Uses symmetry analysis to identify equivalent sites and their
@@ -557,6 +648,157 @@ impl Structure {
     /// "tetragonal", "trigonal", "hexagonal", "cubic".
     pub fn get_crystal_system(&self, symprec: f64) -> Result<String> {
         Ok(spacegroup_to_crystal_system(self.get_symmetry_dataset(symprec)?.number).to_string())
+    }
+
+    /// Get the geometric crystal class (point group enum) for this structure.
+    pub fn get_geometric_crystal_class(&self, symprec: f64) -> Result<GeometricCrystalClass> {
+        let dataset = self.get_symmetry_dataset(symprec)?;
+        geometric_crystal_class_from_hall(dataset.hall_number)
+    }
+
+    /// Get the point group (geometric crystal class) symbol.
+    ///
+    /// Returns the Hermann-Mauguin symbol for the point group, e.g. "m-3m", "-1",
+    /// "mmm", "4mm", "32". Uses the ITA primary symbol convention from moyo
+    /// (e.g. "-42m" for D2d, "-6m2" for D3h). Note that pymatgen/spglib may use
+    /// the alternative setting ("-4m2", "-62m") -- both are valid ITA orientations.
+    pub fn get_point_group(&self, symprec: f64) -> Result<&'static str> {
+        Ok(point_group_symbol(
+            self.get_geometric_crystal_class(symprec)?,
+        ))
+    }
+
+    /// Get the Laue group symbol.
+    ///
+    /// The Laue group is the point group augmented with inversion symmetry.
+    /// Returns the Hermann-Mauguin symbol, e.g. "m-3m", "-1", "mmm", "4/mmm".
+    pub fn get_laue_group(&self, symprec: f64) -> Result<&'static str> {
+        Ok(laue_group_from_point_group(
+            self.get_geometric_crystal_class(symprec)?,
+        ))
+    }
+
+    /// Get the ITA-standardized structure (conventional or primitive).
+    ///
+    /// Returns the structure in the standard ITA setting with proper origin
+    /// choice, plus the transformation matrix from the input cell.
+    ///
+    /// If `primitive` is true, returns the primitive standardized cell;
+    /// otherwise returns the conventional standardized cell.
+    pub fn get_standardized_structure(
+        &self,
+        symprec: f64,
+        primitive: bool,
+    ) -> Result<(Self, Matrix3<f64>)> {
+        let dataset = self.get_symmetry_dataset(symprec)?;
+        let (cell, linear) = if primitive {
+            (&dataset.prim_std_cell, &dataset.prim_std_linear)
+        } else {
+            (&dataset.std_cell, &dataset.std_linear)
+        };
+        let struc = Self::from_moyo_cell(cell)?;
+        Ok((struc, *linear))
+    }
+
+    /// Symmetrize the structure by averaging equivalent atomic positions.
+    ///
+    /// Identifies symmetry-equivalent sites and averages their fractional
+    /// coordinates to enforce exact space group symmetry. Useful for cleaning
+    /// up DFT-relaxed structures.
+    pub fn get_symmetrized_structure(&self, symprec: f64) -> Result<Self> {
+        let dataset = self.get_symmetry_dataset(symprec)?;
+        let orbits = &dataset.orbits;
+        let operations = &dataset.operations;
+
+        let mut averaged_coords = self.frac_coords.clone();
+
+        // Group sites by orbit representative
+        let mut orbit_groups: HashMap<usize, Vec<usize>> = HashMap::new();
+        for (site_idx, &orbit_rep) in orbits.iter().enumerate() {
+            orbit_groups.entry(orbit_rep).or_default().push(site_idx);
+        }
+
+        // For each orbit, apply all operations to the representative and average
+        let lat_mat = self.lattice.matrix().transpose();
+        for (&rep_idx, site_indices) in &orbit_groups {
+            if site_indices.len() <= 1 {
+                continue;
+            }
+            let rep_coord = self.frac_coords[rep_idx];
+            let mut sym_coords: HashMap<usize, Vec<Vector3<f64>>> = HashMap::new();
+
+            for op in operations.iter() {
+                let rot = op.rotation.map(|e| e as f64);
+                let mapped = rot * rep_coord + op.translation;
+                for &site_idx in site_indices {
+                    let diff = mapped - self.frac_coords[site_idx];
+                    let wrapped = Vector3::new(
+                        diff.x - diff.x.round(),
+                        diff.y - diff.y.round(),
+                        diff.z - diff.z.round(),
+                    );
+                    // Convert fractional diff to Cartesian for proper Å comparison
+                    let cart_diff = lat_mat * wrapped;
+                    if cart_diff.norm() < symprec {
+                        sym_coords.entry(site_idx).or_default().push(mapped);
+                        break;
+                    }
+                }
+            }
+
+            // Average mapped coordinates for each site (PBC-aware)
+            for (&site_idx, coords) in &sym_coords {
+                if coords.is_empty() {
+                    continue;
+                }
+                let ref_coord = coords[0];
+                let mut diff_sum = Vector3::zeros();
+                for coord in &coords[1..] {
+                    let mut diff = coord - ref_coord;
+                    diff.x -= diff.x.round();
+                    diff.y -= diff.y.round();
+                    diff.z -= diff.z.round();
+                    diff_sum += diff;
+                }
+                let avg = ref_coord + diff_sum / coords.len() as f64;
+                averaged_coords[site_idx] = Vector3::new(
+                    avg.x - avg.x.floor(),
+                    avg.y - avg.y.floor(),
+                    avg.z - avg.z.floor(),
+                );
+            }
+        }
+
+        Structure::try_new_from_occupancies(
+            self.lattice.clone(),
+            self.site_occupancies.clone(),
+            averaged_coords,
+        )
+    }
+
+    /// Get all site indices that are symmetry-equivalent to the given site.
+    pub fn get_symmetry_equivalent_sites(
+        &self,
+        site_idx: usize,
+        symprec: f64,
+    ) -> Result<Vec<usize>> {
+        if site_idx >= self.num_sites() {
+            return Err(FerroxError::InvalidStructure {
+                index: site_idx,
+                reason: format!(
+                    "Site index {site_idx} out of bounds (num_sites={})",
+                    self.num_sites()
+                ),
+            });
+        }
+        let orbits = self.get_equivalent_sites(symprec)?;
+        let target_orbit = orbits[site_idx];
+        Ok(orbits
+            .iter()
+            .enumerate()
+            .filter(|&(_, &orbit)| orbit == target_orbit)
+            .map(|(idx, _)| idx)
+            .collect())
     }
 
     // === Bond Valence Sum Methods ===
@@ -2863,6 +3105,13 @@ fn validate_symprec(symprec: f64) -> Result<()> {
     Ok(())
 }
 
+/// Convert nalgebra Matrix3 to a nested `[[f64; 3]; 3]` array.
+#[inline]
+#[allow(dead_code)] // used by python + wasm feature gates
+pub(crate) fn mat3_to_array(mat: &Matrix3<f64>) -> [[f64; 3]; 3] {
+    std::array::from_fn(|row| std::array::from_fn(|col| mat[(row, col)]))
+}
+
 /// Convert moyo Operations to arrays for easy serialization.
 pub(crate) fn moyo_ops_to_arrays(ops: &[MoyoOperation]) -> Vec<SymmetryOperation> {
     ops.iter()
@@ -2886,6 +3135,302 @@ pub(crate) fn spacegroup_to_crystal_system(sg: i32) -> &'static str {
         195..=230 => "cubic",
         _ => "unknown",
     }
+}
+
+/// Look up the `GeometricCrystalClass` (point group) from a Hall number.
+// TODO: uses InvalidStructure with dummy index: 0 -- add a dedicated error variant
+pub(crate) fn geometric_crystal_class_from_hall(hall_number: i32) -> Result<GeometricCrystalClass> {
+    let hall_entry =
+        hall_symbol_entry(hall_number).ok_or_else(|| FerroxError::InvalidStructure {
+            index: 0,
+            reason: format!("Invalid Hall number: {hall_number}"),
+        })?;
+    let arith_entry =
+        arithmetic_crystal_class_entry(hall_entry.arithmetic_number).ok_or_else(|| {
+            FerroxError::InvalidStructure {
+                index: 0,
+                reason: format!(
+                    "Invalid arithmetic crystal class number: {}",
+                    hall_entry.arithmetic_number
+                ),
+            }
+        })?;
+    Ok(arith_entry.geometric_crystal_class)
+}
+
+/// Convert a `BravaisClass` enum variant to its static string representation.
+fn bravais_class_str(bravais_class: BravaisClass) -> &'static str {
+    match bravais_class {
+        BravaisClass::aP => "aP",
+        BravaisClass::mP => "mP",
+        BravaisClass::mC => "mC",
+        BravaisClass::oP => "oP",
+        BravaisClass::oS => "oS",
+        BravaisClass::oF => "oF",
+        BravaisClass::oI => "oI",
+        BravaisClass::tP => "tP",
+        BravaisClass::tI => "tI",
+        BravaisClass::hR => "hR",
+        BravaisClass::hP => "hP",
+        BravaisClass::cP => "cP",
+        BravaisClass::cF => "cF",
+        BravaisClass::cI => "cI",
+    }
+}
+
+/// Convert a `LatticeSystem` enum variant to its static string representation.
+fn lattice_system_str(lattice_system: LatticeSystem) -> &'static str {
+    match lattice_system {
+        LatticeSystem::Triclinic => "triclinic",
+        LatticeSystem::Monoclinic => "monoclinic",
+        LatticeSystem::Orthorhombic => "orthorhombic",
+        LatticeSystem::Tetragonal => "tetragonal",
+        LatticeSystem::Rhombohedral => "rhombohedral",
+        LatticeSystem::Hexagonal => "hexagonal",
+        LatticeSystem::Cubic => "cubic",
+    }
+}
+
+/// Convert a `CrystalFamily` enum variant to its static string representation.
+fn crystal_family_str(crystal_family: CrystalFamily) -> &'static str {
+    match crystal_family {
+        CrystalFamily::Triclinic => "triclinic",
+        CrystalFamily::Monoclinic => "monoclinic",
+        CrystalFamily::Orthorhombic => "orthorhombic",
+        CrystalFamily::Tetragonal => "tetragonal",
+        CrystalFamily::Hexagonal => "hexagonal",
+        CrystalFamily::Cubic => "cubic",
+    }
+}
+
+/// Static lookup of space group type information from an ITA number (1-230).
+///
+/// Returns point group, Laue group, crystal system, HM symbol, Hall symbol,
+/// and symmetry predicates without needing a structure.
+#[allow(dead_code)] // used by python + wasm feature gates
+pub(crate) fn spacegroup_type_from_number(number: i32) -> Result<SpacegroupTypeInfo> {
+    if !(1..=230).contains(&number) {
+        return Err(FerroxError::InvalidArgument {
+            reason: format!("Space group number must be 1-230, got {number}"),
+        });
+    }
+    // O(1) lookup via static table: space group number → first Hall number
+    static FIRST_HALL: LazyLock<[i32; 231]> = LazyLock::new(|| {
+        let mut table = [0i32; 231];
+        for hall_num in 1..=530 {
+            if let Some(entry) = hall_symbol_entry(hall_num) {
+                let sg = entry.number as usize;
+                if sg <= 230 && table[sg] == 0 {
+                    table[sg] = hall_num;
+                }
+            }
+        }
+        table
+    });
+    let first_hall = FIRST_HALL[number as usize];
+    let hall_entry = hall_symbol_entry(first_hall).ok_or_else(|| FerroxError::InvalidArgument {
+        reason: format!("No Hall entry for space group {number}"),
+    })?;
+    let arith_entry =
+        arithmetic_crystal_class_entry(hall_entry.arithmetic_number).ok_or_else(|| {
+            FerroxError::InvalidArgument {
+                reason: format!(
+                    "Invalid arithmetic crystal class number: {}",
+                    hall_entry.arithmetic_number
+                ),
+            }
+        })?;
+    let gcc = arith_entry.geometric_crystal_class;
+    let is_centrosymmetric = point_group_is_centrosymmetric(gcc);
+
+    Ok(SpacegroupTypeInfo {
+        number,
+        hm_short: hall_entry.hm_short,
+        hm_full: hall_entry.hm_full,
+        hall_symbol: hall_entry.hall_symbol,
+        crystal_system: spacegroup_to_crystal_system(number),
+        point_group: point_group_symbol(gcc),
+        laue_group: laue_group_from_point_group(gcc),
+        is_centrosymmetric,
+        is_polar: point_group_is_polar(gcc),
+        is_chiral: point_group_is_chiral(gcc),
+        arithmetic_crystal_class_number: arith_entry.arithmetic_number,
+        arithmetic_crystal_class_symbol: arith_entry.symbol,
+        bravais_class: bravais_class_str(arith_entry.bravais_class),
+        lattice_system: lattice_system_str(arith_entry.lattice_system()),
+        crystal_family: crystal_family_str(CrystalFamily::from_lattice_system(
+            arith_entry.lattice_system(),
+        )),
+        is_piezoelectric_allowed: point_group_is_piezoelectric(gcc),
+        is_shg_allowed: !is_centrosymmetric,
+    })
+}
+
+/// Space group type information from a static lookup.
+#[allow(dead_code)] // used by python + wasm feature gates
+pub(crate) struct SpacegroupTypeInfo {
+    pub number: i32,
+    pub hm_short: &'static str,
+    pub hm_full: &'static str,
+    pub hall_symbol: &'static str,
+    pub crystal_system: &'static str,
+    pub point_group: &'static str,
+    pub laue_group: &'static str,
+    pub is_centrosymmetric: bool,
+    pub is_polar: bool,
+    pub is_chiral: bool,
+    pub arithmetic_crystal_class_number: i32,
+    pub arithmetic_crystal_class_symbol: &'static str,
+    pub bravais_class: &'static str,
+    pub lattice_system: &'static str,
+    pub crystal_family: &'static str,
+    pub is_piezoelectric_allowed: bool,
+    pub is_shg_allowed: bool,
+}
+
+/// Get the Laue group Hermann-Mauguin symbol from a point group.
+///
+/// Maps each `GeometricCrystalClass` to its corresponding Laue class symbol
+/// (the centrosymmetric supergroup of the point group).
+pub(crate) fn laue_group_from_point_group(gcc: GeometricCrystalClass) -> &'static str {
+    match gcc {
+        // Triclinic
+        GeometricCrystalClass::C1 | GeometricCrystalClass::Ci => "-1",
+        // Monoclinic
+        GeometricCrystalClass::C2 | GeometricCrystalClass::C1h | GeometricCrystalClass::C2h => {
+            "2/m"
+        }
+        // Orthorhombic
+        GeometricCrystalClass::D2 | GeometricCrystalClass::C2v | GeometricCrystalClass::D2h => {
+            "mmm"
+        }
+        // Tetragonal
+        GeometricCrystalClass::C4 | GeometricCrystalClass::S4 | GeometricCrystalClass::C4h => "4/m",
+        GeometricCrystalClass::D4
+        | GeometricCrystalClass::C4v
+        | GeometricCrystalClass::D2d
+        | GeometricCrystalClass::D4h => "4/mmm",
+        // Trigonal
+        GeometricCrystalClass::C3 | GeometricCrystalClass::C3i => "-3",
+        GeometricCrystalClass::D3 | GeometricCrystalClass::C3v | GeometricCrystalClass::D3d => {
+            "-3m"
+        }
+        // Hexagonal
+        GeometricCrystalClass::C6 | GeometricCrystalClass::C3h | GeometricCrystalClass::C6h => {
+            "6/m"
+        }
+        GeometricCrystalClass::D6
+        | GeometricCrystalClass::C6v
+        | GeometricCrystalClass::D3h
+        | GeometricCrystalClass::D6h => "6/mmm",
+        // Cubic
+        GeometricCrystalClass::T | GeometricCrystalClass::Th => "m-3",
+        GeometricCrystalClass::O | GeometricCrystalClass::Td | GeometricCrystalClass::Oh => "m-3m",
+    }
+}
+
+/// Get the point group Hermann-Mauguin symbol from a `GeometricCrystalClass`.
+pub(crate) fn point_group_symbol(gcc: GeometricCrystalClass) -> &'static str {
+    match gcc {
+        GeometricCrystalClass::C1 => "1",
+        GeometricCrystalClass::Ci => "-1",
+        GeometricCrystalClass::C2 => "2",
+        GeometricCrystalClass::C1h => "m",
+        GeometricCrystalClass::C2h => "2/m",
+        GeometricCrystalClass::D2 => "222",
+        GeometricCrystalClass::C2v => "mm2",
+        GeometricCrystalClass::D2h => "mmm",
+        GeometricCrystalClass::C4 => "4",
+        GeometricCrystalClass::S4 => "-4",
+        GeometricCrystalClass::C4h => "4/m",
+        GeometricCrystalClass::D4 => "422",
+        GeometricCrystalClass::C4v => "4mm",
+        GeometricCrystalClass::D2d => "-42m",
+        GeometricCrystalClass::D4h => "4/mmm",
+        GeometricCrystalClass::C3 => "3",
+        GeometricCrystalClass::C3i => "-3",
+        GeometricCrystalClass::D3 => "32",
+        GeometricCrystalClass::C3v => "3m",
+        GeometricCrystalClass::D3d => "-3m",
+        GeometricCrystalClass::C6 => "6",
+        GeometricCrystalClass::C3h => "-6",
+        GeometricCrystalClass::C6h => "6/m",
+        GeometricCrystalClass::D6 => "622",
+        GeometricCrystalClass::C6v => "6mm",
+        GeometricCrystalClass::D3h => "-6m2",
+        GeometricCrystalClass::D6h => "6/mmm",
+        GeometricCrystalClass::T => "23",
+        GeometricCrystalClass::Th => "m-3",
+        GeometricCrystalClass::O => "432",
+        GeometricCrystalClass::Td => "-43m",
+        GeometricCrystalClass::Oh => "m-3m",
+    }
+}
+
+/// Whether the point group is centrosymmetric (contains inversion).
+#[allow(dead_code)] // used by python + wasm feature gates
+pub(crate) fn point_group_is_centrosymmetric(gcc: GeometricCrystalClass) -> bool {
+    matches!(
+        gcc,
+        GeometricCrystalClass::Ci
+            | GeometricCrystalClass::C2h
+            | GeometricCrystalClass::D2h
+            | GeometricCrystalClass::C4h
+            | GeometricCrystalClass::D4h
+            | GeometricCrystalClass::C3i
+            | GeometricCrystalClass::D3d
+            | GeometricCrystalClass::C6h
+            | GeometricCrystalClass::D6h
+            | GeometricCrystalClass::Th
+            | GeometricCrystalClass::Oh
+    )
+}
+
+/// Whether the point group is polar (has a unique polar direction).
+#[allow(dead_code)] // used by python + wasm feature gates
+pub(crate) fn point_group_is_polar(gcc: GeometricCrystalClass) -> bool {
+    matches!(
+        gcc,
+        GeometricCrystalClass::C1
+            | GeometricCrystalClass::C2
+            | GeometricCrystalClass::C1h
+            | GeometricCrystalClass::C2v
+            | GeometricCrystalClass::C4
+            | GeometricCrystalClass::C4v
+            | GeometricCrystalClass::C3
+            | GeometricCrystalClass::C3v
+            | GeometricCrystalClass::C6
+            | GeometricCrystalClass::C6v
+    )
+}
+
+/// Whether the point group is chiral (contains only proper rotations).
+#[allow(dead_code)] // used by python + wasm feature gates
+pub(crate) fn point_group_is_chiral(gcc: GeometricCrystalClass) -> bool {
+    matches!(
+        gcc,
+        GeometricCrystalClass::C1
+            | GeometricCrystalClass::C2
+            | GeometricCrystalClass::D2
+            | GeometricCrystalClass::C3
+            | GeometricCrystalClass::D3
+            | GeometricCrystalClass::C4
+            | GeometricCrystalClass::D4
+            | GeometricCrystalClass::C6
+            | GeometricCrystalClass::D6
+            | GeometricCrystalClass::T
+            | GeometricCrystalClass::O
+    )
+}
+
+/// Whether the point group allows piezoelectricity.
+///
+/// This is `!centrosymmetric` with one exception: point group 432 (O) is
+/// non-centrosymmetric but its high symmetry (combined 4-fold and 3-fold axes)
+/// forces all piezoelectric tensor coefficients to zero.
+#[allow(dead_code)] // used by python + wasm feature gates
+pub(crate) fn point_group_is_piezoelectric(gcc: GeometricCrystalClass) -> bool {
+    !point_group_is_centrosymmetric(gcc) && gcc != GeometricCrystalClass::O
 }
 
 // === Slab Generation ===
@@ -5977,5 +6522,73 @@ mod tests {
                 idx as u64
             );
         }
+    }
+
+    #[test]
+    fn test_piezoelectric_432_exception() {
+        // Point group 432 (O) is non-centrosymmetric but forbids piezoelectricity
+        use moyo::data::GeometricCrystalClass;
+        assert!(
+            !point_group_is_centrosymmetric(GeometricCrystalClass::O),
+            "432 should be non-centrosymmetric"
+        );
+        assert!(
+            !point_group_is_piezoelectric(GeometricCrystalClass::O),
+            "432 should NOT allow piezoelectricity"
+        );
+        // Other non-centrosymmetric groups DO allow piezoelectricity
+        assert!(point_group_is_piezoelectric(GeometricCrystalClass::C1));
+        assert!(point_group_is_piezoelectric(GeometricCrystalClass::Td));
+        // Centrosymmetric groups don't allow it either
+        assert!(!point_group_is_piezoelectric(GeometricCrystalClass::Oh));
+    }
+
+    #[test]
+    fn test_spacegroup_type_lowercase_casing() {
+        for (spg, expected_sys, expected_family) in [
+            (1, "triclinic", "triclinic"),
+            (15, "monoclinic", "monoclinic"),
+            (62, "orthorhombic", "orthorhombic"),
+            (136, "tetragonal", "tetragonal"),
+            (167, "trigonal", "hexagonal"),
+            (194, "hexagonal", "hexagonal"),
+            (225, "cubic", "cubic"),
+        ] {
+            let info = spacegroup_type_from_number(spg).unwrap();
+            assert_eq!(
+                info.crystal_system, expected_sys,
+                "spg {spg} crystal_system"
+            );
+            assert_eq!(
+                info.crystal_family, expected_family,
+                "spg {spg} crystal_family"
+            );
+            assert!(
+                info.lattice_system.chars().all(|ch| ch.is_lowercase()),
+                "spg {spg} lattice_system '{}' should be lowercase",
+                info.lattice_system
+            );
+        }
+    }
+
+    #[test]
+    fn test_spacegroup_type_lazylocked_lookup() {
+        for spg in 1..=230 {
+            let info = spacegroup_type_from_number(spg);
+            assert!(info.is_ok(), "spg {spg} should resolve");
+        }
+        assert!(spacegroup_type_from_number(0).is_err());
+        assert!(spacegroup_type_from_number(231).is_err());
+    }
+
+    #[test]
+    fn test_disorder_properties_empty_structure() {
+        let empty = Structure::new(Lattice::cubic(3.0), vec![], vec![]);
+        assert_eq!(empty.max_species_per_site(), 0);
+        assert!(!empty.has_substitutional_disorder());
+        assert!(!empty.has_vacancy_disorder(1e-3));
+        assert_eq!(empty.num_disordered_sites(1e-3), 0);
+        // Empty structure: vacuously all sites are fully occupied
+        assert_eq!(empty.min_total_occupancy_per_site(), 1.0);
     }
 }

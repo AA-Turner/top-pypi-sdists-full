@@ -976,7 +976,7 @@ class TestContextManager(unittest.TestCase):
             self.assertIs(result, consumer)
 
     def test_context_manager_exit_processes_data_events(self):
-        """__exit__ should call process_data_events with time_limit=60."""
+        """__exit__ should flush pending callbacks via process_data_events(time_limit=0)."""
         mock_conn = MagicMock()
         mock_channel = MagicMock()
         mock_conn.channel.return_value = mock_channel
@@ -998,9 +998,14 @@ class TestContextManager(unittest.TestCase):
 
             consumer.__exit__(None, None, None)
 
-            # Heartbeat thread calls process_data_events(time_limit=0) periodically
-            # __exit__ calls process_data_events(time_limit=60) for final cleanup
-            mock_conn.process_data_events.assert_any_call(time_limit=60)
+            # The old implementation blocked with time_limit=60. The new one never does:
+            # with no pending callbacks the loop exits immediately; with pending callbacks
+            # it polls non-blocking (time_limit=0). Either way, time_limit=60 is never used.
+            from unittest.mock import call
+
+            self.assertNotIn(
+                call(time_limit=60), mock_conn.process_data_events.call_args_list
+            )
 
     def test_context_manager_exit_cancels_channel(self):
         """__exit__ should cancel and close the channel."""

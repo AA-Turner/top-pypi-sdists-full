@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-enum
-Version: 2.4.1
+Version: 2.4.2
 Summary: Full and natural support for enumerations as Django model fields.
 Project-URL: Homepage, https://django-enum.readthedocs.io
 Project-URL: Documentation, https://django-enum.readthedocs.io
@@ -38,7 +38,7 @@ Requires-Dist: django<6.1,>=4.2
 Provides-Extra: filters
 Requires-Dist: django-filter>=21; extra == 'filters'
 Provides-Extra: properties
-Requires-Dist: enum-properties>=2.5.1; extra == 'properties'
+Requires-Dist: enum-properties>=2.7.0; extra == 'properties'
 Provides-Extra: rest
 Requires-Dist: djangorestframework<4.0,>=3.14; extra == 'rest'
 Description-Content-Type: text/markdown

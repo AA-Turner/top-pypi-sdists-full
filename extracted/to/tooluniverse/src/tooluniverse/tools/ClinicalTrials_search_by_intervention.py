@@ -10,6 +10,8 @@ from ._shared_client import get_shared_client
 
 def ClinicalTrials_search_by_intervention(
     intervention: str,
+    condition: Optional[str | Any] = None,
+    status: Optional[str | Any] = None,
     filter_status: Optional[str | Any] = None,
     filter_phase: Optional[str | Any] = None,
     page_size: Optional[int] = 10,
@@ -25,6 +27,10 @@ def ClinicalTrials_search_by_intervention(
     ----------
     intervention : str
         Drug, biologic, device, or intervention name (e.g., 'nivolumab', 'CRISPR', 'C...
+    condition : str | Any
+        Disease or condition to filter trials (e.g., 'HER2 breast cancer', 'NSCLC KRA...
+    status : str | Any
+        Recruitment status filter: 'RECRUITING', 'COMPLETED', 'ACTIVE_NOT_RECRUITING'...
     filter_status : str | Any
         Filter by recruitment status: 'RECRUITING', 'COMPLETED', 'ACTIVE_NOT_RECRUITI...
     filter_phase : str | Any
@@ -44,15 +50,23 @@ def ClinicalTrials_search_by_intervention(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "intervention": intervention,
+            "condition": condition,
+            "status": status,
+            "filter_status": filter_status,
+            "filter_phase": filter_phase,
+            "page_size": page_size,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ClinicalTrials_search_by_intervention",
-            "arguments": {
-                "intervention": intervention,
-                "filter_status": filter_status,
-                "filter_phase": filter_phase,
-                "page_size": page_size,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

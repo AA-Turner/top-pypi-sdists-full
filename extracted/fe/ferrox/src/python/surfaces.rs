@@ -21,7 +21,7 @@ fn validate_slab_params(min_slab_size: f64, min_vacuum_size: f64, symprec: f64) 
 }
 
 /// Generate all slabs for a given Miller index (all terminations).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 #[pyo3(signature = (structure, miller_index, min_slab_size = 10.0, min_vacuum_size = 10.0, center_slab = true, in_unit_planes = false, symprec = 0.01))]
 fn generate_slabs(
@@ -56,7 +56,7 @@ fn generate_slabs(
 }
 
 /// Generate a single slab for a given Miller index and termination.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 #[pyo3(signature = (structure, miller_index, min_slab_size = 10.0, min_vacuum_size = 10.0, center_slab = true, in_unit_planes = false, symprec = 0.01, termination_index = 0))]
 fn make_slab(
@@ -89,7 +89,7 @@ fn make_slab(
 }
 
 /// Enumerate terminations for a given Miller index.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 #[pyo3(signature = (structure, h, k, l, min_slab = 10.0, min_vacuum = 10.0, symprec = 0.01))]
 fn enumerate_terminations(
@@ -134,7 +134,7 @@ fn enumerate_terminations(
 }
 
 /// Enumerate Miller indices up to a maximum value.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 fn enumerate_miller(max_index: i32) -> Vec<[i32; 3]> {
     if max_index < 1 {
@@ -160,7 +160,7 @@ fn parse_site_type(site_type: &str) -> Result<surfaces::AdsorptionSiteType, Stri
 }
 
 /// Find adsorption sites on a slab.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 #[pyo3(signature = (slab, height = 2.0, site_types = None, neighbor_cutoff = None, surface_tolerance = None))]
 fn find_adsorption_sites(
@@ -236,7 +236,7 @@ fn find_adsorption_sites(
 }
 
 /// Get surface atom indices.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 #[pyo3(signature = (slab, tolerance = 0.5))]
 fn get_surface_atoms(slab: StructureJson, tolerance: f64) -> PyResult<Vec<usize>> {
@@ -250,7 +250,7 @@ fn get_surface_atoms(slab: StructureJson, tolerance: f64) -> PyResult<Vec<usize>
 }
 
 /// Get the surface area of a slab.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 fn area(slab: StructureJson) -> PyResult<f64> {
     let struc = parse_struct(&slab)?;
@@ -258,7 +258,7 @@ fn area(slab: StructureJson) -> PyResult<f64> {
 }
 
 /// Calculate surface energy.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 fn calculate_energy(
     slab_energy: f64,
@@ -286,7 +286,7 @@ fn calculate_energy(
 }
 
 /// Calculate d-spacing for a Miller index.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 fn d_spacing(structure: StructureJson, h: i32, k: i32, l: i32) -> PyResult<f64> {
     let struc = parse_struct(&structure)?;
@@ -295,7 +295,7 @@ fn d_spacing(structure: StructureJson, h: i32, k: i32, l: i32) -> PyResult<f64> 
 }
 
 /// Compute the Wulff shape from surface energies.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 fn compute_wulff(
     py: Python<'_>,
@@ -347,7 +347,7 @@ fn compute_wulff(
 }
 
 /// Convert Miller index to a normal vector.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.surfaces")]
 #[pyfunction]
 fn miller_to_normal(structure: StructureJson, miller: [i32; 3]) -> PyResult<[f64; 3]> {
     let struc = parse_struct(&structure)?;
@@ -355,20 +355,18 @@ fn miller_to_normal(structure: StructureJson, miller: [i32; 3]) -> PyResult<[f64
     Ok([normal.x, normal.y, normal.z])
 }
 
-/// Register the surfaces submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "surfaces")?;
-    submod.add_function(wrap_pyfunction!(generate_slabs, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(make_slab, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(enumerate_terminations, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(enumerate_miller, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(find_adsorption_sites, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_surface_atoms, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(area, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(calculate_energy, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(d_spacing, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compute_wulff, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(miller_to_normal, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register surfaces functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(generate_slabs, module)?)?;
+    module.add_function(wrap_pyfunction!(make_slab, module)?)?;
+    module.add_function(wrap_pyfunction!(enumerate_terminations, module)?)?;
+    module.add_function(wrap_pyfunction!(enumerate_miller, module)?)?;
+    module.add_function(wrap_pyfunction!(find_adsorption_sites, module)?)?;
+    module.add_function(wrap_pyfunction!(get_surface_atoms, module)?)?;
+    module.add_function(wrap_pyfunction!(area, module)?)?;
+    module.add_function(wrap_pyfunction!(calculate_energy, module)?)?;
+    module.add_function(wrap_pyfunction!(d_spacing, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_wulff, module)?)?;
+    module.add_function(wrap_pyfunction!(miller_to_normal, module)?)?;
     Ok(())
 }

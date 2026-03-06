@@ -10,7 +10,7 @@ authors = [{ name = "Astronomer & Fivetran", email = "humans@astronomer.io" }]
 readme = "README.md"
 license = "Apache-2.0"
 license-files = { paths = ["LICENSE"] }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["airflow", "apache-airflow", "provider", "astronomer", "dag"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -22,10 +22,10 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -33,10 +33,15 @@ dependencies = [
     "aiohttp",
     "asgiref",
     "requests",
-    "openlineage-airflow>=0.19.2",
 ]
 
 [project.optional-dependencies]
+openlineage = [
+    "openlineage-airflow>=0.19.2",
+]
+all = [
+    "openlineage-airflow>=0.19.2",
+]
 tests = [
     "mypy",
     "types-requests",
@@ -45,7 +50,7 @@ tests = [
     "pytest-asyncio",
     "pytest-cov",
     "requests_mock",
-    "pre-commit",
+    "prek",
 ]
 
 ######################################
@@ -54,13 +59,17 @@ tests = [
 
 [tool.hatch.envs.tests]
 dependencies = [
-    "airflow-provider-fivetran-async[tests]",
+    "airflow-provider-fivetran-async[tests,all]",
 ]
 pre-install-commands = ["sh scripts/test/pre-install-airflow.sh {matrix:airflow} {matrix:python}"]
 
 [[tool.hatch.envs.tests.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12"]
-airflow = ["2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"]
+python = ["3.10", "3.11", "3.12"]
+airflow = ["2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "3.0"]
+
+[[tool.hatch.envs.tests.matrix]]
+python = ["3.13"]
+airflow = ["3.0"]
 
 [tool.hatch.envs.tests.overrides]
 matrix.airflow.dependencies = [
@@ -69,7 +78,7 @@ matrix.airflow.dependencies = [
 
 [tool.hatch.envs.tests.scripts]
 freeze = "pip freeze"
-static-check = " pre-commit run --files fivetran_provider_async/*"
+static-check = "prek run --files fivetran_provider_async/*"
 test = 'sh scripts/test/unit.sh'
 test-integration = 'sh scripts/test/integration.sh'
 test-integration-setup = 'sh scripts/test/integration-setup.sh'
@@ -106,7 +115,7 @@ markers = ["integration"]
 
 [tool.black]
 line-length = 120
-target-version = ['py39', 'py310', 'py311', 'py312']
+target-version = ['py310', 'py311', 'py312', 'py313']
 
 [tool.ruff]
 line-length = 120

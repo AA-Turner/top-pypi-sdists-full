@@ -4,19 +4,9 @@ from tmo.api.iterator_base_api import IteratorBaseApi
 
 
 class JobEventApi(IteratorBaseApi):
-
-    path = "/api/jobEvents"
+    name = "Job Event API"
+    path = "jobEvents"
     type = "JOB_EVENT"
-
-    def _get_header_params(self):
-        return self._get_standard_header_params(
-            accept_types=[
-                self.json_type,
-                "application/hal+json",
-                "text/uri-list",
-                "application/x-spring-data-compact+json",
-            ]
-        )
 
     def find_all(
         self,
@@ -43,7 +33,7 @@ class JobEventApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=self.path,
+            path=self.base_path + self.path,
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -59,12 +49,14 @@ class JobEventApi(IteratorBaseApi):
         Returns:
             (dict): job event
         """
+        job_event_id = self.validate_uuid(job_event_id)
+
         query_vars = ["id", "projection"]
         query_vals = [job_event_id, projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findById",
+            path=f"{self.base_path + self.path}/search/findById",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -91,12 +83,14 @@ class JobEventApi(IteratorBaseApi):
         Returns:
             (dict): job events
         """
+        job_id = self.validate_uuid(job_id)
+
         query_vars = ["jobId", "projection", "page", "sort", "size", "sort"]
         query_vals = [job_id, projection, page, sort, size, sort]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByJobId",
+            path=f"{self.base_path + self.path}/search/findByJobId",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -128,7 +122,7 @@ class JobEventApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByStatusIn",
+            path=f"{self.base_path + self.path}/search/findByStatusIn",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -152,7 +146,7 @@ class JobEventApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByCreatedAtBetween",
+            path=f"{self.base_path + self.path}/search/findByCreatedAtBetween",
             header_params=self._get_header_params(),
             query_params=query_params,
         )

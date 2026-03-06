@@ -94,6 +94,15 @@ class ProteinsAPIRESTTool(BaseTool):
                 params["size"] = args["size"]
             if "offset" in args:
                 params["offset"] = args["offset"]
+            # Feature-69A-007: Default to human (taxId 9606) to avoid non-human proteins
+            # appearing before human proteins. User can override with organism param.
+            if "organism" in args:
+                params["organism"] = args["organism"]
+            elif "taxid" in args:
+                params["taxid"] = args["taxid"]
+            elif "accession" not in params:
+                # Only apply human filter for gene/protein name searches
+                params["taxid"] = "9606"
 
         elif tool_name == "proteins_api_get_variants":
             # Variation API uses accession query parameter

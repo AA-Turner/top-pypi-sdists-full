@@ -1890,7 +1890,7 @@ class ProjectRepository:
                 data = json.loads(content)
                 temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
                 temp_file.write_bytes(content)
-                os.rename(str(temp_file), abstra_json_path)
+                os.replace(str(temp_file), abstra_json_path)
                 AbstraLogger.warning(
                     f"abstra.json was corrupted — restored from backup: {backup.name}"
                 )
@@ -1924,7 +1924,7 @@ class ProjectRepository:
 
         with self.lock:
             self._backup(abstra_json_path)
-            os.rename(str(temp_file), abstra_json_path)
+            os.replace(str(temp_file), abstra_json_path)
 
     @contextmanager
     def atomic(self) -> Generator["Project", None, None]:
@@ -1957,7 +1957,7 @@ class ProjectRepository:
             self._backup(abstra_json_path)
             temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
             temp_file.write_text(serialized, encoding="utf-8")
-            os.rename(str(temp_file), abstra_json_path)
+            os.replace(str(temp_file), abstra_json_path)
 
     def migrate_config_file(self, verbose=True):
         if not self.exists():

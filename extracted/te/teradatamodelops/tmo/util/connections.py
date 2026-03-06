@@ -140,7 +140,7 @@ def _sanitize_env_variables():
     """
     Sanitize the environment variables to remove any sensitive information.
     """
-    for key in os.environ:
+    for key in list(os.environ.keys()):  # noqa
         if key in SENSITIVE_ENV_VARS:
             del os.environ[key]
 
@@ -149,7 +149,7 @@ def _rename_env_variables():
     """
     Rename the environment variables from AOA to VMO.
     """
-    for key in os.environ:
+    for key in list(os.environ.keys()):  # noqa
         if key.startswith("AOA_"):
             new_key = key.replace("AOA_", "VMO_")
             os.environ[new_key] = os.environ[key]

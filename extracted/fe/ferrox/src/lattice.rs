@@ -6,6 +6,7 @@
 use crate::error::Result;
 use nalgebra::{Matrix3, Vector3};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::f64::consts::PI;
 
 /// A crystallographic lattice defined by a 3x3 matrix.
@@ -620,6 +621,12 @@ impl Lattice {
     /// Find all lattice vector mappings to a target lattice within tolerance.
     ///
     /// This finds integer transformation matrices that map this lattice to the target.
+    /// In highly mismatched cells this unconstrained search can be expensive since it
+    /// explores broad candidate sets for all three lattice vectors.
+    ///
+    /// For matcher/supercell workflows where a specific `|det(scale_matrix)|` is known,
+    /// prefer [`find_all_mappings_with_determinant`] to reduce combinatorial cost while
+    /// preserving equivalent determinant-filtered results.
     ///
     /// # Arguments
     ///
@@ -638,8 +645,63 @@ impl Lattice {
         ang_tol: f64,
         skip_rotation_matrix: bool,
     ) -> Vec<(Lattice, Option<Matrix3<f64>>, Matrix3<i32>)> {
+        self.find_all_mappings_internal(target, len_tol, ang_tol, skip_rotation_matrix, None)
+    }
+
+    /// Find all lattice mappings while constraining the absolute determinant.
+    ///
+    /// This is useful for supercell-aware matching where only mappings with a
+    /// specific `|det(scale_matrix)|` are relevant.
+    ///
+    /// Returns an empty vector when `target_abs_determinant == 0`.
+    pub fn find_all_mappings_with_determinant(
+        &self,
+        target: &Lattice,
+        len_tol: f64,
+        ang_tol: f64,
+        skip_rotation_matrix: bool,
+        target_abs_determinant: usize,
+    ) -> Vec<(Lattice, Option<Matrix3<f64>>, Matrix3<i32>)> {
+        if target_abs_determinant == 0 {
+            return vec![];
+        }
+        self.find_all_mappings_internal(
+            target,
+            len_tol,
+            ang_tol,
+            skip_rotation_matrix,
+            Some(target_abs_determinant),
+        )
+    }
+
+    fn find_all_mappings_internal(
+        &self,
+        target: &Lattice,
+        len_tol: f64,
+        ang_tol: f64,
+        skip_rotation_matrix: bool,
+        target_abs_determinant: Option<usize>,
+    ) -> Vec<(Lattice, Option<Matrix3<f64>>, Matrix3<i32>)> {
         let target_lengths = target.lengths();
         let target_angles = target.angles();
+        if let Some(det_abs) = target_abs_determinant {
+            let source_volume = self.volume().abs();
+            let target_volume = target.volume().abs();
+            if source_volume <= f64::EPSILON || target_volume <= f64::EPSILON {
+                return vec![];
+            }
+            let mapped_volume = source_volume * det_abs as f64;
+            let (volume_ratio_min, volume_ratio_max) = Self::compatible_volume_ratio_bounds(
+                len_tol,
+                ang_tol,
+                [target_angles[0], target_angles[1], target_angles[2]],
+            );
+            if mapped_volume < target_volume * volume_ratio_min
+                || mapped_volume > target_volume * volume_ratio_max
+            {
+                return vec![];
+            }
+        }
         let max_length = target_lengths.max() * (1.0 + len_tol);
 
         // Search range for lattice vector candidates
@@ -687,6 +749,18 @@ impl Lattice {
 
         let mut results = Vec::new();
 
+        // For determinant-constrained searches, index C-candidates by integer vector.
+        let cands_c_by_frac = target_abs_determinant.map(|_| {
+            let mut candidate_map: HashMap<(i32, i32, i32), (Vector3<f64>, f64)> = HashMap::new();
+            for (frac_vector, cart_vector, vector_length) in &cands_c {
+                candidate_map.insert(
+                    (frac_vector[0], frac_vector[1], frac_vector[2]),
+                    (*cart_vector, *vector_length),
+                );
+            }
+            candidate_map
+        });
+
         // Check all combinations for angle matching
         for (fa, ca, la) in &cands_a {
             for (fb, cb, lb) in &cands_b {
@@ -697,16 +771,45 @@ impl Lattice {
                     continue;
                 }
 
-                for (fc, cc, lc) in &cands_c {
+                let determinant_normal = Self::cross_i32(fa, fb);
+                let fc_candidates: Vec<(Vector3<i32>, Vector3<f64>, f64)> =
+                    if let Some(target_abs_det) = target_abs_determinant {
+                        let Some(cands_c_map) = cands_c_by_frac.as_ref() else {
+                            continue;
+                        };
+                        Self::solve_fc_vectors_for_determinant(
+                            &determinant_normal,
+                            target_abs_det as i32,
+                            search_range,
+                        )
+                        .into_iter()
+                        .filter_map(|frac_vector| {
+                            cands_c_map
+                                .get(&(frac_vector[0], frac_vector[1], frac_vector[2]))
+                                .map(|(cart_vector, vector_length)| {
+                                    (frac_vector, *cart_vector, *vector_length)
+                                })
+                        })
+                        .collect()
+                    } else {
+                        cands_c
+                            .iter()
+                            .map(|(frac_vector, cart_vector, vector_length)| {
+                                (*frac_vector, *cart_vector, *vector_length)
+                            })
+                            .collect()
+                    };
+
+                for (fc, cc, lc) in fc_candidates {
                     // Check alpha angle (between b and c)
-                    let cos_alpha = cb.dot(cc) / (lb * lc);
+                    let cos_alpha = cb.dot(&cc) / (lb * lc);
                     let alpha = cos_alpha.clamp(-1.0, 1.0).acos() * 180.0 / PI;
                     if (alpha - target_angles[0]).abs() > ang_tol {
                         continue;
                     }
 
                     // Check beta angle (between a and c)
-                    let cos_beta = ca.dot(cc) / (la * lc);
+                    let cos_beta = ca.dot(&cc) / (la * lc);
                     let beta = cos_beta.clamp(-1.0, 1.0).acos() * 180.0 / PI;
                     if (beta - target_angles[1]).abs() > ang_tol {
                         continue;
@@ -746,6 +849,166 @@ impl Lattice {
         }
 
         results
+    }
+
+    fn cross_i32(vector_a: &Vector3<i32>, vector_b: &Vector3<i32>) -> Vector3<i32> {
+        Vector3::new(
+            vector_a[1] * vector_b[2] - vector_a[2] * vector_b[1],
+            vector_a[2] * vector_b[0] - vector_a[0] * vector_b[2],
+            vector_a[0] * vector_b[1] - vector_a[1] * vector_b[0],
+        )
+    }
+
+    fn solve_fc_vectors_for_determinant(
+        determinant_normal: &Vector3<i32>,
+        target_abs_det: i32,
+        search_range: i32,
+    ) -> Vec<Vector3<i32>> {
+        if target_abs_det <= 0 {
+            return vec![];
+        }
+
+        let normal_x = determinant_normal[0];
+        let normal_y = determinant_normal[1];
+        let normal_z = determinant_normal[2];
+        if normal_x == 0 && normal_y == 0 && normal_z == 0 {
+            return vec![];
+        }
+
+        let solve_axis = [
+            (normal_x.abs(), 0usize),
+            (normal_y.abs(), 1usize),
+            (normal_z.abs(), 2usize),
+        ]
+        .into_iter()
+        .max_by_key(|(abs_component, _)| *abs_component)
+        .map(|(_, axis_idx)| axis_idx)
+        .unwrap_or(2usize);
+
+        let mut solved_vectors = HashSet::new();
+        for signed_det in [target_abs_det, -target_abs_det] {
+            for first_coord in -search_range..=search_range {
+                for second_coord in -search_range..=search_range {
+                    let maybe_solution = match solve_axis {
+                        0 => {
+                            if normal_x == 0 {
+                                None
+                            } else {
+                                let remainder =
+                                    signed_det - normal_y * first_coord - normal_z * second_coord;
+                                if remainder % normal_x == 0 {
+                                    let solved_coord = remainder / normal_x;
+                                    Some(Vector3::new(solved_coord, first_coord, second_coord))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
+                        1 => {
+                            if normal_y == 0 {
+                                None
+                            } else {
+                                let remainder =
+                                    signed_det - normal_x * first_coord - normal_z * second_coord;
+                                if remainder % normal_y == 0 {
+                                    let solved_coord = remainder / normal_y;
+                                    Some(Vector3::new(first_coord, solved_coord, second_coord))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
+                        _ => {
+                            if normal_z == 0 {
+                                None
+                            } else {
+                                let remainder =
+                                    signed_det - normal_x * first_coord - normal_y * second_coord;
+                                if remainder % normal_z == 0 {
+                                    let solved_coord = remainder / normal_z;
+                                    Some(Vector3::new(first_coord, second_coord, solved_coord))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
+                    };
+                    if let Some(solution_vector) = maybe_solution
+                        && solution_vector[0].abs() <= search_range
+                        && solution_vector[1].abs() <= search_range
+                        && solution_vector[2].abs() <= search_range
+                    {
+                        solved_vectors.insert(solution_vector);
+                    }
+                }
+            }
+        }
+
+        let mut sorted_vectors: Vec<_> = solved_vectors.into_iter().collect();
+        sorted_vectors.sort_unstable_by_key(|vector| (vector[0], vector[1], vector[2]));
+        sorted_vectors
+    }
+
+    fn compatible_volume_ratio_bounds(
+        len_tol: f64,
+        ang_tol: f64,
+        target_angles: [f64; 3],
+    ) -> (f64, f64) {
+        let lo = 1.0 / (1.0 + len_tol);
+        let hi = 1.0 + len_tol;
+        let length_ratio_min = lo.powi(3);
+        let length_ratio_max = hi.powi(3);
+
+        let target_factor =
+            Self::angle_volume_factor(target_angles[0], target_angles[1], target_angles[2]);
+        if target_factor <= f64::EPSILON {
+            return (0.0, f64::INFINITY);
+        }
+
+        let alpha_candidates = [
+            (target_angles[0] - ang_tol).clamp(1e-3, 179.999),
+            (target_angles[0] + ang_tol).clamp(1e-3, 179.999),
+        ];
+        let beta_candidates = [
+            (target_angles[1] - ang_tol).clamp(1e-3, 179.999),
+            (target_angles[1] + ang_tol).clamp(1e-3, 179.999),
+        ];
+        let gamma_candidates = [
+            (target_angles[2] - ang_tol).clamp(1e-3, 179.999),
+            (target_angles[2] + ang_tol).clamp(1e-3, 179.999),
+        ];
+
+        let mut angle_ratio_min = f64::INFINITY;
+        let mut angle_ratio_max = 0.0_f64;
+        for alpha_deg in alpha_candidates {
+            for beta_deg in beta_candidates {
+                for gamma_deg in gamma_candidates {
+                    let factor = Self::angle_volume_factor(alpha_deg, beta_deg, gamma_deg);
+                    let ratio = factor / target_factor;
+                    angle_ratio_min = angle_ratio_min.min(ratio);
+                    angle_ratio_max = angle_ratio_max.max(ratio);
+                }
+            }
+        }
+
+        (
+            (length_ratio_min * angle_ratio_min).max(0.0),
+            length_ratio_max * angle_ratio_max,
+        )
+    }
+
+    fn angle_volume_factor(alpha_deg: f64, beta_deg: f64, gamma_deg: f64) -> f64 {
+        let alpha_rad = alpha_deg.to_radians();
+        let beta_rad = beta_deg.to_radians();
+        let gamma_rad = gamma_deg.to_radians();
+        let cos_alpha = alpha_rad.cos();
+        let cos_beta = beta_rad.cos();
+        let cos_gamma = gamma_rad.cos();
+        let squared_factor = 1.0 + 2.0 * cos_alpha * cos_beta * cos_gamma
+            - cos_alpha * cos_alpha
+            - cos_beta * cos_beta
+            - cos_gamma * cos_gamma;
+        squared_factor.max(0.0).sqrt()
     }
 
     /// Find the first mapping between this lattice and another.
@@ -793,6 +1056,7 @@ impl PartialEq for Lattice {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use std::time::{Duration, Instant};
 
     #[test]
     fn test_cubic() {
@@ -1279,6 +1543,37 @@ mod tests {
                 "Any lattice should have mapping to itself"
             );
         }
+    }
+
+    #[test]
+    fn test_find_all_mappings_with_determinant_extreme_size_mismatch_fails_fast() {
+        let small = Lattice::from_array([
+            [2.7858242382594893, 0.0, -0.016875404100549208],
+            [0.2841525002116433, 2.771251477612547, 0.016605398193201584],
+            [0.0, 0.0, 3.44067117],
+        ]);
+        let large = Lattice::from_array([
+            [30.00000006, 0.0, -5.2359874702342945e-08],
+            [
+                -0.00378320460790132,
+                29.99908048144873,
+                -7.801382667762688e-07,
+            ],
+            [0.0, 0.0, 29.99129105],
+        ]);
+
+        let started = Instant::now();
+        let mappings = small.find_all_mappings_with_determinant(&large, 0.2, 5.0, true, 1);
+        let elapsed = started.elapsed();
+
+        assert!(
+            mappings.is_empty(),
+            "Extreme size mismatch should not produce constrained lattice mappings"
+        );
+        assert!(
+            elapsed < Duration::from_millis(250),
+            "Constrained pathological mapping search should fail fast, took {elapsed:?}"
+        );
     }
 
     #[test]

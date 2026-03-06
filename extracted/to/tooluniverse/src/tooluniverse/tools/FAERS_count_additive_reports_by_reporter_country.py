@@ -44,15 +44,21 @@ def FAERS_count_additive_reports_by_reporter_country(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "medicinalproducts": medicinalproducts,
+            "patientsex": patientsex,
+            "patientagegroup": patientagegroup,
+            "serious": serious,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "FAERS_count_additive_reports_by_reporter_country",
-            "arguments": {
-                "medicinalproducts": medicinalproducts,
-                "patientsex": patientsex,
-                "patientagegroup": patientagegroup,
-                "serious": serious,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

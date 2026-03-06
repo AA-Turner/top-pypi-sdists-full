@@ -16,6 +16,14 @@ ChatModel: TypeAlias = Literal[
     "grok-4-fast-reasoning-latest",
     "grok-4-fast-non-reasoning",
     "grok-4-fast-non-reasoning-latest",
+    "grok-4.20-experimental-beta-0304",
+    "grok-4.20-experimental-beta-0304-reasoning",
+    "grok-4.20-experimental-beta-reasoning-latest",
+    "grok-4.20-experimental-beta-0304-non-reasoning",
+    "grok-4.20-experimental-beta-non-reasoning-latest",
+    "grok-4.20-experimental-beta-latest",
+    "grok-4.20-multi-agent-experimental-beta-0304",
+    "grok-4.20-multi-agent-experimental-beta-latest",
     "grok-code-fast-1",
     "grok-3",
     "grok-3-latest",
@@ -27,10 +35,8 @@ ChatModel: TypeAlias = Literal[
 ]
 
 ImageGenerationModel: TypeAlias = Literal[
-    "grok-2-image",
-    "grok-2-image-1212",
-    "grok-2-image-latest",
     "grok-imagine-image",
+    "grok-imagine-image-pro",
 ]
 
 VideoGenerationModel: TypeAlias = Literal["grok-imagine-video"]

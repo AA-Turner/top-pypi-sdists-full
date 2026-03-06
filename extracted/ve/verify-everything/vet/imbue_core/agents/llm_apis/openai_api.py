@@ -63,6 +63,8 @@ class OpenAIModelName(enum.StrEnum):
     GPT_5_MINI = "gpt-5-mini"
     GPT_5_1 = "gpt-5.1"
     GPT_5_2 = "gpt-5.2"
+    GPT_5_4 = "gpt-5.4"
+    GPT_5_4_PRO = "gpt-5.4-pro"
 
 
 # Using Tier 5 rate limits
@@ -142,6 +144,22 @@ OPENAI_MODEL_INFO_BY_NAME: FrozenMapping[OpenAIModelName, ModelInfo] = FrozenDic
             max_output_tokens=128_000,
             rate_limit_req=15000 / 60,  # 15000 RPM = 250 RPS
         ),
+        OpenAIModelName.GPT_5_4: ModelInfo(
+            model_name=str(OpenAIModelName.GPT_5_4),
+            cost_per_input_token=2.50 / 1_000_000,
+            cost_per_output_token=15 / 1_000_000,
+            max_input_tokens=1_050_000,
+            max_output_tokens=128_000,
+            rate_limit_req=15000 / 60,  # 15000 RPM = 250 RPS
+        ),
+        OpenAIModelName.GPT_5_4_PRO: ModelInfo(
+            model_name=str(OpenAIModelName.GPT_5_4_PRO),
+            cost_per_input_token=30 / 1_000_000,
+            cost_per_output_token=180 / 1_000_000,
+            max_input_tokens=1_050_000,
+            max_output_tokens=128_000,
+            rate_limit_req=10000 / 60,  # 10000 RPM = 166.67 RPS
+        ),
     }
 )
 
@@ -191,6 +209,8 @@ def is_openai_reasoning_model(model_name: str) -> bool:
         OpenAIModelName.GPT_5_MINI,
         OpenAIModelName.GPT_5_1,
         OpenAIModelName.GPT_5_2,
+        OpenAIModelName.GPT_5_4,
+        OpenAIModelName.GPT_5_4_PRO,
     )
 
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, AsyncGenerator
+import ssl
+from typing import TYPE_CHECKING, Any, AsyncGenerator
+from urllib.parse import urlsplit
 
 import asyncpg  # type: ignore
 from pydantic import SecretStr
@@ -44,31 +46,20 @@ async def get_pg_notify_connection() -> Connection | None:
         )
         return None
 
-    # Construct a new DSN for asyncpg, omitting the dialect part like '+asyncpg'
-    # and ensuring essential components are present.
-    asyncpg_dsn = db_url.set(
-        drivername="postgresql"
-    )  # Ensure drivername is plain postgresql
+    # Construct a DSN for asyncpg by stripping the SQLAlchemy dialect suffix
+    # (e.g. +asyncpg) via simple string replacement on the scheme portion. This
+    # preserves the original URL structure exactly, including:
+    #   - multihost connection strings (?host=A:5432&host=B:5432)
+    #   - Kerberos/GSSAPI params (krbsrvname, gsslib)
+    #   - UNIX domain socket paths (triple-slash URLs like postgresql:///db)
+    # We intentionally avoid SQLAlchemy's render_as_string() here because it
+    # URL-encodes query param values (e.g. ':' -> '%3A'), which breaks asyncpg's
+    # parsing of host:port pairs in multihost configurations.
+    original_scheme = urlsplit(db_url_str).scheme  # e.g. "postgresql+asyncpg"
+    base_scheme = original_scheme.split("+")[0]  # e.g. "postgresql"
+    dsn_string = base_scheme + db_url_str[len(original_scheme) :]
 
-    # asyncpg.connect can take individual params or a DSN string.
-    # We'll pass params directly from the parsed URL if they exist to be explicit.
-    # Build connection arguments, ensuring proper types.
-    # For UNIX domain socket URLs (e.g. postgresql:///db?host=/tmp/sock&port=5432),
-    # host and port are in query params rather than the URL authority section.
-    query = asyncpg_dsn.query
-    connect_args = {}
-    host = asyncpg_dsn.host or query.get("host")
-    if host:
-        connect_args["host"] = host
-    port = asyncpg_dsn.port or query.get("port")
-    if port:
-        connect_args["port"] = int(port)
-    if asyncpg_dsn.username:
-        connect_args["user"] = asyncpg_dsn.username
-    if asyncpg_dsn.password:
-        connect_args["password"] = asyncpg_dsn.password
-    if asyncpg_dsn.database:
-        connect_args["database"] = asyncpg_dsn.database
+    connect_args: dict[str, Any] = {}
 
     # Include server_settings if configured
     settings = get_current_settings()
@@ -83,12 +74,40 @@ async def get_pg_notify_connection() -> Connection | None:
         connect_args["server_settings"] = server_settings
 
     try:
-        # Note: For production, connection parameters (timeouts, etc.) might need tuning.
-        # This connection is outside SQLAlchemy's pool and needs its own lifecycle management.
-        conn = await asyncpg.connect(**connect_args)
+        # Include TLS/SSL configuration if enabled, mirroring the main engine setup
+        # in AsyncPostgresConfiguration.engine(). This is inside the try block so
+        # that TLS misconfigurations (e.g. invalid cert paths) are caught and result
+        # in returning None, consistent with this function's fault-tolerant contract.
+        tls_config = settings.server.database.sqlalchemy.connect_args.tls
+        if tls_config.enabled:
+            if tls_config.ca_file:
+                pg_ctx = ssl.create_default_context(
+                    purpose=ssl.Purpose.SERVER_AUTH, cafile=tls_config.ca_file
+                )
+            else:
+                pg_ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+
+            pg_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+
+            if tls_config.cert_file and tls_config.key_file:
+                pg_ctx.load_cert_chain(
+                    certfile=tls_config.cert_file, keyfile=tls_config.key_file
+                )
+
+            pg_ctx.check_hostname = tls_config.check_hostname
+            pg_ctx.verify_mode = ssl.CERT_REQUIRED
+            connect_args["ssl"] = pg_ctx
+
+        # Pass the full DSN to asyncpg so it can parse all connection parameters
+        # natively, including authentication-related query params (e.g. krbsrvname
+        # for Kerberos/GSSAPI) and UNIX domain socket paths.
+        # This connection is outside SQLAlchemy's pool and needs its own lifecycle
+        # management.
+        conn = await asyncpg.connect(dsn_string, **connect_args)
         _logger.info(
             f"Successfully established raw asyncpg connection for LISTEN/NOTIFY to "
-            f"{connect_args.get('host', 'localhost')}:{connect_args.get('port', 5432)}/{asyncpg_dsn.database}"
+            f"{db_url.host or db_url.query.get('host', 'localhost')}/"
+            f"{db_url.database}"
         )
         return conn
     except Exception as e:

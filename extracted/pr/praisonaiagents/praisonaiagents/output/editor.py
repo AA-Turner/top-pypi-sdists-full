@@ -19,7 +19,7 @@ Usage:
 import time
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, TextIO
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 
@@ -88,13 +88,16 @@ class EditorOutput:
     Thread-safe for multi-agent execution.
     """
 
-    def __init__(self, console=None, use_rich: bool = True):
+    def __init__(self, console=None, use_rich: bool = True, agent_name: Optional[str] = None):
         self._use_rich = use_rich
         self._console = console
         self._blocks: List[DisplayBlock] = []
         self._start_time = time.time()
         self._step_count = 0
+        self._llm_call_count = 0
         self._lock = threading.Lock()
+        self._agent_name = agent_name  # For multi-agent prefix support
+        self._multi_agent_mode = False  # Set True when multiple agents detected
 
         if use_rich and console is None:
             try:
@@ -132,6 +135,13 @@ class EditorOutput:
         self._add_block(BlockType.COMMAND, action, output=display_result)
         self._render_command(action, display_result)
 
+    def llm_indicator(self, phase: str = "thinking") -> None:
+        """Display a subtle LLM activity indicator between steps."""
+        if self._use_rich:
+            self._console.print(f"[dim]▸ {phase.capitalize()}...[/dim]")
+        else:
+            print(f"▸ {phase.capitalize()}...")
+
     def output(self, content: str, agent_name: Optional[str] = None) -> None:
         """Display final agent output."""
         if self._use_rich:
@@ -154,7 +164,170 @@ class EditorOutput:
 
     def get_blocks(self) -> List[DisplayBlock]:
         """Get all display blocks."""
-        return self._blocks.copy()
+        with self._lock:
+            return self._blocks.copy()
+
+    def set_agent_name(self, name: str) -> None:
+        """Set the agent name for multi-agent prefix."""
+        with self._lock:
+            self._agent_name = name
+
+    def enable_multi_agent_mode(self) -> None:
+        """Enable multi-agent mode to show agent prefixes."""
+        with self._lock:
+            self._multi_agent_mode = True
+
+    def _get_prefix(self, agent_name: Optional[str] = None) -> str:
+        """Get the agent prefix for multi-agent mode."""
+        if not self._multi_agent_mode:
+            return ""
+        name = agent_name or self._agent_name
+        if name:
+            return f"[{name}] "
+        return ""
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Additional display methods (merged from CLI EditorDisplay)
+    # ─────────────────────────────────────────────────────────────────────
+
+    def narrative(self, text: str, agent_name: Optional[str] = None) -> None:
+        """
+        Display a narrative block (agent thinking/explanation).
+        
+        Args:
+            text: The narrative text
+            agent_name: Optional agent name for multi-agent prefix
+        """
+        self._add_block(BlockType.NARRATIVE, text)
+        prefix = self._get_prefix(agent_name)
+        if self._use_rich:
+            self._console.print(f"{prefix}{text}")
+        else:
+            print(f"{prefix}{text}")
+
+    def code(self, code: str, language: str = "") -> None:
+        """
+        Display a code block.
+        
+        Args:
+            code: The code content
+            language: Programming language for syntax highlighting
+        """
+        self._add_block(BlockType.CODE, code, metadata={"language": language})
+        if self._use_rich:
+            try:
+                from rich.syntax import Syntax
+                syntax = Syntax(code, language or "text", theme="monokai")
+                self._console.print(syntax)
+            except ImportError:
+                self._console.print(f"```{language}\n{code}\n```")
+        else:
+            print(f"```{language}")
+            print(code)
+            print("```")
+
+    def action(self, title: str, details: Optional[List[str]] = None) -> None:
+        """
+        Display an action summary block.
+        
+        Args:
+            title: Action title (e.g., "Changes applied")
+            details: List of detail items
+        """
+        self._add_block(BlockType.ACTION, "", title=title, items=details or [])
+        if self._use_rich:
+            self._console.print(f"[bold green]✓ {title}[/bold green]")
+            if details:
+                for item in details:
+                    self._console.print(f"  - {item}")
+        else:
+            print(f"✓ {title}")
+            if details:
+                for item in details:
+                    print(f"  - {item}")
+
+    def list_items(self, items: List[str], title: Optional[str] = None) -> None:
+        """
+        Display a bulleted list.
+        
+        Args:
+            items: List items
+            title: Optional title
+        """
+        self._add_block(BlockType.LIST, "", title=title, items=items)
+        if self._use_rich:
+            if title:
+                self._console.print(f"[bold]{title}[/bold]")
+            for item in items:
+                self._console.print(f"  • {item}")
+        else:
+            if title:
+                print(title)
+            for item in items:
+                print(f"  • {item}")
+
+    def error(self, message: str, agent_name: Optional[str] = None) -> None:
+        """
+        Display an error message.
+        
+        Args:
+            message: Error message
+            agent_name: Optional agent name for multi-agent prefix
+        """
+        prefix = self._get_prefix(agent_name)
+        if self._use_rich:
+            self._console.print(f"[red]{prefix}✗ Error: {message}[/red]")
+        else:
+            print(f"{prefix}✗ Error: {message}")
+
+    def to_markdown(self) -> str:
+        """
+        Export all blocks as Markdown.
+        
+        Returns:
+            Markdown string representation of all blocks
+        """
+        lines = []
+        with self._lock:
+            blocks = self._blocks.copy()
+        
+        for block in blocks:
+            if block.type == BlockType.NARRATIVE:
+                lines.append(block.content)
+                lines.append("")
+            elif block.type == BlockType.COMMAND:
+                lines.append(f"**{block.content}**")
+                if block.output:
+                    lines.append(f"> {block.output}")
+                lines.append("")
+            elif block.type == BlockType.CODE:
+                lang = block.metadata.get("language", "")
+                lines.append(f"```{lang}")
+                lines.append(block.content)
+                lines.append("```")
+                lines.append("")
+            elif block.type == BlockType.SUMMARY:
+                if block.title:
+                    lines.append(f"## {block.title}")
+                if block.items:
+                    for item in block.items:
+                        lines.append(f"- {item}")
+                lines.append("")
+            elif block.type == BlockType.ACTION:
+                if block.title:
+                    lines.append(f"✓ **{block.title}**")
+                if block.items:
+                    for item in block.items:
+                        lines.append(f"  - {item}")
+                lines.append("")
+            elif block.type == BlockType.LIST:
+                if block.title:
+                    lines.append(f"**{block.title}**")
+                for item in block.items:
+                    lines.append(f"- {item}")
+                lines.append("")
+        
+        return "\n".join(lines)
 
     # ─────────────────────────────────────────────────────────────────────
     # Formatting helpers
@@ -321,9 +494,19 @@ def enable_editor_output(
         elif message:
             print(f"✗ Error: {message}")
 
+    def on_llm_start(model: str = None, agent_name: str = None, **kwargs):
+        if not _editor_output_enabled or _editor_output is None:
+            return
+        with _editor_output._lock:
+            _editor_output._llm_call_count += 1
+            count = _editor_output._llm_call_count
+        phase = "Thinking" if count == 1 else "Responding"
+        _editor_output.llm_indicator(phase)
+
     register_display_callback('tool_call', on_tool_call)
     register_display_callback('interaction', on_interaction)
     register_display_callback('error', on_error)
+    register_display_callback('llm_start', on_llm_start)
 
     return _editor_output
 
@@ -333,3 +516,8 @@ def disable_editor_output() -> None:
     global _editor_output_enabled, _editor_output
     _editor_output_enabled = False
     _editor_output = None
+
+
+def get_editor_output() -> Optional[EditorOutput]:
+    """Get the current editor output instance."""
+    return _editor_output

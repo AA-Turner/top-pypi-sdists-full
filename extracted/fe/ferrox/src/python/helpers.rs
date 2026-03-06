@@ -151,6 +151,15 @@ pub fn structure_to_pydict<'py>(
         ],
     )?;
     lattice_dict.set_item("matrix", matrix)?;
+    let lengths = structure.lattice.lengths();
+    let angles = structure.lattice.angles();
+    lattice_dict.set_item("a", lengths.x)?;
+    lattice_dict.set_item("b", lengths.y)?;
+    lattice_dict.set_item("c", lengths.z)?;
+    lattice_dict.set_item("alpha", angles.x)?;
+    lattice_dict.set_item("beta", angles.y)?;
+    lattice_dict.set_item("gamma", angles.z)?;
+    lattice_dict.set_item("volume", structure.lattice.volume())?;
     lattice_dict.set_item(
         "pbc",
         PyList::new(
@@ -165,6 +174,7 @@ pub fn structure_to_pydict<'py>(
     dict.set_item("lattice", lattice_dict)?;
 
     // Sites with all species and their occupancies
+    let mat_t = structure.lattice.matrix().transpose();
     let sites = PyList::empty(py);
     for (site_occ, coord) in structure
         .site_occupancies
@@ -186,13 +196,26 @@ pub fn structure_to_pydict<'py>(
         }
         site.set_item("species", species_list)?;
 
-        // Coordinates
+        // Fractional coordinates
         site.set_item("abc", PyList::new(py, [coord.x, coord.y, coord.z])?)?;
 
-        // Site-level properties (label, magmom, orig_site_idx, etc.)
+        // Cartesian coordinates: xyz = matrix^T * frac (pymatgen convention)
+        let cart = mat_t * coord;
+        site.set_item("xyz", PyList::new(py, [cart.x, cart.y, cart.z])?)?;
+
+        let label = site_occ
+            .properties
+            .get("label")
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| site_occ.dominant_species().element.symbol());
+        site.set_item("label", label)?;
+
+        // Site-level properties (excluding label which is at top level)
         let site_props = PyDict::new(py);
         for (key, value) in &site_occ.properties {
-            site_props.set_item(key, json_to_py(py, value)?)?;
+            if key != "label" {
+                site_props.set_item(key, json_to_py(py, value)?)?;
+            }
         }
         site.set_item("properties", site_props)?;
 
@@ -282,15 +305,7 @@ pub fn parse_reduction_algo(algo: &str) -> PyResult<crate::structure::ReductionA
     }
 }
 
-/// Convert nalgebra Matrix3 to nested array for Python.
-#[inline]
-pub fn mat3_to_array(mat: &nalgebra::Matrix3<f64>) -> [[f64; 3]; 3] {
-    [
-        [mat[(0, 0)], mat[(0, 1)], mat[(0, 2)]],
-        [mat[(1, 0)], mat[(1, 1)], mat[(1, 2)]],
-        [mat[(2, 0)], mat[(2, 1)], mat[(2, 2)]],
-    ]
-}
+pub(crate) use crate::structure::mat3_to_array;
 
 /// Convert nested array to nalgebra Matrix3.
 #[inline]

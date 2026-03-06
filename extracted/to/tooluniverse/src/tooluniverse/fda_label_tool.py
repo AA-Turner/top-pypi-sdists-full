@@ -99,42 +99,70 @@ class FDALabelTool(BaseTool):
             return {"error": "Provide drug_name or indication"}
 
         if drug_name:
-            # Search both generic and brand names
-            q = f'openfda.generic_name:"{drug_name}"+openfda.brand_name:"{drug_name}"'
+            # Feature-66B-004: "+" in openFDA means AND — both fields can't match simultaneously.
+            # Try generic_name first; fall back to brand_name if no results.
+            for field in ("openfda.generic_name", "openfda.brand_name"):
+                q = f'{field}:"{drug_name}"'
+                resp = requests.get(
+                    FDA_LABEL_URL,
+                    params={"search": q, "limit": limit},
+                    timeout=20,
+                )
+                if resp.status_code == 404:
+                    continue
+                resp.raise_for_status()
+                results = resp.json().get("results", [])
+                if results:
+                    return [_extract_label(r) for r in results]
+            return []
         else:
             q = f'indications_and_usage:"{indication}"'
-
-        resp = requests.get(
-            FDA_LABEL_URL,
-            params={"search": q, "limit": limit},
-            timeout=20,
-        )
-        if resp.status_code == 404:
-            return []
-        resp.raise_for_status()
-        data = resp.json()
-        results = data.get("results", [])
-        return [_extract_label(r) for r in results]
+            resp = requests.get(
+                FDA_LABEL_URL,
+                params={"search": q, "limit": limit},
+                timeout=20,
+            )
+            if resp.status_code == 404:
+                return []
+            resp.raise_for_status()
+            data = resp.json()
+            results = data.get("results", [])
+            return [_extract_label(r) for r in results]
 
     def _get_label(self, arguments: dict) -> Any:
         drug_name = arguments.get("drug_name", "")
         if not drug_name:
             return {"error": "drug_name is required"}
 
-        q = f'openfda.generic_name:"{drug_name}"+openfda.brand_name:"{drug_name}"'
-        resp = requests.get(
-            FDA_LABEL_URL,
-            params={"search": q, "limit": 1},
-            timeout=20,
-        )
-        if resp.status_code == 404:
-            return {"error": f"No FDA label found for '{drug_name}'"}
-        resp.raise_for_status()
-        data = resp.json()
-        results = data.get("results", [])
-        if not results:
-            return {"error": f"No FDA label found for '{drug_name}'"}
-        return _extract_label(results[0])
+        dn_upper = drug_name.upper()
+
+        # Feature-66B-004: "+" in openFDA means AND — try generic_name then brand_name.
+        # Feature-67B-005B: fetch multiple results and prefer exact brand/generic name match
+        # (e.g., "OPDIVO" should match canonical OPDIVO IV, not newer OPDIVO QVANTIG).
+        for field in ("openfda.generic_name", "openfda.brand_name"):
+            q = f'{field}:"{drug_name}"'
+            resp = requests.get(
+                FDA_LABEL_URL,
+                params={"search": q, "limit": 10},
+                timeout=20,
+            )
+            if resp.status_code == 404:
+                continue
+            resp.raise_for_status()
+            results = resp.json().get("results", [])
+            if results:
+                extracted = [_extract_label(r) for r in results]
+
+                def _match_score(r):
+                    brand = (r.get("brand_name") or "").upper()
+                    generic = (r.get("generic_name") or "").upper()
+                    if brand == dn_upper or generic == dn_upper:
+                        return 0
+                    return len(brand) or 999
+
+                extracted.sort(key=_match_score)
+                return extracted[0]
+        return {"error": f"No FDA label found for '{drug_name}'"}
 
     def _list_classes(self, arguments: dict) -> Any:
         limit = min(int(arguments.get("limit", 20)), 100)

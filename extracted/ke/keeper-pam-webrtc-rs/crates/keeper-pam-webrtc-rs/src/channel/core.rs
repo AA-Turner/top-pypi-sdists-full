@@ -14,7 +14,7 @@ use crate::unlikely;
 use crate::webrtc_data_channel::{WebRTCDataChannel, STANDARD_BUFFER_THRESHOLD};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{BufMut, BytesMut};
 use dashmap::DashMap;
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
@@ -31,7 +31,6 @@ use tokio::task::{AbortHandle, JoinHandle};
 // Import from sibling modules
 use super::assembler::{has_fragment_header, FragmentBuffer, FragmentHeader, FRAGMENT_HEADER_SIZE};
 use super::frame_handling::handle_incoming_frame;
-use super::utils::handle_ping_timeout;
 use crate::tube_protocol::Capabilities;
 use crate::tube_protocol::CloseConnectionReason as TubeCloseReason;
 use guacr_protocol::{GuacdInstruction, GuacdParser};
@@ -130,10 +129,11 @@ pub struct Channel {
     pub(crate) channel_id: String,
     pub(crate) timeouts: TunnelTimeouts,
     pub(crate) network_checker: Option<NetworkAccessChecker>,
-    pub(crate) ping_attempt: u32,
-    pub(crate) is_connected: bool,
     pub(crate) should_exit: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) shutdown_notify: Arc<tokio::sync::Notify>,
+    /// Set when the data channel closes unexpectedly (ICE restart in progress).
+    /// Cleared when it reopens. Read by the guacd nop keepalive task in connections.rs.
+    pub(crate) ice_restart_active: Arc<std::sync::atomic::AtomicBool>,
     pub(crate) server_mode: bool,
     // Server-related fields
     pub(crate) local_listen_addr: Option<String>,
@@ -179,8 +179,6 @@ pub struct Channel {
 
     // Buffer pool for efficient buffer management
     pub(crate) buffer_pool: BufferPool,
-    // Timestamp for the last channel-level ping sent (conn_no=0)
-    pub(crate) channel_ping_sent_time: AsyncMutex<Option<u64>>,
 
     // For signaling connection task closures to the main Channel run loop
     pub(crate) conn_closed_tx: mpsc::UnboundedSender<(u32, String)>, // (conn_no, channel_id)
@@ -744,10 +742,9 @@ impl Channel {
             channel_id,
             timeouts: timeouts.unwrap_or_default(),
             network_checker,
-            ping_attempt: 0,
-            is_connected: true,
             should_exit: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             shutdown_notify,
+            ice_restart_active: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             server_mode,
             local_listen_addr: local_listen_addr_setting,
             actual_listen_addr: None,
@@ -779,7 +776,6 @@ impl Channel {
             handler_senders: Arc::new(DashMap::new()),
 
             buffer_pool,
-            channel_ping_sent_time: AsyncMutex::new(None),
             conn_closed_tx,
             conn_closed_rx: Some(conn_closed_rx),
             primary_guacd_conn_no: Arc::new(AsyncMutex::new(None)),
@@ -1013,9 +1009,7 @@ impl Channel {
 
                           break;
                         }
-                        Err(_) => { // Timeout on rx_from_dc.recv()
-                            handle_ping_timeout(&mut self).await?;
-                        }
+                        Err(_) => {} // unreachable: timeout is applied to an already-resolved value
                     }
                 }
 
@@ -1182,32 +1176,6 @@ impl Channel {
     ) -> Result<()> {
         let frame = Frame::new_control_with_pool(message, data, &self.buffer_pool);
         let encoded = frame.encode_with_pool(&self.buffer_pool);
-
-        if message == ControlMessage::Ping {
-            // Check if this ping is for conn_no 0 (channel ping)
-            // The `data` for a Ping should contain the conn_no it's for.
-            // Assuming the first 4 bytes of Ping data payload is the conn_no.
-            if data.len() >= 4 {
-                let ping_conn_no = (&data[0..4]).get_u32();
-                if ping_conn_no == 0 {
-                    let mut sent_time = self.channel_ping_sent_time.lock().await;
-                    *sent_time = Some(crate::tube_protocol::now_ms());
-                    if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!(
-                            "Channel({}): Sent channel PING (conn_no=0), recorded send time.",
-                            self.channel_id
-                        );
-                    }
-                }
-            } else if data.is_empty() {
-                // Convention: empty data for Ping implies channel ping
-                let mut sent_time = self.channel_ping_sent_time.lock().await;
-                *sent_time = Some(crate::tube_protocol::now_ms());
-                if unlikely!(crate::logger::is_verbose_logging()) {
-                    debug!("Channel({}): Sent channel PING (conn_no=0, empty payload convention), recorded send time.", self.channel_id);
-                }
-            }
-        }
 
         let buffered_amount = self.webrtc.buffered_amount().await;
         if buffered_amount >= STANDARD_BUFFER_THRESHOLD

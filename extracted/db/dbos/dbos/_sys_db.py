@@ -10,6 +10,7 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
+    Awaitable,
     Callable,
     Dict,
     List,
@@ -30,6 +31,7 @@ from sqlalchemy.sql import func
 from dbos._debug_trigger import DebugTriggers
 from dbos._utils import (
     INTERNAL_QUEUE_NAME,
+    generate_uuid,
     retriable_postgres_exception,
     retriable_sqlite_exception,
 )
@@ -48,8 +50,19 @@ from ._error import (
     MaxRecoveryAttemptsExceededError,
 )
 from ._logger import dbos_logger
+from ._outcome import NoResult
 from ._schemas.system_database import SystemSchema
-from ._serialization import Serializer, WorkflowInputs, safe_deserialize
+from ._serialization import (
+    DBOSPortableJSON,
+    Serializer,
+    WorkflowInputs,
+    WorkflowSerializationFormat,
+    deserialize_exception,
+    deserialize_value,
+    safe_deserialize,
+    serialize_value,
+    serialize_value_as,
+)
 
 if TYPE_CHECKING:
     from ._queue import Queue
@@ -168,6 +181,7 @@ class WorkflowStatusInternal(TypedDict):
     forked_from: Optional[str]
     parent_workflow_id: Optional[str]
     started_at_epoch_ms: Optional[int]
+    serialization: Optional[str]
     owner_xid: Optional[str]
 
 
@@ -195,6 +209,7 @@ class EnqueueOptionsInternal(TypedDict):
 class RecordedResult(TypedDict):
     output: Optional[str]  # Serialized
     error: Optional[str]  # Serialized
+    serialization: Optional[str]
     child_workflow_id: Optional[str]
 
 
@@ -204,6 +219,7 @@ class OperationResultInternal(TypedDict):
     function_name: str
     output: Optional[str]  # Serialized
     error: Optional[str]  # Serialized
+    serialization: Optional[str]
     started_at_epoch_ms: int
 
 
@@ -245,6 +261,13 @@ class ClientScheduleInput(TypedDict, total=False):
     context: Any
 
 
+class VersionInfo(TypedDict):
+    version_id: str
+    version_name: str
+    version_timestamp: int
+    created_at: int
+
+
 class StepInfo(TypedDict):
     # The unique ID of the step in the workflow
     function_id: int
@@ -266,45 +289,41 @@ _dbos_null_topic = "__null__topic__"
 _dbos_stream_closed_sentinel = "__DBOS_STREAM_CLOSED__"
 
 
-class ConditionCount(TypedDict):
-    condition: threading.Condition
+class EventCount(TypedDict):
+    event: threading.Event
     count: int
 
 
-class ThreadSafeConditionDict:
+class ThreadSafeEventDict:
     def __init__(self) -> None:
-        self._dict: Dict[str, ConditionCount] = {}
+        self._dict: Dict[str, EventCount] = {}
         self._lock = threading.Lock()
 
-    def get(self, key: str) -> Optional[threading.Condition]:
+    def get(self, key: str) -> Optional[threading.Event]:
         with self._lock:
             if key not in self._dict:
-                # Key does not exist, return None
                 return None
-            return self._dict[key]["condition"]
+            return self._dict[key]["event"]
 
-    def set(
-        self, key: str, value: threading.Condition
-    ) -> tuple[bool, threading.Condition]:
+    def set(self, key: str, value: threading.Event) -> tuple[bool, threading.Event]:
         with self._lock:
             if key in self._dict:
                 # Key already exists, do not overwrite. Increment the wait count.
-                cc = self._dict[key]
-                cc["count"] += 1
-                return False, cc["condition"]
-            self._dict[key] = ConditionCount(condition=value, count=1)
+                ec = self._dict[key]
+                ec["count"] += 1
+                return False, ec["event"]
+            self._dict[key] = EventCount(event=value, count=1)
             return True, value
 
     def pop(self, key: str) -> None:
         with self._lock:
             if key in self._dict:
-                cc = self._dict[key]
-                cc["count"] -= 1
-                if cc["count"] == 0:
-                    # No more threads waiting on this condition, remove it
+                ec = self._dict[key]
+                ec["count"] -= 1
+                if ec["count"] == 0:
                     del self._dict[key]
             else:
-                dbos_logger.warning(f"Key {key} not found in condition dictionary.")
+                dbos_logger.warning(f"Key {key} not found in event dictionary.")
 
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -448,8 +467,8 @@ class SystemDatabase(ABC):
             self.created_engine = True
         self._engine_kwargs = engine_kwargs
 
-        self.notifications_map = ThreadSafeConditionDict()
-        self.workflow_events_map = ThreadSafeConditionDict()
+        self.notifications_map = ThreadSafeEventDict()
+        self.workflow_events_map = ThreadSafeEventDict()
         self.executor_id = executor_id
         self._notification_listener_polling_interval_sec = (
             notification_listener_polling_interval_sec
@@ -541,6 +560,7 @@ class SystemDatabase(ABC):
                 deduplication_id=status["deduplication_id"],
                 priority=status["priority"],
                 inputs=status["inputs"],
+                serialization=status["serialization"],
                 queue_partition_key=status["queue_partition_key"],
                 parent_workflow_id=status["parent_workflow_id"],
                 owner_xid=owner_xid,
@@ -560,6 +580,7 @@ class SystemDatabase(ABC):
             SystemSchema.workflow_status.c.config_name,
             SystemSchema.workflow_status.c.queue_name,
             SystemSchema.workflow_status.c.owner_xid,
+            SystemSchema.workflow_status.c.serialization,
         )
 
         try:
@@ -578,6 +599,7 @@ class SystemDatabase(ABC):
                 raise
 
         row = results.fetchone()
+
         if row is not None:
             # Check the started workflow matches the expected name, class_name, config_name, and queue_name
             # A mismatch indicates a workflow starting with the same UUID but different functions, which would throw an exception.
@@ -637,6 +659,8 @@ class SystemDatabase(ABC):
                 and not is_recovery_request
             ):
                 should_execute = False
+
+            status["serialization"] = row[8]
 
         return wf_status, workflow_deadline_epoch_ms, should_execute
 
@@ -752,9 +776,10 @@ class SystemDatabase(ABC):
                     application_id=status["app_id"],
                     authenticated_user=status["authenticated_user"],
                     authenticated_roles=status["authenticated_roles"],
-                    assumed_role=status["assumed_role"],
+                    serialization=status["serialization"],
                     queue_name=INTERNAL_QUEUE_NAME,
                     inputs=status["inputs"],
+                    assumed_role=status["assumed_role"],
                     forked_from=original_workflow_id,
                 )
             )
@@ -768,6 +793,7 @@ class SystemDatabase(ABC):
                             "function_id",
                             "output",
                             "error",
+                            "serialization",
                             "function_name",
                             "child_workflow_id",
                             "started_at_epoch_ms",
@@ -778,6 +804,7 @@ class SystemDatabase(ABC):
                             SystemSchema.operation_outputs.c.function_id,
                             SystemSchema.operation_outputs.c.output,
                             SystemSchema.operation_outputs.c.error,
+                            SystemSchema.operation_outputs.c.serialization,
                             SystemSchema.operation_outputs.c.function_name,
                             SystemSchema.operation_outputs.c.child_workflow_id,
                             SystemSchema.operation_outputs.c.started_at_epoch_ms,
@@ -802,12 +829,14 @@ class SystemDatabase(ABC):
                             "function_id",
                             "key",
                             "value",
+                            "serialization",
                         ],
                         sa.select(
                             sa.literal(forked_workflow_id).label("workflow_uuid"),
                             SystemSchema.workflow_events_history.c.function_id,
                             SystemSchema.workflow_events_history.c.key,
                             SystemSchema.workflow_events_history.c.value,
+                            SystemSchema.workflow_events_history.c.serialization,
                         ).where(
                             (
                                 SystemSchema.workflow_events_history.c.workflow_uuid
@@ -841,11 +870,13 @@ class SystemDatabase(ABC):
                             "workflow_uuid",
                             "key",
                             "value",
+                            "serialization",
                         ],
                         sa.select(
                             sa.literal(forked_workflow_id).label("workflow_uuid"),
                             weh1.c.key,
                             weh1.c.value,
+                            weh1.c.serialization,
                         ).where(
                             (weh1.c.workflow_uuid == original_workflow_id)
                             & (weh1.c.function_id == max_function_id_subquery)
@@ -860,6 +891,7 @@ class SystemDatabase(ABC):
                             "function_id",
                             "key",
                             "value",
+                            "serialization",
                             "offset",
                         ],
                         sa.select(
@@ -867,6 +899,7 @@ class SystemDatabase(ABC):
                             SystemSchema.streams.c.function_id,
                             SystemSchema.streams.c.key,
                             SystemSchema.streams.c.value,
+                            SystemSchema.streams.c.serialization,
                             SystemSchema.streams.c.offset,
                         ).where(
                             (
@@ -910,6 +943,7 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.forked_from,
                     SystemSchema.workflow_status.c.parent_workflow_id,
                     SystemSchema.workflow_status.c.started_at_epoch_ms,
+                    SystemSchema.workflow_status.c.serialization,
                 ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_uuid)
             ).fetchone()
             if row is None:
@@ -941,6 +975,7 @@ class SystemDatabase(ABC):
                 "forked_from": row[20],
                 "parent_workflow_id": row[21],
                 "started_at_epoch_ms": row[22],
+                "serialization": row[23],
                 "owner_xid": None,
             }
             return status
@@ -973,39 +1008,105 @@ class SystemDatabase(ABC):
             return workflow_id
 
     @db_retry()
+    def check_workflow_result(self, workflow_id: str) -> Union[NoResult, Any]:
+        """Check if a workflow has completed and return its result.
+
+        Returns NoResult() if the workflow is still pending/enqueued/not found.
+        Returns the deserialized output on success.
+        Raises on error, cancellation, or max recovery attempts exceeded.
+        """
+        with self.engine.begin() as c:
+            row = c.execute(
+                sa.select(
+                    SystemSchema.workflow_status.c.status,
+                    SystemSchema.workflow_status.c.output,
+                    SystemSchema.workflow_status.c.error,
+                    SystemSchema.workflow_status.c.serialization,
+                ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+            ).fetchone()
+            if row is not None:
+                status = row[0]
+                if status == WorkflowStatusString.SUCCESS.value:
+                    output = row[1]
+                    return deserialize_value(output, row[3], self.serializer)
+                elif status == WorkflowStatusString.ERROR.value:
+                    error = row[2]
+                    e: Exception = deserialize_exception(error, row[3], self.serializer)
+                    raise e
+                elif status == WorkflowStatusString.CANCELLED.value:
+                    # Raise AwaitedWorkflowCancelledError here, not the cancellation exception
+                    # because the awaiting workflow is not being cancelled.
+                    raise DBOSAwaitedWorkflowCancelledError(workflow_id)
+                elif (
+                    status == WorkflowStatusString.MAX_RECOVERY_ATTEMPTS_EXCEEDED.value
+                ):
+                    raise DBOSAwaitedWorkflowMaxRecoveryAttemptsExceeded(workflow_id)
+        return NoResult()
+
     def await_workflow_result(self, workflow_id: str, polling_interval: float) -> Any:
         while True:
-            with self.engine.begin() as c:
-                row = c.execute(
-                    sa.select(
-                        SystemSchema.workflow_status.c.status,
-                        SystemSchema.workflow_status.c.output,
-                        SystemSchema.workflow_status.c.error,
-                    ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
-                ).fetchone()
-                if row is not None:
-                    status = row[0]
-                    if status == WorkflowStatusString.SUCCESS.value:
-                        output = row[1]
-                        return self.serializer.deserialize(output)
-                    elif status == WorkflowStatusString.ERROR.value:
-                        error = row[2]
-                        e: Exception = self.serializer.deserialize(error)
-                        raise e
-                    elif status == WorkflowStatusString.CANCELLED.value:
-                        # Raise AwaitedWorkflowCancelledError here, not the cancellation exception
-                        # because the awaiting workflow is not being cancelled.
-                        raise DBOSAwaitedWorkflowCancelledError(workflow_id)
-                    elif (
-                        status
-                        == WorkflowStatusString.MAX_RECOVERY_ATTEMPTS_EXCEEDED.value
-                    ):
-                        raise DBOSAwaitedWorkflowMaxRecoveryAttemptsExceeded(
-                            workflow_id
-                        )
-                else:
-                    pass  # CB: I guess we're assuming the WF will show up eventually.
+            result = self.check_workflow_result(workflow_id)
+            if not isinstance(result, NoResult):
+                return result
             time.sleep(polling_interval)
+
+    async def await_workflow_result_async(
+        self, workflow_id: str, polling_interval: float
+    ) -> Any:
+        while True:
+            result = await asyncio.to_thread(self.check_workflow_result, workflow_id)
+            if not isinstance(result, NoResult):
+                return result
+            await asyncio.sleep(polling_interval)
+
+    @db_retry()
+    def check_first_workflow_id(self, workflow_ids: List[str]) -> Union[NoResult, str]:
+        """Check if at least one of the given workflows has completed.
+
+        A workflow is considered complete when its status is not PENDING
+        and not ENQUEUED.  Returns the workflow_uuid of the first
+        completed workflow found, or NoResult() if none have completed.
+        """
+        if not workflow_ids:
+            raise ValueError("workflow_ids must not be empty")
+        with self.engine.begin() as c:
+            row = c.execute(
+                sa.select(
+                    SystemSchema.workflow_status.c.workflow_uuid,
+                )
+                .where(
+                    SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids),
+                    ~SystemSchema.workflow_status.c.status.in_(
+                        [
+                            WorkflowStatusString.PENDING.value,
+                            WorkflowStatusString.ENQUEUED.value,
+                        ]
+                    ),
+                )
+                .limit(1)
+            ).fetchone()
+            if row is not None:
+                result: str = row[0]
+                return result
+        return NoResult()
+
+    def await_first_workflow_id(
+        self, workflow_ids: List[str], polling_interval: float
+    ) -> str:
+        while True:
+            result = self.check_first_workflow_id(workflow_ids)
+            if not isinstance(result, NoResult):
+                return result
+            time.sleep(polling_interval)
+
+    async def await_first_workflow_id_async(
+        self, workflow_ids: List[str], polling_interval: float
+    ) -> str:
+        while True:
+            result = await asyncio.to_thread(self.check_first_workflow_id, workflow_ids)
+            if not isinstance(result, NoResult):
+                return result
+            await asyncio.sleep(polling_interval)
 
     def list_workflows(
         self,
@@ -1080,6 +1181,8 @@ class SystemDatabase(ABC):
         if load_output:
             load_columns.append(SystemSchema.workflow_status.c.output)
             load_columns.append(SystemSchema.workflow_status.c.error)
+        if load_input or load_output:
+            load_columns.append(SystemSchema.workflow_status.c.serialization)
 
         if queues_only:
             query = sa.select(*load_columns).where(
@@ -1193,8 +1296,14 @@ class SystemDatabase(ABC):
                 idx += 1
             raw_output = row[idx] if load_output else None
             raw_error = row[idx + 1] if load_output else None
+            if load_output:
+                idx += 2
+            serialization = row[idx] if load_input or load_output else None
+            if load_input or load_output:
+                idx += 1
             inputs, output, exception = safe_deserialize(
                 self.serializer,
+                serialization,
                 info.workflow_id,
                 serialized_input=raw_input,
                 serialized_output=raw_output,
@@ -1242,6 +1351,7 @@ class SystemDatabase(ABC):
                     SystemSchema.operation_outputs.c.child_workflow_id,
                     SystemSchema.operation_outputs.c.started_at_epoch_ms,
                     SystemSchema.operation_outputs.c.completed_at_epoch_ms,
+                    SystemSchema.operation_outputs.c.serialization,
                 )
                 .where(SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
                 .order_by(SystemSchema.operation_outputs.c.function_id)
@@ -1250,6 +1360,7 @@ class SystemDatabase(ABC):
             for row in rows:
                 _, output, exception = safe_deserialize(
                     self.serializer,
+                    row[7],
                     workflow_id,
                     serialized_input=None,
                     serialized_output=row[2],
@@ -1313,6 +1424,7 @@ class SystemDatabase(ABC):
                     completed_at_epoch_ms=completed_at_epoch_ms,
                     output=output,
                     error=error,
+                    serialization=result["serialization"],
                 )
                 .on_conflict_do_nothing(
                     index_elements=[
@@ -1351,6 +1463,7 @@ class SystemDatabase(ABC):
         result_workflow_id: str,
         output: Optional[str],
         error: Optional[str],
+        serialization: Optional[str],
         ctx: Optional["DBOSContext"] = None,
     ) -> None:
         if ctx is None:
@@ -1370,6 +1483,7 @@ class SystemDatabase(ABC):
                 output=output,
                 error=error,
                 child_workflow_id=result_workflow_id,
+                serialization=serialization,
             )
             .on_conflict_do_nothing()
         )
@@ -1426,6 +1540,7 @@ class SystemDatabase(ABC):
             SystemSchema.operation_outputs.c.error,
             SystemSchema.operation_outputs.c.function_name,
             SystemSchema.operation_outputs.c.child_workflow_id,
+            SystemSchema.operation_outputs.c.serialization,
         ).where(
             (SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
             & (SystemSchema.operation_outputs.c.function_id == function_id)
@@ -1454,11 +1569,12 @@ class SystemDatabase(ABC):
             return None
 
         # Extract operation output data
-        output, error, recorded_function_name, child_workflow_id = (
+        output, error, recorded_function_name, child_workflow_id, serialization = (
             operation_output_rows[0][0],
             operation_output_rows[0][1],
             operation_output_rows[0][2],
             operation_output_rows[0][3],
+            operation_output_rows[0][4],
         )
 
         # If the provided and recorded function name are different, throw an exception
@@ -1473,6 +1589,7 @@ class SystemDatabase(ABC):
         result: RecordedResult = {
             "output": output,
             "error": error,
+            "serialization": serialization,
             "child_workflow_id": child_workflow_id,
         }
         return result
@@ -1493,11 +1610,21 @@ class SystemDatabase(ABC):
         function_id: int,
         destination_uuid: str,
         message: Any,
-        topic: Optional[str] = None,
+        topic: Optional[str],
+        *,
+        serialization_type: Optional["WorkflowSerializationFormat"],
+        message_uuid: Optional[str],
     ) -> None:
         function_name = "DBOS.send"
         start_time = int(time.time() * 1000)
         topic = topic if topic is not None else _dbos_null_topic
+        if message_uuid is None:
+            message_uuid = str(generate_uuid())
+        serval, serialization = serialize_value(
+            message,
+            serialization_type,
+            self.serializer,
+        )
         with self.engine.begin() as c:
             recorded_output = self._check_operation_execution_txn(
                 workflow_uuid, function_id, function_name, conn=c
@@ -1514,10 +1641,18 @@ class SystemDatabase(ABC):
 
             try:
                 c.execute(
-                    sa.insert(SystemSchema.notifications).values(
+                    self.dialect.insert(SystemSchema.notifications)
+                    .values(
                         destination_uuid=destination_uuid,
                         topic=topic,
-                        message=self.serializer.serialize(message),
+                        message=serval,
+                        message_uuid=message_uuid,
+                        serialization=serialization,
+                    )
+                    .on_conflict_do_nothing(
+                        index_elements=[
+                            SystemSchema.notifications.c.message_uuid,
+                        ]
                     )
                 )
             except DBAPIError as dbapi_error:
@@ -1533,18 +1668,74 @@ class SystemDatabase(ABC):
                 "started_at_epoch_ms": start_time,
                 "output": None,
                 "error": None,
+                "serialization": None,
             }
             self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
 
     @db_retry()
-    def recv(
+    def send_direct(
+        self,
+        destination_uuid: str,
+        message: Any,
+        topic: Optional[str] = None,
+        message_uuid: Optional[str] = None,
+        *,
+        serialization_type: Optional["WorkflowSerializationFormat"] = None,
+    ) -> None:
+        """Send a message without requiring a workflow context.
+
+        Idempotency is provided by the primary key constraint on message_uuid.
+        On duplicate message_uuid, silently returns (idempotent replay).
+        """
+
+        topic = topic if topic is not None else _dbos_null_topic
+        if message_uuid is None:
+            message_uuid = str(generate_uuid())
+        serval, serialization = serialize_value(
+            message,
+            serialization_type,
+            self.serializer,
+        )
+        try:
+            with self.engine.begin() as c:
+                c.execute(
+                    self.dialect.insert(SystemSchema.notifications)
+                    .values(
+                        destination_uuid=destination_uuid,
+                        topic=topic,
+                        message=serval,
+                        message_uuid=message_uuid,
+                        serialization=serialization,
+                    )
+                    .on_conflict_do_nothing(
+                        index_elements=[
+                            SystemSchema.notifications.c.message_uuid,
+                        ]
+                    )
+                )
+        except DBAPIError as dbapi_error:
+            if self._is_foreign_key_violation(dbapi_error):
+                raise DBOSNonExistentWorkflowError(
+                    "`send` destination", destination_uuid
+                )
+            raise
+
+    @db_retry()
+    def recv_setup(
         self,
         workflow_uuid: str,
         function_id: int,
         timeout_function_id: int,
         topic: Optional[str],
         timeout_seconds: float = 60,
-    ) -> Any:
+    ) -> Union[
+        tuple[Literal[True], Any],
+        tuple[Literal[False], threading.Event, float, str, int],
+    ]:
+        """Setup phase of recv. Returns either:
+        - (True, result) if a cached result was found (OAOO replay or message already available)
+        - (False, event, actual_timeout, payload, start_time) if caller must wait on the event
+        """
         function_name = "DBOS.recv"
         start_time = int(time.time() * 1000)
         topic = topic if topic is not None else _dbos_null_topic
@@ -1556,24 +1747,26 @@ class SystemDatabase(ABC):
         if recorded_output is not None:
             dbos_logger.debug(f"Replaying recv, id: {function_id}, topic: {topic}")
             if recorded_output["output"] is not None:
-                return self.serializer.deserialize(recorded_output["output"])
+                return True, deserialize_value(
+                    recorded_output["output"],
+                    recorded_output["serialization"],
+                    self.serializer,
+                )
             else:
                 raise Exception("No output recorded in the last recv")
         else:
             dbos_logger.debug(f"Running recv, id: {function_id}, topic: {topic}")
 
-        # Insert a condition to the notifications map, so the listener can notify it when a message is received.
+        # Insert an event to the notifications map, so the listener can signal it when a message is received.
         payload = f"{workflow_uuid}::{topic}"
-        condition = threading.Condition()
-        # Must acquire first before adding to the map. Otherwise, the notification listener may notify it before the condition is acquired and waited.
-        try:
-            condition.acquire()
-            success, _ = self.notifications_map.set(payload, condition)
-            if not success:
-                # This should not happen, but if it does, it means the workflow is executed concurrently.
-                raise DBOSWorkflowConflictIDError(workflow_uuid)
+        event = threading.Event()
+        success, _ = self.notifications_map.set(payload, event)
+        if not success:
+            # This should not happen, but if it does, it means the workflow is executed concurrently.
+            raise DBOSWorkflowConflictIDError(workflow_uuid)
 
-            # Check if the key is already in the database. If not, wait for the notification.
+        try:
+            # Check if an unconsumed message is already in the database.
             init_recv: Sequence[Any]
             with self.engine.begin() as c:
                 init_recv = c.execute(
@@ -1582,27 +1775,44 @@ class SystemDatabase(ABC):
                     ).where(
                         SystemSchema.notifications.c.destination_uuid == workflow_uuid,
                         SystemSchema.notifications.c.topic == topic,
+                        SystemSchema.notifications.c.consumed == False,
                     )
                 ).fetchall()
 
-            if len(init_recv) == 0:
-                # Wait for the notification
-                # Support OAOO sleep
-                actual_timeout = self.sleep(
-                    workflow_uuid, timeout_function_id, timeout_seconds, skip_sleep=True
-                )
-                condition.wait(timeout=actual_timeout)
-        finally:
-            condition.release()
-            self.notifications_map.pop(payload)
+            if len(init_recv) > 0:
+                # Message already available, signal the event so wait is a no-op
+                event.set()
 
-        # Transactionally consume and return the message if it's in the database, otherwise return null.
+            # Record the durable sleep timeout
+            actual_timeout = self.record_sleep(
+                workflow_uuid, timeout_function_id, timeout_seconds
+            )
+        except:
+            self.notifications_map.pop(payload)
+            raise
+
+        return False, event, actual_timeout, payload, start_time
+
+    @db_retry()
+    def recv_consume(
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        topic: Optional[str],
+        start_time: int,
+    ) -> Any:
+        """Consume phase of recv. Transactionally consumes the oldest unconsumed
+        message and records the operation result."""
+        function_name = "DBOS.recv"
+        topic = topic if topic is not None else _dbos_null_topic
+
         with self.engine.begin() as c:
-            delete_stmt = (
-                sa.delete(SystemSchema.notifications)
+            consume_stmt = (
+                sa.update(SystemSchema.notifications)
                 .where(
                     SystemSchema.notifications.c.destination_uuid == workflow_uuid,
                     SystemSchema.notifications.c.topic == topic,
+                    SystemSchema.notifications.c.consumed == False,
                     SystemSchema.notifications.c.message_uuid
                     == (
                         sa.select(SystemSchema.notifications.c.message_uuid)
@@ -1610,6 +1820,7 @@ class SystemDatabase(ABC):
                             SystemSchema.notifications.c.destination_uuid
                             == workflow_uuid,
                             SystemSchema.notifications.c.topic == topic,
+                            SystemSchema.notifications.c.consumed == False,
                         )
                         .order_by(
                             SystemSchema.notifications.c.created_at_epoch_ms.asc()
@@ -1618,27 +1829,92 @@ class SystemDatabase(ABC):
                         .scalar_subquery()
                     ),
                 )
-                .returning(SystemSchema.notifications.c.message)
+                .values(consumed=True)
+                .returning(
+                    SystemSchema.notifications.c.message,
+                    SystemSchema.notifications.c.serialization,
+                )
             )
-            rows = c.execute(delete_stmt).fetchall()
+            rows = c.execute(consume_stmt).fetchall()
             message: Any = None
+            serialization: Optional[str] = None
             if len(rows) > 0:
-                message = self.serializer.deserialize(rows[0][0])
+                message = deserialize_value(rows[0][0], rows[0][1], self.serializer)
+                serialization = rows[0][1]
+
+            sermsg, serialization = serialize_value_as(
+                message, serialization, self.serializer
+            )
             self._record_operation_result_txn(
                 {
                     "workflow_uuid": workflow_uuid,
                     "function_id": function_id,
                     "function_name": function_name,
                     "started_at_epoch_ms": start_time,
-                    "output": self.serializer.serialize(
-                        message
-                    ),  # None will be serialized to 'null'
+                    "output": sermsg,
+                    "serialization": serialization,
                     "error": None,
                 },
                 int(time.time() * 1000),
                 conn=c,
             )
         return message
+
+    def recv(
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        timeout_function_id: int,
+        topic: Optional[str],
+        timeout_seconds: float = 60,
+    ) -> Any:
+        setup = self.recv_setup(
+            workflow_uuid, function_id, timeout_function_id, topic, timeout_seconds
+        )
+        if setup[0]:
+            return setup[1]
+        _, event, actual_timeout, payload, start_time = setup
+        try:
+            event.wait(timeout=actual_timeout)
+            return self.recv_consume(workflow_uuid, function_id, topic, start_time)
+        finally:
+            self.notifications_map.pop(payload)
+
+    async def recv_async(
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        timeout_function_id: int,
+        topic: Optional[str],
+        timeout_seconds: float = 60,
+    ) -> Any:
+        setup = await asyncio.to_thread(
+            self.recv_setup,
+            workflow_uuid,
+            function_id,
+            timeout_function_id,
+            topic,
+            timeout_seconds,
+        )
+        if setup[0]:
+            return setup[1]
+        _, event, actual_timeout, payload, start_time = setup
+        try:
+            deadline = time.time() + actual_timeout
+            while not event.is_set():
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(remaining, 0.1))
+            return await asyncio.to_thread(
+                self.recv_consume,
+                workflow_uuid,
+                function_id,
+                topic,
+                start_time,
+            )
+        finally:
+            self.notifications_map.pop(payload)
 
     @abstractmethod
     def _notification_listener(self) -> None:
@@ -1655,14 +1931,12 @@ class SystemDatabase(ABC):
                 return parts[0], parts[1]
             return payload, None
 
-        def signal_condition(condition_map: Any, payload: str) -> None:
-            """Signal a condition variable if it exists."""
-            condition = condition_map.get(payload)
-            if condition:
-                condition.acquire()
-                condition.notify_all()
-                condition.release()
-                dbos_logger.debug(f"Signaled condition for {payload}")
+        def signal_event(event_map: ThreadSafeEventDict, payload: str) -> None:
+            """Signal an event if it exists."""
+            event = event_map.get(payload)
+            if event:
+                event.set()
+                dbos_logger.debug(f"Signaled event for {payload}")
 
         while self._run_background_processes:
             try:
@@ -1679,11 +1953,12 @@ class SystemDatabase(ABC):
                                 SystemSchema.notifications.c.destination_uuid
                                 == dest_uuid,
                                 SystemSchema.notifications.c.topic == topic,
+                                SystemSchema.notifications.c.consumed == False,
                             )
                             .limit(1)
                         )
                         if result.fetchone():
-                            signal_condition(self.notifications_map, payload)
+                            signal_event(self.notifications_map, payload)
 
                 # Check all payloads in the workflow_events_map
                 for payload in list(self.workflow_events_map._dict.keys()):
@@ -1699,7 +1974,7 @@ class SystemDatabase(ABC):
                             .limit(1)
                         )
                         if result.fetchone():
-                            signal_condition(self.workflow_events_map, payload)
+                            signal_event(self.workflow_events_map, payload)
 
             except Exception as e:
                 if self._run_background_processes:
@@ -1719,12 +1994,11 @@ class SystemDatabase(ABC):
             PostgresSystemDatabase._reset_system_database(database_url)
 
     @db_retry()
-    def sleep(
+    def record_sleep(
         self,
         workflow_uuid: str,
         function_id: int,
         seconds: float,
-        skip_sleep: bool = False,
     ) -> float:
         function_name = "DBOS.sleep"
         start_time = int(time.time() * 1000)
@@ -1735,7 +2009,14 @@ class SystemDatabase(ABC):
         if recorded_output is not None:
             dbos_logger.debug(f"Replaying sleep, id: {function_id}, seconds: {seconds}")
             assert recorded_output["output"] is not None, "no recorded end time"
-            end_time = self.serializer.deserialize(recorded_output["output"])
+            end_time = cast(
+                float,
+                deserialize_value(
+                    recorded_output["output"],
+                    recorded_output["serialization"],
+                    self.serializer,
+                ),
+            )
         else:
             dbos_logger.debug(f"Running sleep, id: {function_id}, seconds: {seconds}")
             end_time = time.time() + seconds
@@ -1746,16 +2027,14 @@ class SystemDatabase(ABC):
                         "function_id": function_id,
                         "function_name": function_name,
                         "started_at_epoch_ms": start_time,
-                        "output": self.serializer.serialize(end_time),
+                        "output": DBOSPortableJSON.serialize(end_time),
                         "error": None,
+                        "serialization": DBOSPortableJSON.name(),
                     }
                 )
             except DBOSWorkflowConflictIDError:
                 pass
-        duration = max(0, end_time - time.time())
-        if not skip_sleep:
-            time.sleep(duration)
-        return duration
+        return max(0, end_time - time.time())
 
     @db_retry()
     def set_event_from_workflow(
@@ -1764,7 +2043,14 @@ class SystemDatabase(ABC):
         function_id: int,
         key: str,
         message: Any,
+        *,
+        serialization_type: WorkflowSerializationFormat,
     ) -> None:
+        serval, serialization = serialize_value(
+            message,
+            serialization_type,
+            self.serializer,
+        )
         function_name = "DBOS.setEvent"
         start_time = int(time.time() * 1000)
         with self.engine.begin() as c:
@@ -1781,11 +2067,15 @@ class SystemDatabase(ABC):
                 .values(
                     workflow_uuid=workflow_uuid,
                     key=key,
-                    value=self.serializer.serialize(message),
+                    value=serval,
+                    serialization=serialization,
                 )
                 .on_conflict_do_update(
                     index_elements=["workflow_uuid", "key"],
-                    set_={"value": self.serializer.serialize(message)},
+                    set_={
+                        "value": serval,
+                        "serialization": serialization,
+                    },
                 )
             )
             c.execute(
@@ -1794,11 +2084,15 @@ class SystemDatabase(ABC):
                     workflow_uuid=workflow_uuid,
                     function_id=function_id,
                     key=key,
-                    value=self.serializer.serialize(message),
+                    value=serval,
+                    serialization=serialization,
                 )
                 .on_conflict_do_update(
                     index_elements=["workflow_uuid", "key", "function_id"],
-                    set_={"value": self.serializer.serialize(message)},
+                    set_={
+                        "value": serval,
+                        "serialization": serialization,
+                    },
                 )
             )
             output: OperationResultInternal = {
@@ -1808,6 +2102,7 @@ class SystemDatabase(ABC):
                 "started_at_epoch_ms": start_time,
                 "output": None,
                 "error": None,
+                "serialization": None,
             }
             self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
 
@@ -1817,18 +2112,30 @@ class SystemDatabase(ABC):
         function_id: int,
         key: str,
         message: Any,
+        *,
+        serialization_type: WorkflowSerializationFormat,
     ) -> None:
+        serval, serialization = serialize_value(
+            message,
+            serialization_type,
+            self.serializer,
+        )
+
         with self.engine.begin() as c:
             c.execute(
                 self.dialect.insert(SystemSchema.workflow_events)
                 .values(
                     workflow_uuid=workflow_uuid,
                     key=key,
-                    value=self.serializer.serialize(message),
+                    value=serval,
+                    serialization=serialization,
                 )
                 .on_conflict_do_update(
                     index_elements=["workflow_uuid", "key"],
-                    set_={"value": self.serializer.serialize(message)},
+                    set_={
+                        "value": serval,
+                        "serialization": serialization,
+                    },
                 )
             )
             c.execute(
@@ -1837,11 +2144,15 @@ class SystemDatabase(ABC):
                     workflow_uuid=workflow_uuid,
                     function_id=function_id,
                     key=key,
-                    value=self.serializer.serialize(message),
+                    value=serval,
+                    serialization=serialization,
                 )
                 .on_conflict_do_update(
                     index_elements=["workflow_uuid", "key", "function_id"],
-                    set_={"value": self.serializer.serialize(message)},
+                    set_={
+                        "value": serval,
+                        "serialization": serialization,
+                    },
                 )
             )
 
@@ -1860,32 +2171,35 @@ class SystemDatabase(ABC):
                 sa.select(
                     SystemSchema.workflow_events.c.key,
                     SystemSchema.workflow_events.c.value,
+                    SystemSchema.workflow_events.c.serialization,
                 ).where(SystemSchema.workflow_events.c.workflow_uuid == workflow_id)
             ).fetchall()
             events: Dict[str, Any] = {}
             for row in rows:
                 key = row[0]
-                value = self.serializer.deserialize(row[1])
+                value = deserialize_value(row[1], row[2], self.serializer)
                 events[key] = value
 
             return events
 
     @db_retry()
-    def get_event(
+    def get_event_setup(
         self,
         target_uuid: str,
         key: str,
         timeout_seconds: float = 60,
         caller_ctx: Optional[GetEventWorkflowContext] = None,
-    ) -> Any:
+    ) -> Union[
+        tuple[Literal[True], Any],
+        tuple[Literal[False], threading.Event, float, str, int],
+    ]:
+        """Setup phase of get_event. Returns either:
+        - (True, result) if a cached result was found (OAOO replay)
+        - (False, event, actual_timeout, payload, start_time) if caller must wait on the event
+        """
         function_name = "DBOS.getEvent"
         start_time = int(time.time() * 1000)
-        get_sql = sa.select(
-            SystemSchema.workflow_events.c.value,
-        ).where(
-            SystemSchema.workflow_events.c.workflow_uuid == target_uuid,
-            SystemSchema.workflow_events.c.key == key,
-        )
+
         # Check for previous executions only if it's in a workflow
         if caller_ctx is not None:
             recorded_output = self.check_operation_execution(
@@ -1896,7 +2210,11 @@ class SystemDatabase(ABC):
                     f"Replaying get_event, id: {caller_ctx['function_id']}, key: {key}"
                 )
                 if recorded_output["output"] is not None:
-                    return self.serializer.deserialize(recorded_output["output"])
+                    return True, deserialize_value(
+                        recorded_output["output"],
+                        recorded_output["serialization"],
+                        self.serializer,
+                    )
                 else:
                     raise Exception("No output recorded in the last get_event")
             else:
@@ -1905,59 +2223,139 @@ class SystemDatabase(ABC):
                 )
 
         payload = f"{target_uuid}::{key}"
-        condition = threading.Condition()
-        condition.acquire()
-        success, existing_condition = self.workflow_events_map.set(payload, condition)
+        event = threading.Event()
+        success, existing_event = self.workflow_events_map.set(payload, event)
         if not success:
-            # Wait on the existing condition
-            condition.release()
-            condition = existing_condition
-            condition.acquire()
+            # Key already exists, wait on the existing event
+            event = existing_event
 
-        # Check if the key is already in the database. If not, wait for the notification.
-        init_recv: Sequence[Any]
-        with self.engine.begin() as c:
-            init_recv = c.execute(get_sql).fetchall()
+        try:
+            # Check if the key is already in the database
+            with self.engine.begin() as c:
+                init_recv = c.execute(
+                    sa.select(
+                        SystemSchema.workflow_events.c.value,
+                        SystemSchema.workflow_events.c.serialization,
+                    ).where(
+                        SystemSchema.workflow_events.c.workflow_uuid == target_uuid,
+                        SystemSchema.workflow_events.c.key == key,
+                    )
+                ).fetchall()
 
-        value: Any = None
-        if len(init_recv) > 0:
-            value = self.serializer.deserialize(init_recv[0][0])
-        else:
-            # Wait for the notification
+            if len(init_recv) > 0:
+                event.set()
+
+            # Record the durable sleep timeout
             actual_timeout = timeout_seconds
             if caller_ctx is not None:
-                # Support OAOO sleep for workflows
-                actual_timeout = self.sleep(
+                actual_timeout = self.record_sleep(
                     caller_ctx["workflow_uuid"],
                     caller_ctx["timeout_function_id"],
                     timeout_seconds,
-                    skip_sleep=True,
                 )
-            condition.wait(timeout=actual_timeout)
+        except:
+            self.workflow_events_map.pop(payload)
+            raise
 
-            # Read the value from the database
-            with self.engine.begin() as c:
-                final_recv = c.execute(get_sql).fetchall()
-                if len(final_recv) > 0:
-                    value = self.serializer.deserialize(final_recv[0][0])
-        condition.release()
-        self.workflow_events_map.pop(payload)
+        return False, event, actual_timeout, payload, start_time
+
+    @db_retry()
+    def get_event_consume(
+        self,
+        target_uuid: str,
+        key: str,
+        start_time: int,
+        caller_ctx: Optional[GetEventWorkflowContext] = None,
+    ) -> Any:
+        """Consume phase of get_event. Reads the value from the database
+        and records the operation result if in a workflow."""
+        function_name = "DBOS.getEvent"
+
+        with self.engine.begin() as c:
+            rows = c.execute(
+                sa.select(
+                    SystemSchema.workflow_events.c.value,
+                    SystemSchema.workflow_events.c.serialization,
+                ).where(
+                    SystemSchema.workflow_events.c.workflow_uuid == target_uuid,
+                    SystemSchema.workflow_events.c.key == key,
+                )
+            ).fetchall()
+
+        value: Any = None
+        serialization: Optional[str] = None
+        if len(rows) > 0:
+            serialization = rows[0][1]
+            value = deserialize_value(rows[0][0], serialization, self.serializer)
 
         # Record the output if it's in a workflow
         if caller_ctx is not None:
+            serval, serialization = serialize_value_as(
+                value, serialization, self.serializer
+            )
             self.record_operation_result(
                 {
                     "workflow_uuid": caller_ctx["workflow_uuid"],
                     "function_id": caller_ctx["function_id"],
                     "function_name": function_name,
                     "started_at_epoch_ms": start_time,
-                    "output": self.serializer.serialize(
-                        value
-                    ),  # None will be serialized to 'null'
+                    "output": serval,
+                    "serialization": serialization,
                     "error": None,
                 }
             )
         return value
+
+    def get_event(
+        self,
+        target_uuid: str,
+        key: str,
+        timeout_seconds: float = 60,
+        caller_ctx: Optional[GetEventWorkflowContext] = None,
+    ) -> Any:
+        setup = self.get_event_setup(target_uuid, key, timeout_seconds, caller_ctx)
+        if setup[0]:
+            return setup[1]
+        _, event, actual_timeout, payload, start_time = setup
+        try:
+            event.wait(timeout=actual_timeout)
+            return self.get_event_consume(target_uuid, key, start_time, caller_ctx)
+        finally:
+            self.workflow_events_map.pop(payload)
+
+    async def get_event_async(
+        self,
+        target_uuid: str,
+        key: str,
+        timeout_seconds: float = 60,
+        caller_ctx: Optional[GetEventWorkflowContext] = None,
+    ) -> Any:
+        setup = await asyncio.to_thread(
+            self.get_event_setup,
+            target_uuid,
+            key,
+            timeout_seconds,
+            caller_ctx,
+        )
+        if setup[0]:
+            return setup[1]
+        _, event, actual_timeout, payload, start_time = setup
+        try:
+            deadline = time.time() + actual_timeout
+            while not event.is_set():
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(remaining, 0.1))
+            return await asyncio.to_thread(
+                self.get_event_consume,
+                target_uuid,
+                key,
+                start_time,
+                caller_ctx,
+            )
+        finally:
+            self.workflow_events_map.pop(payload)
 
     @db_retry()
     def get_queue_partitions(self, queue_name: str) -> List[str]:
@@ -2199,12 +2597,19 @@ class SystemDatabase(ABC):
             )
             if res is not None:
                 if res["output"] is not None:
-                    resstat: SystemDatabase.T = self.serializer.deserialize(
-                        res["output"]
+                    resstat: SystemDatabase.T = cast(
+                        SystemDatabase.T,
+                        deserialize_value(
+                            res["output"],
+                            res["serialization"],
+                            self.serializer,
+                        ),
                     )
                     return resstat
                 elif res["error"] is not None:
-                    e: Exception = self.serializer.deserialize(res["error"])
+                    e: Exception = deserialize_exception(
+                        res["error"], res["serialization"], self.serializer
+                    )
                     raise e
                 else:
                     raise Exception(
@@ -2212,24 +2617,71 @@ class SystemDatabase(ABC):
                     )
         result = fn()
         if ctx and ctx.is_workflow():
+            serval, serialization = serialize_value(result, None, self.serializer)
             self.record_operation_result(
                 {
                     "workflow_uuid": ctx.workflow_id,
                     "function_id": ctx.function_id,
                     "function_name": function_name,
                     "started_at_epoch_ms": start_time,
-                    "output": self.serializer.serialize(result),
+                    "output": serval,
+                    "serialization": serialization,
                     "error": None,
                 }
             )
         return result
 
-    async def call_function_as_step_from_async(
-        self, fn: Callable[[], T], function_name: str, ctx: Optional[DBOSContext]
+    async def call_coroutine_as_step(
+        self,
+        fn: Callable[[], Awaitable[T]],
+        function_name: str,
+        ctx: Optional[DBOSContext],
     ) -> T:
-        return await asyncio.to_thread(
-            self.call_function_as_step, fn, function_name, ctx
-        )
+        start_time = int(time.time() * 1000)
+        if ctx and ctx.is_transaction():
+            raise Exception(f"Invalid call to `{function_name}` inside a transaction")
+        if ctx and ctx.is_workflow():
+            res = await asyncio.to_thread(
+                self.check_operation_execution,
+                ctx.workflow_id,
+                ctx.function_id,
+                function_name,
+            )
+            if res is not None:
+                if res["output"] is not None:
+                    return cast(
+                        SystemDatabase.T,
+                        deserialize_value(
+                            res["output"],
+                            res["serialization"],
+                            self.serializer,
+                        ),
+                    )
+                elif res["error"] is not None:
+                    e: Exception = deserialize_exception(
+                        res["error"], res["serialization"], self.serializer
+                    )
+                    raise e
+                else:
+                    raise Exception(
+                        f"Recorded output and error are both None for {function_name}"
+                    )
+        result = await fn()
+        if ctx and ctx.is_workflow():
+            serval, serialization = serialize_value(result, None, self.serializer)
+            await asyncio.to_thread(
+                self.record_operation_result,
+                {
+                    "workflow_uuid": ctx.workflow_id,
+                    "function_id": ctx.function_id,
+                    "function_name": function_name,
+                    "started_at_epoch_ms": start_time,
+                    "output": serval,
+                    "serialization": serialization,
+                    "error": None,
+                },
+            )
+        return result
 
     @db_retry()
     def init_workflow(
@@ -2242,7 +2694,7 @@ class SystemDatabase(ABC):
         is_dequeued_request: Optional[bool],
     ) -> tuple[WorkflowStatuses, Optional[int], bool]:
         """
-        Synchronously record the status and inputs for workflows in a single transaction
+        Record the initial status and inputs for a workflow, and indicate if this is a new record
         """
         with self.engine.begin() as conn:
             wf_status, workflow_deadline_epoch_ms, should_execute = (
@@ -2267,16 +2719,22 @@ class SystemDatabase(ABC):
             raise
 
     def _stream_insert_stmt(
-        self, workflow_uuid: str, function_id: int, key: str, serialized_value: str
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        key: str,
+        serialized_value: Optional[str],
+        serialization: Optional[str],
     ) -> sa.Insert:
         """Build an atomic INSERT...SELECT that computes the next stream offset."""
         return sa.insert(SystemSchema.streams).from_select(
-            ["workflow_uuid", "function_id", "key", "value", "offset"],
+            ["workflow_uuid", "function_id", "key", "value", "serialization", "offset"],
             sa.select(
                 sa.literal(workflow_uuid).label("workflow_uuid"),
                 sa.literal(function_id).label("function_id"),
                 sa.literal(key).label("key"),
                 sa.literal(serialized_value).label("value"),
+                sa.literal(serialization).label("serialization"),
                 (
                     sa.func.coalesce(
                         sa.select(sa.func.max(SystemSchema.streams.c.offset))
@@ -2294,14 +2752,28 @@ class SystemDatabase(ABC):
         )
 
     def write_stream_from_step(
-        self, workflow_uuid: str, function_id: int, key: str, value: Any
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        key: str,
+        value: Any,
+        *,
+        serialization_type: WorkflowSerializationFormat,
     ) -> None:
         """
         Write a key-value pair to the stream at the first unused offset.
         """
-        stmt = self._stream_insert_stmt(
-            workflow_uuid, function_id, key, self.serializer.serialize(value)
+        # Serialize the value before storing
+        serialized_value, serialization = serialize_value(
+            value,
+            serialization_type,
+            self.serializer,
         )
+
+        stmt = self._stream_insert_stmt(
+            workflow_uuid, function_id, key, serialized_value, serialization
+        )
+
         while True:
             try:
                 with self.engine.begin() as c:
@@ -2316,8 +2788,20 @@ class SystemDatabase(ABC):
 
     @db_retry()
     def write_stream_from_workflow(
-        self, workflow_uuid: str, function_id: int, key: str, value: Any
+        self,
+        workflow_uuid: str,
+        function_id: int,
+        key: str,
+        value: Any,
+        *,
+        serialization_type: WorkflowSerializationFormat,
     ) -> None:
+        serialized_value, serialization = serialize_value(
+            value,
+            serialization_type,
+            self.serializer,
+        )
+
         """
         Write a key-value pair to the stream at the first unused offset.
         """
@@ -2328,7 +2812,11 @@ class SystemDatabase(ABC):
         )
         start_time = int(time.time() * 1000)
         stmt = self._stream_insert_stmt(
-            workflow_uuid, function_id, key, self.serializer.serialize(value)
+            workflow_uuid,
+            function_id,
+            key,
+            serialized_value,
+            serialization,
         )
         while True:
             with self.engine.begin() as c:
@@ -2358,6 +2846,7 @@ class SystemDatabase(ABC):
                     "started_at_epoch_ms": start_time,
                     "output": None,
                     "error": None,
+                    "serialization": None,
                 }
                 self._record_operation_result_txn(
                     output, int(time.time() * 1000), conn=c
@@ -2367,7 +2856,11 @@ class SystemDatabase(ABC):
     def close_stream(self, workflow_uuid: str, function_id: int, key: str) -> None:
         """Write a sentinel value to the stream at the first unused offset to mark it as closed."""
         self.write_stream_from_workflow(
-            workflow_uuid, function_id, key, _dbos_stream_closed_sentinel
+            workflow_uuid,
+            function_id,
+            key,
+            _dbos_stream_closed_sentinel,
+            serialization_type=WorkflowSerializationFormat.PORTABLE,
         )
 
     @db_retry()
@@ -2376,7 +2869,9 @@ class SystemDatabase(ABC):
 
         with self.engine.begin() as c:
             result = c.execute(
-                sa.select(SystemSchema.streams.c.value).where(
+                sa.select(
+                    SystemSchema.streams.c.value, SystemSchema.streams.c.serialization
+                ).where(
                     SystemSchema.streams.c.workflow_uuid == workflow_uuid,
                     SystemSchema.streams.c.key == key,
                     SystemSchema.streams.c.offset == offset,
@@ -2389,7 +2884,7 @@ class SystemDatabase(ABC):
                 )
 
             # Deserialize the value before returning
-            return self.serializer.deserialize(result[0])
+            return deserialize_value(result[0], result[1], self.serializer)
 
     def garbage_collect(
         self, cutoff_epoch_timestamp_ms: Optional[int], rows_threshold: Optional[int]
@@ -2539,6 +3034,7 @@ class SystemDatabase(ABC):
                     "function_name": patch_name,
                     "output": None,
                     "error": None,
+                    "serialization": None,
                     "started_at_epoch_ms": int(time.time() * 1000),
                 }
                 self._record_operation_result_txn(result, int(time.time() * 1000), c)
@@ -2646,6 +3142,7 @@ class SystemDatabase(ABC):
                         SystemSchema.workflow_status.c.queue_partition_key,
                         SystemSchema.workflow_status.c.forked_from,
                         SystemSchema.workflow_status.c.parent_workflow_id,
+                        SystemSchema.workflow_status.c.serialization,
                     ).where(SystemSchema.workflow_status.c.workflow_uuid == wf_id)
                 ).fetchone()
 
@@ -2679,6 +3176,7 @@ class SystemDatabase(ABC):
                     "queue_partition_key": status_row[23],
                     "forked_from": status_row[24],
                     "parent_workflow_id": status_row[25],
+                    "serialization": status_row[26],
                 }
 
                 # Export operation_outputs
@@ -2692,6 +3190,7 @@ class SystemDatabase(ABC):
                         SystemSchema.operation_outputs.c.child_workflow_id,
                         SystemSchema.operation_outputs.c.started_at_epoch_ms,
                         SystemSchema.operation_outputs.c.completed_at_epoch_ms,
+                        SystemSchema.operation_outputs.c.serialization,
                     ).where(SystemSchema.operation_outputs.c.workflow_uuid == wf_id)
                 ).fetchall()
 
@@ -2705,6 +3204,7 @@ class SystemDatabase(ABC):
                         "child_workflow_id": row[5],
                         "started_at_epoch_ms": row[6],
                         "completed_at_epoch_ms": row[7],
+                        "serialization": row[8],
                     }
                     for row in output_rows
                 ]
@@ -2715,6 +3215,7 @@ class SystemDatabase(ABC):
                         SystemSchema.workflow_events.c.workflow_uuid,
                         SystemSchema.workflow_events.c.key,
                         SystemSchema.workflow_events.c.value,
+                        SystemSchema.workflow_events.c.serialization,
                     ).where(SystemSchema.workflow_events.c.workflow_uuid == wf_id)
                 ).fetchall()
 
@@ -2723,6 +3224,7 @@ class SystemDatabase(ABC):
                         "workflow_uuid": row[0],
                         "key": row[1],
                         "value": row[2],
+                        "serialization": row[3],
                     }
                     for row in event_rows
                 ]
@@ -2734,6 +3236,7 @@ class SystemDatabase(ABC):
                         SystemSchema.workflow_events_history.c.key,
                         SystemSchema.workflow_events_history.c.value,
                         SystemSchema.workflow_events_history.c.function_id,
+                        SystemSchema.workflow_events_history.c.serialization,
                     ).where(
                         SystemSchema.workflow_events_history.c.workflow_uuid == wf_id
                     )
@@ -2745,6 +3248,7 @@ class SystemDatabase(ABC):
                         "key": row[1],
                         "value": row[2],
                         "function_id": row[3],
+                        "serialization": row[4],
                     }
                     for row in history_rows
                 ]
@@ -2757,6 +3261,7 @@ class SystemDatabase(ABC):
                         SystemSchema.streams.c.value,
                         SystemSchema.streams.c.offset,
                         SystemSchema.streams.c.function_id,
+                        SystemSchema.streams.c.serialization,
                     ).where(SystemSchema.streams.c.workflow_uuid == wf_id)
                 ).fetchall()
 
@@ -2767,6 +3272,7 @@ class SystemDatabase(ABC):
                         "value": row[2],
                         "offset": row[3],
                         "function_id": row[4],
+                        "serialization": row[5],
                     }
                     for row in stream_rows
                 ]
@@ -2823,6 +3329,7 @@ class SystemDatabase(ABC):
                         queue_partition_key=status["queue_partition_key"],
                         forked_from=status["forked_from"],
                         parent_workflow_id=status.get("parent_workflow_id"),
+                        serialization=status.get("serialization"),
                     )
                 )
 
@@ -2838,6 +3345,7 @@ class SystemDatabase(ABC):
                             child_workflow_id=output["child_workflow_id"],
                             started_at_epoch_ms=output["started_at_epoch_ms"],
                             completed_at_epoch_ms=output["completed_at_epoch_ms"],
+                            serialization=output["serialization"],
                         )
                     )
 
@@ -2848,6 +3356,7 @@ class SystemDatabase(ABC):
                             workflow_uuid=event["workflow_uuid"],
                             key=event["key"],
                             value=event["value"],
+                            serialization=event["serialization"],
                         )
                     )
 
@@ -2859,6 +3368,7 @@ class SystemDatabase(ABC):
                             key=history["key"],
                             value=history["value"],
                             function_id=history["function_id"],
+                            serialization=history["serialization"],
                         )
                     )
 
@@ -2871,6 +3381,7 @@ class SystemDatabase(ABC):
                             value=stream["value"],
                             offset=stream["offset"],
                             function_id=stream["function_id"],
+                            serialization=stream["serialization"],
                         )
                     )
 
@@ -3034,6 +3545,70 @@ class SystemDatabase(ABC):
             with self.engine.begin() as c:
                 _do(c)
 
+    # ── Application Version CRUD ────────────────────────────────
+
+    def create_application_version(self, version_name: str) -> None:
+        with self.engine.begin() as c:
+            c.execute(
+                self.dialect.insert(SystemSchema.application_versions)
+                .values(
+                    version_id=generate_uuid(),
+                    version_name=version_name,
+                )
+                .on_conflict_do_nothing(index_elements=["version_name"])
+            )
+
+    def update_application_version_timestamp(
+        self, version_name: str, new_timestamp: int
+    ) -> None:
+        with self.engine.begin() as c:
+            c.execute(
+                sa.update(SystemSchema.application_versions)
+                .where(SystemSchema.application_versions.c.version_name == version_name)
+                .values(version_timestamp=new_timestamp)
+            )
+
+    def list_application_versions(self) -> List[VersionInfo]:
+        with self.engine.begin() as c:
+            rows = c.execute(
+                sa.select(
+                    SystemSchema.application_versions.c.version_id,
+                    SystemSchema.application_versions.c.version_name,
+                    SystemSchema.application_versions.c.version_timestamp,
+                    SystemSchema.application_versions.c.created_at,
+                ).order_by(SystemSchema.application_versions.c.version_timestamp.desc())
+            ).fetchall()
+            return [
+                VersionInfo(
+                    version_id=row[0],
+                    version_name=row[1],
+                    version_timestamp=row[2],
+                    created_at=row[3],
+                )
+                for row in rows
+            ]
+
+    def get_latest_application_version(self) -> VersionInfo:
+        with self.engine.begin() as c:
+            row = c.execute(
+                sa.select(
+                    SystemSchema.application_versions.c.version_id,
+                    SystemSchema.application_versions.c.version_name,
+                    SystemSchema.application_versions.c.version_timestamp,
+                    SystemSchema.application_versions.c.created_at,
+                )
+                .order_by(SystemSchema.application_versions.c.version_timestamp.desc())
+                .limit(1)
+            ).fetchone()
+            if row is None:
+                raise DBOSException("No application versions found")
+            return VersionInfo(
+                version_id=row[0],
+                version_name=row[1],
+                version_timestamp=row[2],
+                created_at=row[3],
+            )
+
     @db_retry()
     def call_txn_as_step(
         self,
@@ -3060,6 +3635,7 @@ class SystemDatabase(ABC):
                 "function_name": function_name,
                 "started_at_epoch_ms": start_time,
                 "output": (self.serializer.serialize(result)),
+                "serialization": None,
                 "error": None,
             }
             self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)

@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use arc_swap::ArcSwapOption;
 use bytes::Bytes;
 use pyo3::{
     exceptions::PyTypeError,
@@ -5,7 +8,7 @@ use pyo3::{
     pyclass, pyfunction, pymethods,
     sync::PyOnceLock,
     types::{PyAnyMethods as _, PyModule, PyString},
-    Bound, IntoPyObject as _, IntoPyObjectExt as _, Py, PyAny, PyResult, Python,
+    Bound, IntoPyObjectExt as _, Py, PyAny, PyResult, Python,
 };
 use tokio_stream::StreamExt as _;
 
@@ -96,12 +99,14 @@ impl Request {
         &self,
         py: Python<'_>,
         http3: bool,
-    ) -> PyResult<(reqwest::Request, Option<Py<PyAny>>)> {
+    ) -> PyResult<(reqwest::Request, Arc<ArcSwapOption<Py<PyAny>>>)> {
         let mut req = self.head.new_reqwest(py, http3)?;
-        let mut request_iter_task: Option<Py<PyAny>> = None;
+        let request_iter_task: Arc<ArcSwapOption<Py<PyAny>>> = Arc::new(ArcSwapOption::empty());
         if let (Some(body), task) = self.content_into_reqwest(py)? {
             *req.body_mut() = Some(body);
-            request_iter_task = task;
+            if let Some(task) = task {
+                request_iter_task.store(Some(Arc::new(task)));
+            }
         }
         Ok((req, request_iter_task))
     }
@@ -111,15 +116,10 @@ impl Request {
         py: Python<'_>,
     ) -> PyResult<(Option<reqwest::Body>, Option<Py<PyAny>>)> {
         match &self.content {
-            Some(Content::Bytes(bytes)) => {
-                // TODO: Replace this dance with clone_ref when released.
-                // https://github.com/PyO3/pyo3/pull/5654
-                // SAFETY: Implementation known never to error, we unwrap to easily
-                // switch to clone_ref later.
-                let bytes = bytes.into_pyobject(py).unwrap();
-                let bytes = PyBackedBytes::from(bytes);
-                Ok((Some(reqwest::Body::from(Bytes::from_owner(bytes))), None))
-            }
+            Some(Content::Bytes(bytes)) => Ok((
+                Some(reqwest::Body::from(Bytes::from_owner(bytes.clone_ref(py)))),
+                None,
+            )),
             Some(Content::AsyncIter(iter)) => {
                 let iter = wrap_async_iter(py, iter)?;
                 let (stream, task) = into_stream(py, iter, &self.constants)?;

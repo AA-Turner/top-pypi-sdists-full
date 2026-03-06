@@ -65,22 +65,28 @@ def CORE_get_fulltext_snippets(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "pdf_url": pdf_url,
+            "url": url,
+            "terms": terms,
+            "window_chars": window_chars,
+            "max_snippets_per_term": max_snippets_per_term,
+            "max_total_chars": max_total_chars,
+            "extractor": extractor,
+            "timeout": timeout,
+            "max_pdf_bytes": max_pdf_bytes,
+            "max_pages": max_pages,
+            "max_text_chars": max_text_chars,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CORE_get_fulltext_snippets",
-            "arguments": {
-                "pdf_url": pdf_url,
-                "url": url,
-                "terms": terms,
-                "window_chars": window_chars,
-                "max_snippets_per_term": max_snippets_per_term,
-                "max_total_chars": max_total_chars,
-                "extractor": extractor,
-                "timeout": timeout,
-                "max_pdf_bytes": max_pdf_bytes,
-                "max_pages": max_pages,
-                "max_text_chars": max_text_chars,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

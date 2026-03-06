@@ -653,13 +653,6 @@ class OpenCTIStix2:
                             data = None
                             if "data" in file_obj:
                                 data = base64.b64decode(file_obj["data"])
-                            elif "uri" in file_obj:
-                                file_url = self.opencti.api_url.replace(
-                                    "/graphql", file_obj["uri"]
-                                )
-                                data = self.opencti.fetch_opencti_file(
-                                    fetch_uri=file_url, binary=True, serialize=False
-                                )
                             if data is not None:
                                 files_to_upload.append(
                                     self.opencti.file(
@@ -854,13 +847,6 @@ class OpenCTIStix2:
                         data = None
                         if "data" in file_obj:
                             data = base64.b64decode(file_obj["data"])
-                        elif "uri" in file_obj:
-                            file_url = self.opencti.api_url.replace(
-                                "/graphql", file_obj["uri"]
-                            )
-                            data = self.opencti.fetch_opencti_file(
-                                fetch_uri=file_url, binary=True, serialize=False
-                            )
                         if data is not None:
                             files_to_upload.append(
                                 self.opencti.file(
@@ -1152,11 +1138,6 @@ class OpenCTIStix2:
             data = None
             if "data" in file_obj:
                 data = base64.b64decode(file_obj["data"])
-            elif "uri" in file_obj:
-                url = self.opencti.api_url.replace("/graphql", file_obj["uri"])
-                data = self.opencti.fetch_opencti_file(
-                    fetch_uri=url, binary=True, serialize=False
-                )
             if data is not None:
                 files_to_upload.append(
                     self.opencti.file(
@@ -1280,11 +1261,6 @@ class OpenCTIStix2:
             data = None
             if "data" in file_obj:
                 data = base64.b64decode(file_obj["data"])
-            elif "uri" in file_obj:
-                url = self.opencti.api_url.replace("/graphql", file_obj["uri"])
-                data = self.opencti.fetch_opencti_file(
-                    fetch_uri=url, binary=True, serialize=False
-                )
             if data is not None:
                 files_to_upload.append(
                     self.opencti.file(
@@ -1415,6 +1391,8 @@ class OpenCTIStix2:
                     "object_marking_refs",
                     "x_opencti_created_by_ref",
                     "x_opencti_granted_refs",
+                    "src_ref",
+                    "dst_ref",
                 ]:
                     if key.endswith("_ref"):
                         relationship_type = key.replace("_ref", "")
@@ -3229,10 +3207,16 @@ class OpenCTIStix2:
         :return: True on success
         :rtype: bool
         """
+        is_inferred = self.opencti.get_attribute_in_extension("is_inferred", item)
         opencti_operation = self.opencti.get_attribute_in_extension(
             "opencti_operation", item
         )
-        if opencti_operation is not None:
+        if is_inferred:
+            self.opencti.app_logger.debug(
+                "Ignoring inferred item during import",
+                {"id": item["id"], "type": item["type"]},
+            )
+        elif opencti_operation is not None:
             self.apply_opencti_operation(item, opencti_operation, bundle_id)
         elif "opencti_operation" in item:
             self.apply_opencti_operation(item, item["opencti_operation"], bundle_id)

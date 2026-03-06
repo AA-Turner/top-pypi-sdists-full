@@ -27,6 +27,9 @@ pub use types::MetadataConfig;
 #[cfg(feature = "metadata")]
 use conversion::{convert_with_metadata, convert_with_metadata_handle};
 
+#[cfg(feature = "visitor")]
+use conversion::convert_with_tables;
+
 mod profiling;
 use helpers::{run_with_guard_and_profile, to_py_err};
 #[cfg(feature = "visitor")]
@@ -361,6 +364,7 @@ fn _html_to_markdown(m: &Bound<'_, PyModule>) -> PyResult<()> {
     {
         m.add_function(wrap_pyfunction!(convert_with_visitor, m)?)?;
         m.add_function(wrap_pyfunction!(convert_with_async_visitor, m)?)?;
+        m.add_function(wrap_pyfunction!(convert_with_tables, m)?)?;
     }
     m.add_function(wrap_pyfunction!(start_profiling, m)?)?;
     m.add_function(wrap_pyfunction!(stop_profiling, m)?)?;

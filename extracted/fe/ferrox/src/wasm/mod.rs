@@ -12,6 +12,7 @@
 // Submodules
 pub mod cell;
 pub mod composition;
+pub mod convex_hull;
 pub mod coordination;
 pub mod defects;
 pub mod elastic;
@@ -20,9 +21,11 @@ pub mod helpers;
 pub mod io;
 pub mod lattice;
 pub mod md;
+pub mod mp;
 pub mod neighbors;
 pub mod optimizers;
 pub mod order_params;
+pub mod oxidation;
 pub mod potentials;
 pub mod properties;
 pub mod rdf;
@@ -37,6 +40,7 @@ pub mod xrd;
 // Re-export all public items from submodules for backward compatibility
 pub use cell::*;
 pub use composition::*;
+pub use convex_hull::*;
 pub use coordination::{
     get_average_coordination_number, get_coordination_number, get_coordination_numbers,
 };
@@ -49,6 +53,7 @@ pub use md::*;
 pub use neighbors::*;
 pub use optimizers::*;
 pub use order_params::*;
+pub use oxidation::*;
 pub use potentials::*;
 pub use properties::*;
 pub use rdf::{JsRdfResult, compute_element_rdf, compute_rdf_wasm};

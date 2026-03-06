@@ -125,6 +125,7 @@ from types_boto3_connect_contact_lens.client import ConnectContactLensClient
 from types_boto3_connectcampaigns.client import ConnectCampaignServiceClient
 from types_boto3_connectcampaignsv2.client import ConnectCampaignServiceV2Client
 from types_boto3_connectcases.client import ConnectCasesClient
+from types_boto3_connecthealth.client import ConnectHealthClient
 from types_boto3_connectparticipant.client import ConnectParticipantClient
 from types_boto3_controlcatalog.client import ControlCatalogClient
 from types_boto3_controltower.client import ControlTowerClient
@@ -2410,6 +2411,25 @@ class Session:
     ) -> ConnectCasesClient:
         """
         Create client for ConnectCases service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["connecthealth"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ConnectHealthClient:
+        """
+        Create client for ConnectHealth service.
         """
 
     @overload

@@ -44,15 +44,21 @@ def EnsemblLD_get_ld_variants(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "variant_id": variant_id,
+            "population": population,
+            "r2_threshold": r2_threshold,
+            "d_prime_threshold": d_prime_threshold,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EnsemblLD_get_ld_variants",
-            "arguments": {
-                "variant_id": variant_id,
-                "population": population,
-                "r2_threshold": r2_threshold,
-                "d_prime_threshold": d_prime_threshold,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

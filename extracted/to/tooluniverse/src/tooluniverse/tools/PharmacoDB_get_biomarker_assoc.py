@@ -53,18 +53,24 @@ def PharmacoDB_get_biomarker_assoc(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "compound_name": compound_name,
+            "compound_id": compound_id,
+            "gene_name": gene_name,
+            "tissue_name": tissue_name,
+            "mdata_type": mdata_type,
+            "per_page": per_page,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "PharmacoDB_get_biomarker_assoc",
-            "arguments": {
-                "operation": operation,
-                "compound_name": compound_name,
-                "compound_id": compound_id,
-                "gene_name": gene_name,
-                "tissue_name": tissue_name,
-                "mdata_type": mdata_type,
-                "per_page": per_page,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

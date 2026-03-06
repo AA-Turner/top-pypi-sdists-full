@@ -1,5 +1,4 @@
 import argparse as ap
-import logging
 import os
 import sys
 
@@ -11,7 +10,7 @@ import sys
 # or args = argparser.parse_args() will throw bugs!!!
 
 
-__version__ = "1.1.11"
+__version__ = "1.1.12"
 
 
 def main():
@@ -128,7 +127,7 @@ def main():
         gv.run()
     elif subcommand == "enrichr":
         # calling enrichr API
-        from .enrichr import Enrichr
+        from .enrichr_v0 import Enrichr
 
         enr = Enrichr(
             gene_list=args.gene_list,

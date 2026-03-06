@@ -138,11 +138,9 @@ class GxATool(BaseTool):
         gene_id = arguments.get("gene_id", "")
 
         url = f"{GXA_BASE_URL}/experiments/{accession}"
-        params = {}
-        if gene_id:
-            params["geneId"] = gene_id
-
-        response = requests.get(url, params=params, timeout=self.timeout)
+        # Feature-69A-003: the GxA /experiments/{accession} endpoint does NOT support
+        # geneId filtering — the parameter is silently ignored. Apply client-side filter.
+        response = requests.get(url, timeout=self.timeout)
         response.raise_for_status()
         data = response.json()
 
@@ -168,12 +166,25 @@ class GxATool(BaseTool):
             for i, col in enumerate(column_headers)
         ]
 
-        # Extract gene expression profiles
+        # Extract gene expression profiles (apply gene_id filter client-side)
         profiles = data.get("profiles", {})
         rows = profiles.get("rows", [])
 
+        # Apply client-side gene_id filter (API ignores geneId parameter)
+        if gene_id:
+            gene_id_lower = gene_id.lower()
+            rows = [
+                r
+                for r in rows
+                if gene_id_lower in str(r.get("id", "")).lower()
+                or gene_id_lower in str(r.get("name", "")).lower()
+            ]
+
         gene_profiles = []
         for row in rows[:50]:  # Limit to first 50 genes
+            # Client-side gene_id filter: skip rows that don't match
+            if gene_id and row.get("id") != gene_id and row.get("name") != gene_id:
+                continue
             expressions = []
             row_exprs = row.get("expressions", [])
             for i, expr in enumerate(row_exprs):

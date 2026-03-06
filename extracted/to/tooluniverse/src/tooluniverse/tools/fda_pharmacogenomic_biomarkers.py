@@ -41,14 +41,20 @@ def fda_pharmacogenomic_biomarkers(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "drug_name": drug_name,
+            "biomarker": biomarker,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "fda_pharmacogenomic_biomarkers",
-            "arguments": {
-                "drug_name": drug_name,
-                "biomarker": biomarker,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

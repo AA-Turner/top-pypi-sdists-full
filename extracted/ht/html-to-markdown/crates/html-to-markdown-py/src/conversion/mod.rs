@@ -8,9 +8,15 @@ pub mod inline_images;
 #[cfg(feature = "metadata")]
 pub mod metadata;
 
+#[cfg(feature = "visitor")]
+pub mod tables;
+
 // Re-export all pyfunction-decorated conversion functions
 #[cfg(feature = "inline-images")]
 pub use inline_images::{convert_with_inline_images, convert_with_inline_images_handle};
 
 #[cfg(feature = "metadata")]
 pub use metadata::{convert_with_metadata, convert_with_metadata_handle};
+
+#[cfg(feature = "visitor")]
+pub use tables::convert_with_tables;

@@ -37,7 +37,7 @@ fn validate_lj_params(sigma: f64, epsilon: f64, cutoff: Option<f64>) -> PyResult
 }
 
 /// Compute Lennard-Jones energy and forces.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.potentials")]
 #[pyfunction]
 #[pyo3(signature = (positions, cell = None, pbc = None, sigma = 3.4, epsilon = 0.0103, cutoff = None))]
 fn compute_lennard_jones(
@@ -64,7 +64,7 @@ fn compute_lennard_jones(
 ///
 /// Note: Energy is still computed internally but discarded. If you need both
 /// energy and forces, use `compute_lennard_jones` instead.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.potentials")]
 #[pyfunction]
 #[pyo3(signature = (positions, cell = None, pbc = None, sigma = 3.4, epsilon = 0.0103, cutoff = None))]
 fn compute_lennard_jones_forces(
@@ -90,7 +90,7 @@ fn compute_lennard_jones_forces(
 
 /// Compute Morse potential energy and forces.
 /// V(r) = D * (1 - exp(-alpha*(r - r0)))^2 - D
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.potentials")]
 #[pyfunction]
 #[pyo3(signature = (positions, cell = None, pbc = None, d = 1.0, alpha = 1.0, r0 = 1.0, cutoff = 10.0, compute_stress = false))]
 fn compute_morse(
@@ -130,7 +130,7 @@ fn compute_morse(
 
 /// Compute Soft Sphere potential energy and forces.
 /// V(r) = epsilon * (sigma/r)^alpha
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.potentials")]
 #[pyfunction]
 #[pyo3(signature = (positions, cell = None, pbc = None, sigma = 1.0, epsilon = 1.0, alpha = 12.0, cutoff = 10.0, compute_stress = false))]
 fn compute_soft_sphere(
@@ -170,7 +170,7 @@ fn compute_soft_sphere(
 
 /// Compute harmonic bond energy and forces.
 /// V = 0.5 * k * (r - r0)^2
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.potentials")]
 #[pyfunction]
 #[pyo3(signature = (positions, bonds, cell = None, pbc = None, compute_stress = false))]
 fn compute_harmonic_bonds(
@@ -225,14 +225,12 @@ fn compute_harmonic_bonds(
     ))
 }
 
-/// Register the potentials submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "potentials")?;
-    submod.add_function(wrap_pyfunction!(compute_lennard_jones, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compute_lennard_jones_forces, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compute_morse, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compute_soft_sphere, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compute_harmonic_bonds, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register potentials functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(compute_lennard_jones, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_lennard_jones_forces, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_morse, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_soft_sphere, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_harmonic_bonds, module)?)?;
     Ok(())
 }

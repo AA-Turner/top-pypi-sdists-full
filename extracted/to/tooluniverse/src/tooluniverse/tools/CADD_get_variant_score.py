@@ -50,17 +50,23 @@ def CADD_get_variant_score(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "chrom": chrom,
+            "pos": pos,
+            "ref": ref,
+            "alt": alt,
+            "version": version,
+            "include_annotations": include_annotations,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CADD_get_variant_score",
-            "arguments": {
-                "chrom": chrom,
-                "pos": pos,
-                "ref": ref,
-                "alt": alt,
-                "version": version,
-                "include_annotations": include_annotations,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

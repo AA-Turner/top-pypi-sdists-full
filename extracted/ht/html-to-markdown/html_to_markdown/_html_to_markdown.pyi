@@ -189,6 +189,16 @@ class ExtendedMetadata(TypedDict):
     images: list[ImageMetadata]
     structured_data: list[StructuredData]
 
+class TableData(TypedDict):
+    cells: list[list[str]]
+    markdown: str
+    is_header_row: list[bool]
+
+class TableExtractionResult(TypedDict):
+    content: str
+    metadata: ExtendedMetadata | None
+    tables: list[TableData]
+
 def convert(html: str, options: ConversionOptions | None = None) -> str: ...
 def convert_with_inline_images(
     html: str,
@@ -210,6 +220,11 @@ def convert_with_metadata_handle(
     handle: ConversionOptionsHandle,
     metadata_config: MetadataConfig | None = None,
 ) -> tuple[str, ExtendedMetadata]: ...
+def convert_with_tables(
+    html: str,
+    options: ConversionOptions | None = None,
+    metadata_config: MetadataConfig | None = None,
+) -> TableExtractionResult: ...
 def create_options_handle(options: ConversionOptions | None = None) -> ConversionOptionsHandle: ...
 def convert_with_options_handle(html: str, handle: ConversionOptionsHandle) -> str: ...
 

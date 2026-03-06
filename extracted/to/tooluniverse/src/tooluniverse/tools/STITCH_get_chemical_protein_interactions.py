@@ -44,15 +44,21 @@ def STITCH_get_chemical_protein_interactions(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "identifiers": identifiers,
+            "species": species,
+            "required_score": required_score,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "STITCH_get_chemical_protein_interactions",
-            "arguments": {
-                "identifiers": identifiers,
-                "species": species,
-                "required_score": required_score,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -44,15 +44,21 @@ def ArXiv_search_papers(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query": query,
+            "limit": limit,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ArXiv_search_papers",
-            "arguments": {
-                "query": query,
-                "limit": limit,
-                "sort_by": sort_by,
-                "sort_order": sort_order,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

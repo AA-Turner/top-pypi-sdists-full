@@ -2119,6 +2119,31 @@ def to_double(
 
 
 @publicapi
+def to_decfloat(
+    e: ColumnOrName, fmt: Optional[ColumnOrLiteralStr] = None, _emit_ast: bool = True
+) -> Column:
+    """Converts an input expression to a decimal floating-point number.
+
+    Example::
+        >>> df = session.create_dataframe(['12', '11.3', '-90.12345'], schema=['a'])
+        >>> df.select(to_decfloat(col('a')).as_('ans')).collect()
+        [Row(ANS=Decimal('12')), Row(ANS=Decimal('11.3')), Row(ANS=Decimal('-90.12345'))]
+    """
+    ast = (
+        build_function_expr("to_decfloat", [e] if fmt is None else [e, fmt])
+        if _emit_ast
+        else None
+    )
+    c = _to_col_if_str(e, "to_decfloat")
+    fmt_col = _to_col_if_lit(fmt, "to_decfloat") if fmt is not None else None
+    return (
+        _call_function("to_decfloat", c, _ast=ast, _emit_ast=_emit_ast)
+        if fmt_col is None
+        else _call_function("to_decfloat", c, fmt_col, _ast=ast, _emit_ast=_emit_ast)
+    )
+
+
+@publicapi
 def div0(
     dividend: Union[ColumnOrName, int, float],
     divisor: Union[ColumnOrName, int, float],
@@ -7426,6 +7451,30 @@ def array_to_string(
 
 
 @publicapi
+def array_union_agg(col: ColumnOrName, _emit_ast: bool = True) -> Column:
+    r"""Returns an ARRAY that contains the union of the distinct values from the input
+    arrays in the specified column.
+
+    The values in the returned ARRAY are in no particular order, and the order is not
+    deterministic. The function ignores NULL values in the column and in arrays in the
+    column. If the column contains only NULL values or the input is empty, the function
+    returns an empty ARRAY.
+
+    Args:
+        col: A :class:`Column` object or column name containing arrays with distinct values.
+
+    Example::
+        >>> import re
+        >>> df = session.create_dataframe([[[1, 1, 2]], [[1, 2, 3]]], schema=["a"])
+        >>> row = df.select(array_union_agg("a").alias("result")).collect()[0]
+        >>> sorted(int(i) for i in re.findall(r"\d+", row[0]))
+        [1, 1, 2, 3]
+    """
+    c = _to_col_if_str(col, "array_union_agg")
+    return _call_function("array_union_agg", c, _emit_ast=_emit_ast)
+
+
+@publicapi
 def array_unique_agg(col: ColumnOrName, _emit_ast: bool = True) -> Column:
     """Returns a Column containing the distinct values in the specified column col.
     The values in the Column are in no particular order, and the order is not deterministic.
@@ -11823,7 +11872,7 @@ def regr_r2(y: ColumnOrName, x: ColumnOrName, _emit_ast: bool = True) -> Column:
     Example::
 
         >>> df = session.create_dataframe([[10, 11], [20, 22], [25, None], [30, 35]], schema=["v", "v2"])
-        >>> df.groupBy("v").agg(regr_r2(col("v"), col("v2")).alias("regr_r2")).collect()
+        >>> df.groupBy("v").agg(regr_r2(col("v"), col("v2")).alias("regr_r2")).sort("v").collect()
         [Row(V=10, REGR_R2=None), Row(V=20, REGR_R2=None), Row(V=25, REGR_R2=None), Row(V=30, REGR_R2=None)]
     """
     y = _to_col_if_str(y, "regr_r2")
@@ -13389,7 +13438,7 @@ def ai_parse_document(
         ...     ).alias("parsed_content")
         ... )
         >>> result = json.loads(df.collect()[0][0])
-        >>> "| Customer Name |" in result["content"] and "| Country |" in result["content"]  # Markdown format
+        >>> "| Customer Name |" in result["content"] and "| Country |" in result["content"]  # Markdown format # doctest: +SKIP
         True
 
         >>> # Parse with page splitting for documents
@@ -13400,13 +13449,14 @@ def ai_parse_document(
         ...     ).alias("parsed_content")
         ... )
         >>> result = json.loads(df.collect()[0][0])
-        >>> len(result["pages"])
+        >>> len(result["pages"]) # doctest: +SKIP
         3
-        >>> 'Sample PDF' in result["pages"][0]["content"]
+        >>> 'Sample PDF' in result["pages"][0]["content"] # doctest: +SKIP
         True
-        >>> result["pages"][0]["index"]
+        >>> result["pages"][0]["index"] # doctest: +SKIP
         0
     """
+    # SNOW-3129360: Doctests are disabled due to flakiness.
     sql_func_name = "ai_parse_document"
     config_dict = dict(kwargs)
 

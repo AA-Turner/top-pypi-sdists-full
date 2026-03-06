@@ -4,19 +4,9 @@ from tmo.api.iterator_base_api import IteratorBaseApi
 
 
 class TrainedModelApi(IteratorBaseApi):
-
-    path = "/api/trainedModels"
+    name = "Trained Model API"
+    path = "trainedModels"
     type = "TRAINED_MODEL"
-
-    def _get_header_params(self):
-        return self._get_standard_header_params(
-            accept_types=[
-                self.json_type,
-                "application/hal+json",
-                "text/uri-list",
-                "application/x-spring-data-compact+json",
-            ]
-        )
 
     def find_dataset(self, trained_model_id: str, projection: str = None):
         """
@@ -29,12 +19,14 @@ class TrainedModelApi(IteratorBaseApi):
         Returns:
             (dict): dataset
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
+
         query_vars = ["projection"]
         query_vals = [projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/{trained_model_id}/dataset",
+            path=f"{self.base_path + self.path}/{trained_model_id}/dataset",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -50,12 +42,14 @@ class TrainedModelApi(IteratorBaseApi):
         Returns:
             (dict): events of trained model
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
+
         query_vars = ["projection"]
         query_vals = [projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/{trained_model_id}/events",
+            path=f"{self.base_path + self.path}/{trained_model_id}/events",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -71,12 +65,14 @@ class TrainedModelApi(IteratorBaseApi):
         Returns:
             (dict): trained models
         """
+        model_id = self.validate_uuid(model_id)
+
         query_vars = ["modelId", "projection"]
         query_vals = [model_id, projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByModelId",
+            path=f"{self.base_path + self.path}/search/findByModelId",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -95,12 +91,14 @@ class TrainedModelApi(IteratorBaseApi):
         Returns:
             (dict): trained models
         """
+        model_id = self.validate_uuid(model_id)
+
         query_vars = ["modelId", "status", "projection"]
         query_vals = [model_id, status, projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByModelIdAndStatus",
+            path=f"{self.base_path + self.path}/search/findByModelIdAndStatus",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -116,10 +114,12 @@ class TrainedModelApi(IteratorBaseApi):
         Returns:
             (dict): job
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
+
         self.required_params(["datasetId"], evaluation_request)
 
         return self.tmo_client.post_request(
-            path=f"{self.path}/{trained_model_id}/evaluate",
+            path=f"{self.base_path + self.path}/{trained_model_id}/evaluate",
             header_params=self._get_header_params(),
             query_params={},
             body=evaluation_request,

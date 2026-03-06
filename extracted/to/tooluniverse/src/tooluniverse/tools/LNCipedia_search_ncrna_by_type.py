@@ -44,15 +44,21 @@ def LNCipedia_search_ncrna_by_type(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query": query,
+            "rna_type": rna_type,
+            "species": species,
+            "size": size,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "LNCipedia_search_ncrna_by_type",
-            "arguments": {
-                "query": query,
-                "rna_type": rna_type,
-                "species": species,
-                "size": size,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

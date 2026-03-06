@@ -20,7 +20,7 @@ fn local_structure_to_str(ls: LocalStructure) -> &'static str {
 }
 
 /// Compute Steinhardt Q order parameter for all atoms.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.order_params")]
 #[pyfunction]
 fn compute_steinhardt_q(structure: StructureJson, deg: i32, cutoff: f64) -> PyResult<Vec<f64>> {
     let struc = parse_struct(&structure)?;
@@ -28,7 +28,7 @@ fn compute_steinhardt_q(structure: StructureJson, deg: i32, cutoff: f64) -> PyRe
 }
 
 /// Classify local structure based on Q4 and Q6 values.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.order_params")]
 #[pyfunction]
 #[pyo3(signature = (q4, q6, tolerance = 0.1))]
 fn classify_local_structure(q4: f64, q6: f64, tolerance: f64) -> &'static str {
@@ -36,7 +36,7 @@ fn classify_local_structure(q4: f64, q6: f64, tolerance: f64) -> &'static str {
 }
 
 /// Classify all atoms in a structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.order_params")]
 #[pyfunction]
 #[pyo3(signature = (structure, cutoff, tolerance = 0.1))]
 fn classify_all_atoms(
@@ -52,12 +52,10 @@ fn classify_all_atoms(
         .collect())
 }
 
-/// Register the order_params submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "order_params")?;
-    submod.add_function(wrap_pyfunction!(compute_steinhardt_q, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(classify_local_structure, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(classify_all_atoms, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register order_params functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(compute_steinhardt_q, module)?)?;
+    module.add_function(wrap_pyfunction!(classify_local_structure, module)?)?;
+    module.add_function(wrap_pyfunction!(classify_all_atoms, module)?)?;
     Ok(())
 }

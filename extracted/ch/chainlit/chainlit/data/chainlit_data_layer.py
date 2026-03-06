@@ -351,13 +351,13 @@ class ChainlitDataLayer(BaseDataLayer):
         )
         ON CONFLICT (id) DO UPDATE SET
             "parentId" = COALESCE(EXCLUDED."parentId", "Step"."parentId"),
-            input = COALESCE(EXCLUDED.input, "Step".input),
+            input = COALESCE(NULLIF(EXCLUDED.input, ''), "Step".input),
             metadata = CASE
                 WHEN EXCLUDED.metadata <> '{}' THEN EXCLUDED.metadata
                 ELSE "Step".metadata
             END,
             name = COALESCE(EXCLUDED.name, "Step".name),
-            output = COALESCE(EXCLUDED.output, "Step".output),
+            output = COALESCE(NULLIF(EXCLUDED.output, ''), "Step".output),
             type = CASE
                 WHEN EXCLUDED.type = 'run' THEN "Step".type
                 ELSE EXCLUDED.type
@@ -591,6 +591,7 @@ class ChainlitDataLayer(BaseDataLayer):
         )
 
         # Merge incoming metadata with existing metadata, deleting incoming keys with None values
+        merged_metadata = None
         if metadata is not None:
             existing = await self.execute_query(
                 'SELECT "metadata" FROM "Thread" WHERE id = $1',
@@ -609,14 +610,16 @@ class ChainlitDataLayer(BaseDataLayer):
             to_delete = {k for k, v in metadata.items() if v is None}
             incoming = {k: v for k, v in metadata.items() if v is not None}
             base = {k: v for k, v in base.items() if k not in to_delete}
-            metadata = {**base, **incoming}
+            merged_metadata = {**base, **incoming}
 
         data = {
             "id": thread_id,
             "name": thread_name,
             "userId": user_id,
             "tags": tags,
-            "metadata": json.dumps(metadata or {}),
+            "metadata": json.dumps(merged_metadata)
+            if merged_metadata is not None
+            else None,
             "updatedAt": datetime.now(),
         }
 
@@ -661,8 +664,8 @@ class ChainlitDataLayer(BaseDataLayer):
     def _extract_feedback_dict_from_step_row(self, row: Dict) -> Optional[FeedbackDict]:
         if row.get("feedback_id", None) is not None:
             return FeedbackDict(
-                forId=row["id"],
-                id=row["feedback_id"],
+                forId=str(row["id"]),
+                id=str(row["feedback_id"]),
                 value=row["feedback_value"],
                 comment=row["feedback_comment"],
             )

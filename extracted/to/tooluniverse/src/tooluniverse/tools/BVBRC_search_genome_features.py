@@ -44,15 +44,21 @@ def BVBRC_search_genome_features(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "gene": gene,
+            "product": product,
+            "genome_id": genome_id,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BVBRC_search_genome_features",
-            "arguments": {
-                "gene": gene,
-                "product": product,
-                "genome_id": genome_id,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

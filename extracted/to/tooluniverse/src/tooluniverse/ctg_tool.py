@@ -41,6 +41,9 @@ class ClinicalTrialsTool(RESTfulTool):
             "outcome": "query.outc",
             "overall_status": "filter.overallStatus",
             "query_term": "query.term",
+            "query": "query.term",  # alias: agents naturally pass 'query'
+            "status": "filter.overallStatus",  # alias: agents naturally pass 'status'
+            "max_results": "pageSize",  # alias: agents naturally pass 'max_results'
         }
 
     def _map_param_names(self, arguments):
@@ -143,6 +146,11 @@ class ClinicalTrialsTool(RESTfulTool):
             "next_page_token": "pageToken",
             "intervention": "query.intr",
             "sponsor": "query.spons",
+            # Natural aliases
+            "condition": "query.cond",
+            "status": "filter.overallStatus",
+            "query": "query.term",
+            "max_results": "pageSize",
         }
 
         params = {"format": "json", "countTotal": "true"}
@@ -154,6 +162,12 @@ class ClinicalTrialsTool(RESTfulTool):
                 "BriefSummary",
                 "Condition",
                 "Phase",
+                "StartDate",
+                "CompletionDate",
+                "StudyType",
+                "EnrollmentCount",
+                "InterventionName",
+                "LeadSponsorName",
             ]
         )
 
@@ -198,9 +212,13 @@ class ClinicalTrialsTool(RESTfulTool):
                     "conditions": proto.get("conditionsModule", {}).get(
                         "conditions", []
                     ),
-                    "interventions": proto.get("armsInterventionsModule", {}).get(
-                        "interventionNames", []
-                    ),
+                    "interventions": [
+                        iv.get("name")
+                        for iv in proto.get("armsInterventionsModule", {}).get(
+                            "interventions", []
+                        )
+                        if iv.get("name")
+                    ][:5],
                     "sponsor": (
                         proto.get("sponsorCollaboratorsModule", {}).get("leadSponsor")
                         or {}
@@ -217,7 +235,8 @@ class ClinicalTrialsTool(RESTfulTool):
         return {
             "data": {
                 "studies": studies,
-                "total_count": data.get("totalCount"),
+                # totalCount may be absent from API response; fallback to len(studies)
+                "total_count": data.get("totalCount") or len(studies),
                 "next_page_token": data.get("nextPageToken"),
             },
             "metadata": {"source": "ClinicalTrials.gov API v2", "operation": "search"},

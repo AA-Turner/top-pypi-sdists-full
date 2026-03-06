@@ -8,13 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class ProjectApi(IteratorBaseApi):
-
-    path = "/api/projects"
+    name = "Project API"
+    path = "projects"
     type = "PROJECT"
-
-    def _get_header_params(self) -> dict:
-        # The header for project id is required for the archive/unarchive method from base_api
-        return self._get_standard_header_params()
 
     def find_by_name_like(self, name: str, projection: str = None) -> list:
         """
@@ -32,7 +28,7 @@ class ProjectApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByName",
+            path=f"{self.base_path + self.path}/search/findByName",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -56,7 +52,10 @@ class ProjectApi(IteratorBaseApi):
         project.setdefault("gitCredentials", {"source": "none"})
 
         return self.tmo_client.post_request(
-            path=self.path, header_params=header_params, query_params={}, body=project
+            path=self.base_path + self.path,
+            header_params=header_params,
+            query_params={},
+            body=project,
         )
 
     def update(self, project: dict[str, str]) -> dict:
@@ -74,7 +73,7 @@ class ProjectApi(IteratorBaseApi):
         header_params = self.generate_params(header_vars, header_vals)
 
         return self.tmo_client.put_request(
-            path=f"{self.path}/{self.tmo_client.project_id}",
+            path=f"{self.base_path + self.path}/{self.tmo_client.project_id}",
             header_params=header_params,
             query_params={},
             body=project,

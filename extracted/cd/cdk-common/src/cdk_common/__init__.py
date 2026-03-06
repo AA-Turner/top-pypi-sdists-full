@@ -5892,6 +5892,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSTRANSFORM_SECRETS_MANAGER_CONNECTOR_POLICY = "AWSTRANSFORM_SECRETS_MANAGER_CONNECTOR_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSHEALTH_OMICS_SERVICE_LINKED_ROLE_POLICY = "AWSHEALTH_OMICS_SERVICE_LINKED_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

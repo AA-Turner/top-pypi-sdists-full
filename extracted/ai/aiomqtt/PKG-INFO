@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiomqtt
-Version: 2.5.0
+Version: 2.5.1
 Summary: The idiomatic asyncio MQTT client
 Project-URL: Source, https://github.com/empicano/aiomqtt
 Project-URL: Documentation, https://aiomqtt.bo3hm.com

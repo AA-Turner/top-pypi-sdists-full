@@ -53,18 +53,24 @@ def GTEx_get_single_tissue_eqtls(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "gencode_id": gencode_id,
+            "variant_id": variant_id,
+            "tissue_site_detail_id": tissue_site_detail_id,
+            "dataset_id": dataset_id,
+            "page": page,
+            "items_per_page": items_per_page,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "GTEx_get_single_tissue_eqtls",
-            "arguments": {
-                "operation": operation,
-                "gencode_id": gencode_id,
-                "variant_id": variant_id,
-                "tissue_site_detail_id": tissue_site_detail_id,
-                "dataset_id": dataset_id,
-                "page": page,
-                "items_per_page": items_per_page,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

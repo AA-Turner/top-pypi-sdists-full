@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -35,10 +36,20 @@ _UNSET_STATUS = "unset"
 _DEFAULT_EXECUTOR: ThreadPoolExecutor | None = None
 
 
+class ContextCopyingExecutor(ThreadPoolExecutor):
+    """ThreadPoolExecutor that copies context variables from the submitting thread to the worker thread."""
+
+    def submit(
+        self, fn: Callable[..., object], *args: object, **kwargs: object
+    ) -> Future:
+        ctx = contextvars.copy_context()
+        return super().submit(lambda: ctx.run(fn, *args, **kwargs))
+
+
 def get_default_executor() -> ThreadPoolExecutor:
     global _DEFAULT_EXECUTOR  # noqa: PLW0603
     if _DEFAULT_EXECUTOR is None:
-        _DEFAULT_EXECUTOR = ThreadPoolExecutor()
+        _DEFAULT_EXECUTOR = ContextCopyingExecutor()
     return _DEFAULT_EXECUTOR
 
 
@@ -47,6 +58,7 @@ class WSGITransport(SyncTransport):
 
     _app: WSGIApplication
     _http_version: HTTPVersion
+    _client: tuple[str, int]
     _closed: bool
     _app_exception: Exception | None
 
@@ -54,6 +66,7 @@ class WSGITransport(SyncTransport):
         self,
         app: WSGIApplication,
         http_version: HTTPVersion = HTTPVersion.HTTP2,
+        client: tuple[str, int] = ("127.0.0.1", 111),
         executor: ThreadPoolExecutor | None = None,
     ) -> None:
         """Creates a new WSGI transport.
@@ -66,6 +79,7 @@ class WSGITransport(SyncTransport):
         """
         self._app = app
         self._http_version = http_version
+        self._client = client
         self._executor = executor or get_default_executor()
         self._closed = False
 
@@ -120,6 +134,9 @@ class WSGITransport(SyncTransport):
             "wsgi.run_once": False,
             "wsgi.input": request_input,
             "wsgi.ext.http.send_trailers": send_trailers,
+            # CGI, not WSGI
+            "REMOTE_ADDR": self._client[0],
+            "REMOTE_PORT": str(self._client[1]),
         }
 
         for k, v in request.headers.items():
@@ -132,6 +149,8 @@ class WSGITransport(SyncTransport):
                     name = f"HTTP_{k.upper().replace('-', '_')}"
                     value = f"{existing},{v}" if (existing := environ.get(name)) else v
                     environ[name] = value
+        if "host" not in request.headers:
+            environ["HTTP_HOST"] = parsed_url.netloc
 
         response_queue: Queue[bytes | None | Exception] = Queue()
 

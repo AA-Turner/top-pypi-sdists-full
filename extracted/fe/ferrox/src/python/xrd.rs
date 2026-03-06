@@ -10,7 +10,7 @@ use crate::xrd;
 use super::helpers::{StructureJson, parse_struct};
 
 /// Compute X-ray diffraction pattern.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.xrd")]
 #[pyfunction]
 #[pyo3(signature = (structure, two_theta_range = None, wavelength = 1.5406))]
 fn compute_xrd(
@@ -68,7 +68,7 @@ fn compute_xrd(
 
 /// Get atomic scattering parameters for all elements.
 /// Returns a dict of element -> [[a1,b1], [a2,b2], [a3,b3], [a4,b4]] coefficients.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.xrd")]
 #[pyfunction]
 fn get_atomic_scattering_params(py: Python<'_>) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
@@ -83,11 +83,9 @@ fn get_atomic_scattering_params(py: Python<'_>) -> PyResult<Py<PyDict>> {
     Ok(dict.unbind())
 }
 
-/// Register the xrd submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "xrd")?;
-    submod.add_function(wrap_pyfunction!(compute_xrd, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_atomic_scattering_params, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register xrd functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(compute_xrd, module)?)?;
+    module.add_function(wrap_pyfunction!(get_atomic_scattering_params, module)?)?;
     Ok(())
 }

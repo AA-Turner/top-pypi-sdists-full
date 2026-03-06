@@ -284,7 +284,7 @@ def setup_python(
     build_frontend: BuildFrontendName,
     xbuild_tools: Sequence[str] | None,
 ) -> tuple[Path, dict[str, str]]:
-    if build_frontend == "build[uv]":
+    if build_frontend == "build[uv]" or build_frontend == "uv":
         msg = "uv doesn't support iOS"
         raise errors.FatalError(msg)
 
@@ -441,7 +441,7 @@ def build(options: Options, tmp_path: Path) -> None:
             build_options = options.build_options(config.identifier)
             build_frontend = build_options.build_frontend
             # uv doesn't support iOS
-            if build_frontend.name == "build[uv]":
+            if build_frontend.name == "build[uv]" or build_frontend.name == "uv":
                 msg = "uv doesn't support iOS"
                 raise errors.FatalError(msg)
 
@@ -487,7 +487,10 @@ def build(options: Options, tmp_path: Path) -> None:
                 built_wheel_dir.mkdir()
 
                 extra_flags = get_build_frontend_extra_flags(
-                    build_frontend, build_options.build_verbosity, build_options.config_settings
+                    build_frontend,
+                    build_options.build_verbosity,
+                    build_options.config_settings,
+                    py38=False,
                 )
 
                 match build_frontend.name:

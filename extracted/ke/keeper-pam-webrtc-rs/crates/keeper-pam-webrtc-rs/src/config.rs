@@ -272,18 +272,19 @@ pub fn ice_gather_timeout() -> Duration {
 
 /// Timeout waiting for ICE restart answer from remote peer.
 ///
-/// **Default**: 20 seconds
+/// **Default**: 60 seconds
 ///
-/// **Rationale**: ICE restart involves only WebRTC signaling operations (no user creation).
-/// Client waits 15s for restart answers (PrivateTunnel.ts:1106). Gateway must wait slightly
-/// longer to avoid racing the client. Industry standard for ICE restart: 10-20 seconds.
-/// 20s = 15s (client timeout) + 5s (processing/network buffer).
-///
-/// **Note**: Ephemeral user creation only happens during initial connection, not ICE restart.
+/// **Rationale**: When both the gateway and vault router WebSockets drop simultaneously
+/// (e.g. code 1006 abnormal closure), neither side can route signaling until their
+/// respective router connections recover. Vault performs up to 3 ICE restart attempts
+/// spaced ~15s apart (total window ~45s). Gateway must outlive that entire window so it
+/// is still alive when the router recovers and vault's offer becomes routable.
+/// 20s was too short — in observed failures the gateway router WS took ~38s to
+/// reconnect, and the gateway had already torn itself down at T+20s.
 ///
 /// **Tuning**:
-/// - Fast signaling: 15s
-/// - Slow/satellite: 30s
+/// - Faster teardown on reliable networks: 30s
+/// - Very slow/satellite links: 90s
 ///
 /// **Env**: `KEEPER_GATEWAY_ICE_RESTART_ANSWER_TIMEOUT_SECS`
 pub fn ice_restart_answer_timeout() -> Duration {
@@ -291,7 +292,7 @@ pub fn ice_restart_answer_timeout() -> Duration {
         std::env::var("KEEPER_GATEWAY_ICE_RESTART_ANSWER_TIMEOUT_SECS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(20),
+            .unwrap_or(60),
     )
 }
 

@@ -35,8 +35,13 @@ def ChEBI_get_compound(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"chebi_id": chebi_id}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "ChEBI_get_compound", "arguments": {"chebi_id": chebi_id}},
+        {
+            "name": "ChEBI_get_compound",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

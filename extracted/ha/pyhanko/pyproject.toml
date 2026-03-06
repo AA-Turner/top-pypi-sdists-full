@@ -21,7 +21,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -30,17 +29,17 @@ classifiers = [
     "Topic :: Security :: Cryptography",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "asn1crypto>=1.5.1",
     "tzlocal>=4.3",
-    "pyhanko-certvalidator>=0.29.0,<0.30",
+    "pyhanko-certvalidator>=0.30.0,<0.31",
     "requests>=2.31.0",
     "pyyaml>=6.0",
     "cryptography>=43.0.3",
     "lxml>=5.4.0",
 ]
-version = "0.33.0"
+version = "0.34.0"
 
 
 [project.readme]
@@ -70,29 +69,23 @@ image-support = [
 ]
 pkcs11 = ["python-pkcs11~=0.9.3"]
 async-http = ["aiohttp>=3.9,<3.14"]
-etsi = ["xsdata>=24.4,<26.0", "signxml>=4.2.0"]
+etsi = [
+    "xsdata>=24.4,<27.0",
+    "signxml>=4.2.0"
+]
 
 [dependency-groups]
-testing-base = [
-    "common-test-utils",
-    "pytest>=6.1.1",
-    "requests-mock>=1.8.0",
-    "freezegun>=1.1.0",
-    "certomancer>=0.13.0,<0.14",
-    "pytest-cov>=4.0,<7.1",
-    "pytest-asyncio>=1.1.0,<2.0",
-]
+testing-base = ["pytest>=6.1.1", "requests-mock>=1.8.0", "freezegun>=1.1.0", "certomancer>=0.13.0,<0.14", "pytest-cov>=4.0,<7.1", "pytest-asyncio>=1.1.0,<2.0"]
 testing-aiohttp = [
     "aiohttp>=3.9,<3.14",
     "pytest-aiohttp>=1.0.4,<1.2.0",
 ]
-testing = [
-    { include-group = "testing-base" },
-    { include-group = "testing-aiohttp" },
-    "common-test-utils[csc]",
-]
 
 
+[[dependency-groups.testing]]
+include-group = "testing-base"
+[[dependency-groups.testing]]
+include-group = "testing-aiohttp"
 [tool.setuptools]
 include-package-data = false
 package-dir = { "" = "src" }

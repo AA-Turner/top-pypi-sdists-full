@@ -35,8 +35,13 @@ def PubChemBioAssay_get_assay_summary(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"aid": aid}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "PubChemBioAssay_get_assay_summary", "arguments": {"aid": aid}},
+        {
+            "name": "PubChemBioAssay_get_assay_summary",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

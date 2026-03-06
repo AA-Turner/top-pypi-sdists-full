@@ -342,6 +342,51 @@ pub struct NiggliCell {
     pub form: NiggliForm,
 }
 
+/// Niggli-reduced G6 representation: the 6 unique components of the metric tensor
+/// of the Niggli-reduced lattice. Used as a canonical lattice key for identity/dedup.
+#[derive(Debug, Clone)]
+pub struct NiggliG6 {
+    /// a·a (squared length of first basis vector)
+    pub a2: f64,
+    /// b·b (squared length of second basis vector)
+    pub b2: f64,
+    /// c·c (squared length of third basis vector)
+    pub c2: f64,
+    /// 2(b·c) (twice the dot product of second and third vectors)
+    pub bc_2: f64,
+    /// 2(a·c) (twice the dot product of first and third vectors)
+    pub ac_2: f64,
+    /// 2(a·b) (twice the dot product of first and second vectors)
+    pub ab_2: f64,
+}
+
+impl NiggliG6 {
+    /// Extract G6 components from a Niggli-reduced cell matrix.
+    /// Rows of the matrix are the lattice basis vectors a, b, c.
+    pub fn from_niggli_cell(cell: &NiggliCell) -> Self {
+        let [av, bv, cv] = [0, 1, 2].map(|idx| cell.matrix.row(idx).transpose());
+        Self {
+            a2: av.dot(&av),
+            b2: bv.dot(&bv),
+            c2: cv.dot(&cv),
+            bc_2: 2.0 * bv.dot(&cv),
+            ac_2: 2.0 * av.dot(&cv),
+            ab_2: 2.0 * av.dot(&bv),
+        }
+    }
+
+    /// Return as a 6-element array [a², b², c², 2bc, 2ac, 2ab].
+    pub fn as_array(&self) -> [f64; 6] {
+        [self.a2, self.b2, self.c2, self.bc_2, self.ac_2, self.ab_2]
+    }
+}
+
+/// Compute the Niggli G6 representation for a lattice.
+pub fn niggli_g6(lattice: &Lattice, tolerance: f64) -> Result<NiggliG6> {
+    let cell = niggli_reduce(lattice, tolerance)?;
+    Ok(NiggliG6::from_niggli_cell(&cell))
+}
+
 /// Compute the Niggli-reduced cell of a lattice.
 ///
 /// The Niggli reduction produces a unique reduced cell with:
@@ -441,6 +486,94 @@ pub struct DelaunayCell {
     pub matrix: Matrix3<f64>,
     /// The transformation matrix from original to Delaunay basis
     pub transformation: Matrix3<f64>,
+}
+
+/// Selling-reduced S6 representation: the 6 inner products of the 4 vectors
+/// (a, b, c, d=-(a+b+c)) in a Delaunay-reduced basis. Canonicalized by selecting
+/// the lexicographically smallest S6 over the 24 permutations of (a, b, c, d).
+#[derive(Debug, Clone)]
+pub struct SellingS6 {
+    /// b·c
+    pub bc: f64,
+    /// a·c
+    pub ac: f64,
+    /// a·b
+    pub ab: f64,
+    /// a·d where d = -(a+b+c)
+    pub ad: f64,
+    /// b·d where d = -(a+b+c)
+    pub bd: f64,
+    /// c·d where d = -(a+b+c)
+    pub cd: f64,
+}
+
+impl SellingS6 {
+    /// Return as a 6-element array [bc, ac, ab, ad, bd, cd].
+    pub fn as_array(&self) -> [f64; 6] {
+        [self.bc, self.ac, self.ab, self.ad, self.bd, self.cd]
+    }
+
+    /// Compute the canonicalized S6 by selecting the lexicographically smallest
+    /// S6 over all 24 permutations of (a, b, c, d).
+    pub fn canonicalize(cell: &DelaunayCell) -> Result<Self> {
+        let [av, bv, cv] = [0, 1, 2].map(|idx| cell.matrix.row(idx).transpose());
+        let vecs: [Vector3<f64>; 4] = [av, bv, cv, -(av + bv + cv)];
+
+        const PERMS: [[usize; 4]; 24] = [
+            [0, 1, 2, 3],
+            [0, 1, 3, 2],
+            [0, 2, 1, 3],
+            [0, 2, 3, 1],
+            [0, 3, 1, 2],
+            [0, 3, 2, 1],
+            [1, 0, 2, 3],
+            [1, 0, 3, 2],
+            [1, 2, 0, 3],
+            [1, 2, 3, 0],
+            [1, 3, 0, 2],
+            [1, 3, 2, 0],
+            [2, 0, 1, 3],
+            [2, 0, 3, 1],
+            [2, 1, 0, 3],
+            [2, 1, 3, 0],
+            [2, 3, 0, 1],
+            [2, 3, 1, 0],
+            [3, 0, 1, 2],
+            [3, 0, 2, 1],
+            [3, 1, 0, 2],
+            [3, 1, 2, 0],
+            [3, 2, 0, 1],
+            [3, 2, 1, 0],
+        ];
+
+        PERMS
+            .iter()
+            .map(|perm| {
+                let [va, vb, vc, vd] = perm.map(|idx| vecs[idx]);
+                Self {
+                    bc: vb.dot(&vc),
+                    ac: va.dot(&vc),
+                    ab: va.dot(&vb),
+                    ad: va.dot(&vd),
+                    bd: vb.dot(&vd),
+                    cd: vc.dot(&vd),
+                }
+            })
+            .min_by(|left, right| {
+                left.as_array()
+                    .partial_cmp(&right.as_array())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .ok_or_else(|| FerroxError::InvalidLattice {
+                reason: "Failed to canonicalize S6 (empty permutations)".to_string(),
+            })
+    }
+}
+
+/// Compute the canonicalized Selling S6 representation for a lattice.
+pub fn selling_s6(lattice: &Lattice, tolerance: f64) -> Result<SellingS6> {
+    let cell = delaunay_reduce(lattice, tolerance)?;
+    SellingS6::canonicalize(&cell)
 }
 
 /// Compute the Delaunay-reduced cell of a lattice.
@@ -1120,6 +1253,62 @@ mod tests {
         // Naive: matrix * (0, 0.5, 0) = (4.5, 0.5, 0), dist = sqrt(20.5) ≈ 4.53
         // Both have same distance in this symmetric case, so either is valid
         assert!(dist_closest <= dist_naive + 1e-10);
+    }
+
+    #[test]
+    fn test_niggli_g6_cubic() {
+        let lattice = Lattice::cubic(3.0);
+        let g6 = super::niggli_g6(&lattice, 1e-5).unwrap();
+        let arr = g6.as_array();
+        let a_sq = 9.0;
+        assert!((arr[0] - a_sq).abs() < 1e-8, "a² = {}", arr[0]);
+        assert!((arr[1] - a_sq).abs() < 1e-8, "b² = {}", arr[1]);
+        assert!((arr[2] - a_sq).abs() < 1e-8, "c² = {}", arr[2]);
+        for (idx, val) in arr[3..].iter().enumerate() {
+            assert!(val.abs() < 1e-8, "off-diagonal G6[{}] = {val}", idx + 3);
+        }
+    }
+
+    #[test]
+    fn test_selling_s6_cubic() {
+        let lattice = Lattice::cubic(3.0);
+        let s6 = super::selling_s6(&lattice, 1e-5).unwrap();
+        let arr = s6.as_array();
+        for (idx, val) in arr.iter().enumerate() {
+            assert!(*val <= 1e-8, "S6[{idx}] = {val} should be non-positive");
+        }
+    }
+
+    #[test]
+    fn test_selling_s6_canonical_invariance() {
+        // Asymmetric (triclinic-like) lattice: a=3, b=4, c=5, different angles
+        let row_a = [3.0, 0.0, 0.0];
+        let row_b = [1.0, 4.0, 0.0];
+        let row_c = [0.5, 0.5, 5.0];
+        let reference = Lattice::new(Matrix3::new(
+            row_a[0], row_a[1], row_a[2], row_b[0], row_b[1], row_b[2], row_c[0], row_c[1],
+            row_c[2],
+        ));
+        let s6_ref = super::selling_s6(&reference, 1e-5).unwrap().as_array();
+
+        // Test multiple basis permutations: (b,c,a), (c,a,b), (c,b,a)
+        let permuted_rows = [
+            (row_b, row_c, row_a),
+            (row_c, row_a, row_b),
+            (row_c, row_b, row_a),
+        ];
+        for (perm_idx, (ra, rb, rc)) in permuted_rows.iter().enumerate() {
+            let perm_lattice = Lattice::new(Matrix3::new(
+                ra[0], ra[1], ra[2], rb[0], rb[1], rb[2], rc[0], rc[1], rc[2],
+            ));
+            let s6_perm = super::selling_s6(&perm_lattice, 1e-5).unwrap().as_array();
+            for idx in 0..6 {
+                assert!(
+                    (s6_ref[idx] - s6_perm[idx]).abs() < 1e-6,
+                    "permutation {perm_idx}: S6 should be invariant: {s6_ref:?} vs {s6_perm:?}"
+                );
+            }
+        }
     }
 
     #[test]

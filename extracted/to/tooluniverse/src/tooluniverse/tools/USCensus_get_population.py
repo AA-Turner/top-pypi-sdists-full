@@ -47,16 +47,22 @@ def USCensus_get_population(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "get": get,
+            "for": for_,
+            "dataset": dataset,
+            "in": in_,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "USCensus_get_population",
-            "arguments": {
-                "get": get,
-                "for": for_,
-                "dataset": dataset,
-                "in": in_,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

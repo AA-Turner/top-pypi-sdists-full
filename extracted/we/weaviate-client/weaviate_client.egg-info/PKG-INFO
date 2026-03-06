@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weaviate-client
-Version: 4.20.2
+Version: 4.20.3
 Summary: A python native Weaviate client
 Home-page: https://github.com/weaviate/weaviate-python-client
 Author: Weaviate
@@ -14,7 +14,7 @@ Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 Requires-Dist: httpx<0.29.0,>=0.26.0
 Requires-Dist: validators<1.0.0,>=0.34.0
-Requires-Dist: authlib<2.0.0,>=1.6.5
+Requires-Dist: authlib<2.0.0,>=1.6.7
 Requires-Dist: pydantic<3.0.0,>=2.12.0
 Requires-Dist: grpcio<1.80.0,>=1.59.5
 Requires-Dist: protobuf<7.0.0,>=4.21.6

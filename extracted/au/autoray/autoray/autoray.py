@@ -1365,20 +1365,18 @@ def svd_manual_full_matrices_kwarg(fn):
 def qr_allow_fat(fn):
     @functools.wraps(fn)
     def numpy_like(a, **kwargs):
-        *_, m, n = shape(a)
+        xp = get_namespace(a)
+
+        *_, m, n = xp.shape(a)
 
         if m >= n:
             # square or thin
             return fn(a, **kwargs)
 
-        backend = _infer_class_backend_cached(a.__class__)
-
         Q, R_sq = fn(a[..., :, :m])
-        Qdag = do(
-            "conj", do("swapaxes", Q, -2, -1, like=backend), like=backend
-        )
+        Qdag = xp.conj(xp.swapaxes(Q, -2, -1))
         R_r = Qdag @ a[..., :, m:]
-        R = do("concatenate", (R_sq, R_r), axis=-1, like=backend)
+        R = xp.concatenate((R_sq, R_r), axis=-1)
 
         return Q, R
 
@@ -2493,6 +2491,14 @@ def tensorflow_indices(dimensions):
     _meshgrid = get_lib_fn("tensorflow", "meshgrid")
     _arange = get_lib_fn("tensorflow", "arange")
     return _meshgrid(*map(_arange, dimensions), indexing="ij")
+
+
+@register_function("tensorflow", "swapaxes")
+def tensorflow_swapaxes(a, axis1, axis2):
+    xp = get_namespace(a)
+    perm = list(range(a.ndim))
+    perm[axis1], perm[axis2] = perm[axis2], perm[axis1]
+    return xp.transpose(a, perm)
 
 
 # ---------------------------------- torch ---------------------------------- #

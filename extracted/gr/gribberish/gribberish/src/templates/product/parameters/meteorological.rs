@@ -51,6 +51,10 @@ pub enum TemperatureProduct {
     #[abbrev = "APTMP"]
     #[unit = "K"]
     ApparentTemperature = 21,
+    #[description = "skin temperature"]
+    #[abbrev = "SKINT"]
+    #[unit = "K"]
+    SkinTemperature = 17,
     Missing = 255,
 }
 
@@ -102,7 +106,7 @@ pub enum MoistureProduct {
     TotalSnowfall = 29,
     #[abbrev = "HAIL"]
     #[unit = "m"]
-    Hail=31,
+    Hail = 31,
     #[description = "categorical rain"]
     #[abbrev = "CRAIN"]
     #[unit = "BOOL"]
@@ -131,6 +135,22 @@ pub enum MoistureProduct {
     #[abbrev = "TCOLG"]
     #[unit = "kgm-2"]
     TotalColumnIntegratedGraupel = 74,
+    #[description = "categorical rain (NCEP)"]
+    #[abbrev = "CRAIN"]
+    #[unit = "BOOL"]
+    CategoricalRainNcep = 192,
+    #[description = "categorical freezing rain (NCEP)"]
+    #[abbrev = "CFRZR"]
+    #[unit = "BOOL"]
+    CategoricalFreezingRainNcep = 193,
+    #[description = "categorical ice pellets (NCEP)"]
+    #[abbrev = "CICEP"]
+    #[unit = "BOOL"]
+    CategoricalIcePelletsNcep = 194,
+    #[description = "categorical snow (NCEP)"]
+    #[abbrev = "CSNOW"]
+    #[unit = "BOOL"]
+    CategoricalSnowNcep = 195,
     #[description = "freezing rain"]
     #[abbrev = "FRZR"]
     #[unit = "kgm-2"]
@@ -139,6 +159,10 @@ pub enum MoistureProduct {
     #[abbrev = "FROZR"]
     #[unit = "kgm-2"]
     FrozenRain = 227,
+    #[description = "snow to liquid ratio"]
+    #[abbrev = "SNLR"]
+    #[unit = "kgkg-1"]
+    SnowToLiquidRatio = 233,
     Missing = 255,
 }
 
@@ -249,6 +273,10 @@ pub enum CloudProduct {
     #[abbrev = "HCDC"]
     #[unit = "%"]
     HighCloudCover = 5,
+    #[description = "cloud amount"]
+    #[abbrev = "CDCA"]
+    #[unit = "%"]
+    CloudAmount = 7,
     Missing = 255,
 }
 
@@ -448,10 +476,18 @@ pub enum MassProduct {
     #[abbrev = "HGT"]
     #[unit = "gpm"]
     GeopotentialHeight = 5,
+    #[description = "planetary boundary layer height"]
+    #[abbrev = "HPBL"]
+    #[unit = "m"]
+    PlanetaryBoundaryLayerHeight = 18,
     #[description = "mslp (eta model reduction)"]
     #[abbrev = "MSLET"]
     #[unit = "pa"]
     MSLP = 192,
+    #[description = "mslp (maps system reduction)"]
+    #[abbrev = "MSLMA"]
+    #[unit = "pa"]
+    MSLPMaps = 198,
     Missing = 255,
 }
 
@@ -648,7 +684,9 @@ pub fn meteorological_parameter(category: u8, parameter: u8) -> Option<Parameter
         4 => Some(Parameter::from(ShortWaveRadiationProduct::from(parameter))),
         5 => Some(Parameter::from(LongWaveRadiationProduct::from(parameter))),
         6 => Some(Parameter::from(CloudProduct::from(parameter))),
-        7 => Some(Parameter::from(ThermodynamicStabilityProduct::from(parameter))),
+        7 => Some(Parameter::from(ThermodynamicStabilityProduct::from(
+            parameter,
+        ))),
         14 => Some(Parameter::from(TraceGasesProduct::from(parameter))),
         15 => Some(Parameter::from(RadarProduct::from(parameter))),
         16 => Some(Parameter::from(ForecastRadarImagery::from(parameter))),

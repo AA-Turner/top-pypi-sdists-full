@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit_build_core
-Version: 0.12.1
+Version: 0.12.2
 Summary: Build backend for CMake based projects
 Project-URL: Changelog, https://scikit-build-core.readthedocs.io/en/latest/changelog.html
 Project-URL: Discussions, https://github.com/orgs/scikit-build/discussions
@@ -32,7 +32,7 @@ Requires-Python: >=3.8
 Requires-Dist: exceptiongroup>=1.0; python_version < '3.11'
 Requires-Dist: importlib-resources>=1.3; python_version < '3.9'
 Requires-Dist: packaging>=23.2
-Requires-Dist: pathspec>=0.10.1
+Requires-Dist: pathspec>=0.12.0
 Requires-Dist: tomli>=1.2.2; python_version < '3.11'
 Requires-Dist: typing-extensions>=4; python_version < '3.11'
 Provides-Extra: pyproject

@@ -70,20 +70,12 @@ class Row(InputWidget):
             if "key" in widget
         }
 
-        errors = []
-        for rendered_widget in rendered_widgets:
-            if "errors" in rendered_widget and rendered_widget["errors"]:
-                errors.append(
-                    (rendered_widget["label"] or rendered_widget["key"]) + ":"
-                )
-                errors.extend(rendered_widget["errors"])
-
         return {
             "type": self.type,
             "key": self.key,
             "widgets": rendered_widgets,
             "value": serialized_value,
-            "errors": errors,
+            "errors": [],
         }
 
     def _parse_value(self, value: dict) -> Dict[str, State]:

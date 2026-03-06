@@ -41,14 +41,20 @@ def BindingDB_get_ligands_by_pdb(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "pdb_ids": pdb_ids,
+            "affinity_cutoff": affinity_cutoff,
+            "sequence_identity": sequence_identity,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BindingDB_get_ligands_by_pdb",
-            "arguments": {
-                "pdb_ids": pdb_ids,
-                "affinity_cutoff": affinity_cutoff,
-                "sequence_identity": sequence_identity,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

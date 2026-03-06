@@ -121,6 +121,7 @@ class GSEA(GSEAbase):
         # some preprocessing
         assert self.permutation_type in ["phenotype", "gene_set"]
         assert self.min_size <= self.max_size
+        assert self.min_size > 0
         # phenotype labels parsing
         self.load_classes(classes)
 
@@ -278,7 +279,7 @@ class GSEA(GSEAbase):
         """
         check each cls group length
         """
-        metrics = ["signal_to_noise", "s2n", "abs_signal_to_noise", "abs_s2n", "t_test"]
+        # metrics = ["signal_to_noise", "s2n", "abs_signal_to_noise", "abs_s2n", "t_test"]
         s = []
         for c, v in sorted(counter.items(), key=lambda item: item[1]):
             if v < 3:
@@ -352,7 +353,7 @@ class GSEA(GSEAbase):
         # gene symbols
         gene_names = dat.index.to_list()
         if (not self._gene_isupper) and self._gene_toupper:
-            gene_names = [x.upper() for x in gene_names]
+            gene_names = [str(x).upper() for x in gene_names]
             dat.index = gene_names
             self._logger.info("Genes are converted to uppercase.")
 
@@ -466,6 +467,7 @@ class Prerank(GSEAbase):
         self.ranking = None
         self._noplot = no_plot
         self.permutation_type = "gene_set"
+        assert self.min_size > 0
 
     def _load_ranking(self, rank_metric: pd.DataFrame) -> pd.Series:
         """Parse ranking
@@ -569,7 +571,7 @@ class Prerank(GSEAbase):
         self._logger.info("Start to run GSEA...Might take a while..................")
         gene_names = dat2.index.to_list()
         if (not self._gene_isupper) and self._gene_toupper:
-            gene_names = [x.upper() for x in gene_names]
+            gene_names = [str(x).upper() for x in gene_names]
             self._logger.info("Genes are converted to uppercase.")
         # compute ES, NES, pval, FDR, RES
         if isinstance(dat2, pd.DataFrame):
@@ -672,7 +674,7 @@ class Replot(GSEAbase):
             results_path = glob.glob(os.path.join(self.indir, "edb/results.edb"))[0]
             rank_path = glob.glob(os.path.join(self.indir, "edb/*.rnk"))[0]
             gene_set_path = glob.glob(os.path.join(self.indir, "edb/gene_sets.gmt"))[0]
-        except IndexError as e:
+        except IndexError:
             raise Exception("Could not locate GSEA files in the given directory!")
         # extract sample names from .cls file
         cls_path = glob.glob(os.path.join(self.indir, "*/edb/*.cls"))

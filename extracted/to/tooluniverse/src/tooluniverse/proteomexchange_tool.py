@@ -93,9 +93,9 @@ class ProteomeXchangeTool(BaseTool):
         response.raise_for_status()
         raw = response.json()
 
-        # Extract title
-        title_terms = raw.get("title", {}).get("terms", [])
-        title = self._extract_cv_value(title_terms, name_match="dataset title") or ""
+        # Extract title (API returns plain string, not dict with terms)
+        raw_title = raw.get("title", "")
+        title = raw_title if isinstance(raw_title, str) else ""
 
         # Extract species
         species_groups = raw.get("species", [])
@@ -116,14 +116,13 @@ class ProteomeXchangeTool(BaseTool):
                 if val:
                     identifiers.append({"name": name, "value": val})
 
-        # Extract instruments
+        # Extract instruments (API returns flat dicts with 'name'+'accession', not 'terms')
         instruments = []
-        for inst_group in raw.get("instruments", []):
-            if isinstance(inst_group, dict):
-                terms = inst_group.get("terms", [])
-                inst = self._extract_cv_value(terms, name_match="instrument model")
-                if inst and inst != "null":
-                    instruments.append(inst)
+        for inst in raw.get("instruments", []):
+            if isinstance(inst, dict):
+                inst_name = inst.get("name", "")
+                if inst_name and inst_name != "null":
+                    instruments.append(inst_name)
 
         # Extract publications
         publications = []
@@ -132,7 +131,7 @@ class ProteomeXchangeTool(BaseTool):
                 terms = pub.get("terms", [])
                 pmid = self._extract_cv_value(terms, name_match="PubMed identifier")
                 doi = self._extract_cv_value(
-                    terms, name_match="Dataset with its publication"
+                    terms, name_match="Digital Object Identifier"
                 )
                 publications.append(
                     {
@@ -164,62 +163,47 @@ class ProteomeXchangeTool(BaseTool):
         }
 
     def _search_datasets(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Search ProteomeXchange datasets via MassIVE PROXI."""
+        """Search ProteomeXchange datasets via ProteomeCentral API."""
         query = arguments.get("query", "")
         limit = min(arguments.get("limit", 10), 50)
 
-        # Use MassIVE PROXI API for search
-        url = "https://massive.ucsd.edu/ProteoSAFe/proxi/v0.1/datasets"
-        params = {"resultType": "compact"}
+        # Use ProteomeCentral API (same host as _get_dataset, more reliable)
+        url = f"{PX_BASE_URL}/GetDataset"
+        params = {"outputMode": "JSON"}
         if query:
-            params["filter"] = query
+            params["keyword"] = query
 
         response = requests.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
         raw = response.json()
 
+        # API returns list of dataset dicts when keyword is given
+        if isinstance(raw, list):
+            raw_list = raw
+        elif isinstance(raw, dict):
+            raw_list = raw.get("datasets", [raw])
+        else:
+            raw_list = []
+
         datasets = []
-        for ds in raw[:limit]:
+        for ds in raw_list[:limit]:
             if not isinstance(ds, dict):
                 continue
-
-            # Extract accession
-            accession_list = ds.get("accession", [])
-            accession = ""
-            if isinstance(accession_list, list):
-                for acc in accession_list:
-                    if isinstance(acc, dict):
-                        accession = acc.get("value", "")
-                        break
-
-            # Extract title
-            title = ds.get("title", "")
-
-            # Extract species
-            species_groups = ds.get("species", [])
-            species_names = []
-            for group in species_groups:
-                if isinstance(group, list):
-                    for term in group:
-                        if isinstance(term, dict) and "common name" in term.get(
-                            "name", ""
-                        ):
-                            val = term.get("value", "")
-                            if val and val != "null":
-                                species_names.append(val)
-
             datasets.append(
                 {
-                    "accession": accession,
-                    "title": title,
-                    "species": species_names,
+                    "accession": ds.get("identifier", ""),
+                    "title": ds.get("title", "")
+                    if isinstance(ds.get("title"), str)
+                    else "",
+                    "species": ds.get("species", []),
+                    "contact": ds.get("contact", ""),
                 }
             )
 
         return {
             "data": datasets,
             "metadata": {
-                "source": "ProteomeXchange/MassIVE",
+                "source": "ProteomeXchange/ProteomeCentral",
                 "total_returned": len(datasets),
                 "query": query or "(all)",
                 "endpoint": "search_datasets",

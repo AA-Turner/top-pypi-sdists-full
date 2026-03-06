@@ -84,7 +84,7 @@ class SdkConfig(BaseModel):
 class PlatoConfig(BaseModel):
     service: str | None = None
     sdk: SdkConfig | None = None
-    datasets: dict[str, SimConfigDataset] | None = None
+    datasets: dict[str, SimConfigDataset] = {}
 
 
 class Sandbox(BaseModel):

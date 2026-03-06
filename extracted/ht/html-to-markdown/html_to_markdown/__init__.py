@@ -22,6 +22,8 @@ from html_to_markdown.api import (
     InlineImageWarning,
     MetadataConfig,
     OptionsHandle,
+    TableData,
+    TableExtractionResult,
     convert,
     convert_with_async_visitor,
     convert_with_handle,
@@ -29,6 +31,7 @@ from html_to_markdown.api import (
     convert_with_inline_images_handle,
     convert_with_metadata,
     convert_with_metadata_handle,
+    convert_with_tables,
     convert_with_visitor,
     create_options_handle,
     start_profiling,
@@ -59,6 +62,8 @@ __all__ = [
     "OptionsHandle",
     "OutputFormat",
     "PreprocessingOptions",
+    "TableData",
+    "TableExtractionResult",
     "convert",
     "convert_to_markdown",
     "convert_with_async_visitor",
@@ -67,6 +72,7 @@ __all__ = [
     "convert_with_inline_images_handle",
     "convert_with_metadata",
     "convert_with_metadata_handle",
+    "convert_with_tables",
     "convert_with_visitor",
     "create_options_handle",
     "markdownify",
@@ -74,4 +80,4 @@ __all__ = [
     "stop_profiling",
 ]
 
-__version__ = "2.27.2"
+__version__ = "2.28.0"

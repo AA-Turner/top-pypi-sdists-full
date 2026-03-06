@@ -37,7 +37,7 @@ def _http_get(
             },
             "required": ["query"],
         },
-        "settings": {"base_url": "https://rnacentral.org/api/v1", "timeout": 30},
+        "settings": {"base_url": "https://rnacentral.org/api/v1", "timeout": 60},
     },
 )
 class RNAcentralSearchTool:
@@ -88,7 +88,7 @@ class RNAcentralSearchTool:
             },
             "required": ["accession"],
         },
-        "settings": {"base_url": "https://rnacentral.org/api/v1", "timeout": 30},
+        "settings": {"base_url": "https://rnacentral.org/api/v1", "timeout": 60},
     },
 )
 class RNAcentralGetTool:

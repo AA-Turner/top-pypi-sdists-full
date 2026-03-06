@@ -343,6 +343,20 @@ class SwissADMETool(BaseTool):
                 "error": "Failed to parse SwissADME results.",
             }
 
+        # Feature-26B-10: if SwissADME accepted an invalid SMILES, canonical_smiles
+        # is null in the returned CSV. Treat this as a failure so users get a
+        # clear error rather than a "success" response full of null values.
+        if not properties.get("canonical_smiles"):
+            return {
+                "status": "error",
+                "error": (
+                    "SwissADME could not parse the given SMILES. "
+                    "Verify the SMILES represents a valid small molecule "
+                    "(e.g., 'CC(=O)Oc1ccccc1C(=O)O' for aspirin). "
+                    "Get valid SMILES from PubChem or ChEMBL."
+                ),
+            }
+
         # Organize into categories for clarity
         data = {
             "molecule_name": properties.get("molecule_name"),
@@ -444,6 +458,16 @@ class SwissADMETool(BaseTool):
             return {
                 "status": "error",
                 "error": "Failed to parse SwissADME results.",
+            }
+
+        # Feature-26B-10: check for null canonical_smiles (invalid input)
+        if not properties.get("canonical_smiles"):
+            return {
+                "status": "error",
+                "error": (
+                    "SwissADME could not parse the given SMILES. "
+                    "Verify the SMILES represents a valid small molecule."
+                ),
             }
 
         # Evaluate drug-likeness rules

@@ -44,15 +44,21 @@ def ChEMBL_search_documents(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "document_id": document_id,
+            "title__contains": title__contains,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ChEMBL_search_documents",
-            "arguments": {
-                "document_id": document_id,
-                "title__contains": title__contains,
-                "limit": limit,
-                "offset": offset,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

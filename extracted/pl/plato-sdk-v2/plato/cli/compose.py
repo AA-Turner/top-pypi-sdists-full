@@ -704,7 +704,7 @@ async def deploy_to_vm(
             timeout=300,
         )
 
-        output = result.stdout.strip()
+        output = (result.stdout or "").strip()
 
         # Check for common error patterns in output
         error_patterns = ["no such file or directory", "error", "failed", "cannot", "not found"]
@@ -712,14 +712,14 @@ async def deploy_to_vm(
 
         if result.exit_code != 0 or has_error:
             # Show the actual error output
-            error_output = output or result.stderr.strip() or "(no output)"
+            error_output = output or (result.stderr or "").strip() or "(no output)"
             return (vm_name, False, f"docker compose failed:\n{error_output}")
 
         # Verify containers are running
         ps_result = await env.execute(
             f"cd '{compose_dir}' && docker compose -f docker-compose.plato.yml ps -q | wc -l", timeout=30
         )
-        container_count = int(ps_result.stdout.strip() or "0")
+        container_count = int((ps_result.stdout or "").strip() or "0")
 
         if container_count == 0:
             return (vm_name, False, "no containers running - check /tmp/plato-init.log")

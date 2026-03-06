@@ -3394,7 +3394,7 @@ test_bottleneck_simulation(void)
     tsk_table_collection_free(&tables);
 }
 
-#define SIMPLE_BOTTLENECK 0
+#define SIMPLE_BOTTLENECK        0
 #define INSTANTANEOUS_BOTTLENECK 1
 
 typedef struct {
@@ -4094,7 +4094,7 @@ test_additional_nodes_re_ca_gc(void)
     num_events[1] = msp_get_num_common_ancestor_events(&msp);
     num_events[2] = 2
                     * (msp_get_num_internal_gene_conversion_events(&msp)
-                          - msp_get_num_noneffective_gene_conversion_events(&msp));
+                        - msp_get_num_noneffective_gene_conversion_events(&msp));
 
     for (int i = 0; i < 3; i++) {
         CU_ASSERT_TRUE(num_events[i] > 0);

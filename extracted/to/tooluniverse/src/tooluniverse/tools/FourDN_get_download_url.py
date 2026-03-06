@@ -38,10 +38,16 @@ def FourDN_get_download_url(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"operation": operation, "file_accession": file_accession}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "FourDN_get_download_url",
-            "arguments": {"operation": operation, "file_accession": file_accession},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

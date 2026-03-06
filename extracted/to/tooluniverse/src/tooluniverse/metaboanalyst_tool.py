@@ -311,12 +311,7 @@ class MetaboAnalystTool(BaseTool):
             for syn in synonyms:
                 if syn == norm:
                     return (cid, parts[1].split(";")[0].strip())
-        # Fallback: first result
-        first_line = resp.text.strip().split("\n")[0]
-        parts = first_line.split("\t", 1)
-        if len(parts) >= 2:
-            cid = parts[0].replace("cpd:", "")
-            return (cid, parts[1].split(";")[0].strip())
+        # Feature-71A-003: No blind fallback to first result — only return exact match or None
         return None
 
     def _kegg_get_compound_info(self, compound_id: str) -> Dict[str, Any]:

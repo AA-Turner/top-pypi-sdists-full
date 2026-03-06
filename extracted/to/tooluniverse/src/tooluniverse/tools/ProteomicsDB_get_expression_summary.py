@@ -41,14 +41,20 @@ def ProteomicsDB_get_expression_summary(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "uniprot_id": uniprot_id,
+            "top_n": top_n,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ProteomicsDB_get_expression_summary",
-            "arguments": {
-                "operation": operation,
-                "uniprot_id": uniprot_id,
-                "top_n": top_n,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -137,6 +137,8 @@ pub async fn setup_outbound_task(
     let is_channel_server_mode = channel.server_mode;
     let channel_close_reason_arc = channel.channel_close_reason.clone(); // For checking if Python already closed
     let fragmentation_enabled = channel.capabilities.contains(Capabilities::FRAGMENTATION);
+    let should_exit_for_task = channel.should_exit.clone();
+    let shutdown_notify_for_task = channel.shutdown_notify.clone();
 
     // TRACE: Ultra-verbose task lifecycle logging (only in verbose mode)
     if unlikely!(crate::logger::is_verbose_logging()) {
@@ -404,8 +406,28 @@ pub async fn setup_outbound_task(
         );
     }
 
-    // Create channel for backend task (client→guacd direction)
-    let (data_tx, data_rx) = mpsc::unbounded_channel::<crate::models::ConnectionMessage>();
+    // Create channels for backend task (client→backend direction).
+    // For Guacd connections the UploadAccelerator sits between the WebRTC frame
+    // handler and guacd, buffering parallel blob instructions and serializing
+    // delivery one blob at a time.
+    let mut accel_handle: Option<crate::channel::upload_accelerator::UploadAcceleratorHandle> =
+        None;
+    let (data_tx, data_rx_for_backend) = if active_protocol == ActiveProtocol::Guacd {
+        let (webrtc_tx, accel_rx) = mpsc::unbounded_channel::<crate::models::ConnectionMessage>();
+        let (filtered_tx, filtered_rx) =
+            mpsc::unbounded_channel::<crate::models::ConnectionMessage>();
+        let (accel, handle) = crate::channel::upload_accelerator::UploadAccelerator::new(
+            accel_rx,
+            filtered_tx,
+            channel_id_for_task.clone(),
+            conn_no,
+        );
+        tokio::spawn(accel.run());
+        accel_handle = Some(handle);
+        (webrtc_tx, filtered_rx)
+    } else {
+        mpsc::unbounded_channel::<crate::models::ConnectionMessage>()
+    };
 
     // Create cancellation token for immediate exit on WebRTC closure
     let cancel_read_task = tokio_util::sync::CancellationToken::new();
@@ -420,7 +442,7 @@ pub async fn setup_outbound_task(
     // Start backend task FIRST (handles client→guacd writes, including our sync responses)
     let backend_task = tokio::spawn(crate::models::backend_task_runner(
         Box::new(stream_half),
-        data_rx,
+        data_rx_for_backend,
         conn_no,
         channel_id_for_task.clone(),
     ));
@@ -834,6 +856,15 @@ pub async fn setup_outbound_task(
                                 // is chosen as a balance between giving the message a reasonable chance to transmit
                                 // and not delaying shutdown excessively.
                                 dc.drain(Duration::from_millis(500)).await;
+
+                                // The drain completed or timed out. Either way the
+                                // CloseConnection may not have reached the client (SCTP is
+                                // typically broken when guacd closes without a disconnect
+                                // opcode). Force the channel run loop to exit now rather
+                                // than waiting ~90s for ICE timeout to close the session.
+                                should_exit_for_task
+                                    .store(true, std::sync::atomic::Ordering::Release);
+                                shutdown_notify_for_task.notify_one();
                             } else if unlikely!(should_log_connection(false)) {
                                 debug!(
                                     "Channel({}): Conn {}: Skipping CloseConnection for unexpected EOF \
@@ -1265,7 +1296,40 @@ pub async fn setup_outbound_task(
                                             }
                                         }
                                         OpcodeAction::Normal => {
-                                            // Normal instruction - continue to batching
+                                            // Check for upload stream acks.
+                                            // Gated by atomic bool — ~1ns overhead when no
+                                            // uploads are active.
+                                            if let Some(ref handle) = accel_handle {
+                                                if handle.has_active_uploads.load(Ordering::Acquire)
+                                                {
+                                                    if let Ok(peeked) =
+                                                        GuacdParser::peek_instruction(current_slice)
+                                                    {
+                                                        if peeked.opcode == "ack" {
+                                                            if let Some(stream_idx) = peeked
+                                                                .args
+                                                                .first()
+                                                                .and_then(|s| s.parse::<u32>().ok())
+                                                            {
+                                                                if handle
+                                                                    .active_stream_ids
+                                                                    .contains(&stream_idx)
+                                                                {
+                                                                    // Forward the real ack to
+                                                                    // the client (progress
+                                                                    // update) — fall through to
+                                                                    // normal batching below.
+                                                                    // Also signal the accelerator
+                                                                    // to dequeue the next blob.
+                                                                    let _ = handle
+                                                                        .ack_tx
+                                                                        .send(stream_idx);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
 
@@ -1564,6 +1628,26 @@ pub async fn setup_outbound_task(
         .entry(conn_no)
         .or_insert_with(|| AtomicU64::new(0))
         .fetch_add(1, Ordering::Relaxed);
+
+    // Spawn guacd nop keepalive: sends `3.nop;` to guacd every 5 seconds while
+    // ICE restart is active, preventing guacd from timing out the TCP connection.
+    // The task exits cleanly when should_exit is set (session teardown).
+    // data_tx is cloned here before being moved into Conn below.
+    if active_protocol == ActiveProtocol::Guacd {
+        let nop_tx = data_tx.clone();
+        let ice_restart_active = channel.ice_restart_active.clone();
+        let should_exit = channel.should_exit.clone();
+        tokio::spawn(async move {
+            while !should_exit.load(Ordering::Acquire) {
+                if ice_restart_active.load(Ordering::Acquire) {
+                    let _ = nop_tx.send(crate::models::ConnectionMessage::Data(
+                        bytes::Bytes::from_static(b"3.nop;"),
+                    ));
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            }
+        });
+    }
 
     // Create connection struct with our pre-created backend task and data_tx channel
     // Note: outbound_handle is the to_webrtc task (guacd→client)

@@ -4,9 +4,9 @@ use anyhow::{anyhow, Result};
 use bytes::{Buf, BufMut};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::core::Channel;
+use super::types::ActiveProtocol;
 use crate::tube_protocol::{CloseConnectionReason, ControlMessage, CONN_NO_LEN};
 
 // Import from the new connect_as module
@@ -22,14 +22,6 @@ const CONNECT_AS_NONCE_BYTES: usize = 12; // As per Python: 12 byte nonce
 pub(crate) const SOCKS5_SUCCESS_RESPONSE: [u8; 10] = pam_socks5::SOCKS5_SUCCESS_RESPONSE;
 use p256::pkcs8::DecodePrivateKey; // Trait for from_pkcs8_pem
 use p256::SecretKey as P256SecretKey;
-
-/// Get the current time in milliseconds since epoch
-pub fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
 
 impl Channel {
     pub(crate) fn setup_webrtc_state_monitoring(&mut self) {
@@ -52,12 +44,15 @@ impl Channel {
 
         // Clone task tracking for proper resource management
         let state_tasks_for_open = self.state_monitoring_tasks.clone();
+        let ice_restart_active_for_open = self.ice_restart_active.clone();
 
         data_channel.on_open(Box::new(move || {
             // Update the shared is_open flag and notify waiters
             // This ensures wait_for_channel_open() works even though we replaced the callback
             is_open_flag.store(true, std::sync::atomic::Ordering::Release);
             open_notify.notify_waiters();
+            // ICE restart completed — stop sending nops to guacd.
+            ice_restart_active_for_open.store(false, std::sync::atomic::Ordering::Release);
 
             let tx = state_tx_open.clone();
             let channel_id_log = channel_id_for_open.clone(); // Clone for async block
@@ -82,6 +77,9 @@ impl Channel {
         let state_tx_close = state_tx.clone();
         let channel_id_for_close = channel_id_base.clone(); // Clone for on_close
         let state_tasks_for_close = self.state_monitoring_tasks.clone();
+        let ice_restart_active_for_close = self.ice_restart_active.clone();
+        let should_exit_for_close = self.should_exit.clone();
+        let active_protocol_for_close = self.active_protocol;
 
         data_channel.on_close(Box::new(move || {
             let tx = state_tx_close.clone();
@@ -100,6 +98,15 @@ impl Channel {
             // Store abort handle synchronously - no race condition possible
             let abort_handle = handle.abort_handle();
             state_tasks_for_close.lock().push(abort_handle);
+
+            // Data channel closed unexpectedly — signal the guacd nop keepalive task to
+            // start sending nops so guacd doesn't time out the TCP connection during the
+            // ICE restart window. Guard: skip if teardown is already in progress.
+            if active_protocol_for_close == ActiveProtocol::Guacd
+                && !should_exit_for_close.load(std::sync::atomic::Ordering::Acquire)
+            {
+                ice_restart_active_for_close.store(true, std::sync::atomic::Ordering::Release);
+            }
 
             Box::pin(async {})
         }));
@@ -978,7 +985,6 @@ impl Channel {
                     self.channel_id
                 );
             }
-            self.ping_attempt = 0;
             return Ok(());
         }
 
@@ -1003,9 +1009,6 @@ impl Channel {
                 conn_no, self.channel_id
             );
         }
-
-        // Reset ping attempt counter
-        self.ping_attempt = 0;
 
         Ok(())
     }

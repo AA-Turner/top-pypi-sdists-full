@@ -41,14 +41,20 @@ def GTEx_query_eqtl(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "ensembl_gene_id": ensembl_gene_id,
+            "page": page,
+            "size": size,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "GTEx_query_eqtl",
-            "arguments": {
-                "ensembl_gene_id": ensembl_gene_id,
-                "page": page,
-                "size": size,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

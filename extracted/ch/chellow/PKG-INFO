@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chellow
-Version: 1772532603.0.0
+Version: 1772726707.0.0
 Summary: Web Application for checking UK energy bills.
 Project-URL: Homepage, https://github.com/WessexWater/chellow
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
@@ -19,7 +19,7 @@ Requires-Dist: pg8000==1.31.5
 Requires-Dist: pip>=9.0.1
 Requires-Dist: psutil==7.1.1
 Requires-Dist: pympler==1.1
-Requires-Dist: pypdf==6.7.4
+Requires-Dist: pypdf==6.7.5
 Requires-Dist: python-dateutil==2.8.2
 Requires-Dist: pytz==2025.2
 Requires-Dist: requests==2.32.5

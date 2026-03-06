@@ -44,15 +44,21 @@ def ReactomeAnalysis_pathway_enrichment(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "identifiers": identifiers,
+            "page_size": page_size,
+            "include_disease": include_disease,
+            "projection": projection,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ReactomeAnalysis_pathway_enrichment",
-            "arguments": {
-                "identifiers": identifiers,
-                "page_size": page_size,
-                "include_disease": include_disease,
-                "projection": projection,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

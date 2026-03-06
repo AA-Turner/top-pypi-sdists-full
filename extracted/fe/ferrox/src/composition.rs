@@ -9,8 +9,8 @@ use crate::species::Species;
 use indexmap::IndexMap;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, Div, Mul, Sub};
 use std::sync::LazyLock;
@@ -692,7 +692,12 @@ impl Composition {
         for (sp, amt) in &self.species {
             // Look up the oxidation state for this element
             let oxi = best.oxidation_states.get(sp.element.symbol())?;
-            let oxi_state = oxi.round() as i8;
+            let rounded = oxi.round();
+            if !rounded.is_finite() || rounded < f64::from(i8::MIN) || rounded > f64::from(i8::MAX)
+            {
+                return None;
+            }
+            let oxi_state = rounded as i8;
             let new_sp = Species::new(sp.element, Some(oxi_state));
             *new_species.entry(new_sp).or_insert(0.0) += amt;
         }
@@ -777,6 +782,210 @@ impl Composition {
     /// Returns `None` if any species lacks an oxidation state.
     pub fn is_charge_balanced(&self) -> Option<bool> {
         self.charge().map(|c| c == 0)
+    }
+
+    /// Number of reduced-formula units per cell (Z). Returns None if non-integer.
+    pub fn num_formula_units(&self) -> Option<i32> {
+        let factor = self.get_reduced_factor();
+        let rounded = factor.round();
+        if (factor - rounded).abs() < 1e-6 && rounded > 0.0 && rounded <= i32::MAX as f64 {
+            Some(rounded as i32)
+        } else {
+            None
+        }
+    }
+
+    /// Mean atomic mass in amu: sum(mass_i * amount_i) / sum(amount_i).
+    pub fn mean_atomic_mass(&self) -> f64 {
+        let total_atoms = self.num_atoms();
+        if total_atoms < 1e-12 {
+            return 0.0;
+        }
+        self.weight() / total_atoms
+    }
+
+    /// Mean atomic number: sum(Z_i * amount_i) / sum(amount_i).
+    pub fn mean_atomic_number(&self) -> f64 {
+        let total_atoms = self.num_atoms();
+        if total_atoms < 1e-12 {
+            return 0.0;
+        }
+        self.species
+            .iter()
+            .map(|(sp, amt)| sp.element.atomic_number() as f64 * amt.abs())
+            .sum::<f64>()
+            / total_atoms
+    }
+
+    /// Molar mass of the reduced formula unit in g/mol.
+    pub fn molar_mass_reduced(&self) -> Option<f64> {
+        let factor = self.get_reduced_factor();
+        if factor < 1e-12 {
+            return None;
+        }
+        Some(self.weight() / factor)
+    }
+
+    /// Atomic fractions as a map: {element_symbol: fraction}.
+    /// Preserves sign of amounts for composition arithmetic (e.g. deltas).
+    pub fn atomic_fractions_map(&self) -> HashMap<String, f64> {
+        let total = self.num_atoms();
+        if total < 1e-12 {
+            return HashMap::new();
+        }
+        let elem_comp = self.element_composition();
+        elem_comp
+            .species
+            .iter()
+            .map(|(sp, amt)| (sp.element.symbol().to_string(), *amt / total))
+            .collect()
+    }
+
+    /// Unit cell composition as a map: {element_symbol: amount}.
+    pub fn composition_unit_cell_map(&self) -> HashMap<String, f64> {
+        let elem_comp = self.element_composition();
+        elem_comp
+            .species
+            .iter()
+            .map(|(sp, amt)| (sp.element.symbol().to_string(), *amt))
+            .collect()
+    }
+
+    /// Reduced composition as a map with integer amounts.
+    /// Returns None if amounts don't reduce to clean integers.
+    pub fn composition_reduced_map(&self) -> Option<HashMap<String, i32>> {
+        let elem_comp = self.element_composition();
+        let gcd = elem_comp.gcd_of_amounts();
+        if gcd < 1e-12 {
+            return None;
+        }
+        let mut result = HashMap::new();
+        for (sp, amt) in &elem_comp.species {
+            let reduced = amt / gcd;
+            let rounded = reduced.round();
+            if (reduced - rounded).abs() > 1e-6
+                || rounded < i32::MIN as f64
+                || rounded > i32::MAX as f64
+            {
+                return None;
+            }
+            result.insert(sp.element.symbol().to_string(), rounded as i32);
+        }
+        Some(result)
+    }
+
+    /// Electronegativity difference threshold for ANX categorization.
+    /// Elements within this difference from the min/max EN are grouped together.
+    const EN_CATEGORY_THRESHOLD: f64 = 0.1;
+
+    /// ICSD-style ANX formula. Returns None for ambiguous cases.
+    ///
+    /// Classification: if oxidation states present, cations=A, neutral=N, anions=X.
+    /// Otherwise uses electronegativity: least electronegative=A, most=X.
+    pub fn anx_formula(&self) -> Option<String> {
+        let elem_comp = self.element_composition();
+        if elem_comp.is_empty() {
+            return None;
+        }
+
+        let has_oxi = self.species.keys().any(|sp| sp.oxidation_state.is_some());
+
+        let mut categories: Vec<(char, f64)> = Vec::new();
+
+        if has_oxi {
+            // Categorize by oxidation state using raw amounts (not element-level GCD,
+            // since self.species may have multiple entries per element with different
+            // oxidation states). The final GCD reduction happens on category totals below.
+            // Species with no oxidation state (None) or zero are classified as neutral 'N'.
+            // This is intentional: when *some* species have oxidation states, those without
+            // are assumed neutral rather than ambiguous.
+            for (sp, amt) in &self.species {
+                let cat = match sp.oxidation_state {
+                    Some(oxi) if oxi > 0 => 'A',
+                    Some(oxi) if oxi < 0 => 'X',
+                    _ => 'N',
+                };
+                categories.push((cat, *amt));
+            }
+        } else {
+            let gcd = elem_comp.gcd_of_amounts();
+            if gcd < 1e-12 {
+                return None;
+            }
+            // Pair each element with (EN, reduced_amount) for sorting and classification.
+            // Return None if any element lacks electronegativity data (e.g. noble gases).
+            let mut elems: Vec<(f64, f64)> = Vec::new();
+            for (sp, amt) in &elem_comp.species {
+                let en = sp.element.electronegativity()?;
+                elems.push((en, amt / gcd));
+            }
+
+            if elems.len() < 2 {
+                return None;
+            }
+
+            elems.sort_by(|left, right| {
+                left.0
+                    .partial_cmp(&right.0)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            let max_en = elems.last().unwrap().0;
+            let min_en = elems.first().unwrap().0;
+            if (max_en - min_en).abs() < Self::EN_CATEGORY_THRESHOLD {
+                return None;
+            }
+
+            for &(en, amt) in &elems {
+                let cat = if (en - max_en).abs() < Self::EN_CATEGORY_THRESHOLD {
+                    'X'
+                } else if (en - min_en).abs() < Self::EN_CATEGORY_THRESHOLD {
+                    'A'
+                } else {
+                    'N'
+                };
+                categories.push((cat, amt));
+            }
+        }
+
+        // Accumulate totals per category: [A, N, X]
+        let mut totals = [0.0_f64; 3];
+        for (cat, amt) in &categories {
+            match cat {
+                'A' => totals[0] += amt,
+                'N' => totals[1] += amt,
+                'X' => totals[2] += amt,
+                _ => {}
+            }
+        }
+
+        let positive: Vec<f64> = totals.iter().copied().filter(|val| *val > 0.0).collect();
+        if positive.is_empty() {
+            return None;
+        }
+
+        let cat_gcd = positive.iter().copied().reduce(gcd_float).unwrap_or(1.0);
+        if cat_gcd < AMOUNT_TOLERANCE {
+            return None;
+        }
+
+        let mut parts = Vec::new();
+        for (total, label) in totals.iter().zip(["A", "N", "X"]) {
+            if *total > 0.0 {
+                let reduced = total / cat_gcd;
+                let count = reduced.round() as i32;
+                if count < 1 || (reduced - count as f64).abs() > 0.01 {
+                    return None;
+                }
+                if count == 1 {
+                    parts.push(label.to_string());
+                } else {
+                    parts.push(format!("{label}{count}"));
+                }
+            }
+        }
+
+        Some(parts.concat())
     }
 }
 
@@ -1000,6 +1209,18 @@ fn format_amount(symbol: &str, amt: f64) -> String {
     } else {
         format!("{}{:.2}", symbol, amt)
     }
+}
+
+/// Compute GCD of two integers.
+pub(crate) fn gcd_i64(mut left: i64, mut right: i64) -> i64 {
+    left = left.abs();
+    right = right.abs();
+    while right != 0 {
+        let temp = right;
+        right = left % right;
+        left = temp;
+    }
+    left
 }
 
 /// Compute GCD of two floating point numbers.
@@ -1560,5 +1781,135 @@ mod tests {
             Composition::new([(na, 1.0), (o, 1.0)]).is_charge_balanced(),
             Some(false)
         );
+    }
+
+    // =========================================================================
+    // ANX Formula Tests
+    // =========================================================================
+
+    #[test]
+    fn test_anx_formula_oxi_path() {
+        // Table of (species_with_amounts, expected_anx) via oxidation-state classification
+        let na1 = Species::new(Element::Na, Some(1));
+        let cl1 = Species::new(Element::Cl, Some(-1));
+        let fe2 = Species::new(Element::Fe, Some(2));
+        let fe3 = Species::new(Element::Fe, Some(3));
+        let fe0 = Species::new(Element::Fe, Some(0));
+        let o2 = Species::new(Element::O, Some(-2));
+
+        #[allow(clippy::type_complexity)]
+        let cases: Vec<(Vec<(Species, f64)>, Option<&str>)> = vec![
+            (vec![(na1, 1.0), (cl1, 1.0)], Some("AX")),  // NaCl → AX
+            (vec![(fe3, 2.0), (o2, 3.0)], Some("A2X3")), // Fe₂O₃ → A2X3
+            (vec![(fe0, 1.0), (o2, 1.0)], Some("NX")),   // neutral Fe + O²⁻ → NX
+            (vec![(fe2, 0.5), (o2, 0.5)], Some("AX")),   // partial occ, GCD=0.5
+            (vec![(fe2, 0.4), (o2, 0.6)], Some("A2X3")), // partial occ, GCD=0.2
+            (vec![(fe2, 0.5), (o2, 1.0)], Some("AX2")),  // fractional ratio → AX2
+            (vec![(na1, 2.0), (cl1, 2.0)], Some("AX")),  // GCD reduction: 2:2 → 1:1
+            (vec![(fe2, 1.0), (o2, std::f64::consts::SQRT_2)], None), // irrational ratio
+        ];
+        for (species_amts, expected) in &cases {
+            let comp = Composition::new(species_amts.clone());
+            assert_eq!(
+                comp.anx_formula(),
+                expected.map(ToString::to_string),
+                "species: {species_amts:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_anx_formula_en_path() {
+        // Table of (formula_or_elements, expected_anx) via electronegativity classification
+        let cases: Vec<(&str, Option<&str>)> = vec![
+            ("NaCl", Some("AX")),   // binary, Na<Cl in EN
+            ("Na2Cl2", Some("AX")), // GCD reduction via EN path
+            ("Fe", None),           // single element → no EN classification
+            ("FeCo", None),         // similar EN → None
+        ];
+        for (formula, expected) in &cases {
+            assert_eq!(
+                Composition::from_formula(formula).unwrap().anx_formula(),
+                expected.map(ToString::to_string),
+                "formula: {formula}"
+            );
+        }
+        // Empty composition
+        assert_eq!(Composition::from_elements([]).anx_formula(), None);
+        // Noble gases (no EN data)
+        assert_eq!(
+            Composition::from_elements([(Element::He, 1.0), (Element::Ne, 1.0)]).anx_formula(),
+            None
+        );
+        // Mixed: one element with EN, one without → None (not biased by 0.0 fallback)
+        assert_eq!(
+            Composition::from_elements([(Element::He, 1.0), (Element::Na, 1.0)]).anx_formula(),
+            None
+        );
+    }
+
+    #[test]
+    fn test_anx_formula_en_ternary() {
+        // LiFePO4: Li=A (lowest EN), O=X (highest EN), Fe/P=N
+        let anx = Composition::from_formula("LiFePO4")
+            .unwrap()
+            .anx_formula()
+            .expect("LiFePO4 should produce an ANX label");
+        assert!(anx.contains('A'), "should have A category: {anx}");
+        assert!(anx.contains('X'), "should have X category: {anx}");
+    }
+
+    #[test]
+    fn test_anx_formula_tolerance_boundary() {
+        // Clean integer ratios always produce ANX labels
+        assert_eq!(
+            Composition::from_formula("Fe2O3").unwrap().anx_formula(),
+            Some("A2X3".to_string()),
+        );
+        // Irrational ratios like sqrt(2):1 can't round to integers, yielding None
+        let irrational = Composition::from_elements([
+            (Element::Fe, std::f64::consts::SQRT_2),
+            (Element::O, 1.0),
+        ]);
+        assert_eq!(irrational.anx_formula(), None);
+    }
+
+    #[test]
+    fn test_gcd_float() {
+        let cases: &[(f64, f64, f64)] = &[
+            (6.0, 4.0, 2.0),
+            (0.5, 1.0, 0.5),
+            (0.2, 0.6, 0.2),
+            (0.0, 3.0, 3.0), // gcd(0, x) = x
+            (5.0, 0.0, 5.0), // gcd(x, 0) = x
+            (7.0, 7.0, 7.0), // identical
+            (0.3, 0.3, 0.3),
+        ];
+        for &(left, right, expected) in cases {
+            let result = super::gcd_float(left, right);
+            assert!(
+                (result - expected).abs() < 1e-8,
+                "gcd_float({left}, {right}) = {result}, expected {expected}",
+            );
+        }
+        // Irrational pair converges to near-zero (no rational GCD)
+        assert!(super::gcd_float(std::f64::consts::SQRT_2, 1.0) < 1e-6);
+    }
+
+    #[test]
+    fn test_gcd_i64() {
+        let cases: &[(i64, i64, i64)] = &[
+            (12, 8, 4),
+            (7, 13, 1), // coprime
+            (-6, 4, 2), // negative handled
+            (0, 5, 5),
+        ];
+        for &(left, right, expected) in cases {
+            assert_eq!(
+                super::gcd_i64(left, right),
+                expected,
+                "gcd_i64({left}, {right})"
+            );
+        }
     }
 }

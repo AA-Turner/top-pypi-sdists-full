@@ -27,7 +27,7 @@ fn validate_rdf_params(r_max: f64, n_bins: usize, expansion_factor: f64) -> PyRe
 }
 
 /// Compute the radial distribution function.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.rdf")]
 #[pyfunction]
 #[pyo3(signature = (structure, r_max = 15.0, n_bins = 75, normalize = true, auto_expand = true, expansion_factor = 2.0))]
 fn compute_rdf(
@@ -56,7 +56,7 @@ fn compute_rdf(
 }
 
 /// Compute the element-specific RDF. Returns (radii, g_of_r) tuple.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.rdf")]
 #[pyfunction]
 #[pyo3(signature = (structure, element1, element2, r_max = 15.0, n_bins = 75, normalize = true, auto_expand = true, expansion_factor = 2.0))]
 fn compute_element_rdf(
@@ -93,7 +93,7 @@ fn compute_element_rdf(
 }
 
 /// Compute RDFs for all element pairs. Returns dict keyed by element pair.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.rdf")]
 #[pyfunction]
 #[pyo3(signature = (structure, r_max = 15.0, n_bins = 75, normalize = true, auto_expand = true, expansion_factor = 2.0))]
 fn compute_all_element_rdfs(
@@ -128,12 +128,10 @@ fn compute_all_element_rdfs(
     Ok(dict.unbind())
 }
 
-/// Register the rdf submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "rdf")?;
-    submod.add_function(wrap_pyfunction!(compute_rdf, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compute_element_rdf, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compute_all_element_rdfs, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register rdf functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(compute_rdf, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_element_rdf, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_all_element_rdfs, module)?)?;
     Ok(())
 }

@@ -16,7 +16,7 @@ def NCBI_get_sequence(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> str:
     """
     Retrieve DNA/RNA sequence data from NCBI by accession number. Returns sequences in specified form...
 
@@ -37,18 +37,24 @@ def NCBI_get_sequence(
 
     Returns
     -------
-    Any
+    str
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "accession": accession,
+            "format": format,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "NCBI_get_sequence",
-            "arguments": {
-                "operation": operation,
-                "accession": accession,
-                "format": format,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

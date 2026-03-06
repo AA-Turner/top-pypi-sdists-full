@@ -426,6 +426,10 @@ class ILGenerator(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @overload
+    def emit_calli(self, function_pointer_type: typing.Type) -> None:
+        ...
+
+    @overload
     def emit_write_line(self, value: str) -> None:
         ...
 
@@ -965,6 +969,9 @@ class TypeBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
     def make_by_ref_type(self) -> typing.Type:
         ...
 
+    def make_function_pointer_type(self, parameter_types: typing.List[typing.Type], is_unmanaged: bool = False) -> typing.Type:
+        ...
+
     def make_generic_type(self, *type_arguments: typing.Union[typing.Type, typing.Iterable[typing.Type]]) -> typing.Type:
         ...
 
@@ -1496,6 +1503,9 @@ class EnumBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
         ...
 
     def make_by_ref_type(self) -> typing.Type:
+        ...
+
+    def make_function_pointer_type(self, parameter_types: typing.List[typing.Type], is_unmanaged: bool = False) -> typing.Type:
         ...
 
     def make_pointer_type(self) -> typing.Type:

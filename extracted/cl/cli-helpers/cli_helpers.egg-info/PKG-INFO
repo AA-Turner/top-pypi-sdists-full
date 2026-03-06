@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cli_helpers
-Version: 2.10.1
+Version: 2.11.0
 Summary: Helpers for building command-line apps
 Home-page: https://github.com/dbcli/cli_helpers
 Author: dbcli
@@ -20,7 +20,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: configobj>=5.0.5
-Requires-Dist: tabulate[widechars]>=0.9.0
+Requires-Dist: tabulate[widechars]~=0.10.0
 Provides-Extra: styles
 Requires-Dist: Pygments>=1.6; extra == "styles"
 Dynamic: author

@@ -153,15 +153,15 @@ class BaseModel(object):
         execute_callback: Callable,
     ):
         """
-        Método común para ejecutar modelos (score, evaluate, etc).
+        Common method to execute models (score, evaluate, etc).
 
         Args:
-            model_definitions_path: Ruta al directorio de definiciones de modelos
-            model_id: ID del modelo
-            rendered_dataset: Dataset renderizado
-            automation_mode: Modo de automatización (DEPLOY, EVALUATE, etc)
-            execute_callback: Función callback que ejecuta la lógica específica.
-                             Recibe (engine, context, model_dir, model_definition,
+            model_definitions_path: Path to the model definitions directory
+            model_id: Model ID
+            rendered_dataset: Rendered dataset
+            automation_mode: Automation mode (DEPLOY, EVALUATE, etc)
+            execute_callback: Callback function that executes the specific logic.
+                             Receives (engine, context, model_dir, model_definition,
                                      model_conf, rendered_dataset, cli_model_kwargs)
         """
         from tmo.context.model_context import ModelContext, DatasetInfo

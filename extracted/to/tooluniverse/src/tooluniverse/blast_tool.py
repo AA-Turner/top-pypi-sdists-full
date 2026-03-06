@@ -38,7 +38,7 @@ class NCBIBlastTool(BaseTool):
                 alignment_data = {
                     "hit_id": getattr(alignment, "hit_id", "unknown"),
                     "hit_def": getattr(alignment, "hit_def", "unknown"),
-                    "hit_length": getattr(alignment, "hit_length", 0),
+                    "hit_length": getattr(alignment, "length", 0),
                     "hsps": [],
                 }
 
@@ -53,8 +53,8 @@ class NCBIBlastTool(BaseTool):
                         "align_length": getattr(hsp, "align_length", 0),
                         "query_start": getattr(hsp, "query_start", 0),
                         "query_end": getattr(hsp, "query_end", 0),
-                        "hit_start": getattr(hsp, "hit_start", 0),
-                        "hit_end": getattr(hsp, "hit_end", 0),
+                        "hit_start": getattr(hsp, "sbjct_start", 0),
+                        "hit_end": getattr(hsp, "sbjct_end", 0),
                         "query": getattr(hsp, "query", ""),
                         "match": getattr(hsp, "match", ""),
                         "sbjct": getattr(hsp, "sbjct", ""),

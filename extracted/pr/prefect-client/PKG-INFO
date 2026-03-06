@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-client
-Version: 3.6.20
+Version: 3.6.21
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -50,7 +50,7 @@ Requires-Dist: pydantic-extra-types<3.0.0,>=2.8.2
 Requires-Dist: pydantic-settings!=2.9.0,<3.0.0,>2.2.1
 Requires-Dist: python-dateutil<3.0.0,>=2.8.2
 Requires-Dist: python-slugify<9.0,>=5.0
-Requires-Dist: pytz<2026,>=2021.1
+Requires-Dist: pytz<2027,>=2021.1
 Requires-Dist: pyyaml<7.0.0,>=5.4.1
 Requires-Dist: rfc3339-validator<0.2.0,>=0.1.4
 Requires-Dist: rich<15.0,>=11.0

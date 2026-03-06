@@ -4,8 +4,8 @@ from tmo.api.base_api import BaseApi
 
 
 class MessageApi(BaseApi):
-
-    path = "/api/message"
+    name = "Message API"
+    path = "message"
     type = "MESSAGE"
 
     def send_job_event(self, event: dict):
@@ -40,5 +40,5 @@ class MessageApi(BaseApi):
         query_params = {"type": "topic"}
 
         return self.tmo_client.post_request(
-            f"{self.path}/{topic}", header_params, query_params, event
+            f"{self.base_path + self.path}/{topic}", header_params, query_params, event
         )

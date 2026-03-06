@@ -51,13 +51,13 @@ dependencies = [
     "oauthlib>=3.3.1",
     "aia>=0.2.0",
     "pyyaml>=6.0.3",
-    "gitpython>=3.1.45",
-    "cryptography>=46.0.3",
-    "teradataml>=20.0.0.8",
-    "certifi>=2025.11.12",
-    "matplotlib>=3.10.7",
+    "gitpython>=3.1.46",
+    "cryptography>=46.0.5",
+    "teradataml>=20.0.0.10",
+    "certifi>=2026.2.25",
+    "matplotlib>=3.10.8",
     "numpy==1.26.4",
-    "pandas>=2.3.3"
+    "pandas>=2.3.3" # We must use pandas < 3.0.0 to support Python 3.10, as pandas 3.x requires Python 3.11+
 ]
 [project.scripts]
 aoa = 'tmo.tmo_cli:main'

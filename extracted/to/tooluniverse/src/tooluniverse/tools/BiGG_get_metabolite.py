@@ -41,14 +41,20 @@ def BiGG_get_metabolite(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "metabolite_id": metabolite_id,
+            "model_id": model_id,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BiGG_get_metabolite",
-            "arguments": {
-                "operation": operation,
-                "metabolite_id": metabolite_id,
-                "model_id": model_id,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -10,8 +10,8 @@ import pytest
 
 from mcstatus import BedrockServer, JavaServer, LegacyServer
 from mcstatus.__main__ import PING_PACKET_FAIL_WARNING, QUERY_FAIL_WARNING, main as main_under_test
-from mcstatus.querier import QueryResponse
-from mcstatus.responses import BedrockStatusResponse, JavaStatusResponse, LegacyStatusResponse, RawJavaResponse
+from mcstatus.responses import BedrockStatusResponse, JavaStatusResponse, LegacyStatusResponse, QueryResponse
+from mcstatus.responses._raw import RawJavaResponse
 
 JAVA_RAW_RESPONSE: RawJavaResponse = {
     "players": {"max": 20, "online": 0},
@@ -168,9 +168,9 @@ def test_one_argument_is_status(mock_network_requests):
     assert out.getvalue() == (
         "version: Java 1.8-pre1 (protocol 44)\n"
         "motd: \x1b[0mA Minecraft Server\x1b[0m\n"
-        "players: 0/20 No players online\n"
+        "players: 0/20\n"
         "ping: 0.00 ms\n"
-    )
+    )  # fmt: skip
     assert err.getvalue() == ""
 
 
@@ -181,9 +181,56 @@ def test_status(mock_network_requests):
     assert out.getvalue() == (
         "version: Java 1.8-pre1 (protocol 44)\n"
         "motd: \x1b[0mA Minecraft Server\x1b[0m\n"
-        "players: 0/20 No players online\n"
+        "players: 0/20\n"
+        "ping: 0.00 ms\n"
+    )  # fmt: skip
+    assert err.getvalue() == ""
+
+
+def test_status_with_sample(mock_network_requests):
+    raw_response = JAVA_RAW_RESPONSE.copy()
+    raw_response["players"] = JAVA_RAW_RESPONSE["players"].copy()
+    raw_response["players"]["sample"] = [
+        {"name": "foo", "id": "497dcba3-ecbf-4587-a2dd-5eb0665e6880"},
+        {"name": "bar", "id": "50e14f43-dd4e-412f-864d-78943ea28d91"},
+        {"name": "baz", "id": "7edb3b2e-869c-485b-af70-76a934e0fcfd"},
+    ]
+
+    with (
+        patch("mcstatus.server.JavaServer.status", return_value=JavaStatusResponse.build(raw_response)),
+        patch_stdout_stderr() as (out, err),
+    ):
+        assert main_under_test(["example.com", "status"]) == 0
+
+    assert out.getvalue() == (
+        "version: Java 1.8-pre1 (protocol 44)\n"
+        "motd: \x1b[0mA Minecraft Server\x1b[0m\n"
+        "players: 0/20\n"
+        "  foo (497dcba3-ecbf-4587-a2dd-5eb0665e6880)\n"
+        "  bar (50e14f43-dd4e-412f-864d-78943ea28d91)\n"
+        "  baz (7edb3b2e-869c-485b-af70-76a934e0fcfd)\n"
         "ping: 0.00 ms\n"
     )
+    assert err.getvalue() == ""
+
+
+def test_status_sample_empty_list(mock_network_requests):
+    raw_response = JAVA_RAW_RESPONSE.copy()
+    raw_response["players"] = JAVA_RAW_RESPONSE["players"].copy()
+    raw_response["players"]["sample"] = []
+
+    with (
+        patch("mcstatus.server.JavaServer.status", return_value=JavaStatusResponse.build(raw_response)),
+        patch_stdout_stderr() as (out, err),
+    ):
+        assert main_under_test(["example.com", "status"]) == 0
+
+    assert out.getvalue() == (
+        "version: Java 1.8-pre1 (protocol 44)\n"
+        "motd: \x1b[0mA Minecraft Server\x1b[0m\n"
+        "players: 0/20\n"
+        "ping: 0.00 ms\n"
+    )  # fmt: skip
     assert err.getvalue() == ""
 
 
@@ -242,6 +289,14 @@ def test_query_offline(mock_network_requests):
     assert err.getvalue() == QUERY_FAIL_WARNING + "\n"
 
 
+def test_query_on_bedrock(mock_network_requests):
+    with patch_stdout_stderr() as (out, err):
+        assert main_under_test(["example.com", "--bedrock", "query"]) != 0
+
+    assert out.getvalue() == ""
+    assert err.getvalue() == "The 'query' protocol is only supported by Java servers.\n"
+
+
 def test_json(mock_network_requests):
     with patch_stdout_stderr() as (out, err):
         assert main_under_test(["example.com", "json"]) == 0
@@ -268,9 +323,25 @@ def test_json(mock_network_requests):
         },
         "query": {
             "ip": "192.168.56.1",
-            "port": "9999",
-            "map": "world",
-            "plugins": [],
+            "port": 9999,
+            "map_name": "world",
+            "motd": "A Minecraft Server",
+            "game_id": "GAME ID",
+            "game_type": "GAME TYPE",
+            "players": {
+                "list": [
+                    "Dinnerbone",
+                    "Djinnibone",
+                    "Steve",
+                ],
+                "max": 20,
+                "online": 3,
+            },
+            "software": {
+                "brand": "vanilla",
+                "plugins": [],
+                "version": "1.8",
+            },
             "raw": {
                 "hostname": "A Minecraft Server",
                 "gametype": "GAME TYPE",

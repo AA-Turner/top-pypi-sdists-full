@@ -44,15 +44,21 @@ def intact_get_interactions_by_complex(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "complex_id": complex_id,
+            "size": size,
+            "first": first,
+            "format": format,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "intact_get_interactions_by_complex",
-            "arguments": {
-                "complex_id": complex_id,
-                "size": size,
-                "first": first,
-                "format": format,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

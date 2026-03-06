@@ -47,16 +47,22 @@ def MEME_fimo_scan(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "sequences": sequences,
+            "motif_text": motif_text,
+            "pvalue_threshold": pvalue_threshold,
+            "scan_rc": scan_rc,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "MEME_fimo_scan",
-            "arguments": {
-                "operation": operation,
-                "sequences": sequences,
-                "motif_text": motif_text,
-                "pvalue_threshold": pvalue_threshold,
-                "scan_rc": scan_rc,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

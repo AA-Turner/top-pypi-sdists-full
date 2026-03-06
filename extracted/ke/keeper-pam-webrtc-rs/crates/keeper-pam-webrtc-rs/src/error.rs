@@ -2,12 +2,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ChannelError {
-    #[error("Connection timed out: {0}")]
-    Timeout(String),
-
-    #[error("WebRTC error: {0}")]
-    WebRTCError(String),
-
     #[error("Internal error: {0}")]
     Internal(String),
 

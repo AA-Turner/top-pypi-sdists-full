@@ -123,7 +123,8 @@ class TmoClient(object):
             if "aoa_url" in conf:
                 conf["vmo_url"] = conf["aoa_url"]
                 del conf["aoa_url"]
-            for key in conf:
+            # Note: list() is necessary here to avoid RuntimeError when modifying dict during iteration
+            for key in list(conf.keys()):  # NOSONAR # noqa: C417
                 if key.startswith("aoa_"):
                     new_key = key.replace("aoa_", "tmo_")
                     conf[new_key] = conf[key]

@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs"
-version = "1.42.61"
+version = "1.42.62"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.42.61 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.42.62 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.42.0, <1.43.0",
 ]
 boto3 = [
-    "boto3==1.42.61",
+    "boto3==1.42.62",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.42.0, <1.43.0",
@@ -173,6 +173,7 @@ all = [
     "mypy-boto3-connectcampaigns>=1.42.0, <1.43.0",
     "mypy-boto3-connectcampaignsv2>=1.42.0, <1.43.0",
     "mypy-boto3-connectcases>=1.42.0, <1.43.0",
+    "mypy-boto3-connecthealth>=1.42.0, <1.43.0",
     "mypy-boto3-connectparticipant>=1.42.0, <1.43.0",
     "mypy-boto3-controlcatalog>=1.42.0, <1.43.0",
     "mypy-boto3-controltower>=1.42.0, <1.43.0",
@@ -798,6 +799,9 @@ connectcampaignsv2 = [
 ]
 connectcases = [
     "mypy-boto3-connectcases>=1.42.0, <1.43.0",
+]
+connecthealth = [
+    "mypy-boto3-connecthealth>=1.42.0, <1.43.0",
 ]
 connectparticipant = [
     "mypy-boto3-connectparticipant>=1.42.0, <1.43.0",

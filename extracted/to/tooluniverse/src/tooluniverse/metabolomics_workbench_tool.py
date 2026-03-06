@@ -11,6 +11,7 @@ API Documentation: https://www.metabolomicsworkbench.org/tools/mw_rest.php
 
 import requests
 from typing import Dict, Any
+from urllib.parse import quote
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 
@@ -129,7 +130,7 @@ class MetabolomicsWorkbenchTool(BaseTool):
 
     def _query_refmet(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Query RefMet nomenclature."""
-        input_item = arguments.get("input_item", "name")
+        input_item = self.tool_config.get("fields", {}).get("input_item", "name")
         input_value = arguments.get("input_value", "")
         output_item = arguments.get("output_item", "all")
         if not input_value:
@@ -137,22 +138,24 @@ class MetabolomicsWorkbenchTool(BaseTool):
         return self._make_request(f"refmet/{input_item}/{input_value}/{output_item}")
 
     def _search_moverz(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Search by m/z value."""
+        """Search by m/z value. Requires database as first URL path segment."""
         mz_value = arguments.get("mz_value")
         adduct = arguments.get("adduct", "M+H")
         tolerance = arguments.get("tolerance", 0.1)
-        output_item = arguments.get("output_item", "all")
+        database = arguments.get("database", "MB")  # MB, LIPIDS, or REFMET
         if mz_value is None:
             return {"error": "mz_value parameter is required"}
+        # URL-encode adduct: '+' in 'M+H' must be %2B or the server drops the connection
+        encoded_adduct = quote(str(adduct), safe="")
         return self._make_request(
-            f"moverz/{mz_value}/{adduct}/{tolerance}/{output_item}"
+            f"moverz/{database}/{mz_value}/{encoded_adduct}/{tolerance}"
         )
 
     def _search_exactmass(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Search by exact mass."""
+        """Search by exact mass using moverz endpoint with neutral adduct."""
         mass_value = arguments.get("mass_value")
         tolerance = arguments.get("tolerance", 0.1)
-        output_item = arguments.get("output_item", "all")
         if mass_value is None:
             return {"error": "mass_value parameter is required"}
-        return self._make_request(f"exactmass/{mass_value}/{tolerance}/{output_item}")
+        # exactmass endpoint is non-functional; use moverz/REFMET with neutral adduct M
+        return self._make_request(f"moverz/REFMET/{mass_value}/M/{tolerance}")

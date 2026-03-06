@@ -120,7 +120,18 @@ class EpigenomicsTool(BaseTool):
         limit = arguments.get("limit", 25)
         params["limit"] = min(int(limit), 100)
 
-        raw = self._encode_search(params)
+        # Feature-70A-003: ambiguous/non-leaf biosample terms (e.g. "heart") combined with
+        # the organism filter can produce HTTP 404 from ENCODE. Fall back without
+        # the organism filter in that case.
+        try:
+            raw = self._encode_search(params)
+        except Exception:
+            fallback_params = {
+                k: v
+                for k, v in params.items()
+                if k != "replicates.library.biosample.organism.scientific_name"
+            }
+            raw = self._encode_search(fallback_params)
 
         experiments = []
         for exp in raw.get("@graph", []):
@@ -390,8 +401,10 @@ class EpigenomicsTool(BaseTool):
         organism = arguments.get("organism", "Homo sapiens")
         limit = arguments.get("limit", 20)
 
-        # Build search term with methylation context
-        term_parts = [query, "methylation"]
+        # Feature-70A-008: avoid double-adding "methylation" if query already contains it
+        term_parts = [query]
+        if "methylation" not in query.lower():
+            term_parts.append("methylation")
         if organism:
             term_parts.append(f"{organism}[Organism]")
         term = " AND ".join(term_parts)

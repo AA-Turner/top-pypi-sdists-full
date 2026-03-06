@@ -50,17 +50,23 @@ def ebi_search_domain(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "domain": domain,
+            "query": query,
+            "size": size,
+            "start": start,
+            "fields": fields,
+            "format": format,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ebi_search_domain",
-            "arguments": {
-                "domain": domain,
-                "query": query,
-                "size": size,
-                "start": start,
-                "fields": fields,
-                "format": format,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -8,8 +8,9 @@ from agilicus.agilicus_api import (
     AuditDestinationWebhookSettings,
     HTTPBasicAuth,
     HTTPBearerAuth,
-    Oauth2Auth,
 )
+
+from .credentials_commands import get_oauth2_auth
 
 from . import context
 from .input_helpers import build_updated_model_from_dict
@@ -59,21 +60,6 @@ def _get_basic_auth(properties):
     )
 
 
-def _get_oauth2_auth(properties):
-    existing = properties.get("oauth2", {})
-    # Find all oauth2_-prefixed items
-    for key, value in properties.items():
-        parts = key.split("oauth2_", 2)
-        if len(parts) != 2 or value is None:
-            continue
-        existing[parts[1]] = value
-
-    if not existing:
-        return None
-
-    return Oauth2Auth(**existing)
-
-
 def _get_bearer_auth(properties):
     existing = properties.get("http_bearer", {})
     props = _get_properties(["token"], properties)
@@ -106,7 +92,7 @@ def _build_authentication(properties):
 
     basic_auth = _get_basic_auth(properties)
     bearer_auth = _get_bearer_auth(properties)
-    oauth2_auth = _get_oauth2_auth(properties)
+    oauth2_auth = get_oauth2_auth(properties)
 
     if basic_auth is not None:
         auth.http_basic = basic_auth

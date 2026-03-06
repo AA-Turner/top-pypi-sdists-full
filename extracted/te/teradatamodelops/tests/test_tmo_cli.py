@@ -90,7 +90,7 @@ def test_link_repo_calls_write_repo_config(monkeypatch, capsys):
 def test_input_string_required_retry(monkeypatch, capsys):
     calls = {"count": 0}
 
-    def fake_input(prompt=""):
+    def fake_input(prompt=""):  # noqa
         calls["count"] += 1
         if calls["count"] == 1:
             return ""
@@ -297,7 +297,7 @@ def test_test_connection_success(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(tmo, "tmo_create_context", lambda: None)
 
     class R:
-        def fetchall(self):
+        def fetchall(self):  # noqa
             return [("ver1",)]
 
     monkeypatch.setattr(tmo, "execute_sql", lambda q: R())
@@ -375,14 +375,14 @@ def test_list_and_select_projects_as_list(monkeypatch, capsys):
 
 def test_get_current_project_found(monkeypatch):
     class RM:
-        def read_repo_config(self):
+        def read_repo_config(self):  # noqa
             return {"project_id": "p1"}
 
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa # noqa
             pass
 
-        def find_by_id(self, pid):
+        def find_by_id(self, pid):  # noqa
             return {"id": pid, "name": "proj"}
 
     monkeypatch.setattr("tmo.ProjectApi", PApi)
@@ -415,7 +415,7 @@ def test_init_model_directory_calls_link_when_no_repo_config(monkeypatch):
         def init_model_directory(self):
             self.inited = True
 
-        def repo_config_exists(self):
+        def repo_config_exists(self):  # noqa
             return False
 
     repo_manager = RM()
@@ -423,7 +423,7 @@ def test_init_model_directory_calls_link_when_no_repo_config(monkeypatch):
     monkeypatch.setattr(
         tmo_cli,
         "link_repo",
-        lambda repo_manager, tmo_client: called.update({"link": True}),
+        lambda repo_manager, tmo_client: called.update({"link": True}),  # noqa
     )
     args = type("A", (), {"cwd": None})()
     tmo_cli.init_model_directory(args, repo_manager, None)
@@ -435,13 +435,13 @@ def test_add_model_templates_empty_exits(monkeypatch, tmp_path):
     args = type("A", (), {"cwd": None, "template_url": "u", "branch": "b"})()
 
     class RM:
-        def clone_repository(self, url, path, branch):
+        def clone_repository(self, url, path, branch):  # noqa
             return None
 
-        def get_templates(self, entity_type=None, source_path=None):
+        def get_templates(self, entity_type=None, source_path=None):  # noqa
             return {}
 
-        def repo_config_exists(self):
+        def repo_config_exists(self):  # noqa
             return True
 
     monkeypatch.setattr(tmo_cli, "validate_model_catalog_cwd_valid", lambda: True)
@@ -525,7 +525,7 @@ def test_bash_escape_with_multiple_backslashes():
 
 def test_input_string_empty_not_required():
     import builtins
-    import tmo.tmo_cli
+    import tmo.tmo_cli  # noqa
 
     original_input = builtins.input
     builtins.input = lambda prompt="": ""
@@ -1177,7 +1177,9 @@ def test_import_stats_success(monkeypatch, tmp_path):
     from tmo.stats import store
 
     monkeypatch.setattr(tmo, "tmo_create_context", lambda: None)
-    monkeypatch.setattr(store, "save_feature_stats", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        store, "save_feature_stats", lambda *args, **kwargs: None  # noqa
+    )
 
     stats_file = tmp_path / "stats.json"
     stats_data = {
@@ -1219,11 +1221,11 @@ def test_import_stats_error(monkeypatch, tmp_path):
 
 
 def test_doctor_success(monkeypatch):
-    monkeypatch.setattr(tmo_cli, "test_connection", lambda args: None)
-    import tmo
+    monkeypatch.setattr(tmo_cli, "test_connection", lambda args: None)  # noqa
+    import tmo  # noqa
 
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
         def __iter__(self):
@@ -1236,11 +1238,11 @@ def test_doctor_success(monkeypatch):
 
 
 def test_doctor_no_projects(monkeypatch):
-    import tmo
+    import tmo  # noqa
     from tmo.types.exceptions import EntityNotFoundError
 
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
         def __iter__(self):
@@ -1257,11 +1259,11 @@ def test_doctor_connection_error(monkeypatch):
     from tmo.types.exceptions import ConfigurationError
 
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             raise ConfigurationError("config error")
 
     monkeypatch.setattr("tmo.ProjectApi", PApi)
-    monkeypatch.setattr(tmo_cli, "test_connection", lambda args: None)
+    monkeypatch.setattr(tmo_cli, "test_connection", lambda args: None)  # noqa
 
     args = SimpleNamespace(cwd=None, connection=None)
     tmo_cli.doctor(args, None, None)
@@ -1277,17 +1279,17 @@ def test_print_help_no_version(capsys):
 
 def test_list_and_select_projects_current_project(monkeypatch):
     class RM:
-        def read_repo_config(self):
+        def read_repo_config(self):  # noqa
             return {"project_id": "p1"}
 
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
         def __iter__(self):
             return iter([{"id": "p1", "name": "proj1"}, {"id": "p2", "name": "proj2"}])
 
-        def find_by_id(self, pid):
+        def find_by_id(self, pid):  # noqa
             if pid == "p1":
                 return {"id": "p1", "name": "proj1"}
             return None
@@ -1304,7 +1306,7 @@ def test_list_and_select_projects_current_project(monkeypatch):
 
 def test_list_and_select_projects_invalid_then_valid(monkeypatch):
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
         def __iter__(self):
@@ -1324,14 +1326,14 @@ def test_list_and_select_projects_invalid_then_valid(monkeypatch):
 
 def test_get_current_project_not_found(monkeypatch):
     class RM:
-        def read_repo_config(self):
+        def read_repo_config(self):  # noqa
             return {"project_id": "p1"}
 
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
-        def find_by_id(self, pid):
+        def find_by_id(self, pid):  # noqa
             return None
 
     monkeypatch.setattr("tmo.ProjectApi", PApi)
@@ -1343,14 +1345,14 @@ def test_get_current_project_not_found(monkeypatch):
 
 def test_get_current_project_no_repo_config(monkeypatch):
     class RM:
-        def read_repo_config(self):
+        def read_repo_config(self):  # noqa
             return None
 
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
-        def find_by_id(self, pid):
+        def find_by_id(self, pid):  # noqa
             return None
 
     monkeypatch.setattr("tmo.ProjectApi", PApi)
@@ -1367,14 +1369,14 @@ def test_get_current_project_invalid_catalog():
 
 def test_clone_with_project_id(monkeypatch):
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa # noqa
             pass
 
-        def find_by_id(self, pid):
+        def find_by_id(self, pid):  # noqa
             return {
                 "id": "p1",
                 "name": "proj1",
-                "gitRepositoryUrl": "http://git.example.com/repo",
+                "gitRepositoryUrl": "https://git.example.com/repo",
             }
 
     class RM:
@@ -1392,10 +1394,10 @@ def test_clone_with_project_id(monkeypatch):
 
 def test_clone_project_not_found(monkeypatch):
     class PApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
-        def find_by_id(self, pid):
+        def find_by_id(self, pid):  # noqa
             return None
 
     monkeypatch.setattr("tmo.ProjectApi", PApi)
@@ -1405,7 +1407,7 @@ def test_clone_project_not_found(monkeypatch):
         lambda rm, tmo, a, b: {
             "id": "p2",
             "name": "proj2",
-            "gitRepositoryUrl": "http://git.example.com/repo",
+            "gitRepositoryUrl": "https://git.example.com/repo",
         },
     )
 
@@ -1427,7 +1429,7 @@ def test_clone_no_args(monkeypatch, tmp_path):
         lambda rm, tmo, a, b: {
             "id": "p1",
             "name": "testproject",
-            "gitRepositoryUrl": "http://git.example.com/repo",
+            "gitRepositoryUrl": "https://git.example.com/repo",
             "branch": "main",
         },
     )
@@ -1459,11 +1461,11 @@ def test_add_task_no_templates(monkeypatch, tmp_path):
         def clone_repository(self, url, path, branch):
             pass
 
-        def get_templates(self, entity_type=None, source_path=None):
+        def get_templates(self, entity_type=None, source_path=None):  # noqa
             return {}
 
     args = SimpleNamespace(
-        cwd=None, template_url="http://example.com", branch="main", name=None
+        cwd=None, template_url="https://example.com", branch="main", name=None
     )
     with pytest.raises(SystemExit):
         tmo_cli.add_task(args, RM())
@@ -1477,7 +1479,7 @@ def test_add_task_success(monkeypatch, tmp_path):
         def clone_repository(self, url, path, branch):
             pass
 
-        def get_templates(self, entity_type=None, source_path=None):
+        def get_templates(self, entity_type=None, source_path=None):  # noqa
             return {"task1": "/path/to/template"}
 
         def add_task(self, template, task_name, base_path):
@@ -1485,7 +1487,7 @@ def test_add_task_success(monkeypatch, tmp_path):
 
     tmo_cli.base_path = str(tmp_path)
     args = SimpleNamespace(
-        cwd=None, template_url="http://example.com", branch="main", name="mytask"
+        cwd=None, template_url="https://example.com", branch="main", name="mytask"
     )
     tmo_cli.add_task(args, RM())
 
@@ -1502,20 +1504,20 @@ def test_run_task_success(monkeypatch, tmp_path):
     monkeypatch.setattr(
         tmo_cli,
         "get_current_project",
-        lambda rm, tmo, check: {"id": "p1", "name": "proj1"},
+        lambda rm, tmo, check: {"id": "p1", "name": "proj1"},  # noqa
     )
-    monkeypatch.setattr(tmo_cli, "activate_connection", lambda args: "c1")
+    monkeypatch.setattr(tmo_cli, "activate_connection", lambda args: "c1")  # noqa
 
     class Client:
         def set_project_id(self, pid):
             pass
 
     class Runner:
-        def __init__(self, rm):
+        def __init__(self, rm):  # noqa
             pass
 
-        def run_task_local(self, base_path, task_name, func):
-            return ("task1", "func1")
+        def run_task_local(self, base_path, task_name, func):  # noqa
+            return ("task1", "func1")  # noqa
 
     import tmo
 
@@ -1549,7 +1551,7 @@ def test_list_resources_models(monkeypatch):
     monkeypatch.setattr(
         tmo_cli,
         "get_current_project",
-        lambda rm, tmo: {"id": "p1", "name": "proj1"},
+        lambda rm, tmo: {"id": "p1", "name": "proj1"},  # noqa
     )
 
     class Client:
@@ -1557,7 +1559,7 @@ def test_list_resources_models(monkeypatch):
             pass
 
     class MApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
         def __len__(self):
@@ -1613,7 +1615,7 @@ def test_list_resources_templates(monkeypatch):
     monkeypatch.setattr(
         tmo_cli,
         "get_current_project",
-        lambda rm, tmo: {"id": "p1", "name": "proj1"},
+        lambda rm, tmo: {"id": "p1", "name": "proj1"},  # noqa
     )
 
     class Client:
@@ -1626,10 +1628,10 @@ def test_list_resources_templates(monkeypatch):
             self.name = "template1"
 
     class TApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
-        def find_all(self):
+        def find_all(self):  # noqa
             return [Template()]
 
     import tmo
@@ -1653,7 +1655,7 @@ def test_list_resources_datasets(monkeypatch):
     monkeypatch.setattr(
         tmo_cli,
         "get_current_project",
-        lambda rm, tmo: {"id": "p1", "name": "proj1"},
+        lambda rm, tmo: {"id": "p1", "name": "proj1"},  # noqa
     )
 
     class Client:
@@ -1666,10 +1668,10 @@ def test_list_resources_datasets(monkeypatch):
             self.name = "dataset1"
 
     class DApi:
-        def __init__(self, tmo_client, show_archived=False):
+        def __init__(self, tmo_client, show_archived=False):  # noqa
             pass
 
-        def find_all(self):
+        def find_all(self):  # noqa
             return [Dataset()]
 
     import tmo
@@ -1690,7 +1692,7 @@ def test_list_resources_datasets(monkeypatch):
 
 
 def test_list_resources_connections(monkeypatch):
-    monkeypatch.setattr(tmo_cli, "list_connections", lambda args: None)
+    monkeypatch.setattr(tmo_cli, "list_connections", lambda args: None)  # noqa
 
     args = SimpleNamespace(
         cwd=None,
@@ -1713,7 +1715,7 @@ def test_init_model_directory_with_existing_config(monkeypatch):
         def init_model_directory(self):
             self.inited = True
 
-        def repo_config_exists(self):
+        def repo_config_exists(self):  # noqa
             return True
 
     args = SimpleNamespace(cwd=None)
@@ -1725,7 +1727,7 @@ def test_init_model_directory_with_existing_config(monkeypatch):
 def test_add_model_with_prompts(monkeypatch, tmp_path):
     monkeypatch.setattr(tmo_cli, "validate_model_catalog_cwd_valid", lambda: True)
 
-    inputs = iter(["http://example.com", "main", "model1", "desc"])
+    inputs = iter(["https://example.com", "main", "model1", "desc"])
     monkeypatch.setattr("builtins.input", lambda prompt="": next(inputs))
     monkeypatch.setattr(
         tmo_cli,
@@ -1737,7 +1739,7 @@ def test_add_model_with_prompts(monkeypatch, tmp_path):
         def clone_repository(self, url, path, branch):
             pass
 
-        def get_templates(self, entity_type=None, source_path=None):
+        def get_templates(self, entity_type=None, source_path=None):  # noqa
             return {
                 "python": {
                     "t1": ["Template 1", "/path/to/template"],
@@ -1758,546 +1760,2429 @@ def test_input_string_password_with_is_called_from_test_true(monkeypatch):
     assert result == "secret"
 
 
-def test_input_select_with_label(monkeypatch, capsys):
-    monkeypatch.setattr("builtins.input", lambda prompt="": "0")
-    result = tmo_cli.input_select("item", ["a", "b"], label="Choose one:")
-    assert result == "a"
-    out, _ = capsys.readouterr()
-    assert "Choose one:" in out
+def test_set_cwd_valid_path_changes_directory(tmp_path, monkeypatch):
+    """Test set_cwd changes directory when path is valid."""
+    test_dir = tmp_path / "valid_dir"
+    test_dir.mkdir()
+
+    original_cwd = os.getcwd()
+    tmo_cli.set_cwd(str(test_dir))
+
+    # Verify directory was changed
+    assert os.getcwd() == str(test_dir)
+
+    # Restore original directory
+    os.chdir(original_cwd)
 
 
-def test_yes_or_no_case_insensitive(monkeypatch):
-    monkeypatch.setattr("builtins.input", lambda prompt="": "Y")
+def test_yes_or_no_handles_invalid_then_valid(monkeypatch):
+    """Test yes_or_no retries on invalid input."""
+    inputs = iter(["maybe", "x", "y"])
+    monkeypatch.setattr("builtins.input", lambda prompt: next(inputs))
+
+    result = tmo_cli.yes_or_no("Proceed")
+    assert result is True
+
+
+def test_yes_or_no_uppercase_y(monkeypatch):
+    """Test yes_or_no handles uppercase Y."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "Y")
     assert tmo_cli.yes_or_no("question") is True
 
-    monkeypatch.setattr("builtins.input", lambda prompt="": "N")
+
+def test_yes_or_no_uppercase_n(monkeypatch):
+    """Test yes_or_no handles uppercase N."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "N")
     assert tmo_cli.yes_or_no("question") is False
 
 
-def test_clone_with_project_found(monkeypatch, tmp_path):
-    args = type("A", (), {"cwd": None, "project_id": "p1", "path": None})()
-
-    class RM:
-        def __init__(self):
-            self.cloned = False
-            self.config = None
-
-        def clone_repository(self, git, path, branch):
-            self.cloned = True
-
-        def write_repo_config(self, config, path=None):
-            self.config = (config, path)
-
-    class PApi:
-        def __init__(self, tmo_client=None, show_archived=False):
-            pass
-
-        def find_by_id(self, pid):
-            return {
-                "id": pid,
-                "name": "proj",
-                "gitRepositoryUrl": "git@x",
-                "branch": "main",
-            }
-
-    monkeypatch.setattr("tmo.ProjectApi", PApi)
-    rm = RM()
-    tmo_cli.clone(args, rm, None)
-    assert rm.cloned is True
-    assert rm.config[0]["project_id"] == "p1"
+def test_yes_or_no_yes_full_word(monkeypatch):
+    """Test yes_or_no accepts 'yes' as input."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "yes")
+    assert tmo_cli.yes_or_no("question") is True
 
 
-def test_list_connections_prints_when_connections_present(tmp_path, capsys):
-    cfg = tmp_path / "cfg"
-    tmo_cli.config_dir = str(cfg)
-    cfg.mkdir(parents=True)
-    con = {
-        "connections": [{
-            "id": "c1",
-            "name": "n",
-            "username": "u",
-            "password": "p",
-            "host": "h",
-            "logmech": "TDNEGO",
-            "database": "db",
-        }]
-    }
-    yaml.safe_dump(con, open(cfg / "connections.yaml", "w+"))
-    args = type("A", (), {"cwd": None})()
-    tmo_cli.list_connections(args)
+def test_yes_or_no_no_full_word(monkeypatch):
+    """Test yes_or_no accepts 'no' as input."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "no")
+    assert tmo_cli.yes_or_no("question") is False
+
+
+def test_bash_escape_handles_multiple_backslashes():
+    """Test bash_escape with multiple backslashes."""
+    assert tmo_cli.bash_escape(r"C:\path\to\file\deep") == r"C:\\path\\to\\file\\deep"
+
+
+def test_bash_escape_empty_string():
+    """Test bash_escape with empty string."""
+    assert tmo_cli.bash_escape("") == ""
+
+
+def test_bash_escape_string_without_backslashes():
+    """Test bash_escape with string that has no backslashes."""
+    assert tmo_cli.bash_escape("normal/path/here") == "normal/path/here"
+
+
+def test_input_string_with_tooltip(monkeypatch, capsys):
+    """Test input_string displays tooltip when provided."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "value")
+
+    result = tmo_cli.input_string("name", tooltip="This is a helpful tooltip")
+
+    captured = capsys.readouterr()
+    assert "This is a helpful tooltip" in captured.out
+    assert result == "value"
+
+
+def test_input_string_required_empty_then_value(monkeypatch, capsys):
+    """Test input_string retries when empty and required."""
+    inputs = iter(["", "actual_value"])
+    monkeypatch.setattr("builtins.input", lambda prompt: next(inputs))
+
+    result = tmo_cli.input_string("field", required=True)
+
+    captured = capsys.readouterr()
+    assert "Value required" in captured.out
+    assert result == "actual_value"
+
+
+def test_input_select_with_label(monkeypatch, capsys):
+    """Test input_select prints label when provided."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "0")
+
+    result = tmo_cli.input_select("option", ["A", "B"], label="Select One")
+
+    captured = capsys.readouterr()
+    assert "Select One" in captured.out
+    assert "---" in captured.out  # Underline from print_underscored
+    assert result == "A"
+
+
+def test_input_select_empty_list_returns_none():
+    """Test input_select returns None when values list is empty."""
+    result = tmo_cli.input_select("option", [])
+    assert result is None
+
+
+def test_input_select_default_with_blank_input(monkeypatch):
+    """Test input_select returns default when blank input provided."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "")
+
+    result = tmo_cli.input_select("option", ["A", "B", "C"], default="B")
+    assert result == "B"
+
+
+def test_input_select_invalid_index_retries(monkeypatch, capsys):
+    """Test input_select retries on invalid index."""
+    inputs = iter(["99", "0"])
+    monkeypatch.setattr("builtins.input", lambda prompt: next(inputs))
+
+    result = tmo_cli.input_select("option", ["A", "B"])
+
+    captured = capsys.readouterr()
+    assert "Wrong selection" in captured.out
+    assert result == "A"
+
+
+def test_input_select_non_numeric_retries(monkeypatch, capsys):
+    """Test input_select retries on non-numeric input."""
+    inputs = iter(["abc", "1"])
+    monkeypatch.setattr("builtins.input", lambda prompt: next(inputs))
+
+    result = tmo_cli.input_select("option", ["A", "B"])
+
+    captured = capsys.readouterr()
+    assert "Wrong selection" in captured.out
+    assert result == "B"
+
+
+def test_validate_model_catalog_cwd_valid_true(tmp_path, monkeypatch):
+    """Test validate_model_catalog_cwd_valid returns True when directory exists."""
+    model_dir = tmp_path / "model_definitions"
+    model_dir.mkdir(parents=True)
+
+    # Temporarily change base_path
+    original_base = tmo_cli.base_path
+    original_catalog = tmo_cli.model_catalog
+    tmo_cli.base_path = str(tmp_path)
+    tmo_cli.model_catalog = str(model_dir)
+
+    result = tmo_cli.validate_model_catalog_cwd_valid()
+    assert result is True
+
+    # Restore
+    tmo_cli.base_path = original_base
+    tmo_cli.model_catalog = original_catalog
+
+
+def test_validate_model_catalog_cwd_valid_false(tmp_path, monkeypatch):
+    """Test validate_model_catalog_cwd_valid returns False when directory missing."""
+    # Temporarily change to non-existent path
+    original_catalog = tmo_cli.model_catalog
+    tmo_cli.model_catalog = str(tmp_path / "nonexistent")
+
+    result = tmo_cli.validate_model_catalog_cwd_valid()
+    assert result is False
+
+    # Restore
+    tmo_cli.model_catalog = original_catalog
+
+
+def test_validate_fe_tasks_cwd_valid_true(tmp_path):
+    """Test validate_fe_tasks_cwd_valid returns True when directory exists."""
+    fe_dir = tmp_path / "feature_engineering_tasks"
+    fe_dir.mkdir(parents=True)
+
+    original_catalog = tmo_cli.fe_tasks_catalog
+    tmo_cli.fe_tasks_catalog = str(fe_dir)
+
+    result = tmo_cli.validate_fe_tasks_cwd_valid()
+    assert result is True
+
+    tmo_cli.fe_tasks_catalog = original_catalog
+
+
+def test_validate_fe_tasks_cwd_valid_false(tmp_path):
+    """Test validate_fe_tasks_cwd_valid returns False when directory missing."""
+    original_catalog = tmo_cli.fe_tasks_catalog
+    tmo_cli.fe_tasks_catalog = str(tmp_path / "nonexistent")
+
+    result = tmo_cli.validate_fe_tasks_cwd_valid()
+    assert result is False
+
+    tmo_cli.fe_tasks_catalog = original_catalog
+
+
+def test_print_underscored_empty_message(capsys):
+    """Test print_underscored with empty message."""
+    tmo_cli.print_underscored("")
     out, _ = capsys.readouterr()
-    assert "List of local connections" in out or "Name: n" in out
+    lines = out.splitlines()
+    assert len(lines) == 2
+    assert lines[0] == ""
+    assert lines[1] == ""
 
 
-def test_add_connections_invalid_args_calls_help_and_exits(monkeypatch):
-    args = type(
-        "A",
-        (),
-        {
-            "cwd": None,
-            "name": None,
-            "username": "u",
-            "password": None,
-            "host": None,
-            "database": None,
-            "val_db": None,
-            "byom_db": None,
-            "logmech": None,
-            "parent_parser": type("P", (), {"print_help": lambda self: None})(),
-        },
-    )()
-    with pytest.raises(SystemExit):
-        tmo_cli.add_connections(args)
+def test_print_underscored_long_message(capsys):
+    """Test print_underscored with long message."""
+    long_msg = "A" * 100
+    tmo_cli.print_underscored(long_msg)
+    out, _ = capsys.readouterr()
+    lines = out.splitlines()
+    assert lines[0] == long_msg
+    assert lines[1] == "-" * 100
 
 
-def _write_tmp_json(tmp_path, content):
-    p = tmp_path / "tmp.json"
-    p.write_text(content)
-    return str(p)
-
-
-def test_run_model_calls_train_evaluate_score(tmp_path, monkeypatch):
-    import tmo
-
-    model_id = "m1"
-    available = {0: {"id": model_id, "name": "M"}}
-    monkeypatch.setattr(tmo.TrainModel, "get_model_ids", lambda catalog, arg: available)
-    monkeypatch.setattr(
-        tmo_cli, "get_current_project", lambda rm, tc, check: {"id": "p1"}
-    )
-
-    class RepoManager:
-        pass
-
-    class Client:
-        def set_project_id(self, pid):
-            pass
-
-    # prepare a local dataset file to bypass selection
-    dataset_path = _write_tmp_json(tmp_path, '{"data": []}')
-
-    # Train mode
-    args = type(
-        "A",
-        (),
-        {
-            "cwd": None,
-            "model_id": model_id,
-            "mode": "train",
-            "local_dataset": dataset_path,
-            "local_dataset_template": None,
-            "dataset_id": None,
-            "dataset_template_id": None,
-            "connection": None,
-        },
-    )()
-    called = {}
-
-    class FakeTrainer:
-        @staticmethod
-        def get_model_ids(catalog, arg):
-            return available
-
-        def __init__(self, repo_manager):
-            pass
-
-        def train_model_local(self, mid, rendered_dataset=None, base_path=None):
-            called["train"] = (mid, rendered_dataset is not None)
-
-    monkeypatch.setattr(tmo, "TrainModel", FakeTrainer)
-    tmo_cli.run_model(args, RepoManager(), Client())
-    assert called.get("train")[0] == model_id
-
-    # Evaluate mode
-    called.clear()
-    args.mode = "evaluate"
-
-    class FakeEvaluator:
-        def __init__(self, repo_manager):
-            pass
-
-        def evaluate_model_local(self, mid, rendered_dataset=None, base_path=None):
-            called["evaluate"] = (mid, rendered_dataset is not None)
-
-    monkeypatch.setattr(tmo, "EvaluateModel", FakeEvaluator)
-    tmo_cli.run_model(args, RepoManager(), Client())
-    assert called.get("evaluate")[0] == model_id
-
-    # Score mode uses local dataset template bypass
-    called.clear()
-    args.mode = "score"
-    args.local_dataset = None
-    tmp_template = _write_tmp_json(tmp_path, '{"template": true}')
-    args.local_dataset_template = tmp_template
-
-    class FakeScorer:
-        def __init__(self, repo_manager):
-            pass
-
-        def batch_score_model_local(self, mid, rendered_dataset=None, base_path=None):
-            called["score"] = (mid, rendered_dataset is not None)
-
-    monkeypatch.setattr(tmo, "ScoreModel", FakeScorer)
-    tmo_cli.run_model(args, RepoManager(), Client())
-    assert called.get("score")[0] == model_id
-
-
-def test_import_stats_saves_feature_stats(tmp_path, monkeypatch):
-    import tmo
-
-    stats_json = {
-        "features": {
-            "age": {"type": "continuous", "edges": [1, 2]},
-            "flag": {"type": "categorical", "frequencies": ["0", "1"]},
-        }
+def test_set_connection_env_vars_all_fields(tmp_path):
+    """Test _set_connection_env_vars sets all environment variables."""
+    connection = {
+        "id": "conn1",
+        "username": "user1",
+        "password": "pass1",
+        "host": "localhost",
+        "logmech": "TDNEGO",
+        "database": "db1",
+        "val_db": "val1",
+        "ml_db": "byom1",  # Note: implementation uses ml_db, not byom_db
     }
-    p = tmp_path / "stats.json"
-    p.write_text(json.dumps(stats_json))
+    connections_list = [connection]
 
-    calls = []
-    monkeypatch.setattr(tmo, "tmo_create_context", lambda: None)
-    monkeypatch.setattr(
-        "tmo.stats.store.save_feature_stats", lambda *a, **k: calls.append((a, k))
-    )
+    # Clear any existing env vars
+    for key in [
+        "VMO_CONN_USERNAME",
+        "VMO_CONN_PASSWORD",
+        "VMO_CONN_HOST",
+        "VMO_CONN_LOG_MECH",  # Note: implementation uses LOG_MECH with underscore
+        "VMO_CONN_DATABASE",
+        "VMO_VAL_INSTALL_DB",  # Note: implementation uses VAL_INSTALL_DB
+        "VMO_BYOM_INSTALL_DB",  # Note: implementation uses BYOM_INSTALL_DB
+    ]:
+        os.environ.pop(key, None)
 
-    args = type(
-        "A",
-        (),
-        {
-            "cwd": None,
-            "show_example": False,
-            "statistics_file": str(p),
-            "metadata_table": "mt",
-        },
-    )()
-    tmo_cli.import_stats(args)
-    # should have saved categorical and continuous
-    assert any(call[0][1] == "categorical" for call in calls)
-    assert any(call[0][1] == "continuous" for call in calls)
+    tmo_cli._set_connection_env_vars("conn1", connections_list)
 
-
-def test_compute_stats_calls_store(tmp_path, monkeypatch):
-    import tmo
-
-    monkeypatch.setattr(tmo_cli, "activate_connection", lambda ns: None)
-    monkeypatch.setattr(tmo, "tmo_create_context", lambda: None)
-
-    class FakeDF:
-        pass
-
-    # mock teradataml.DataFrame.from_query
-    import teradataml
-
-    monkeypatch.setattr(
-        teradataml.DataFrame, "from_query", classmethod(lambda cls, q: FakeDF())
-    )
-
-    # categorical
-    monkeypatch.setattr(
-        "tmo.stats.stats.compute_categorical_stats",
-        lambda df, cols, temp_db=None: {"a": "cat"},
-    )
-    saved = []
-    monkeypatch.setattr(
-        "tmo.stats.store.save_feature_stats", lambda *a, **k: saved.append((a, k))
-    )
-    args = type(
-        "A",
-        (),
-        {
-            "cwd": None,
-            "source_table": "t",
-            "columns": "a",
-            "feature_type": "categorical",
-            "metadata_table": "mt",
-            "temp_view_database": None,
-        },
-    )()
-    tmo_cli.compute_stats(args)
-    assert any(call[1].get("feature_type") == "categorical" for call in saved)
-
-    # continuous
-    saved.clear()
-    monkeypatch.setattr(
-        "tmo.stats.stats.compute_continuous_stats",
-        lambda df, cols, temp_db=None: {"a": "cont"},
-    )
-    args.feature_type = "continuous"
-    tmo_cli.compute_stats(args)
-    assert any(call[1].get("feature_type") == "continuous" for call in saved)
+    assert os.environ.get("VMO_CONN_USERNAME") == "user1"
+    assert os.environ.get("VMO_CONN_PASSWORD") == "pass1"
+    assert os.environ.get("VMO_CONN_HOST") == "localhost"
+    assert os.environ.get("VMO_CONN_LOG_MECH") == "TDNEGO"  # Correct env var name
+    assert os.environ.get("VMO_CONN_DATABASE") == "db1"
+    assert os.environ.get("VMO_VAL_INSTALL_DB") == "val1"  # Correct env var name
+    assert os.environ.get("VMO_BYOM_INSTALL_DB") == "byom1"  # Correct env var name
 
 
-def test_check_connection_exists_found():
-    """Test _check_connection_exists when connection is found."""
-    connections = [
-        {"id": "c1", "name": "conn1"},
-        {"id": "c2", "name": "conn2"},
-    ]
-    assert tmo_cli._check_connection_exists("c1", connections) is True
-    assert tmo_cli._check_connection_exists("c3", connections) is False
+def test_set_connection_env_vars_minimal_fields(tmp_path):
+    """Test _set_connection_env_vars with only required fields."""
+    connection = {
+        "id": "conn2",
+        "username": "user2",
+        "password": "pass2",
+        "host": "host2",
+        "logmech": "TD2",
+    }
+    connections_list = [connection]
+
+    tmo_cli._set_connection_env_vars("conn2", connections_list)
+
+    assert os.environ.get("VMO_CONN_USERNAME") == "user2"
+    assert os.environ.get("VMO_CONN_PASSWORD") == "pass2"
 
 
-def test_check_connection_exists_empty_list():
-    """Test _check_connection_exists with empty list."""
-    assert tmo_cli._check_connection_exists("c1", []) is False
+def test_select_connection_from_list_single_connection(monkeypatch):
+    """Test _select_connection_from_list auto-selects when only one connection."""
+    connections = [{"id": "only_one", "name": "Only Connection"}]
 
-
-def test_select_connection_from_list_single(capsys):
-    """Test _select_connection_from_list with single connection."""
-    connections = [{"id": "c1", "name": "conn1"}]
     result = tmo_cli._select_connection_from_list(connections)
-    assert result == "c1"
-    out, _ = capsys.readouterr()
-    assert "Automatic connection selection" in out
+    assert result == "only_one"
 
 
-def test_select_connection_from_list_multiple(monkeypatch):
-    """Test _select_connection_from_list with multiple connections."""
+def test_select_connection_from_list_multiple_connections(monkeypatch):
+    """Test _select_connection_from_list prompts when multiple connections."""
     connections = [
-        {"id": "c1", "name": "conn1"},
-        {"id": "c2", "name": "conn2"},
+        {"id": "c1", "name": "Connection 1"},
+        {"id": "c2", "name": "Connection 2"},
     ]
-    monkeypatch.setattr(tmo_cli, "input_select", lambda *a, **k: "conn2")
+
+    # Mock accepts name, values, label (positional), plus **kwargs
+    monkeypatch.setattr(
+        tmo_cli, "input_select", lambda name, values, label="", **kwargs: "Connection 2"
+    )
+
     result = tmo_cli._select_connection_from_list(connections)
     assert result == "c2"
 
 
-def test_set_connection_env_vars_success():
-    """Test _set_connection_env_vars sets environment variables correctly."""
-    connections = [{
-        "id": "c1",
-        "name": "conn1",
-        "username": "user1",
-        "password": "pass1",
-        "host": "host1",
-        "logmech": "TDNEGO",
-        "database": "db1",
-        "val_db": "VAL",
-        "ml_db": "MLDB",
-    }]
-    result = tmo_cli._set_connection_env_vars("c1", connections)
-    assert result is True
-    assert os.environ.get("VMO_CONN_USERNAME") == "user1"
-    assert os.environ.get("VMO_CONN_HOST") == "host1"
+def test_check_connection_exists_found_in_middle():  # noqa
+    """Test _check_connection_exists finds connection in middle of list."""
+    connections = [
+        {"id": "c1"},
+        {"id": "c2"},
+        {"id": "c3"},
+    ]
+    assert tmo_cli._check_connection_exists("c2", connections) is True
 
 
-def test_set_connection_env_vars_not_found():
-    """Test _set_connection_env_vars when connection not found."""
-    connections = [{"id": "c1", "name": "conn1"}]
-    result = tmo_cli._set_connection_env_vars("c2", connections)
-    assert result is False
+def test_check_connection_exists_case_sensitivity():  # noqa
+    """Test _check_connection_exists is case-sensitive."""
+    connections = [{"id": "MyConn"}]
+    assert tmo_cli._check_connection_exists("MyConn", connections) is True
+    assert tmo_cli._check_connection_exists("myconn", connections) is False
 
 
-def test_get_connections_list_with_connections():
-    """Test _get_connections_list with valid connections."""
-    connections_dict = {
-        "connections": [
-            {"id": "c1", "name": "conn1"},
-            {"id": "c2", "name": "conn2"},
-        ]
-    }
+def test_get_connections_list_with_single_connection():  # noqa
+    """Test _get_connections_list with single connection."""
+    connections_dict = {"connections": [{"id": "c1", "name": "Connection 1"}]}
     result = tmo_cli._get_connections_list(connections_dict)
-    assert len(result) == 2
+    assert len(result) == 1
     assert result[0]["id"] == "c1"
 
 
-def test_get_connections_list_empty():
-    """Test _get_connections_list with empty or missing connections."""
-    assert tmo_cli._get_connections_list({}) == []
-    assert tmo_cli._get_connections_list({"connections": []}) == []
+def test_get_connections_list_preserves_order():  # noqa
+    """Test _get_connections_list preserves connection order."""
+    connections_dict = {
+        "connections": [
+            {"id": "c1", "name": "First"},
+            {"id": "c2", "name": "Second"},
+            {"id": "c3", "name": "Third"},
+        ]
+    }
+    result = tmo_cli._get_connections_list(connections_dict)
+    assert result[0]["id"] == "c1"
+    assert result[1]["id"] == "c2"
+    assert result[2]["id"] == "c3"
 
 
-def test_determine_connection_id_from_args():
-    """Test _determine_connection_id uses args.connection when available."""
-    args = SimpleNamespace(connection="c1")
-    kwargs = {}
-    connections = [{"id": "c1", "name": "conn1"}]
-    result = tmo_cli._determine_connection_id(args, kwargs, connections)
-    assert result == "c1"
+# ============================================================================
+# Tests for maximizing coverage - Added March 3, 2026
+# Following .github/copilot-instructions.md guidelines
+# ============================================================================
 
 
-def test_determine_connection_id_from_kwargs():
-    """Test _determine_connection_id uses kwargs when args doesn't have connection."""
-    args = SimpleNamespace(connection=None)
-    kwargs = {"connection": "c2"}
-    connections = [{"id": "c2", "name": "conn2"}]
-    result = tmo_cli._determine_connection_id(args, kwargs, connections)
-    assert result == "c2"
+class TestPrintProjectsList:
+    """Tests for _print_projects_list function."""
+
+    def test_print_projects_list_with_projects_as_list_true(self, capsys):
+        """Test printing projects with as_list=True."""
+        projects = [
+            {"id": "id1", "name": "Project 1"},
+            {"id": "id2", "name": "Project 2"},
+        ]
+        tmo_cli._print_projects_list(projects, as_list=True)
+
+        captured = capsys.readouterr()
+        assert "List of projects:" in captured.out
+        assert "[0] (id1) Project 1" in captured.out
+        assert "[1] (id2) Project 2" in captured.out
+
+    def test_print_projects_list_with_projects_as_list_false(self, capsys):
+        """Test printing projects with as_list=False."""
+        projects = [
+            {"id": "id1", "name": "Project 1"},
+        ]
+        tmo_cli._print_projects_list(projects, as_list=False)
+
+        captured = capsys.readouterr()
+        assert "Available projects:" in captured.out
+        assert "[0] (id1) Project 1" in captured.out
+
+    def test_print_projects_list_with_empty_list(self, capsys):
+        """Test printing when no projects exist."""
+        projects = []
+        tmo_cli._print_projects_list(projects, as_list=False)
+
+        captured = capsys.readouterr()
+        assert "No projects were found" in captured.out
+
+    def test_print_projects_list_with_single_project(self, capsys):
+        """Test printing single project."""
+        projects = [{"id": "single-id", "name": "Single Project"}]
+        tmo_cli._print_projects_list(projects, as_list=True)
+
+        captured = capsys.readouterr()
+        assert "[0] (single-id) Single Project" in captured.out
+
+    def test_print_projects_list_with_many_projects(self, capsys):
+        """Test printing many projects."""
+        projects = [{"id": f"id{i}", "name": f"Project {i}"} for i in range(10)]
+        tmo_cli._print_projects_list(projects, as_list=False)
+
+        captured = capsys.readouterr()
+        assert "[0] (id0) Project 0" in captured.out
+        assert "[9] (id9) Project 9" in captured.out
 
 
-def test_determine_connection_id_select_from_list(monkeypatch):
-    """Test _determine_connection_id selects from list when no args/kwargs."""
-    args = SimpleNamespace(connection=None)
-    kwargs = {}
-    connections = [{"id": "c1", "name": "conn1"}]
-    result = tmo_cli._determine_connection_id(args, kwargs, connections)
-    assert result == "c1"
+class TestFindCurrentProjectIndex:
+    """Tests for _find_current_project_index function."""
+
+    def test_find_current_project_index_with_matching_project(self):
+        """Test finding index when project exists in list."""
+        projects = [
+            {"id": "id1", "name": "P1"},
+            {"id": "id2", "name": "P2"},
+            {"id": "id3", "name": "P3"},
+        ]
+        current_project = {"id": "id2", "name": "P2"}
+
+        result = tmo_cli._find_current_project_index(projects, current_project)
+        assert result == 1
+
+    def test_find_current_project_index_with_first_project(self):
+        """Test finding index when project is first."""
+        projects = [
+            {"id": "id1", "name": "P1"},
+            {"id": "id2", "name": "P2"},
+        ]
+        current_project = {"id": "id1"}
+
+        result = tmo_cli._find_current_project_index(projects, current_project)
+        assert result == 0
+
+    def test_find_current_project_index_with_last_project(self):
+        """Test finding index when project is last."""
+        projects = [
+            {"id": "id1", "name": "P1"},
+            {"id": "id2", "name": "P2"},
+            {"id": "id3", "name": "P3"},
+        ]
+        current_project = {"id": "id3"}
+
+        result = tmo_cli._find_current_project_index(projects, current_project)
+        assert result == 2
+
+    def test_find_current_project_index_with_no_match(self):
+        """Test finding index when project not in list."""
+        projects = [
+            {"id": "id1", "name": "P1"},
+            {"id": "id2", "name": "P2"},
+        ]
+        current_project = {"id": "id999", "name": "Not Found"}
+
+        result = tmo_cli._find_current_project_index(projects, current_project)
+        assert result == "none"
+
+    def test_find_current_project_index_with_none_current_project(self):
+        """Test finding index when current_project is None."""
+        projects = [{"id": "id1", "name": "P1"}]
+
+        result = tmo_cli._find_current_project_index(projects, None)
+        assert result == "none"
+
+    def test_find_current_project_index_with_empty_current_project(self):
+        """Test finding index when current_project is empty dict."""
+        projects = [{"id": "id1", "name": "P1"}]
+        current_project = {}
+
+        result = tmo_cli._find_current_project_index(projects, current_project)
+        assert result == "none"
+
+    def test_find_current_project_index_with_empty_projects_list(self):
+        """Test finding index when projects list is empty."""
+        projects = []
+        current_project = {"id": "id1"}
+
+        result = tmo_cli._find_current_project_index(projects, current_project)
+        assert result == "none"
+
+    def test_find_current_project_index_without_id_key_in_current(self):
+        """Test when current_project doesn't have 'id' key."""
+        projects = [{"id": "id1", "name": "P1"}]
+        current_project = {"name": "P1"}  # No 'id' key
+
+        result = tmo_cli._find_current_project_index(projects, current_project)
+        assert result == "none"
 
 
-def test_print_projects_list_with_projects(capsys):
-    """Test _print_projects_list prints projects correctly."""
-    projects = [
-        {"id": "p1", "name": "Project 1"},
-        {"id": "p2", "name": "Project 2"},
-    ]
-    tmo_cli._print_projects_list(projects, as_list=False)
-    out, _ = capsys.readouterr()
-    assert "Available projects:" in out
-    assert "p1" in out
-    assert "Project 1" in out
+class TestValidateProjectSelection:
+    """Tests for _validate_project_selection function."""
+
+    def test_validate_project_selection_with_valid_numeric_index(self):
+        """Test validation with valid numeric index."""
+        projects = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+
+        result = tmo_cli._validate_project_selection("1", projects, "none")
+        assert result is True
+
+    def test_validate_project_selection_with_zero_index(self):
+        """Test validation with index 0."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("0", projects, "none")
+        assert result is True
+
+    def test_validate_project_selection_with_last_index(self):
+        """Test validation with last valid index."""
+        projects = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+
+        result = tmo_cli._validate_project_selection("2", projects, "none")
+        assert result is True
+
+    def test_validate_project_selection_with_index_out_of_range(self):
+        """Test validation with index >= len(projects)."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("5", projects, "none")
+        assert result is False
+
+    def test_validate_project_selection_with_index_equal_to_length(self):
+        """Test validation with index == len(projects)."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("2", projects, "none")
+        assert result is False
+
+    def test_validate_project_selection_with_negative_index(self):
+        """Test validation with negative index string."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        # "-1" is not numeric according to isnumeric()
+        result = tmo_cli._validate_project_selection("-1", projects, "none")
+        assert result is False
+
+    def test_validate_project_selection_with_non_numeric_string(self):
+        """Test validation with non-numeric string."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("abc", projects, "none")
+        assert result is False
+
+    def test_validate_project_selection_with_empty_string_and_valid_current(self):
+        """Test validation with empty string when current_index is valid."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("", projects, 1)
+        assert result is True
+
+    def test_validate_project_selection_with_empty_string_and_none_current(self):
+        """Test validation with empty string when current_index is 'none'."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("", projects, "none")
+        assert result is False
+
+    def test_validate_project_selection_with_whitespace_string(self):
+        """Test validation with whitespace string."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("  ", projects, "none")
+        assert result is False
+
+    def test_validate_project_selection_with_float_string(self):
+        """Test validation with float string."""
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        result = tmo_cli._validate_project_selection("1.5", projects, "none")
+        assert result is False
+
+    def test_validate_project_selection_complex_condition_true(self):
+        """Test the TRUE path of the complex condition."""
+        # (not tmp_index.isnumeric() or int(tmp_index) >= len(projects)) and tmp_index != ""
+        # TRUE and TRUE = TRUE → return False
+        projects = [{"id": "1"}]
+
+        # Case 1: not numeric AND not empty
+        result = tmo_cli._validate_project_selection("abc", projects, 0)
+        assert result is False
+
+        # Case 2: numeric but out of range AND not empty
+        result = tmo_cli._validate_project_selection("10", projects, 0)
+        assert result is False
+
+    def test_validate_project_selection_complex_condition_false(self):
+        """Test the FALSE path of the complex condition."""
+        # (not tmp_index.isnumeric() or int(tmp_index) >= len(projects)) and tmp_index != ""
+        # FALSE and X = FALSE → check second condition
+        projects = [{"id": "1"}, {"id": "2"}]
+
+        # tmp_index is empty string, current_index is valid
+        result = tmo_cli._validate_project_selection("", projects, 0)
+        assert (
+            result is True
+        )  # Second condition is False, so overall False → return True
 
 
-def test_print_projects_list_empty(capsys):
-    """Test _print_projects_list with empty list."""
-    tmo_cli._print_projects_list([], as_list=True)
-    out, _ = capsys.readouterr()
-    assert "List of projects:" in out
-    assert "No projects were found" in out
+class TestHandleInvalidGrantError:
+    """Tests for _handle_invalid_grant_error function."""
+
+    def test_handle_invalid_grant_error_token_not_active_calls_exit(
+        self, monkeypatch, caplog
+    ):
+        """Test handling 'Token is not active' error."""
+        from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
+
+        ge = InvalidGrantError(description="Token is not active")
+        args = type("Args", (), {"debug": False})()
+
+        remove_called = []
+
+        def mock_remove():
+            remove_called.append(True)
+
+        # Mock sys.exit to prevent actual exit
+        exit_called = []
+        monkeypatch.setattr("sys.exit", lambda code: exit_called.append(code))
+
+        tmo_cli._handle_invalid_grant_error(ge, args, mock_remove)
+
+        # Should call remove_token_func
+        assert len(remove_called) == 1
+        # Should call sys.exit(1)
+        assert exit_called == [1]
+
+        # Should log error message
+        assert any("Token is not active" in record.message for record in caplog.records)
+
+    def test_handle_invalid_grant_error_session_not_active_calls_exit(
+        self, monkeypatch, caplog  # noqa
+    ):
+        """Test handling 'Session not active' error."""
+        from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
+
+        ge = InvalidGrantError(description="Session not active")
+        args = type("Args", (), {"debug": False})()
+
+        remove_called = []
+
+        def mock_remove():
+            remove_called.append(True)
+
+        exit_called = []
+        monkeypatch.setattr("sys.exit", lambda code: exit_called.append(code))
+
+        tmo_cli._handle_invalid_grant_error(ge, args, mock_remove)
+
+        assert len(remove_called) == 1
+        assert exit_called == [1]
+
+        # Should log error message
+        assert any("Session not active" in record.message for record in caplog.records)
+
+    def test_handle_invalid_grant_error_other_description_calls_generic_handler(
+        self, monkeypatch
+    ):
+        """Test handling other InvalidGrantError descriptions."""
+        from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
+
+        ge = InvalidGrantError(description="Some other error")
+        args = type("Args", (), {"debug": True})()
+
+        # Mock handle_generic_error
+        generic_error_calls = []
+        monkeypatch.setattr(
+            tmo_cli,
+            "handle_generic_error",
+            lambda err, debug: generic_error_calls.append((err, debug)),
+        )
+
+        tmo_cli._handle_invalid_grant_error(ge, args, lambda: None)
+
+        # Should call handle_generic_error with the exception and debug flag
+        assert len(generic_error_calls) == 1
+        assert generic_error_calls[0][0] == ge
+        assert generic_error_calls[0][1] is True
+
+    def test_handle_invalid_grant_error_does_not_call_remove_for_other_errors(
+        self, monkeypatch
+    ):
+        """Test that remove_token is NOT called for other error descriptions."""
+        from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
+
+        ge = InvalidGrantError(description="Different error")
+        args = type("Args", (), {"debug": False})()
+
+        remove_called = []
+
+        def mock_remove():
+            remove_called.append(True)
+
+        monkeypatch.setattr(tmo_cli, "handle_generic_error", lambda err, debug: None)
+
+        tmo_cli._handle_invalid_grant_error(ge, args, mock_remove)
+
+        # Should NOT call remove_token_func
+        assert len(remove_called) == 0
 
 
-def test_find_current_project_index_found():
-    """Test _find_current_project_index when project is found."""
-    projects = [
-        {"id": "p1", "name": "Project 1"},
-        {"id": "p2", "name": "Project 2"},
-    ]
-    current_project = {"id": "p2"}
-    result = tmo_cli._find_current_project_index(projects, current_project)
-    assert result == 1
+class TestPrintUnderscored:
+    """Tests for print_underscored function."""
+
+    def test_print_underscored_short_message(self, capsys):
+        """Test printing with short message."""
+        tmo_cli.print_underscored("Test Message")
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        assert lines[0] == "Test Message"
+        assert lines[1] == "------------"
+
+    def test_print_underscored_long_message(self, capsys):
+        """Test printing with message longer than 100 chars."""
+        long_msg = "A" * 150
+        tmo_cli.print_underscored(long_msg)
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        assert lines[0] == long_msg
+        assert lines[1] == "-" * 150  # Should match message length
+
+    def test_print_underscored_empty_message(self, capsys):
+        """Test printing with empty message."""
+        tmo_cli.print_underscored("")
+
+        captured = capsys.readouterr()
+        # With empty message, prints two empty lines
+        # Using splitlines() removes trailing empty lines, so check raw output
+        assert (
+            captured.out == "\n\n"
+        )  # Empty message + empty underline + trailing newline
+
+    def test_print_underscored_exactly_100_chars(self, capsys):
+        """Test printing with exactly 100 character message."""
+        msg = "X" * 100
+        tmo_cli.print_underscored(msg)
+
+        captured = capsys.readouterr()
+        lines = captured.out.strip().split("\n")
+        assert lines[0] == msg
+        assert lines[1] == "-" * 100
 
 
-def test_find_current_project_index_not_found():
-    """Test _find_current_project_index when project is not found."""
-    projects = [{"id": "p1", "name": "Project 1"}]
-    current_project = {"id": "p3"}
-    result = tmo_cli._find_current_project_index(projects, current_project)
-    assert result == "none"
+class TestCheckIfAnyResourceSelected:
+    """Tests for _check_if_any_resource_selected function."""
+
+    def test_check_if_any_resource_selected_all_false(self):
+        """Test when no resources are selected."""
+        args = type(
+            "Args",
+            (),
+            {
+                "projects": False,
+                "models": False,
+                "local_models": False,
+                "templates": False,
+                "datasets": False,
+                "connections": False,
+            },
+        )()
+
+        result = tmo_cli._check_if_any_resource_selected(args)
+        assert result is False
+
+    def test_check_if_any_resource_selected_projects_true(self):
+        """Test when projects is selected."""
+        args = type(
+            "Args",
+            (),
+            {
+                "projects": True,
+                "models": False,
+                "local_models": False,
+                "templates": False,
+                "datasets": False,
+                "connections": False,
+            },
+        )()
+
+        result = tmo_cli._check_if_any_resource_selected(args)
+        assert result is True
+
+    def test_check_if_any_resource_selected_templates_true(self):
+        """Test when templates is selected."""
+        args = type(
+            "Args",
+            (),
+            {
+                "projects": False,
+                "models": False,
+                "local_models": False,
+                "templates": True,
+                "datasets": False,
+                "connections": False,
+            },
+        )()
+
+        result = tmo_cli._check_if_any_resource_selected(args)
+        assert result is True
+
+    def test_check_if_any_resource_selected_datasets_true(self):
+        """Test when datasets is selected."""
+        args = type(
+            "Args",
+            (),
+            {
+                "projects": False,
+                "models": False,
+                "local_models": False,
+                "templates": False,
+                "datasets": True,
+                "connections": False,
+            },
+        )()
+
+        result = tmo_cli._check_if_any_resource_selected(args)
+        assert result is True
+
+    def test_check_if_any_resource_selected_local_models_true(self):
+        """Test when local_models is selected."""
+        args = type(
+            "Args",
+            (),
+            {
+                "projects": False,
+                "models": False,
+                "local_models": True,
+                "templates": False,
+                "datasets": False,
+                "connections": False,
+            },
+        )()
+
+        result = tmo_cli._check_if_any_resource_selected(args)
+        assert result is True
+
+    def test_check_if_any_resource_selected_multiple_true(self):
+        """Test when multiple resources are selected."""
+        args = type(
+            "Args",
+            (),
+            {
+                "projects": True,
+                "models": True,
+                "local_models": False,
+                "templates": True,
+                "datasets": False,
+                "connections": False,
+            },
+        )()
+
+        result = tmo_cli._check_if_any_resource_selected(args)
+        assert result is True
+
+    def test_check_if_any_resource_selected_all_true(self):
+        """Test when all resources are selected."""
+        args = type(
+            "Args",
+            (),
+            {
+                "projects": True,
+                "models": True,
+                "local_models": True,
+                "templates": True,
+                "datasets": True,
+                "connections": True,
+            },
+        )()
+
+        result = tmo_cli._check_if_any_resource_selected(args)
+        assert result is True
 
 
-def test_find_current_project_index_none():
-    """Test _find_current_project_index with None current project."""
-    projects = [{"id": "p1", "name": "Project 1"}]
-    result = tmo_cli._find_current_project_index(projects, None)
-    assert result == "none"
+class TestListConnectionsEdgeCases:
+    """Tests for list_connections edge cases and error paths."""
+
+    def test_list_connections_with_cwd(self, tmp_path, monkeypatch):
+        """Test list_connections with args.cwd parameter."""
+        connections_file = tmp_path / ".tmo" / "connections.yaml"
+        connections_file.parent.mkdir(parents=True, exist_ok=True)
+        connections_file.write_text(
+            yaml.dump({
+                "connections": [{
+                    "id": "conn1",
+                    "name": "Test Connection",
+                    "username": "user1",
+                    "host": "host1",
+                    "database": "db1",
+                }]
+            })
+        )
+
+        monkeypatch.setattr(tmo_cli, "config_dir", str(tmp_path / ".tmo"))
+
+        args = type("Args", (), {"cwd": str(tmp_path)})()
+        tmo_cli.list_connections(args)
+        # Should not raise, just prints
+
+    def test_list_connections_empty_connections_list(self, tmp_path, monkeypatch):
+        """Test list_connections when connections list is empty."""
+        connections_file = tmp_path / ".tmo" / "connections.yaml"
+        connections_file.parent.mkdir(parents=True, exist_ok=True)
+        connections_file.write_text(yaml.dump({"connections": []}))
+
+        monkeypatch.setattr(tmo_cli, "config_dir", str(tmp_path / ".tmo"))
+
+        args = type("Args", (), {"cwd": None})()
+        tmo_cli.list_connections(args)
+        # Should log error about no connections
 
 
-def test_validate_project_selection_valid():
-    """Test _validate_project_selection with valid selection."""
-    projects = [{"id": "p1"}, {"id": "p2"}]
-    assert tmo_cli._validate_project_selection("0", projects, "none") is True
-    assert tmo_cli._validate_project_selection("1", projects, "none") is True
-    assert tmo_cli._validate_project_selection("", projects, 0) is True
+class TestAddConnectionsEdgeCases:
+    """Tests for add_connections error handling paths."""
+
+    def test_add_connections_save_file_error(self, tmp_path, monkeypatch):
+        """Test add_connections when saving file fails."""
+        from pathlib import Path
+
+        # Use home directory which is in safe_dirs
+        home_tmo = Path.home() / ".tmo_test_save_error"
+        home_tmo.mkdir(parents=True, exist_ok=True)
+
+        # Mock config_dir to point to home location
+        monkeypatch.setattr(tmo_cli, "config_dir", str(home_tmo))
+        monkeypatch.setattr(tmo_cli, "CONNECTIONS_YAML_FILE", "{}/connections.yaml")
+        monkeypatch.setattr(tmo_cli, "KEY_FILE", "{}/{}.key")
+        monkeypatch.setattr(tmo_cli, "PASS_FILE", "{}/{}.pass")
+
+        # Mock inputs
+        inputs = iter(["TestConn", "host", "user", "pass", "", "val", "mldb", "TD2"])
+        monkeypatch.setattr(
+            tmo_cli, "input_string", lambda name, req=False, **kw: next(inputs)
+        )
+
+        # Mock crypto to avoid file system issues
+        from tmo import crypto
+
+        monkeypatch.setattr(
+            crypto, "td_encrypt_password", lambda password=None, **kwargs: "encrypted"
+        )
+
+        # Mock yaml.safe_dump to raise exception
+        def mock_dump(*args, **kwargs):  # noqa
+            raise Exception("Write failed")
+
+        monkeypatch.setattr(yaml, "safe_dump", mock_dump)
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "name": "TestConn",
+                "host": "host",
+                "username": "user",
+                "password": "pass",
+                "database": "",
+                "val_db": "val",
+                "byom_db": "mldb",
+                "logmech": "TD2",
+            },
+        )()
+
+        try:
+            with pytest.raises(SystemExit) as exc:
+                tmo_cli.add_connections(args)
+            assert exc.value.code == 1
+        finally:
+            # Cleanup
+            import shutil
+
+            if home_tmo.exists():
+                shutil.rmtree(home_tmo)
 
 
-def test_validate_project_selection_invalid():
-    """Test _validate_project_selection with invalid selection."""
-    projects = [{"id": "p1"}, {"id": "p2"}]
-    assert tmo_cli._validate_project_selection("2", projects, "none") is False
-    assert tmo_cli._validate_project_selection("abc", projects, "none") is False
-    assert tmo_cli._validate_project_selection("", projects, "none") is False
+class TestRemoveConnectionsEdgeCases:
+    """Tests for remove_connections error handling paths."""
+
+    def test_remove_connections_with_key_and_pass_files(self, tmp_path, monkeypatch):
+        """Test remove_connections removes key and pass files if they exist."""
+        from pathlib import Path
+
+        # Use home directory which is in safe_dirs
+        config_path = Path.home() / ".tmo_test_remove_keys"
+        config_path.mkdir(parents=True, exist_ok=True)
+
+        # Create connections file
+        connections_file = config_path / "connections.yaml"
+        connections_file.write_text(
+            yaml.dump({
+                "connections": [{
+                    "id": "conn1",
+                    "name": "Test Connection",
+                    "username": "user1",
+                    "host": "host1",
+                }]
+            })
+        )
+
+        # Create key and pass files
+        key_file = config_path / "conn1.key"
+        pass_file = config_path / "conn1.pass"
+        key_file.write_text("keydata")
+        pass_file.write_text("passdata")
+
+        monkeypatch.setattr(tmo_cli, "config_dir", str(config_path))
+        monkeypatch.setattr(tmo_cli, "KEY_FILE", "{}/{}.key")
+        monkeypatch.setattr(tmo_cli, "PASS_FILE", "{}/{}.pass")
+        monkeypatch.setattr(tmo_cli, "CONNECTIONS_YAML_FILE", "{}/connections.yaml")
+
+        args = type("Args", (), {"cwd": None, "connection": "conn1"})()
+
+        try:
+            tmo_cli.remove_connections(args)
+
+            # Verify files were removed
+            assert not key_file.exists()
+            assert not pass_file.exists()
+        finally:
+            # Cleanup
+            import shutil
+
+            if config_path.exists():
+                shutil.rmtree(config_path)
+
+    def test_remove_connections_save_error(self, tmp_path, monkeypatch):
+        """Test remove_connections when save fails."""
+        from pathlib import Path
+
+        # Use home directory
+        config_path = Path.home() / ".tmo_test_remove_save_err"
+        config_path.mkdir(parents=True, exist_ok=True)
+
+        connections_file = config_path / "connections.yaml"
+        connections_file.write_text(
+            yaml.dump({
+                "connections": [
+                    {"id": "conn1", "name": "Test", "username": "u", "host": "h"}
+                ]
+            })
+        )
+
+        monkeypatch.setattr(tmo_cli, "config_dir", str(config_path))
+        monkeypatch.setattr(tmo_cli, "CONNECTIONS_YAML_FILE", "{}/connections.yaml")
+
+        # Mock yaml.safe_dump to raise exception
+        def mock_dump(*args, **kwargs):  # noqa
+            raise Exception("Write failed")
+
+        monkeypatch.setattr(yaml, "safe_dump", mock_dump)
+
+        args = type("Args", (), {"cwd": None, "connection": "conn1"})()
+
+        try:
+            with pytest.raises(SystemExit) as exc:
+                tmo_cli.remove_connections(args)
+            assert exc.value.code == 1
+        finally:
+            # Cleanup
+            import shutil
+
+            if config_path.exists():
+                shutil.rmtree(config_path)
 
 
-def test_check_if_any_resource_selected_true():
-    """Test _check_if_any_resource_selected returns True when resource selected."""
-    args = SimpleNamespace(
-        projects=True,
-        models=False,
-        local_models=False,
-        templates=False,
-        datasets=False,
-        connections=False,
-    )
-    assert tmo_cli._check_if_any_resource_selected(args) is True
+class TestExportConnectionEdgeCases:
+    """Tests for export_connection error handling paths."""
+
+    def test_export_connection_with_cwd(self, tmp_path, monkeypatch, capsys):
+        """Test export_connection with args.cwd parameter."""
+        config_path = tmp_path / ".tmo"
+        config_path.mkdir(parents=True, exist_ok=True)
+
+        connections_file = config_path / "connections.yaml"
+        connections_file.write_text(
+            yaml.dump({
+                "connections": [{
+                    "id": "conn1",
+                    "name": "Test Connection",
+                    "username": "user1",
+                    "host": "host1",
+                    "database": "db1",
+                    "logmech": "TD2",
+                    "password": "encrypted_pass",
+                }]
+            })
+        )
+
+        monkeypatch.setattr(tmo_cli, "config_dir", str(config_path))
+
+        args = type("Args", (), {"cwd": str(tmp_path), "connection": "conn1"})()
+        tmo_cli.export_connection(args)
+
+        captured = capsys.readouterr()
+        assert "export VMO_CONN_HOST" in captured.out
+        assert "host1" in captured.out
 
 
-def test_check_if_any_resource_selected_false():
-    """Test _check_if_any_resource_selected returns False when none selected."""
-    args = SimpleNamespace(
-        projects=False,
-        models=False,
-        local_models=False,
-        templates=False,
-        datasets=False,
-        connections=False,
-    )
-    assert tmo_cli._check_if_any_resource_selected(args) is False
+class TestActivateConnectionEdgeCases:
+    """Tests for activate_connection additional paths."""
+
+    def test_activate_connection_with_cwd(self, tmp_path, monkeypatch):
+        """Test activate_connection with args.cwd parameter."""
+        config_path = tmp_path / ".tmo"
+        config_path.mkdir(parents=True, exist_ok=True)
+
+        connections_file = config_path / "connections.yaml"
+        connections_file.write_text(
+            yaml.dump({
+                "connections": [{
+                    "id": "conn1",
+                    "name": "Test",
+                    "username": "user1",
+                    "host": "host1",
+                    "database": "db1",
+                    "logmech": "TD2",
+                    "password": "encrypted_pass",
+                }]
+            })
+        )
+
+        monkeypatch.setattr(tmo_cli, "config_dir", str(config_path))
+
+        args = type("Args", (), {"cwd": str(tmp_path), "connection": "conn1"})()
+        result = tmo_cli.activate_connection(args)
+        assert result == "conn1"
 
 
-def test_handle_invalid_grant_error_token_not_active(monkeypatch):
-    """Test _handle_invalid_grant_error with 'Token is not active' error."""
+class TestAddModelEdgeCases:
+    """Tests for add_model function paths."""
 
-    class FakeError:
-        description = "Token is not active"
+    def test_add_model_with_cwd(self, tmp_path, monkeypatch):
+        """Test add_model with args.cwd parameter."""
+        # Setup mock repo directory
+        repo_dir = tmp_path / "model_repo"
+        repo_dir.mkdir(parents=True, exist_ok=True)
+        (repo_dir / "model_definitions").mkdir()
 
-    args = SimpleNamespace(debug=False)
-    remove_called = {"called": False}
+        # Mock validate function
+        monkeypatch.setattr(tmo_cli, "validate_model_catalog_cwd_valid", lambda: True)
 
-    def fake_remove():
-        remove_called["called"] = True
+        # Mock inputs - input_string is called for: model name, model description
+        string_inputs = iter(["NewModel", "Test model"])
+        monkeypatch.setattr(
+            tmo_cli, "input_string", lambda name, req=False, **kw: next(string_inputs)
+        )
 
-    with pytest.raises(SystemExit) as exc:
-        tmo_cli._handle_invalid_grant_error(FakeError(), args, fake_remove)
+        # Mock input_select - called for: model language, model template
+        select_inputs = iter(["python", "desc1 (template1)"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(select_inputs),
+        )
 
-    assert exc.value.code == 1
-    assert remove_called["called"] is True
+        class MockRepoManager:
+            def clone_repository(self, url, path, branch):
+                pass
+
+            def get_templates(self, entity_type, source_path):  # noqa
+                return {"python": {"template1": ("desc1", str(tmp_path / "template"))}}
+
+            def add_model(self, **kwargs):
+                pass
+
+        repo_manager = MockRepoManager()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": str(repo_dir),
+                "template_url": "https://github.com/test/repo",
+                "branch": "main",
+            },
+        )()
+
+        # Should not raise
+        tmo_cli.add_model(args, repo_manager)
+
+    def test_add_model_no_branch_defaults_to_main(self, tmp_path, monkeypatch):
+        """Test add_model when branch is not provided defaults to main."""
+        monkeypatch.setattr(tmo_cli, "validate_model_catalog_cwd_valid", lambda: True)
+
+        # Mock input_string - called for: template_url, branch, model name, model description
+        string_inputs = iter([
+            "https://github.com/test/repo",
+            "",  # branch empty - should default to "main"
+            "NewModel",
+            "Test model",
+        ])
+        monkeypatch.setattr(
+            tmo_cli, "input_string", lambda name, req=False, **kw: next(string_inputs)
+        )
+
+        # Mock input_select - called for: model language, model template
+        select_inputs = iter(["python", "desc1 (template1)"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(select_inputs),
+        )
+
+        class MockRepoManager:
+            def __init__(self):
+                self.cloned_branch = None
+
+            def clone_repository(self, url, path, branch):  # noqa
+                self.cloned_branch = branch
+
+            def get_templates(self, entity_type, source_path):  # noqa
+                return {"python": {"template1": ("desc1", str(tmp_path / "template"))}}
+
+            def add_model(self, **kwargs):
+                pass
+
+        repo_manager = MockRepoManager()
+
+        args = type("Args", (), {"cwd": None, "template_url": None, "branch": None})()
+
+        tmo_cli.add_model(args, repo_manager)
+        assert repo_manager.cloned_branch == "main"
 
 
-def test_handle_invalid_grant_error_session_not_active(monkeypatch):
-    """Test _handle_invalid_grant_error with 'Session not active' error."""
+class TestAddTaskEdgeCases:
+    """Tests for add_task function additional paths."""
 
-    class FakeError:
-        description = "Session not active"
+    def test_add_task_with_cwd(self, tmp_path, monkeypatch):
+        """Test add_task with args.cwd parameter."""
+        task_repo_dir = tmp_path / "task_repo"
+        task_repo_dir.mkdir(parents=True, exist_ok=True)
+        (task_repo_dir / "feature_engineering_tasks").mkdir()
 
-    args = SimpleNamespace(debug=False)
-    remove_called = {"called": False}
+        monkeypatch.setattr(tmo_cli, "validate_fe_tasks_cwd_valid", lambda: True)
 
-    def fake_remove():
-        remove_called["called"] = True
+        # Mock input_select - called for: task template selection
+        select_inputs = iter(["task1"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(select_inputs),
+        )
 
-    with pytest.raises(SystemExit) as exc:
-        tmo_cli._handle_invalid_grant_error(FakeError(), args, fake_remove)
+        # Mock input_string - called for: task name (only if args.name is None)
+        # Since args.name is "TaskName", input_string won't be called
+        string_inputs = iter([])
+        monkeypatch.setattr(
+            tmo_cli, "input_string", lambda name, req=False, **kw: next(string_inputs)
+        )
 
-    assert exc.value.code == 1
-    assert remove_called["called"] is True
+        class MockRepoManager:
+            def clone_repository(self, url, path, branch):
+                pass
+
+            def get_templates(self, entity_type, source_path):  # noqa
+                return {"task1": str(tmp_path / "task_template")}
+
+            def add_task(self, **kwargs):
+                pass
+
+        repo_manager = MockRepoManager()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": str(task_repo_dir),
+                "template_url": "https://github.com/test/repo",
+                "branch": "main",
+                "name": "TaskName",
+            },
+        )()
+
+        tmo_cli.add_task(args, repo_manager)
+
+    def test_add_task_empty_name_uses_template_name(self, tmp_path, monkeypatch):
+        """Test add_task when name is empty defaults to template name."""
+        monkeypatch.setattr(tmo_cli, "validate_fe_tasks_cwd_valid", lambda: True)
+
+        # Mock input_string - called for: template_url, branch, task name
+        string_inputs = iter([
+            "https://github.com/test/repo",
+            "main",
+            "",  # Empty task name - should use template name
+        ])
+        monkeypatch.setattr(
+            tmo_cli, "input_string", lambda name, req=False, **kw: next(string_inputs)
+        )
+
+        # Mock input_select - called for: task template
+        select_inputs = iter(["task1"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(select_inputs),
+        )
+
+        class MockRepoManager:
+            def __init__(self):
+                self.task_name_used = None
+
+            def clone_repository(self, url, path, branch):
+                pass
+
+            def get_templates(self, entity_type, source_path):  # noqa
+                return {"task1": str(tmp_path / "task_template")}
+
+            def add_task(self, task_name, **kwargs):  # noqa
+                self.task_name_used = task_name
+
+        repo_manager = MockRepoManager()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "template_url": None,
+                "branch": None,
+                "name": "",
+            },
+        )()
+
+        tmo_cli.add_task(args, repo_manager)
+        assert repo_manager.task_name_used == "task1"
 
 
-def test_handle_invalid_grant_error_other_error(monkeypatch):
-    """Test _handle_invalid_grant_error with other error types."""
+class TestRunTaskEdgeCases:
+    """Tests for run_task function additional paths."""
 
-    class FakeError:
-        description = "Some other error"
+    def test_run_task_with_cwd(self, tmp_path, monkeypatch):
+        """Test run_task processes cwd parameter."""
+        # Track if set_cwd was called
+        cwd_calls = []
 
-    args = SimpleNamespace(debug=False)
+        def mock_set_cwd(path):
+            cwd_calls.append(path)
 
-    def fake_remove():
-        pass
+        monkeypatch.setattr(tmo_cli, "set_cwd", mock_set_cwd)
 
-    # Should call handle_generic_error which exits with code 1
-    with pytest.raises(SystemExit) as exc:
-        tmo_cli._handle_invalid_grant_error(FakeError(), args, fake_remove)
+        # Mock get_current_project to return None and trigger early exit
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: None,
+        )
 
-    assert exc.value.code == 1
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": str(tmp_path),
+                "connection": None,
+                "name": None,
+                "function_name": None,
+            },
+        )()
+
+        # Should call set_cwd then exit due to no project
+        with pytest.raises(SystemExit):
+            tmo_cli.run_task(args, repo_manager, tmo_client)
+
+        # Verify cwd was processed
+        assert len(cwd_calls) == 1
+        assert cwd_calls[0] == str(tmp_path)
 
 
-def test_load_connections_from_file_success(tmp_path):
-    """Test _load_connections_from_file loads file successfully."""
-    tmp = tmp_path / "cfg"
-    tmo_cli.config_dir = str(tmp)
-    tmp.mkdir(parents=True)
-    connections_data = {"connections": [{"id": "c1", "name": "conn1"}]}
-    yaml.safe_dump(
-        connections_data,
-        open(Path(tmo_cli.config_dir) / "connections.yaml", "w+"),
-    )
-    result = tmo_cli._load_connections_from_file()
-    assert "connections" in result
-    assert len(result["connections"]) == 1
+class TestMainFunctionPaths:
+    """Tests for main() function execution paths."""
+
+    def test_main_with_version_flag(self, monkeypatch, capsys):
+        """Test main() with --version flag."""
+        monkeypatch.setattr("sys.argv", ["tmo", "--version"])
+
+        tmo_cli.main()
+
+        captured = capsys.readouterr()
+        # Check that output contains a version number (e.g., "7.2.3")
+        assert captured.out.strip()  # Not empty
+        # Version format is typically x.y.z
+        import re
+
+        assert re.match(r"\d+\.\d+\.\d+", captured.out.strip())
+
+    def test_main_connection_error_with_debug(self, monkeypatch, caplog):
+        """Test main() handles ConnectionError with debug flag."""
+        from unittest.mock import MagicMock
+        import requests
+        import sys
+
+        monkeypatch.setattr("sys.argv", ["tmo", "list", "-p", "--debug"])
+
+        # Mock TmoClient to raise ConnectionError
+        class MockTmoClient:
+            def __init__(self):
+                raise requests.exceptions.ConnectionError("Connection failed")
+
+        original_tmo = sys.modules.get("tmo")
+
+        mock_tmo = MagicMock()
+        mock_tmo.TmoClient = MockTmoClient
+        mock_tmo.RepoManager = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        with pytest.raises(SystemExit) as exc:
+            tmo_cli.main()
+
+        assert exc.value.code == 1
+
+        # Check that error was logged (not printed to stdout)
+        assert any(
+            "Could not connect to ModelOps API" in record.message
+            for record in caplog.records
+        )
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_main_invalid_token_error(self, monkeypatch, capsys, tmp_path):
+        """Test main() handles InvalidTokenError."""
+        from unittest.mock import MagicMock
+        import oauthlib.oauth2.rfc6749.errors
+        import sys
+
+        monkeypatch.setattr("sys.argv", ["tmo", "list", "-p"])
+
+        # Mock token cache file
+        token_file = tmp_path / "token_cache.json"
+        token_file.write_text("{}")
+
+        # Note: TmoClient is imported inside main(), not in tmo_cli module
+        # We need to mock it via sys.modules instead
+
+        # Mock TmoClient to raise InvalidTokenError
+        class MockTmoClient:
+            DEFAULT_TOKEN_CACHE_FILE_PATH = str(token_file)
+
+            def __init__(self):
+                raise oauthlib.oauth2.rfc6749.errors.InvalidTokenError("Token invalid")
+
+        original_tmo = sys.modules.get("tmo")
+
+        mock_tmo = MagicMock()
+        mock_tmo.TmoClient = MockTmoClient
+        mock_tmo.RepoManager = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        with pytest.raises(SystemExit) as exc:
+            tmo_cli.main()
+
+        assert exc.value.code == 1
+        assert not token_file.exists()  # Token cache should be removed
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_main_keyboard_interrupt(self, monkeypatch, caplog):
+        """Test main() handles KeyboardInterrupt gracefully."""
+        from unittest.mock import MagicMock
+        import sys
+
+        monkeypatch.setattr("sys.argv", ["tmo", "list", "-p"])
+
+        # Mock TmoClient to raise KeyboardInterrupt
+        class MockTmoClient:
+            def __init__(self):
+                raise KeyboardInterrupt()
+
+        original_tmo = sys.modules.get("tmo")
+
+        mock_tmo = MagicMock()
+        mock_tmo.TmoClient = MockTmoClient
+        mock_tmo.RepoManager = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        with pytest.raises(SystemExit) as exc:
+            tmo_cli.main()
+
+        assert exc.value.code == 1
+
+        # Check that message was logged
+        assert any("Keyboard interrupt" in record.message for record in caplog.records)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_main_generic_exception_with_debug(self, monkeypatch, caplog):
+        """Test main() handles generic exception with debug flag."""
+        from unittest.mock import MagicMock
+        import sys
+
+        monkeypatch.setattr("sys.argv", ["tmo", "list", "-p", "--debug"])
+
+        # Mock TmoClient to raise generic exception
+        class MockTmoClient:
+            def __init__(self):
+                raise RuntimeError("Something went wrong")
+
+        original_tmo = sys.modules.get("tmo")
+
+        mock_tmo = MagicMock()
+        mock_tmo.TmoClient = MockTmoClient
+        mock_tmo.RepoManager = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        # Should call handle_generic_error which logs exception when debug=True
+        # Note: handle_generic_error doesn't exit when debug=True, just logs
+        tmo_cli.main()
+
+        # Check that error was logged
+        assert any("An error occurred" in record.message for record in caplog.records)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_main_local_function_no_client_needed(self, monkeypatch, tmp_path):
+        """Test main() with local functions that don't need TmoClient."""
+        config_path = tmp_path / ".tmo"
+        config_path.mkdir(parents=True, exist_ok=True)
+
+        connections_file = config_path / "connections.yaml"
+        connections_file.write_text(
+            yaml.dump({
+                "connections": [
+                    {"id": "c1", "name": "Test", "username": "u", "host": "h"}
+                ]
+            })
+        )
+
+        monkeypatch.setattr(tmo_cli, "config_dir", str(config_path))
+        monkeypatch.setattr("sys.argv", ["tmo", "connection", "list"])
+
+        # Should execute without needing TmoClient
+        tmo_cli.main()
 
 
-def test_load_connections_from_file_not_found(tmp_path):
-    """Test _load_connections_from_file when file doesn't exist."""
-    tmp = tmp_path / "cfg_nonexistent"
-    tmo_cli.config_dir = str(tmp)
-    with pytest.raises(SystemExit) as exc:
-        tmo_cli._load_connections_from_file()
-    assert exc.value.code == 1
+class TestRunModelComplexPaths:
+    """Tests for complex run_model function logic."""
+
+    def test_run_model_with_cwd_parameter(self, tmp_path, monkeypatch):
+        """Test run_model with args.cwd set."""
+        from unittest.mock import MagicMock
+
+        # Mock get_current_project to return a project
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        # Create complex mock for run_model
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        mock_dataset_template_api = MagicMock()
+        mock_template = MagicMock()
+        mock_template.id = "template-1"
+        mock_template.name = "TestTemplate"
+        mock_dataset_template_api.return_value.find_all.return_value = [mock_template]
+        mock_dataset_template_api.return_value.render.return_value = {"data": "test"}
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.DatasetTemplateApi = mock_dataset_template_api
+        mock_tmo.EvaluateModel = MagicMock()
+        mock_tmo.ScoreModel = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        # Mock input_select to simulate user selections
+        inputs = iter(["TestModel", "score", "TestTemplate"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(inputs),
+        )
+
+        # Mock _select_connection
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": str(tmp_path),
+                "model_id": None,
+                "mode": None,
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": None,
+                "local_dataset_template": None,
+                "connection": None,
+            },
+        )()
+
+        try:
+            # Execute
+            tmo_cli.run_model(args, repo_manager, tmo_client)
+        finally:
+            # Cleanup
+            if original_tmo:
+                sys.modules["tmo"] = original_tmo
+            else:
+                del sys.modules["tmo"]
+
+    def test_run_model_with_local_dataset(self, tmp_path, monkeypatch):
+        """Test run_model with local dataset file."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        # Create local dataset file
+        dataset_file = tmp_path / "dataset.json"
+        dataset_file.write_text(json.dumps({"sql": "SELECT * FROM table"}))
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.EvaluateModel = MagicMock()
+        mock_tmo.ScoreModel = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: (
+                values[0] if values else "train"
+            ),
+        )
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "train",
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": str(dataset_file),
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_with_local_dataset_template(self, tmp_path, monkeypatch):
+        """Test run_model with local dataset template file for score mode."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        # Create local dataset template file
+        template_file = tmp_path / "template.json"
+        template_file.write_text(json.dumps({"sql": "SELECT * FROM table"}))
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.ScoreModel = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "score",
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": None,
+                "local_dataset_template": str(template_file),
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_evaluate_mode(self, tmp_path, monkeypatch):
+        """Test run_model in evaluate mode."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        dataset_file = tmp_path / "dataset.json"
+        dataset_file.write_text(json.dumps({"sql": "SELECT * FROM table"}))
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.EvaluateModel = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "evaluate",
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": str(dataset_file),
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_invalid_mode(self, tmp_path, monkeypatch):
+        """Test run_model with invalid mode prompts for selection."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        dataset_file = tmp_path / "dataset.json"
+        dataset_file.write_text(json.dumps({"sql": "SELECT * FROM table"}))
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.EvaluateModel = MagicMock()
+        mock_tmo.ScoreModel = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        # Mock input_select to return a valid mode when prompted
+        # (when mode is invalid, code will prompt for selection)
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: "train",
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "invalid_mode",  # Invalid mode triggers selection
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": str(dataset_file),
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        try:
+            # Should execute without error - invalid mode is replaced by selection
+            tmo_cli.run_model(args, repo_manager, tmo_client)
+        finally:
+            # Cleanup
+            if original_tmo:
+                sys.modules["tmo"] = original_tmo
+            else:
+                del sys.modules["tmo"]
+
+    def test_run_model_with_dataset_id(self, tmp_path, monkeypatch):
+        """Test run_model with specific dataset_id."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        mock_dataset = MagicMock()
+        mock_dataset.id = "dataset-1"
+        mock_dataset.name = "TestDataset"
+
+        mock_dataset_api = MagicMock()
+        mock_dataset_api.return_value.find_by_id.return_value = mock_dataset
+        mock_dataset_api.return_value.render.return_value = {"data": "test"}
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.EvaluateModel = MagicMock()
+        mock_tmo.DatasetApi = mock_dataset_api
+        mock_tmo.DatasetTemplateApi = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "train",
+                "dataset_id": "dataset-1",
+                "dataset_template_id": None,
+                "local_dataset": None,
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_score_with_dataset_template_id(self, tmp_path, monkeypatch):
+        """Test run_model in score mode with dataset_template_id."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        mock_template = MagicMock()
+        mock_template.id = "template-1"
+        mock_template.name = "TestTemplate"
+
+        mock_dataset_template_api = MagicMock()
+        mock_dataset_template_api.return_value.find_all.return_value = [mock_template]
+        mock_dataset_template_api.return_value.find_by_id.return_value = mock_template
+        mock_dataset_template_api.return_value.render.return_value = {"data": "test"}
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.ScoreModel = MagicMock()
+        mock_tmo.DatasetTemplateApi = mock_dataset_template_api
+        sys.modules["tmo"] = mock_tmo
+
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "score",
+                "dataset_id": None,
+                "dataset_template_id": "template-1",
+                "local_dataset": None,
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_model_not_found_prompts_selection(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Test run_model when model_id not found prompts user."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        dataset_file = tmp_path / "dataset.json"
+        dataset_file.write_text(json.dumps({"sql": "SELECT * FROM table"}))
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.EvaluateModel = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        # User selects model from prompt
+        inputs = iter(["TestModel"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(inputs),
+        )
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "nonexistent-model",
+                "mode": "train",
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": str(dataset_file),
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        captured = capsys.readouterr()
+        assert "Model not found" in captured.out
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_mode_not_found_prompts_selection(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Test run_model when mode not valid prompts user."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        dataset_file = tmp_path / "dataset.json"
+        dataset_file.write_text(json.dumps({"sql": "SELECT * FROM table"}))
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.EvaluateModel = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        # User selects mode from prompt
+        inputs = iter(["train"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(inputs),
+        )
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "invalid_mode",
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": str(dataset_file),
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        captured = capsys.readouterr()
+        assert "Mode not found" in captured.out
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_score_template_not_found_prompts(self, tmp_path, monkeypatch):
+        """Test run_model score mode when template_id not found."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        mock_template = MagicMock()
+        mock_template.id = "template-1"
+        mock_template.name = "TestTemplate"
+
+        mock_dataset_template_api = MagicMock()
+        mock_dataset_template_api.return_value.find_all.return_value = [mock_template]
+        mock_dataset_template_api.return_value.find_by_id.return_value = mock_template
+        mock_dataset_template_api.return_value.render.return_value = {"data": "test"}
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.ScoreModel = MagicMock()
+        mock_tmo.DatasetTemplateApi = mock_dataset_template_api
+        sys.modules["tmo"] = mock_tmo
+
+        inputs = iter(["TestTemplate"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(inputs),
+        )
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "score",
+                "dataset_id": None,
+                "dataset_template_id": "nonexistent-template",
+                "local_dataset": None,
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_interactive_dataset_selection_train(self, tmp_path, monkeypatch):
+        """Test run_model with interactive dataset/template selection for train mode."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        mock_dataset = MagicMock()
+        mock_dataset.id = "dataset-1"
+        mock_dataset.name = "TestDataset"
+        mock_dataset.scope = "TRAIN"
+
+        mock_template = MagicMock()
+        mock_template.id = "template-1"
+        mock_template.name = "TestTemplate"
+
+        mock_dataset_api = MagicMock()
+        mock_dataset_api.return_value.find_by_dataset_template_id.return_value = [
+            mock_dataset
+        ]
+        mock_dataset_api.return_value.render.return_value = {"data": "test"}
+
+        mock_dataset_template_api = MagicMock()
+        mock_dataset_template_api.return_value.find_all.return_value = [mock_template]
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.DatasetApi = mock_dataset_api
+        mock_tmo.DatasetTemplateApi = mock_dataset_template_api
+        mock_tmo.Scope = MagicMock()
+        sys.modules["tmo"] = mock_tmo
+
+        # User selections: template, dataset
+        inputs = iter(["TestTemplate", "TestDataset"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(inputs),
+        )
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "train",
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": None,
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]
+
+    def test_run_model_score_interactive_template_selection(
+        self, tmp_path, monkeypatch
+    ):
+        """Test run_model score mode with interactive template selection."""
+        from unittest.mock import MagicMock
+
+        monkeypatch.setattr(
+            tmo_cli,
+            "get_current_project",
+            lambda rm, tc, validate: {"id": "proj-123"},
+        )
+
+        mock_train_model = MagicMock()
+        mock_train_model.get_model_ids.return_value = {
+            0: {"id": "model-1", "name": "TestModel"}
+        }
+
+        mock_template = MagicMock()
+        mock_template.id = "template-1"
+        mock_template.name = "TestTemplate"
+
+        mock_dataset_template_api = MagicMock()
+        mock_dataset_template_api.return_value.find_all.return_value = [mock_template]
+        mock_dataset_template_api.return_value.render.return_value = {"data": "test"}
+
+        import sys
+
+        original_tmo = sys.modules.get("tmo")
+        mock_tmo = MagicMock()
+        mock_tmo.TrainModel = mock_train_model
+        mock_tmo.ScoreModel = MagicMock()
+        mock_tmo.DatasetTemplateApi = mock_dataset_template_api
+        sys.modules["tmo"] = mock_tmo
+
+        inputs = iter(["TestTemplate"])
+        monkeypatch.setattr(
+            tmo_cli,
+            "input_select",
+            lambda name, values, label="", default=None: next(inputs),
+        )
+        monkeypatch.setattr(
+            tmo_cli, "activate_connection", lambda args: "conn-1"  # noqa
+        )
+
+        class MockRepoManager:
+            pass
+
+        class MockTmoClient:
+            def set_project_id(self, id):
+                pass
+
+        repo_manager = MockRepoManager()
+        tmo_client = MockTmoClient()
+
+        args = type(
+            "Args",
+            (),
+            {
+                "cwd": None,
+                "model_id": "model-1",
+                "mode": "score",
+                "dataset_id": None,
+                "dataset_template_id": None,
+                "local_dataset": None,
+                "local_dataset_template": None,
+                "connection": "conn-1",
+            },
+        )()
+
+        tmo_cli.run_model(args, repo_manager, tmo_client)
+
+        # Cleanup
+        if original_tmo:
+            sys.modules["tmo"] = original_tmo
+        else:
+            del sys.modules["tmo"]

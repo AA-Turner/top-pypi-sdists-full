@@ -1058,7 +1058,7 @@ class StockScreener:
                 #     )
                 # #region agent log
                 import json
-                log_path = '/Users/praveen.jha1/Downloads/codes/PKScreener-main/.cursor/debug.log'
+                log_path = os.path.join(Archiver.get_user_data_dir(),"pkscreener-logs.txt")
                 try:
                     hostData_type = type(hostData).__name__ if hostData is not None else None
                     hostData_keys = list(hostData.keys())[:3] if hostData and isinstance(hostData, dict) else None
@@ -1149,7 +1149,7 @@ class StockScreener:
             data = data.sort_index(ascending=False)
             # #region agent log
             import json
-            log_path = '/Users/praveen.jha1/Downloads/codes/PKScreener-main/.cursor/debug.log'
+            log_path = os.path.join(Archiver.get_user_data_dir(),"pkscreener-logs.txt")
             try:
                 with open(log_path, 'a') as f:
                     f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"D","location":"StockScreener.py:getRelevantDataForStock:1119","message":"DataFrame sorted, checking index[0]","data":{"stock":stock,"index_0":str(data.index[0]) if not data.empty else None,"index_len":len(data.index) if not data.empty else 0,"index_first_3":[str(x) for x in list(data.index[:3])] if not data.empty and len(data.index) >= 3 else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')

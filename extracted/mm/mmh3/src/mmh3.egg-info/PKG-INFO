@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: mmh3
-Version: 5.2.0
+Version: 5.2.1
 Summary: Python extension for MurmurHash (MurmurHash3), a set of fast and robust hash functions.
 Author-email: Hajime Senuma <hajime.senuma@gmail.com>
 License: MIT License
         
-        Copyright (c) 2011-2025 Hajime Senuma
+        Copyright (c) 2011-2026 Hajime Senuma
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@ License: MIT License
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
 Project-URL: Homepage, https://pypi.org/project/mmh3/
+Project-URL: Documentation, https://mmh3.readthedocs.io/
 Project-URL: Repository, https://github.com/hajimes/mmh3
 Project-URL: Changelog, https://github.com/hajimes/mmh3/blob/master/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/hajimes/mmh3/issues
@@ -33,7 +34,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -42,31 +42,32 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: test
-Requires-Dist: pytest==8.4.1; extra == "test"
-Requires-Dist: pytest-sugar==1.0.0; extra == "test"
+Requires-Dist: pytest==9.0.2; extra == "test"
+Requires-Dist: pytest-sugar==1.1.1; extra == "test"
 Provides-Extra: lint
-Requires-Dist: black==25.1.0; extra == "lint"
-Requires-Dist: clang-format==20.1.8; extra == "lint"
-Requires-Dist: isort==6.0.1; extra == "lint"
-Requires-Dist: pylint==3.3.7; extra == "lint"
+Requires-Dist: actionlint-py==1.7.11.24; extra == "lint"
+Requires-Dist: clang-format==22.1.0; extra == "lint"
+Requires-Dist: codespell==2.4.1; extra == "lint"
+Requires-Dist: pylint==4.0.5; extra == "lint"
+Requires-Dist: ruff==0.15.4; extra == "lint"
 Provides-Extra: type
-Requires-Dist: mypy==1.17.0; extra == "type"
+Requires-Dist: mypy==1.19.1; extra == "type"
 Provides-Extra: docs
-Requires-Dist: myst-parser==4.0.1; extra == "docs"
-Requires-Dist: shibuya==2025.7.24; extra == "docs"
+Requires-Dist: myst-parser==5.0.0; extra == "docs"
+Requires-Dist: shibuya==2026.1.9; extra == "docs"
 Requires-Dist: sphinx==8.2.3; extra == "docs"
 Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
 Provides-Extra: benchmark
 Requires-Dist: pymmh3==0.0.5; extra == "benchmark"
-Requires-Dist: pyperf==2.9.0; extra == "benchmark"
-Requires-Dist: xxhash==3.5.0; extra == "benchmark"
+Requires-Dist: pyperf==2.10.0; extra == "benchmark"
+Requires-Dist: xxhash==3.6.0; extra == "benchmark"
 Provides-Extra: plot
-Requires-Dist: matplotlib==3.10.3; extra == "plot"
-Requires-Dist: pandas==2.3.1; extra == "plot"
+Requires-Dist: matplotlib==3.10.8; extra == "plot"
+Requires-Dist: pandas==3.0.1; extra == "plot"
 Dynamic: license-file
 
 # mmh3
@@ -152,6 +153,16 @@ in the API Reference for more information.
 See [Changelog (latest version)](https://mmh3.readthedocs.io/en/latest/changelog.html)
 for the complete changelog.
 
+### [5.2.1] - 2026-03-06
+
+#### Added
+
+- Add support for the Android wheel for Python 3.14.
+
+#### Removed
+
+- Drop support for Python 3.9, as it has reached the end of life on 2025-10-31.
+
 ### [5.2.0] - 2025-07-29
 
 #### Added
@@ -184,13 +195,6 @@ for the complete changelog.
 
 - Drop support for Python 3.8, as it has reached the end of life on 2024-10-07
   ([#117](https://github.com/hajimes/mmh3/pull/117)).
-
-### [5.0.1] - 2024-09-22
-
-#### Fixed
-
-- Fix the issue that the package cannot be built from the source distribution
-  ([#90](https://github.com/hajimes/mmh3/issues/90)).
 
 ## License
 
@@ -264,8 +268,8 @@ use `mmh3` (and other hash algorithms in general) for high-performance computing
 - Chapter 11: _Using Less Ram_ in Micha Gorelick and Ian Ozsvald. 2014. _High
   Performance Python: Practical Performant Programming for Humans_. O'Reilly
   Media. [ISBN: 978-1-4493-6159-4](https://www.amazon.com/dp/1449361595).
-  - 2nd edition of the above (2020).
-    [ISBN: 978-1492055020](https://www.amazon.com/dp/1492055026).
+  - 3rd edition of the above (2025).
+    [ISBN: 978-1098165963](https://www.amazon.com/dp/1098165969/).
 - Max Burstein. February 2, 2013.
   _[Creating a Simple Bloom Filter](http://www.maxburstein.com/blog/creating-a-simple-bloom-filter/)_.
 - Duke University. April 14, 2016.
@@ -338,6 +342,6 @@ In BibTeX format:
 - <https://github.com/ifduyue/python-xxhash>: Python bindings for xxHash (Yue
   Du)
 
+[5.2.1]: https://github.com/hajimes/mmh3/compare/v5.2.0...v5.2.1
 [5.2.0]: https://github.com/hajimes/mmh3/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/hajimes/mmh3/compare/v5.0.1...v5.1.0
-[5.0.1]: https://github.com/hajimes/mmh3/compare/v5.0.0...v5.0.1

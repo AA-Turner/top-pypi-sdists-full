@@ -50,17 +50,23 @@ def embedding_sync_upload(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "action": action,
+            "database_name": database_name,
+            "repository": repository,
+            "description": description,
+            "private": private,
+            "commit_message": commit_message,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "embedding_sync_upload",
-            "arguments": {
-                "action": action,
-                "database_name": database_name,
-                "repository": repository,
-                "description": description,
-                "private": private,
-                "commit_message": commit_message,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

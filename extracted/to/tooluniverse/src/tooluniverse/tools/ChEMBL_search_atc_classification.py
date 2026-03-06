@@ -9,7 +9,6 @@ from ._shared_client import get_shared_client
 
 
 def ChEMBL_search_atc_classification(
-    drug_chembl_id: Optional[str] = None,
     level4: Optional[str] = None,
     limit: Optional[int] = 20,
     offset: Optional[int] = 0,
@@ -23,8 +22,6 @@ def ChEMBL_search_atc_classification(
 
     Parameters
     ----------
-    drug_chembl_id : str
-        Filter by drug ChEMBL ID
     level4 : str
         Filter by ATC level 4 code
     limit : int
@@ -44,15 +41,16 @@ def ChEMBL_search_atc_classification(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"level4": level4, "limit": limit, "offset": offset}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ChEMBL_search_atc_classification",
-            "arguments": {
-                "drug_chembl_id": drug_chembl_id,
-                "level4": level4,
-                "limit": limit,
-                "offset": offset,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

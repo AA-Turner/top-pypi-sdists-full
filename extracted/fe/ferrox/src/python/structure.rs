@@ -21,9 +21,27 @@ use super::helpers::{
     py_to_json_value, structure_to_pydict, to_str_refs, validate_positive_f64,
 };
 
+fn format_skipped_indices(skipped_indices: &[usize]) -> String {
+    skipped_indices
+        .iter()
+        .map(|idx| idx.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn ensure_no_skipped_indices(operation_name: &str, skipped_indices: &[usize]) -> PyResult<()> {
+    if skipped_indices.is_empty() {
+        return Ok(());
+    }
+    Err(PyValueError::new_err(format!(
+        "{operation_name} skipped structure indices [{}]; set on_error=Fail in Rust API or clean inputs",
+        format_skipped_indices(skipped_indices)
+    )))
+}
+
 /// Python wrapper for StructureMatcher.
 #[gen_stub_pyclass]
-#[pyclass(name = "StructureMatcher")]
+#[pyclass(module = "ferrox._ferrox.structure", name = "StructureMatcher")]
 pub struct PyStructureMatcher {
     inner: StructureMatcher,
 }
@@ -180,9 +198,12 @@ impl PyStructureMatcher {
 
     fn deduplicate(&self, py: Python<'_>, structures: Vec<String>) -> PyResult<Vec<usize>> {
         py.detach(|| {
-            self.inner
+            let dedup_result = self
+                .inner
                 .deduplicate_json(&to_str_refs(&structures))
-                .map_err(|err| PyValueError::new_err(err.to_string()))
+                .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            ensure_no_skipped_indices("deduplicate", &dedup_result.skipped)?;
+            Ok(dedup_result.parents)
         })
     }
 
@@ -192,21 +213,30 @@ impl PyStructureMatcher {
         structures: Vec<String>,
     ) -> PyResult<HashMap<usize, Vec<usize>>> {
         py.detach(|| {
-            self.inner
-                .group_json(&to_str_refs(&structures))
-                .map(|m| m.into_iter().collect())
-                .map_err(|err| PyValueError::new_err(err.to_string()))
+            let dedup_result = self
+                .inner
+                .deduplicate_json(&to_str_refs(&structures))
+                .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            ensure_no_skipped_indices("group", &dedup_result.skipped)?;
+
+            let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
+            for (idx, canonical) in dedup_result.parents.into_iter().enumerate() {
+                groups.entry(canonical).or_default().push(idx);
+            }
+            Ok(groups)
         })
     }
 
     fn get_unique_indices(&self, py: Python<'_>, structures: Vec<String>) -> PyResult<Vec<usize>> {
         py.detach(|| {
-            let dedup = self
+            let dedup_result = self
                 .inner
                 .deduplicate_json(&to_str_refs(&structures))
                 .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            ensure_no_skipped_indices("get_unique_indices", &dedup_result.skipped)?;
 
-            Ok(dedup
+            Ok(dedup_result
+                .parents
                 .iter()
                 .enumerate()
                 .filter_map(|(idx, &canonical)| (idx == canonical).then_some(idx))
@@ -328,7 +358,7 @@ fn parse_class_mapping_by_symbol(
 // === Structure Manipulation Functions ===
 
 /// Create a supercell using a 3x3 transformation matrix.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn make_supercell(
     py: Python<'_>,
@@ -343,7 +373,7 @@ fn make_supercell(
 }
 
 /// Create a diagonal supercell.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn make_supercell_diag(
     py: Python<'_>,
@@ -356,7 +386,7 @@ fn make_supercell_diag(
 }
 
 /// Get a reduced cell structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, algorithm = "niggli"))]
 fn get_reduced_structure(
@@ -373,15 +403,16 @@ fn get_reduced_structure(
 }
 
 /// Copy a structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
+#[pyo3(name = "copy")]
 fn copy_structure(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let struc = parse_struct(&structure)?;
     Ok(structure_to_pydict(py, &struc)?.unbind())
 }
 
 /// Wrap all sites to the unit cell.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn wrap_to_unit_cell(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let mut struc = parse_struct(&structure)?;
@@ -390,7 +421,7 @@ fn wrap_to_unit_cell(py: Python<'_>, structure: StructureJson) -> PyResult<Py<Py
 }
 
 /// Interpolate between two structures.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (struct1, struct2, n_images, interpolate_lattices = false, use_pbc = true))]
 fn interpolate(
@@ -417,7 +448,7 @@ fn interpolate(
 }
 
 /// Get structure sorted by species.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, reverse = false))]
 fn get_sorted_structure(
@@ -431,7 +462,7 @@ fn get_sorted_structure(
 }
 
 /// Get structure metadata.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn get_structure_metadata(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let struc = parse_struct(&structure)?;
@@ -463,7 +494,7 @@ fn get_structure_metadata(py: Python<'_>, structure: StructureJson) -> PyResult<
 }
 
 /// Check if two structures match.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (struct1, struct2, anonymous = false))]
 fn matches(struct1: StructureJson, struct2: StructureJson, anonymous: bool) -> PyResult<bool> {
@@ -479,7 +510,7 @@ fn matches(struct1: StructureJson, struct2: StructureJson, anonymous: bool) -> P
 // === Structure Transformation Functions ===
 
 /// Substitute one species with another.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn substitute_species(
     py: Python<'_>,
@@ -504,7 +535,7 @@ fn substitute_species(
 }
 
 /// Remove all sites of specified species.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn remove_species(
     py: Python<'_>,
@@ -533,7 +564,7 @@ fn remove_species(
 }
 
 /// Remove sites at specified indices.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn remove_sites(
     py: Python<'_>,
@@ -548,7 +579,7 @@ fn remove_sites(
 }
 
 /// Apply a deformation gradient to the structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn deform(
     py: Python<'_>,
@@ -577,7 +608,7 @@ fn deform(
 }
 
 /// Compute Ewald energy for a structure with oxidation states.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, eta = None, real_cutoff = None, accuracy = None))]
 fn ewald_energy(
@@ -620,7 +651,7 @@ fn ewald_energy(
 }
 
 /// Generate ordered structures from a disordered structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, max_structures = 100))]
 fn order_disordered(
@@ -644,7 +675,7 @@ fn order_disordered(
 }
 
 /// Enumerate derivative structures within a size range.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, min_size = 1, max_size = 4))]
 fn enumerate_derivatives(
@@ -668,7 +699,7 @@ fn enumerate_derivatives(
 }
 
 /// Translate selected sites by a vector.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, indices, vector, fractional = true))]
 fn translate_sites(
@@ -693,7 +724,7 @@ fn translate_sites(
 }
 
 /// Perturb all sites by random vectors.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, distance, min_distance = None, seed = None))]
 fn perturb(
@@ -724,21 +755,21 @@ fn perturb(
 }
 
 /// Get labels for all sites.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn site_labels(structure: StructureJson) -> PyResult<Vec<String>> {
     Ok(parse_struct(&structure)?.site_labels())
 }
 
 /// Get species strings for all sites.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn species_strings(structure: StructureJson) -> PyResult<Vec<String>> {
     Ok(parse_struct(&structure)?.species_strings())
 }
 
 /// Get structure with reduced lattice using custom parameters.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 #[pyo3(signature = (structure, algorithm = "niggli", niggli_tol = 1e-5, lll_delta = 0.75))]
 fn get_reduced_structure_with_params(
@@ -767,7 +798,7 @@ fn get_reduced_structure_with_params(
 }
 
 /// Get structure sorted by electronegativity.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn get_sorted_by_electronegativity(
     py: Python<'_>,
@@ -780,7 +811,7 @@ fn get_sorted_by_electronegativity(
 }
 
 /// Get distance between two sites with a specific periodic image.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn get_distance_with_image(
     structure: StructureJson,
@@ -799,7 +830,7 @@ fn get_distance_with_image(
 }
 
 /// Get site properties for a specific site.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn get_site_properties(
     py: Python<'_>,
@@ -817,7 +848,7 @@ fn get_site_properties(
 }
 
 /// Get all site properties for a structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn get_all_site_properties(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyList>> {
     let struc = parse_struct(&structure)?;
@@ -828,7 +859,7 @@ fn get_all_site_properties(py: Python<'_>, structure: StructureJson) -> PyResult
 }
 
 /// Set a site property.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
 #[pyfunction]
 fn set_site_property(
     py: Python<'_>,
@@ -849,39 +880,57 @@ fn set_site_property(
     Ok(structure_to_pydict(py, &struc)?.unbind())
 }
 
-/// Register the structure submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "structure")?;
-    submod.add_class::<PyStructureMatcher>()?;
-    submod.add_function(wrap_pyfunction!(make_supercell, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(make_supercell_diag, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_reduced_structure, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(
-        get_reduced_structure_with_params,
-        &submod
-    )?)?;
-    submod.add_function(wrap_pyfunction!(copy_structure, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(wrap_to_unit_cell, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(interpolate, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_sorted_structure, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_sorted_by_electronegativity, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_structure_metadata, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(matches, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(substitute_species, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(remove_species, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(remove_sites, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(deform, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(ewald_energy, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(order_disordered, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(enumerate_derivatives, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(translate_sites, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(perturb, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(site_labels, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(species_strings, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_distance_with_image, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_site_properties, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_all_site_properties, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(set_site_property, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Get Cartesian coordinates for all sites in a structure.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
+#[pyfunction]
+fn get_cart_coords(structure: StructureJson) -> PyResult<Vec<[f64; 3]>> {
+    let struc = parse_struct(&structure)?;
+    Ok(struc
+        .cart_coords()
+        .iter()
+        .map(|c| [c.x, c.y, c.z])
+        .collect())
+}
+
+/// Count the number of Wyckoff positions in an AFLOW protostructure label.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.structure")]
+#[pyfunction]
+fn count_wyckoff_positions(protostructure_label: &str) -> PyResult<usize> {
+    crate::prototype::count_wyckoff_positions(protostructure_label)
+        .map_err(|err| PyValueError::new_err(err.to_string()))
+}
+
+/// Register structure functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyStructureMatcher>()?;
+    module.add_class::<super::classes::PyStructure>()?;
+    module.add_function(wrap_pyfunction!(make_supercell, module)?)?;
+    module.add_function(wrap_pyfunction!(make_supercell_diag, module)?)?;
+    module.add_function(wrap_pyfunction!(get_reduced_structure, module)?)?;
+    module.add_function(wrap_pyfunction!(get_reduced_structure_with_params, module)?)?;
+    module.add_function(wrap_pyfunction!(copy_structure, module)?)?;
+    module.add_function(wrap_pyfunction!(wrap_to_unit_cell, module)?)?;
+    module.add_function(wrap_pyfunction!(interpolate, module)?)?;
+    module.add_function(wrap_pyfunction!(get_sorted_structure, module)?)?;
+    module.add_function(wrap_pyfunction!(get_sorted_by_electronegativity, module)?)?;
+    module.add_function(wrap_pyfunction!(get_structure_metadata, module)?)?;
+    module.add_function(wrap_pyfunction!(matches, module)?)?;
+    module.add_function(wrap_pyfunction!(substitute_species, module)?)?;
+    module.add_function(wrap_pyfunction!(remove_species, module)?)?;
+    module.add_function(wrap_pyfunction!(remove_sites, module)?)?;
+    module.add_function(wrap_pyfunction!(deform, module)?)?;
+    module.add_function(wrap_pyfunction!(ewald_energy, module)?)?;
+    module.add_function(wrap_pyfunction!(order_disordered, module)?)?;
+    module.add_function(wrap_pyfunction!(enumerate_derivatives, module)?)?;
+    module.add_function(wrap_pyfunction!(translate_sites, module)?)?;
+    module.add_function(wrap_pyfunction!(perturb, module)?)?;
+    module.add_function(wrap_pyfunction!(site_labels, module)?)?;
+    module.add_function(wrap_pyfunction!(species_strings, module)?)?;
+    module.add_function(wrap_pyfunction!(get_distance_with_image, module)?)?;
+    module.add_function(wrap_pyfunction!(get_site_properties, module)?)?;
+    module.add_function(wrap_pyfunction!(get_all_site_properties, module)?)?;
+    module.add_function(wrap_pyfunction!(set_site_property, module)?)?;
+    module.add_function(wrap_pyfunction!(get_cart_coords, module)?)?;
+    module.add_function(wrap_pyfunction!(count_wyckoff_positions, module)?)?;
     Ok(())
 }

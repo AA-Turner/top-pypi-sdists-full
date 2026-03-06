@@ -38,10 +38,16 @@ def MetaCyc_get_compound(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"operation": operation, "compound_id": compound_id}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "MetaCyc_get_compound",
-            "arguments": {"operation": operation, "compound_id": compound_id},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -44,15 +44,21 @@ def BLAST_protein_search(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "sequence": sequence,
+            "database": database,
+            "expect": expect,
+            "hitlist_size": hitlist_size,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BLAST_protein_search",
-            "arguments": {
-                "sequence": sequence,
-                "database": database,
-                "expect": expect,
-                "hitlist_size": hitlist_size,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

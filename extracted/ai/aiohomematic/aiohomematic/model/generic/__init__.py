@@ -68,7 +68,10 @@ from aiohomematic.decorators import inspector
 from aiohomematic.exceptions import AioHomematicException
 from aiohomematic.interfaces.model import ChannelProtocol, GenericDataPointProtocolAny
 from aiohomematic.model.generic.action import DpAction
+from aiohomematic.model.generic.action_boolean import DpActionBoolean
+from aiohomematic.model.generic.action_number import BaseDpActionNumber, DpActionFloat, DpActionInteger
 from aiohomematic.model.generic.action_select import DpActionSelect
+from aiohomematic.model.generic.action_string import DpActionString
 from aiohomematic.model.generic.binary_sensor import DpBinarySensor
 from aiohomematic.model.generic.button import DpButton
 from aiohomematic.model.generic.data_point import GenericDataPoint, GenericDataPointAny
@@ -82,12 +85,17 @@ from aiohomematic.model.support import is_binary_sensor
 
 __all__ = [
     # Base
+    "BaseDpActionNumber",
     "BaseDpNumber",
     "GenericDataPoint",
     "GenericDataPointAny",
     # Data points
     "DpAction",
+    "DpActionBoolean",
+    "DpActionFloat",
+    "DpActionInteger",
     "DpActionSelect",
+    "DpActionString",
     "DpBinarySensor",
     "DpButton",
     "DpDummy",
@@ -190,6 +198,14 @@ class DataPointTypeResolver:
             # Write-only with value_list -> DpActionSelect
             if parameter_data.get("VALUE_LIST"):
                 return DpActionSelect
+            if p_type == ParameterType.FLOAT:
+                return DpActionFloat
+            if p_type == ParameterType.INTEGER:
+                return DpActionInteger
+            if p_type == ParameterType.BOOL:
+                return DpActionBoolean
+            if p_type == ParameterType.STRING:
+                return DpActionString
             return DpAction
 
         # Use lookup table for standard types

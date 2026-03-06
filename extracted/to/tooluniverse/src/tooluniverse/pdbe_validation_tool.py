@@ -149,7 +149,7 @@ class PDBeValidationTool(BaseTool):
                                 outlier_residues.append(
                                     {
                                         "residue_number": res.get("residue_number"),
-                                        "residue_name": res.get(
+                                        "author_residue_number": res.get(
                                             "author_residue_number",
                                             res.get("residue_number"),
                                         ),
@@ -166,7 +166,7 @@ class PDBeValidationTool(BaseTool):
                                 outlier_residues.append(
                                     {
                                         "residue_number": res.get("residue_number"),
-                                        "residue_name": res.get(
+                                        "author_residue_number": res.get(
                                             "author_residue_number",
                                             res.get("residue_number"),
                                         ),

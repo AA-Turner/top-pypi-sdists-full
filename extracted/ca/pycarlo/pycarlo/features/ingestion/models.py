@@ -15,10 +15,10 @@ def _is_empty(value: object) -> bool:
 
 @dataclass
 class Tag(DataClassJsonMixin):
-    """A key-value tag attached to an asset."""
+    """A key-value tag attached to an asset. Value is optional for key-only tags."""
 
     key: str
-    value: str
+    value: str | None = field(default=None, metadata=config(exclude=_is_none))
 
 
 @dataclass

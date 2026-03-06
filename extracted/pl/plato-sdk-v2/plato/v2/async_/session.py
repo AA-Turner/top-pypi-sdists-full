@@ -61,6 +61,7 @@ from plato._generated.models import (
     ExecuteCommandRequest,
     ExecuteCommandResponse,
     Flow,
+    HeartbeatTimeout,
     RemoveJobRequest,
     ResetSessionRequest,
     ResetSessionResponse,
@@ -882,7 +883,7 @@ class Session:
         request = AddJobRequest(
             env=env,
             timeout=timeout,
-            heartbeat_timeout=heartbeat_timeout,
+            heartbeat_timeout=HeartbeatTimeout(heartbeat_timeout) if heartbeat_timeout is not None else None,
         )
 
         # Call the add_job API

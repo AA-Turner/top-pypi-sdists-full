@@ -20,6 +20,22 @@ else:
     ExtendedMetadata = dict[str, object]  # type: ignore[assignment]
 
 
+class TableData(TypedDict):
+    """A single table extracted during conversion."""
+
+    cells: list[list[str]]
+    markdown: str
+    is_header_row: list[bool]
+
+
+class TableExtractionResult(TypedDict):
+    """Result of HTML-to-Markdown conversion with table extraction."""
+
+    content: str
+    metadata: ExtendedMetadata | None
+    tables: list[TableData]
+
+
 class InlineImage(TypedDict):
     """Inline image extracted during conversion."""
 
@@ -258,6 +274,31 @@ def convert_with_metadata_handle(
     return markdown, metadata
 
 
+def convert_with_tables(
+    html: str,
+    options: ConversionOptions | None = None,
+    preprocessing: PreprocessingOptions | None = None,
+    metadata_config: MetadataConfig | None = None,
+) -> TableExtractionResult:
+    """Convert HTML and extract tables as structured data.
+
+    Args:
+        html: HTML string to convert
+        options: Optional conversion configuration
+        preprocessing: Optional preprocessing configuration
+        metadata_config: Optional metadata extraction configuration
+
+    Returns:
+        A TableExtractionResult containing:
+        - content: The converted markdown string
+        - metadata: Extended metadata if extraction is configured, or None
+        - tables: List of TableData with cells, markdown, and header row info
+    """
+    rust_options = _rust_options(options, preprocessing)
+    metadata_config = _build_metadata_config(metadata_config)
+    return _rust.convert_with_tables(html, rust_options, metadata_config)
+
+
 def convert_with_visitor(
     html: str,
     options: ConversionOptions | None = None,
@@ -348,6 +389,8 @@ __all__ = [
     "InlineImageWarning",
     "MetadataConfig",
     "OptionsHandle",
+    "TableData",
+    "TableExtractionResult",
     "convert",
     "convert_with_async_visitor",
     "convert_with_handle",
@@ -355,6 +398,7 @@ __all__ = [
     "convert_with_inline_images_handle",
     "convert_with_metadata",
     "convert_with_metadata_handle",
+    "convert_with_tables",
     "convert_with_visitor",
     "create_options_handle",
     "start_profiling",

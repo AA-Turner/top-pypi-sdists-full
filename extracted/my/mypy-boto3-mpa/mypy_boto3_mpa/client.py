@@ -69,6 +69,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     StartActiveApprovalTeamDeletionRequestTypeDef,
     StartActiveApprovalTeamDeletionResponseTypeDef,
+    StartApprovalTeamBaselineRequestTypeDef,
+    StartApprovalTeamBaselineResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateApprovalTeamRequestTypeDef,
@@ -306,6 +308,17 @@ class MultipartyApprovalClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mpa/client/start_active_approval_team_deletion.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mpa/client/#start_active_approval_team_deletion)
+        """
+
+    def start_approval_team_baseline(
+        self, **kwargs: Unpack[StartApprovalTeamBaselineRequestTypeDef]
+    ) -> StartApprovalTeamBaselineResponseTypeDef:
+        """
+        Starts a baseline session for specified approvers on an <code>ACTIVE</code>
+        approval team.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mpa/client/start_approval_team_baseline.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mpa/client/#start_approval_team_baseline)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:

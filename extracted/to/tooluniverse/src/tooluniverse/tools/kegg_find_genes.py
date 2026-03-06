@@ -15,7 +15,7 @@ def kegg_find_genes(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     Find genes in KEGG database by keyword. Can search across all organisms or within a specific orga...
 
@@ -34,14 +34,20 @@ def kegg_find_genes(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"keyword": keyword, "organism": organism}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "kegg_find_genes",
-            "arguments": {"keyword": keyword, "organism": organism},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

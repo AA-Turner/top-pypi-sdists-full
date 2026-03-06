@@ -139,12 +139,30 @@ class UniProtRESTTool(BaseTool):
         # Build query string
         query_parts = [query]
         if organism:
-            # Support common organism names
+            # Support common organism names (both common names and scientific names)
             organism_map = {
                 "human": "9606",
+                "homo sapiens": "9606",
                 "mouse": "10090",
+                "mus musculus": "10090",
                 "rat": "10116",
+                "rattus norvegicus": "10116",
                 "yeast": "559292",
+                "saccharomyces cerevisiae": "559292",
+                "zebrafish": "7955",
+                "danio rerio": "7955",
+                "fruitfly": "7227",
+                "drosophila melanogaster": "7227",
+                "c. elegans": "6239",
+                "caenorhabditis elegans": "6239",
+                "arabidopsis": "3702",
+                "arabidopsis thaliana": "3702",
+                "pig": "9823",
+                "sus scrofa": "9823",
+                "cow": "9913",
+                "bos taurus": "9913",
+                "rabbit": "9986",
+                "oryctolagus cuniculus": "9986",
             }
             taxon_id = organism_map.get(organism.lower(), organism)
 
@@ -258,7 +276,6 @@ class UniProtRESTTool(BaseTool):
             "Ensembl": "Ensembl",
             "Gene_Name": "Gene_Name",
             "RefSeq_Protein": "RefSeq_Protein_ID",
-            "PDB": "PDB_ID",
             "EMBL": "EMBL_ID",
             "UniProtKB": "UniProtKB",
             "UniProtKB_AC-ID": "UniProtKB_AC-ID",
@@ -292,63 +309,25 @@ class UniProtRESTTool(BaseTool):
             status_url = f"https://rest.uniprot.org/idmapping/status/{job_id}"
             results_url = f"https://rest.uniprot.org/idmapping/results/{job_id}"
 
+            raw_results = None
             start_time = time.time()
             while time.time() - start_time < max_wait_time:
                 status_resp = requests.get(status_url, timeout=self.timeout)
                 status_data = status_resp.json()
 
-                # UniProt API returns "jobStatus" (not "status") for job completion
-                if (
-                    status_data.get("jobStatus") == "FINISHED"
-                    or status_data.get("status") == "FINISHED"
-                ):
-                    # Step 3: Retrieve results
+                job_status = status_data.get("jobStatus") or status_data.get("status")
+
+                if job_status == "FINISHED":
+                    # Explicit FINISHED status — fetch results separately
                     results_resp = requests.get(results_url, timeout=self.timeout)
-                    results_data = results_resp.json()
-
-                    # Format results
-                    formatted_results = []
-                    failed = []
-
-                    # Extract mappings
-                    results = results_data.get("results", [])
-                    for result in results:
-                        from_value = result.get("from", "")
-                        to_values = result.get("to", {}).get("results", [])
-
-                        if to_values:
-                            for to_item in to_values:
-                                to_info = to_item.get("to", {})
-                                gene_names = to_info.get("geneNames", [])
-                                gene_name = ""
-                                if gene_names:
-                                    gene_name = gene_names[0].get("value", "")
-
-                                formatted_results.append(
-                                    {
-                                        "from": from_value,
-                                        "to": {
-                                            "accession": to_info.get(
-                                                "primaryAccession", ""
-                                            ),
-                                            "id": to_info.get("uniProtkbId", ""),
-                                            "gene_name": gene_name,
-                                        },
-                                    }
-                                )
-                        else:
-                            failed.append(from_value)
-
-                    result_data = {
-                        "mapped_count": len(formatted_results),
-                        "results": formatted_results,
-                        "failed": list(set(failed)) if failed else [],
-                    }
-                    return {"status": "success", "data": result_data}
-                elif (
-                    status_data.get("jobStatus") == "FAILED"
-                    or status_data.get("status") == "FAILED"
-                ):
+                    raw_results = results_resp.json().get("results", [])
+                    break
+                elif "results" in status_data:
+                    # Feature-26A-13: UniProt status endpoint redirected (303) to
+                    # results page; results are embedded directly in status_data.
+                    raw_results = status_data["results"]
+                    break
+                elif job_status in ("FAILED", "ERROR"):
                     return {
                         "status": "error",
                         "error": "ID mapping job failed",
@@ -356,16 +335,45 @@ class UniProtRESTTool(BaseTool):
 
                 time.sleep(1)  # Wait 1 second before next poll
 
+            if raw_results is None:
+                return {
+                    "status": "error",
+                    "error": (
+                        f"UniProt ID mapping job did not complete within "
+                        f"{max_wait_time}s. Try again or reduce the number of IDs."
+                    ),
+                }
+
+            # Step 3: Parse results
+            # UniProt returns `to` as a plain string (for simple DB mappings like
+            # PDB) or as a full UniProtKB entry dict. Flatten both into a simple
+            # from/to pair.
+            formatted_results = []
+            for result in raw_results:
+                from_value = result.get("from", "")
+                to_value = result.get("to")
+                if isinstance(to_value, dict):
+                    # UniProtKB entry: extract accession and gene name
+                    gene_names = to_value.get("geneNames", [])
+                    gene_name = gene_names[0].get("value", "") if gene_names else ""
+                    formatted_results.append(
+                        {
+                            "from": from_value,
+                            "to": {
+                                "accession": to_value.get("primaryAccession", ""),
+                                "id": to_value.get("uniProtkbId", ""),
+                                "gene_name": gene_name,
+                            },
+                        }
+                    )
+                elif to_value is not None:
+                    # Simple string mapping (PDB, Ensembl, etc.)
+                    formatted_results.append({"from": from_value, "to": str(to_value)})
+
             result_data = {
-                "status": "running",
-                "job_id": job_id,
-                "status_url": status_url,
-                "results_url": results_url,
-                "note": (
-                    "ID mapping job is still running. Poll status_url until "
-                    "status == FINISHED, then fetch results_url."
-                ),
-                "max_wait_time": max_wait_time,
+                "mapped_count": len(formatted_results),
+                "results": formatted_results,
+                "failed_ids": [],
             }
             return {"status": "success", "data": result_data}
 

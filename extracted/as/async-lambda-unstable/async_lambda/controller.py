@@ -1277,6 +1277,7 @@ class AsyncLambdaController:
         timeout: int = 60,
         memory: Optional[int] = None,
         ephemeral_storage: Optional[int] = None,
+        snap_start: bool = False,
         **kwargs,
     ):
         """
@@ -1334,6 +1335,7 @@ class AsyncLambdaController:
                     timeout=timeout,
                     memory=memory,
                     ephemeral_storage=ephemeral_storage,
+                    snap_start=snap_start,
                     **kwargs,
                 )
             )
@@ -1547,6 +1549,7 @@ class AsyncLambdaController:
         timeout: int = 60,
         memory: Optional[int] = None,
         ephemeral_storage: Optional[int] = None,
+        snap_start: bool = False,
         **kwargs,
     ):
         """
@@ -1594,6 +1597,7 @@ class AsyncLambdaController:
                     timeout=timeout,
                     memory=memory,
                     ephemeral_storage=ephemeral_storage,
+                    snap_start=snap_start,
                     **kwargs,
                 )
             )

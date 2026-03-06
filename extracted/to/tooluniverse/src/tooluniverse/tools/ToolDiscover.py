@@ -47,16 +47,22 @@ def ToolDiscover(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "tool_description": tool_description,
+            "max_iterations": max_iterations,
+            "save_to_file": save_to_file,
+            "output_file": output_file,
+            "save_dir": save_dir,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ToolDiscover",
-            "arguments": {
-                "tool_description": tool_description,
-                "max_iterations": max_iterations,
-                "save_to_file": save_to_file,
-                "output_file": output_file,
-                "save_dir": save_dir,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

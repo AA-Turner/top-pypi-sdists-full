@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airflow-provider-fivetran-async
-Version: 2.2.0
+Version: 2.3.0
 Summary: A Fivetran async provider for Apache Airflow
 Project-URL: Source, https://github.com/astronomer/airflow-provider-fivetran-async
 Author-email: Astronomer & Fivetran <humans@astronomer.io>
@@ -13,24 +13,27 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: aiohttp
 Requires-Dist: apache-airflow>=2.4.0
 Requires-Dist: asgiref
-Requires-Dist: openlineage-airflow>=0.19.2
 Requires-Dist: requests
+Provides-Extra: all
+Requires-Dist: openlineage-airflow>=0.19.2; extra == 'all'
+Provides-Extra: openlineage
+Requires-Dist: openlineage-airflow>=0.19.2; extra == 'openlineage'
 Provides-Extra: tests
 Requires-Dist: mypy; extra == 'tests'
 Requires-Dist: parameterized; extra == 'tests'
-Requires-Dist: pre-commit; extra == 'tests'
+Requires-Dist: prek; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-asyncio; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
@@ -150,3 +153,9 @@ Please submit [issues](https://github.com/astronomer/airflow-provider-fivetran-a
 [https://github.com/astronomer/airflow-provider-fivetran-async](https://github.com/astronomer/airflow-provider-fivetran-async)
 
 We are happy to hear from you. Please email any feedback to the authors at [humans@astronomer.io](mailto:humans@astronomer.io).
+
+## Security Policy
+
+Check the project's [Security Policy](https://github.com/astronomer/airflow-provider-fivetran-async/blob/main/SECURITY.md) to learn
+how to report security vulnerabilities in airflow-provider-fivetran-async and how security issues reported to the airflow-provider-fivetran-async
+security team are handled.

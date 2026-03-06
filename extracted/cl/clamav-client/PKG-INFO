@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clamav-client
-Version: 0.7.1
+Version: 0.7.2
 Summary: Python client library for the ClamAV antivirus.
 Project-URL: Homepage, https://github.com/artefactual-labs/clamav-client
 Project-URL: Documentation, https://github.com/artefactual-labs/clamav-client/blob/main/README.md

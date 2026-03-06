@@ -1,9 +1,9 @@
 [workspace]
-members = ["tensorzero-core", "clients/rust", "clients/python", "evaluations", "tensorzero-optimizers", "internal/tensorzero-derive", "internal/tensorzero-auth", "internal/tensorzero-unsafe-helpers", "internal/minijinja-utils", "internal/autopilot-client", "internal/durable-tools-spawn", "internal/durable-tools", "internal/tensorzero-types", "internal/tensorzero-types-providers", "internal/reqwest-sse-stream", "internal/tensorzero-config-paths", "internal/tensorzero-ts-types"]
+members = ["tensorzero-core", "googletest-matchers", "clients/rust", "clients/python", "evaluations", "tensorzero-optimizers", "internal/tensorzero-derive", "internal/tensorzero-auth", "internal/tensorzero-unsafe-helpers", "internal/minijinja-utils", "internal/autopilot-client", "internal/durable-tools-spawn", "internal/durable-tools", "internal/tensorzero-types", "internal/tensorzero-types-providers", "internal/reqwest-sse-stream", "internal/tensorzero-config-paths", "internal/tensorzero-ts-types"]
 resolver = "2"
 
 [workspace.package]
-version = "2026.3.0"
+version = "2026.3.1"
 rust-version = "1.93.0"
 license = "Apache-2.0"
 edition = "2024"

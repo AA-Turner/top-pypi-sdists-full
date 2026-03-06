@@ -5290,6 +5290,8 @@ class UpdateMlflowTrackingServerRequestTypeDef(TypedDict):
     TrackingServerSize: NotRequired[TrackingServerSizeType]
     AutomaticModelRegistration: NotRequired[bool]
     WeeklyMaintenanceWindowStart: NotRequired[str]
+    S3BucketOwnerAccountId: NotRequired[str]
+    S3BucketOwnerVerification: NotRequired[bool]
 
 class UpdateModelCardRequestTypeDef(TypedDict):
     ModelCardName: str
@@ -6015,6 +6017,8 @@ class CreateMlflowTrackingServerRequestTypeDef(TypedDict):
     AutomaticModelRegistration: NotRequired[bool]
     WeeklyMaintenanceWindowStart: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    S3BucketOwnerAccountId: NotRequired[str]
+    S3BucketOwnerVerification: NotRequired[bool]
 
 class CreateModelPackageGroupInputTypeDef(TypedDict):
     ModelPackageGroupName: str
@@ -10172,6 +10176,8 @@ class DescribeMlflowTrackingServerResponseTypeDef(TypedDict):
     CreatedBy: UserContextTypeDef
     LastModifiedTime: datetime
     LastModifiedBy: UserContextTypeDef
+    S3BucketOwnerAccountId: str
+    S3BucketOwnerVerification: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeModelCardResponseTypeDef(TypedDict):

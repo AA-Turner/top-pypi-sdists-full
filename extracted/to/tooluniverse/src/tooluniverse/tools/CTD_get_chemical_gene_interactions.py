@@ -35,10 +35,12 @@ def CTD_get_chemical_gene_interactions(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"input_terms": input_terms}.items() if v is not None}
     return get_shared_client().run_one_function(
         {
             "name": "CTD_get_chemical_gene_interactions",
-            "arguments": {"input_terms": input_terms},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

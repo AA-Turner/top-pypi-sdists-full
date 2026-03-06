@@ -6,9 +6,6 @@ import json
 import pathlib
 from typing import Any, Callable, Union
 
-import pypdfium2 as pdfium
-from PIL.Image import Image
-
 from abstra_internals.contracts_generated import (
     CloudApiCliAgentsPostRequestBodyResponse,
     CloudApiCliAgentsPostRequestBodyStart,
@@ -42,6 +39,8 @@ class AiSDKController:
         self.ai_client = ai_client
 
     def _extract_pdf_images(self, file: Prompt) -> list[io.BytesIO]:
+        import pypdfium2 as pdfium
+
         images = []
         for page in pdfium.PdfDocument(file):
             bitmap = page.render(
@@ -153,7 +152,11 @@ class AiSDKController:
         except OSError:  # Path contructor can raise OSError on long strings
             pass
 
-        if isinstance(prompt, Image):
+        try:
+            from PIL.Image import Image as PILImage
+        except ImportError:
+            PILImage = type(None)  # type: ignore[assignment,misc]
+        if isinstance(prompt, PILImage):
             image_io = io.BytesIO()
             prompt.save(image_io, format="PNG")
             image_io.seek(0)

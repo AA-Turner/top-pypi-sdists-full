@@ -41,14 +41,20 @@ def MetabolomicsWorkbench_search_by_mz(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "mz_value": mz_value,
+            "adduct": adduct,
+            "tolerance": tolerance,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "MetabolomicsWorkbench_search_by_mz",
-            "arguments": {
-                "mz_value": mz_value,
-                "adduct": adduct,
-                "tolerance": tolerance,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

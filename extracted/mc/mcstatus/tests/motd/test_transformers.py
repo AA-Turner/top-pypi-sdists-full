@@ -6,12 +6,16 @@ import typing
 import pytest
 
 from mcstatus.motd import Motd
-from mcstatus.motd.transformers import AnsiTransformer, HtmlTransformer, MinecraftTransformer, PlainTransformer
+from mcstatus.motd._transformers import _NothingTransformer
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable
 
-    from mcstatus.responses import RawJavaResponseMotd
+    from mcstatus.responses._raw import RawJavaResponseMotd
+
+
+def test_nothing_transformer():
+    assert _NothingTransformer().transform(Motd.parse("&1a&bfoo&r").parsed) == ""
 
 
 class TestMotdPlain:
@@ -185,15 +189,3 @@ class TestMotdAnsi:
             "32\033[0m"
             "\033[0m\033[0m"
         )
-
-
-@pytest.mark.parametrize("transformer", [PlainTransformer, MinecraftTransformer, HtmlTransformer, AnsiTransformer])
-def test_is_calling_directly(transformer: type):
-    with pytest.deprecated_call(
-        match=(
-            f"^{transformer.__name__} \\(called directly\\) is deprecated and "
-            r"scheduled for removal in 13.0.0. \(Transformers are no longer "
-            r"a part of public API\)$"
-        )
-    ):
-        transformer()

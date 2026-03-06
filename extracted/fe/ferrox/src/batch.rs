@@ -9,6 +9,7 @@ use crate::io::parse_structure_json;
 use crate::structure::Structure;
 use crate::structure_matcher::StructureMatcher;
 use indexmap::IndexMap;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[cfg(feature = "rayon")]
@@ -173,28 +174,128 @@ macro_rules! maybe_par_map {
     }};
 }
 
-// Simpler variant without enumerate for cases where index isn't needed
-macro_rules! maybe_par_map_ref {
-    ($collection:expr, $body:expr) => {{
-        #[cfg(feature = "rayon")]
-        {
-            $collection.par_iter().map($body).collect()
+const MAX_SKIPPED_ERROR_SAMPLES: usize = 3;
+
+/// Result of batch deduplication.
+pub struct DedupResult {
+    /// Canonical parent index for each input structure.
+    ///
+    /// In [`DedupResult`], `parents[i]` is undefined for `i` contained in `skipped`
+    /// (it may equal `i` due to preallocation). Always consult `skipped` before
+    /// using `parents`.
+    pub parents: Vec<usize>,
+    /// Input indices skipped due to reduction errors under non-failing `on_error` policies.
+    ///
+    /// For any index in `skipped`, the corresponding entry in `parents` is not
+    /// meaningful and must be ignored by callers.
+    pub skipped: Vec<usize>,
+}
+
+#[derive(Default)]
+struct SkippedErrorSummary {
+    total_count: usize,
+    sample_messages: Vec<String>,
+    skipped_indices: Vec<usize>,
+}
+
+impl SkippedErrorSummary {
+    fn record_error(&mut self, error_message: String, structure_idx: usize) {
+        self.total_count += 1;
+        self.skipped_indices.push(structure_idx);
+        if self.sample_messages.len() < MAX_SKIPPED_ERROR_SAMPLES {
+            self.sample_messages.push(error_message);
         }
-        #[cfg(not(feature = "rayon"))]
-        {
-            $collection.iter().map($body).collect()
-        }
-    }};
+    }
 }
 
 // Batch Processing Methods
 
 impl StructureMatcher {
+    fn handle_error_by_policy(
+        &self,
+        error: FerroxError,
+        structure_idx: usize,
+        skipped_error_summary: &mut SkippedErrorSummary,
+    ) -> Result<()> {
+        if self.on_error.should_fail() {
+            return Err(error);
+        }
+        skipped_error_summary.record_error(error.to_string(), structure_idx);
+        Ok(())
+    }
+
+    fn reduce_with_hash_for_batch(
+        &self,
+        structure: &Structure,
+        structure_idx: usize,
+        structure_role: Option<&str>,
+    ) -> Result<(usize, u64, Structure)> {
+        self.reduce_structure_for_batch(structure)
+            .map(|reduced_structure| {
+                let composition_hash = self.composition_hash(&reduced_structure);
+                (structure_idx, composition_hash, reduced_structure)
+            })
+            .map_err(|error| FerroxError::MatchingError {
+                reason: match structure_role {
+                    Some(role_name) => {
+                        format!(
+                            "failed to reduce {role_name} structure at index {structure_idx}: {error}"
+                        )
+                    }
+                    None => {
+                        format!("failed to reduce structure at index {structure_idx}: {error}")
+                    }
+                },
+            })
+    }
+
+    fn process_reduced_result(
+        &self,
+        reduced_result: Result<(usize, u64, Structure)>,
+        input_structure_idx: usize,
+        grouped_structures: &mut IndexMap<u64, Vec<(usize, Structure)>>,
+        skipped_error_summary: &mut SkippedErrorSummary,
+    ) -> Result<()> {
+        match reduced_result {
+            Ok((reduced_structure_idx, composition_hash, reduced_structure)) => {
+                grouped_structures
+                    .entry(composition_hash)
+                    .or_default()
+                    .push((reduced_structure_idx, reduced_structure));
+                Ok(())
+            }
+            Err(error) => {
+                self.handle_error_by_policy(error, input_structure_idx, skipped_error_summary)
+            }
+        }
+    }
+
+    fn emit_skipped_error_summary(
+        operation_name: &str,
+        skipped_error_summary: &SkippedErrorSummary,
+    ) {
+        if skipped_error_summary.total_count == 0 {
+            return;
+        }
+        let example_errors = skipped_error_summary.sample_messages.join(" | ");
+        tracing::warn!(
+            "StructureMatcher::{operation_name} skipped {} structure(s) due to reduction errors. Examples: {example_errors}",
+            skipped_error_summary.total_count
+        );
+    }
+
     /// Deduplicate a set of structures.
     ///
-    /// Returns a vector where `result[i]` is the index of the first structure
-    /// that matches structure `i`. If structure `i` is unique (first occurrence),
-    /// then `result[i] = i`.
+    /// Returns a [`DedupResult`] with:
+    /// - `parents[i]`: the index of the first structure that matches structure `i`
+    /// - `skipped`: indices skipped due to reduction errors when `on_error != Fail`
+    ///
+    /// In [`deduplicate`], if `i` is listed in [`DedupResult::skipped`], then
+    /// [`DedupResult::parents`]\[`i`] is undefined/non-meaningful (it may equal
+    /// `i` due to preallocation). Callers must consult `skipped` before using
+    /// `parents`.
+    ///
+    /// If structure `i` is unique (first occurrence), then `parents[i] = i`.
     ///
     /// # Algorithm
     ///
@@ -205,14 +306,17 @@ impl StructureMatcher {
     /// # Example
     ///
     /// For structures `[A, B, A', C, B']` where `A'≈A` and `B'≈B`:
-    /// - Returns `[0, 1, 0, 3, 1]`
+    /// - Returns `DedupResult { parents: [0, 1, 0, 3, 1], skipped: [] }`
     ///
     /// # Arguments
     ///
     /// * `structures` - The structures to deduplicate
-    pub fn deduplicate(&self, structures: &[Structure]) -> Result<Vec<usize>> {
+    pub fn deduplicate(&self, structures: &[Structure]) -> Result<DedupResult> {
         if structures.is_empty() {
-            return Ok(vec![]);
+            return Ok(DedupResult {
+                parents: vec![],
+                skipped: vec![],
+            });
         }
 
         let len = structures.len();
@@ -220,16 +324,22 @@ impl StructureMatcher {
 
         // Step 1: Reduce all structures (parallel when rayon enabled), then group by composition hash.
         // Reducing first ensures supercells are properly grouped with their primitive cells.
-        let reduced: Vec<_> = maybe_par_map!(structures, |(idx, s)| {
-            let reduced = self.reduce_structure(s);
-            let hash = self.composition_hash(&reduced);
-            (idx, hash, reduced)
-        });
+        let reduced_results: Vec<Result<(usize, u64, Structure)>> =
+            maybe_par_map!(structures, |(structure_idx, structure)| {
+                self.reduce_with_hash_for_batch(structure, structure_idx, None)
+            });
 
         let mut comp_groups: IndexMap<u64, Vec<(usize, Structure)>> = IndexMap::new();
-        for (idx, hash, reduced) in reduced {
-            comp_groups.entry(hash).or_default().push((idx, reduced));
+        let mut skipped_error_summary = SkippedErrorSummary::default();
+        for (structure_idx, reduced_result) in reduced_results.into_iter().enumerate() {
+            self.process_reduced_result(
+                reduced_result,
+                structure_idx,
+                &mut comp_groups,
+                &mut skipped_error_summary,
+            )?;
         }
+        Self::emit_skipped_error_summary("deduplicate", &skipped_error_summary);
 
         // Step 2: Within each composition group, compare pairwise (parallel when rayon enabled)
         let groups_vec: Vec<_> = comp_groups.values().collect();
@@ -260,7 +370,10 @@ impl StructureMatcher {
             }
         }
 
-        Ok(result)
+        Ok(DedupResult {
+            parents: result,
+            skipped: skipped_error_summary.skipped_indices,
+        })
     }
 
     /// Group structures into equivalence classes.
@@ -279,9 +392,13 @@ impl StructureMatcher {
     /// * `structures` - The structures to group
     pub fn group(&self, structures: &[Structure]) -> Result<IndexMap<usize, Vec<usize>>> {
         let dedup_result = self.deduplicate(structures)?;
+        let skipped_indices: HashSet<usize> = dedup_result.skipped.iter().copied().collect();
 
         let mut groups: IndexMap<usize, Vec<usize>> = IndexMap::new();
-        for (idx, &canonical) in dedup_result.iter().enumerate() {
+        for (idx, &canonical) in dedup_result.parents.iter().enumerate() {
+            if skipped_indices.contains(&idx) {
+                continue;
+            }
             groups.entry(canonical).or_default().push(idx);
         }
 
@@ -299,7 +416,7 @@ impl StructureMatcher {
     /// # Arguments
     ///
     /// * `json_strings` - JSON strings in pymatgen Structure.as_dict() format
-    pub fn deduplicate_json(&self, json_strings: &[&str]) -> Result<Vec<usize>> {
+    pub fn deduplicate_json(&self, json_strings: &[&str]) -> Result<DedupResult> {
         self.deduplicate(&parse_json_structures(json_strings)?)
     }
 
@@ -354,35 +471,55 @@ impl StructureMatcher {
         }
 
         // Step 1: Reduce existing structures (parallel when rayon enabled), then group by composition hash
-        let existing_reduced: Vec<_> = maybe_par_map!(existing_structures, |(idx, s)| {
-            let reduced = self.reduce_structure(s);
-            let hash = self.composition_hash(&reduced);
-            (idx, hash, reduced)
-        });
+        let existing_reduced_results: Vec<Result<(usize, u64, Structure)>> =
+            maybe_par_map!(existing_structures, |(structure_idx, structure)| {
+                self.reduce_with_hash_for_batch(structure, structure_idx, Some("existing"))
+            });
 
         let mut existing_by_comp: IndexMap<u64, Vec<(usize, Structure)>> = IndexMap::new();
-        for (idx, hash, reduced) in existing_reduced {
-            existing_by_comp
-                .entry(hash)
-                .or_default()
-                .push((idx, reduced));
+        let mut skipped_existing_errors = SkippedErrorSummary::default();
+        for (structure_idx, reduced_result) in existing_reduced_results.into_iter().enumerate() {
+            self.process_reduced_result(
+                reduced_result,
+                structure_idx,
+                &mut existing_by_comp,
+                &mut skipped_existing_errors,
+            )?;
         }
+        Self::emit_skipped_error_summary("find_matches(existing)", &skipped_existing_errors);
 
         // Step 2: For each new structure, find first matching existing structure
-        let results: Vec<Option<usize>> = maybe_par_map_ref!(new_structures, |new_struct| {
-            let reduced_new = self.reduce_structure(new_struct);
-            let new_hash = self.composition_hash(&reduced_new);
-
-            // Find first match among candidates with same composition (early termination)
-            existing_by_comp.get(&new_hash).and_then(|candidates| {
-                candidates
-                    .iter()
-                    .find(|(_, reduced_existing)| {
-                        self.fit_preprocessed(&reduced_new, reduced_existing)
+        let new_results: Vec<Result<Option<usize>>> =
+            maybe_par_map!(new_structures, |(structure_idx, new_structure)| {
+                self.reduce_with_hash_for_batch(new_structure, structure_idx, Some("new"))
+                    .map(|(_, new_hash, reduced_new_structure)| {
+                        // Find first match among candidates with same composition (early termination)
+                        existing_by_comp.get(&new_hash).and_then(|candidates| {
+                            candidates
+                                .iter()
+                                .find(|(_, reduced_existing_structure)| {
+                                    self.fit_preprocessed(
+                                        &reduced_new_structure,
+                                        reduced_existing_structure,
+                                    )
+                                })
+                                .map(|(idx, _)| *idx)
+                        })
                     })
-                    .map(|(idx, _)| *idx)
-            })
-        });
+            });
+
+        let mut results = Vec::with_capacity(new_results.len());
+        let mut skipped_new_errors = SkippedErrorSummary::default();
+        for (structure_idx, new_result) in new_results.into_iter().enumerate() {
+            match new_result {
+                Ok(matched_idx) => results.push(matched_idx),
+                Err(error) => {
+                    self.handle_error_by_policy(error, structure_idx, &mut skipped_new_errors)?;
+                    results.push(None);
+                }
+            }
+        }
+        Self::emit_skipped_error_summary("find_matches(new)", &skipped_new_errors);
 
         Ok(results)
     }
@@ -408,9 +545,10 @@ impl StructureMatcher {
 mod tests {
     use super::*;
     use crate::element::Element;
+    use crate::error::{FerroxError, OnError};
     use crate::lattice::Lattice;
     use crate::species::Species;
-    use nalgebra::Vector3;
+    use nalgebra::{Matrix3, Vector3};
 
     // === Union-Find Tests ===
 
@@ -507,6 +645,22 @@ mod tests {
         Structure::new(lattice, species, coords)
     }
 
+    fn make_degenerate_structure(element: Element) -> Structure {
+        let degenerate_lattice =
+            Lattice::new(Matrix3::new(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0));
+        Structure::new(
+            degenerate_lattice,
+            vec![Species::neutral(element)],
+            vec![Vector3::new(0.0, 0.0, 0.0)],
+        )
+    }
+
+    fn assert_deduplicate_parents(structures: &[Structure], expected_parents: Vec<usize>) {
+        let matcher = StructureMatcher::new();
+        let dedup_result = matcher.deduplicate(structures).unwrap();
+        assert_eq!(dedup_result.parents, expected_parents);
+    }
+
     // === Batch Processing Tests ===
 
     #[test]
@@ -515,11 +669,7 @@ mod tests {
         let s2 = make_nacl(); // Identical
         let s3 = make_nacl_shifted(); // Slightly different but matches
 
-        let matcher = StructureMatcher::new();
-        let result = matcher.deduplicate(&[s1, s2, s3]).unwrap();
-
-        // All should map to 0 (the first structure)
-        assert_eq!(result, vec![0, 0, 0]);
+        assert_deduplicate_parents(&[s1, s2, s3], vec![0, 0, 0]);
     }
 
     #[test]
@@ -528,11 +678,7 @@ mod tests {
         let s2 = make_bcc(Element::Fe, 2.87);
         let s3 = make_fcc(Element::Cu, 3.6);
 
-        let matcher = StructureMatcher::new();
-        let result = matcher.deduplicate(&[s1, s2, s3]).unwrap();
-
-        // Each is unique
-        assert_eq!(result, vec![0, 1, 2]);
+        assert_deduplicate_parents(&[s1, s2, s3], vec![0, 1, 2]);
     }
 
     #[test]
@@ -542,25 +688,80 @@ mod tests {
         let s3 = make_nacl(); // Matches s1
         let s4 = make_bcc(Element::Fe, 2.87); // Matches s2
 
-        let matcher = StructureMatcher::new();
-        let result = matcher.deduplicate(&[s1, s2, s3, s4]).unwrap();
-
-        assert_eq!(result, vec![0, 1, 0, 1]);
+        assert_deduplicate_parents(&[s1, s2, s3, s4], vec![0, 1, 0, 1]);
     }
 
     #[test]
     fn test_deduplicate_empty() {
         let matcher = StructureMatcher::new();
         let result = matcher.deduplicate(&[]).unwrap();
-        assert!(result.is_empty());
+        assert!(result.parents.is_empty());
+        assert!(result.skipped.is_empty());
     }
 
     #[test]
     fn test_deduplicate_single() {
         let s = make_nacl();
-        let matcher = StructureMatcher::new();
-        let result = matcher.deduplicate(&[s]).unwrap();
-        assert_eq!(result, vec![0]);
+        assert_deduplicate_parents(&[s], vec![0]);
+    }
+
+    #[test]
+    fn test_deduplicate_on_error_fail_returns_error() {
+        let valid_structure = make_nacl();
+        let invalid_structure = make_degenerate_structure(Element::Fe);
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(OnError::Fail);
+
+        let result = matcher.deduplicate(&[valid_structure, invalid_structure]);
+        match result {
+            Err(FerroxError::MatchingError { reason }) => {
+                assert!(reason.contains("failed to reduce structure at index 1"));
+            }
+            _ => panic!("Expected MatchingError when on_error=Fail"),
+        }
+    }
+
+    #[test]
+    fn test_deduplicate_on_error_skip_continues() {
+        let first_valid_structure = make_nacl();
+        let invalid_structure = make_degenerate_structure(Element::Fe);
+        let second_valid_structure = make_nacl();
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(OnError::Skip);
+
+        let result = matcher
+            .deduplicate(&[
+                first_valid_structure,
+                invalid_structure,
+                second_valid_structure,
+            ])
+            .unwrap();
+        assert_eq!(result.parents, vec![0, 1, 0]);
+        assert_eq!(result.skipped, vec![1]);
+    }
+
+    #[test]
+    fn test_skipped_error_summary_keeps_bounded_samples() {
+        let mut skipped_error_summary = SkippedErrorSummary::default();
+
+        for structure_idx in 0..10 {
+            let reduce_error = FerroxError::MatchingError {
+                reason: format!("synthetic error {structure_idx}"),
+            };
+            skipped_error_summary.record_error(reduce_error.to_string(), structure_idx);
+        }
+
+        assert_eq!(skipped_error_summary.total_count, 10);
+        assert_eq!(
+            skipped_error_summary.sample_messages.len(),
+            MAX_SKIPPED_ERROR_SAMPLES
+        );
+        assert_eq!(
+            skipped_error_summary.skipped_indices,
+            (0..10).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -579,6 +780,27 @@ mod tests {
     }
 
     #[test]
+    fn test_group_on_error_skip_omits_failed_reductions() {
+        let first_valid_structure = make_nacl();
+        let failed_structure = make_degenerate_structure(Element::Fe);
+        let second_valid_structure = make_nacl();
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(OnError::Skip);
+
+        let groups = matcher
+            .group(&[
+                first_valid_structure,
+                failed_structure,
+                second_valid_structure,
+            ])
+            .unwrap();
+
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[&0], vec![0, 2]);
+    }
+
+    #[test]
     fn test_group_empty() {
         let matcher = StructureMatcher::new();
         let groups = matcher.group(&[]).unwrap();
@@ -593,7 +815,7 @@ mod tests {
         let matcher = StructureMatcher::new();
         let result = matcher.deduplicate_json(&[json1, json2]).unwrap();
 
-        assert_eq!(result, vec![0, 0]); // Both should match
+        assert_eq!(result.parents, vec![0, 0]); // Both should match
     }
 
     #[test]
@@ -698,6 +920,54 @@ mod tests {
 
         // NaCl->existing[0], NaCl shifted->existing[0], Fe BCC->existing[1]
         assert_eq!(matches, vec![Some(0), Some(0), Some(1)]);
+    }
+
+    #[test]
+    fn test_find_matches_on_error_skip_marks_new_as_unmatched() {
+        let existing = vec![make_nacl()];
+        let new = vec![make_degenerate_structure(Element::Fe), make_nacl_shifted()];
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(OnError::Skip);
+
+        let matches = matcher.find_matches(&new, &existing).unwrap();
+        assert_eq!(matches, vec![None, Some(0)]);
+    }
+
+    #[test]
+    fn test_find_matches_on_error_skip_skips_degenerate_existing_structure() {
+        let degenerate_lattice =
+            Lattice::new(Matrix3::new(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0));
+        let degenerate_existing_nacl = Structure::new(
+            degenerate_lattice,
+            vec![Species::neutral(Element::Na), Species::neutral(Element::Cl)],
+            vec![Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.5, 0.5, 0.5)],
+        );
+        let existing = vec![degenerate_existing_nacl, make_bcc(Element::Fe, 2.87)];
+        let new = vec![make_nacl(), make_bcc(Element::Fe, 2.87)];
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(OnError::Skip);
+
+        let matches = matcher.find_matches(&new, &existing).unwrap();
+        assert_eq!(matches, vec![None, Some(1)]);
+    }
+
+    #[test]
+    fn test_find_matches_on_error_fail_returns_error() {
+        let existing = vec![make_nacl()];
+        let new = vec![make_degenerate_structure(Element::Fe)];
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(OnError::Fail);
+
+        let result = matcher.find_matches(&new, &existing);
+        match result {
+            Err(FerroxError::MatchingError { reason }) => {
+                assert!(reason.contains("failed to reduce new structure"));
+            }
+            _ => panic!("Expected MatchingError when on_error=Fail"),
+        }
     }
 
     // === Concurrent Stress Tests ===

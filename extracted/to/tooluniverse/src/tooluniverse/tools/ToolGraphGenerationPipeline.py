@@ -44,15 +44,21 @@ def ToolGraphGenerationPipeline(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "tool_configs": tool_configs,
+            "max_tools": max_tools,
+            "output_path": output_path,
+            "save_intermediate_every": save_intermediate_every,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ToolGraphGenerationPipeline",
-            "arguments": {
-                "tool_configs": tool_configs,
-                "max_tools": max_tools,
-                "output_path": output_path,
-                "save_intermediate_every": save_intermediate_every,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

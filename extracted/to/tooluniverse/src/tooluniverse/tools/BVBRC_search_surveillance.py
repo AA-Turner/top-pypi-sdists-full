@@ -47,16 +47,22 @@ def BVBRC_search_surveillance(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "subtype": subtype,
+            "geographic_group": geographic_group,
+            "host_group": host_group,
+            "collection_country": collection_country,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BVBRC_search_surveillance",
-            "arguments": {
-                "subtype": subtype,
-                "geographic_group": geographic_group,
-                "host_group": host_group,
-                "collection_country": collection_country,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

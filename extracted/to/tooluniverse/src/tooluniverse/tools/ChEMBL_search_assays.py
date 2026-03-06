@@ -50,17 +50,23 @@ def ChEMBL_search_assays(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "assay_chembl_id": assay_chembl_id,
+            "assay_type": assay_type,
+            "target_chembl_id": target_chembl_id,
+            "fields": fields,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ChEMBL_search_assays",
-            "arguments": {
-                "assay_chembl_id": assay_chembl_id,
-                "assay_type": assay_type,
-                "target_chembl_id": target_chembl_id,
-                "fields": fields,
-                "limit": limit,
-                "offset": offset,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

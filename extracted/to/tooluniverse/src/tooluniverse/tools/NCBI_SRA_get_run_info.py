@@ -15,7 +15,7 @@ def NCBI_SRA_get_run_info(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> list[Any]:
     """
     Get detailed metadata for SRA run accessions including sequencing platform (ILLUMINA, Oxford Nano...
 
@@ -34,14 +34,20 @@ def NCBI_SRA_get_run_info(
 
     Returns
     -------
-    Any
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"operation": operation, "accessions": accessions}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "NCBI_SRA_get_run_info",
-            "arguments": {"operation": operation, "accessions": accessions},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

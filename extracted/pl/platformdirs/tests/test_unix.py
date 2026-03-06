@@ -111,7 +111,9 @@ def _func_to_path(func: str) -> XDGVariable | None:
         "site_applications_dir": None,
         "site_log_dir": None,
         "site_state_dir": None,
-        "site_runtime_dir": XDGVariable("XDG_RUNTIME_DIR", "/run"),
+        "site_runtime_dir": XDGVariable(
+            "XDG_RUNTIME_DIR", "/var/run" if sys.platform.startswith(("freebsd", "openbsd", "netbsd")) else "/run"
+        ),
     }
     return mapping.get(func)
 
@@ -340,13 +342,31 @@ def test_user_media_dir_no_user_dirs_file(
     assert Unix().user_documents_dir == "/nonexistent/path/Documents"
 
 
+def test_user_dirs_respects_xdg_config_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    custom_config = tmp_path / "custom_config"
+    custom_config.mkdir()
+    user_dirs_file = custom_config / "user-dirs.dirs"
+    user_dirs_file.write_text('XDG_DOCUMENTS_DIR="$HOME/CustomDocs"\n')
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(custom_config))
+    assert Unix().user_documents_dir == f"{tmp_path}/CustomDocs"
+
+
 _SITE_REDIRECT_CASES: list[tuple[str, str]] = [
     ("user_data_dir", os.path.join("/usr/local/share", "foo")),  # noqa: PTH118
     ("user_config_dir", os.path.join("/etc/xdg", "foo")),  # noqa: PTH118
     ("user_cache_dir", os.path.join("/var/cache", "foo")),  # noqa: PTH118
     ("user_state_dir", os.path.join("/var/lib", "foo")),  # noqa: PTH118
     ("user_log_dir", os.path.join("/var/log", "foo")),  # noqa: PTH118
-    ("user_runtime_dir", os.path.join("/run", "foo")),  # noqa: PTH118
+    (
+        "user_runtime_dir",
+        os.path.join(  # noqa: PTH118
+            "/var/run" if sys.platform.startswith(("freebsd", "openbsd", "netbsd")) else "/run",
+            "foo",
+        ),
+    ),
     ("user_bin_dir", "/usr/local/bin"),
 ]
 

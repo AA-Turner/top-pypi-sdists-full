@@ -19,6 +19,7 @@ class GetGranularAclsKind(str, Enum):
     SCRIPT = "script"
     SQS_TRIGGER = "sqs_trigger"
     VARIABLE = "variable"
+    VOLUME = "volume"
     WEBSOCKET_TRIGGER = "websocket_trigger"
 
     def __str__(self) -> str:

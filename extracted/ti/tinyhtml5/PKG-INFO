@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tinyhtml5
-Version: 2.0.0
+Version: 2.1.0
 Summary: HTML parser based on the WHATWG HTML specification
 Keywords: html,parser
 Author-email: James Graham <james@hoppipolla.co.uk>
 Maintainer-email: CourtBouillon <contact@courtbouillon.org>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -14,15 +14,16 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup :: HTML
+License-File: LICENSE
 Requires-Dist: webencodings >=0.5.1
 Requires-Dist: sphinx ; extra == "doc"
 Requires-Dist: sphinx_rtd_theme ; extra == "doc"
@@ -46,7 +47,7 @@ This module is a simplified fork of html5lib, written and maintained by James
 Graham, Sam Sneddon, Łukasz Langa and Will Kahn-Greene.
 
 * Free software: MIT license
-* For Python 3.9+, tested on CPython and PyPy
+* For Python 3.10+, tested on CPython and PyPy
 * Documentation: https://doc.courtbouillon.org/tinyhtml5
 * Changelog: https://github.com/CourtBouillon/tinyhtml5/releases
 * Code, issues, tests: https://github.com/CourtBouillon/tinyhtml5

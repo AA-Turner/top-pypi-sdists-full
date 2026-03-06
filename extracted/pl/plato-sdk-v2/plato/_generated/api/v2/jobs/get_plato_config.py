@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from plato._generated.errors import raise_for_status
-from plato._generated.models import PlatoConfig
+from plato._generated.models import AppApiV2SchemasArtifactSimConfigDataset
 
 
 def _build_request_args(
@@ -36,17 +36,17 @@ def sync(
     job_id: str,
     authorization: str | None = None,
     x_api_key: str | None = None,
-) -> PlatoConfig:
-    """Get parsed plato-config for a job's artifact.
+) -> AppApiV2SchemasArtifactSimConfigDataset:
+    """Get plato-config for a job's artifact.
 
-    Returns the plato_config YAML content parsed into a typed PlatoConfig object
-    with discriminated union types for services and listeners.
+    Returns the flat plato_config (compute, listeners, metadata, services)
+    as stored in the artifact.
 
     Args:
         job_id: The job public ID.
 
     Returns:
-        PlatoConfig object.
+        SimConfigDataset object.
 
     Raises:
         404: If job not found or plato_config not found.
@@ -60,7 +60,7 @@ def sync(
 
     response = client.request(**request_args)
     raise_for_status(response)
-    return PlatoConfig.model_validate(response.json())
+    return AppApiV2SchemasArtifactSimConfigDataset.model_validate(response.json())
 
 
 async def asyncio(
@@ -68,17 +68,17 @@ async def asyncio(
     job_id: str,
     authorization: str | None = None,
     x_api_key: str | None = None,
-) -> PlatoConfig:
-    """Get parsed plato-config for a job's artifact.
+) -> AppApiV2SchemasArtifactSimConfigDataset:
+    """Get plato-config for a job's artifact.
 
-    Returns the plato_config YAML content parsed into a typed PlatoConfig object
-    with discriminated union types for services and listeners.
+    Returns the flat plato_config (compute, listeners, metadata, services)
+    as stored in the artifact.
 
     Args:
         job_id: The job public ID.
 
     Returns:
-        PlatoConfig object.
+        SimConfigDataset object.
 
     Raises:
         404: If job not found or plato_config not found.
@@ -92,4 +92,4 @@ async def asyncio(
 
     response = await client.request(**request_args)
     raise_for_status(response)
-    return PlatoConfig.model_validate(response.json())
+    return AppApiV2SchemasArtifactSimConfigDataset.model_validate(response.json())

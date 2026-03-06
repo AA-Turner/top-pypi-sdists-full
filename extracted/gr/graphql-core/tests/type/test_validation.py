@@ -39,8 +39,7 @@ from graphql.utilities import build_schema, extend_schema
 
 from ..utils import dedent
 
-SomeSchema = build_schema(
-    """
+SomeSchema = build_schema("""
     scalar SomeScalar
 
     interface SomeInterface { f: SomeObject }
@@ -54,8 +53,7 @@ SomeSchema = build_schema(
     input SomeInputObject { val: String = "hello" }
 
     directive @SomeDirective on QUERY
-    """
-)
+    """)
 
 get_type = SomeSchema.get_type
 SomeScalarType = assert_scalar_type(get_type("SomeScalar"))
@@ -120,17 +118,14 @@ def schema_with_field_type(type_):
 
 def describe_type_system_a_schema_must_have_object_root_types():
     def accepts_a_schema_whose_query_type_is_an_object_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
-        schema_with_def = build_schema(
-            """
+        schema_with_def = build_schema("""
             schema {
               query: QueryRoot
             }
@@ -138,14 +133,12 @@ def describe_type_system_a_schema_must_have_object_root_types():
             type QueryRoot {
               test: String
             }
-            """
-        )
+            """)
 
         assert validate_schema(schema_with_def) == []
 
     def accepts_a_schema_whose_query_and_mutation_types_are_object_types():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: String
             }
@@ -153,12 +146,10 @@ def describe_type_system_a_schema_must_have_object_root_types():
             type Mutation {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
-        schema_with_def = build_schema(
-            """
+        schema_with_def = build_schema("""
             schema {
               query: QueryRoot
               mutation: MutationRoot
@@ -171,13 +162,11 @@ def describe_type_system_a_schema_must_have_object_root_types():
             type MutationRoot {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema_with_def) == []
 
     def accepts_a_schema_whose_query_and_subscription_types_are_object_types():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: String
             }
@@ -185,12 +174,10 @@ def describe_type_system_a_schema_must_have_object_root_types():
             type Subscription {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
-        schema_with_def = build_schema(
-            """
+        schema_with_def = build_schema("""
             schema {
               query: QueryRoot
               subscription: SubscriptionRoot
@@ -203,24 +190,20 @@ def describe_type_system_a_schema_must_have_object_root_types():
             type SubscriptionRoot {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema_with_def) == []
 
     def rejects_a_schema_without_a_query_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Mutation {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {"message": "Query root type must be provided.", "locations": None}
         ]
 
-        schema_with_def = build_schema(
-            """
+        schema_with_def = build_schema("""
             schema {
               mutation: MutationRoot
             }
@@ -228,20 +211,17 @@ def describe_type_system_a_schema_must_have_object_root_types():
             type MutationRoot {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema_with_def) == [
             {"message": "Query root type must be provided.", "locations": [(2, 13)]}
         ]
 
     def rejects_a_schema_whose_query_root_type_is_not_an_object_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             input Query {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Query root type must be Object type,"
@@ -250,8 +230,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             }
         ]
 
-        schema_with_def = build_schema(
-            """
+        schema_with_def = build_schema("""
             schema {
               query: SomeInputObject
             }
@@ -259,8 +238,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             input SomeInputObject {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema_with_def) == [
             {
                 "message": "Query root type must be Object type,"
@@ -270,8 +248,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
         ]
 
     def rejects_a_schema_whose_mutation_type_is_an_input_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field: String
             }
@@ -279,8 +256,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             input Mutation {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Mutation root type must be Object type if provided,"
@@ -289,8 +265,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             }
         ]
 
-        schema_with_def = build_schema(
-            """
+        schema_with_def = build_schema("""
             schema {
               query: Query
               mutation: SomeInputObject
@@ -303,8 +278,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             input SomeInputObject {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema_with_def) == [
             {
                 "message": "Mutation root type must be Object type if provided,"
@@ -314,8 +288,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
         ]
 
     def rejects_a_schema_whose_subscription_type_is_an_input_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field: String
             }
@@ -323,8 +296,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             input Subscription {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Subscription root type must be Object type if"
@@ -333,8 +305,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             }
         ]
 
-        schema_with_def = build_schema(
-            """
+        schema_with_def = build_schema("""
             schema {
               query: Query
               subscription: SomeInputObject
@@ -347,8 +318,7 @@ def describe_type_system_a_schema_must_have_object_root_types():
             input SomeInputObject {
               test: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema_with_def) == [
             {
                 "message": "Subscription root type must be Object type if"
@@ -358,42 +328,34 @@ def describe_type_system_a_schema_must_have_object_root_types():
         ]
 
     def rejects_a_schema_extended_with_invalid_root_types():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             input SomeInputObject {
               test: String
             }
-            """
-        )
+            """)
         schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 extend schema {
                   query: SomeInputObject
                 }
-                """
-            ),
+                """),
         )
         schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 extend schema {
                   mutation: SomeInputObject
                 }
-                """
-            ),
+                """),
         )
         schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 extend schema {
                   subscription: SomeInputObject
                 }
-                """
-            ),
+                """),
         )
         assert validate_schema(schema) == [
             {
@@ -446,11 +408,25 @@ def describe_type_system_a_schema_must_have_object_root_types():
             {"message": "Expected directive but got: SomeScalar."},
         ]
 
+    def rejects_a_schema_whose_directives_have_empty_locations():
+        bad_directive = GraphQLDirective(
+            name="BadDirective1",
+            locations=[],
+        )
+        schema = GraphQLSchema(
+            SomeObjectType,
+            directives=[bad_directive],
+        )
+        assert validate_schema(schema) == [
+            {
+                "message": "Directive @BadDirective1 must include 1 or more locations.",
+            },
+        ]
+
 
 def describe_type_system_objects_must_have_fields():
     def accepts_an_object_type_with_fields_object():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field: SomeObject
             }
@@ -458,20 +434,17 @@ def describe_type_system_objects_must_have_fields():
             type SomeObject {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_object_type_with_missing_fields():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: IncompleteObject
             }
 
             type IncompleteObject
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Type IncompleteObject must define one or more fields.",
@@ -538,8 +511,7 @@ def describe_type_system_field_args_must_be_properly_named():
 
 def describe_type_system_union_types_must_be_valid():
     def accepts_a_union_type_with_member_types():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: GoodUnion
             }
@@ -555,30 +527,25 @@ def describe_type_system_union_types_must_be_valid():
             union GoodUnion =
               | TypeA
               | TypeB
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_a_union_type_with_empty_types():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: BadUnion
             }
 
             union BadUnion
-            """
-        )
+            """)
 
         schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 directive @test on UNION
 
                 extend union BadUnion @test
-                """
-            ),
+                """),
         )
 
         assert validate_schema(schema) == [
@@ -589,8 +556,7 @@ def describe_type_system_union_types_must_be_valid():
         ]
 
     def rejects_a_union_type_with_duplicated_member_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: BadUnion
             }
@@ -607,8 +573,7 @@ def describe_type_system_union_types_must_be_valid():
               | TypeA
               | TypeB
               | TypeA
-            """
-        )
+            """)
 
         assert validate_schema(schema) == [
             {
@@ -633,8 +598,7 @@ def describe_type_system_union_types_must_be_valid():
     def rejects_a_union_type_with_non_object_member_types():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   test: BadUnion
                 }
@@ -651,15 +615,13 @@ def describe_type_system_union_types_must_be_valid():
                   | TypeA
                   | String
                   | TypeB
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "BadUnion types must be specified"
             " as a collection of GraphQLObjectType instances."
         )
         # construct invalid schema manually
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: BadUnion
             }
@@ -676,8 +638,7 @@ def describe_type_system_union_types_must_be_valid():
               | TypeA
               | TypeA
               | TypeB
-            """
-        )
+            """)
         with raises(TypeError) as exc_info:
             extend_schema(schema, parse("extend union BadUnion = Int"))
         assert str(exc_info.value) == (
@@ -744,8 +705,7 @@ def describe_type_system_union_types_must_be_valid():
 
 def describe_type_system_input_objects_must_have_fields():
     def accepts_an_input_object_type_with_fields():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
                field(arg: SomeInputObject): String
             }
@@ -753,29 +713,24 @@ def describe_type_system_input_objects_must_have_fields():
             input SomeInputObject {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_input_object_type_with_missing_fields():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field(arg: SomeInputObject): String
             }
 
             input SomeInputObject
-            """
-        )
+            """)
         schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 directive @test on INPUT_OBJECT
 
                 extend input SomeInputObject @test
-                """
-            ),
+                """),
         )
         assert validate_schema(schema) == [
             {
@@ -786,8 +741,7 @@ def describe_type_system_input_objects_must_have_fields():
         ]
 
     def accepts_an_input_object_with_breakable_circular_reference():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field(arg: SomeInputObject): String
             }
@@ -803,13 +757,11 @@ def describe_type_system_input_objects_must_have_fields():
             input AnotherInputObject {
               parent: SomeInputObject
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_input_object_with_non_breakable_circular_reference():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field(arg: SomeInputObject): String
             }
@@ -825,8 +777,7 @@ def describe_type_system_input_objects_must_have_fields():
             input YetAnotherInputObject {
               closeLoop: SomeInputObject!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Cannot reference Input Object 'SomeInputObject'"
@@ -837,8 +788,7 @@ def describe_type_system_input_objects_must_have_fields():
         ]
 
     def rejects_an_input_object_with_multiple_non_breakable_circular_reference():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field(arg: SomeInputObject): String
             }
@@ -856,8 +806,7 @@ def describe_type_system_input_objects_must_have_fields():
               closeSecondLoop: AnotherInputObject!
               nonNullSelf: YetAnotherInputObject!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Cannot reference Input Object 'SomeInputObject'"
@@ -882,8 +831,7 @@ def describe_type_system_input_objects_must_have_fields():
     def rejects_an_input_object_type_with_incorrectly_typed_fields():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   field(arg: SomeInputObject): String
                 }
@@ -899,15 +847,13 @@ def describe_type_system_input_objects_must_have_fields():
                   badUnion: SomeUnion
                   goodInputObject: SomeInputObject
                 }
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "SomeInputObject fields cannot be resolved."
             " Input field type must be a GraphQL input type."
         )
         # construct invalid schema manually
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field(arg: SomeInputObject): String
             }
@@ -923,8 +869,7 @@ def describe_type_system_input_objects_must_have_fields():
               badUnion: SomeInputObject
               goodInputObject: SomeInputObject
             }
-            """
-        )
+            """)
         some_input_obj: Any = schema.get_type("SomeInputObject")
         some_input_obj.fields["badObject"].type = schema.get_type("SomeObject")
         some_input_obj.fields["badUnion"].type = schema.get_type("SomeUnion")
@@ -942,8 +887,7 @@ def describe_type_system_input_objects_must_have_fields():
         ]
 
     def rejects_an_input_object_type_with_required_arguments_that_is_deprecated():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field(arg: SomeInputObject): String
             }
@@ -953,8 +897,7 @@ def describe_type_system_input_objects_must_have_fields():
               optionalField: String @deprecated
               anotherOptionalField: String! = "" @deprecated
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Required input field SomeInputObject.badField"
@@ -966,25 +909,21 @@ def describe_type_system_input_objects_must_have_fields():
 
 def describe_type_system_enum_types_must_be_well_defined():
     def rejects_an_enum_type_without_values():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field: SomeEnum
             }
 
             enum SomeEnum
-            """
-        )
+            """)
 
         schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 directive @test on ENUM
 
                 extend enum SomeEnum @test
-                """
-            ),
+                """),
         )
 
         assert validate_schema(schema) == [
@@ -1064,8 +1003,7 @@ def describe_type_system_object_fields_must_have_output_types():
     def rejects_with_relevant_locations_for_a_non_output_type():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   field: [SomeInputObject]
                 }
@@ -1073,14 +1011,12 @@ def describe_type_system_object_fields_must_have_output_types():
                 input SomeInputObject {
                   field: String
                 }
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "Query fields cannot be resolved. Field type must be an output type."
         )
         # therefore we need to monkey-patch a valid schema
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               field: [String]
             }
@@ -1088,8 +1024,7 @@ def describe_type_system_object_fields_must_have_output_types():
             input SomeInputObject {
               field: String
             }
-            """
-        )
+            """)
         some_input_obj = schema.get_type("SomeInputObject")
         schema.query_type.fields["field"].type.of_type = some_input_obj  # type: ignore
         assert validate_schema(schema) == [
@@ -1121,8 +1056,7 @@ def describe_type_system_objects_can_only_implement_unique_interfaces():
     def rejects_an_object_implementing_a_non_interface_type():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   test: BadObject
                 }
@@ -1134,16 +1068,14 @@ def describe_type_system_objects_can_only_implement_unique_interfaces():
                 type BadObject implements SomeInputObject {
                   field: String
                 }
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "BadObject interfaces must be specified"
             " as a collection of GraphQLInterfaceType instances."
         )
 
     def rejects_an_object_implementing_the_same_interface_twice():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1155,8 +1087,7 @@ def describe_type_system_objects_can_only_implement_unique_interfaces():
             type AnotherObject implements AnotherInterface & AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Type AnotherObject can only implement"
@@ -1166,8 +1097,7 @@ def describe_type_system_objects_can_only_implement_unique_interfaces():
         ]
 
     def rejects_an_object_implementing_same_interface_twice_due_to_extension():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1179,8 +1109,7 @@ def describe_type_system_objects_can_only_implement_unique_interfaces():
             type AnotherObject implements AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         extended_schema = extend_schema(
             schema, parse("extend type AnotherObject implements AnotherInterface")
         )
@@ -1195,8 +1124,7 @@ def describe_type_system_objects_can_only_implement_unique_interfaces():
 
 def describe_type_system_interface_extensions_should_be_valid():
     def rejects_object_implementing_extended_interface_due_to_missing_field():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1208,12 +1136,10 @@ def describe_type_system_interface_extensions_should_be_valid():
             type AnotherObject implements AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         extended_schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 extend interface AnotherInterface {
                   newField: String
                 }
@@ -1221,8 +1147,7 @@ def describe_type_system_interface_extensions_should_be_valid():
                 extend type AnotherObject {
                   differentNewField: String
                 }
-                """
-            ),
+                """),
         )
         assert validate_schema(extended_schema) == [
             {
@@ -1233,8 +1158,7 @@ def describe_type_system_interface_extensions_should_be_valid():
         ]
 
     def rejects_object_implementing_extended_interface_due_to_missing_args():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1246,12 +1170,10 @@ def describe_type_system_interface_extensions_should_be_valid():
             type AnotherObject implements AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         extended_schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 extend interface AnotherInterface {
                   newField(test: Boolean): String
                 }
@@ -1259,8 +1181,7 @@ def describe_type_system_interface_extensions_should_be_valid():
                 extend type AnotherObject {
                   newField: String
                 }
-                """
-            ),
+                """),
         )
         assert validate_schema(extended_schema) == [
             {
@@ -1272,8 +1193,7 @@ def describe_type_system_interface_extensions_should_be_valid():
         ]
 
     def rejects_object_implementing_extended_interface_due_to_type_mismatch():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1285,12 +1205,10 @@ def describe_type_system_interface_extensions_should_be_valid():
             type AnotherObject implements AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         extended_schema = extend_schema(
             schema,
-            parse(
-                """
+            parse("""
                 extend interface AnotherInterface {
                   newInterfaceField: NewInterface
                 }
@@ -1311,8 +1229,7 @@ def describe_type_system_interface_extensions_should_be_valid():
                 type DummyObject implements NewInterface & MismatchingInterface {
                   newField: String
                 }
-                """
-            ),
+                """),
         )
         assert validate_schema(extended_schema) == [
             {
@@ -1401,8 +1318,7 @@ def describe_type_system_interface_fields_must_have_output_types():
     def rejects_a_non_output_type_as_an_interface_field_with_locations():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   test: SomeInterface
                 }
@@ -1418,15 +1334,13 @@ def describe_type_system_interface_fields_must_have_output_types():
                 type SomeObject implements SomeInterface {
                   field: SomeInputObject
                 }
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "SomeInterface fields cannot be resolved."
             " Field type must be an output type."
         )
         # therefore we need to monkey-patch a valid schema
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: SomeInterface
             }
@@ -1442,8 +1356,7 @@ def describe_type_system_interface_fields_must_have_output_types():
             type SomeObject implements SomeInterface {
               field: String
             }
-            """
-        )
+            """)
         # therefore we need to monkey-patch a valid schema
         some_input_obj = schema.get_type("SomeInputObject")
         some_interface: Any = schema.get_type("SomeInterface")
@@ -1464,8 +1377,7 @@ def describe_type_system_interface_fields_must_have_output_types():
         ]
 
     def accepts_an_interface_not_implemented_by_at_least_one_object():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: SomeInterface
             }
@@ -1473,8 +1385,7 @@ def describe_type_system_interface_fields_must_have_output_types():
             interface SomeInterface {
               foo: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
 
@@ -1555,8 +1466,7 @@ def describe_type_system_arguments_must_have_input_types():
         ]
 
     def rejects_a_required_argument_that_is_deprecated():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             directive @BadDirective(
               badArg: String! @deprecated
               optionalArg: String @deprecated
@@ -1570,8 +1480,7 @@ def describe_type_system_arguments_must_have_input_types():
                 anotherOptionalArg: String! = "" @deprecated
               ): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Required argument @BadDirective(badArg:)"
@@ -1588,8 +1497,7 @@ def describe_type_system_arguments_must_have_input_types():
     def rejects_a_non_input_type_as_a_field_arg_with_locations():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   test(arg: SomeObject): String
                 }
@@ -1597,15 +1505,13 @@ def describe_type_system_arguments_must_have_input_types():
                 type SomeObject {
                   foo: String
                 }
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "Query fields cannot be resolved."
             " Argument type must be a GraphQL input type."
         )
         # therefore we need to monkey-patch a valid schema
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test(arg: String): String
             }
@@ -1613,8 +1519,7 @@ def describe_type_system_arguments_must_have_input_types():
             type SomeObject {
               foo: String
             }
-            """
-        )
+            """)
         some_object = schema.get_type("SomeObject")
         schema.query_type.fields["test"].args["arg"].type = some_object  # type: ignore
         assert validate_schema(schema) == [
@@ -1694,8 +1599,7 @@ def describe_type_system_input_object_fields_must_have_input_types():
     def rejects_with_relevant_locations_for_a_non_input_type():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   test(arg: SomeInputObject): String
                 }
@@ -1707,15 +1611,13 @@ def describe_type_system_input_object_fields_must_have_input_types():
                 type SomeObject {
                   bar: String
                 }
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "SomeInputObject fields cannot be resolved."
             " Input field type must be a GraphQL input type."
         )
         # therefore we need to monkey-patch a valid schema
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test(arg: SomeInputObject): String
             }
@@ -1727,8 +1629,7 @@ def describe_type_system_input_object_fields_must_have_input_types():
             type SomeObject {
               bar: String
             }
-            """
-        )
+            """)
         some_object = schema.get_type("SomeObject")
         some_input_object: Any = schema.get_type("SomeInputObject")
         some_input_object.fields["foo"].type = some_object
@@ -1743,8 +1644,7 @@ def describe_type_system_input_object_fields_must_have_input_types():
 
 def describe_type_system_one_of_input_object_fields_must_be_nullable():
     def rejects_non_nullable_fields():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test(arg: SomeInputObject): String
             }
@@ -1753,8 +1653,7 @@ def describe_type_system_one_of_input_object_fields_must_be_nullable():
               a: String
               b: String!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "OneOf input field SomeInputObject.b must be nullable.",
@@ -1763,8 +1662,7 @@ def describe_type_system_one_of_input_object_fields_must_be_nullable():
         ]
 
     def rejects_fields_with_default_values():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test(arg: SomeInputObject): String
             }
@@ -1773,8 +1671,7 @@ def describe_type_system_one_of_input_object_fields_must_be_nullable():
               a: String
               b: String = "foo"
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "OneOf input field SomeInputObject.b"
@@ -1786,8 +1683,7 @@ def describe_type_system_one_of_input_object_fields_must_be_nullable():
 
 def describe_objects_must_adhere_to_interfaces_they_implement():
     def accepts_an_object_which_implements_an_interface():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1799,13 +1695,11 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field(input: String): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def accepts_an_object_which_implements_an_interface_and_with_more_fields():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1818,13 +1712,11 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
               field(input: String): String
               anotherField: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def accepts_an_object_which_implements_an_interface_field_with_more_args():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1836,13 +1728,11 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field(input: String, anotherInput: String): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_object_missing_an_interface_field():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1854,8 +1744,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               anotherField: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field AnotherInterface.field expected but"
@@ -1865,8 +1754,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def rejects_an_object_with_an_incorrectly_typed_interface_field():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1878,8 +1766,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field(input: String): Int
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field AnotherInterface.field"
@@ -1890,8 +1777,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def rejects_an_object_with_a_differently_typed_interface_field():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1906,8 +1792,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: B
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field AnotherInterface.field"
@@ -1917,8 +1802,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def accepts_an_object_with_a_subtyped_interface_field_interface():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1930,13 +1814,11 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: AnotherObject
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def accepts_an_object_with_a_subtyped_interface_field_union():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1954,13 +1836,11 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: SomeObject
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_object_missing_an_interface_argument():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1972,8 +1852,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field argument"
@@ -1984,8 +1863,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def rejects_an_object_with_an_incorrectly_typed_interface_argument():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -1997,8 +1875,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field(input: Int): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field argument"
@@ -2009,8 +1886,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def rejects_an_object_with_an_incorrectly_typed_field_and_argument():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2022,8 +1898,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field(input: Int): Int
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field AnotherInterface.field expects"
@@ -2039,8 +1914,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def rejects_object_implementing_an_interface_field_with_additional_args():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2057,8 +1931,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
                 optionalArg2: String = "",
               ): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Object field AnotherObject.field includes required"
@@ -2069,8 +1942,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def accepts_an_object_with_an_equivalently_wrapped_interface_field_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2082,13 +1954,11 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: [String]!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_object_with_a_non_list_interface_field_list_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2100,8 +1970,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field AnotherInterface.field expects type"
@@ -2111,8 +1980,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def rejects_an_object_with_a_list_interface_field_non_list_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2124,8 +1992,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: [String]
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field AnotherInterface.field expects type"
@@ -2135,8 +2002,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def accepts_an_object_with_a_subset_non_null_interface_field_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2148,13 +2014,11 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: String!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_object_with_a_superset_nullable_interface_field_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2166,8 +2030,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field AnotherInterface.field expects type"
@@ -2177,8 +2040,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
         ]
 
     def rejects_an_object_missing_a_transitive_interface():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: AnotherObject
             }
@@ -2194,8 +2056,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
             type AnotherObject implements AnotherInterface {
               field: String!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Type AnotherObject must implement SuperInterface"
@@ -2207,8 +2068,7 @@ def describe_objects_must_adhere_to_interfaces_they_implement():
 
 def describe_interfaces_must_adhere_to_interface_they_implement():
     def accepts_an_interface_which_implements_an_interface():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2220,13 +2080,11 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field(input: String): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def accepts_an_interface_which_implements_an_interface_along_with_more_fields():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2239,13 +2097,11 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
               field(input: String): String
               anotherField: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def accepts_an_interface_which_implements_an_interface_with_additional_args():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2257,13 +2113,11 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field(input: String, anotherInput: String): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_interface_missing_an_interface_field():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2275,8 +2129,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               anotherField: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field ParentInterface.field expected"
@@ -2286,8 +2139,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_interface_with_an_incorrectly_typed_interface_field():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2299,8 +2151,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field(input: String): Int
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field ParentInterface.field expects type String"
@@ -2310,8 +2161,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_interface_with_a_differently_typed_interface_field():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2326,8 +2176,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: B
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field ParentInterface.field expects type A"
@@ -2337,8 +2186,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def accepts_an_interface_with_a_subtyped_interface_field_interface():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2350,13 +2198,11 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: ChildInterface
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def accepts_an_interface_with_a_subtyped_interface_field_union():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2374,15 +2220,13 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: SomeObject
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_interface_implementing_a_non_interface_type():
         # invalid schema cannot be built with Python
         with raises(TypeError) as exc_info:
-            build_schema(
-                """
+            build_schema("""
                 type Query {
                   field: String
                 }
@@ -2394,8 +2238,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
                 interface BadInterface implements SomeInputObject {
                   field: String
                 }
-                """
-            )
+                """)
         assert str(exc_info.value) == (
             "BadInterface interfaces must be specified as a collection"
             " of GraphQLInterfaceType instances."
@@ -2421,8 +2264,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_interface_missing_an_interface_argument():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2434,8 +2276,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field argument ParentInterface.field(input:)"
@@ -2445,8 +2286,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_interface_with_an_incorrectly_typed_interface_argument():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2458,8 +2298,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field(input: Int): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field argument ParentInterface.field(input:)"
@@ -2469,8 +2308,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_interface_with_both_an_incorrectly_typed_field_and_argument():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2482,8 +2320,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field(input: Int): Int
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field ParentInterface.field expects type String"
@@ -2498,8 +2335,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_interface_implementing_an_interface_field_with_additional_args():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2516,8 +2352,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
                 optionalArg2: String = "",
               ): String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Object field ChildInterface.field includes"
@@ -2528,8 +2363,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def accepts_an_interface_with_an_equivalently_wrapped_interface_field_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2541,13 +2375,11 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: [String]!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_interface_with_a_non_list_interface_field_list_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2559,8 +2391,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field ParentInterface.field"
@@ -2570,8 +2401,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_interface_with_a_list_interface_field_non_list_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2583,8 +2413,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: [String]
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field ParentInterface.field expects type String"
@@ -2594,8 +2423,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def accepts_an_interface_with_a_subset_non_null_interface_field_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2607,13 +2435,11 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: String!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == []
 
     def rejects_an_interface_with_a_superset_nullable_interface_field_type():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2625,8 +2451,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Interface field ParentInterface.field expects type String!"
@@ -2636,8 +2461,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_an_object_missing_a_transitive_interface():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: ChildInterface
             }
@@ -2653,8 +2477,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface ChildInterface implements ParentInterface {
               field: String!
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Type ChildInterface must implement SuperInterface"
@@ -2664,8 +2487,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_a_self_reference_interface():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
             test: FooInterface
             }
@@ -2673,8 +2495,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface FooInterface implements FooInterface {
             field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Type FooInterface cannot implement itself"
@@ -2684,8 +2505,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
         ]
 
     def rejects_a_circular_interface_implementation():
-        schema = build_schema(
-            """
+        schema = build_schema("""
             type Query {
               test: FooInterface
             }
@@ -2697,8 +2517,7 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
             interface BarInterface implements FooInterface {
               field: String
             }
-            """
-        )
+            """)
         assert validate_schema(schema) == [
             {
                 "message": "Type FooInterface cannot implement BarInterface"
@@ -2715,28 +2534,19 @@ def describe_interfaces_must_adhere_to_interface_they_implement():
 
 def describe_assert_valid_schema():
     def does_not_throw_on_valid_schemas():
-        schema = build_schema(
-            (
-                """
+        schema = build_schema(("""
              type Query {
                foo: String
              }
-            """
-            )
-        )
+            """))
         assert_valid_schema(schema)
 
     def combines_multiple_errors():
         schema = build_schema("type SomeType")
         with raises(TypeError) as exc_info:
             assert_valid_schema(schema)
-        assert (
-            str(exc_info.value)
-            == dedent(
-                """
+        assert str(exc_info.value) == dedent("""
             Query root type must be provided.
 
             Type SomeType must define one or more fields.
-            """
-            ).rstrip()
-        )
+            """).rstrip()

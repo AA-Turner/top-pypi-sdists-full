@@ -1,7 +1,7 @@
 import logging
 import uuid
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 
 from tmo.types.base_dataset import BaseDatasetMixin
 from tmo.types.dataset_metadata import Metadata, CatalogType
@@ -21,26 +21,32 @@ class Dataset(BaseDatasetMixin):
     description: str
     query: str
     scope: Scope
-    metadata: Metadata
+    metadata: Union[Metadata, dict]  # NOSONAR
     catalog_type: CatalogType
 
     def __init__(
         self,
+        id: Optional[uuid.UUID] = None,
         dataset_template_id: Optional[uuid.UUID] = None,
         name: Optional[str] = "SDK Dataset",
         description: Optional[str] = "VANTAGE dataset",
         query: Optional[str] = None,
         scope: Optional[Scope] = None,
-        metadata: Optional[Metadata] = None,
+        metadata: Optional[Union[Metadata, dict]] = None,
         catalog_type: CatalogType = CatalogType.VANTAGE,
     ):
+        self.id = id
         self.dataset_template_id = dataset_template_id
         self.name = name
         self.description = description
         self.query = query
         self.scope = scope
-        self.metadata = metadata
+        # IMPORTANT: Set catalog_type BEFORE metadata (setter validates based on catalog_type)
         self.catalog_type = catalog_type
+        # Initialize metadata based on catalog_type if not provided
+        if metadata is None:
+            metadata = Metadata() if catalog_type == CatalogType.VANTAGE else {}
+        self.metadata = metadata
 
     @property
     def id(self) -> uuid.UUID:
@@ -103,14 +109,6 @@ class Dataset(BaseDatasetMixin):
         self._scope = value
 
     @property
-    def metadata(self) -> Metadata:
-        return self._metadata
-
-    @metadata.setter
-    def metadata(self, value: Metadata):
-        self._metadata = value
-
-    @property
     def catalog_type(self) -> CatalogType:
         return self._catalog_type
 
@@ -121,16 +119,6 @@ class Dataset(BaseDatasetMixin):
         self._catalog_type = value
 
     def get_df_template(self) -> dict:
-        return {
-            "datasetTemplateId": self.dataset_template_id,
-            "name": self.name,
-            "description": self.description,
-            "catalogType": self.catalog_type,
-            "scope": self.scope,
-            "entity": self.entity,
-            "target": self.target,
-            "features": self.features,
-            "featuresQuery": self.features_query,
-            "entityTargetsQuery": self.entity_targets_query,
-            "predictionsQuery": self.predictions_query,
-        }
+        from tmo.types.utils.datasets import build_df_template
+
+        return build_df_template(self)

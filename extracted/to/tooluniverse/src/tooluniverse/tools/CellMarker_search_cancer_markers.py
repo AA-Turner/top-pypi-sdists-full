@@ -44,15 +44,21 @@ def CellMarker_search_cancer_markers(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "cancer_type": cancer_type,
+            "gene_symbol": gene_symbol,
+            "cell_type": cell_type,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CellMarker_search_cancer_markers",
-            "arguments": {
-                "operation": operation,
-                "cancer_type": cancer_type,
-                "gene_symbol": gene_symbol,
-                "cell_type": cell_type,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -44,15 +44,21 @@ def CADD_get_range_scores(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "chrom": chrom,
+            "start": start,
+            "end": end,
+            "version": version,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CADD_get_range_scores",
-            "arguments": {
-                "chrom": chrom,
-                "start": start,
-                "end": end,
-                "version": version,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

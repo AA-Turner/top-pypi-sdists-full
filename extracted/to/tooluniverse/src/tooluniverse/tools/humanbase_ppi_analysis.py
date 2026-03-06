@@ -47,16 +47,22 @@ def humanbase_ppi_analysis(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "gene_list": gene_list,
+            "tissue": tissue,
+            "max_node": max_node,
+            "interaction": interaction,
+            "string_mode": string_mode,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "humanbase_ppi_analysis",
-            "arguments": {
-                "gene_list": gene_list,
-                "tissue": tissue,
-                "max_node": max_node,
-                "interaction": interaction,
-                "string_mode": string_mode,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

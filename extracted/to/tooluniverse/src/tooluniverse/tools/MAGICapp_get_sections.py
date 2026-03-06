@@ -35,8 +35,13 @@ def MAGICapp_get_sections(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"guideline_id": guideline_id}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "MAGICapp_get_sections", "arguments": {"guideline_id": guideline_id}},
+        {
+            "name": "MAGICapp_get_sections",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

@@ -41,10 +41,16 @@ def GOAPI_get_genes_by_function(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"go_id": go_id, "rows": rows, "taxon": taxon}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "GOAPI_get_genes_by_function",
-            "arguments": {"go_id": go_id, "rows": rows, "taxon": taxon},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

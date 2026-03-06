@@ -78,6 +78,7 @@ plugins:
                 - tracing.md
                 - Realtime agents:
                     - realtime/quickstart.md
+                    - realtime/transport.md
                     - realtime/guide.md
                 - Voice agents:
                     - voice/quickstart.md
@@ -124,6 +125,7 @@ plugins:
                     - ref/models/multi_provider.md
                     - ref/mcp/server.md
                     - ref/mcp/util.md
+                    - ref/mcp/manager.md
                 - Tracing:
                     - ref/tracing/index.md
                     - ref/tracing/create.md

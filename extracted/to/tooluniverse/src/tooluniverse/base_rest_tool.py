@@ -88,12 +88,34 @@ class BaseRESTTool(BaseTool):
         # Get param mapping for this API
         param_mapping = self._get_param_mapping()
 
-        # Only add arguments that aren't path parameters
+        # Params handled client-side only (not sent to API)
+        client_only = (
+            {"limit"}
+            if self.tool_config.get("fields", {}).get("client_side_limit")
+            else set()
+        )
+
         for key, value in args.items():
-            if f"{{{key}}}" not in url_template and value is not None:
-                # Use mapped parameter name if available
-                param_name = param_mapping.get(key, key)
-                params[param_name] = value
+            if (
+                key not in client_only
+                and f"{{{key}}}" not in url_template
+                and value is not None
+            ):
+                params[param_mapping.get(key, key)] = value
+
+        # Apply schema defaults for optional params not provided by the caller
+        for key, prop in (
+            self.tool_config.get("parameter", {}).get("properties", {}).items()
+        ):
+            if (
+                key in client_only
+                or key in params
+                or key in args
+                or f"{{{key}}}" in url_template
+            ):
+                continue
+            if "default" in prop and prop["default"] is not None:
+                params[param_mapping.get(key, key)] = prop["default"]
 
         return params
 
@@ -199,7 +221,23 @@ class BaseRESTTool(BaseTool):
                 return special_result
 
             # Use default response processing
-            return self._process_response(response, url)
+            result = self._process_response(response, url)
+
+            # Client-side limit for APIs that return unbounded lists
+            if self.tool_config.get("fields", {}).get("client_side_limit"):
+                props = self.tool_config.get("parameter", {}).get("properties", {})
+                limit = arguments.get("limit", props.get("limit", {}).get("default"))
+                data = result.get("data")
+                if (
+                    limit is not None
+                    and isinstance(data, list)
+                    and len(data) > int(limit)
+                ):
+                    result["total_before_limit"] = len(data)
+                    result["data"] = data[: int(limit)]
+                    result["count"] = int(limit)
+
+            return result
 
         except Exception as e:
             return {

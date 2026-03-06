@@ -41,14 +41,20 @@ def EnsemblPheno_get_by_region(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "species": species,
+            "region": region,
+            "feature_type": feature_type,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EnsemblPheno_get_by_region",
-            "arguments": {
-                "species": species,
-                "region": region,
-                "feature_type": feature_type,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

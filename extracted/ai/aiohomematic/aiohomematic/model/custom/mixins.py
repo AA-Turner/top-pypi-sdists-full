@@ -9,11 +9,9 @@ from custom data point implementations to reduce code duplication.
 Mixins
 ------
 - StateChangeTimerMixin: Timer-based state change detection logic
-- OnOffActionMixin: Common on/off action logic with timer support
 - GroupStateMixin: Common group state property pattern
 - PositionMixin: Position conversion logic for covers/blinds
 - BrightnessMixin: Brightness conversion logic for lights/dimmers
-- TimerUnitMixin: Timer unit conversion for lights with on_time/ramp_time
 
 Usage
 -----
@@ -27,13 +25,8 @@ multiple inheritance::
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from enum import StrEnum, unique
-from typing import TYPE_CHECKING, Any, Protocol, TypedDict, Unpack, runtime_checkable
-
-if TYPE_CHECKING:
-    from aiohomematic.model.data_point import CallParameterCollector
-    from aiohomematic.model.generic import DpAction, DpSwitch
+from typing import Any, Protocol, TypedDict, Unpack, runtime_checkable
 
 
 @unique
@@ -166,70 +159,6 @@ class StateChangeTimerMixin:
         if self.timer_on_time_running is True:
             return True
         return self.timer_on_time is not None
-
-
-class OnOffActionMixin:
-    """
-    Mixin providing common on/off action implementations.
-
-    This mixin provides reusable turn_on and turn_off logic that handles
-    timer management, state change detection, and value sending.
-
-    Subclasses must provide:
-    - _dp_state: DpSwitch data point
-    - _dp_on_time_value: DpAction data point for on_time
-    - Timer capability methods (from BaseDataPoint)
-    """
-
-    __slots__ = ()
-
-    # These are expected to be set by the implementing class
-    _dp_state: DpSwitch
-    _dp_on_time_value: DpAction
-
-    @abstractmethod
-    def get_and_start_timer(self) -> float | None:
-        """Get and start the timer."""
-
-    @abstractmethod
-    def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
-        """Check if the state changes due to kwargs."""
-
-    @abstractmethod
-    def reset_timer_on_time(self) -> None:
-        """Reset the on_time."""
-
-    @abstractmethod
-    def set_timer_on_time(self, *, on_time: float) -> None:
-        """Set the on_time."""
-
-    async def _perform_turn_off(self, *, collector: CallParameterCollector | None = None) -> None:
-        """
-        Perform turn off action with timer reset.
-
-        This is the common implementation for turn_off/close operations.
-        """
-        self.reset_timer_on_time()
-        if not self.is_state_change(off=True):
-            return
-        await self._dp_state.turn_off(collector=collector)
-
-    async def _perform_turn_on(
-        self, *, on_time: float | None = None, collector: CallParameterCollector | None = None
-    ) -> None:
-        """
-        Perform turn on action with optional timer.
-
-        This is the common implementation for turn_on/open operations.
-        """
-        if on_time is not None:
-            self.set_timer_on_time(on_time=on_time)
-        if not self.is_state_change(on=True):
-            return
-
-        if (timer := self.get_and_start_timer()) is not None:
-            await self._dp_on_time_value.send_value(value=timer, collector=collector, do_validate=False)
-        await self._dp_state.turn_on(collector=collector)
 
 
 class GroupStateMixin:
@@ -375,72 +304,31 @@ _TIMER_NOT_USED: float = 111600.0
 _TIME_UNIT_THRESHOLD: int = 16343
 
 
-class TimerUnitMixin:
+def recalc_unit_timer(*, time: float) -> tuple[float, str]:
     """
-    Mixin for lights with time unit conversion for on_time and ramp_time.
+    Recalculate unit and value of timer.
 
-    Provides common timer value setting methods that handle automatic
-    unit conversion (seconds -> minutes -> hours) for large time values.
+    Converts large time values to appropriate units:
+    - > 16343 seconds -> minutes
+    - > 16343 minutes -> hours
 
-    Requires the class to have:
-    - _dp_on_time_value: DpAction for on_time value
-    - _dp_on_time_unit: DpAction for on_time unit
-    - _dp_ramp_time_value: DpAction for ramp_time value
-    - _dp_ramp_time_unit: DpAction for ramp_time unit
+    For the NOT_USED marker (111600), returns HOURS as unit to ensure
+    the device interprets the value correctly (111600 hours ≈ 554 days).
+
+    Args:
+        time: Time value in seconds.
+
+    Returns:
+        Tuple of (converted_time, unit) where unit is "S"/"M"/"H".
+
     """
-
-    __slots__ = ()
-
-    # Expected to be set by implementing class
-    _dp_on_time_value: Any
-    _dp_on_time_unit: Any
-    _dp_ramp_time_value: Any
-    _dp_ramp_time_unit: Any
-
-    @staticmethod
-    def _recalc_unit_timer(*, time: float) -> tuple[float, str]:
-        """
-        Recalculate unit and value of timer.
-
-        Converts large time values to appropriate units:
-        - > 16343 seconds -> minutes
-        - > 16343 minutes -> hours
-
-        For the NOT_USED marker (111600), returns HOURS as unit to ensure
-        the device interprets the value correctly (111600 hours ≈ 554 days).
-
-        Args:
-            time: Time value in seconds.
-
-        Returns:
-            Tuple of (converted_time, unit) where unit is "S"/"M"/"H".
-
-        """
-        time_unit = _TimeUnit.SECONDS
-        if time == _TIMER_NOT_USED:
-            return time, _TimeUnit.HOURS
-        if time > _TIME_UNIT_THRESHOLD:
-            time /= 60
-            time_unit = _TimeUnit.MINUTES
-        if time > _TIME_UNIT_THRESHOLD:
-            time /= 60
-            time_unit = _TimeUnit.HOURS
-        return time, time_unit
-
-    async def _set_on_time_value(self, *, on_time: float, collector: Any | None = None) -> None:
-        """Set the on time value with automatic unit conversion."""
-        on_time, on_time_unit = self._recalc_unit_timer(time=on_time)
-        if on_time_unit:
-            await self._dp_on_time_unit.send_value(value=on_time_unit, collector=collector)
-        await self._dp_on_time_value.send_value(value=float(on_time), collector=collector)
-
-    async def _set_ramp_time_off_value(self, *, ramp_time: float, collector: Any | None = None) -> None:
-        """Set the ramp time off value with automatic unit conversion."""
-        await self._set_ramp_time_on_value(ramp_time=ramp_time, collector=collector)
-
-    async def _set_ramp_time_on_value(self, *, ramp_time: float, collector: Any | None = None) -> None:
-        """Set the ramp time on value with automatic unit conversion."""
-        ramp_time, ramp_time_unit = self._recalc_unit_timer(time=ramp_time)
-        if ramp_time_unit:
-            await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
-        await self._dp_ramp_time_value.send_value(value=float(ramp_time), collector=collector)
+    time_unit = _TimeUnit.SECONDS
+    if time == _TIMER_NOT_USED:
+        return time, _TimeUnit.HOURS
+    if time > _TIME_UNIT_THRESHOLD:
+        time /= 60
+        time_unit = _TimeUnit.MINUTES
+    if time > _TIME_UNIT_THRESHOLD:
+        time /= 60
+        time_unit = _TimeUnit.HOURS
+    return time, time_unit

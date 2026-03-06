@@ -35,8 +35,13 @@ def TheraSAbDab_search_by_target(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"target": target}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "TheraSAbDab_search_by_target", "arguments": {"target": target}},
+        {
+            "name": "TheraSAbDab_search_by_target",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

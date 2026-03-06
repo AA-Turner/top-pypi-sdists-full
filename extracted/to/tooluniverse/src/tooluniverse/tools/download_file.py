@@ -50,17 +50,23 @@ def download_file(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "url": url,
+            "output_path": output_path,
+            "timeout": timeout,
+            "return_content": return_content,
+            "chunk_size": chunk_size,
+            "follow_redirects": follow_redirects,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "download_file",
-            "arguments": {
-                "url": url,
-                "output_path": output_path,
-                "timeout": timeout,
-                "return_content": return_content,
-                "chunk_size": chunk_size,
-                "follow_redirects": follow_redirects,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

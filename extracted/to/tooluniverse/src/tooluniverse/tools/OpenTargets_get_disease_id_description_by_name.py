@@ -35,10 +35,12 @@ def OpenTargets_get_disease_id_description_by_name(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"diseaseName": diseaseName}.items() if v is not None}
     return get_shared_client().run_one_function(
         {
             "name": "OpenTargets_get_disease_id_description_by_name",
-            "arguments": {"diseaseName": diseaseName},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

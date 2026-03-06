@@ -41,14 +41,20 @@ def OpenFoodFacts_search_products(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "search_terms": search_terms,
+            "page_size": page_size,
+            "page": page,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "OpenFoodFacts_search_products",
-            "arguments": {
-                "search_terms": search_terms,
-                "page_size": page_size,
-                "page": page,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

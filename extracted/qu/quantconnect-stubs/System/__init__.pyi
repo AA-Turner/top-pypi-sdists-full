@@ -4275,6 +4275,13 @@ class Type(System.Reflection.MemberInfo, System.Reflection.IReflect, metaclass=a
         ...
 
     @staticmethod
+    def make_function_pointer_signature_type(return_type: typing.Type, parameter_types: typing.List[typing.Type], is_unmanaged: bool = False, calling_conventions: typing.List[typing.Type] = None) -> typing.Type:
+        ...
+
+    def make_function_pointer_type(self, parameter_types: typing.List[typing.Type], is_unmanaged: bool = False) -> typing.Type:
+        ...
+
+    @staticmethod
     def make_generic_method_parameter(position: int) -> typing.Type:
         ...
 
@@ -4283,6 +4290,10 @@ class Type(System.Reflection.MemberInfo, System.Reflection.IReflect, metaclass=a
         ...
 
     def make_generic_type(self, *type_arguments: typing.Union[typing.Type, typing.Iterable[typing.Type]]) -> typing.Type:
+        ...
+
+    @staticmethod
+    def make_modified_signature_type(type: typing.Type, required_custom_modifiers: typing.List[typing.Type], optional_custom_modifiers: typing.List[typing.Type]) -> typing.Type:
         ...
 
     def make_pointer_type(self) -> typing.Type:

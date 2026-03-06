@@ -9,9 +9,12 @@ from ._shared_client import get_shared_client
 
 
 def CancerPrognosis_search_studies(
-    operation: str,
-    keyword: str,
+    operation: Optional[str] = None,
+    keyword: Optional[str] = None,
     limit: Optional[int | Any] = None,
+    cancer_type: Optional[str] = None,
+    cancer: Optional[str] = None,
+    query: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -28,6 +31,12 @@ def CancerPrognosis_search_studies(
         Search keyword (e.g., 'breast', 'lung', 'TCGA', 'melanoma', 'glioblastoma')
     limit : int | Any
         Maximum number of results to return (default 20, max 100)
+    cancer_type : str
+        Cancer type to search for. Alias for keyword.
+    cancer : str
+        Cancer type to search for. Alias for keyword.
+    query : str
+        Search query. Alias for keyword (e.g., 'lung', 'breast', 'TCGA').
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -41,10 +50,23 @@ def CancerPrognosis_search_studies(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "keyword": keyword,
+            "limit": limit,
+            "cancer_type": cancer_type,
+            "cancer": cancer,
+            "query": query,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CancerPrognosis_search_studies",
-            "arguments": {"operation": operation, "keyword": keyword, "limit": limit},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

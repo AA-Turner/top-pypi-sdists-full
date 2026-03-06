@@ -47,16 +47,22 @@ def MEME_tomtom_compare(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "query_motif": query_motif,
+            "target_db": target_db,
+            "evalue_threshold": evalue_threshold,
+            "comparison_function": comparison_function,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "MEME_tomtom_compare",
-            "arguments": {
-                "operation": operation,
-                "query_motif": query_motif,
-                "target_db": target_db,
-                "evalue_threshold": evalue_threshold,
-                "comparison_function": comparison_function,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-svg2pdfconverter
-Version: 2.0.0
+Version: 2.1.0
 Summary: Sphinx SVG to PDF or PNG converter extension
 Author-email: Stefan Wiehler <sphinx_contribute@missinglinkelectronics.com>
 License-Expression: BSD-2-Clause

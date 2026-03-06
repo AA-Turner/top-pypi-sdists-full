@@ -294,12 +294,14 @@ def {tool_name}(
     """
     # Handle mutable defaults to avoid B006 linting error
 {mutable_defaults_str}
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {{k: v for k, v in {{
+        {kwargs_str}
+    }}.items() if v is not None}}
     return get_shared_client().run_one_function(
         {{
             "name": "{tool_name}",
-            "arguments": {{
-                {kwargs_str}
-            }}
+            "arguments": _args,
         }},
         stream_callback=stream_callback,
         use_cache=use_cache,
@@ -570,6 +572,7 @@ def main(
     format_enabled: Optional[bool] = None,
     force_regenerate: bool = False,
     verbose: bool = False,
+    output_dir: Optional[Path] = None,
 ) -> None:
     """Generate tools and format the generated files if enabled.
 
@@ -578,6 +581,9 @@ def main(
                        (skip when set to "1").
         force_regenerate: If True, regenerate all tools regardless of changes
         verbose: If True, print detailed change information
+        output_dir: Directory to write wrapper files into.  When None the
+                    installed package's own ``tools/`` sub-directory is used
+                    (``Path(__file__).parent / "tools"``).
     """
     from tooluniverse import ToolUniverse
     from .build_optimizer import cleanup_orphaned_files, get_changed_tools
@@ -587,18 +593,21 @@ def main(
     tu = ToolUniverse()
     tu.load_tools()
 
-    output = Path("src/tooluniverse/tools")
+    output = Path(output_dir) if output_dir is not None else Path(__file__).parent / "tools"
     output.mkdir(parents=True, exist_ok=True)
+    print(f"   Output → {output}")
 
     # Cleanup orphaned files.
-    # Use ALL tool names from JSON configs (not just those that passed API key
-    # filtering) so that wrappers for tools like BRENDA, NvidiaNIM, OMIM, and
-    # DisGeNET are never deleted simply because the required API keys are absent
+    # Use ALL tool names from built-in JSON configs (not just those that passed
+    # API key filtering) so that wrappers for tools like BRENDA, NvidiaNIM, OMIM,
+    # and DisGeNET are never deleted simply because the required API keys are absent
     # in the current environment.
+    # Workspace and plugin tools are intentionally excluded: they should not have
+    # wrappers in the installed package's tools/ directory.
     from .utils import read_json_list
     from .default_config import default_tool_files as _default_tool_files
 
-    all_config_tool_names: set = set(tu.all_tool_dict.keys())
+    all_config_tool_names: set = set()
     for _path in _default_tool_files.values():
         try:
             for _tool in read_json_list(_path):
@@ -606,6 +615,16 @@ def main(
                     all_config_tool_names.add(_tool["name"])
         except Exception:
             pass
+
+    # Only generate wrappers for built-in tools.  Workspace and plugin tools
+    # are loaded at runtime from their own directories; writing their wrappers
+    # into the installed package would pollute the package and be wiped on
+    # the next `pip install`.
+    builtin_tool_dict = {
+        name: cfg
+        for name, cfg in tu.all_tool_dict.items()
+        if name in all_config_tool_names
+    }
 
     cleaned_count = cleanup_orphaned_files(output, all_config_tool_names)
     if cleaned_count > 0:
@@ -620,7 +639,7 @@ def main(
     verbose = verbose or (os.getenv("TOOLUNIVERSE_VERBOSE") == "1")
 
     new_tools, changed_tools, unchanged_tools, change_details = get_changed_tools(
-        tu.all_tool_dict,
+        builtin_tool_dict,
         metadata_file,
         force_regenerate=force_regenerate,
         verbose=verbose,
@@ -628,7 +647,7 @@ def main(
 
     # Check for missing files - tools that exist in config but not as files
     missing_files = []
-    for tool_name in tu.all_tool_dict.keys():
+    for tool_name in builtin_tool_dict.keys():
         tool_file = output / f"{tool_name}.py"
         if not tool_file.exists():
             if tool_name not in new_tools and tool_name not in changed_tools:
@@ -661,7 +680,7 @@ def main(
                     print(f"    ... and {len(changed_tools) - 20} more")
 
         validation_errors = []
-        for i, (tool_name, tool_config) in enumerate(tu.all_tool_dict.items(), 1):
+        for i, (tool_name, tool_config) in enumerate(builtin_tool_dict.items(), 1):
             if tool_name in new_tools or tool_name in changed_tools:
                 path = generate_tool_file(tool_name, tool_config, output)
                 generated_paths.append(str(path))
@@ -676,7 +695,7 @@ def main(
                             print(f"      - {issue}")
 
             if i % 50 == 0:
-                print(f"  Processed {i}/{len(tu.all_tool_dict)} tools...")
+                print(f"  Processed {i}/{len(builtin_tool_dict)} tools...")
 
         if validation_errors:
             print(f"\n⚠️  Found {len(validation_errors)} validation issue(s):")
@@ -688,11 +707,15 @@ def main(
         print("✨ No changes detected, skipping tool generation")
         print(f"  📊 Status: {len(unchanged_tools)} tools unchanged")
 
-    # Always regenerate __init__.py to include all tools
-    init_path = generate_init(list(tu.all_tool_dict.keys()), output)
-    generated_paths.append(str(init_path))
+    # Regenerate __init__.py only when writing to the built-in package directory.
+    # For a user-specified output_dir (e.g. .tooluniverse/coding_api/) the
+    # __init__.py in that directory is never executed by Python — the installed
+    # package's __init__.py already extends __path__ to find wrapper files there.
+    if output_dir is None:
+        init_path = generate_init(list(builtin_tool_dict.keys()), output)
+        generated_paths.append(str(init_path))
 
-    # Always ensure _shared_client.py exists
+    # Always ensure _shared_client.py exists (wrappers import it at call time)
     shared_client_path = output / "_shared_client.py"
     if not shared_client_path.exists():
         _create_shared_client(shared_client_path)

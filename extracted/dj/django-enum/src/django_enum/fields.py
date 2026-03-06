@@ -691,7 +691,7 @@ class EnumField(
     def formfield(self, form_class=None, choices_form_class=None, **kwargs):
         """
         An override of :meth:`~django.db.models.Field.formfield` that ensures
-        we use the correct django-enum_ form field type:
+        we use the correct :pypi:`django-enum` form field type:
 
             * :class:`~django_enum.fields.EnumField` -> :class:`~django_enum.forms.EnumChoiceField`
             * :class:`~django_enum.fields.FlagField` -> :class:`~django_enum.forms.EnumFlagField`

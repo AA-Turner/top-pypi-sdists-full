@@ -2,7 +2,30 @@
 
 use wasm_bindgen::prelude::*;
 
+use moyo::data::GeometricCrystalClass;
+
+use crate::structure::{
+    geometric_crystal_class_from_hall, laue_group_from_point_group, moyo_ops_to_arrays,
+    point_group_is_centrosymmetric, point_group_is_chiral, point_group_is_polar,
+    point_group_symbol, spacegroup_to_crystal_system,
+};
 use crate::wasm_types::{JsCrystal, JsSymmetryDataset, JsSymmetryOperation, WasmResult};
+
+fn check_gcc_predicate(
+    structure: JsCrystal,
+    symprec: f64,
+    pred: fn(GeometricCrystalClass) -> bool,
+) -> WasmResult<bool> {
+    structure
+        .to_structure()
+        .and_then(|struc| {
+            struc
+                .get_geometric_crystal_class(symprec)
+                .map(pred)
+                .map_err(|e| e.to_string())
+        })
+        .into()
+}
 
 #[wasm_bindgen]
 pub fn get_spacegroup_number(structure: JsCrystal, symprec: f64) -> WasmResult<u16> {
@@ -39,17 +62,15 @@ pub fn get_crystal_system(structure: JsCrystal, symprec: f64) -> WasmResult<Stri
 
 #[wasm_bindgen]
 pub fn get_wyckoff_letters(structure: JsCrystal, symprec: f64) -> WasmResult<Vec<String>> {
-    let result: Result<Vec<String>, String> = (|| {
-        let struc = structure.to_structure()?;
-        let letters = struc
-            .get_wyckoff_letters(symprec)
-            .map_err(|err| err.to_string())?;
-        Ok(letters
-            .into_iter()
-            .map(|letter| letter.to_string())
-            .collect())
-    })();
-    result.into()
+    structure
+        .to_structure()
+        .and_then(|struc| {
+            struc
+                .get_wyckoff_letters(symprec)
+                .map(|letters| letters.into_iter().map(|l| l.to_string()).collect())
+                .map_err(|e| e.to_string())
+        })
+        .into()
 }
 
 #[wasm_bindgen]
@@ -57,30 +78,73 @@ pub fn get_symmetry_operations(
     structure: JsCrystal,
     symprec: f64,
 ) -> WasmResult<Vec<JsSymmetryOperation>> {
-    let result: Result<Vec<JsSymmetryOperation>, String> = (|| {
-        let struc = structure.to_structure()?;
-        let ops = struc
-            .get_symmetry_operations(symprec)
-            .map_err(|err| err.to_string())?;
-        Ok(ops
-            .into_iter()
-            .map(|(rot, trans)| JsSymmetryOperation {
-                rotation: rot,
-                translation: trans,
-            })
-            .collect())
-    })();
-    result.into()
+    structure
+        .to_structure()
+        .and_then(|struc| {
+            struc
+                .get_symmetry_operations(symprec)
+                .map(|ops| {
+                    ops.into_iter()
+                        .map(|(rotation, translation)| JsSymmetryOperation {
+                            rotation,
+                            translation,
+                        })
+                        .collect()
+                })
+                .map_err(|e| e.to_string())
+        })
+        .into()
+}
+
+#[wasm_bindgen]
+pub fn get_point_group(structure: JsCrystal, symprec: f64) -> WasmResult<String> {
+    structure
+        .to_structure()
+        .and_then(|struc| {
+            struc
+                .get_point_group(symprec)
+                .map(|s| s.to_string())
+                .map_err(|e| e.to_string())
+        })
+        .into()
+}
+
+#[wasm_bindgen]
+pub fn get_laue_group(structure: JsCrystal, symprec: f64) -> WasmResult<String> {
+    structure
+        .to_structure()
+        .and_then(|struc| {
+            struc
+                .get_laue_group(symprec)
+                .map(|s| s.to_string())
+                .map_err(|e| e.to_string())
+        })
+        .into()
+}
+
+#[wasm_bindgen]
+pub fn is_centrosymmetric(structure: JsCrystal, symprec: f64) -> WasmResult<bool> {
+    check_gcc_predicate(structure, symprec, point_group_is_centrosymmetric)
+}
+
+#[wasm_bindgen]
+pub fn is_polar(structure: JsCrystal, symprec: f64) -> WasmResult<bool> {
+    check_gcc_predicate(structure, symprec, point_group_is_polar)
+}
+
+#[wasm_bindgen]
+pub fn is_chiral(structure: JsCrystal, symprec: f64) -> WasmResult<bool> {
+    check_gcc_predicate(structure, symprec, point_group_is_chiral)
 }
 
 #[wasm_bindgen]
 pub fn get_symmetry_dataset(structure: JsCrystal, symprec: f64) -> WasmResult<JsSymmetryDataset> {
-    use crate::structure::{moyo_ops_to_arrays, spacegroup_to_crystal_system};
-
     let result: Result<JsSymmetryDataset, String> = (|| {
         let struc = structure.to_structure()?;
         let dataset = struc
             .get_symmetry_dataset(symprec)
+            .map_err(|err| err.to_string())?;
+        let gcc = geometric_crystal_class_from_hall(dataset.hall_number)
             .map_err(|err| err.to_string())?;
         let operations = moyo_ops_to_arrays(&dataset.operations);
         Ok(JsSymmetryDataset {
@@ -88,6 +152,11 @@ pub fn get_symmetry_dataset(structure: JsCrystal, symprec: f64) -> WasmResult<Js
             spacegroup_symbol: dataset.hm_symbol,
             hall_number: dataset.hall_number as u16,
             crystal_system: spacegroup_to_crystal_system(dataset.number).to_string(),
+            point_group: point_group_symbol(gcc).to_string(),
+            laue_group: laue_group_from_point_group(gcc).to_string(),
+            is_centrosymmetric: point_group_is_centrosymmetric(gcc),
+            is_polar: point_group_is_polar(gcc),
+            is_chiral: point_group_is_chiral(gcc),
             wyckoff_letters: dataset
                 .wyckoffs
                 .into_iter()

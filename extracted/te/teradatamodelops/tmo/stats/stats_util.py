@@ -1030,7 +1030,11 @@ def infer_columns_type(
             unique_values = df[col].dropna().unique()
             num_unique = len(unique_values)
 
-            if df[col].dtype == "object" or df[col].dtype.name == "category":
+            if (
+                df[col].dtype == "object"
+                or df[col].dtype.name == "category"
+                or pd.api.types.is_string_dtype(df[col])
+            ):
                 categorical_features.append(col)
 
             elif num_unique == 2 and all(val in [0, 1] for val in unique_values):

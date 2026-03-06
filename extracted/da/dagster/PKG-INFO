@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.12.17
+Version: 1.12.18
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
@@ -34,8 +34,8 @@ Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
 Requires-Dist: antlr4-python3-runtime
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
-Requires-Dist: dagster-pipes==1.12.17
-Requires-Dist: dagster-shared==1.12.17
+Requires-Dist: dagster-pipes==1.12.18
+Requires-Dist: dagster-shared==1.12.18
 Requires-Dist: docstring-parser
 Requires-Dist: filelock
 Requires-Dist: grpcio-health-checking>=1.44.0; python_version < '3.13'
@@ -192,13 +192,8 @@ If you're new to Dagster, we recommend checking out the [docs](https://docs.dags
 Dagster is available on PyPI and officially supports Python 3.9 through Python 3.14.
 
 ```bash
-pip install dagster dagster-webserver
+uv add dagster dagster-webserver dagster-dg-cli
 ```
-
-This installs two packages:
-
-- `dagster`: The core programming model.
-- `dagster-webserver`: The server that hosts Dagster's web UI for developing and operating Dagster jobs and assets.
 
 ## Documentation
 

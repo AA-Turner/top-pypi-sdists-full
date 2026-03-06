@@ -94,6 +94,9 @@ class ASGITransport(Transport):
                 http_version = "3"
             case _:
                 http_version = "1.1"
+        if "host" not in request.headers:
+            request.headers["host"] = parsed_url.netloc
+
         scope: HTTPScope = {
             "type": "http",
             "asgi": _asgi,
@@ -173,7 +176,10 @@ class ASGITransport(Transport):
         app_task = asyncio.create_task(run_app())
         message = await send_queue.get()
         if isinstance(message, Exception):
-            await app_task
+            request_task.cancel()
+            with contextlib.suppress(BaseException):
+                await app_task
+                await request_task
             if isinstance(message, TimeoutError):
                 raise message
             return Response(
@@ -377,4 +383,6 @@ class ResponseContent(AsyncIterator[bytes]):
         self._request_task.cancel()
         with contextlib.suppress(BaseException):
             await self._request_task
+        self._task.cancel()
+        with contextlib.suppress(BaseException):
             await self._task

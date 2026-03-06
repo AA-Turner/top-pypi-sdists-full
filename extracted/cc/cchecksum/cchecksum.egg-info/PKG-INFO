@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cchecksum
-Version: 0.4.1
+Version: 0.4.2
 Summary: An ~18x faster drop-in replacement for eth_utils.to_checksum_address. Raises the exact same Exceptions. Implemented in C.
 Home-page: https://github.com/BobTheBuidler/cchecksum
 Author: BobTheBuidler

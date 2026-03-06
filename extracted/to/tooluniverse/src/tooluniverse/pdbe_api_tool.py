@@ -50,9 +50,7 @@ class PDBeAPIRESTTool(BaseTool):
         elif tool_name == "pdbe_get_entry_quality":
             pdb_id = args.get("pdb_id", "")
             if pdb_id:
-                # PDBe API quality endpoint may not exist for all entries
-                # Try quality endpoint, but it may return 404
-                return f"{self.base_url}/pdb/entry/quality/{pdb_id.lower()}"
+                return f"{self.base_url}/validation/summary_quality_scores/entry/{pdb_id.lower()}"
 
         elif tool_name == "pdbe_get_entry_publications":
             pdb_id = args.get("pdb_id", "")
@@ -138,14 +136,14 @@ class PDBeAPIRESTTool(BaseTool):
                     if fallback_result:
                         return fallback_result
 
-            # Handle quality endpoint which may not exist for all entries
+            # Handle quality endpoint which may not be available for all entries
             if tool_name == "pdbe_get_entry_quality" and response.status_code == 404:
                 pdb_id = arguments.get("pdb_id", "")
                 return {
                     "status": "error",
-                    "error": f"Quality endpoint not available for PDB entry {pdb_id}. Quality metrics may not be available for this structure.",
+                    "error": f"Validation quality scores not available for PDB entry {pdb_id}.",
                     "url": response.url,
-                    "suggestion": "Try pdbe_get_entry_summary which includes basic quality information, or check PDBe website directly.",
+                    "suggestion": "Try pdbe_get_entry_summary or pdbe_get_entry_experiment for experimental quality metrics.",
                 }
 
             response.raise_for_status()

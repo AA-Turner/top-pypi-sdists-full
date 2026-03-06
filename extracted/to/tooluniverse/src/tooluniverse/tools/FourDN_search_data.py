@@ -53,18 +53,24 @@ def FourDN_search_data(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "query": query,
+            "item_type": item_type,
+            "file_type": file_type,
+            "assay_title": assay_title,
+            "biosource_name": biosource_name,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "FourDN_search_data",
-            "arguments": {
-                "operation": operation,
-                "query": query,
-                "item_type": item_type,
-                "file_type": file_type,
-                "assay_title": assay_title,
-                "biosource_name": biosource_name,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

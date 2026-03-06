@@ -7,7 +7,7 @@ use crate::species::Species as RustSpecies;
 
 /// A chemical species with optional oxidation state.
 #[gen_stub_pyclass]
-#[pyclass(name = "Species")]
+#[pyclass(module = "ferrox._ferrox.species", name = "Species")]
 pub struct PySpecies {
     inner: RustSpecies,
 }
@@ -98,10 +98,8 @@ impl PySpecies {
     }
 }
 
-/// Register the species submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "species")?;
-    submod.add_class::<PySpecies>()?;
-    parent.add_submodule(&submod)?;
+/// Register species functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PySpecies>()?;
     Ok(())
 }

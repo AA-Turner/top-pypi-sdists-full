@@ -65,6 +65,14 @@ impl MD013LineLength {
         Self { config }
     }
 
+    /// Return a clone with code block checking disabled.
+    /// Used for doc comment linting where code blocks are Rust code managed by rustfmt.
+    pub fn with_code_blocks_disabled(&self) -> Self {
+        let mut clone = self.clone();
+        clone.config.code_blocks = false;
+        clone
+    }
+
     /// Convert MD013 LengthMode to text_reflow ReflowLengthMode
     fn reflow_length_mode(&self) -> ReflowLengthMode {
         match self.config.length_mode {
@@ -300,8 +308,8 @@ impl Rule for MD013LineLength {
                 }
             }
 
-            // Skip mkdocstrings blocks (already handled by LintContext)
-            if ctx.lines[line_idx].in_mkdocstrings {
+            // Skip mkdocstrings and pymdown blocks (already handled by LintContext)
+            if ctx.lines[line_idx].in_mkdocstrings || ctx.lines[line_idx].in_pymdown_block {
                 continue;
             }
 
@@ -352,6 +360,7 @@ impl Rule for MD013LineLength {
                     || ctx.line_info(line_number).is_some_and(|info| info.in_esm_block)
                     || ctx.line_info(line_number).is_some_and(|info| info.in_jsx_expression)
                     || ctx.line_info(line_number).is_some_and(|info| info.in_mdx_comment)
+                    || ctx.line_info(line_number).is_some_and(|info| info.in_pymdown_block)
                 {
                     continue;
                 }
@@ -533,6 +542,7 @@ impl MD013LineLength {
                     || info.in_jsx_expression
                     || info.in_mdx_comment
                     || info.in_mkdocstrings
+                    || info.in_pymdown_block
                     || info.in_mkdocs_container()
                     || info.is_div_marker
             })
@@ -682,6 +692,7 @@ impl MD013LineLength {
             semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
             abbreviations: config.abbreviations_for_reflow(),
             length_mode: self.reflow_length_mode(),
+            attr_lists: ctx.flavor.supports_attr_lists(),
         };
 
         let reflowed_with_style =
@@ -803,6 +814,7 @@ impl MD013LineLength {
                     || info.in_jsx_expression
                     || info.in_mdx_comment
                     || info.in_mkdocstrings
+                    || info.in_pymdown_block
             });
 
             if should_skip_due_to_line_info
@@ -935,6 +947,7 @@ impl MD013LineLength {
                     semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
                     abbreviations: config.abbreviations_for_reflow(),
                     length_mode: self.reflow_length_mode(),
+                    attr_lists: ctx.flavor.supports_attr_lists(),
                 };
                 let reflowed = crate::utils::text_reflow::reflow_line(&paragraph_text, &reflow_options);
 
@@ -1912,6 +1925,7 @@ impl MD013LineLength {
                         semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
                         abbreviations: config.abbreviations_for_reflow(),
                         length_mode: self.reflow_length_mode(),
+                        attr_lists: ctx.flavor.supports_attr_lists(),
                     };
 
                     let mut result: Vec<String> = Vec::new();
@@ -2255,6 +2269,7 @@ impl MD013LineLength {
                                         semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
                                         abbreviations: config.abbreviations_for_reflow(),
                                         length_mode: self.reflow_length_mode(),
+                                        attr_lists: ctx.flavor.supports_attr_lists(),
                                     };
 
                                     let reflowed =
@@ -2545,6 +2560,7 @@ impl MD013LineLength {
                     semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
                     abbreviations: config.abbreviations_for_reflow(),
                     length_mode: self.reflow_length_mode(),
+                    attr_lists: ctx.flavor.supports_attr_lists(),
                 };
                 let mut reflowed = crate::utils::text_reflow::reflow_line(&paragraph_text, &reflow_options);
 

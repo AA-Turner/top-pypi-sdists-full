@@ -2,6 +2,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from multiprocessing import Queue
+from multiprocessing import forkserver as _forkserver
 from multiprocessing.process import BaseProcess
 from threading import RLock, Thread
 from typing import Any, Dict, List, Optional
@@ -120,6 +121,19 @@ class ExecutorPool:
             AbstraLogger.warning(
                 f"[ExecutorPool] Starting {self.config.total_executors} executors "
                 f"with warmup_parallelism={self.config.warmup_parallelism}"
+            )
+
+        try:
+            _forkserver.set_forkserver_preload(
+                ["abstra_internals.controllers.execution.executor_process"]
+            )
+            if self.verbose:
+                AbstraLogger.warning(
+                    "[ExecutorPool] Forkserver preload configured for executor_process"
+                )
+        except Exception as e:
+            AbstraLogger.warning(
+                f"[ExecutorPool] Could not configure forkserver preload (non-forkserver context?): {e}"
             )
 
         self._pending_spawns: List[tuple] = [

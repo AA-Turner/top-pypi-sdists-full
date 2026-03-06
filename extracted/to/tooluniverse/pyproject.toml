@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tooluniverse"
-version = "1.0.22"
+version = "1.1.1"
 description = "A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows."
 authors = [
     { name = "Shanghua Gao", email = "shanghuagao@gmail.com" }
@@ -128,6 +128,7 @@ space = [
 bioinformatics = [
     "biopython>=1.80",
 ]
+# circuit: install manually with `pip install git+https://github.com/tooluniverse/circuit.git`
 all = [
     "tooluniverse[dev,docs,graph,visualization,space,embedding,ml,bioinformatics]",
 ]
@@ -139,6 +140,7 @@ build = [
 Homepage = "https://github.com/mims-harvard/ToolUniverse"
 
 [project.scripts]
+tu = "tooluniverse.cli:main"
 tooluniverse = "tooluniverse.smcp_server:run_default_stdio_server"
 tooluniverse-mcp = "tooluniverse.smcp_server:run_http_server"
 tooluniverse-smcp = "tooluniverse.smcp_server:run_smcp_server"

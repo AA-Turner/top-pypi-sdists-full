@@ -1380,6 +1380,8 @@ def output_list_apps(ctx, orgs_by_id, apps_list):
 @click.option(
     "--search-direction", type=click.Choice(search_direction_values), default=None
 )
+@click.option("--search-params", type=str, multiple=True, default=None)
+@click.option("--limit", type=int, default=500)
 @click.pass_context
 def list_applications(ctx, organisation, org_id, **kwargs):
     # get all orgs
@@ -7922,6 +7924,7 @@ def list_audit_destinations(ctx, name=None, **kwargs):
 @click.option("--oauth2-token-url", default=None, type=str)
 @click.option("--oauth2-client-id", default=None, type=str)
 @click.option("--oauth2-client-secret", default=None, type=str)
+@click.option("--oauth2-scopes", default=None, multiple=True, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
 @click.option(
     "--webhook_format",

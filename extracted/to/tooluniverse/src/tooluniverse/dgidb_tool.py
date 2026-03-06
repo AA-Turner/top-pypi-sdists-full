@@ -62,6 +62,16 @@ class DGIdbTool(BaseTool):
         if isinstance(genes, str):
             genes = [g.strip() for g in genes.split(",")]
 
+        # Feature-68A-001: normalize interaction_types/interaction_sources for client-side filtering
+        interaction_types = arguments.get("interaction_types", [])
+        interaction_sources = arguments.get("interaction_sources", [])
+        if isinstance(interaction_types, str):
+            interaction_types = [t.strip() for t in interaction_types.split(",")]
+        if isinstance(interaction_sources, str):
+            interaction_sources = [s.strip() for s in interaction_sources.split(",")]
+        types_lower = [t.lower() for t in interaction_types]
+        sources_lower = [s.lower() for s in interaction_sources]
+
         # GraphQL query for interactions
         query = """
         query GetInteractions($genes: [String!]!) {
@@ -94,7 +104,33 @@ class DGIdbTool(BaseTool):
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+
+            # Feature-68A-001: apply client-side filtering for interaction_types/sources
+            if types_lower or sources_lower:
+                nodes = data.get("data", {}).get("genes", {}).get("nodes", [])
+                for node in nodes:
+                    filtered = []
+                    for interaction in node.get("interactions", []):
+                        if types_lower:
+                            int_types = [
+                                t.get("type", "").lower()
+                                for t in interaction.get("interactionTypes", [])
+                            ]
+                            if not any(t in int_types for t in types_lower):
+                                continue
+                        if sources_lower:
+                            int_srcs = [
+                                s.get("fullName", "").lower()
+                                for s in interaction.get("sources", [])
+                            ]
+                            if not any(s in int_srcs for s in sources_lower):
+                                continue
+                        filtered.append(interaction)
+                    node["interactions"] = filtered
+
+            # Feature-68A-002: wrap in status envelope consistent with other ToolUniverse tools
+            return {"status": "success", "data": data}
         except requests.RequestException as e:
             return {"error": f"DGIdb API request failed: {str(e)}"}
 
@@ -132,7 +168,8 @@ class DGIdbTool(BaseTool):
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return response.json()
+            # Feature-68A-002: wrap in status envelope
+            return {"status": "success", "data": response.json()}
         except requests.RequestException as e:
             return {"error": f"DGIdb API request failed: {str(e)}"}
 
@@ -168,7 +205,8 @@ class DGIdbTool(BaseTool):
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return response.json()
+            # Feature-68A-002: wrap in status envelope
+            return {"status": "success", "data": response.json()}
         except requests.RequestException as e:
             return {"error": f"DGIdb API request failed: {str(e)}"}
 
@@ -206,6 +244,7 @@ class DGIdbTool(BaseTool):
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return response.json()
+            # Feature-68A-002: wrap in status envelope
+            return {"status": "success", "data": response.json()}
         except requests.RequestException as e:
             return {"error": f"DGIdb API request failed: {str(e)}"}

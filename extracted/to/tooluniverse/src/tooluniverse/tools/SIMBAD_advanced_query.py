@@ -41,14 +41,20 @@ def SIMBAD_advanced_query(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "adql_query": adql_query,
+            "max_results": max_results,
+            "format": format,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "SIMBAD_advanced_query",
-            "arguments": {
-                "adql_query": adql_query,
-                "max_results": max_results,
-                "format": format,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

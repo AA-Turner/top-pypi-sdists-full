@@ -38,10 +38,16 @@ def EnsemblReg_get_binding_matrix(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"species": species, "binding_matrix_id": binding_matrix_id}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EnsemblReg_get_binding_matrix",
-            "arguments": {"species": species, "binding_matrix_id": binding_matrix_id},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

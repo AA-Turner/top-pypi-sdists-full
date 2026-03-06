@@ -3,12 +3,12 @@ from __future__ import absolute_import
 import logging
 import uuid
 import warnings
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import pandas as pd
 from teradataml import DataFrame, execute_sql
 
-from tmo.api.iterator_base_api import IteratorBaseApi
+from tmo.api.base_entity_api import BaseEntityApiMixin
 from tmo.types.dataset_metadata import (
     CatalogBodyType,
     CatalogType,
@@ -26,8 +26,9 @@ from tmo.types.exceptions import EntityCreationError
 logger = logging.getLogger(__name__)
 
 
-class DatasetTemplateApi(IteratorBaseApi):
-    path = "/api/datasetTemplates"
+class DatasetTemplateApi(BaseEntityApiMixin):
+    name = "Dataset Template API"
+    path = "datasetTemplates"
     type = "DATASET_TEMPLATE"
 
     def create(
@@ -155,9 +156,7 @@ class DatasetTemplateApi(IteratorBaseApi):
         feature_columns_objects = [
             Variable()
             .set_name(col)
-            .set_data_type(
-                DataType.FLOAT if dtype.startswith("float") else DataType.INTEGER
-            )
+            .set_data_type(self._infer_data_type_from_dtype(dtype))
             .set_type(TypeEnum.FEATURE)
             for col, dtype in zip(column_names, column_dtypes)
             if col not in entity_columns + target_columns
@@ -166,11 +165,7 @@ class DatasetTemplateApi(IteratorBaseApi):
         entity_columns_objects = [
             Variable()
             .set_name(col)
-            .set_data_type(
-                DataType.FLOAT
-                if str(dataframe[col].dtype).startswith("float")
-                else DataType.INTEGER
-            )
+            .set_data_type(self._infer_data_type_from_dtype(dataframe[col].dtype))
             .set_type(TypeEnum.ENTITY)
             for col in entity_columns
         ]
@@ -178,11 +173,7 @@ class DatasetTemplateApi(IteratorBaseApi):
         target_columns_objects = [
             Variable()
             .set_name(col)
-            .set_data_type(
-                DataType.FLOAT
-                if str(dataframe[col].dtype).startswith("float")
-                else DataType.INTEGER
-            )
+            .set_data_type(self._infer_data_type_from_dtype(dataframe[col].dtype))
             .set_type(TypeEnum.TARGET)
             for col in target_columns
         ]
@@ -255,14 +246,13 @@ class DatasetTemplateApi(IteratorBaseApi):
         }
 
         response = self.tmo_client.post_request(
-            path=self.path,
+            path=self.base_path + self.path,
             header_params=self._get_header_params(),
             query_params={},
             body=template_request,
         )
 
         dataset_template_id = uuid.UUID(response["id"])
-
         dataset_template.id = dataset_template_id
 
         logger.debug("Dataset template created successfully.")
@@ -280,7 +270,7 @@ class DatasetTemplateApi(IteratorBaseApi):
             (dict): rendered dataset template
         """
         return self.tmo_client.get_request(
-            path=f"{self.path}/{str(id)}/render",
+            path=f"{self.base_path + self.path}/{str(id)}/render",
             header_params=self._get_header_params(),
             query_params={},
         )
@@ -299,316 +289,13 @@ class DatasetTemplateApi(IteratorBaseApi):
         Returns:
             (list): dataset template
         """
-        query_vars = ["name", "projection"]
-        query_vals = [name, projection]
-        query_params = self.generate_params(query_vars, query_vals)
-
-        response = self.tmo_client.get_request(
-            path=f"{self.path}/search/findByName",
-            header_params=self._get_header_params(),
-            query_params=query_params,
+        response = self.build_get_request(
+            "/search/findByName", {"name": name}, projection
         )
 
-        try:
-            dataset_templates_data = response.get("_embedded", {}).get(
-                "datasetTemplates", []
-            )
-
-            if not dataset_templates_data:
-                logger.info(f"No dataset templates found for name: {name}")
-                return None if return_dataframe else []
-
-            dataset_templates = []
-            for data in dataset_templates_data:
-                dataset_template = self._parse_dataset_template_from_response(data)
-                if dataset_template:
-                    dataset_templates.append(dataset_template)
-
-            if return_dataframe:
-                return self._dataset_templates_to_dataframe(dataset_templates)
-            else:
-                return dataset_templates
-
-        except Exception as e:
-            logger.error(f"Error parsing dataset templates: {str(e)}")
-            return None if return_dataframe else []
-
-    def find_by_id(
-        self, dataset_template_id: Union[str, uuid.UUID], return_dataframe: bool = False
-    ) -> None | DataFrame | DatasetTemplate:
-        """
-        returns a dataset template by id
-
-        Parameters:
-        id (str): dataset_template id
-        return_dataframe (bool): if True, returns DataFrame; if False, returns DatasetTemplate object
-
-        Returns:
-            (dict): dataset template
-            (DatasetTemplate): dataset template object if return_dataframe is True
-        """
-
-        if not isinstance(dataset_template_id, uuid.UUID):
-            try:
-                dataset_template_id = uuid.UUID(dataset_template_id)
-            except ValueError:
-                logger.error(f"Invalid UUID format for id: {dataset_template_id}")
-                return None
-
-        query_vars = ["id"]
-        query_vals = [str(dataset_template_id)]
-        query_params = self.generate_params(query_vars, query_vals)
-
-        response = self.tmo_client.get_request(
-            path=f"{self.path}/search/findById",
-            header_params=self._get_header_params(),
-            query_params=query_params,
+        return self.process_entities_response(
+            response, return_dataframe, f" with name like: {name}"
         )
-
-        try:
-            dataset_template = self._parse_dataset_template_from_response(response)
-
-            if dataset_template is None:
-                logger.error(
-                    f"Dataset template with id {dataset_template_id} not found."
-                )
-                return None
-
-            if return_dataframe:
-                return dataset_template.to_dataframe()
-            else:
-                return dataset_template
-
-        except Exception as e:
-            logger.error(f"Error parsing dataset template: {str(e)}")
-            return None
-
-    def find_all(
-        self,
-        projection: str = None,
-        page: int = None,
-        size: int = None,
-        sort: str = None,
-        return_dataframe: bool = False,
-    ) -> list[Any] | DataFrame:
-        """
-        returns all dataset templates
-
-        Parameters:
-        projection (str): projection type
-        page (int): page number
-        size (int): number of records in a page
-        sort (str): column name and sorting order
-        return_dataframe (bool): if True, returns DataFrame; if False, returns list of DatasetTemplate objects
-
-        Returns:
-            (list): dataset templates
-        """
-
-        query_vars = ["projection", "page", "size", "sort"]
-        query_vals = [projection, page, size, sort]
-        built_query_params = self.generate_params(query_vars, query_vals)
-
-        response = self.tmo_client.get_request(
-            path=f"{self.path}",
-            header_params=self._get_header_params(),
-            query_params=built_query_params,
-        )
-
-        try:
-            dataset_templates_data = response.get("_embedded", {}).get(
-                "datasetTemplates", []
-            )
-
-            if not dataset_templates_data:
-                logger.info("No dataset templates found.")
-                return [] if not return_dataframe else pd.DataFrame()
-
-            dataset_templates = []
-            for data in dataset_templates_data:
-                dataset_template = self._parse_dataset_template_from_response(data)
-                if dataset_template:
-                    dataset_templates.append(dataset_template)
-
-            if return_dataframe:
-                return self._dataset_templates_to_dataframe(dataset_templates)
-            else:
-                return dataset_templates
-
-        except Exception as e:
-            logger.error(f"Error parsing dataset templates: {str(e)}")
-            return [] if not return_dataframe else pd.DataFrame()
-
-    def _get_header_params(self) -> dict:
-        return self._get_standard_header_params(
-            accept_types=[
-                self.json_type,
-                "application/hal+json",
-                "text/uri-list",
-                "application/x-spring-data-compact+json",
-            ]
-        )
-
-    @staticmethod
-    def _parse_dataset_template_from_response(response: dict) -> DatasetTemplate | None:
-        try:
-            dataset_template = DatasetTemplate(
-                id=uuid.UUID(response.get("id")),
-                name=response.get("name"),
-                description=response.get("description"),
-                project_id=uuid.UUID(response.get("projectId")),
-                owner_id=response.get("ownerId"),
-                catalog_type=CatalogType(response.get("catalogType")),
-            )
-
-            # Get metadata
-            metadata = response.get("metadata")
-            features_data = metadata.get("features")
-            entity_targets_data = metadata.get("entityAndTargets")
-
-            # Extract entity
-            entity = features_data.get("entity")
-            dataset_template.entity = entity
-
-            # Extract targets
-            if "variables" in entity_targets_data:
-                target_variables = []
-                for variable in entity_targets_data.get("variables"):
-                    if variable.get("type") == TypeEnum.TARGET.value:
-                        target_variables.append(variable.get("name"))
-                dataset_template.target = target_variables
-
-            # Set up the metadata structure
-            dataset_template.metadata = Metadata()
-            dataset_template.metadata.features = FeaturesEntityTargets()
-            dataset_template.metadata.entity_and_targets = FeaturesEntityTargets()
-            dataset_template.metadata.predictions = Predictions()
-            dataset_template.metadata.type = CatalogBodyType(metadata.get("type"))
-
-            entity_target_columns = DatasetTemplateApi._dict_list_to_variable_list(
-                entity_targets_data.get("variables")
-            )
-
-            dataset_template.metadata.entity_and_targets.variables = (
-                entity_target_columns
-            )
-            dataset_template.metadata.entity_and_targets.entity = entity
-            dataset_template.metadata.entity_and_targets.sql = entity_targets_data.get(
-                "sql"
-            )
-
-            feature_columns = DatasetTemplateApi._dict_list_to_variable_list(
-                features_data.get("variables")
-            )
-
-            dataset_template.metadata.features.variables = feature_columns
-            dataset_template.metadata.features.entity = entity
-            dataset_template.metadata.features.sql = features_data.get("sql")
-
-            predictions_data = metadata.get("predictions")
-            dataset_template.metadata.predictions.database = predictions_data.get(
-                "database"
-            )
-            dataset_template.metadata.predictions.entity_sql = predictions_data.get(
-                "entitySql"
-            )
-            dataset_template.metadata.predictions.table = predictions_data.get("table")
-
-            return dataset_template
-        except Exception as e:
-            logger.error(f"Error parsing dataset template from response: {str(e)}")
-            return None
-
-    @staticmethod
-    def _dataset_templates_to_dataframe(
-        dataset_templates: list[DatasetTemplate],
-    ) -> DataFrame | None:
-        """
-        Helper method to combine multiple dataset templates into a single DataFrame
-
-        Parameters:
-            dataset_templates (list[DatasetTemplate]): a list of dataset templates to combine
-
-        Returns:
-            DataFrame: Combined DataFrame containing all dataset templates, or None if conversion fails
-        """
-        if not dataset_templates:
-            return None
-
-        try:
-            from tmo.util.utils import to_dataframe
-
-            combined_data = []
-            for dataset_template in dataset_templates:
-                combined_data.append(dataset_template.get_df_template())
-
-            return to_dataframe(combined_data)
-        except Exception as e:
-            logger.error(f"Could not combine dataset templates to DataFrame: {str(e)}")
-            return None
-
-    @staticmethod
-    def _dict_list_to_variable_list(variables: list[dict]) -> list[Variable]:
-        return [
-            Variable()
-            .set_name(var["name"])
-            .set_data_type(DataType(var["dataType"]))
-            .set_type(TypeEnum(var["type"]))
-            for var in variables
-        ]
-
-    @staticmethod
-    def _create_tables(
-        target_columns_objects: list[Variable],
-        entity_columns: list[str],
-        database: str,
-        predictions_table: str,
-        feature_metadata_table: str,
-    ):
-        # Create the predictions table schema
-        predictions_table_schema = ", ".join([
-            f"{col.name} {'FLOAT' if col.data_type == DataType.FLOAT else 'INTEGER'}"
-            for col in target_columns_objects
-        ])
-
-        predictions_table_schema = (
-            f"job_id VARCHAR(128), {entity_columns[0]} VARCHAR(128),"
-            f" {predictions_table_schema}, json_report CLOB"
-        )
-
-        create_predictions_table_query = f"""CREATE TABLE "{database}"."{predictions_table}" ({predictions_table_schema});"""
-
-        # Create the predictions table if it doesn't exist
-        try:
-            execute_sql(f'SELECT TOP 1 * FROM "{database}"."{predictions_table}";')
-        except:  # noqa #NOSONAR
-            try:
-                execute_sql(create_predictions_table_query)
-                warnings.warn(
-                    f"Table {predictions_table} already exists. Using existing table.",
-                    UserWarning,
-                )
-            except Exception as e:
-                raise EntityCreationError(
-                    f"Error creating table {predictions_table}: {e}"
-                )
-
-        # Create the feature metadata table if it doesn't exist
-        try:
-            execute_sql(f'SELECT TOP 1 * FROM "{database}"."{feature_metadata_table}";')
-            warnings.warn(
-                f"Table {feature_metadata_table} already exists. Using existing table.",
-                UserWarning,
-            )
-        except:  # noqa #NOSONAR
-            try:
-                from ..stats.store import create_features_stats_table
-
-                create_features_stats_table(feature_metadata_table)
-            except Exception as e:
-                raise EntityCreationError(
-                    f"Error creating table {feature_metadata_table}: {e}"
-                )
 
     @staticmethod
     def _build_metadata(
@@ -689,3 +376,114 @@ class DatasetTemplateApi(IteratorBaseApi):
         )
 
         return feature_metadata, metadata
+
+    @staticmethod
+    def _create_tables(
+        target_columns_objects: list[Variable],
+        entity_columns: list[str],
+        database: str,
+        predictions_table: str,
+        feature_metadata_table: str,
+    ):
+        # Create the predictions table schema
+        def get_sql_type(data_type: DataType) -> str:
+            """Map DataType enum to SQL type."""
+            if data_type == DataType.FLOAT:
+                return "FLOAT"
+            elif data_type == DataType.INTEGER:
+                return "INTEGER"
+            else:  # DataType.VARCHAR
+                return "VARCHAR(40000)"
+
+        predictions_table_schema = ", ".join([
+            f"{col.name} {get_sql_type(col.data_type)}"
+            for col in target_columns_objects
+        ])
+
+        predictions_table_schema = (
+            f"job_id VARCHAR(128), {entity_columns[0]} VARCHAR(128),"
+            f" {predictions_table_schema}, json_report CLOB"
+        )
+
+        create_predictions_table_query = f"""CREATE TABLE "{database}"."{predictions_table}" ({predictions_table_schema});"""
+
+        # Create the predictions table if it doesn't exist
+        try:
+            execute_sql(f'SELECT TOP 1 * FROM "{database}"."{predictions_table}";')
+            # If SELECT succeeds, table already exists
+            warnings.warn(
+                f"Table {predictions_table} already exists. Using existing table.",
+                UserWarning,
+            )
+        except:  # noqa #NOSONAR
+            # Table doesn't exist, create it
+            try:
+                execute_sql(create_predictions_table_query)
+                logger.debug(f"Created predictions table: {predictions_table}")
+            except Exception as e:
+                raise EntityCreationError(
+                    f"Error creating table {predictions_table}: {e}"
+                )
+
+        # Create the feature metadata table if it doesn't exist
+        try:
+            execute_sql(f'SELECT TOP 1 * FROM "{database}"."{feature_metadata_table}";')
+            warnings.warn(
+                f"Table {feature_metadata_table} already exists. Using existing table.",
+                UserWarning,
+            )
+        except:  # noqa #NOSONAR
+            try:
+                from ..stats.store import create_features_stats_table
+
+                create_features_stats_table(feature_metadata_table)
+                logger.debug(
+                    f"Created feature metadata table: {feature_metadata_table}"
+                )
+            except Exception as e:
+                raise EntityCreationError(
+                    f"Error creating table {feature_metadata_table}: {e}"
+                )
+
+    @staticmethod
+    def _infer_data_type_from_dtype(dtype_str: str) -> DataType:
+        """
+        Infer DataType enum from pandas dtype string.
+
+        Args:
+            dtype_str: String representation of pandas dtype
+
+        Returns:
+            DataType: FLOAT for float types, INTEGER for int types, VARCHAR for others
+        """
+        dtype_lower = str(dtype_str).lower()
+        if dtype_lower.startswith("float"):
+            return DataType.FLOAT
+        elif dtype_lower.startswith("int"):
+            return DataType.INTEGER
+        else:
+            return DataType.VARCHAR
+
+    def _parse_entity_from_dictionary(self, response: dict) -> DatasetTemplate | None:
+        try:
+            metadata = response.get("metadata")
+            catalog_type = CatalogType(response.get("catalogType"))
+            dataset_template = DatasetTemplate(
+                id=uuid.UUID(response.get("id")),
+                name=response.get("name"),
+                description=response.get("description"),
+                project_id=uuid.UUID(response.get("projectId")),
+                owner_id=response.get("ownerId"),
+                catalog_type=catalog_type,
+            )
+
+            from tmo.api.utils.metadata_parser import parse_metadata_from_response
+
+            dataset_template.metadata = parse_metadata_from_response(
+                metadata, catalog_type, dataset_template
+            )
+
+            return dataset_template
+        except Exception as e:
+            logger.error(f"Error parsing dataset template from response: {str(e)}")
+            return None

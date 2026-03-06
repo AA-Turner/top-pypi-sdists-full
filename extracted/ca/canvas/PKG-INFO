@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: canvas
-Version: 0.109.0
+Version: 0.111.0
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT
-Requires-Python: <3.13,>=3.11
+Requires-Python: <3.15,>=3.11
 Requires-Dist: cookiecutter
 Requires-Dist: cron-converter<2,>=1.2.1
 Requires-Dist: cryptography>=45.0.5
@@ -16,14 +16,14 @@ Requires-Dist: django<6,>=5.1.1
 Requires-Dist: env-tools<3,>=2.4.0
 Requires-Dist: factory-boy>=3.3.3
 Requires-Dist: frozendict>=2.4.6
-Requires-Dist: grpcio<2,>=1.60.1
+Requires-Dist: grpcio<2,>=1.78.0
 Requires-Dist: ipython<9,>=8.21.0
 Requires-Dist: jsonschema<5,>=4.21.1
 Requires-Dist: pathspec>=0.12.1
-Requires-Dist: protobuf<5,>=4.25.3
+Requires-Dist: protobuf<7,>=6
 Requires-Dist: psutil==7.2.2
-Requires-Dist: psycopg[binary,pool]<4,>=3.2.2
-Requires-Dist: pydantic<3,>=2.6.1
+Requires-Dist: psycopg[binary,pool]<4,>=3.3.3
+Requires-Dist: pydantic<3,>=2.12.5
 Requires-Dist: pyjwt==2.10.1
 Requires-Dist: python-dotenv<2,>=1.0.1
 Requires-Dist: python-logstash-async>=4.0.2
@@ -35,7 +35,7 @@ Requires-Dist: sentry-sdk>=2.33.2
 Requires-Dist: statsd<5,>=4.0.1
 Requires-Dist: stripe>=14.1.0
 Requires-Dist: typer
-Requires-Dist: typing-extensions<4.13,>=4.8
+Requires-Dist: typing-extensions<5,>=4.14.1
 Requires-Dist: websocket-client<2,>=1.7.0
 Provides-Extra: test-utils
 Requires-Dist: pytest-canvas; extra == 'test-utils'

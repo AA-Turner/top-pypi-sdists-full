@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mng
-Version: 0.1.5
+Version: 0.1.6
 Summary: Library for managing AI coding agents across different hosts
 Project-URL: Homepage, https://github.com/imbue-ai/mng
 Project-URL: Repository, https://github.com/imbue-ai/mng
@@ -14,17 +14,18 @@ Requires-Python: >=3.11
 Requires-Dist: cel-python>=0.1.5
 Requires-Dist: click-option-group>=0.5.6
 Requires-Dist: click>=8.0
-Requires-Dist: concurrency-group==0.1.5
+Requires-Dist: concurrency-group==0.1.6
 Requires-Dist: coolname>=3.0.0
 Requires-Dist: cryptography>=42.0
-Requires-Dist: docker>=7.0
+Requires-Dist: docker==7.1.0
 Requires-Dist: dockerfile-parse>=2.0.0
-Requires-Dist: imbue-common==0.1.5
+Requires-Dist: imbue-common==0.1.6
 Requires-Dist: modal==1.3.1
 Requires-Dist: packaging>=21.0
 Requires-Dist: pluggy>=1.5.0
 Requires-Dist: psutil>=5.9
 Requires-Dist: pydantic>=2.0
+Requires-Dist: pygtail>=0.14.0
 Requires-Dist: pyinfra>=3.0
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: setproctitle>=1.3
@@ -248,7 +249,7 @@ mng <command> [options]
 ### For maintenance:
 
 - [`cleanup`](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/commands/secondary/cleanup.md): Clean up stopped agents and unused resources
-- [`logs`](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/commands/secondary/logs.md): View agent and host logs
+- [`events`](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/commands/secondary/events.md): View agent and host event files
 - [`gc`](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/commands/secondary/gc.md): Garbage collect unused resources
 
 ### For managing mng itself:
@@ -265,7 +266,6 @@ You can interact with `mng` via the terminal (run `mng --help` to learn more).
 `mng` uses robust open source tools like SSH, git, and tmux to run and manage your agents:
 
 - **[agents](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/agents.md)** are simply processes that run in [tmux](https://github.com/tmux/tmux/wiki) sessions, each with their own `work_dir` (working folder) and configuration (ex: secrets, environment variables, etc)
-<!-- - [agents](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/agents.md) usually expose URLs so you can access them from the web [future: mng open] -->
 - [agents](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/agents.md) run on **[hosts](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/hosts.md)**--either locally (by default), or special environments like [Modal](https://modal.com) [Sandboxes](https://modal.com/docs/guide/sandboxes) (`--in modal`) or [Docker](https://www.docker.com) [containers](https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/) (`--in docker`).  Use `--host <name>` to target an existing host.
 - multiple [agents](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/agents.md) can share a single [host](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/hosts.md).
 - [hosts](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/hosts.md) come from **[providers](https://github.com/imbue-ai/mng/blob/main/libs/mng/docs/concepts/providers.md)** (ex: Modal, AWS, docker, etc)

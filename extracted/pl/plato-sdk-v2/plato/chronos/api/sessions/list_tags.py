@@ -12,6 +12,7 @@ from plato.chronos.models import TagsListResponse
 
 def _build_request_args(
     q: str | None = None,
+    exclude_tags: list[str] | None = None,
     limit: int | None = 10,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
@@ -21,6 +22,8 @@ def _build_request_args(
     params: dict[str, Any] = {}
     if q is not None:
         params["q"] = q
+    if exclude_tags is not None:
+        params["exclude_tags"] = exclude_tags
     if limit is not None:
         params["limit"] = limit
 
@@ -39,6 +42,7 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     q: str | None = None,
+    exclude_tags: list[str] | None = None,
     limit: int | None = 10,
     x_api_key: str | None = None,
 ) -> TagsListResponse:
@@ -49,6 +53,7 @@ def sync(
 
     request_args = _build_request_args(
         q=q,
+        exclude_tags=exclude_tags,
         limit=limit,
         x_api_key=x_api_key,
     )
@@ -61,6 +66,7 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     q: str | None = None,
+    exclude_tags: list[str] | None = None,
     limit: int | None = 10,
     x_api_key: str | None = None,
 ) -> TagsListResponse:
@@ -71,6 +77,7 @@ async def asyncio(
 
     request_args = _build_request_args(
         q=q,
+        exclude_tags=exclude_tags,
         limit=limit,
         x_api_key=x_api_key,
     )

@@ -311,6 +311,19 @@ class MetaboLightsRESTTool(BaseTool):
                 extracted_data = data
                 count = len(data)
 
+            # Apply client-side pagination for list/search (API ignores size/page params)
+            if tool_name in (
+                "metabolights_list_studies",
+                "metabolights_search_studies",
+            ):
+                size = arguments.get("size", 20)
+                page = arguments.get("page", 0)
+                if isinstance(extracted_data, list):
+                    total = len(extracted_data)
+                    start = page * size
+                    extracted_data = extracted_data[start : start + size]
+                    count = len(extracted_data)
+
             response_data = {
                 "status": "success",
                 "data": extracted_data,

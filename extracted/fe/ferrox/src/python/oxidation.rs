@@ -32,7 +32,7 @@ fn get_elements_and_amounts_from_comp(
 
 /// Guess oxidation states for a structure or formula.
 /// Accepts either a structure JSON string or a formula string like "Fe2O3".
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.oxidation")]
 #[pyfunction]
 #[pyo3(signature = (structure_or_formula, all_states = false))]
 fn oxi_state_guesses(
@@ -72,13 +72,13 @@ fn oxi_state_guesses(
 }
 
 /// Add oxidation states from guesses to a structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.oxidation")]
 #[pyfunction]
 fn add_charges_from_oxi_state_guesses(
     py: Python<'_>,
     structure: StructureJson,
 ) -> PyResult<Py<PyDict>> {
-    let struc = parse_struct(&structure)?;
+    let mut struc = parse_struct(&structure)?;
     let (elements, amounts) = get_elements_and_amounts(&struc);
     let guesses = oxidation::oxi_state_guesses(&elements, &amounts, 0, None, false, None);
 
@@ -88,21 +88,27 @@ fn add_charges_from_oxi_state_guesses(
         ));
     }
 
-    // Apply the best guess (first one) - map element to oxidation state
     let best = &guesses[0];
-    let mut result = struc.clone();
-    for site_occ in result.site_occupancies.iter_mut() {
+    for site_occ in struc.site_occupancies.iter_mut() {
         for (sp, _) in site_occ.species.iter_mut() {
             if let Some(&oxi) = best.oxidation_states.get(sp.element.symbol()) {
-                sp.oxidation_state = Some(oxi.round() as i8);
+                let rounded = oxi.round();
+                sp.oxidation_state = if rounded.is_finite()
+                    && rounded >= f64::from(i8::MIN)
+                    && rounded <= f64::from(i8::MAX)
+                {
+                    Some(rounded as i8)
+                } else {
+                    None
+                };
             }
         }
     }
-    Ok(structure_to_pydict(py, &result)?.unbind())
+    Ok(structure_to_pydict(py, &struc)?.unbind())
 }
 
 /// Compute bond valence sums.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.oxidation")]
 #[pyfunction]
 #[pyo3(signature = (structure, max_radius = 4.0, scale_factor = 1.0))]
 fn compute_bv_sums(
@@ -153,7 +159,7 @@ fn compute_bv_sums(
 }
 
 /// Guess oxidation states using structure's composition.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.oxidation")]
 #[pyfunction]
 fn guess_oxidation_states(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let struc = parse_struct(&structure)?;
@@ -175,7 +181,7 @@ fn guess_oxidation_states(py: Python<'_>, structure: StructureJson) -> PyResult<
 }
 
 /// Add oxidation states by element.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.oxidation")]
 #[pyfunction]
 fn add_oxidation_state_by_element(
     py: Python<'_>,
@@ -194,7 +200,7 @@ fn add_oxidation_state_by_element(
 }
 
 /// Add oxidation states by site.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.oxidation")]
 #[pyfunction]
 fn add_oxidation_state_by_site(
     py: Python<'_>,
@@ -218,7 +224,7 @@ fn add_oxidation_state_by_site(
 }
 
 /// Remove oxidation states from a structure.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.oxidation")]
 #[pyfunction]
 fn remove_oxidation_states(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let mut struc = parse_struct(&structure)?;
@@ -230,19 +236,17 @@ fn remove_oxidation_states(py: Python<'_>, structure: StructureJson) -> PyResult
     Ok(structure_to_pydict(py, &struc)?.unbind())
 }
 
-/// Register the oxidation submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "oxidation")?;
-    submod.add_function(wrap_pyfunction!(oxi_state_guesses, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(
+/// Register oxidation functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(oxi_state_guesses, module)?)?;
+    module.add_function(wrap_pyfunction!(
         add_charges_from_oxi_state_guesses,
-        &submod
+        module
     )?)?;
-    submod.add_function(wrap_pyfunction!(compute_bv_sums, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(guess_oxidation_states, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(add_oxidation_state_by_element, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(add_oxidation_state_by_site, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(remove_oxidation_states, &submod)?)?;
-    parent.add_submodule(&submod)?;
+    module.add_function(wrap_pyfunction!(compute_bv_sums, module)?)?;
+    module.add_function(wrap_pyfunction!(guess_oxidation_states, module)?)?;
+    module.add_function(wrap_pyfunction!(add_oxidation_state_by_element, module)?)?;
+    module.add_function(wrap_pyfunction!(add_oxidation_state_by_site, module)?)?;
+    module.add_function(wrap_pyfunction!(remove_oxidation_states, module)?)?;
     Ok(())
 }

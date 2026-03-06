@@ -67,6 +67,7 @@ __all__ = [
     "UnrecognizedSelectorError",
     "UnsupportedCommandError",
     "UserDeniedPairingError",
+    "WdaError",
     "WebInspectorNotEnabledError",
     "WirError",
 ]
@@ -220,6 +221,12 @@ class UnsupportedCommandError(PyMobileDevice3Exception):
 
 class ExtractingStackshotError(PyMobileDevice3Exception):
     """Raise when stackshot is not received in the core profile session."""
+
+    pass
+
+
+class ChannelClosedError(PyMobileDevice3Exception):
+    """Raised when trying to send or read a message on a closed channel."""
 
     pass
 
@@ -514,3 +521,11 @@ class TSSError(PyMobileDevice3Exception):
     """An unexpected message was received from apple ticket server"""
 
     pass
+
+
+class WdaError(PyMobileDevice3Exception):
+    """Raised for WebDriverAgent (WDA) errors."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code

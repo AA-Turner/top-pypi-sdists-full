@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # ------------------------------------
 
-import base64
 import functools
 import json
 import datetime
@@ -25,7 +24,6 @@ _FAILED = frozenset(["failed"])
 _SUCCEEDED = frozenset(["succeeded", "partiallycompleted", "partiallysucceeded"])
 
 
-PollingReturnType = TypeVar("PollingReturnType")
 PollingReturnType_co = TypeVar("PollingReturnType_co", covariant=True)
 
 
@@ -41,36 +39,35 @@ class TextAnalysisLROPoller(Protocol[PollingReturnType_co]):
         :return: A mapping of details about the long-running operation.
         :rtype: Mapping[str, Any]
         """
-        ...
 
-    def continuation_token(self) -> str:  # pylint: disable=no-self-use
+
+    def continuation_token(self) -> str:
         """Return a continuation token that allows to restart the poller later.
 
         :returns: An opaque continuation token
         :rtype: str
         """
-        ...
 
-    def status(self) -> str:  # pylint: disable=no-self-use
+    def status(self) -> str:
         """Returns the current status string.
 
         :returns: The current status string
         :rtype: str
         """
-        ...
 
-    # pylint: disable=no-self-use, unused-argument
-    def result(self, timeout: Optional[int] = None) -> PollingReturnType_co:
+    # pylint: disable=unused-argument
+    def result(self, timeout: Optional[float] = None) -> PollingReturnType_co:
         """Return the result of the long running operation, or
         the result available after the specified timeout.
 
+        :param float timeout: Period of time to wait for the long running
+         operation to complete (in seconds).
         :returns: The deserialized resource of the long running operation,
          if one is available.
         :raises ~azure.core.exceptions.HttpResponseError: Server problem with the query.
         """
-        ...
 
-    def wait(self, timeout: Optional[float] = None) -> None:  # pylint: disable=no-self-use, unused-argument
+    def wait(self, timeout: Optional[float] = None) -> None:  # pylint: disable=unused-argument
         """Wait on the long running operation for a specified length
         of time. You can check if this call as ended with timeout with the
         "done()" method.
@@ -79,41 +76,36 @@ class TextAnalysisLROPoller(Protocol[PollingReturnType_co]):
          operation to complete (in seconds).
         :raises ~azure.core.exceptions.HttpResponseError: Server problem with the query.
         """
-        ...
 
-    def done(self) -> bool:  # pylint: disable=no-self-use
+    def done(self) -> bool:
         """Check status of the long running operation.
 
         :returns: 'True' if the process has completed, else 'False'.
         :rtype: bool
         """
-        ...
 
-    def add_done_callback(self, func: Callable) -> None:  # pylint: disable=no-self-use, unused-argument
+    def add_done_callback(self, func: Callable) -> None:  # pylint: disable=unused-argument
         """Add callback function to be run once the long running operation
         has completed - regardless of the status of the operation.
 
         :param callable func: Callback function that takes at least one
          argument, a completed LongRunningOperation.
         """
-        ...
 
-    def remove_done_callback(self, func: Callable) -> None:  # pylint: disable=no-self-use, unused-argument
+    def remove_done_callback(self, func: Callable) -> None:  # pylint: disable=unused-argument
         """Remove a callback from the long running operation.
 
         :param callable func: The function to be removed from the callbacks.
         :raises ValueError: if the long running operation has already completed.
         """
-        ...
 
-    def cancel(self) -> None:  # pylint: disable=no-self-use
+    def cancel(self) -> None:
         """Cancel the operation currently being polled.
 
         :return: None
         :rtype: None
         :raises ~azure.core.exceptions.HttpResponseError: When the operation has already reached a terminal state.
         """
-        ...
 
 
 class TextAnalyticsOperationResourcePolling(OperationResourcePolling):
@@ -144,6 +136,7 @@ class TextAnalyticsLROPollingMethod(LROBasePolling):
     def finished(self) -> bool:
         """Is this polling finished?
 
+        :return: Whether polling is finished or not.
         :rtype: bool
         """
         return TextAnalyticsLROPollingMethod._finished(self.status())
@@ -166,6 +159,7 @@ class TextAnalyticsLROPollingMethod(LROBasePolling):
 
         Must be 200, 201, 202, or 204.
 
+        :param HttpResponse response: The initial http response.
         :raises: BadStatus if invalid status.
         """
         code = response.status_code
@@ -181,8 +175,6 @@ class TextAnalyticsLROPollingMethod(LROBasePolling):
         """Poll status of operation so long as operation is incomplete and
         we have an endpoint to query.
 
-        :param callable update_cmd: The function to call to retrieve the
-         latest status of the long running operation.
         :raises: OperationFailed if operation status 'Failed' or 'Canceled'.
         :raises: BadStatus if response status invalid.
         :raises: BadResponse if response invalid.
@@ -212,7 +204,9 @@ class TextAnalyticsLROPollingMethod(LROBasePolling):
             )
 
 
-class AnalyzeHealthcareEntitiesLROPollingMethod(TextAnalyticsLROPollingMethod):
+class AnalyzeHealthcareEntitiesLROPollingMethod(  # pylint: disable=all
+    TextAnalyticsLROPollingMethod
+):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._doc_id_order = kwargs.pop("doc_id_order", None)
         self._show_stats = kwargs.pop("show_stats", None)
@@ -260,13 +254,15 @@ class AnalyzeHealthcareEntitiesLROPollingMethod(TextAnalyticsLROPollingMethod):
         return self._current_body.display_name
 
     def get_continuation_token(self) -> str:
-        import pickle
-        self._initial_response.context.options["doc_id_order"] = self._doc_id_order
-        self._initial_response.context.options["show_stats"] = self._show_stats
-        return base64.b64encode(pickle.dumps(self._initial_response)).decode('ascii')
+        if self._initial_response.context is not None:
+            self._initial_response.context["deserialized_data"] = {
+                "show_stats": self._show_stats,
+                "doc_id_order": self._doc_id_order,
+            }
+        return super().get_continuation_token()
 
 
-class AnalyzeHealthcareEntitiesLROPoller(LROPoller[PollingReturnType]):
+class AnalyzeHealthcareEntitiesLROPoller(LROPoller[PollingReturnType_co]):
     def polling_method(self) -> AnalyzeHealthcareEntitiesLROPollingMethod:
         """Return the polling method associated to this poller.
 
@@ -322,10 +318,10 @@ class AnalyzeHealthcareEntitiesLROPoller(LROPoller[PollingReturnType]):
         client, initial_response, deserialization_callback = polling_method.from_continuation_token(
             continuation_token, **kwargs
         )
+        deserialized_data = getattr(initial_response, "context", {}).get("deserialized_data") or {}
+        show_stats = deserialized_data.get("show_stats")
         polling_method._lro_algorithms = [  # pylint: disable=protected-access
-            TextAnalyticsOperationResourcePolling(
-                show_stats=initial_response.context.options["show_stats"]
-            )
+            TextAnalyticsOperationResourcePolling(show_stats=show_stats)
         ]
         return cls(
             client,
@@ -373,7 +369,7 @@ class AnalyzeHealthcareEntitiesLROPoller(LROPoller[PollingReturnType]):
         except HttpResponseError as error:
             from ._response_handlers import process_http_response_error
 
-            process_http_response_error(error)
+            return process_http_response_error(error)
 
 
 class AnalyzeActionsLROPollingMethod(TextAnalyticsLROPollingMethod):
@@ -449,14 +445,16 @@ class AnalyzeActionsLROPollingMethod(TextAnalyticsLROPollingMethod):
         ].split("/jobs/")[1].split("?")[0]
 
     def get_continuation_token(self) -> str:
-        import pickle
-        self._initial_response.context.options["doc_id_order"] = self._doc_id_order
-        self._initial_response.context.options["task_id_order"] = self._task_id_order
-        self._initial_response.context.options["show_stats"] = self._show_stats
-        return base64.b64encode(pickle.dumps(self._initial_response)).decode('ascii')
+        if self._initial_response.context is not None:
+            self._initial_response.context["deserialized_data"] = {
+                "show_stats": self._show_stats,
+                "doc_id_order": self._doc_id_order,
+                "task_id_order": self._task_id_order,
+            }
+        return super().get_continuation_token()
 
 
-class AnalyzeActionsLROPoller(LROPoller[PollingReturnType]):
+class AnalyzeActionsLROPoller(LROPoller[PollingReturnType_co]):
     def polling_method(self) -> AnalyzeActionsLROPollingMethod:
         """Return the polling method associated to this poller.
 
@@ -520,10 +518,10 @@ class AnalyzeActionsLROPoller(LROPoller[PollingReturnType]):
         client, initial_response, deserialization_callback = polling_method.from_continuation_token(
             continuation_token, **kwargs
         )
+        deserialized_data = getattr(initial_response, "context", {}).get("deserialized_data") or {}
+        show_stats = deserialized_data.get("show_stats")
         polling_method._lro_algorithms = [  # pylint: disable=protected-access
-            TextAnalyticsOperationResourcePolling(
-                show_stats=initial_response.context.options["show_stats"]
-            )
+            TextAnalyticsOperationResourcePolling(show_stats=show_stats)
         ]
         return cls(
             client,
@@ -546,8 +544,8 @@ class AnalyzeActionsLROPoller(LROPoller[PollingReturnType]):
 
         try:
             client.begin_analyze_text_cancel_job(self.id, polling=False)
-        except ValueError:
-            raise ValueError("Cancellation not supported by API versions v3.0, v3.1.")
+        except ValueError as exc:
+            raise ValueError("Cancellation not supported by API versions v3.0, v3.1.") from exc
         except HttpResponseError as error:
             from ._response_handlers import process_http_response_error
             process_http_response_error(error)

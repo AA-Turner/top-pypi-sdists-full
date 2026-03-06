@@ -44,15 +44,21 @@ def IMPC_get_gene_phenotype_hits(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "gene_symbol": gene_symbol,
+            "mgi_id": mgi_id,
+            "significant_only": significant_only,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "IMPC_get_gene_phenotype_hits",
-            "arguments": {
-                "gene_symbol": gene_symbol,
-                "mgi_id": mgi_id,
-                "significant_only": significant_only,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

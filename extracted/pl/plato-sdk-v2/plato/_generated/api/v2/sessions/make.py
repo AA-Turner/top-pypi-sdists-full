@@ -12,11 +12,19 @@ from plato._generated.models import CreateSessionFromEnvs, CreateSessionResponse
 
 def _build_request_args(
     body: CreateSessionFromEnvs,
+    wait: bool | None = False,
+    wait_timeout: int | None = 300,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = "/api/v2/sessions/make"
+
+    params: dict[str, Any] = {}
+    if wait is not None:
+        params["wait"] = wait
+    if wait_timeout is not None:
+        params["wait_timeout"] = wait_timeout
 
     headers: dict[str, str] = {}
     if authorization is not None:
@@ -28,6 +36,7 @@ def _build_request_args(
         "method": "POST",
         "url": url,
         "json": body.model_dump(mode="json", exclude_none=True),
+        "params": params,
         "headers": headers,
     }
 
@@ -35,6 +44,8 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     body: CreateSessionFromEnvs,
+    wait: bool | None = False,
+    wait_timeout: int | None = 300,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> CreateSessionResponse:
@@ -46,6 +57,8 @@ def sync(
 
     request_args = _build_request_args(
         body=body,
+        wait=wait,
+        wait_timeout=wait_timeout,
         authorization=authorization,
         x_api_key=x_api_key,
     )
@@ -58,6 +71,8 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     body: CreateSessionFromEnvs,
+    wait: bool | None = False,
+    wait_timeout: int | None = 300,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> CreateSessionResponse:
@@ -69,6 +84,8 @@ async def asyncio(
 
     request_args = _build_request_args(
         body=body,
+        wait=wait,
+        wait_timeout=wait_timeout,
         authorization=authorization,
         x_api_key=x_api_key,
     )

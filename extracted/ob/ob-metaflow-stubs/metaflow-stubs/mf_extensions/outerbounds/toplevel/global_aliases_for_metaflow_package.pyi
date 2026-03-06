@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-27T00:13:09.762937                                                            #
+# Generated on 2026-03-05T21:57:32.361160                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from ..plugins.aws.assume_role_decorator import assume_role as assume_role
 from .... import ob_internal as ob_internal
 from ..plugins.apps.core.app_deploy_decorator import app_deploy as app_deploy
 from .... import apps as apps
+from ....metaflow_current import current as current
 
 def set_s3_proxy_config(config):
     ...

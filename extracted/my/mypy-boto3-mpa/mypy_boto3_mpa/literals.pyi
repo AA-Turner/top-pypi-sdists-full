@@ -26,6 +26,7 @@ __all__ = (
     "AdditionalSecurityRequirementType",
     "ApprovalTeamStatusCodeType",
     "ApprovalTeamStatusType",
+    "ApproverLastActivityType",
     "FilterFieldType",
     "IdentitySourceStatusCodeType",
     "IdentitySourceStatusType",
@@ -70,6 +71,7 @@ ApprovalTeamStatusCodeType = Literal[
     "VALIDATING",
 ]
 ApprovalTeamStatusType = Literal["ACTIVE", "DELETING", "INACTIVE", "PENDING"]
+ApproverLastActivityType = Literal["BASELINED", "RESPONDED_TO_INVITATION", "VOTED"]
 FilterFieldType = Literal[
     "ActionName", "ApprovalTeamName", "InitiationTime", "SessionStatus", "Vote", "VotingTime"
 ]
@@ -92,7 +94,9 @@ PolicyStatusType = Literal["ATTACHABLE", "DEPRECATED"]
 PolicyTypeType = Literal["AWS_MANAGED", "AWS_RAM"]
 SessionExecutionStatusType = Literal["EXECUTED", "FAILED", "PENDING"]
 SessionResponseType = Literal["APPROVED", "NO_RESPONSE", "REJECTED"]
-SessionStatusCodeType = Literal["CONFIGURATION_CHANGED", "EXPIRED", "REJECTED"]
+SessionStatusCodeType = Literal[
+    "ALL_APPROVERS_IN_SESSION", "CONFIGURATION_CHANGED", "EXPIRED", "REJECTED"
+]
 SessionStatusType = Literal["APPROVED", "CANCELLED", "CREATING", "FAILED", "PENDING"]
 UpdateActionType = Literal["SYNCHRONIZE_MFA_DEVICES"]
 MultipartyApprovalServiceName = Literal["mpa"]
@@ -198,6 +202,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -239,13 +244,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -285,7 +290,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -460,6 +464,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

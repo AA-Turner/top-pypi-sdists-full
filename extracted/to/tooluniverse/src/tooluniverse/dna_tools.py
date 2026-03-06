@@ -482,6 +482,39 @@ NEB_ENZYMES = {
     "SfiI": "GGCCNNNNNGGCC",
 }
 
+# Enzyme-specific cut offset (0-based, from start of recognition sequence)
+# Represents where the phosphodiester bond is cleaved on the top strand.
+# E.g., EcoRI: G^AATTC → cut after position 1 → offset = 1
+# EcoRV: GAT^ATC → blunt, offset = 3
+# KpnI: GGTAC^C → 3' overhang, offset = 5
+NEB_CUT_OFFSETS: Dict[str, int] = {
+    "EcoRI": 1,  # G^AATTC  (4-base 5' overhang)
+    "BamHI": 1,  # G^GATCC  (4-base 5' overhang)
+    "HindIII": 1,  # A^AGCTT  (4-base 5' overhang)
+    "NcoI": 1,  # C^CATGG  (4-base 5' overhang)
+    "NdeI": 2,  # CA^TATG  (4-base 5' overhang)
+    "XhoI": 1,  # C^TCGAG  (4-base 5' overhang)
+    "XbaI": 1,  # T^CTAGA  (4-base 5' overhang)
+    "SalI": 1,  # G^TCGAC  (4-base 5' overhang)
+    "SmaI": 3,  # CCC^GGG  (blunt)
+    "KpnI": 5,  # GGTAC^C  (4-base 3' overhang)
+    "SacI": 5,  # GAGCT^C  (4-base 3' overhang)
+    "ClaI": 2,  # AT^CGAT  (4-base 5' overhang, partial methylation sensitivity)
+    "SpeI": 1,  # A^CTAGT  (4-base 5' overhang)
+    "NotI": 2,  # GC^GGCCGC (4-base 5' overhang)
+    "PstI": 5,  # CTGCA^G  (4-base 3' overhang)
+    "EcoRV": 3,  # GAT^ATC  (blunt)
+    "NheI": 1,  # G^CTAGC  (4-base 5' overhang)
+    "MluI": 1,  # A^CGCGT  (4-base 5' overhang)
+    "ApaI": 5,  # GGGCC^C  (4-base 3' overhang)
+    "SphI": 5,  # GCATG^C  (4-base 3' overhang)
+    "BglII": 1,  # A^GATCT  (4-base 5' overhang)
+    "AgeI": 1,  # A^CCGGT  (4-base 5' overhang)
+    "AscI": 2,  # GG^CGCGCC (4-base 5' overhang)
+    "PacI": 5,  # TTAAT^TAA (2-base 3' overhang)
+    "SfiI": 8,  # GGCCNNNN^NGGCC (3-base 3' overhang)
+}
+
 
 @register_tool("DNATool")
 class DNATool(BaseTool):
@@ -544,85 +577,202 @@ class DNATool(BaseTool):
     def _find_restriction_sites(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Find restriction enzyme recognition sites in a DNA sequence."""
         sequence = arguments.get("sequence", "")
-        if not sequence:
+        # Strip whitespace before checking emptiness — a whitespace-only input
+        # is truthy but produces an empty sequence after cleaning.
+        if not sequence or not sequence.strip():
             return {"status": "error", "error": "sequence is required"}
 
-        sequence = sequence.upper().replace(" ", "").replace("\n", "")
+        sequence = sequence.upper().replace(" ", "").replace("\n", "").replace("\t", "")
         error = self._validate_dna_sequence(sequence)
         if error:
             return {"status": "error", "error": error}
 
         enzymes_requested = arguments.get("enzymes")
-        if enzymes_requested:
+        # Support circular DNA: search a doubled sequence to catch sites that
+        # span the origin of the molecule.
+        circular = bool(arguments.get("circular", False))
+
+        # Use `is not None` instead of truthiness: an empty list [] is explicitly
+        # "no enzymes requested" and must not silently fall through to all enzymes.
+        if enzymes_requested is not None:
             if isinstance(enzymes_requested, str):
                 enzymes_requested = [enzymes_requested]
-            enzyme_dict = {
-                name: seq
-                for name, seq in NEB_ENZYMES.items()
-                if name in enzymes_requested
-            }
-            not_found = [e for e in enzymes_requested if e not in NEB_ENZYMES]
-            if not_found:
+            if not enzymes_requested:
                 return {
                     "status": "error",
-                    "error": f"Unknown enzymes: {not_found}. Available: {sorted(NEB_ENZYMES.keys())}",
+                    "error": (
+                        "enzymes list is empty. Provide at least one enzyme name, "
+                        f"or omit the parameter to search all available enzymes: "
+                        f"{sorted(NEB_ENZYMES.keys())}"
+                    ),
                 }
+            # Case-insensitive normalization: enzyme names like "ecori", "ECORI",
+            # or "EcoRi" are silently mapped to the canonical form "EcoRI".
+            _neb_lower = {name.lower(): name for name in NEB_ENZYMES}
+            normalized_requested = []
+            unknown_enzymes = []
+            for e in enzymes_requested:
+                if e in NEB_ENZYMES:
+                    normalized_requested.append(e)
+                elif e.lower() in _neb_lower:
+                    normalized_requested.append(_neb_lower[e.lower()])
+                else:
+                    unknown_enzymes.append(e)
+            # Previously the whole call failed when ANY enzyme was unknown,
+            # discarding results for valid enzymes.  Now: proceed with recognized enzymes
+            # and report unknown ones in a warning.  Only fail if ALL are unknown.
+            if unknown_enzymes and not normalized_requested:
+                return {
+                    "status": "error",
+                    "error": f"Unknown enzymes: {unknown_enzymes}. Available: {sorted(NEB_ENZYMES.keys())}",
+                }
+            enzyme_dict = {name: NEB_ENZYMES[name] for name in normalized_requested}
         else:
             enzyme_dict = NEB_ENZYMES
+            unknown_enzymes = []
+
+        seq_len = len(sequence)
+        # For circular DNA, search the doubled sequence to detect sites that
+        # wrap around the origin. Only positions 0..seq_len-1 are collected
+        # (positions ≥ seq_len are duplicates of non-wrapping sites).
+        search_seq = (sequence + sequence) if circular else sequence
 
         results = {}
         for enzyme_name, recognition_seq in enzyme_dict.items():
             if "N" in recognition_seq:
                 pattern = recognition_seq.replace("N", "[ATGC]")
-                positions = [
-                    m.start() + 1 for m in re.finditer(f"(?={pattern})", sequence)
-                ]
+                if circular:
+                    positions = [
+                        m.start() + 1
+                        for m in re.finditer(f"(?={pattern})", search_seq)
+                        if m.start() < seq_len
+                    ]
+                else:
+                    positions = [
+                        m.start() + 1 for m in re.finditer(f"(?={pattern})", search_seq)
+                    ]
             else:
                 positions = []
                 start = 0
                 while True:
-                    pos = sequence.find(recognition_seq, start)
+                    pos = search_seq.find(recognition_seq, start)
                     if pos == -1:
                         break
+                    if circular and pos >= seq_len:
+                        break  # stop at duplicates
                     positions.append(pos + 1)  # 1-based
                     start = pos + 1
 
+            cut_off = NEB_CUT_OFFSETS.get(enzyme_name, len(recognition_seq) // 2)
             if positions:
+                # `cut_sites` reports 1-based recognition sequence start
+                # positions, NOT the actual phosphodiester bond cleavage positions.
+                # For enzymes like KpnI (GGTAC^C, cut_offset=5), the difference is 4 bp.
+                # Add `cleavage_positions` (1-based) so callers can determine the exact
+                # cut site without having to look up enzyme-specific offsets.
+                cleavage_pos = sorted(
+                    set(((p - 1 + cut_off) % seq_len) + 1 for p in positions)
+                )
                 results[enzyme_name] = {
                     "recognition_sequence": recognition_seq,
-                    "cut_sites": positions,
+                    "cut_sites": positions,  # 1-based recognition site START positions
+                    "cleavage_positions": cleavage_pos,  # 1-based actual CUT positions
                     "num_cuts": len(positions),
                 }
+            elif enzymes_requested:
+                # Explicitly requested enzymes that find 0 sites were
+                # previously absent from enzymes_with_sites entirely.  A caller
+                # doing results["enzymes_with_sites"]["EcoRI"] would get a KeyError
+                # with no way to distinguish "not requested" from "0 sites found."
+                # Only applies when user specified an enzyme list; all-enzyme scans
+                # (enzymes=None) skip this to avoid 100+ empty entries.
+                results[enzyme_name] = {
+                    "recognition_sequence": recognition_seq,
+                    "cut_sites": [],
+                    "cleavage_positions": [],
+                    "num_cuts": 0,
+                }
+
+        data = {
+            "sequence_length": seq_len,
+            "enzymes_with_sites": results,
+            "enzymes_cutting": sorted(
+                k for k, v in results.items() if v["num_cuts"] > 0
+            ),
+            "num_enzymes_cutting": sum(
+                1 for v in results.values() if v["num_cuts"] > 0
+            ),
+        }
+        if unknown_enzymes:
+            data["unknown_enzymes_warning"] = (
+                f"The following enzyme name(s) were not recognized and were skipped: "
+                f"{unknown_enzymes}. Check spelling or see available enzymes in the "
+                "enzyme_list operation."
+            )
+        if circular:
+            data["circular"] = True
 
         return {
             "status": "success",
-            "data": {
-                "sequence_length": len(sequence),
-                "enzymes_with_sites": results,
-                "enzymes_cutting": sorted(results.keys()),
-                "num_enzymes_cutting": len(results),
-            },
+            "data": data,
         }
 
     def _find_orfs(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Find open reading frames (ORFs) in a DNA sequence."""
         sequence = arguments.get("sequence", "")
-        if not sequence:
+        if not sequence or not sequence.strip():
             return {"status": "error", "error": "sequence is required"}
 
-        sequence = sequence.upper().replace(" ", "").replace("\n", "")
+        sequence = sequence.upper().replace(" ", "").replace("\n", "").replace("\t", "")
         error = self._validate_dna_sequence(sequence)
         if error:
             return {"status": "error", "error": error}
 
         min_length = arguments.get("min_length", 100)  # minimum nt length
+        try:
+            min_length = int(min_length)
+        except (ValueError, TypeError):
+            return {
+                "status": "error",
+                "error": "min_length must be a non-negative integer",
+            }
+        if min_length < 0:
+            return {
+                "status": "error",
+                "error": f"min_length ({min_length}) must be non-negative. "
+                "A negative minimum length is biologically meaningless.",
+            }
         strand = arguments.get("strand", "both")  # "forward", "reverse", "both"
+
+        # Validate strand parameter: case-sensitive match required.
+        # An invalid value (e.g., "BOTH", "Forward") silently returns 0 ORFs.
+        _valid_strands = ("forward", "reverse", "both")
+        if strand not in _valid_strands:
+            return {
+                "status": "error",
+                "error": (
+                    f"Invalid strand value '{strand}'. "
+                    "Must be 'forward', 'reverse', or 'both' (case-sensitive)."
+                ),
+            }
 
         _STOP_SET = {"TAA", "TAG", "TGA"}
 
-        def find_orfs_in_sequence(seq: str, is_reverse: bool = False) -> List[Dict]:
-            """Scan all three reading frames using a state-machine (open/closed)."""
+        def find_orfs_in_sequence(seq: str, is_reverse: bool = False):
+            """Scan all three reading frames using a state-machine (open/closed).
+
+            Note: Uses a greedy open/close state machine — opens at the first ATG
+            in each frame and closes at the first in-frame stop codon. Nested ORFs
+            (ATG codons embedded within an already-open reading frame) are not
+            detected; only the outermost ORF starting at the earliest ATG is
+            reported per reading frame.
+
+            Returns: (closed_orfs, open_orf_starts)
+              - closed_orfs: list of ORFs that have an in-frame stop codon
+              - open_orf_starts: list of (frame, start_1based) for ORFs with no stop
+            """
             orfs = []
+            open_starts = []
             seq_len = len(seq)
             strand_label = "-" if is_reverse else "+"
 
@@ -647,41 +797,132 @@ class DNATool(BaseTool):
                                 else:
                                     coord_start = orf_start_idx + 1  # 1-based
                                     coord_end = pos + 3
-                                orfs.append(
-                                    {
-                                        "start": coord_start,
-                                        "end": coord_end,
-                                        "length_nt": orf_nt_len,
-                                        "length_aa": orf_nt_len // 3 - 1,
-                                        "frame": frame_offset + 1,
-                                        "strand": strand_label,
-                                        "sequence": seq[orf_start_idx : pos + 3],
-                                    }
+                                # For minus-strand ORFs, report the reading frame at the 5'
+                                # end of the ORF in plus-strand coordinates (GFF convention).
+                                # The 5' end on the minus strand is coord_end (the highest
+                                # plus-strand coordinate, where the ATG resides).
+                                # frame = (coord_end - 1) % 3 + 1 (1-based).
+                                # For plus-strand ORFs, frame_offset + 1 equals
+                                # (coord_start - 1) % 3 + 1, which is already correct.
+                                _orf_frame = (
+                                    (coord_end - 1) % 3 + 1
+                                    if is_reverse
+                                    else frame_offset + 1
                                 )
+                                orf_entry = {
+                                    "start": coord_start,
+                                    "end": coord_end,
+                                    "length_nt": orf_nt_len,
+                                    "length_aa": orf_nt_len // 3 - 1,
+                                    "frame": _orf_frame,
+                                    "strand": strand_label,
+                                    "sequence": seq[orf_start_idx : pos + 3],
+                                }
+                                if is_reverse:
+                                    # For minus-strand ORFs, `start` and `end`
+                                    # are 1-based plus-strand coordinates (standard GFF/GTF
+                                    # convention: start < end, strand='-').
+                                    # `original_seq[start-1:end]` gives the PLUS-strand
+                                    # region, NOT the ORF.  The ORF is its reverse complement.
+                                    # The `sequence` field already contains the correct ORF
+                                    # (read 5'→3' on the minus strand).
+                                    orf_entry["coordinate_note"] = (
+                                        "Coordinates (start, end) are 1-based plus-strand "
+                                        "positions (GFF convention). To extract the ORF from "
+                                        "the original sequence: reverse_complement(seq[start-1:end]). "
+                                        "The 'sequence' field already contains the ORF."
+                                    )
+                                orfs.append(orf_entry)
                             orf_open = False
                     pos += 3
-            return orfs
+
+                # After exhausting all codons in this frame: if orf_open is still
+                # True, the ORF started but never encountered an in-frame stop codon.
+                # This is a truncated/open ORF — record it so callers are informed.
+                if orf_open:
+                    partial_len = seq_len - orf_start_idx
+                    if partial_len >= min_length:
+                        if is_reverse:
+                            # Was `seq_len - orf_start_idx` which is the
+                            # GFF END (highest plus-strand coordinate = last base of ATG).
+                            # Convention for closed minus-strand ORFs uses
+                            # coord_start = GFF start (lower bound, consistent with GFF).
+                            # The GFF start of the ATG is:
+                            #   seq_len - (orf_start_idx + 3) + 1 = seq_len - orf_start_idx - 2
+                            open_coord = (
+                                seq_len - orf_start_idx - 2
+                            )  # 1-based GFF start
+                        else:
+                            open_coord = orf_start_idx + 1  # 1-based start
+                        # For minus-strand open ORFs, derive the GFF-convention reading
+                        # frame from the ATG's highest plus-strand coordinate:
+                        #   atg_coord_end = seq_len - orf_start_idx
+                        #   frame = (atg_coord_end - 1) % 3 + 1
+                        # This is identical to (seq_len - orf_start_idx - 1) % 3 + 1.
+                        _open_frame = (
+                            (seq_len - orf_start_idx - 1) % 3 + 1
+                            if is_reverse
+                            else frame_offset + 1
+                        )
+                        open_starts.append(
+                            {
+                                "frame": _open_frame,
+                                "strand": strand_label,
+                                "start": open_coord,
+                                "partial_length_nt": partial_len,
+                            }
+                        )
+            return orfs, open_starts
 
         all_orfs = []
+        all_open_starts = []
 
         if strand in ("forward", "both"):
-            all_orfs.extend(find_orfs_in_sequence(sequence, is_reverse=False))
+            closed, opens = find_orfs_in_sequence(sequence, is_reverse=False)
+            all_orfs.extend(closed)
+            all_open_starts.extend(opens)
 
         if strand in ("reverse", "both"):
             rev_comp = sequence.translate(COMPLEMENT)[::-1]
-            all_orfs.extend(find_orfs_in_sequence(rev_comp, is_reverse=True))
+            closed, opens = find_orfs_in_sequence(rev_comp, is_reverse=True)
+            all_orfs.extend(closed)
+            all_open_starts.extend(opens)
 
         all_orfs.sort(key=lambda x: x["length_nt"], reverse=True)
 
-        return {
-            "status": "success",
-            "data": {
-                "sequence_length": len(sequence),
-                "min_length_nt": min_length,
-                "num_orfs_found": len(all_orfs),
-                "orfs": all_orfs[:50],
-            },
+        total_found = len(all_orfs)
+        displayed = all_orfs[:50]
+
+        data = {
+            "sequence_length": len(sequence),
+            "min_length_nt": min_length,
+            "num_orfs_found": total_found,
+            "orfs": displayed,
         }
+        # Warn when the result list is truncated: num_orfs_found > 50 but only
+        # 50 entries are returned, which would appear as missing results.
+        if total_found > 50:
+            data["results_truncated"] = True
+            data["results_truncated_note"] = (
+                f"Only the 50 longest ORFs are shown out of {total_found} found. "
+                "num_orfs_found reflects the full count."
+            )
+        # Warn about open ORFs (no in-frame stop codon before end of sequence).
+        # These are common in partial transcripts, incomplete assemblies, or
+        # CDS sequences deliberately lacking a stop codon.
+        if all_open_starts:
+            data["open_orfs_warning"] = (
+                f"{len(all_open_starts)} open ORF(s) detected "
+                f"(ATG with no in-frame stop codon before end of sequence): "
+                + ", ".join(
+                    f"frame {o['frame']} strand {o['strand']} at position {o['start']} "
+                    f"({o['partial_length_nt']} nt partial)"
+                    for o in all_open_starts
+                )
+                + ". These may be truncated sequences or CDSs lacking a stop codon."
+            )
+
+        return {"status": "success", "data": data}
 
     def _calculate_gc_content(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate GC content and nucleotide composition of a DNA sequence."""
@@ -689,7 +930,7 @@ class DNATool(BaseTool):
         if not sequence:
             return {"status": "error", "error": "sequence is required"}
 
-        sequence = sequence.upper().replace(" ", "").replace("\n", "")
+        sequence = sequence.upper().replace(" ", "").replace("\n", "").replace("\t", "")
         error = self._validate_dna_sequence(sequence)
         if error:
             return {"status": "error", "error": error}
@@ -712,33 +953,44 @@ class DNATool(BaseTool):
 
         gc_content = (gc_count / effective_total * 100) if effective_total > 0 else 0
 
+        # When effective_length == 0 (all-N sequence), GC content is undefined —
+        # reporting "Low GC" (gc_content == 0) is scientifically incorrect.
+        if effective_total == 0:
+            interpretation = "Undefined (no ATGC bases)"
+        elif gc_content > 60:
+            interpretation = "High GC"
+        elif gc_content < 40:
+            interpretation = "Low GC"
+        else:
+            interpretation = "Normal GC"
+
+        # For all-N sequences, gc_content_percent is scientifically
+        # undefined (not zero). Return None so callers are not misled into thinking
+        # the sequence has 0% GC (i.e., is AT-rich).
+        gc_pct = None if effective_total == 0 else round(gc_content, 2)
+        at_pct = (
+            None if effective_total == 0 else round(at_count / effective_total * 100, 2)
+        )
+
         return {
             "status": "success",
             "data": {
-                "gc_content_percent": round(gc_content, 2),
-                "at_content_percent": round(
-                    (at_count / effective_total * 100) if effective_total > 0 else 0, 2
-                ),
+                "gc_content_percent": gc_pct,
+                "at_content_percent": at_pct,
                 "nucleotide_counts": counts,
                 "sequence_length": total,
                 "effective_length": effective_total,
-                "interpretation": (
-                    "High GC"
-                    if gc_content > 60
-                    else "Low GC"
-                    if gc_content < 40
-                    else "Normal GC"
-                ),
+                "interpretation": interpretation,
             },
         }
 
     def _reverse_complement(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Generate the reverse complement of a DNA sequence."""
         sequence = arguments.get("sequence", "")
-        if not sequence:
+        if not sequence or not sequence.strip():
             return {"status": "error", "error": "sequence is required"}
 
-        sequence = sequence.upper().replace(" ", "").replace("\n", "")
+        sequence = sequence.upper().replace(" ", "").replace("\n", "").replace("\t", "")
         error = self._validate_dna_sequence(sequence)
         if error:
             return {"status": "error", "error": error}
@@ -758,10 +1010,10 @@ class DNATool(BaseTool):
     def _translate_sequence(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Translate a DNA sequence to protein using the standard codon table."""
         sequence = arguments.get("sequence", "")
-        if not sequence:
+        if not sequence or not sequence.strip():
             return {"status": "error", "error": "sequence is required"}
 
-        sequence = sequence.upper().replace(" ", "").replace("\n", "")
+        sequence = sequence.upper().replace(" ", "").replace("\n", "").replace("\t", "")
         error = self._validate_dna_sequence(sequence)
         if error:
             return {"status": "error", "error": error}
@@ -775,11 +1027,45 @@ class DNATool(BaseTool):
 
         if len(sequence) % 3 != 0:
             trimmed_len = len(sequence) - (len(sequence) % 3)
+            # Sequences shorter than 3 nt trim to 0 nt and produce a
+            # success response with an empty protein.  Fail explicitly instead.
+            if trimmed_len == 0:
+                return {
+                    "status": "error",
+                    "error": (
+                        f"Sequence length {len(sequence)} is too short to contain a "
+                        "complete codon. At least 3 nucleotides are required for translation."
+                    ),
+                }
             sequence_trimmed = sequence[:trimmed_len]
             warning = f"Sequence length {len(sequence)} is not divisible by 3; trimmed to {trimmed_len} nt"
         else:
             sequence_trimmed = sequence
             warning = None
+
+        # Warn when the sequence does not start with ATG.
+        # A non-ATG start is unusual for a canonical CDS and may indicate a
+        # partial sequence, mis-framing, or non-coding input.  Report a warning
+        # rather than silently returning a protein starting with a non-Met residue.
+        non_atg_warning = None
+        if len(sequence_trimmed) >= 3 and sequence_trimmed[:3] != "ATG":
+            first_codon = sequence_trimmed[:3]
+            first_aa = STANDARD_CODON_TABLE.get(first_codon, "X")
+            if first_aa == "*":
+                # First codon is a stop → protein will be empty.
+                # Emit a dedicated warning so callers are not silently given "".
+                non_atg_warning = (
+                    f"First codon '{first_codon}' is a stop codon; the protein_sequence "
+                    "field will be empty. The sequence may be reversed, mis-framed, "
+                    "or contain a premature stop at position 1."
+                )
+            else:
+                non_atg_warning = (
+                    f"Sequence does not start with ATG (start codon); "
+                    f"first codon is '{first_codon}' ({first_aa}). "
+                    "This is unusual for a canonical CDS. The protein may be "
+                    "incorrect if the input is a partial or mis-framed sequence."
+                )
 
         protein = []
         stop_positions = []
@@ -794,26 +1080,83 @@ class DNATool(BaseTool):
 
         protein_seq = "".join(protein)
 
+        premature_stop_warning = None
         if "*" in protein_seq:
             first_stop = protein_seq.index("*")
             protein_seq_no_stop = protein_seq[:first_stop]
+            # When sequence starts with ATG but has an internal stop codon
+            # (not at the last codon position), warn that the stop is premature.
+            # Previously, only non-ATG starts triggered a warning; ATG starts with
+            # an internal stop were silently returned with post-stop codons visible
+            # in full_translation but no explanation of the truncation.
+            n_total_codons = len(sequence_trimmed) // 3
+            first_stop_codon_pos = first_stop + 1  # 1-based
+            # `and non_atg_warning is None` silently suppressed
+            # premature_stop_warning whenever the start codon was non-ATG — even for
+            # genuine internal stop codons (e.g. a GTG-start CDS with a nonsense
+            # mutation).  Both warnings can coexist: the non_atg warning flags the
+            # start; the premature_stop warns that translation terminates early.
+            if first_stop_codon_pos < n_total_codons:
+                premature_stop_warning = (
+                    f"Premature stop codon at position {first_stop_codon_pos} "
+                    f"(of {n_total_codons} codons). Translation terminates at "
+                    f"'{sequence_trimmed[(first_stop) * 3 : (first_stop) * 3 + 3]}'. "
+                    "Downstream codons are shown in full_translation but are not "
+                    "translated. This may indicate mis-framing, a nonsense mutation, "
+                    "or an incorrect sequence."
+                )
+            # Stop_codons_found and stop_codon_positions previously counted
+            # ALL stop codons in the full scan, including those after the first stop.
+            # Biologically, the ribosome terminates at the first stop; downstream stop
+            # codons are irrelevant.  Truncate to only the first stop codon.
+            stop_positions_reported = stop_positions[:1]
         else:
             protein_seq_no_stop = protein_seq
+            stop_positions_reported = []
+
+        # Check for ambiguous 'X' residues in the translated
+        # protein.  STANDARD_CODON_TABLE.get(codon, 'X') silently returns 'X' for
+        # any codon not in the table (e.g. NNN, NAA, ANT, etc.).  No warning was
+        # issued, so callers received a protein with unknown residues without any
+        # indication of which positions are ambiguous.
+        ambiguous_codon_warning = None
+        _x_positions = [
+            i + 1  # 1-based codon position
+            for i, aa in enumerate(protein_seq_no_stop)
+            if aa == "X"
+        ]
+        if _x_positions:
+            _ambig_codons = [
+                sequence_trimmed[(p - 1) * 3 : (p - 1) * 3 + 3] for p in _x_positions
+            ]
+            ambiguous_codon_warning = (
+                f"Ambiguous codon(s) at position(s) {_x_positions} "
+                f"(codons: {_ambig_codons}) translated to 'X' (unknown amino acid). "
+                "These positions contain IUPAC ambiguity bases (N, R, Y, etc.) or "
+                "non-standard nucleotides not in the codon table. "
+                "The protein sequence may be incomplete or incorrect at these positions."
+            )
 
         result = {
             "status": "success",
             "data": {
-                "dna_sequence": sequence,
+                "dna_sequence": sequence_trimmed,
                 "protein_sequence": protein_seq_no_stop,
                 "full_translation": protein_seq,
                 "protein_length_aa": len(protein_seq_no_stop),
-                "stop_codons_found": len(stop_positions),
-                "stop_codon_positions": stop_positions,
+                "stop_codons_found": len(stop_positions_reported),
+                "stop_codon_positions": stop_positions_reported,
                 "codon_table": codon_table_name,
             },
         }
         if warning:
             result["data"]["warning"] = warning
+        if non_atg_warning:
+            result["data"]["non_atg_start_warning"] = non_atg_warning
+        if premature_stop_warning:
+            result["data"]["premature_stop_warning"] = premature_stop_warning
+        if ambiguous_codon_warning:
+            result["data"]["ambiguous_codon_warning"] = ambiguous_codon_warning
 
         return result
 
@@ -824,6 +1167,14 @@ class DNATool(BaseTool):
             return {"status": "error", "error": "sequence is required"}
 
         sequence = sequence.upper().strip()
+        # Re-check after stripping: a whitespace-only sequence passes the initial
+        # `if not sequence:` guard (non-empty string is truthy) but becomes empty
+        # after strip(), producing a success response with an empty DNA sequence.
+        if not sequence:
+            return {
+                "status": "error",
+                "error": "sequence is empty or contains only whitespace. Provide a valid amino acid sequence.",
+            }
         species = (arguments.get("species") or "human").lower()
 
         if species not in CODON_FREQ_TABLES:
@@ -843,6 +1194,46 @@ class DNATool(BaseTool):
                 "error": f"Invalid amino acid characters: {invalid}. Use single-letter codes.",
             }
 
+        # The single-letter amino acid codes A, T, G, C are
+        # identical to DNA nucleotide characters.  A user who mistakenly passes a DNA CDS
+        # (e.g., 'ATGAAATTT' = coding sequence for Met-Lys-Phe) instead of a protein
+        # sequence ('MKF') will get a silent success: the 9 nucleotides are treated as 9
+        # amino acids, producing a 27 bp "optimized" sequence that is completely wrong.
+        # Detect the pattern: sequence consists only of A/T/G/C, is divisible by 3, and
+        # starts with ATG (canonical Met start) — all hallmarks of a DNA CDS input.
+        _dna_only = set(sequence) <= set("ATGC")
+        _looks_like_cds = (
+            _dna_only
+            and len(sequence) % 3 == 0
+            and sequence.startswith("ATG")
+            and len(sequence) >= 9  # at least 3 codons to avoid false positives
+        )
+        _dna_aa_warning = None
+        if _looks_like_cds:
+            _dna_aa_warning = (
+                f"Input sequence '{sequence[:20]}{'...' if len(sequence) > 20 else ''}' "
+                "consists only of A, T, G, C characters and starts with ATG — this looks "
+                "like a DNA CDS rather than a protein sequence. "
+                "codon_optimize expects single-letter amino acid codes (e.g., 'MKF'). "
+                "If you have a DNA CDS, use DNA_translate_sequence first to get the "
+                "protein sequence, then pass that to codon_optimize."
+            )
+
+        # Validate stop codon placement: * is only allowed as the final residue.
+        # An internal stop codon (*) would produce a truncated, non-functional protein.
+        stop_positions = [i for i, aa in enumerate(sequence) if aa == "*"]
+        if stop_positions:
+            internal_stops = [p for p in stop_positions if p != len(sequence) - 1]
+            if internal_stops:
+                return {
+                    "status": "error",
+                    "error": (
+                        f"Internal stop codon(s) (*) at position(s) "
+                        f"{[p + 1 for p in internal_stops]} (1-indexed). "
+                        "Stop codons are only permitted at the terminal position of the sequence."
+                    ),
+                }
+
         dna_codons = []
         cai_values = []
         for aa in sequence:
@@ -856,7 +1247,11 @@ class DNATool(BaseTool):
                         "error": f"No codon found for amino acid: {aa}",
                     }
             dna_codons.append(codon)
-            cai_values.append(cai_table.get(codon, 1.0))
+            # Exclude stop codons from CAI: CAI is defined only for sense codons.
+            # Stop codons are not present in CAI reference tables; including them
+            # with a default value of 1.0 would inflate the score.
+            if aa != "*":
+                cai_values.append(cai_table.get(codon, 1.0))
 
         optimized_dna = "".join(dna_codons)
         length_bp = len(optimized_dna)
@@ -868,25 +1263,43 @@ class DNATool(BaseTool):
             log_sum = sum(math.log(v) for v in cai_values if v > 0)
             cai = round(math.exp(log_sum / len(cai_values)), 4)
         else:
-            cai = 0.0
+            # CAI = 0.0 is misleading for stop-codon-only sequences.
+            # CAI is defined only for sense codons; a sequence with no sense codons
+            # (e.g., a single "*") has an undefined CAI, not a CAI of 0.
+            cai = None
 
-        return {
-            "status": "success",
-            "data": {
-                "optimized_dna": optimized_dna,
-                "gc_content": gc_content,
-                "cai": cai,
-                "length_bp": length_bp,
-            },
+        result_data = {
+            "optimized_dna": optimized_dna,
+            "gc_content": gc_content,
+            "cai": cai,
+            # Add explanatory note clarifying why CAI is always 1.0.
+            # This tool selects the single highest-frequency codon for every amino
+            # acid, which by definition has a CAI reference value of 1.0.  The
+            # resulting sequence always achieves the maximum CAI possible.  To
+            # compare your original sequence against the optimized one, calculate
+            # the CAI of the original sequence using an external tool (e.g., the
+            # OPTIMIZER web server or CAI2 Python package).
+            "cai_note": (
+                "CAI = 1.0 is expected: this tool selects the highest-frequency "
+                f"codon for each amino acid in {species}. To assess how much "
+                "your original sequence differed, compute its CAI independently."
+            )
+            if cai is not None
+            else None,
+            "length_bp": length_bp,
         }
+        # Add warning when input looks like a DNA CDS rather than protein.
+        if _dna_aa_warning:
+            result_data["dna_input_warning"] = _dna_aa_warning
+        return {"status": "success", "data": result_data}
 
     def _virtual_digest(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Perform a virtual restriction digest of a DNA sequence."""
         sequence = arguments.get("sequence", "")
-        if not sequence:
+        if not sequence or not sequence.strip():
             return {"status": "error", "error": "sequence is required"}
 
-        sequence = sequence.upper().replace(" ", "").replace("\n", "")
+        sequence = sequence.upper().replace(" ", "").replace("\n", "").replace("\t", "")
         error = self._validate_dna_sequence(sequence)
         if error:
             return {"status": "error", "error": error}
@@ -894,44 +1307,81 @@ class DNATool(BaseTool):
         enzymes_requested = arguments.get("enzymes")
         circular = bool(arguments.get("circular", False))
 
-        if enzymes_requested:
+        # Use `is not None` instead of truthiness: an empty list [] must not
+        # silently fall through to using all NEB enzymes.
+        if enzymes_requested is not None:
             if isinstance(enzymes_requested, str):
                 enzymes_requested = [enzymes_requested]
-            not_found = [e for e in enzymes_requested if e not in NEB_ENZYMES]
-            if not_found:
+            if not enzymes_requested:
                 return {
                     "status": "error",
-                    "error": f"Unknown enzymes: {not_found}. Available: {sorted(NEB_ENZYMES.keys())}",
+                    "error": (
+                        "enzymes list is empty. Provide at least one enzyme name, "
+                        f"or omit the parameter to digest with all available enzymes: "
+                        f"{sorted(NEB_ENZYMES.keys())}"
+                    ),
                 }
-            enzyme_dict = {name: NEB_ENZYMES[name] for name in enzymes_requested}
+            # Case-insensitive normalization: "ecori" → "EcoRI", etc.
+            _neb_lower = {name.lower(): name for name in NEB_ENZYMES}
+            normalized_requested = []
+            unknown_enzymes = []
+            for e in enzymes_requested:
+                if e in NEB_ENZYMES:
+                    normalized_requested.append(e)
+                elif e.lower() in _neb_lower:
+                    normalized_requested.append(_neb_lower[e.lower()])
+                else:
+                    unknown_enzymes.append(e)
+            # Same as _find_restriction_sites — proceed with valid enzymes.
+            if unknown_enzymes and not normalized_requested:
+                return {
+                    "status": "error",
+                    "error": f"Unknown enzymes: {unknown_enzymes}. Available: {sorted(NEB_ENZYMES.keys())}",
+                }
+            enzyme_dict = {name: NEB_ENZYMES[name] for name in normalized_requested}
         else:
             enzyme_dict = NEB_ENZYMES
+            unknown_enzymes = []
 
+        # Search a doubled sequence for circular DNA to detect recognition
+        # sites that straddle the origin.  This mirrors the logic in _find_restriction_sites.
+        # For linear DNA, search_seq == sequence and all positions are valid.
+        # For circular DNA, we search the doubled sequence but only keep positions
+        # where pos < seq_len (sites that START within the original sequence).  Cut
+        # positions ≥ seq_len are wrapped back into [0, seq_len) via modulo so that the
+        # fragment-building code (which always works in [0, seq_len]) remains correct.
+        seq_len = len(sequence)  # must be defined before search_seq loop below
+        search_seq = (sequence + sequence) if circular else sequence
         cut_sites_list = []
         enzymes_used = []
         for enzyme_name, recognition_seq in enzyme_dict.items():
             if "N" in recognition_seq:
                 pattern = recognition_seq.replace("N", "[ATGC]")
-                positions = [m.start() for m in re.finditer(f"(?={pattern})", sequence)]
+                positions = [
+                    m.start()
+                    for m in re.finditer(f"(?={pattern})", search_seq)
+                    if m.start() < seq_len
+                ]
             else:
                 positions = []
                 start = 0
                 while True:
-                    pos = sequence.find(recognition_seq, start)
-                    if pos == -1:
+                    pos = search_seq.find(recognition_seq, start)
+                    if pos == -1 or pos >= seq_len:
                         break
                     positions.append(pos)
                     start = pos + 1
 
+            # Use enzyme-specific cut offset; default to midpoint if unknown
+            cut_offset = NEB_CUT_OFFSETS.get(enzyme_name, len(recognition_seq) // 2)
             for pos in positions:
-                cut_pos = pos + len(recognition_seq)
+                cut_pos = (pos + cut_offset) % seq_len  # wrap into [0, seq_len)
                 cut_sites_list.append({"enzyme": enzyme_name, "position": cut_pos})
 
             if positions:
                 enzymes_used.append(enzyme_name)
 
         cut_sites_list.sort(key=lambda x: x["position"])
-        seq_len = len(sequence)
         fragments = []
 
         if not cut_sites_list:
@@ -953,16 +1403,37 @@ class DNATool(BaseTool):
                     end = boundaries[(i + 1) % len(boundaries)]
                     if end > start:
                         frag_seq = sequence[start:end]
+                        wrap = False
                     else:
+                        # When start >= end the fragment spans the circular
+                        # origin.  This includes the single-cut case (start == end)
+                        # where the single fragment is the full circular sequence.
+                        # is_wrap_around=True tells the caller that coordinates are
+                        # non-contiguous in linear notation (start..end_of_sequence
+                        # + beginning_of_sequence..end).
                         frag_seq = sequence[start:] + sequence[:end]
-                    fragments.append(
-                        {
-                            "sequence": frag_seq,
-                            "length": len(frag_seq),
-                            "start": start,
-                            "end": end,
-                        }
-                    )
+                        wrap = True
+                    frag_entry = {
+                        "sequence": frag_seq,
+                        "length": len(frag_seq),
+                        "start": start,
+                        "end": end,
+                        "is_wrap_around": wrap,
+                    }
+                    if wrap:
+                        # For wrap-around fragments (is_wrap_around=True),
+                        # seq[start:end] is NOT a valid Python slice because end <= start.
+                        # When start==end (single-cut: e.g., cut at position 0), seq[0:0]
+                        # returns an empty string. The correct extraction is always:
+                        #   seq[start:] + seq[:end]
+                        # which the `sequence` field already contains.  Add a note so
+                        # callers know to use sequence directly or the prescribed slice.
+                        frag_entry["coordinate_note"] = (
+                            f"For this wrap-around fragment use: "
+                            f"seq[{start}:] + seq[:{end}] (not seq[{start}:{end}]). "
+                            "The `sequence` field contains the pre-extracted fragment."
+                        )
+                    fragments.append(frag_entry)
             else:
                 starts = [0] + cut_positions
                 ends = cut_positions + [seq_len]
@@ -989,18 +1460,41 @@ class DNATool(BaseTool):
         }
 
     def _calc_tm_nn(self, primer: str) -> float:
-        """Calculate melting temperature using SantaLucia 1998 nearest-neighbor model."""
+        """Calculate melting temperature using SantaLucia 1998 nearest-neighbor model.
+
+        Uses terminal-specific initiation parameters (SantaLucia 1998, Table 2):
+          GC terminal: dH = +0.1 kcal/mol, dS = -2.8 cal/mol/K (per end)
+          AT terminal: dH = +2.3 kcal/mol, dS = +4.1 cal/mol/K (per end)
+        Applied to both the 5' and 3' terminal base pairs.
+
+        Requires a fully-resolved sequence (no ambiguous bases).  N-containing
+        dinucleotides are absent from NN_PARAMS; silently skipping them
+        underestimates dH/dS and produces an erroneously low Tm.
+        Returns 0.0 for sequences containing N (same sentinel as length < 2).
+        """
         seq = primer.upper()
         n = len(seq)
         if n < 2:
             return 0.0
 
+        # Ambiguous bases: thermodynamic parameters are undefined for N-containing
+        # dinucleotides.  Return 0.0 to signal failure rather than silently computing
+        # a drastically underestimated Tm from only the N-free portion of the sequence.
+        if "N" in seq:
+            return 0.0
+
         dH = 0.0  # kcal/mol
         dS = 0.0  # cal/mol/K
 
-        # Initiation parameters (SantaLucia 1998)
-        dH += 0.2
-        dS += -5.7
+        # Terminal-specific initiation corrections (SantaLucia 1998, Table 2)
+        # Applied once for each end (5' terminal and 3' terminal base pair)
+        for terminal_base in (seq[0], seq[-1]):
+            if terminal_base in "GC":
+                dH += 0.1
+                dS += -2.8
+            else:  # A or T terminal
+                dH += 2.3
+                dS += 4.1
 
         for i in range(n - 1):
             dinuc = seq[i : i + 2]
@@ -1028,7 +1522,7 @@ class DNATool(BaseTool):
         if not sequence:
             return {"status": "error", "error": "sequence is required"}
 
-        sequence = sequence.upper().replace(" ", "").replace("\n", "")
+        sequence = sequence.upper().replace(" ", "").replace("\n", "").replace("\t", "")
         error = self._validate_dna_sequence(sequence)
         if error:
             return {"status": "error", "error": error}
@@ -1036,9 +1530,76 @@ class DNATool(BaseTool):
         seq_len = len(sequence)
         target_start = arguments.get("target_start")
         target_end = arguments.get("target_end")
-        tm_target = float(arguments.get("tm_target") or 60.0)
-        product_size_min = int(arguments.get("product_size_min") or 100)
-        product_size_max = int(arguments.get("product_size_max") or 1000)
+        # Use explicit None checks: Python's `x or default` treats 0 as falsy,
+        # silently replacing a user-supplied 0 with the default value.
+        _tm_raw = arguments.get("tm_target")
+        tm_target = float(_tm_raw if _tm_raw is not None else 60.0)
+        _psmin_raw = arguments.get("product_size_min")
+        product_size_min = int(_psmin_raw if _psmin_raw is not None else 100)
+        _psmax_raw = arguments.get("product_size_max")
+        product_size_max = int(_psmax_raw if _psmax_raw is not None else 1000)
+        # GC filter bounds in percentage (0–100). Previously hardcoded as 40–60;
+        # now read from arguments so callers can override (e.g., gc_min=55, gc_max=70
+        # for high-GC amplicons).
+        gc_min_pct = (
+            float(arguments["gc_min"]) if arguments.get("gc_min") is not None else 40.0
+        )
+        gc_max_pct = (
+            float(arguments["gc_max"]) if arguments.get("gc_max") is not None else 60.0
+        )
+        # Validate GC bounds: must be in [0, 100] and gc_min ≤ gc_max.
+        if not (0 <= gc_min_pct <= 100) or not (0 <= gc_max_pct <= 100):
+            return {
+                "status": "error",
+                "error": (
+                    f"gc_min ({gc_min_pct}) and gc_max ({gc_max_pct}) must be in "
+                    "[0, 100] (percentage units)."
+                ),
+            }
+        if gc_min_pct > gc_max_pct:
+            return {
+                "status": "error",
+                "error": (f"gc_min ({gc_min_pct}) must be ≤ gc_max ({gc_max_pct})."),
+            }
+
+        # Validate product size constraints upfront to give a clear error message.
+        # Without this check, the user gets a confusing "Designed product size (N)
+        # is outside the range [min, max]" message when min > max.
+        if product_size_min > product_size_max:
+            return {
+                "status": "error",
+                "error": (
+                    f"product_size_min ({product_size_min}) must be <= "
+                    f"product_size_max ({product_size_max})."
+                ),
+            }
+
+        # Target_start beyond the sequence silently clamps target_end to
+        # seq_len and produces a confusing "Target region (-N bp) is smaller than
+        # product_size_min" error.  Detect and report out-of-bounds target_start early.
+        if target_start is not None and int(target_start) >= seq_len:
+            return {
+                "status": "error",
+                "error": (
+                    f"target_start ({int(target_start)}) is at or beyond the sequence "
+                    f"length ({seq_len} bp). target_start must be a 0-based index less "
+                    "than the sequence length."
+                ),
+            }
+
+        # Validate target coordinates before clamping: if target_start > target_end,
+        # the region size becomes negative and produces a confusing error downstream.
+        if target_start is not None and target_end is not None:
+            t_start_raw = int(target_start)
+            t_end_raw = int(target_end)
+            if t_start_raw > t_end_raw:
+                return {
+                    "status": "error",
+                    "error": (
+                        f"target_start ({t_start_raw}) must be less than or equal to "
+                        f"target_end ({t_end_raw})."
+                    ),
+                }
 
         if target_start is None:
             target_start = 0
@@ -1086,8 +1647,12 @@ class DNATool(BaseTool):
                 if end > seq_len:
                     break
                 primer = sequence[start:end]
+                # Skip primers containing N bases: NN thermodynamic parameters
+                # are undefined for ambiguous bases, causing underestimated Tm.
+                if "N" in primer:
+                    continue
                 gc = gc_content(primer)
-                if gc < 40 or gc > 60:
+                if gc < gc_min_pct or gc > gc_max_pct:
                     continue
                 if has_3prime_repeat(primer):
                     continue
@@ -1120,8 +1685,11 @@ class DNATool(BaseTool):
                 primer_template = sequence[start:end]
                 # Reverse primer is reverse complement of template
                 rev_primer = primer_template.translate(complement_map)[::-1]
+                # Skip if the template (or its complement) contains N bases
+                if "N" in rev_primer:
+                    continue
                 gc = gc_content(rev_primer)
-                if gc < 40 or gc > 60:
+                if gc < gc_min_pct or gc > gc_max_pct:
                     continue
                 if has_3prime_repeat(rev_primer):
                     continue
@@ -1144,10 +1712,55 @@ class DNATool(BaseTool):
             }
 
         product_size = best_rev["end"] - best_fwd["start"]
+
+        # Reject primers that overlap on the template: the forward primer ends at
+        # fwd.start + fwd.length, and the reverse primer starts at rev.end - rev.length.
+        # If fwd.end > rev.start, both primers anneal to the same (or overlapping)
+        # template region, making PCR amplification impossible (primer dimers).
+        fwd_end = best_fwd["start"] + best_fwd["length"]
+        rev_start = best_rev["end"] - best_rev["length"]
+        if fwd_end > rev_start:
+            return {
+                "status": "error",
+                "error": (
+                    f"Could not design a non-overlapping primer pair for the specified region. "
+                    f"The best forward primer ends at position {fwd_end} but the best reverse "
+                    f"primer starts at position {rev_start}, causing overlap. "
+                    "Try increasing product_size_min, widening the target region, or using a longer sequence."
+                ),
+            }
+
         if product_size < product_size_min or product_size > product_size_max:
             return {
                 "status": "error",
                 "error": f"Designed product size ({product_size} bp) is outside the range [{product_size_min}, {product_size_max}] bp",
+            }
+
+        # Verify the product actually spans the requested target region.
+        # Primer search windows are centered ±50 bp around target_start/target_end, so
+        # when the target falls near a sequence boundary the best primers may sit
+        # entirely before (or after) the target, producing a valid product that misses
+        # the declared target. Detect and report instead of silently returning wrong coords.
+        #
+        # Skip the coverage check when the user requested full-sequence
+        # amplification (target_start == 0 and target_end == seq_len).  In that case
+        # the boundary conditions (fwd.start ≤ 0 and rev.end ≥ seq_len) can never both
+        # be satisfied simultaneously — no primer can start before position 0 or end
+        # after the last base.  Any valid primer pair covering the majority of the
+        # sequence is acceptable for full-sequence amplification.
+        is_full_sequence = target_start == 0 and target_end == seq_len
+        if not is_full_sequence and (
+            best_fwd["start"] > target_start or best_rev["end"] < target_end
+        ):
+            return {
+                "status": "error",
+                "error": (
+                    f"Could not design a primer pair that fully spans the target region "
+                    f"[{target_start}, {target_end}]. "
+                    f"Best candidate product [{best_fwd['start']}, {best_rev['end']}] "
+                    f"does not cover the target. "
+                    "Try widening the target region, relaxing primer constraints, or using a longer sequence."
+                ),
             }
 
         return {
@@ -1168,12 +1781,17 @@ class DNATool(BaseTool):
                 "error": "fragments must be a list of at least 2 DNA sequences",
             }
 
-        overlap_length = int(arguments.get("overlap_length") or 20)
+        circular = bool(arguments.get("circular", True))
+        # Explicit None check: `int(0 or 20)` = 20, silently ignoring user-supplied 0.
+        _ol_raw = arguments.get("overlap_length")
+        overlap_length = int(_ol_raw if _ol_raw is not None else 20)
         if overlap_length < 1:
             return {"status": "error", "error": "overlap_length must be at least 1"}
 
         for i, frag in enumerate(fragments):
-            frag_upper = frag.upper().replace(" ", "").replace("\n", "")
+            frag_upper = (
+                frag.upper().replace(" ", "").replace("\n", "").replace("\t", "")
+            )
             err = self._validate_dna_sequence(frag_upper)
             if err:
                 return {"status": "error", "error": f"Fragment {i + 1}: {err}"}
@@ -1184,18 +1802,40 @@ class DNATool(BaseTool):
                 }
 
         fragments_clean = [
-            f.upper().replace(" ", "").replace("\n", "") for f in fragments
+            f.upper().replace(" ", "").replace("\n", "").replace("\t", "")
+            for f in fragments
         ]
         n = len(fragments_clean)
         assembly_fragments = []
 
         for i, frag in enumerate(fragments_clean):
-            prev_frag = fragments_clean[(i - 1) % n]
-            next_frag = fragments_clean[(i + 1) % n]
+            # For circular assemblies every fragment has a successor; for linear
+            # assemblies the last fragment is the terminus and has no right overlap
+            # (adding one would produce incorrect PCR products).
+            is_last_linear = (not circular) and (i == n - 1)
 
-            left_overlap = prev_frag[-overlap_length:]
-            right_overlap = next_frag[:overlap_length]
-            with_overlaps = left_overlap + frag + right_overlap
+            if is_last_linear:
+                next_frag = None
+            else:
+                next_frag = fragments_clean[(i + 1) % n]
+
+            # Overlap convention: the overlap at each junction is the first
+            # overlap_length bases of the RIGHT fragment (next_frag).
+            # - left_overlap: first N bases of this fragment — shared with the
+            #   previous fragment's right overlap; no extra left primer tail needed.
+            # - right_overlap: first N bases of the next fragment — added to this
+            #   fragment's PCR product via the right primer 5'-tail.
+            # Consistency check: Fragment i's right_overlap == Fragment i+1's
+            #   left_overlap (both equal next_frag[:overlap_length]). ✓
+            left_overlap = frag[:overlap_length]
+            if next_frag is not None:
+                right_overlap = next_frag[:overlap_length]
+                # PCR product = this fragment's body + right primer overhang tail
+                with_overlaps = frag + right_overlap
+            else:
+                # Linear terminus: no right primer tail
+                right_overlap = ""
+                with_overlaps = frag
 
             assembly_fragments.append(
                 {
@@ -1213,6 +1853,7 @@ class DNATool(BaseTool):
                 "assembly_fragments": assembly_fragments,
                 "n_fragments": n,
                 "overlap_length": overlap_length,
+                "topology": "circular" if circular else "linear",
             },
         }
 
@@ -1232,13 +1873,52 @@ class DNATool(BaseTool):
         enzyme_display = "BsaI" if enzyme == "BSAI" else "BbsI"
 
         for i, part in enumerate(parts):
-            part_upper = part.upper().replace(" ", "").replace("\n", "")
+            part_upper = (
+                part.upper().replace(" ", "").replace("\n", "").replace("\t", "")
+            )
+            if len(part_upper) == 0:
+                return {
+                    "status": "error",
+                    "error": f"Part {i + 1} is empty. All parts must contain at least one nucleotide.",
+                }
             err = self._validate_dna_sequence(part_upper)
             if err:
                 return {"status": "error", "error": f"Part {i + 1}: {err}"}
 
-        parts_clean = [p.upper().replace(" ", "").replace("\n", "") for p in parts]
+        parts_clean = [
+            p.upper().replace(" ", "").replace("\n", "").replace("\t", "")
+            for p in parts
+        ]
         n_parts = len(parts_clean)
+
+        # Check for internal recognition sites in part sequences.
+        # During assembly, the restriction enzyme cuts every recognition site in the
+        # reaction — including any site inside an insert — producing incorrect fragments.
+        if enzyme == "BSAI":
+            rec_seqs = [("GGTCTC", "forward"), ("GAGACC", "reverse complement")]
+        else:
+            rec_seqs = [("GAAGAC", "forward"), ("GTCTTC", "reverse complement")]
+
+        internal_site_errors = []
+        for i, part in enumerate(parts_clean):
+            for rec_seq, direction in rec_seqs:
+                if rec_seq in part:
+                    internal_site_errors.append(
+                        f"Part {i + 1} contains an internal {enzyme_display} "
+                        f"recognition site ({rec_seq}, {direction} strand) at position "
+                        f"{part.index(rec_seq)}. The enzyme will cut within this insert "
+                        "during assembly, producing incorrect fragments."
+                    )
+        if internal_site_errors:
+            return {
+                "status": "error",
+                "error": (
+                    f"Golden Gate design failed — internal {enzyme_display} sites "
+                    f"detected in {len(internal_site_errors)} location(s). "
+                    "Remove or mutate these sites before assembly: "
+                    + " | ".join(internal_site_errors)
+                ),
+            }
 
         # BsaI: recognition GGTCTC(1), cuts 1 nt away on top, 5 nt away on bottom
         # Creating: GGTCTCN[4bp overhang] -- part -- NGAGACC (reverse complement BsaI site)
@@ -1299,15 +1979,42 @@ class DNATool(BaseTool):
             "ATTC",
             "ATTG",
         ]
-        non_palindromic = [oh for oh in candidate_overhangs if oh != rev_comp(oh)]
+        # Filter to non-palindromic, non-RC-complement overhangs.
+        # Two conditions must hold for safe Golden Gate assembly:
+        #   (1) oh != rev_comp(oh)  — palindromic overhangs self-ligate
+        #   (2) no two selected overhangs are RC complements of each other
+        #       — if oh_A == rev_comp(oh_B), junction A can mis-ligate to
+        #         junction B, producing incorrect assembly products
+        rc_free_overhangs: List[str] = []
+        used_set: set = set()
+        for oh in candidate_overhangs:
+            if oh in used_set:
+                # This overhang's reverse complement was already selected —
+                # adding it would introduce an RC-complement pair.
+                continue
+            rc_oh = rev_comp(oh)
+            if oh == rc_oh:
+                continue  # palindrome — self-ligates, skip
+            rc_free_overhangs.append(oh)
+            used_set.add(oh)
+            used_set.add(rc_oh)  # block the RC from being used
 
-        if len(non_palindromic) < n_parts + 1:
+        if len(rc_free_overhangs) < n_parts + 1:
+            # Report the actual maximum supported by the built-in overhang
+            # library so the user understands the constraint, not just an opaque failure.
+            max_parts = len(rc_free_overhangs) - 1
             return {
                 "status": "error",
-                "error": f"Cannot generate enough unique overhangs for {n_parts} parts",
+                "error": (
+                    f"Cannot generate enough unique non-RC-paired overhangs for "
+                    f"{n_parts} parts. The built-in 4-bp overhang library supports a "
+                    f"maximum of {max_parts} parts. For larger assemblies, consider "
+                    "hierarchical (two-step) cloning or providing a custom extended "
+                    "overhang set."
+                ),
             }
 
-        overhangs = non_palindromic[: n_parts + 1]
+        overhangs = rc_free_overhangs[: n_parts + 1]
 
         if enzyme == "BSAI":
             # BsaI site: GGTCTCN where N is 1 bp spacer before the overhang
@@ -1317,6 +2024,64 @@ class DNATool(BaseTool):
         else:
             # BbsI site: GAAGACNN where NN is 2 bp spacer
             fwd_site_prefix = "GAAGACAA"
+
+        # Compute the recognition sequences and their lengths once.
+        rec_seq_len = len(rec_seqs[0][0])  # all rec seqs same length (6 for BsaI/BbsI)
+        overlap_len = (
+            rec_seq_len - 1
+        )  # = 5; a site can span up to 5 chars of part boundary
+
+        # Pre-check all junctions BEFORE building full_sequences, so errors are
+        # reported before any partial results are emitted.
+        junction_errors = []
+        for i, part in enumerate(parts_clean):
+            left_oh = overhangs[i]
+            right_oh = overhangs[i + 1]
+            rev_right_oh = rev_comp(right_oh)
+
+            # Left junction: last overlap_len chars of left_oh + first overlap_len
+            # chars of part. The selected overhangs are 4 bp; overlap_len = 5 means
+            # we need all 4 chars of left_oh + first 1 char of part.
+            left_junction = left_oh[-overlap_len:] + part[:overlap_len]
+            # Right junction: last overlap_len chars of part + first overlap_len
+            # chars of rev_right_oh (which is rev_comp(right_oh)).
+            right_junction = part[-overlap_len:] + rev_right_oh[:overlap_len]
+
+            for rec_seq, direction in rec_seqs:
+                if rec_seq in left_junction:
+                    pos = left_junction.find(rec_seq)
+                    junction_errors.append(
+                        f"Part {i + 1}: an unintended {enzyme_display} recognition "
+                        f"site ({rec_seq}, {direction}) is created at the left junction "
+                        f"between overhang '{left_oh}' and the part sequence "
+                        f"(window: '{left_junction}', site at offset {pos}). "
+                        "Modify the first few nucleotides of the part sequence to "
+                        "eliminate this unintended site."
+                    )
+                if rec_seq in right_junction:
+                    pos = right_junction.find(rec_seq)
+                    # Report position relative to the part sequence end
+                    part_chars = min(overlap_len, len(part))
+                    junction_errors.append(
+                        f"Part {i + 1}: an unintended {enzyme_display} recognition "
+                        f"site ({rec_seq}, {direction}) is created at the right junction "
+                        f"between the part sequence and the reverse complement of overhang "
+                        f"'{right_oh}' (rc='{rev_right_oh}', window: '{right_junction}', "
+                        f"site at offset {pos}). Modify the last {part_chars} nucleotides "
+                        "of the part sequence to eliminate this unintended site."
+                    )
+
+        if junction_errors:
+            return {
+                "status": "error",
+                "error": (
+                    f"Golden Gate design failed — unintended {enzyme_display} recognition "
+                    f"site(s) created at part/overhang junction(s). This would cause the "
+                    f"enzyme to cut within the assembled product, destroying the construct. "
+                    f"Fix {len(junction_errors)} issue(s): "
+                    + " | ".join(junction_errors)
+                ),
+            }
 
         parts_with_overhangs = []
         for i, part in enumerate(parts_clean):

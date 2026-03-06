@@ -1,17 +1,19 @@
 Metadata-Version: 2.4
 Name: Wikipedia-API
-Version: 0.10.0
+Version: 0.10.1
 Summary: Python Wrapper for Wikipedia
-Home-page: https://github.com/martin-majlis/Wikipedia-API
-Download-URL: https://github.com/martin-majlis/Wikipedia-API/archive/master.tar.gz
-Author: Martin Majlis
-Author-email: martin@majlis.cz
+Project-URL: Homepage, https://github.com/martin-majlis/Wikipedia-API
+Project-URL: Repository, https://github.com/martin-majlis/Wikipedia-API
+Project-URL: Bug Tracker, https://github.com/martin-majlis/Wikipedia-API/issues
+Author-email: Martin Majlis <martin@majlis.cz>
 License: MIT
-Keywords: Wikipedia API wrapper
-Platform: any
+License-File: LICENSE
+Keywords: API,Wikipedia,wrapper
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -21,27 +23,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-License-File: LICENSE
-Requires-Dist: requests
-Requires-Dist: click
-Provides-Extra: testing
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: platform
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
+Requires-Python: >=3.10
+Requires-Dist: click==8.3.1
+Requires-Dist: requests==2.32.5
+Description-Content-Type: text/x-rst
 
 Wikipedia API
 =============
@@ -50,7 +37,7 @@ Wikipedia API
 
 .. _Wikipedias': https://www.mediawiki.org/wiki/API:Main_page
 
-|github-stars-flat| |codecov-coverage| |docs| |version| |pyversions|
+|github-stars-flat| |codecov-coverage| |docs| |version| |pyversions| |openssf-best-practices|
 
 Installation
 ------------
@@ -452,13 +439,13 @@ External Links
 Other Badges
 ------------
 
-|cc-badge| |cc-issues| |coveralls| |version| |pyversions| |implementations|
+|version| |pyversions| |implementations|
 |github-downloads| |github-tag| |github-release|
 |github-commits-since-latest| |github-forks| |github-stars| |github-watches|
 |github-commit-activity| |github-last-commit| |github-code-size| |github-repo-size|
 |pypi-license| |pypi-wheel| |pypi-format| |pypi-pyversions| |pypi-implementations|
 |pypi-status| |pypi-downloads-dd| |pypi-downloads-dw| |pypi-downloads-dm|
-|libraries-io-sourcerank| |libraries-io-dependent-repos|
+|libraries-io-sourcerank| |libraries-io-dependent-repos| |coveralls|
 
 
 Other Pages
@@ -466,18 +453,9 @@ Other Pages
 
 
 
-
 .. |docs| image:: https://readthedocs.org/projects/wikipedia-api/badge/?version=latest
     :target: http://wikipedia-api.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
-
-.. |cc-badge| image:: https://codeclimate.com/github/martin-majlis/Wikipedia-API/badges/gpa.svg
-    :target: https://codeclimate.com/github/martin-majlis/Wikipedia-API
-    :alt: Code Climate
-
-.. |cc-issues| image:: https://codeclimate.com/github/martin-majlis/Wikipedia-API/badges/issue_count.svg
-    :target: https://codeclimate.com/github/martin-majlis/Wikipedia-API
-    :alt: Issue Count
 
 .. |codecov-coverage| image:: https://codecov.io/gh/martin-majlis/Wikipedia-API/graph/badge.svg?token=C4MgwR5nrm
     :target: https://app.codecov.io/gh/martin-majlis/Wikipedia-API
@@ -590,242 +568,6 @@ Other Pages
     :target: https://libraries.io/pypi/Wikipedia-API
     :alt: Libraries.io - Dependent Repos
 
-
-Changelog
-=========
-
-0.10.0
-------
-
-* Introduce command line tool - `wikipedia-cli` - `PR 402`_
-* Kwargs are overwriting default API params (**breaking**) - `PR 408`_
-* Handle HTTP errors, add retries (**breaking**) - `PR 417`_
-* Split `__init__.py` into smaller files - `PR 422`_
-
-.. _PR 402: https://github.com/martin-majlis/Wikipedia-API/pull/402
-.. _PR 408: https://github.com/martin-majlis/Wikipedia-API/pull/408
-.. _PR 417: https://github.com/martin-majlis/Wikipedia-API/pull/417
-.. _PR 422: https://github.com/martin-majlis/Wikipedia-API/pull/422
-
-0.9.0
------
-
-* Drop support for Python 3.9 - `PR 378`_
-* Add support for Python 3.14 - `PR 378`_
-* Update dependencies
-
-.. _PR 378: https://github.com/martin-majlis/Wikipedia-API/pull/378
-
-0.8.1
------
-
-* More user friendly error messages to make ChatGPT users happy
-
-0.8.0
------
-
-* Allow specifying language variant - `Issue 209`_
-* Allow passing additional parameters for API calls.
-* This breaks the API since `variant` is now the third parameter.
-
-.. _Issue 209: https://github.com/martin-majlis/Wikipedia-API/issues/209
-
-0.7.3
------
-
-* Regenerate stable documentation
-
-0.7.2
------
-
-* Add support for Python 3.13
-* Regenerate stable documentation
-
-0.7.1
------
-
-* Drop support for Python 3.8
-
-0.6.9
------
-
-* Update dependencies
-* Add tests for more platforms
-
-0.6.0
------
-
-* Make user agent mandatory - `Issue 63`_
-* This breaks the API since `user_agent` is now the first parameter.
-
-.. _Issue 63: https://github.com/martin-majlis/Wikipedia-API/issues/63
-
-
-0.5.8
------
-
-* Adds support for retrieving all sections with given name - `Issue 39`_
-
-.. _Issue 39: https://github.com/martin-majlis/Wikipedia-API/issues/39
-
-0.5.4
------
-
-* Namespace could be arbitrary integer - `Issue 29`_
-
-.. _Issue 29: https://github.com/martin-majlis/Wikipedia-API/issues/29
-
-
-0.5.3
------
-
-* Adds persistent HTTP connection - `Issue 26`_
-    * Downloading 50 pages reduced from 13s to 8s => 40% speed up
-
-.. _Issue 26: https://github.com/martin-majlis/Wikipedia-API/issues/26
-
-
-0.5.2
------
-
-* Adds namespaces 102 - 105 - `Issue 24`_
-
-.. _Issue 24: https://github.com/martin-majlis/Wikipedia-API/issues/24
-
-0.5.1
------
-
-* Adds tox for testing different Python versions
-
-0.5.0
------
-
-* Allows modifying API call parameters
-* Fixes `Issue 16`_ - hidden categories
-* Fixes `Issue 21`_ - summary extraction
-
-.. _Issue 16: https://github.com/martin-majlis/Wikipedia-API/issues/16
-.. _Issue 21: https://github.com/martin-majlis/Wikipedia-API/issues/21
-
-
-0.4.5
------
-
-* Handles missing sections correctly
-* Fixes `Issue 20`_
-
-.. _Issue 20: https://github.com/martin-majlis/Wikipedia-API/issues/20
-
-
-0.4.4
------
-* Uses HTTPS directly instead of HTTP to avoid redirect
-
-0.4.3
------
-* Correctly extracts text from pages without sections
-* Adds support for quoted page titles
-
-.. code:: python
-
-    api = wikipediaapi.Wikipedia(
-        language='hi',
-    )
-    python = api.article(
-        title='%E0%A4%AA%E0%A4%BE%E0%A4%87%E0%A4%A5%E0%A4%A8',
-        unquote=True,
-    )
-    print(python.summary)
-
-0.4.2
------
-* Adds support for Python 3.4 by not using f-strings
-
-0.4.1
------
-* Uses code style enforced by flake8
-* Increased code coverage
-
-0.4.0
------
-* Uses type annotations => minimal requirement is now Python 3.5
-* Adds possibility to use more parameters for `request`_. For example:
-
-.. code:: python
-
-    api = wikipediaapi.Wikipedia(
-        language='en',
-        proxies={'http': 'http://localhost:1234'}
-    )
-
-* Extends documentation
-
-.. _request: http://docs.python-requests.org/en/master/api/#requests.request
-
-0.3.4
------
-* Adds support for `property Categorymembers`_
-* Adds property ``text`` for retrieving complete text of the page
-
-.. _property Categorymembers: https://www.mediawiki.org/wiki/API:Categorymembers
-
-0.3.3
------
-* Added support for `request timeout`_
-* Add header: Accept-Encoding: gzip
-
-.. _request timeout: https://github.com/martin-majlis/Wikipedia-API/issues/1
-
-0.3.2
------
-* Added support for `property Categories`_
-
-.. _property Categories: https://www.mediawiki.org/wiki/API:Categories
-
-0.3.1
------
-* Removing ``WikipediaLangLink``
-* Page keeps track of its own language, so it's easier to jump between different translations of the same page
-
-0.3.0
------
-* Rename directory from ``wikipedia`` to ``wikipediaapi`` to avoid collisions
-
-0.2.4
------
-* Handle redirects properly
-
-0.2.3
------
-* Usage method ``page`` instead of ``article`` in ``Wikipedia``
-
-0.2.2
------
-* Added support for `property Links`_
-
-.. _property Links: https://www.mediawiki.org/wiki/API:Links
-
-0.2.1
------
-* Added support for `property Langlinks`_
-
-.. _property Langlinks: https://www.mediawiki.org/wiki/API:Langlinks
-
-0.2.0
------
-* Use properties instead of functions
-* Added support for `property Info`_
-
-.. _property Info: https://www.mediawiki.org/wiki/API:Info
-
-0.1.6
------
-* Support for extracting texts with HTML markdown
-* Added initial version of unit tests
-
-0.1.4
------
-* It's possible to extract summary and sections of the page
-* Added support for `property Extracts`_
-
-.. _property Extracts: https://www.mediawiki.org/wiki/Extension:TextExtracts#API
+.. |openssf-best-practices| image:: https://www.bestpractices.dev/projects/12083/badge
+    :target: https://www.bestpractices.dev/projects/12083
+    :alt: OpenSSF Best Practices

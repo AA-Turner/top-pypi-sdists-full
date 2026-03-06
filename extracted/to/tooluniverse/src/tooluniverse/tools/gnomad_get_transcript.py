@@ -38,13 +38,19 @@ def gnomad_get_transcript(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "transcript_id": transcript_id,
+            "reference_genome": reference_genome,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "gnomad_get_transcript",
-            "arguments": {
-                "transcript_id": transcript_id,
-                "reference_genome": reference_genome,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

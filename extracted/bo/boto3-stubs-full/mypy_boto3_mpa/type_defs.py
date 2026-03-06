@@ -23,6 +23,7 @@ from datetime import datetime
 from .literals import (
     ApprovalTeamStatusCodeType,
     ApprovalTeamStatusType,
+    ApproverLastActivityType,
     FilterFieldType,
     IdentitySourceStatusCodeType,
     IdentitySourceStatusType,
@@ -109,6 +110,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "StartActiveApprovalTeamDeletionRequestTypeDef",
     "StartActiveApprovalTeamDeletionResponseTypeDef",
+    "StartApprovalTeamBaselineRequestTypeDef",
+    "StartApprovalTeamBaselineResponseTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateApprovalTeamRequestTypeDef",
@@ -313,6 +316,11 @@ class StartActiveApprovalTeamDeletionRequestTypeDef(TypedDict):
     PendingWindowDays: NotRequired[int]
 
 
+class StartApprovalTeamBaselineRequestTypeDef(TypedDict):
+    Arn: str
+    ApproverIds: NotRequired[Sequence[str]]
+
+
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     Tags: Mapping[str, str]
@@ -370,6 +378,11 @@ class StartActiveApprovalTeamDeletionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartApprovalTeamBaselineResponseTypeDef(TypedDict):
+    BaselineSessionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateApprovalTeamResponseTypeDef(TypedDict):
     VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -388,6 +401,9 @@ class GetApprovalTeamResponseApproverTypeDef(TypedDict):
     PrimaryIdentityId: NotRequired[str]
     PrimaryIdentitySourceArn: NotRequired[str]
     PrimaryIdentityStatus: NotRequired[IdentityStatusType]
+    LastActivity: NotRequired[ApproverLastActivityType]
+    LastActivityTime: NotRequired[datetime]
+    PendingBaselineSessionArn: NotRequired[str]
     MfaMethods: NotRequired[list[MfaMethodTypeDef]]
 
 

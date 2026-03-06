@@ -53,18 +53,24 @@ def list_tools(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "mode": mode,
+            "categories": categories,
+            "fields": fields,
+            "group_by_category": group_by_category,
+            "brief": brief,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "list_tools",
-            "arguments": {
-                "mode": mode,
-                "categories": categories,
-                "fields": fields,
-                "group_by_category": group_by_category,
-                "brief": brief,
-                "limit": limit,
-                "offset": offset,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

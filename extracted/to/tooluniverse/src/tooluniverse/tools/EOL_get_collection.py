@@ -44,15 +44,21 @@ def EOL_get_collection(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "collection_id": collection_id,
+            "page": page,
+            "per_page": per_page,
+            "filter": filter,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EOL_get_collection",
-            "arguments": {
-                "collection_id": collection_id,
-                "page": page,
-                "per_page": per_page,
-                "filter": filter,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

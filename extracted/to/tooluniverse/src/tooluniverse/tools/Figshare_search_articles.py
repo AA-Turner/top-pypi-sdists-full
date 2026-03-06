@@ -44,15 +44,21 @@ def Figshare_search_articles(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "search_for": search_for,
+            "item_type": item_type,
+            "page_size": page_size,
+            "published_since": published_since,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "Figshare_search_articles",
-            "arguments": {
-                "search_for": search_for,
-                "item_type": item_type,
-                "page_size": page_size,
-                "published_since": published_since,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

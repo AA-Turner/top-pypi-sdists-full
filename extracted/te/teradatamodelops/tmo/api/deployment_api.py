@@ -4,7 +4,8 @@ from tmo.api.iterator_base_api import IteratorBaseApi
 
 
 class DeploymentApi(IteratorBaseApi):
-    path = "/api/deployments"
+    name = "Deployment API"
+    path = "deployments"
     type = "DEPLOYMENT"
 
     def _get_header_params(self):
@@ -41,12 +42,16 @@ class DeploymentApi(IteratorBaseApi):
         Returns:
             (dict): deployments
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
+
         query_vars = ["trainedModelId", "engineType", "projection"]
         query_vals = [trained_model_id, engine_type, projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findActiveByTrainedModelIdAndEngineType",
+            path=(
+                f"{self.base_path + self.path}/search/findActiveByTrainedModelIdAndEngineType"
+            ),
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -65,7 +70,7 @@ class DeploymentApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByStatus",
+            path=f"{self.base_path + self.path}/search/findByStatus",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -83,7 +88,7 @@ class DeploymentApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findActive",
+            path=f"{self.base_path + self.path}/search/findActive",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -99,12 +104,14 @@ class DeploymentApi(IteratorBaseApi):
         Returns:
             (dict): deployments
         """
+        deployment_job_id = self.validate_uuid(deployment_job_id)
+
         query_vars = ["jobId", "projection"]
         query_vals = [deployment_job_id, projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByJobId",
+            path=f"{self.base_path + self.path}/search/findByJobId",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -118,12 +125,14 @@ class DeploymentApi(IteratorBaseApi):
         Returns:
             (dict): deployments
         """
+        task_id = self.validate_uuid(task_id)
+
         query_vars = ["taskId", "projection"]
         query_vals = [task_id, projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findActiveByTaskId",
+            path=f"{self.base_path + self.path}/search/findActiveByTaskId",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -139,8 +148,12 @@ class DeploymentApi(IteratorBaseApi):
         Returns:
             (dict): scoring response
         """
+        deployment_id = self.validate_uuid(deployment_id)
+
         return self.tmo_client.post_request(
-            path=f"{self.path}/{deployment_id}/runCustomBatchPredictionNow",
+            path=(
+                f"{self.base_path + self.path}/{deployment_id}/runCustomBatchPredictionNow"
+            ),
             header_params=self._get_header_params(),
             query_params={},
             body=scoring_request,

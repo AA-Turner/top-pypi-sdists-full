@@ -59,20 +59,26 @@ def openalex_literature_search(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "search_keywords": search_keywords,
+            "query": query,
+            "max_results": max_results,
+            "limit": limit,
+            "year_from": year_from,
+            "year_to": year_to,
+            "open_access": open_access,
+            "require_has_fulltext": require_has_fulltext,
+            "fulltext_terms": fulltext_terms,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "openalex_literature_search",
-            "arguments": {
-                "search_keywords": search_keywords,
-                "query": query,
-                "max_results": max_results,
-                "limit": limit,
-                "year_from": year_from,
-                "year_to": year_to,
-                "open_access": open_access,
-                "require_has_fulltext": require_has_fulltext,
-                "fulltext_terms": fulltext_terms,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -18,6 +18,7 @@ use smallvec::{SmallVec, smallvec_inline};
 
 use super::{DynamicType, Type, TypeVarVariance, semantic_index};
 use crate::semantic_index::definition::Definition;
+use crate::types::callable::CallableTypeKind;
 use crate::types::constraints::{
     ConstraintSet, ConstraintSetBuilder, IteratorConstraintsExtension,
 };
@@ -25,7 +26,7 @@ use crate::types::generics::{GenericContext, InferableTypeVars, walk_generic_con
 use crate::types::infer::infer_deferred_types;
 use crate::types::relation::{HasRelationToVisitor, IsDisjointVisitor, TypeRelation};
 use crate::types::{
-    ApplyTypeMappingVisitor, BindingContext, BoundTypeVarInstance, CallableType, CallableTypeKind,
+    ApplyTypeMappingVisitor, BindingContext, BoundTypeVarInstance, CallableType,
     FindLegacyTypeVarsVisitor, KnownClass, MaterializationKind, ParamSpecAttrKind, SelfBinding,
     TypeContext, TypeMapping, UnionBuilder, VarianceInferable, infer_complete_scope_types,
     todo_type,
@@ -216,7 +217,10 @@ impl<'db> CallableSignature<'db> {
             }
         }
 
-        if let TypeMapping::ApplySpecialization(specialization) = type_mapping {
+        if let TypeMapping::ApplySpecialization(specialization)
+        | TypeMapping::ApplySpecializationWithMaterialization { specialization, .. } =
+            type_mapping
+        {
             Self::from_overloads(self.overloads.iter().flat_map(|signature| {
                 if let Some((prefix, paramspec)) =
                     signature.parameters.find_paramspec_from_args_kwargs(db)

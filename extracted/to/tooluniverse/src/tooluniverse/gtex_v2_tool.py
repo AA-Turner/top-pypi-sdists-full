@@ -84,7 +84,9 @@ class GTExV2Tool(BaseTool):
         if isinstance(gencode_ids, str):
             gencode_ids = [gencode_ids]
 
-        dataset_id = arguments.get("dataset_id", "gtex_v10")
+        # Feature-69A-002: gtex_v10 returns empty results for medianGeneExpression.
+        # Default to gtex_v8 which is stable and returns correct tissue expression.
+        dataset_id = arguments.get("dataset_id", "gtex_v8")
         tissue_ids = arguments.get("tissue_site_detail_id", [])
 
         if isinstance(tissue_ids, str):

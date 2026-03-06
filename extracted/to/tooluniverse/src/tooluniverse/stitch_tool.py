@@ -13,8 +13,9 @@ from typing import Dict, Any
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 
-# Base URL for STITCH/STRING REST API
-STITCH_BASE_URL = "https://string-db.org/api"
+# Base URL for STITCH REST API (chemical-protein interactions)
+# NOTE: stitch.embl.de may have SSL certificate issues on some systems; use verify=False
+STITCH_BASE_URL = "https://stitch.embl.de/api"
 
 
 @register_tool("STITCHTool")
@@ -79,6 +80,7 @@ class STITCHTool(BaseTool):
                 f"{STITCH_BASE_URL}/json/interactions",
                 params=params,
                 timeout=self.timeout,
+                verify=False,
             )
             response.raise_for_status()
             return {"interactions": response.json()}
@@ -107,7 +109,10 @@ class STITCHTool(BaseTool):
 
         try:
             response = requests.get(
-                f"{STITCH_BASE_URL}/json/network", params=params, timeout=self.timeout
+                f"{STITCH_BASE_URL}/json/network",
+                params=params,
+                timeout=self.timeout,
+                verify=False,
             )
             response.raise_for_status()
             return {"interactors": response.json()}
@@ -129,7 +134,10 @@ class STITCHTool(BaseTool):
 
         try:
             response = requests.get(
-                f"{STITCH_BASE_URL}/json/resolve", params=params, timeout=self.timeout
+                f"{STITCH_BASE_URL}/json/resolve",
+                params=params,
+                timeout=self.timeout,
+                verify=False,
             )
             response.raise_for_status()
             return {"matches": response.json()}

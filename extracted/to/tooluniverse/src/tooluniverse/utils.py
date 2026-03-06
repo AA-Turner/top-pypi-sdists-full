@@ -6,8 +6,8 @@ import os
 import time
 import sys
 from typing import Dict, Any, Union, List
-from huggingface_hub import hf_hub_download
-from pydantic._internal._model_construction import ModelMetaclass
+# Heavy optional dependencies — imported lazily inside the functions that need
+# them so that `import tooluniverse` does not pay their cost at startup.
 
 
 def download_from_hf(tool_config):
@@ -51,6 +51,7 @@ def download_from_hf(tool_config):
         else:
             download_args["token"] = False
 
+        from huggingface_hub import hf_hub_download
         downloaded_path = hf_hub_download(**download_args)
 
         # The downloaded file path is returned by hf_hub_download
@@ -137,6 +138,7 @@ def read_json_list(file_path):
 
 def evaluate_function_call(tool_definition, function_call):
     # Map for type conversion
+    from pydantic._internal._model_construction import ModelMetaclass
     type_map = {
         "string": str,
         "integer": int,

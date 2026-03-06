@@ -47,16 +47,22 @@ def BioGRID_search_by_pubmed(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "pubmed_ids": pubmed_ids,
+            "organism": organism,
+            "interaction_type": interaction_type,
+            "include_evidence": include_evidence,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BioGRID_search_by_pubmed",
-            "arguments": {
-                "pubmed_ids": pubmed_ids,
-                "organism": organism,
-                "interaction_type": interaction_type,
-                "include_evidence": include_evidence,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

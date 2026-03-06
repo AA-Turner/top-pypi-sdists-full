@@ -4,13 +4,9 @@ from tmo.api.iterator_base_api import IteratorBaseApi
 
 
 class FeatureEngineeringApi(IteratorBaseApi):
-
-    path = "/api/featureEngineeringTasks"
+    name = "Feature Engineering API"
+    path = "featureEngineeringTasks"
     type = "FEATURE_ENGINEERING"
-
-    def _get_header_params(self):
-        # The header for project id is required for the archive/unarchive method from base_api
-        return self._get_standard_header_params()
 
     def import_task(self, import_request: dict[str, str]):
         """
@@ -28,7 +24,7 @@ class FeatureEngineeringApi(IteratorBaseApi):
         )
 
         return self.tmo_client.post_request(
-            path=f"{self.path}/import",
+            path=f"{self.base_path + self.path}/import",
             header_params=self._get_header_params(),
             query_params={},
             body=import_request,
@@ -45,10 +41,12 @@ class FeatureEngineeringApi(IteratorBaseApi):
         Returns:
             (dict): job
         """
+        task_id = self.validate_uuid(task_id)
+
         self.required_params(["automation", "datasetConnectionId"], run_request)
 
         return self.tmo_client.post_request(
-            path=f"{self.path}/{task_id}/run",
+            path=f"{self.base_path + self.path}/{task_id}/run",
             header_params=self._get_header_params(),
             query_params={},
             body=run_request,
@@ -61,6 +59,8 @@ class FeatureEngineeringApi(IteratorBaseApi):
         :param comments: approval comments
         :return:
         """
+        task_id = self.validate_uuid(task_id)
+
         return self._approve_entity(task_id, comments)
 
     def reject(self, task_id: str, comments: str):
@@ -70,6 +70,8 @@ class FeatureEngineeringApi(IteratorBaseApi):
         :param comments: approval comments
         :return:
         """
+        task_id = self.validate_uuid(task_id)
+
         return self._reject_entity(task_id, comments)
 
     def deploy(self, task_id: str, deploy_request: dict):
@@ -79,6 +81,8 @@ class FeatureEngineeringApi(IteratorBaseApi):
         :param deploy_request: deployment request
         :return:
         """
+        task_id = self.validate_uuid(task_id)
+
         return self._deploy_entity(task_id, deploy_request)
 
     def retire(self, task_id: str, retire_request: dict):

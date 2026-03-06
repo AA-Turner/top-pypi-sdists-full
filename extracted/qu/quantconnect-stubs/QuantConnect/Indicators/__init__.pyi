@@ -611,7 +611,7 @@ class IndicatorBasedOptionPriceModel(QuantConnect.Securities.Option.OptionPriceM
     to provide a theoretical price for the option contract.
     """
 
-    def __init__(self, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, dividend_yield_model: QuantConnect.Data.IDividendYieldModel = None, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel = None, use_mirror_contract: bool = True) -> None:
+    def __init__(self, option_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, iv_model: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None, dividend_yield_model: QuantConnect.Data.IDividendYieldModel = None, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel = None, use_mirror_contract: bool = True, security_provider: QuantConnect.Securities.SecurityManager = None) -> None:
         """
         Creates a new instance of the IndicatorBasedOptionPriceModel class
         
@@ -620,6 +620,7 @@ class IndicatorBasedOptionPriceModel(QuantConnect.Securities.Option.OptionPriceM
         :param dividend_yield_model: The dividend yield model to be used by the indicators
         :param risk_free_interest_rate_model: The risk free interest rate model to be used by the indicators
         :param use_mirror_contract: Whether to use the mirror contract when possible
+        :param security_provider: The security provider used to fetch the mirror contract
         """
         ...
 
@@ -8265,8 +8266,14 @@ class MomersionIndicator(QuantConnect.Indicators.Momersion):
 class IndicatorBasedOptionPriceModelProvider(System.Object, QuantConnect.Securities.Option.IOptionPriceModelProvider):
     """Provides option price models for option securities based on Lean's Greeks indicators"""
 
-    INSTANCE: QuantConnect.Indicators.IndicatorBasedOptionPriceModelProvider
-    """Singleton instance of the IndicatorBasedOptionPriceModelProvider"""
+    @property
+    def securities(self) -> QuantConnect.Securities.SecurityManager:
+        """Gets the security manager instance to use"""
+        ...
+
+    def __init__(self, securities: QuantConnect.Securities.SecurityManager) -> None:
+        """Creates a new instance of the IndicatorBasedOptionPriceModelProvider class"""
+        ...
 
     @overload
     def get_option_price_model(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], pricing_model_type: typing.Optional[QuantConnect.Indicators.OptionPricingModelType] = None) -> QuantConnect.Securities.Option.IOptionPriceModel:

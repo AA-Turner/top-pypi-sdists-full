@@ -44,15 +44,21 @@ def ChEMBL_search_protein_classification(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "target_chembl_id": target_chembl_id,
+            "protein_class_id": protein_class_id,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ChEMBL_search_protein_classification",
-            "arguments": {
-                "target_chembl_id": target_chembl_id,
-                "protein_class_id": protein_class_id,
-                "limit": limit,
-                "offset": offset,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

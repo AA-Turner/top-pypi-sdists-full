@@ -123,7 +123,17 @@ class PubMedRESTTool(BaseRESTTool):
             pub_year = pub_date.split()[0] if pub_date else ""
 
             elocationid = article_data.get("elocationid", "")
-            doi = elocationid.replace("doi: ", "") if "doi:" in elocationid else ""
+            # Extract DOI: handle formats like "doi: 10.1234/abc" and mixed
+            # "pii: 2026.02.14.705936. 10.64898/2026.02.14.705936" (preprints).
+            doi = ""
+            if "doi:" in elocationid:
+                # Find the "doi:" token and extract what follows it
+                doi_part = elocationid[elocationid.index("doi:") + 4 :].strip()
+                # Take the first token that contains '/' (valid DOI structure)
+                for token in doi_part.split():
+                    if "/" in token:
+                        doi = token.rstrip(".")
+                        break
             doi = doi or None
 
             journal = article_data.get(
@@ -276,6 +286,102 @@ class PubMedRESTTool(BaseRESTTool):
                 "status": "error",
                 "error": f"Failed to fetch article summaries: {str(e)}",
             }
+
+    def _parse_efetch_xml(self, response) -> Dict[str, Any]:
+        """Parse PubMed efetch XML into structured article data."""
+        try:
+            root = ET.fromstring(response.text)
+        except ET.ParseError:
+            return {"status": "success", "data": response.text, "url": response.url}
+
+        def _text(el, path, default=""):
+            found = el.find(path) if el is not None else None
+            return found.text if found is not None and found.text else default
+
+        def _itertext(el, path):
+            found = el.find(path) if el is not None else None
+            return "".join(found.itertext()) if found is not None else ""
+
+        def _parse_article(article_el):
+            cit = article_el.find("MedlineCitation")
+            art = cit.find("Article") if cit is not None else None
+            if cit is None or art is None:
+                return None
+
+            pmid = _text(cit, "PMID")
+            title = _itertext(art, "ArticleTitle")
+
+            # Abstract: join labeled sections
+            abstract_parts = []
+            for at in art.findall("Abstract/AbstractText") or []:
+                label, text = at.get("Label", ""), "".join(at.itertext()).strip()
+                if text:
+                    abstract_parts.append(f"{label}: {text}" if label else text)
+            abstract = " ".join(abstract_parts)
+
+            # Authors (first 10)
+            authors = []
+            for au in (art.findall("AuthorList/Author") or [])[:10]:
+                last, fore = au.findtext("LastName", ""), au.findtext("ForeName", "")
+                name = f"{last} {fore}".strip() if last else fore
+                if not name:
+                    continue
+                entry = {"name": name}
+                aff = _text(au, ".//Affiliation")
+                if aff:
+                    entry["affiliation"] = aff
+                authors.append(entry)
+
+            journal_el = art.find("Journal")
+            journal = _text(journal_el, "Title") or _text(journal_el, "ISOAbbreviation")
+
+            doi = next(
+                (
+                    eid.text
+                    for eid in art.findall("ELocationID")
+                    if eid.get("EIdType") == "doi" and eid.text
+                ),
+                "",
+            )
+
+            pd = art.find(".//PubDate")
+            pub_year = _text(pd, "Year")
+            pub_date = " ".join(
+                filter(None, [pub_year, _text(pd, "Month"), _text(pd, "Day")])
+            )
+
+            mesh = [
+                d.text
+                for d in cit.findall("MeshHeadingList/MeshHeading/DescriptorName")
+                if d.text
+            ]
+            pub_types = [pt.text for pt in art.findall(".//PublicationType") if pt.text]
+
+            return {
+                "pmid": pmid,
+                "title": title,
+                "abstract": abstract or None,
+                "authors": authors,
+                "journal": journal or None,
+                "pub_date": pub_date,
+                "pub_year": pub_year,
+                "doi": doi or None,
+                "doi_url": f"https://doi.org/{doi}" if doi else None,
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+                "mesh_terms": mesh or None,
+                "publication_types": pub_types or None,
+            }
+
+        articles = [
+            a
+            for a in (_parse_article(el) for el in root.findall(".//PubmedArticle"))
+            if a
+        ]
+        data = articles[0] if len(articles) == 1 else articles
+        result = {"status": "success", "data": data, "url": response.url}
+        if len(articles) != 1:
+            result["count"] = len(articles)
+        return result
 
     def _fetch_abstracts(self, pmid_list: list[str]) -> Dict[str, str]:
         """Best-effort abstract fetch via efetch XML for a list of PMIDs."""
@@ -493,6 +599,30 @@ class PubMedRESTTool(BaseRESTTool):
                                     limit = None
                                 if limit is not None:
                                     links = links[:limit]
+
+                                # Enrich with article metadata
+                                pmids = [
+                                    str(lk["id"] if isinstance(lk, dict) else lk)
+                                    for lk in links
+                                ]
+                                scores = {
+                                    str(lk["id"]): lk.get("score")
+                                    for lk in links
+                                    if isinstance(lk, dict)
+                                }
+                                summary = self._fetch_summaries(pmids)
+                                if summary.get("status") == "success" and summary.get(
+                                    "data"
+                                ):
+                                    for item in summary["data"]:
+                                        score = (
+                                            scores.get(str(item.get("pmid", "")))
+                                            if isinstance(item, dict)
+                                            else None
+                                        )
+                                        if score is not None:
+                                            item["relevance_score"] = score
+                                    links = summary["data"]
                                 return {
                                     "status": "success",
                                     "data": links,
@@ -521,12 +651,8 @@ class PubMedRESTTool(BaseRESTTool):
                     "url": response.url,
                 }
             except Exception:
-                # For XML responses (efetch), return as text
-                return {
-                    "status": "success",
-                    "data": response.text,
-                    "url": response.url,
-                }
+                # For XML responses (efetch), parse into structured data
+                return self._parse_efetch_xml(response)
 
         except Exception as e:
             return {

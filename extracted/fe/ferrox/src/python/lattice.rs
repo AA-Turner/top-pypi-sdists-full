@@ -6,7 +6,7 @@ use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use super::helpers::{StructureJson, mat3_to_array, parse_struct};
 
 /// Get the lattice metric tensor.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.lattice")]
 #[pyfunction]
 fn get_metric_tensor(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
     let struc = parse_struct(&structure)?;
@@ -14,7 +14,7 @@ fn get_metric_tensor(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
 }
 
 /// Get the inverse lattice matrix.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.lattice")]
 #[pyfunction]
 fn get_inv_matrix(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
     let struc = parse_struct(&structure)?;
@@ -22,7 +22,7 @@ fn get_inv_matrix(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
 }
 
 /// Get the reciprocal lattice matrix.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.lattice")]
 #[pyfunction]
 fn get_reciprocal_lattice(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
     let struc = parse_struct(&structure)?;
@@ -30,7 +30,7 @@ fn get_reciprocal_lattice(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
 }
 
 /// Get the LLL-reduced lattice.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.lattice")]
 #[pyfunction]
 #[pyo3(signature = (structure, delta = 0.75))]
 fn get_lll_reduced_lattice(structure: StructureJson, delta: f64) -> PyResult<[[f64; 3]; 3]> {
@@ -44,21 +44,19 @@ fn get_lll_reduced_lattice(structure: StructureJson, delta: f64) -> PyResult<[[f
 }
 
 /// Get the LLL reduction mapping matrix.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.lattice")]
 #[pyfunction]
 fn get_lll_mapping(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
     let struc = parse_struct(&structure)?;
     Ok(mat3_to_array(&struc.lattice.lll_mapping()))
 }
 
-/// Register the lattice submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "lattice")?;
-    submod.add_function(wrap_pyfunction!(get_metric_tensor, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_inv_matrix, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_reciprocal_lattice, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_lll_reduced_lattice, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_lll_mapping, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register lattice functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(get_metric_tensor, module)?)?;
+    module.add_function(wrap_pyfunction!(get_inv_matrix, module)?)?;
+    module.add_function(wrap_pyfunction!(get_reciprocal_lattice, module)?)?;
+    module.add_function(wrap_pyfunction!(get_lll_reduced_lattice, module)?)?;
+    module.add_function(wrap_pyfunction!(get_lll_mapping, module)?)?;
     Ok(())
 }

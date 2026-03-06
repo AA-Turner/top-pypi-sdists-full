@@ -52,11 +52,21 @@ def _activate_attention(flash=False, sage=False):
         from comfy.cli_args import args
         patches = []
         if sage and not getattr(args, 'use_sage_attention', False):
-            args.use_sage_attention = True
-            patches.append("sage")
+            try:
+                from sageattention import sageattn  # noqa: F401
+                args.use_sage_attention = True
+                patches.append("sage")
+            except Exception:
+                print("[comfy-env] sage attention requested but sageattention not importable",
+                      file=sys.stderr, flush=True)
         if flash and not getattr(args, 'use_flash_attention', False):
-            args.use_flash_attention = True
-            patches.append("flash")
+            try:
+                from flash_attn import flash_attn_func  # noqa: F401
+                args.use_flash_attention = True
+                patches.append("flash")
+            except Exception:
+                print("[comfy-env] flash attention requested but flash_attn not importable",
+                      file=sys.stderr, flush=True)
         if patches:
             print(f"[comfy-env] auto-activated {' + '.join(patches)} attention",
                   file=sys.stderr, flush=True)
@@ -182,23 +192,26 @@ def setup_env(node_dir: Optional[str] = None) -> None:
     else:
         print(f"[comfy-env] {node_name}: no isolation envs", file=sys.stderr)
 
-    if not is_comfy_env_enabled(): return
-    dedupe_libomp()
-
-    # Patches
+    # Patches (apply regardless of isolation setting)
     from ..settings import _is_on, PATCH_DEFAULTS
-    if _is_on("COMFY_ENV_PATCH_SHAREABLE_POOL",
-              PATCH_DEFAULTS["COMFY_ENV_PATCH_SHAREABLE_POOL"]):
-        _register_shareable_pool_hook()
-        print("[comfy-env] shareable pool hook registered",
-              file=sys.stderr, flush=True)
-
     use_flash = _is_on("COMFY_ENV_PATCH_FLASH_ATTENTION",
                         PATCH_DEFAULTS["COMFY_ENV_PATCH_FLASH_ATTENTION"])
     use_sage = _is_on("COMFY_ENV_PATCH_SAGE_ATTENTION",
                        PATCH_DEFAULTS["COMFY_ENV_PATCH_SAGE_ATTENTION"])
     if use_flash or use_sage:
         _activate_attention(flash=use_flash, sage=use_sage)
+
+    if not is_comfy_env_enabled():
+        print("[comfy-env] prestartup complete (isolation disabled)",
+              file=sys.stderr, flush=True)
+        return
+    dedupe_libomp()
+
+    if _is_on("COMFY_ENV_PATCH_SHAREABLE_POOL",
+              PATCH_DEFAULTS["COMFY_ENV_PATCH_SHAREABLE_POOL"]):
+        _register_shareable_pool_hook()
+        print("[comfy-env] shareable pool hook registered",
+              file=sys.stderr, flush=True)
 
     _ensure_base_directory()
     print("[comfy-env] prestartup complete", file=sys.stderr, flush=True)

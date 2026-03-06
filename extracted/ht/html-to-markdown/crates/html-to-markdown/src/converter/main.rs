@@ -136,11 +136,9 @@ pub(crate) fn convert_html_impl(
         }
     }
 
-    // Fast path for plain text output: skip the full conversion pipeline
-    if options.output_format == OutputFormat::Plain {
-        let plain = extract_plain_text(&dom, parser, options);
-        return Ok(plain);
-    }
+    // Plain text output: run the full pipeline (for metadata + visitor callbacks),
+    // then return plain text instead of markdown.
+    let is_plain_text = options.output_format == OutputFormat::Plain;
 
     let wants_frontmatter = options.extract_metadata && !options.convert_as_inline;
     #[cfg(feature = "metadata")]
@@ -228,6 +226,13 @@ pub(crate) fn convert_html_impl(
     #[cfg(feature = "visitor")]
     if let Some(err) = ctx.visitor_error.borrow().as_ref() {
         return Err(crate::error::ConversionError::Visitor(err.clone()));
+    }
+
+    // If plain text was requested, discard the markdown output and return plain text.
+    // The full pipeline was still run above so that metadata + visitor callbacks fire.
+    if is_plain_text {
+        let plain = extract_plain_text(&dom, parser, options);
+        return Ok(plain);
     }
 
     trim_line_end_whitespace(&mut output);

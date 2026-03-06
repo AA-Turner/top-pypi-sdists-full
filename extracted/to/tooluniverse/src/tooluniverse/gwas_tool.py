@@ -18,7 +18,7 @@ class GWASRESTTool(BaseTool):
         """Make a request to the GWAS Catalog API."""
         url = f"{self.base_url}{endpoint}"
         try:
-            response = requests.get(url, params=params, timeout=30)
+            response = requests.get(url, params=params, timeout=60)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:

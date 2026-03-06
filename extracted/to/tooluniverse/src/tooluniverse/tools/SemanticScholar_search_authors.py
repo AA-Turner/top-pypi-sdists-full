@@ -41,10 +41,16 @@ def SemanticScholar_search_authors(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"query": query, "limit": limit, "fields": fields}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "SemanticScholar_search_authors",
-            "arguments": {"query": query, "limit": limit, "fields": fields},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

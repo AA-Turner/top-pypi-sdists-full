@@ -57,13 +57,14 @@ class NCBISRATool(NCBIEUtilsTool):
             if arguments.get(key)
         ]
 
-        if arguments.get("query") and not terms:
-            return arguments["query"]
+        # Feature-28B-15 fix: always include free-text query alongside structured filters
+        if arguments.get("query"):
+            terms.append(arguments["query"])
 
         if terms:
             return " AND ".join(f"({term})" for term in terms)
 
-        return arguments.get("query", "")
+        return ""
 
     def _search_sra_runs(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search SRA database for runs using esearch."""

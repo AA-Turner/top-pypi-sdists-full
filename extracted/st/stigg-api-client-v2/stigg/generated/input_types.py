@@ -5669,6 +5669,9 @@ class UsageHistoryV2Input(BaseModel):
     environment_id: Optional[Any] = Field(alias="environmentId", default=None)
     feature_id: str = Field(alias="featureId")
     group_by: Optional[List[str]] = Field(alias="groupBy", default=None)
+    include_historical_usage: Optional[bool] = Field(
+        alias="includeHistoricalUsage", default=None
+    )
     resource_id: Optional[str] = Field(alias="resourceId", default=None)
     start_date: Any = Field(alias="startDate")
 

@@ -23,9 +23,9 @@ def CPIC_search_gene_drug_pairs(
     Parameters
     ----------
     genesymbol : str | Any
-        PostgREST filter for gene symbol, prefix with 'eq.' (e.g., 'eq.CYP2D6', 'eq.D...
+        Gene symbol to filter by (e.g., 'CYP2D6', 'DPYD', 'TPMT'). Omit to search all...
     cpiclevel : str | Any
-        PostgREST filter for CPIC evidence level, prefix with 'eq.' (e.g., 'eq.A', 'e...
+        CPIC evidence level to filter by (e.g., 'A', 'B', 'B/C', 'C', 'D'). Omit to i...
     limit : int | Any
         Maximum number of results to return (default 50)
     stream_callback : Callable, optional
@@ -41,14 +41,20 @@ def CPIC_search_gene_drug_pairs(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "genesymbol": genesymbol,
+            "cpiclevel": cpiclevel,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CPIC_search_gene_drug_pairs",
-            "arguments": {
-                "genesymbol": genesymbol,
-                "cpiclevel": cpiclevel,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -50,17 +50,23 @@ def EuropePMC_search_articles(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query": query,
+            "limit": limit,
+            "require_has_ft": require_has_ft,
+            "fulltext_terms": fulltext_terms,
+            "enrich_missing_abstract": enrich_missing_abstract,
+            "extract_terms_from_fulltext": extract_terms_from_fulltext,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EuropePMC_search_articles",
-            "arguments": {
-                "query": query,
-                "limit": limit,
-                "require_has_ft": require_has_ft,
-                "fulltext_terms": fulltext_terms,
-                "enrich_missing_abstract": enrich_missing_abstract,
-                "extract_terms_from_fulltext": extract_terms_from_fulltext,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

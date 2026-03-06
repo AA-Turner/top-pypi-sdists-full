@@ -44,15 +44,21 @@ def AdvancedCodeQualityAnalyzer(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "source_code": source_code,
+            "language": language,
+            "analysis_depth": analysis_depth,
+            "domain_context": domain_context,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "AdvancedCodeQualityAnalyzer",
-            "arguments": {
-                "source_code": source_code,
-                "language": language,
-                "analysis_depth": analysis_depth,
-                "domain_context": domain_context,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -53,18 +53,24 @@ def PMC_search_papers(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query": query,
+            "limit": limit,
+            "retmax": retmax,
+            "date_from": date_from,
+            "date_to": date_to,
+            "article_type": article_type,
+            "include_abstract": include_abstract,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "PMC_search_papers",
-            "arguments": {
-                "query": query,
-                "limit": limit,
-                "retmax": retmax,
-                "date_from": date_from,
-                "date_to": date_to,
-                "article_type": article_type,
-                "include_abstract": include_abstract,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

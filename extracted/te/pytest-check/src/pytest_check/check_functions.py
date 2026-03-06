@@ -54,7 +54,6 @@ __all__ = [
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
-
 _CmpT = TypeVar("_CmpT", contravariant=True)
 
 
@@ -256,12 +255,21 @@ def greater(a: float, b: float, msg: str = "") -> bool: ...
 
 
 @overload
+def greater(
+    a: SupportsFloat | SupportsIndex, b: SupportsFloat | SupportsIndex, msg: str = ""
+) -> bool: ...
+
+
+@overload
 def greater(a: _ComparableGreaterThan[_CmpT], b: _CmpT, msg: str = "") -> bool: ...
 
 
 def greater(a: Any, b: Any, msg: str = "") -> bool:
     __tracebackhide__ = True
-    if a > b:
+    if a is None or b is None:
+        log_failure(f"check {a} > {b}: None cannot be compared", msg)
+        return False
+    elif a > b:
         return True
     else:
         log_failure(f"check {a} > {b}", msg)
@@ -274,13 +282,22 @@ def greater_equal(a: float, b: float, msg: str = "") -> bool: ...
 
 @overload
 def greater_equal(
+    a: SupportsFloat | SupportsIndex, b: SupportsFloat | SupportsIndex, msg: str = ""
+) -> bool: ...
+
+
+@overload
+def greater_equal(
     a: _ComparableGreaterThanOrEqual[_CmpT], b: _CmpT, msg: str = ""
 ) -> bool: ...
 
 
 def greater_equal(a: Any, b: Any, msg: str = "") -> bool:
     __tracebackhide__ = True
-    if a >= b:
+    if a is None or b is None:
+        log_failure(f"check {a} >= {b}: None cannot be compared", msg)
+        return False
+    elif a >= b:
         return True
     else:
         log_failure(f"check {a} >= {b}", msg)
@@ -292,12 +309,21 @@ def less(a: float, b: float, msg: str = "") -> bool: ...
 
 
 @overload
+def less(
+    a: SupportsFloat | SupportsIndex, b: SupportsFloat | SupportsIndex, msg: str = ""
+) -> bool: ...
+
+
+@overload
 def less(a: _ComparableLessThan[_CmpT], b: _CmpT, msg: str = "") -> bool: ...
 
 
 def less(a: Any, b: Any, msg: str = "") -> bool:
     __tracebackhide__ = True
-    if a < b:
+    if a is None or b is None:
+        log_failure(f"check {a} < {b}: None cannot be compared", msg)
+        return False
+    elif a < b:
         return True
     else:
         log_failure(f"check {a} < {b}", msg)
@@ -310,24 +336,64 @@ def less_equal(a: float, b: float, msg: str = "") -> bool: ...
 
 @overload
 def less_equal(
+    a: SupportsFloat | SupportsIndex, b: SupportsFloat | SupportsIndex, msg: str = ""
+) -> bool: ...
+
+
+@overload
+def less_equal(
     a: _ComparableLessThanOrEqual[_CmpT], b: _CmpT, msg: str = ""
 ) -> bool: ...
 
 
 def less_equal(a: Any, b: Any, msg: str = "") -> bool:
     __tracebackhide__ = True
-    if a <= b:
+    if a is None or b is None:
+        log_failure(f"check {a} <= {b}: None cannot be compared", msg)
+        return False
+    elif a <= b:
         return True
     else:
         log_failure(f"check {a} <= {b}", msg)
         return False
 
 
+@overload
+def between(
+    b: float, a: float, c: float, msg: str = "", ge: bool = False, le: bool = False
+) -> bool: ...
+
+
+@overload
+def between(
+    b: SupportsFloat | SupportsIndex,
+    a: SupportsFloat | SupportsIndex,
+    c: SupportsFloat | SupportsIndex,
+    msg: str = "",
+    ge: bool = False,
+    le: bool = False,
+) -> bool: ...
+
+
+@overload
+def between(
+    b: _ComparableLessThanOrEqual[_CmpT],
+    a: _CmpT,
+    c: _CmpT,
+    msg: str = "",
+    ge: bool = False,
+    le: bool = False,
+) -> bool: ...
+
+
 def between(
     b: Any, a: Any, c: Any, msg: str = "", ge: bool = False, le: bool = False
 ) -> bool:
     __tracebackhide__ = True
-    if ge and le:
+    if a is None or b is None or c is None:
+        log_failure(f"check {a} <= {b} <= {c}: None cannot be compared", msg)
+        return False
+    elif ge and le:
         if a <= b <= c:
             return True
         else:
@@ -353,10 +419,32 @@ def between(
             return False
 
 
+@overload
+def between_equal(b: float, a: float, c: float, msg: str = "") -> bool: ...
+
+
+@overload
+def between_equal(
+    b: SupportsFloat | SupportsIndex,
+    a: SupportsFloat | SupportsIndex,
+    c: SupportsFloat | SupportsIndex,
+    msg: str = "",
+) -> bool: ...
+
+
+@overload
 def between_equal(
     b: _ComparableLessThanOrEqual[_CmpT],
-    a: _ComparableLessThanOrEqual[_CmpT],
+    a: _CmpT,
     c: _CmpT,
+    msg: str = "",
+) -> bool: ...
+
+
+def between_equal(
+    b: Any,
+    a: Any,
+    c: Any,
     msg: str = "",
 ) -> bool:
     __tracebackhide__ = True

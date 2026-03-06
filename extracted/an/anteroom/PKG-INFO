@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anteroom
-Version: 1.98.0
+Version: 1.99.0
 Summary: Anteroom - your gateway to AI conversation
 License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
@@ -30,13 +30,8 @@ Requires-Dist: sqlite-vec>=0.1.6
 Requires-Dist: urllib3>=2.6.3
 Requires-Dist: aiohttp>=3.12.14
 Requires-Dist: requests>=2.32.4
-Requires-Dist: protobuf>=6.33.5
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: h2>=4.3.0
-Requires-Dist: pynacl>=1.6.2
-Requires-Dist: authlib>=1.6.6
-Requires-Dist: marshmallow>=4.1.2
-Requires-Dist: wheel>=0.46.2
 Provides-Extra: embeddings
 Requires-Dist: fastembed>=0.4.0; extra == "embeddings"
 Provides-Extra: index

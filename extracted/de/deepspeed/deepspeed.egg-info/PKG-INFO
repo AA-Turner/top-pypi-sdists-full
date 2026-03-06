@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepspeed
-Version: 0.18.6
+Version: 0.18.7
 Summary: DeepSpeed library
 Home-page: http://deepspeed.ai
 Author: DeepSpeed Team
@@ -89,52 +89,52 @@ Requires-Dist: triton==2.1.0; extra == "triton"
 Provides-Extra: deepcompile
 Requires-Dist: scipy; extra == "deepcompile"
 Provides-Extra: all
-Requires-Dist: pytest-forked; extra == "all"
-Requires-Dist: triton==2.1.0; extra == "all"
-Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
-Requires-Dist: pytest-randomly; extra == "all"
-Requires-Dist: py-cpuinfo; extra == "all"
+Requires-Dist: mup; extra == "all"
 Requires-Dist: clang-format==18.1.3; extra == "all"
+Requires-Dist: pre-commit>=3.2.0; extra == "all"
+Requires-Dist: importlib-metadata>=4; extra == "all"
+Requires-Dist: hjson; extra == "all"
 Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
-Requires-Dist: tqdm; extra == "all"
-Requires-Dist: wandb; extra == "all"
-Requires-Dist: accelerate; extra == "all"
-Requires-Dist: recommonmark; extra == "all"
-Requires-Dist: packaging; extra == "all"
-Requires-Dist: tabulate; extra == "all"
+Requires-Dist: psutil; extra == "all"
+Requires-Dist: lm-eval==0.3.0; extra == "all"
 Requires-Dist: torch; extra == "all"
-Requires-Dist: pytest-xdist; extra == "all"
-Requires-Dist: sentencepiece; extra == "all"
-Requires-Dist: xgboost; extra == "all"
-Requires-Dist: neural-compressor==2.1.0; extra == "all"
 Requires-Dist: protobuf; extra == "all"
+Requires-Dist: triton==2.1.0; extra == "all"
+Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
+Requires-Dist: triton>=2.1.0; extra == "all"
+Requires-Dist: triton==1.0.0; extra == "all"
+Requires-Dist: safetensors; extra == "all"
+Requires-Dist: py-cpuinfo; extra == "all"
+Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
+Requires-Dist: sphinx-rtd-theme; extra == "all"
+Requires-Dist: transformers>=4.32.1; extra == "all"
+Requires-Dist: neural-compressor==2.1.0; extra == "all"
+Requires-Dist: sentencepiece; extra == "all"
+Requires-Dist: future; extra == "all"
+Requires-Dist: mpi4py; extra == "all"
+Requires-Dist: tabulate; extra == "all"
+Requires-Dist: diffusers>=0.25.0; extra == "all"
+Requires-Dist: sphinx; extra == "all"
+Requires-Dist: google; extra == "all"
+Requires-Dist: qtorch==0.3.0; extra == "all"
+Requires-Dist: xgboost; extra == "all"
+Requires-Dist: wandb; extra == "all"
+Requires-Dist: pytest-forked; extra == "all"
+Requires-Dist: sphinx_rtd_theme; extra == "all"
+Requires-Dist: qtorch; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Requires-Dist: pytest-randomly; extra == "all"
+Requires-Dist: docutils<0.18; extra == "all"
 Requires-Dist: comet_ml>=3.41.0; extra == "all"
+Requires-Dist: tqdm; extra == "all"
+Requires-Dist: transformers>=4.51.3; extra == "all"
+Requires-Dist: scipy; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
 Requires-Dist: torchvision; extra == "all"
 Requires-Dist: pydantic>=2.0.0; extra == "all"
-Requires-Dist: google; extra == "all"
-Requires-Dist: importlib-metadata>=4; extra == "all"
-Requires-Dist: transformers>=4.32.1; extra == "all"
-Requires-Dist: mpi4py; extra == "all"
-Requires-Dist: triton>=2.1.0; extra == "all"
-Requires-Dist: qtorch; extra == "all"
-Requires-Dist: triton==1.0.0; extra == "all"
-Requires-Dist: qtorch==0.3.0; extra == "all"
-Requires-Dist: pre-commit>=3.2.0; extra == "all"
-Requires-Dist: sphinx_rtd_theme; extra == "all"
-Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
-Requires-Dist: sphinx-rtd-theme; extra == "all"
-Requires-Dist: hjson; extra == "all"
-Requires-Dist: docutils<0.18; extra == "all"
 Requires-Dist: tensorboard; extra == "all"
-Requires-Dist: scipy; extra == "all"
-Requires-Dist: future; extra == "all"
-Requires-Dist: diffusers>=0.25.0; extra == "all"
-Requires-Dist: safetensors; extra == "all"
-Requires-Dist: sphinx; extra == "all"
-Requires-Dist: psutil; extra == "all"
-Requires-Dist: mup; extra == "all"
-Requires-Dist: transformers>=4.51.3; extra == "all"
-Requires-Dist: lm-eval==0.3.0; extra == "all"
+Requires-Dist: accelerate; extra == "all"
+Requires-Dist: recommonmark; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -167,6 +167,8 @@ Dynamic: summary
 ## Latest News
 
 * [2025/12] [DeepSpeed Core API updates: PyTorch-style backward and low-precision master states](https://github.com/deepspeedai/DeepSpeed/blob/master/blogs/core_api_update/README.md)
+
+* [2025/11] [DeepSpeed ZeRO++ powers large-scale distillation training of LLMs for Recommendation Systems at LinkedIn](https://aclanthology.org/2025.emnlp-industry.119/)
 
 * [2025/10] We hosted the [Ray x DeepSpeed Meetup](https://luma.com/3wctqteh) at Anyscale. We shared our most recent work on SuperOffload, ZenFlow, Muon Optimizer Support, Arctic Long Sequence Training and DeepCompile. Please find the meetup slides [here](https://docs.google.com/presentation/d/1eM3mY6oW9GYkRy1Xz0iOnbbEr5T1t0JJXOM5BKtR-Ks/edit?slide=id.g38615d6b4c2_0_87#slide=id.g38615d6b4c2_0_87).
 

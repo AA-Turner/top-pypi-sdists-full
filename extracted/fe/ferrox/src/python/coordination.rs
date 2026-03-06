@@ -23,7 +23,7 @@ fn voronoi_config(min_solid_angle: f64) -> coordination::VoronoiConfig {
 }
 
 /// Get coordination numbers for all sites.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 fn get_coordination_numbers(structure: StructureJson, cutoff: f64) -> PyResult<Vec<usize>> {
     validate_cutoff(cutoff)?;
@@ -32,7 +32,7 @@ fn get_coordination_numbers(structure: StructureJson, cutoff: f64) -> PyResult<V
 }
 
 /// Get the coordination number for a single site.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 fn get_coordination_number(
     structure: StructureJson,
@@ -48,7 +48,7 @@ fn get_coordination_number(
 }
 
 /// Get the local environment for a site.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 fn get_local_environment(
     py: Python<'_>,
@@ -75,7 +75,7 @@ fn get_local_environment(
 }
 
 /// Get neighbors for a site.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 fn get_neighbors(
     py: Python<'_>,
@@ -116,7 +116,7 @@ fn validate_min_solid_angle(min_solid_angle: f64) -> PyResult<()> {
 
 /// Get coordination number using Voronoi tessellation.
 #[cfg(not(target_arch = "wasm32"))]
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 #[pyo3(signature = (structure, site_idx, min_solid_angle = 0.1))]
 fn get_cn_voronoi(
@@ -132,7 +132,7 @@ fn get_cn_voronoi(
 
 /// Get Voronoi coordination numbers for all sites.
 #[cfg(not(target_arch = "wasm32"))]
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 #[pyo3(signature = (structure, min_solid_angle = 0.1))]
 fn get_cn_voronoi_all(structure: StructureJson, min_solid_angle: f64) -> PyResult<Vec<f64>> {
@@ -143,7 +143,7 @@ fn get_cn_voronoi_all(structure: StructureJson, min_solid_angle: f64) -> PyResul
 
 /// Get Voronoi neighbors for a site.
 #[cfg(not(target_arch = "wasm32"))]
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 #[pyo3(signature = (structure, site_idx, min_solid_angle = 0.1))]
 fn get_voronoi_neighbors(
@@ -163,7 +163,7 @@ fn get_voronoi_neighbors(
 
 /// Get Voronoi-based local environment for a site.
 #[cfg(not(target_arch = "wasm32"))]
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.coordination")]
 #[pyfunction]
 #[pyo3(signature = (structure, site_idx, min_solid_angle = 0.1))]
 fn get_local_environment_voronoi(
@@ -194,20 +194,18 @@ fn get_local_environment_voronoi(
         .collect()
 }
 
-/// Register the coordination submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "coordination")?;
-    submod.add_function(wrap_pyfunction!(get_coordination_numbers, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_coordination_number, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_local_environment, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_neighbors, &submod)?)?;
+/// Register coordination functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(get_coordination_numbers, module)?)?;
+    module.add_function(wrap_pyfunction!(get_coordination_number, module)?)?;
+    module.add_function(wrap_pyfunction!(get_local_environment, module)?)?;
+    module.add_function(wrap_pyfunction!(get_neighbors, module)?)?;
     #[cfg(not(target_arch = "wasm32"))]
     {
-        submod.add_function(wrap_pyfunction!(get_cn_voronoi, &submod)?)?;
-        submod.add_function(wrap_pyfunction!(get_cn_voronoi_all, &submod)?)?;
-        submod.add_function(wrap_pyfunction!(get_voronoi_neighbors, &submod)?)?;
-        submod.add_function(wrap_pyfunction!(get_local_environment_voronoi, &submod)?)?;
+        module.add_function(wrap_pyfunction!(get_cn_voronoi, module)?)?;
+        module.add_function(wrap_pyfunction!(get_cn_voronoi_all, module)?)?;
+        module.add_function(wrap_pyfunction!(get_voronoi_neighbors, module)?)?;
+        module.add_function(wrap_pyfunction!(get_local_environment_voronoi, module)?)?;
     }
-    parent.add_submodule(&submod)?;
     Ok(())
 }

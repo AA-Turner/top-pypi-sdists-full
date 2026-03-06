@@ -41,14 +41,20 @@ def dynamic_package_discovery(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "requirements": requirements,
+            "functionality": functionality,
+            "constraints": constraints,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "dynamic_package_discovery",
-            "arguments": {
-                "requirements": requirements,
-                "functionality": functionality,
-                "constraints": constraints,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

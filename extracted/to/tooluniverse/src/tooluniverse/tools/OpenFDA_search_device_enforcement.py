@@ -41,10 +41,16 @@ def OpenFDA_search_device_enforcement(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"search": search, "limit": limit, "count": count}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "OpenFDA_search_device_enforcement",
-            "arguments": {"search": search, "limit": limit, "count": count},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -14,6 +14,10 @@ from ..output.table import output_entry
 @click.option("--password", default=None)
 @click.option("--private-key", type=click.File("r"), default=None)
 @click.option("--private-key-passphrase", default=None)
+@click.option("--oauth2-token-url", default=None, type=str)
+@click.option("--oauth2-client-id", default=None, type=str)
+@click.option("--oauth2-scopes", default=None, multiple=True, type=str)
+@click.option("--oauth2-federated-audience", default=None, type=str)
 @click.pass_context
 def cli_command_add_object_credential(
     ctx, private_key, username, password, encrypt, private_key_passphrase, **kwargs
@@ -27,6 +31,22 @@ def cli_command_add_object_credential(
     )
 
     output_entry(ctx, credentials.add_object_credentials(ctx, secrets=secrets, **kwargs))
+
+
+@click.command(name="replace-object-credential")
+@click.option("--object-credential-id", required=True)
+@click.option("--oauth2-token-url", default=None, type=str)
+@click.option("--oauth2-client-id", default=None, type=str)
+@click.option("--oauth2-scopes", default=None, multiple=True, type=str)
+@click.option("--oauth2-federated-audience", default=None, type=str)
+@click.option("--object-id")
+@click.option("--object-type")
+@click.option("--org-id", default=None)
+@click.option("--priority", type=int, default=0)
+@click.option("--purpose")
+@click.pass_context
+def cli_command_replace_object_credential(ctx, **kwargs):
+    output_entry(ctx, credentials.replace_object_credentials(ctx, **kwargs))
 
 
 @click.command(name="get-object-credential")
@@ -53,6 +73,7 @@ def cli_command_delete_object_credential(ctx, **kwargs):
 @click.option("--object-id", default=None)
 @click.option("--object-ids", multiple=True, default=None)
 @click.option("--encryption-key-id", default=None)
+@click.option("--purposes", type=str, multiple=True, default=None)
 @click.pass_context
 def cli_command_list_object_credential(ctx, **kwargs):
     creds = credentials.list_object_credentials(ctx, **kwargs)

@@ -11,34 +11,50 @@ class ReMapRESTTool(BaseTool):
         self.session = requests.Session()
         self.session.headers.update({"Accept": "application/json"})
         self.timeout = 30
+        fields = tool_config.get("fields", {})
+        self.endpoint_template = fields.get(
+            "endpoint",
+            "https://www.encodeproject.org/search/?type=Experiment&assay_title=TF+ChIP-seq&target.label={gene_name}&biosample_ontology.term_name={cell_type}&format=json&limit={limit}",
+        )
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            # Use ENCODE as alternative data source for ChIP-seq data
-            chromosome = arguments.get("chromosome", "chr1")
-            start = arguments.get("start", 1000000)
-            end = arguments.get("end", 2000000)
+            gene_name = arguments.get("gene_name", "")
+            if not gene_name:
+                return {"status": "error", "error": "gene_name is required"}
+            cell_type = arguments.get("cell_type", "HepG2")
+            limit = min(int(arguments.get("limit", 10)), 50)
 
-            # Build ENCODE API URL for experiments
-            # Query for general experiments as ReMap alternative
-            url = "https://www.encodeproject.org/search/?type=Experiment&format=json&limit=10"
+            url = self.endpoint_template.format(
+                gene_name=gene_name,
+                cell_type=cell_type,
+                limit=limit,
+            )
 
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
-
-            # Parse JSON response
             data = response.json()
+
+            raw_experiments = data.get("@graph", [])
+            experiments = [
+                {
+                    "accession": e.get("accession"),
+                    "assay_title": e.get("assay_title"),
+                    "target": e.get("target"),
+                    "biosample_ontology": e.get("biosample_ontology"),
+                    "description": e.get("description"),
+                    "status": e.get("status"),
+                }
+                for e in raw_experiments
+            ]
 
             return {
                 "status": "success",
-                "data": data,
+                "experiments": experiments,
+                "count": len(experiments),
+                "gene_name": gene_name,
+                "cell_type": cell_type,
                 "url": url,
-                "query_info": {
-                    "chromosome": chromosome,
-                    "start": start,
-                    "end": end,
-                    "data_source": "ENCODE (ReMap alternative)",
-                },
             }
         except Exception as e:
             return {"status": "error", "error": f"ReMap API error: {str(e)}"}

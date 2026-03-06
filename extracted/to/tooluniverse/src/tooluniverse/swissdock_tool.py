@@ -71,8 +71,13 @@ class SwissDockTool(AsyncPollingTool):
 
         response = requests.get(url, params=params, timeout=self.timeout)
         if response.status_code != 200:
+            # Feature-25A-02: add format guidance so users know what to fix
             raise RuntimeError(
-                f"Ligand preparation failed: HTTP {response.status_code}"
+                f"Ligand preparation failed: HTTP {response.status_code}. "
+                "Ensure ligand_smiles is a valid SMILES string "
+                "(e.g., 'CC(=O)Oc1ccccc1C(=O)O' for aspirin). "
+                "Common issues: unsupported atoms, invalid ring notation, "
+                "or special characters. Use canonical SMILES from PubChem or ChEMBL."
             )
 
     def _prepare_target(self, session_id: str, pdb_id: str):
@@ -200,9 +205,23 @@ class SwissDockTool(AsyncPollingTool):
         pdb_id = arguments.get("pdb_id")
 
         if not ligand_smiles:
-            raise ValueError("ligand_smiles parameter is required")
+            raise ValueError(
+                "ligand_smiles parameter is required. "
+                "Provide a valid SMILES string, e.g. 'CC(=O)Oc1ccccc1C(=O)O' for aspirin."
+            )
         if not pdb_id:
             raise ValueError("pdb_id parameter is required")
+
+        # Feature-25A-02: basic SMILES sanity check before making the network call
+        _smiles = str(ligand_smiles).strip()
+        if not _smiles or not any(c.isalpha() for c in _smiles):
+            raise ValueError(
+                f"ligand_smiles '{_smiles}' does not look like a valid SMILES string. "
+                "A SMILES must contain at least one atom symbol (letter). "
+                "Example: 'CC(=O)Oc1ccccc1C(=O)O' (aspirin). "
+                "Get valid SMILES from PubChem (https://pubchem.ncbi.nlm.nih.gov) "
+                "or ChEMBL (https://www.ebi.ac.uk/chembl/)."
+            )
 
         # Validate PDB ID format
         if not isinstance(pdb_id, str) or len(pdb_id) != 4:

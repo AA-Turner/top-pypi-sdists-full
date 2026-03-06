@@ -4,19 +4,9 @@ from tmo.api.iterator_base_api import IteratorBaseApi
 
 
 class TrainedModelEventApi(IteratorBaseApi):
-
-    path = "/api/trainedModelEvents"
+    name = "Trained Model Event API"
+    path = "trainedModelEvents"
     type = "TRAINED_MODEL_EVENT"
-
-    def _get_header_params(self):
-        return self._get_standard_header_params(
-            accept_types=[
-                self.json_type,
-                "application/hal+json",
-                "text/uri-list",
-                "application/x-spring-data-compact+json",
-            ]
-        )
 
     def find_all(
         self,
@@ -43,7 +33,7 @@ class TrainedModelEventApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=self.path,
+            path=self.base_path + self.path,
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -59,12 +49,14 @@ class TrainedModelEventApi(IteratorBaseApi):
         Returns:
             (dict): trained model event
         """
+        event_id = self.validate_uuid(event_id)
+
         query_vars = ["projection"]
         query_vals = [projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/{event_id}",
+            path=f"{self.base_path + self.path}/{event_id}",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -97,7 +89,7 @@ class TrainedModelEventApi(IteratorBaseApi):
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByStatus",
+            path=f"{self.base_path + self.path}/search/findByStatus",
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -124,12 +116,14 @@ class TrainedModelEventApi(IteratorBaseApi):
         Returns:
             (dict): trained model events
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
+
         query_vars = ["trainedModelId", "projection", "page", "sort", "size", "sort"]
         query_vals = [trained_model_id, projection, page, sort, size, sort]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByTrainedModelId",
+            path=f"{self.base_path + self.path}/search/findByTrainedModelId",
             header_params=self._get_header_params(),
             query_params=query_params,
         )

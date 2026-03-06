@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooluniverse
-Version: 1.0.22
+Version: 1.1.1
 Summary: A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows.
 Author-email: Shanghua Gao <shanghuagao@gmail.com>
 Project-URL: Homepage, https://github.com/mims-harvard/ToolUniverse
@@ -164,6 +164,9 @@ npx skills add mims-harvard/ToolUniverse
 uv pip install tooluniverse
 ```
 
+**[`tu` CLI](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/tu_cli.html)** — discover, inspect, run, and test tools from the terminal.
+**[Python SDK](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/python_guide.html)** — programmatic access for building AI scientist systems.
+
 ## Building AI Scientists with ToolUniverse
 
 <p align="center">
@@ -186,7 +189,8 @@ ToolUniverse is an ecosystem for creating AI scientist systems from any large la
 - [**Async Operations**](https://zitniklab.hms.harvard.edu/ToolUniverse/expand_tooluniverse/async_tools_guide.html): Long-running tasks (protein docking, molecular simulations) with progress tracking and parallel execution
 - [**Tool Composition**](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/tool_composition.html): Chain tools for sequential or parallel execution in self-directed workflows
 - [**Compact Mode**](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/building_ai_scientists/compact_mode.html): Reduces 1000+ tools to 4-5 core discovery tools, saving ~99% context window
-- [**Agent Skills**](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/skills_showcase.html): 66 pre-built research workflows for drug discovery, precision oncology, rare disease diagnosis, pharmacovigilance, and more
+- [**CLI (`tu`)**](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/tu_cli.html): Discover, inspect, run, and test tools directly from the terminal — 9 subcommands for interactive and scripted workflows
+- [**Agent Skills**](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/skills_showcase.html): 68 pre-built research workflows for drug discovery, precision oncology, rare disease diagnosis, pharmacovigilance, and more
 - [**Literature Search**](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/literature_search_tools_tutorial.html): Unified search across PubMed, Semantic Scholar, ArXiv, BioRxiv, Europe PMC, and more
 - [**Two-Tier Result Caching**](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/cache_system.html): In-memory LRU + SQLite persistence with per-tool fingerprinting for 10x speedup, offline support, and reproducibility
 - [**Continuous Expansion**](https://zitniklab.hms.harvard.edu/ToolUniverse/expand_tooluniverse/index.html): Register new tools locally or remotely without additional configuration
@@ -211,6 +215,7 @@ ToolUniverse is an ecosystem for creating AI scientist systems from any large la
 
 Full documentation: [zitniklab.hms.harvard.edu/ToolUniverse](https://zitniklab.hms.harvard.edu/ToolUniverse/)
 
+- [CLI Reference (`tu`)](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/tu_cli.html)
 - [Python Developer Guide](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/python_guide.html)
 - [AI Agent Setup](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/building_ai_scientists/index.html)
 - [Agent Skills](https://zitniklab.hms.harvard.edu/ToolUniverse/guide/skills_showcase.html)

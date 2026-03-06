@@ -35,10 +35,12 @@ def MSigDB_get_hallmark_geneset(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"pathway_name": pathway_name}.items() if v is not None}
     return get_shared_client().run_one_function(
         {
             "name": "MSigDB_get_hallmark_geneset",
-            "arguments": {"pathway_name": pathway_name},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

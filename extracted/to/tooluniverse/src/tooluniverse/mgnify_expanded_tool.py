@@ -131,7 +131,7 @@ class MGnifyExpandedTool(BaseTool):
             params["lineage"] = arguments["taxonomy"]
 
         if "genome_type" in arguments:
-            params["type"] = arguments["genome_type"]
+            params["genome_type"] = arguments["genome_type"]
 
         url = f"{MGNIFY_BASE_URL}/genomes"
         response = requests.get(url, params=params, timeout=self.timeout)

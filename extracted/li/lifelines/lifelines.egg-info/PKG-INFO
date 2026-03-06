@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lifelines
-Version: 0.30.2
+Version: 0.30.3
 Summary: Survival analysis in Python, including Kaplan Meier, Nelson Aalen and regression
 Home-page: https://github.com/CamDavidsonPilon/lifelines
 Author: Cameron Davidson-Pilon
@@ -10,13 +10,12 @@ Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.14.0

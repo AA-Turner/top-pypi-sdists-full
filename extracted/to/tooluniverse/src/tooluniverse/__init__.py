@@ -2,9 +2,23 @@ from importlib.metadata import version
 import os
 from typing import Any, Optional, List
 
+# Allow installed sub-packages (e.g. tooluniverse-circuit) to contribute
+# modules into the tooluniverse namespace even when the main package is
+# installed in editable mode (pip install -e).
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
 from .execute_function import ToolUniverse
 from .base_tool import BaseTool
 from .default_config import default_tool_files
+from .profile import (
+    ProfileLoader,
+    validate_profile_config,
+    validate_with_schema,
+    validate_yaml_file_with_schema,
+    validate_yaml_format_by_template,
+    PROFILE_SCHEMA,
+)
 
 from .tool_registry import (
     register_tool,
@@ -40,17 +54,35 @@ if not _LIGHT_IMPORT:
 
 
 # Import SMCP with graceful fallback and consistent signatures for type checking
-try:
-    from .smcp import SMCP, create_smcp_server
+if not _LIGHT_IMPORT:
+    try:
+        from .smcp import SMCP, create_smcp_server
 
-    _SMCP_AVAILABLE = True
-except ImportError:
+        _SMCP_AVAILABLE = True
+    except ImportError:
+        _SMCP_AVAILABLE = False
+
+        class SMCP:  # type: ignore[no-redef]
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise ImportError(
+                    "SMCP requires FastMCP. Install with: pip install fastmcp"
+                )
+
+        def create_smcp_server(
+            name: str = "SMCP Server",
+            tool_categories: Optional[List[str]] = None,
+            search_enabled: bool = True,
+            **kwargs: Any,
+        ) -> SMCP:
+            raise ImportError("SMCP requires FastMCP. Install with: pip install fastmcp")
+else:
     _SMCP_AVAILABLE = False
 
     class SMCP:  # type: ignore[no-redef]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             raise ImportError(
-                "SMCP requires FastMCP. Install with: pip install fastmcp"
+                "SMCP not loaded in light-import mode. "
+                "Use `from tooluniverse.smcp import SMCP` directly."
             )
 
     def create_smcp_server(
@@ -59,22 +91,35 @@ except ImportError:
         search_enabled: bool = True,
         **kwargs: Any,
     ) -> SMCP:
-        raise ImportError("SMCP requires FastMCP. Install with: pip install fastmcp")
+        raise ImportError(
+            "SMCP not loaded in light-import mode. "
+            "Use `from tooluniverse.smcp import create_smcp_server` directly."
+        )
 
 
 # Import HTTP Client with graceful fallback for minimal installation
-try:
-    from .http_client import ToolUniverseClient
+if not _LIGHT_IMPORT:
+    try:
+        from .http_client import ToolUniverseClient
 
-    _HTTP_CLIENT_AVAILABLE = True
-except ImportError:
+        _HTTP_CLIENT_AVAILABLE = True
+    except ImportError:
+        _HTTP_CLIENT_AVAILABLE = False
+
+        class ToolUniverseClient:  # type: ignore[no-redef]
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                raise ImportError(
+                    "HTTP Client requires requests and pydantic. "
+                    "Install with: pip install tooluniverse[client]"
+                )
+else:
     _HTTP_CLIENT_AVAILABLE = False
 
     class ToolUniverseClient:  # type: ignore[no-redef]
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             raise ImportError(
-                "HTTP Client requires requests and pydantic. "
-                "Install with: pip install tooluniverse[client]"
+                "HTTP Client not loaded in light-import mode. "
+                "Use `from tooluniverse.http_client import ToolUniverseClient` directly."
             )
 
 
@@ -119,6 +164,12 @@ __all__ = [
     "create_smcp_server",
     "ToolUniverseClient",
     "default_tool_files",
+    "ProfileLoader",
+    "validate_profile_config",
+    "validate_with_schema",
+    "validate_yaml_file_with_schema",
+    "validate_yaml_format_by_template",
+    "PROFILE_SCHEMA",
 ]
 
 

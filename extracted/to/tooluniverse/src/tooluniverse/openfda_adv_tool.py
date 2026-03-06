@@ -237,11 +237,12 @@ class FDADrugAdverseEventTool(BaseTool):
         if param_name in seriousness_fields:
             if value == "No":
                 return None, None  # Signal to skip this field
-            if value == "Yes":
+            # Feature-66B-005: also accept native openFDA integer 1 or string "1" as "Yes"
+            if value in ("Yes", 1, "1"):
                 return None, "1"
-            # If not Yes/No, error
+            # If not Yes/No/1, error
             return (
-                f"Invalid value '{value}' for '{param_name}'. Allowed values: ['Yes', 'No']",
+                f"Invalid value '{value}' for '{param_name}'. Allowed values: ['Yes'] (omit to include all).",
                 None,
             )
 
@@ -669,11 +670,12 @@ class FDADrugAdverseEventDetailTool(BaseTool):
         if param_name in seriousness_fields:
             if value == "No":
                 return None, None  # Signal to skip this field
-            if value == "Yes":
+            # Feature-66B-005: also accept native openFDA integer 1 or string "1" as "Yes"
+            if value in ("Yes", 1, "1"):
                 return None, "1"
-            # If not Yes/No, error
+            # If not Yes/No/1, error
             return (
-                f"Invalid value '{value}' for '{param_name}'. Allowed values: ['Yes', 'No']",
+                f"Invalid value '{value}' for '{param_name}'. Allowed values: ['Yes'] (omit to include all).",
                 None,
             )
 
@@ -1008,11 +1010,12 @@ class FDADrugInteractionDetailTool(BaseTool):
         if param_name in seriousness_fields:
             if value == "No":
                 return None, None  # Signal to skip this field
-            if value == "Yes":
+            # Feature-66B-005: also accept native openFDA integer 1 or string "1" as "Yes"
+            if value in ("Yes", 1, "1"):
                 return None, "1"
-            # If not Yes/No, error
+            # If not Yes/No/1, error
             return (
-                f"Invalid value '{value}' for '{param_name}'. Allowed values: ['Yes', 'No']",
+                f"Invalid value '{value}' for '{param_name}'. Allowed values: ['Yes'] (omit to include all).",
                 None,
             )
 

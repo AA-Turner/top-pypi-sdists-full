@@ -56,19 +56,25 @@ def python_code_executor(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "code": code,
+            "arguments": arguments,
+            "timeout": timeout,
+            "return_variable": return_variable,
+            "allowed_imports": allowed_imports,
+            "dependencies": dependencies,
+            "auto_install_dependencies": auto_install_dependencies,
+            "require_confirmation": require_confirmation,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "python_code_executor",
-            "arguments": {
-                "code": code,
-                "arguments": arguments,
-                "timeout": timeout,
-                "return_variable": return_variable,
-                "allowed_imports": allowed_imports,
-                "dependencies": dependencies,
-                "auto_install_dependencies": auto_install_dependencies,
-                "require_confirmation": require_confirmation,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

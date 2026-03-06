@@ -47,16 +47,22 @@ def Survival_log_rank_test(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "durations_a": durations_a,
+            "events_a": events_a,
+            "durations_b": durations_b,
+            "events_b": events_b,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "Survival_log_rank_test",
-            "arguments": {
-                "operation": operation,
-                "durations_a": durations_a,
-                "events_a": events_a,
-                "durations_b": durations_b,
-                "events_b": events_b,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

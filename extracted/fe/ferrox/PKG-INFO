@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ferrox
-Version: 0.0.7
+Version: 0.0.8
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -21,7 +21,7 @@ Author-email: Janosh Riebesell <janosh.riebesell@gmail.com>
 License: MIT
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Repository, https://github.com/janosh/matterviz
+Project-URL: Repository, https://github.com/periodiclabs/ferrox
 
 # ferrox
 
@@ -73,8 +73,7 @@ Requires Rust 1.93+ and Python 3.11+.
 
 ```bash
 # Build and install in development mode
-cd extensions/rust
-maturin develop --features python --release
+maturin develop --features python-extension --release
 
 # Run tests
 cargo test
@@ -85,15 +84,19 @@ cargo test
 Python type stubs (`.pyi` files) are auto-generated from Rust code using `pyo3-stub-gen`. After modifying PyO3-exposed functions or classes, regenerate stubs:
 
 ```bash
-python scripts/generate_stubs.py
+python bindings/python/generate_stubs.py
 
 # Verify stubs pass type checking
-ty check python/ferrox
+ty check bindings/python/ferrox
 ```
 
 The script runs `cargo` to generate raw stubs, then cleans them to use modern Python type syntax (`X | None` instead of `Optional[X]`, `list[float]` instead of `builtins.list[builtins.float]`).
 
 The CI pipeline automatically verifies stubs are in sync with Rust code.
+
+## Provenance
+
+`ferrox` was originally developed by [Janosh Riebesell](https://github.com/janosh) as part of the [MatterViz](https://github.com/janosh/matterviz) project, and later extracted into this standalone repo.
 
 ## License
 

@@ -72,19 +72,26 @@ pub use transformations::{OrderDisorderedConfig, PartialRemoveConfig};
 pub mod cif;
 pub mod io;
 
+// Materials Project data access
+#[cfg(feature = "mp")]
+pub mod mp;
+
 // Analysis
+pub mod convex_hull;
+pub mod magnetism;
 pub mod oxidation;
+pub mod prototype;
 pub mod surfaces;
 pub mod xrd;
 
 // Re-exports for convenience
 pub use error::{FerroxError, OnError, Result};
 
-// Python bindings (optional, enabled for both python extension and stub generation)
-#[cfg(any(feature = "python", feature = "stub-gen"))]
+// Python bindings (optional, also enabled for stub generation via `stub-gen -> python`).
+#[cfg(feature = "python")]
 pub mod python;
 
-#[cfg(any(feature = "python", feature = "stub-gen"))]
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
 
 // WASM bindings (optional)
@@ -94,11 +101,68 @@ pub mod wasm;
 #[cfg(feature = "wasm")]
 pub mod wasm_types;
 
-/// Python module entry point.
-#[cfg(any(feature = "python", feature = "stub-gen"))]
+/// Python module entry point using declarative submodules.
+/// Each submodule is a real Python module registered in sys.modules.
+#[cfg(feature = "python")]
 #[pymodule]
-fn _ferrox(py_mod: &Bound<'_, PyModule>) -> PyResult<()> {
-    py_mod.add("__version__", env!("CARGO_PKG_VERSION"))?;
-    python::register(py_mod)?;
-    Ok(())
+mod _ferrox {
+    use pyo3::prelude::*;
+
+    #[pymodule_export]
+    use crate::python::element::Element;
+
+    // Keep in sync with submodules.rs define_submodule! calls and stub_gen.rs submodules array
+    #[pymodule_export]
+    use crate::python::submodules::cell;
+    #[pymodule_export]
+    use crate::python::submodules::composition;
+    #[pymodule_export]
+    use crate::python::submodules::convex_hull;
+    #[pymodule_export]
+    use crate::python::submodules::coordination;
+    #[pymodule_export]
+    use crate::python::submodules::defects;
+    #[pymodule_export]
+    use crate::python::submodules::elastic;
+    #[pymodule_export]
+    use crate::python::submodules::io;
+    #[pymodule_export]
+    use crate::python::submodules::lattice;
+    #[pymodule_export]
+    use crate::python::submodules::md;
+    #[pymodule_export]
+    use crate::python::submodules::mp;
+    #[pymodule_export]
+    use crate::python::submodules::neighbors;
+    #[pymodule_export]
+    use crate::python::submodules::optimizers;
+    #[pymodule_export]
+    use crate::python::submodules::order_params;
+    #[pymodule_export]
+    use crate::python::submodules::oxidation;
+    #[pymodule_export]
+    use crate::python::submodules::potentials;
+    #[pymodule_export]
+    use crate::python::submodules::properties;
+    #[pymodule_export]
+    use crate::python::submodules::rdf;
+    #[pymodule_export]
+    use crate::python::submodules::species;
+    #[pymodule_export]
+    use crate::python::submodules::structure;
+    #[pymodule_export]
+    use crate::python::submodules::surfaces;
+    #[pymodule_export]
+    use crate::python::submodules::symmetry;
+    #[pymodule_export]
+    use crate::python::submodules::trajectory;
+    #[pymodule_export]
+    use crate::python::submodules::xrd;
+
+    #[pymodule_init]
+    fn init(module: &Bound<'_, PyModule>) -> PyResult<()> {
+        module.add("__version__", env!("CARGO_PKG_VERSION"))?;
+        crate::python::element::register(module)?;
+        Ok(())
+    }
 }

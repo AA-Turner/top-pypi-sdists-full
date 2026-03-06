@@ -98,6 +98,9 @@ pub use convert_api::convert_with_metadata;
 #[cfg(feature = "visitor")]
 pub use convert_api::convert_with_visitor;
 
+#[cfg(feature = "visitor")]
+pub use convert_api::{ConversionWithTables, TableData, convert_with_tables};
+
 #[cfg(feature = "async-visitor")]
 pub use convert_api::convert_with_async_visitor;
 

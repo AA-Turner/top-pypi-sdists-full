@@ -420,6 +420,11 @@ impl NPTIntegrator {
         Ok(())
     }
 
+    /// Number of atoms this integrator was configured for.
+    pub fn num_atoms(&self) -> usize {
+        (self.n_dof + 3) / 3
+    }
+
     /// Current instantaneous pressure in GPa.
     pub fn pressure(&self, stress: &Matrix3<f64>) -> f64 {
         let p_int = -(stress[(0, 0)] + stress[(1, 1)] + stress[(2, 2)]) / 3.0;

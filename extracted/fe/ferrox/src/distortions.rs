@@ -625,10 +625,10 @@ mod tests {
 
         assert!(result.is_err());
         match result {
-            Err(FerroxError::InvalidStructure { reason, .. }) => {
+            Err(FerroxError::InvalidArgument { reason }) => {
                 assert!(reason.contains("positive"));
             }
-            _ => panic!("Expected InvalidStructure error"),
+            _ => panic!("Expected InvalidArgument error"),
         }
     }
 

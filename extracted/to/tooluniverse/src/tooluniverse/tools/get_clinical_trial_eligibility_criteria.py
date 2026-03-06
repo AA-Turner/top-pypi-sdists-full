@@ -10,7 +10,7 @@ from ._shared_client import get_shared_client
 
 def get_clinical_trial_eligibility_criteria(
     nct_ids: list[str],
-    eligibility_criteria: str,
+    eligibility_criteria: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -24,7 +24,7 @@ def get_clinical_trial_eligibility_criteria(
     nct_ids : list[str]
         List of NCT IDs of the clinical trials (e.g., ['NCT04852770', 'NCT01728545']).
     eligibility_criteria : str
-        Placeholder.
+        Unused filter parameter, kept for backward compatibility. Can be omitted or s...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -38,13 +38,19 @@ def get_clinical_trial_eligibility_criteria(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "nct_ids": nct_ids,
+            "eligibility_criteria": eligibility_criteria,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "get_clinical_trial_eligibility_criteria",
-            "arguments": {
-                "nct_ids": nct_ids,
-                "eligibility_criteria": eligibility_criteria,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

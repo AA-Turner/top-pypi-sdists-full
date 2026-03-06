@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reachy_mini
-Version: 1.4.1
+Version: 1.5.0
 Author-email: Pollen Robotics <contact@pollen-robotics.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -8,7 +8,6 @@ License-File: LICENSE
 Requires-Dist: numpy>=2.2.5
 Requires-Dist: scipy<2.0.0,>=1.15.3
 Requires-Dist: reachy_mini_motor_controller>=1.5.5
-Requires-Dist: eclipse-zenoh~=1.7.0
 Requires-Dist: opencv-python<=5.0
 Requires-Dist: cv2_enumerate_cameras>=1.2.1
 Requires-Dist: psutil
@@ -31,6 +30,7 @@ Requires-Dist: toml
 Requires-Dist: rustypot>=1.4.2
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests>=2.28.0
+Requires-Dist: zeroconf<1,>=0.131
 Requires-Dist: pycaw>=20240210; sys_platform == "win32"
 Requires-Dist: pulsectl>=24.1.0; sys_platform == "linux"
 Requires-Dist: gstreamer-bundle==1.28.1; sys_platform != "linux"
@@ -64,7 +64,6 @@ Requires-Dist: reachy_mini[examples]; extra == "all"
 Requires-Dist: reachy_mini[mujoco]; extra == "all"
 Requires-Dist: reachy_mini[nn_kinematics]; extra == "all"
 Requires-Dist: reachy_mini[placo_kinematics]; extra == "all"
-Requires-Dist: reachy_mini[gstreamer]; extra == "all"
 Requires-Dist: reachy_mini[rerun]; extra == "all"
 Requires-Dist: reachy_mini[wireless-version]; extra == "all"
 Requires-Dist: reachy_mini[sounddevice]; extra == "all"

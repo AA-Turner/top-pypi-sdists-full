@@ -38,10 +38,16 @@ def RCSBData_get_nonpolymer_entity(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"pdb_id": pdb_id, "entity_id": entity_id}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "RCSBData_get_nonpolymer_entity",
-            "arguments": {"pdb_id": pdb_id, "entity_id": entity_id},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

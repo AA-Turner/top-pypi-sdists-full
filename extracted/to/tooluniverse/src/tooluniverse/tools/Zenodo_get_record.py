@@ -35,8 +35,13 @@ def Zenodo_get_record(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"record_id": record_id}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "Zenodo_get_record", "arguments": {"record_id": record_id}},
+        {
+            "name": "Zenodo_get_record",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

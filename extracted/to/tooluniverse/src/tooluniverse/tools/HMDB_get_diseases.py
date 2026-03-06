@@ -38,10 +38,16 @@ def HMDB_get_diseases(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"operation": operation, "hmdb_id": hmdb_id}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "HMDB_get_diseases",
-            "arguments": {"operation": operation, "hmdb_id": hmdb_id},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

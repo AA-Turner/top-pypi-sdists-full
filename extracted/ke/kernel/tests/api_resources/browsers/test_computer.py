@@ -18,6 +18,7 @@ from kernel._response import (
     AsyncStreamedBinaryAPIResponse,
 )
 from kernel.types.browsers import (
+    ComputerReadClipboardResponse,
     ComputerGetMousePositionResponse,
     ComputerSetCursorVisibilityResponse,
 )
@@ -325,7 +326,9 @@ class TestComputer:
             id="id",
             x=0,
             y=0,
+            duration_ms=50,
             hold_keys=["string"],
+            smooth=True,
         )
         assert computer is None
 
@@ -424,6 +427,48 @@ class TestComputer:
             client.browsers.computer.with_raw_response.press_key(
                 id="",
                 keys=["string"],
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_read_clipboard(self, client: Kernel) -> None:
+        computer = client.browsers.computer.read_clipboard(
+            "id",
+        )
+        assert_matches_type(ComputerReadClipboardResponse, computer, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_read_clipboard(self, client: Kernel) -> None:
+        response = client.browsers.computer.with_raw_response.read_clipboard(
+            "id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        computer = response.parse()
+        assert_matches_type(ComputerReadClipboardResponse, computer, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_read_clipboard(self, client: Kernel) -> None:
+        with client.browsers.computer.with_streaming_response.read_clipboard(
+            "id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            computer = response.parse()
+            assert_matches_type(ComputerReadClipboardResponse, computer, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_read_clipboard(self, client: Kernel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.browsers.computer.with_raw_response.read_clipboard(
+                "",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -587,6 +632,52 @@ class TestComputer:
     def test_path_params_type_text(self, client: Kernel) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             client.browsers.computer.with_raw_response.type_text(
+                id="",
+                text="text",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_write_clipboard(self, client: Kernel) -> None:
+        computer = client.browsers.computer.write_clipboard(
+            id="id",
+            text="text",
+        )
+        assert computer is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_write_clipboard(self, client: Kernel) -> None:
+        response = client.browsers.computer.with_raw_response.write_clipboard(
+            id="id",
+            text="text",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        computer = response.parse()
+        assert computer is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_write_clipboard(self, client: Kernel) -> None:
+        with client.browsers.computer.with_streaming_response.write_clipboard(
+            id="id",
+            text="text",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            computer = response.parse()
+            assert computer is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_write_clipboard(self, client: Kernel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            client.browsers.computer.with_raw_response.write_clipboard(
                 id="",
                 text="text",
             )
@@ -898,7 +989,9 @@ class TestAsyncComputer:
             id="id",
             x=0,
             y=0,
+            duration_ms=50,
             hold_keys=["string"],
+            smooth=True,
         )
         assert computer is None
 
@@ -997,6 +1090,48 @@ class TestAsyncComputer:
             await async_client.browsers.computer.with_raw_response.press_key(
                 id="",
                 keys=["string"],
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_read_clipboard(self, async_client: AsyncKernel) -> None:
+        computer = await async_client.browsers.computer.read_clipboard(
+            "id",
+        )
+        assert_matches_type(ComputerReadClipboardResponse, computer, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_read_clipboard(self, async_client: AsyncKernel) -> None:
+        response = await async_client.browsers.computer.with_raw_response.read_clipboard(
+            "id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        computer = await response.parse()
+        assert_matches_type(ComputerReadClipboardResponse, computer, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_read_clipboard(self, async_client: AsyncKernel) -> None:
+        async with async_client.browsers.computer.with_streaming_response.read_clipboard(
+            "id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            computer = await response.parse()
+            assert_matches_type(ComputerReadClipboardResponse, computer, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_read_clipboard(self, async_client: AsyncKernel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.browsers.computer.with_raw_response.read_clipboard(
+                "",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -1160,6 +1295,52 @@ class TestAsyncComputer:
     async def test_path_params_type_text(self, async_client: AsyncKernel) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
             await async_client.browsers.computer.with_raw_response.type_text(
+                id="",
+                text="text",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_write_clipboard(self, async_client: AsyncKernel) -> None:
+        computer = await async_client.browsers.computer.write_clipboard(
+            id="id",
+            text="text",
+        )
+        assert computer is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_write_clipboard(self, async_client: AsyncKernel) -> None:
+        response = await async_client.browsers.computer.with_raw_response.write_clipboard(
+            id="id",
+            text="text",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        computer = await response.parse()
+        assert computer is None
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_write_clipboard(self, async_client: AsyncKernel) -> None:
+        async with async_client.browsers.computer.with_streaming_response.write_clipboard(
+            id="id",
+            text="text",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            computer = await response.parse()
+            assert computer is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_write_clipboard(self, async_client: AsyncKernel) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+            await async_client.browsers.computer.with_raw_response.write_clipboard(
                 id="",
                 text="text",
             )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyHanko
-Version: 0.33.0
+Version: 0.34.0
 Summary: Tools for stamping and signing PDF files
 Author-email: Matthias Valvekens <dev@mvalvekens.be>
 Maintainer-email: Matthias Valvekens <dev@mvalvekens.be>
@@ -15,7 +15,6 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -23,13 +22,13 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: src/pyhanko/pdf_utils/LICENSE.PyPDF2
 Requires-Dist: asn1crypto>=1.5.1
 Requires-Dist: tzlocal>=4.3
-Requires-Dist: pyhanko-certvalidator<0.30,>=0.29.0
+Requires-Dist: pyhanko-certvalidator<0.31,>=0.30.0
 Requires-Dist: requests>=2.31.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: cryptography>=43.0.3
@@ -47,7 +46,7 @@ Requires-Dist: python-pkcs11~=0.9.3; extra == "pkcs11"
 Provides-Extra: async-http
 Requires-Dist: aiohttp<3.14,>=3.9; extra == "async-http"
 Provides-Extra: etsi
-Requires-Dist: xsdata<26.0,>=24.4; extra == "etsi"
+Requires-Dist: xsdata<27.0,>=24.4; extra == "etsi"
 Requires-Dist: signxml>=4.2.0; extra == "etsi"
 Dynamic: license-file
 
@@ -84,4 +83,4 @@ pip install pyHanko[pkcs11,image-support,opentype,qr]
 This `pip` invocation includes the optional dependencies required for PKCS#11, image handling,
 OpenType/TrueType support and QR code generation.
 
-PyHanko requires Python 3.9 or later.
+PyHanko requires Python 3.10 or later.

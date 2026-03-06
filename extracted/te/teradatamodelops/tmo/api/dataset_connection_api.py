@@ -6,7 +6,8 @@ from tmo.api.iterator_base_api import IteratorBaseApi
 
 
 class DatasetConnectionApi(IteratorBaseApi):
-    path = "/api/datasetConnections"
+    name = "Dataset Connection API"
+    path = "datasetConnections"
     type = "DATASET_CONNECTION"
 
     def find_by_archived(
@@ -99,7 +100,7 @@ class DatasetConnectionApi(IteratorBaseApi):
         }
 
         return self.tmo_client.post_request(
-            path=self.path,
+            path=self.base_path + self.path,
             header_params=self._get_header_params(),
             query_params={},
             body=dataset_connection,
@@ -124,7 +125,7 @@ class DatasetConnectionApi(IteratorBaseApi):
         dataset_connection["credentials"]["credsEncrypted"] = encrypted_credentials
 
         return self.tmo_client.post_request(
-            path=f"{self.path}/validate",
+            path=f"{self.base_path + self.path}/validate",
             header_params=self._get_header_params(),
             query_params={},
             body=dataset_connection,

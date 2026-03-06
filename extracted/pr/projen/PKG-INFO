@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: projen
-Version: 0.99.17
+Version: 0.99.18
 Summary: CDK for software projects
 Home-page: https://github.com/projen/projen.git
 Author: Amazon Web Services
@@ -20,7 +20,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.126.0
+Requires-Dist: jsii<2.0.0,>=1.127.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

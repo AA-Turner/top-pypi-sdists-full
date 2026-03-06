@@ -47,16 +47,22 @@ def ResultSummarizerAgent(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "plan_title": plan_title,
+            "plan_description": plan_description,
+            "paper_count": paper_count,
+            "papers_text": papers_text,
+            "context": context,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ResultSummarizerAgent",
-            "arguments": {
-                "plan_title": plan_title,
-                "plan_description": plan_description,
-                "paper_count": paper_count,
-                "papers_text": papers_text,
-                "context": context,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

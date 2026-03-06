@@ -235,6 +235,16 @@ pub struct JsSymmetryDataset {
     pub hall_number: u16,
     /// Crystal system (e.g., "cubic", "hexagonal")
     pub crystal_system: String,
+    /// Point group Hermann-Mauguin symbol (e.g., "m-3m", "4mm")
+    pub point_group: String,
+    /// Laue group Hermann-Mauguin symbol (e.g., "m-3m", "4/mmm")
+    pub laue_group: String,
+    /// Whether the point group is centrosymmetric (contains inversion)
+    pub is_centrosymmetric: bool,
+    /// Whether the point group is polar (has a unique polar direction)
+    pub is_polar: bool,
+    /// Whether the point group is chiral (contains only proper rotations)
+    pub is_chiral: bool,
     /// Wyckoff letters for each site
     pub wyckoff_letters: Vec<String>,
     /// Site symmetry symbols for each site
@@ -299,6 +309,38 @@ pub struct JsStructureMetadata {
     pub lattice_angles: [f64; 3],
     /// Whether structure is ordered (no partial occupancies)
     pub is_ordered: bool,
+}
+
+// === Oxidation Types ===
+
+/// Single oxidation state guess (element -> oxidation state).
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsOxidationStatePair {
+    /// Element symbol (e.g., "Fe", "O")
+    pub element: String,
+    /// Oxidation state (e.g., 3 for Fe3+, -2 for O2-)
+    pub oxidation_state: f64,
+}
+
+/// Oxidation state guess with probability score.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsOxiStateGuess {
+    /// Oxidation states per element
+    pub oxidation_states: Vec<JsOxidationStatePair>,
+    /// Probability score (higher is more likely)
+    pub probability: f64,
+}
+
+/// Oxidation states by element (for guess_oxidation_states result).
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsOxidationStates {
+    /// Element symbols
+    pub elements: Vec<String>,
+    /// Oxidation state for each element (same order as elements)
+    pub oxidation_states: Vec<f64>,
 }
 
 // === Reduction Algorithm Enum ===

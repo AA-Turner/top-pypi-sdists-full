@@ -59,20 +59,26 @@ def EuropePMC_get_fulltext_snippets(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "fulltext_xml_url": fulltext_xml_url,
+            "pmcid": pmcid,
+            "source_db": source_db,
+            "article_id": article_id,
+            "terms": terms,
+            "keywords": keywords,
+            "window_chars": window_chars,
+            "max_snippets_per_term": max_snippets_per_term,
+            "max_total_chars": max_total_chars,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EuropePMC_get_fulltext_snippets",
-            "arguments": {
-                "fulltext_xml_url": fulltext_xml_url,
-                "pmcid": pmcid,
-                "source_db": source_db,
-                "article_id": article_id,
-                "terms": terms,
-                "keywords": keywords,
-                "window_chars": window_chars,
-                "max_snippets_per_term": max_snippets_per_term,
-                "max_total_chars": max_total_chars,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -41,14 +41,20 @@ def OxO_search_ontology_mappings(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "term_ids": term_ids,
+            "distance": distance,
+            "target_prefix": target_prefix,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "OxO_search_ontology_mappings",
-            "arguments": {
-                "term_ids": term_ids,
-                "distance": distance,
-                "target_prefix": target_prefix,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

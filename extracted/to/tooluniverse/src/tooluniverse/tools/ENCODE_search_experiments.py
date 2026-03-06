@@ -47,16 +47,22 @@ def ENCODE_search_experiments(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "assay_title": assay_title,
+            "target": target,
+            "organism": organism,
+            "status": status,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ENCODE_search_experiments",
-            "arguments": {
-                "assay_title": assay_title,
-                "target": target,
-                "organism": organism,
-                "status": status,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

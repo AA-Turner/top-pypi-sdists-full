@@ -41,14 +41,20 @@ def DailyMed_search_drug_classes(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "drug_class_name": drug_class_name,
+            "pagesize": pagesize,
+            "page": page,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "DailyMed_search_drug_classes",
-            "arguments": {
-                "drug_class_name": drug_class_name,
-                "pagesize": pagesize,
-                "page": page,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

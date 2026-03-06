@@ -20,7 +20,7 @@ from typing import (
 import sqlalchemy as sa
 
 from dbos._context import MaxPriority, MinPriority
-from dbos._core import DEFAULT_POLLING_INTERVAL, TEMP_SEND_WF_NAME
+from dbos._core import DEFAULT_POLLING_INTERVAL
 from dbos._sys_db import SystemDatabase
 from dbos._utils import generate_uuid
 
@@ -32,12 +32,17 @@ from dbos._dbos_config import get_system_database_url, is_valid_database_url
 from dbos._error import DBOSException, DBOSNonExistentWorkflowError
 from dbos._registrations import DEFAULT_MAX_RECOVERY_ATTEMPTS
 from dbos._scheduler import backfill_schedule, trigger_schedule
-from dbos._serialization import DefaultSerializer, Serializer, WorkflowInputs
+from dbos._serialization import (
+    DefaultSerializer,
+    Serializer,
+    WorkflowSerializationFormat,
+    serialize_args,
+)
 from dbos._sys_db import (
     ClientScheduleInput,
-    EnqueueOptionsInternal,
     StepInfo,
     SystemDatabase,
+    VersionInfo,
     WorkflowSchedule,
     WorkflowStatus,
     WorkflowStatusInternal,
@@ -67,6 +72,9 @@ class EnqueueOptions(_EnqueueOptionsRequired, total=False):
     queue_partition_key: str
     authenticated_user: str
     authenticated_roles: list[str]
+    serialization_type: WorkflowSerializationFormat
+    class_name: str
+    instance_name: str
 
 
 def validate_enqueue_options(options: EnqueueOptions) -> None:
@@ -113,8 +121,8 @@ class WorkflowHandleClientAsyncPolling(Generic[R]):
     async def get_result(
         self, *, polling_interval_sec: float = DEFAULT_POLLING_INTERVAL
     ) -> R:
-        res: R = await asyncio.to_thread(
-            self._sys_db.await_workflow_result, self.workflow_id, polling_interval_sec
+        res: R = await self._sys_db.await_workflow_result_async(
+            self.workflow_id, polling_interval_sec
         )
         return res
 
@@ -186,12 +194,6 @@ class DBOSClient:
         if workflow_id is None:
             workflow_id = generate_uuid()
         workflow_timeout = options.get("workflow_timeout", None)
-        enqueue_options_internal: EnqueueOptionsInternal = {
-            "deduplication_id": options.get("deduplication_id"),
-            "priority": options.get("priority"),
-            "app_version": options.get("app_version"),
-            "queue_partition_key": options.get("queue_partition_key"),
-        }
 
         authenticated_user = options.get("authenticated_user")
         authenticated_roles = (
@@ -200,19 +202,21 @@ class DBOSClient:
             else None
         )
 
-        inputs: WorkflowInputs = {
-            "args": args,
-            "kwargs": kwargs,
-        }
+        inputs, serialization = serialize_args(
+            args,
+            kwargs,
+            options.get("serialization_type"),
+            self._serializer,
+        )
 
         status: WorkflowStatusInternal = {
             "workflow_uuid": workflow_id,
             "status": WorkflowStatusString.ENQUEUED.value,
             "name": workflow_name,
-            "class_name": None,
+            "class_name": options.get("class_name"),
             "queue_name": queue_name,
-            "app_version": enqueue_options_internal["app_version"],
-            "config_name": None,
+            "app_version": options.get("app_version"),
+            "config_name": options.get("instance_name"),
             "authenticated_user": authenticated_user,
             "assumed_role": None,
             "authenticated_roles": authenticated_roles,
@@ -227,14 +231,15 @@ class DBOSClient:
                 int(workflow_timeout * 1000) if workflow_timeout is not None else None
             ),
             "workflow_deadline_epoch_ms": None,
-            "deduplication_id": enqueue_options_internal["deduplication_id"],
+            "deduplication_id": options.get("deduplication_id", None),
             "priority": (
-                enqueue_options_internal["priority"]
-                if enqueue_options_internal["priority"] is not None
+                options.get("priority", 0)
+                if options.get("priority", None) is not None
                 else 0
             ),
-            "inputs": self._serializer.serialize(inputs),
-            "queue_partition_key": enqueue_options_internal["queue_partition_key"],
+            "inputs": inputs,
+            "serialization": serialization,
+            "queue_partition_key": options.get("queue_partition_key", None),
             "forked_from": None,
             "parent_workflow_id": None,
             "started_at_epoch_ms": None,
@@ -276,53 +281,66 @@ class DBOSClient:
             raise DBOSNonExistentWorkflowError("target", workflow_id)
         return WorkflowHandleClientAsyncPolling[R](workflow_id, self._sys_db)
 
+    def wait_first(
+        self,
+        handles: List["WorkflowHandle[Any]"],
+        *,
+        polling_interval_sec: float = DEFAULT_POLLING_INTERVAL,
+    ) -> "WorkflowHandle[Any]":
+        """Wait for any one of the given workflow handles to complete and return it."""
+        if not handles:
+            raise ValueError("handles must not be empty")
+        workflow_ids = [h.workflow_id for h in handles]
+        if len(set(workflow_ids)) != len(workflow_ids):
+            raise ValueError("handles must not contain duplicate workflow IDs")
+        handle_map: Dict[str, "WorkflowHandle[Any]"] = {
+            h.workflow_id: h for h in handles
+        }
+        completed_id = self._sys_db.await_first_workflow_id(
+            workflow_ids, polling_interval_sec
+        )
+        return handle_map[completed_id]
+
+    async def wait_first_async(
+        self,
+        handles: List["WorkflowHandleAsync[Any]"],
+        *,
+        polling_interval_sec: float = DEFAULT_POLLING_INTERVAL,
+    ) -> "WorkflowHandleAsync[Any]":
+        """Async version of :meth:`wait_first`."""
+        if not handles:
+            raise ValueError("handles must not be empty")
+        workflow_ids = [h.workflow_id for h in handles]
+        if len(set(workflow_ids)) != len(workflow_ids):
+            raise ValueError("handles must not contain duplicate workflow IDs")
+        handle_map: Dict[str, "WorkflowHandleAsync[Any]"] = {
+            h.workflow_id: h for h in handles
+        }
+        completed_id = await asyncio.to_thread(
+            self._sys_db.await_first_workflow_id,
+            workflow_ids,
+            polling_interval_sec,
+        )
+        return handle_map[completed_id]
+
     def send(
         self,
         destination_id: str,
         message: Any,
         topic: Optional[str] = None,
         idempotency_key: Optional[str] = None,
+        *,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
     ) -> None:
-        idempotency_key = idempotency_key if idempotency_key else generate_uuid()
-        status: WorkflowStatusInternal = {
-            "workflow_uuid": f"{destination_id}-{idempotency_key}",
-            "status": WorkflowStatusString.SUCCESS.value,
-            "name": TEMP_SEND_WF_NAME,
-            "class_name": None,
-            "queue_name": None,
-            "config_name": None,
-            "authenticated_user": None,
-            "assumed_role": None,
-            "authenticated_roles": None,
-            "output": None,
-            "error": None,
-            "created_at": None,
-            "updated_at": None,
-            "executor_id": None,
-            "recovery_attempts": None,
-            "app_id": None,
-            "app_version": None,
-            "workflow_timeout_ms": None,
-            "workflow_deadline_epoch_ms": None,
-            "deduplication_id": None,
-            "priority": 0,
-            "inputs": self._serializer.serialize({"args": (), "kwargs": {}}),
-            "queue_partition_key": None,
-            "forked_from": None,
-            "parent_workflow_id": None,
-            "started_at_epoch_ms": None,
-            "owner_xid": None,
-        }
-        with self._sys_db.engine.begin() as conn:
-            self._sys_db._insert_workflow_status(
-                status,
-                conn,
-                max_recovery_attempts=None,
-                owner_xid=None,
-                is_dequeued_request=False,
-                is_recovery_request=False,
-            )
-        self._sys_db.send(status["workflow_uuid"], 0, destination_id, message, topic)
+        self._sys_db.send_direct(
+            destination_id,
+            message,
+            topic,
+            message_uuid=idempotency_key,
+            serialization_type=serialization_type,
+        )
 
     async def send_async(
         self,
@@ -637,6 +655,8 @@ class DBOSClient:
                 await asyncio.sleep(1.0)
                 continue
 
+    # ── Schedule API ──────────────────────────────────────────────
+
     def create_schedule(
         self,
         *,
@@ -835,3 +855,30 @@ class DBOSClient:
         """
         workflow_id = trigger_schedule(self._sys_db, schedule_name)
         return WorkflowHandleClientPolling[None](workflow_id, self._sys_db)
+
+    # ── Application Version API ─────────────────────────────────
+
+    def list_application_versions(self) -> List[VersionInfo]:
+        """Return all application versions ordered by timestamp descending."""
+        return self._sys_db.list_application_versions()
+
+    def get_latest_application_version(self) -> VersionInfo:
+        """Return the latest application version."""
+        return self._sys_db.get_latest_application_version()
+
+    def set_latest_application_version(self, version_name: str) -> None:
+        """Set a version as the latest by updating its timestamp to now."""
+        new_timestamp = int(time.time() * 1000)
+        self._sys_db.update_application_version_timestamp(version_name, new_timestamp)
+
+    async def list_application_versions_async(self) -> List[VersionInfo]:
+        """Async version of :meth:`list_application_versions`."""
+        return await asyncio.to_thread(self.list_application_versions)
+
+    async def get_latest_application_version_async(self) -> VersionInfo:
+        """Async version of :meth:`get_latest_application_version`."""
+        return await asyncio.to_thread(self.get_latest_application_version)
+
+    async def set_latest_application_version_async(self, version_name: str) -> None:
+        """Async version of :meth:`set_latest_application_version`."""
+        await asyncio.to_thread(self.set_latest_application_version, version_name)

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     ForeignKey,
     Index,
@@ -37,6 +40,7 @@ class SystemSchema:
         cls.streams.schema = schema_name
         cls.workflow_events_history.schema = schema_name
         cls.workflow_schedules.schema = schema_name
+        cls.application_versions.schema = schema_name
 
     workflow_status = Table(
         "workflow_status",
@@ -80,6 +84,7 @@ class SystemSchema:
         Column("forked_from", Text()),
         Column("owner_xid", Text()),
         Column("parent_workflow_id", Text()),
+        Column("serialization", Text()),
         Index("workflow_status_created_at_index", "created_at"),
         Index("workflow_status_executor_id_index", "executor_id"),
         Index("workflow_status_status_index", "status"),
@@ -108,6 +113,7 @@ class SystemSchema:
         Column("child_workflow_id", Text, nullable=True),
         Column("started_at_epoch_ms", BigInteger, nullable=True),
         Column("completed_at_epoch_ms", BigInteger, nullable=True),
+        Column("serialization", Text()),
         PrimaryKeyConstraint("workflow_uuid", "function_id"),
     )
 
@@ -128,13 +134,17 @@ class SystemSchema:
             "created_at_epoch_ms",
             BigInteger,
             nullable=False,
+            server_default=text("(EXTRACT(epoch FROM now()) * 1000.0)::bigint"),
         ),
         Column(
             "message_uuid",
             Text,
             nullable=False,
             primary_key=True,
+            server_default=text("gen_random_uuid()"),
         ),
+        Column("serialization", Text()),
+        Column("consumed", Boolean, nullable=False, server_default="false"),
         Index("idx_workflow_topic", "destination_uuid", "topic"),
     )
 
@@ -151,6 +161,7 @@ class SystemSchema:
         ),
         Column("key", Text, nullable=False),
         Column("value", Text, nullable=False),
+        Column("serialization", Text()),
         PrimaryKeyConstraint("workflow_uuid", "key"),
     )
 
@@ -169,6 +180,7 @@ class SystemSchema:
         Column("key", Text, nullable=False),
         Column("value", Text, nullable=False),
         Column("function_id", Integer, nullable=False),
+        Column("serialization", Text()),
         PrimaryKeyConstraint("workflow_uuid", "key", "function_id"),
     )
 
@@ -187,6 +199,7 @@ class SystemSchema:
         Column("value", Text, nullable=False),
         Column("offset", Integer, nullable=False),
         Column("function_id", Integer, nullable=False),
+        Column("serialization", Text()),
         PrimaryKeyConstraint("workflow_uuid", "key", "offset"),
     )
 
@@ -200,4 +213,21 @@ class SystemSchema:
         Column("schedule", Text, nullable=False),
         Column("status", Text, nullable=False, server_default="ACTIVE"),
         Column("context", Text, nullable=False),
+    )
+
+    application_versions = Table(
+        "application_versions",
+        metadata_obj,
+        Column("version_id", Text, primary_key=True),
+        Column("version_name", Text, nullable=False, unique=True),
+        Column(
+            "version_timestamp",
+            BigInteger,
+            nullable=False,
+        ),
+        Column(
+            "created_at",
+            BigInteger,
+            nullable=False,
+        ),
     )

@@ -44,15 +44,21 @@ def embedding_sync_download(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "action": action,
+            "repository": repository,
+            "local_name": local_name,
+            "overwrite": overwrite,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "embedding_sync_download",
-            "arguments": {
-                "action": action,
-                "repository": repository,
-                "local_name": local_name,
-                "overwrite": overwrite,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

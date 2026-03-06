@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional
+from typing import Optional, Union
 
 from tmo.types.base_dataset import BaseDatasetMixin
 from tmo.types.dataset_metadata import (
@@ -39,7 +39,7 @@ class DatasetTemplate(BaseDatasetMixin):
     project_id: uuid.UUID
     owner_id: str
     catalog_type: CatalogType
-    metadata: Metadata
+    metadata: Union[Metadata, dict]  # NOSONAR
     feature_metadata: FeatureMetadata
     entity: str
     target: list[str]
@@ -52,7 +52,7 @@ class DatasetTemplate(BaseDatasetMixin):
         project_id: Optional[uuid.UUID] = None,
         owner_id: Optional[str] = None,
         catalog_type: Optional[CatalogType] = CatalogType.VANTAGE,
-        metadata: Optional[Metadata] = Metadata(),
+        metadata: Optional[Union[Metadata, dict]] = None,
         feature_metadata: Optional[FeatureMetadata] = FeatureMetadata(),
     ):
         self.id = id
@@ -60,7 +60,11 @@ class DatasetTemplate(BaseDatasetMixin):
         self.description = description
         self.project_id = project_id
         self.owner_id = owner_id
+        # IMPORTANT: Set catalog_type BEFORE metadata (setter validates based on catalog_type)
         self.catalog_type = catalog_type
+        # Initialize metadata based on catalog_type if not provided
+        if metadata is None:
+            metadata = Metadata() if catalog_type == CatalogType.VANTAGE else {}
         self.metadata = metadata
         self.feature_metadata = feature_metadata
 
@@ -131,37 +135,18 @@ class DatasetTemplate(BaseDatasetMixin):
         self._catalog_type = value
 
     @property
-    def metadata(self) -> Metadata:
-        return self._metadata
-
-    @metadata.setter
-    def metadata(self, value: Metadata):
-        if not self._isclass(value, Metadata):
-            raise ValueError("Metadata must be an instance of Metadata class.")
-        self._metadata = value
-
-    @property
     def feature_metadata(self) -> FeatureMetadata:
         return self._feature_metadata
 
     @feature_metadata.setter
     def feature_metadata(self, value: FeatureMetadata):
-        if not self._isclass(value, FeatureMetadata):
+        if not self._isclass(value, FeatureMetadata):  # noqa
             raise ValueError(
                 "FeatureMetadata must be an instance of FeatureMetadata class."
             )
         self._feature_metadata = value
 
     def get_df_template(self) -> dict:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-            "catalogType": self.catalog_type,
-            "entity": self.entity,
-            "target": self.target,
-            "features": self.features,
-            "featuresQuery": self.features_query,
-            "entityTargetsQuery": self.entity_targets_query,
-            "predictionsQuery": self.predictions_query,
-        }
+        from tmo.types.utils.datasets import build_df_template
+
+        return build_df_template(self)

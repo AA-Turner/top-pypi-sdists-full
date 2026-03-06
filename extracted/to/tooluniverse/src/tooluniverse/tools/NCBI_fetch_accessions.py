@@ -15,7 +15,7 @@ def NCBI_fetch_accessions(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> Any:
+) -> list[Any]:
     """
     Convert GenBank UIDs to accession numbers (U00096, NC_045512, etc.). Takes UIDs from NCBI_search_...
 
@@ -34,14 +34,18 @@ def NCBI_fetch_accessions(
 
     Returns
     -------
-    Any
+    list[Any]
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v for k, v in {"operation": operation, "uids": uids}.items() if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "NCBI_fetch_accessions",
-            "arguments": {"operation": operation, "uids": uids},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

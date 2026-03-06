@@ -61,7 +61,23 @@ def run_dbos_migrations(
 
             # Execute the migration
             dbos_logger.info(f"Applying DBOS system database schema migration {i}")
-            conn.execute(sa.text(migration_sql))
+
+            # Migration 10 adds a primary key to the notifications table.
+            # Skip it if the table already has one.
+            if (
+                i == 10
+                and conn.execute(
+                    sa.text(
+                        f"SELECT 1 FROM information_schema.table_constraints "
+                        f"WHERE table_schema = '{schema}' "
+                        f"AND table_name = 'notifications' "
+                        f"AND constraint_type = 'PRIMARY KEY'"
+                    )
+                ).scalar()
+            ):
+                dbos_logger.info("Migration 10 skipped, primary key already exists")
+            else:
+                conn.execute(sa.text(migration_sql))
 
             # Update the single row with the new version
             if last_applied == 0:
@@ -110,7 +126,7 @@ CREATE TABLE \"{schema}\".workflow_status (
     inputs TEXT,
     started_at_epoch_ms BIGINT,
     deduplication_id TEXT,
-    priority INTEGER NOT NULL DEFAULT 0
+    priority INT4 NOT NULL DEFAULT 0
 );
 
 CREATE INDEX workflow_status_created_at_index ON \"{schema}\".workflow_status (created_at);
@@ -123,7 +139,7 @@ UNIQUE (queue_name, deduplication_id);
 
 CREATE TABLE \"{schema}\".operation_outputs (
     workflow_uuid TEXT NOT NULL,
-    function_id INTEGER NOT NULL,
+    function_id INT4 NOT NULL,
     function_name TEXT NOT NULL DEFAULT '',
     output TEXT,
     error TEXT,
@@ -157,7 +173,7 @@ CREATE TABLE \"{schema}\".streams (
     workflow_uuid TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
-    "offset" INTEGER NOT NULL,
+    "offset" INT4 NOT NULL,
     PRIMARY KEY (workflow_uuid, key, "offset"),
     FOREIGN KEY (workflow_uuid) REFERENCES \"{schema}\".workflow_status(workflow_uuid) 
         ON UPDATE CASCADE ON DELETE CASCADE
@@ -237,14 +253,14 @@ def get_dbos_migration_six(schema: str) -> str:
     return f"""
 CREATE TABLE \"{schema}\".workflow_events_history (
     workflow_uuid TEXT NOT NULL,
-    function_id INTEGER NOT NULL,
+    function_id INT4 NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
     PRIMARY KEY (workflow_uuid, function_id, key),
-    FOREIGN KEY (workflow_uuid) REFERENCES \"{schema}\".workflow_status(workflow_uuid) 
+    FOREIGN KEY (workflow_uuid) REFERENCES \"{schema}\".workflow_status(workflow_uuid)
         ON UPDATE CASCADE ON DELETE CASCADE
 );
-ALTER TABLE \"{schema}\".streams ADD COLUMN function_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE \"{schema}\".streams ADD COLUMN function_id INT4 NOT NULL DEFAULT 0;
 """
 
 
@@ -278,17 +294,36 @@ CREATE TABLE "{schema}".workflow_schedules (
 # for existing applications.
 def get_dbos_migration_ten(schema: str) -> str:
     return f"""
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.table_constraints
-        WHERE table_schema = '{schema}'
-        AND table_name = 'notifications'
-        AND constraint_type = 'PRIMARY KEY'
-    ) THEN
-        ALTER TABLE "{schema}".notifications ADD PRIMARY KEY (message_uuid);
-    END IF;
-END $$;
+ALTER TABLE "{schema}".notifications ADD PRIMARY KEY (message_uuid);
+"""
+
+
+def get_dbos_migration_eleven(schema: str) -> str:
+    return f"""
+ALTER TABLE "{schema}"."workflow_status" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "{schema}"."notifications" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "{schema}"."workflow_events" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "{schema}"."workflow_events_history" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "{schema}"."operation_outputs" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "{schema}"."streams" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+"""
+
+
+def get_dbos_migration_twelve(schema: str) -> str:
+    return f"""
+ALTER TABLE "{schema}"."notifications" ADD COLUMN "consumed" BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX "idx_notifications" ON "{schema}"."notifications" ("destination_uuid", "topic");
+"""
+
+
+def get_dbos_migration_thirteen(schema: str) -> str:
+    return f"""
+CREATE TABLE "{schema}".application_versions (
+    version_id TEXT NOT NULL PRIMARY KEY,
+    version_name TEXT NOT NULL UNIQUE,
+    version_timestamp BIGINT NOT NULL DEFAULT (EXTRACT(epoch FROM now()) * 1000.0)::bigint,
+    created_at BIGINT NOT NULL DEFAULT (EXTRACT(epoch FROM now()) * 1000.0)::bigint
+);
 """
 
 
@@ -304,6 +339,9 @@ def get_dbos_migrations(schema: str, use_listen_notify: bool) -> list[str]:
         get_dbos_migration_eight(schema),
         get_dbos_migration_nine(schema),
         get_dbos_migration_ten(schema),
+        get_dbos_migration_eleven(schema),
+        get_dbos_migration_twelve(schema),
+        get_dbos_migration_thirteen(schema),
     ]
 
 
@@ -446,6 +484,30 @@ CREATE TABLE workflow_schedules (
 );
 """
 
+sqlite_migration_eleven = """
+ALTER TABLE "workflow_status" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "notifications" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "workflow_events" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "workflow_events_history" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "operation_outputs" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+ALTER TABLE "streams" ADD COLUMN "serialization" TEXT DEFAULT NULL;
+"""
+
+
+sqlite_migration_twelve = """
+ALTER TABLE "notifications" ADD COLUMN "consumed" BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX "idx_notifications" ON "notifications" ("destination_uuid", "topic");
+"""
+
+
+sqlite_migration_thirteen = f"""
+CREATE TABLE application_versions (
+    version_id TEXT NOT NULL PRIMARY KEY,
+    version_name TEXT NOT NULL UNIQUE,
+    version_timestamp INTEGER NOT NULL DEFAULT {get_sqlite_timestamp_expr()},
+    created_at INTEGER NOT NULL DEFAULT {get_sqlite_timestamp_expr()}
+);
+"""
 sqlite_migrations = [
     sqlite_migration_one,
     sqlite_migration_two,
@@ -456,4 +518,7 @@ sqlite_migrations = [
     sqlite_migration_seven,
     sqlite_migration_eight,
     sqlite_migration_nine,
+    sqlite_migration_eleven,
+    sqlite_migration_twelve,
+    sqlite_migration_thirteen,
 ]

@@ -41,14 +41,20 @@ def UniProtIDMap_gene_to_uniprot(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "gene_names": gene_names,
+            "tax_id": tax_id,
+            "reviewed_only": reviewed_only,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "UniProtIDMap_gene_to_uniprot",
-            "arguments": {
-                "gene_names": gene_names,
-                "tax_id": tax_id,
-                "reviewed_only": reviewed_only,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

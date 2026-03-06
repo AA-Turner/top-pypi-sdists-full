@@ -56,19 +56,25 @@ def SIMBAD_query_object(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query_type": query_type,
+            "object_name": object_name,
+            "ra": ra,
+            "dec": dec,
+            "radius": radius,
+            "identifier": identifier,
+            "output_format": output_format,
+            "max_results": max_results,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "SIMBAD_query_object",
-            "arguments": {
-                "query_type": query_type,
-                "object_name": object_name,
-                "ra": ra,
-                "dec": dec,
-                "radius": radius,
-                "identifier": identifier,
-                "output_format": output_format,
-                "max_results": max_results,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -15,7 +15,7 @@ use std::sync::OnceLock;
 // === Extended Element Data (loaded from gzipped JSON) ===
 
 /// Compile-time embedded gzipped JSON data (single source of truth shared with TypeScript).
-const ELEMENT_DATA_GZ: &[u8] = include_bytes!("../../../src/lib/element/data.json.gz");
+const ELEMENT_DATA_GZ: &[u8] = include_bytes!("data/element_data.json.gz");
 
 /// Decompressed JSON string (lazily initialized on first access).
 static ELEMENT_DATA_JSON: OnceLock<String> = OnceLock::new();

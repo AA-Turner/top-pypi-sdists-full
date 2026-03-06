@@ -83,6 +83,12 @@ class CTGovAPITool(BaseRESTTool):
             params["query.intr"] = arguments["intervention"]
         if arguments.get("sponsor"):
             params["query.spons"] = arguments["sponsor"]
+        if arguments.get("condition"):
+            # 'condition' is a natural alias for 'query_cond'
+            params["query.cond"] = arguments["condition"]
+        if arguments.get("status"):
+            # 'status' is a natural alias for 'filter_status'
+            params["filter.overallStatus"] = arguments["status"]
         if arguments.get("filter_status"):
             params["filter.overallStatus"] = arguments["filter_status"]
         if arguments.get("filter_phase"):

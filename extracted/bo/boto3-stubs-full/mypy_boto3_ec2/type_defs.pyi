@@ -624,6 +624,7 @@ __all__ = (
     "CancelSpotInstanceRequestsRequestTypeDef",
     "CancelSpotInstanceRequestsResultTypeDef",
     "CancelledSpotInstanceRequestTypeDef",
+    "CapacityAllocationMetadataEntryTypeDef",
     "CapacityAllocationTypeDef",
     "CapacityBlockExtensionOfferingTypeDef",
     "CapacityBlockExtensionTypeDef",
@@ -3813,9 +3814,9 @@ class CancelledSpotInstanceRequestTypeDef(TypedDict):
     SpotInstanceRequestId: NotRequired[str]
     State: NotRequired[CancelSpotInstanceRequestStateType]
 
-class CapacityAllocationTypeDef(TypedDict):
-    AllocationType: NotRequired[AllocationTypeType]
-    Count: NotRequired[int]
+class CapacityAllocationMetadataEntryTypeDef(TypedDict):
+    Key: NotRequired[str]
+    Value: NotRequired[str]
 
 class CapacityBlockExtensionOfferingTypeDef(TypedDict):
     CapacityBlockExtensionOfferingId: NotRequired[str]
@@ -10265,6 +10266,11 @@ class CancelSpotInstanceRequestsResultTypeDef(TypedDict):
     CancelledSpotInstanceRequests: list[CancelledSpotInstanceRequestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CapacityAllocationTypeDef(TypedDict):
+    AllocationType: NotRequired[AllocationTypeType]
+    Count: NotRequired[int]
+    AllocationMetadata: NotRequired[list[CapacityAllocationMetadataEntryTypeDef]]
+
 class DescribeCapacityBlockExtensionOfferingsResultTypeDef(TypedDict):
     CapacityBlockExtensionOfferings: list[CapacityBlockExtensionOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10378,39 +10384,6 @@ class DescribeCapacityReservationTopologyResultTypeDef(TypedDict):
     CapacityReservations: list[CapacityReservationTopologyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-class CapacityReservationTypeDef(TypedDict):
-    CapacityReservationId: NotRequired[str]
-    OwnerId: NotRequired[str]
-    CapacityReservationArn: NotRequired[str]
-    AvailabilityZoneId: NotRequired[str]
-    InstanceType: NotRequired[str]
-    InstancePlatform: NotRequired[CapacityReservationInstancePlatformType]
-    AvailabilityZone: NotRequired[str]
-    Tenancy: NotRequired[CapacityReservationTenancyType]
-    TotalInstanceCount: NotRequired[int]
-    AvailableInstanceCount: NotRequired[int]
-    EbsOptimized: NotRequired[bool]
-    EphemeralStorage: NotRequired[bool]
-    State: NotRequired[CapacityReservationStateType]
-    StartDate: NotRequired[datetime]
-    EndDate: NotRequired[datetime]
-    EndDateType: NotRequired[EndDateTypeType]
-    InstanceMatchCriteria: NotRequired[InstanceMatchCriteriaType]
-    CreateDate: NotRequired[datetime]
-    Tags: NotRequired[list[TagTypeDef]]
-    OutpostArn: NotRequired[str]
-    CapacityReservationFleetId: NotRequired[str]
-    PlacementGroupArn: NotRequired[str]
-    CapacityAllocations: NotRequired[list[CapacityAllocationTypeDef]]
-    ReservationType: NotRequired[CapacityReservationTypeType]
-    UnusedReservationBillingOwnerId: NotRequired[str]
-    CommitmentInfo: NotRequired[CapacityReservationCommitmentInfoTypeDef]
-    DeliveryPreference: NotRequired[CapacityReservationDeliveryPreferenceType]
-    CapacityBlockId: NotRequired[str]
-    Interruptible: NotRequired[bool]
-    InterruptibleCapacityAllocation: NotRequired[InterruptibleCapacityAllocationTypeDef]
-    InterruptionInfo: NotRequired[InterruptionInfoTypeDef]
 
 class DescribeVpcClassicLinkDnsSupportResultTypeDef(TypedDict):
     Vpcs: list[ClassicLinkDnsSupportTypeDef]
@@ -16209,6 +16182,39 @@ class CancelSpotFleetRequestsResponseTypeDef(TypedDict):
     UnsuccessfulFleetRequests: list[CancelSpotFleetRequestsErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CapacityReservationTypeDef(TypedDict):
+    CapacityReservationId: NotRequired[str]
+    OwnerId: NotRequired[str]
+    CapacityReservationArn: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    InstanceType: NotRequired[str]
+    InstancePlatform: NotRequired[CapacityReservationInstancePlatformType]
+    AvailabilityZone: NotRequired[str]
+    Tenancy: NotRequired[CapacityReservationTenancyType]
+    TotalInstanceCount: NotRequired[int]
+    AvailableInstanceCount: NotRequired[int]
+    EbsOptimized: NotRequired[bool]
+    EphemeralStorage: NotRequired[bool]
+    State: NotRequired[CapacityReservationStateType]
+    StartDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    EndDateType: NotRequired[EndDateTypeType]
+    InstanceMatchCriteria: NotRequired[InstanceMatchCriteriaType]
+    CreateDate: NotRequired[datetime]
+    Tags: NotRequired[list[TagTypeDef]]
+    OutpostArn: NotRequired[str]
+    CapacityReservationFleetId: NotRequired[str]
+    PlacementGroupArn: NotRequired[str]
+    CapacityAllocations: NotRequired[list[CapacityAllocationTypeDef]]
+    ReservationType: NotRequired[CapacityReservationTypeType]
+    UnusedReservationBillingOwnerId: NotRequired[str]
+    CommitmentInfo: NotRequired[CapacityReservationCommitmentInfoTypeDef]
+    DeliveryPreference: NotRequired[CapacityReservationDeliveryPreferenceType]
+    CapacityBlockId: NotRequired[str]
+    Interruptible: NotRequired[bool]
+    InterruptibleCapacityAllocation: NotRequired[InterruptibleCapacityAllocationTypeDef]
+    InterruptionInfo: NotRequired[InterruptionInfoTypeDef]
+
 class DescribeCapacityBlockStatusResultTypeDef(TypedDict):
     CapacityBlockStatuses: list[CapacityBlockStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -16268,32 +16274,6 @@ class ModifyInstanceCapacityReservationAttributesRequestTypeDef(TypedDict):
     InstanceId: str
     CapacityReservationSpecification: CapacityReservationSpecificationTypeDef
     DryRun: NotRequired[bool]
-
-class CreateCapacityReservationBySplittingResultTypeDef(TypedDict):
-    SourceCapacityReservation: CapacityReservationTypeDef
-    DestinationCapacityReservation: CapacityReservationTypeDef
-    InstanceCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateCapacityReservationResultTypeDef(TypedDict):
-    CapacityReservation: CapacityReservationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeCapacityReservationsResultTypeDef(TypedDict):
-    CapacityReservations: list[CapacityReservationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class MoveCapacityReservationInstancesResultTypeDef(TypedDict):
-    SourceCapacityReservation: CapacityReservationTypeDef
-    DestinationCapacityReservation: CapacityReservationTypeDef
-    InstanceCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class PurchaseCapacityBlockResultTypeDef(TypedDict):
-    CapacityReservation: CapacityReservationTypeDef
-    CapacityBlocks: list[CapacityBlockTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeClassicLinkInstancesResultTypeDef(TypedDict):
     Instances: list[ClassicLinkInstanceTypeDef]
@@ -19321,6 +19301,32 @@ class DescribeImagesResultTypeDef(TypedDict):
     Images: list[ImageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class CreateCapacityReservationBySplittingResultTypeDef(TypedDict):
+    SourceCapacityReservation: CapacityReservationTypeDef
+    DestinationCapacityReservation: CapacityReservationTypeDef
+    InstanceCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCapacityReservationResultTypeDef(TypedDict):
+    CapacityReservation: CapacityReservationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCapacityReservationsResultTypeDef(TypedDict):
+    CapacityReservations: list[CapacityReservationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class MoveCapacityReservationInstancesResultTypeDef(TypedDict):
+    SourceCapacityReservation: CapacityReservationTypeDef
+    DestinationCapacityReservation: CapacityReservationTypeDef
+    InstanceCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PurchaseCapacityBlockResultTypeDef(TypedDict):
+    CapacityReservation: CapacityReservationTypeDef
+    CapacityBlocks: list[CapacityBlockTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeClientVpnEndpointsResultTypeDef(TypedDict):
     ClientVpnEndpoints: list[ClientVpnEndpointTypeDef]

@@ -125,7 +125,12 @@ class UniProtIDMappingTool(BaseTool):
         results_resp.raise_for_status()
         results_data = results_resp.json()
 
-        return {"results": results_data.get("results", []), "job_id": job_id}
+        # Feature-68B-003: extract failedIds so callers can detect unmapped input IDs
+        return {
+            "results": results_data.get("results", []),
+            "job_id": job_id,
+            "failed_ids": results_data.get("failedIds", []),
+        }
 
     def _convert(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Generic ID conversion between any supported databases."""
@@ -160,7 +165,7 @@ class UniProtIDMappingTool(BaseTool):
                 "to_db": to_db,
                 "result_count": len(parsed),
                 "results": parsed[:500],
-                "failed_ids": [],
+                "failed_ids": result.get("failed_ids", []),
             },
             "metadata": {
                 "source": "UniProt ID Mapping Service",

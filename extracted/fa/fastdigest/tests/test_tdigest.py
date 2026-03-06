@@ -54,8 +54,8 @@ def test_init() -> None:
     "values",
     [
         [1, 2, 3, 4, 5],
-        range(1, 6),
-        (5, 3, 4, 2, 1),
+        range(10),
+        (5, 3, 2, 1),
     ],
 )
 def test_from_values(values: Sequence[int]) -> None:
@@ -67,10 +67,15 @@ def test_from_values(values: Sequence[int]) -> None:
     assert d.max_centroids == 3
     assert d.n_values == len(values)
     assert d.n_centroids == 3
+    d = TDigest.from_values(values, w=2.0)
+    assert d.n_values == len(values)
+    assert d.mass == 2.0 * len(values)
     d = TDigest.from_values([])
     assert d == TDigest()
     with pytest.raises(ValueError):
         TDigest.from_values(values, max_centroids=-1)
+    with pytest.raises(ValueError):
+        TDigest.from_values(values, w=-1)
 
 
 def test_max_centroids(
@@ -89,16 +94,26 @@ def test_max_centroids(
         d.max_centroids = -1
 
 
-def test_n_values_and_n_centroids(empty_digest: TDigest) -> None:
+def test_properties(empty_digest: TDigest) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
+    assert isinstance(d.mass, float) and d.mass == 3.0
     assert isinstance(d.n_values, int) and d.n_values == 3
     assert isinstance(d.n_centroids, int) and d.n_centroids == 3
     d = empty_digest
+    assert d.mass == 0.0
     assert d.n_values == 0
     assert d.n_centroids == 0
-    d.update(1)
-    assert d.n_values == 1
-    assert d.n_centroids == 1
+    d.batch_update([1.0, 2.0, 3.0], w=[3, 2, 1])
+    assert d.mass == 6.0
+    assert d.n_values == 3
+    assert d.n_centroids == 3
+    d.update(7, 11)
+    assert d.mass == 17.0
+    assert d.n_values == 4
+    d.update(5)
+    assert d.mass == 18.0
+    assert d.n_values == 5
+    assert d.n_centroids == 5
 
 
 def test_is_empty(empty_digest: TDigest) -> None:
@@ -116,26 +131,19 @@ def test_centroids(empty_digest: TDigest) -> None:
     assert isinstance(centroids, list) and len(centroids) == 3
     assert all(isinstance(t, tuple) for t in centroids)
     assert all(isinstance(v, float) for v in centroids[0])
+    assert [t[0] for t in centroids] == [1.0, 2.0, 3.0]
+    assert [t[1] for t in centroids] == [1.0, 1.0, 1.0]
     assert isinstance(empty_digest.centroids, list)
 
 
 # -------------------------------------------------------------------
 # Merge tests (merge, merge_inplace, __add__, __iadd__)
 # -------------------------------------------------------------------
-@pytest.mark.parametrize(
-    "merge_func",
-    [
-        lambda d1, d2: d1.merge(d2),
-        lambda d1, d2: d1 + d2,
-    ],
-)
-def test_merge_operations(
-    merge_func: Callable[[TDigest, TDigest], TDigest],
-) -> None:
+def test_merge() -> None:
     d1 = TDigest.from_values(range(1, 51))
     d2 = TDigest.from_values(range(51, 101))
     expected = calculate_sample_quantiles(range(1, 101))
-    merged = merge_func(d1, d2)
+    merged = d1.merge(d2)
     check_sample_quantiles(merged, expected)
     assert merged.n_values == 100
 
@@ -184,7 +192,7 @@ def test_merge_inplace() -> None:
     "iadd_op",
     [
         lambda d1, d2: d1 + d2,
-        lambda d1, d2: d1.__iadd__(d2) or d1,
+        lambda d1, d2: d1.__iadd__(d2),
     ],
 )
 def test_add_iadd(iadd_op: Callable[[TDigest, TDigest], TDigest]) -> None:
@@ -193,6 +201,9 @@ def test_add_iadd(iadd_op: Callable[[TDigest, TDigest], TDigest]) -> None:
     expected = calculate_sample_quantiles(range(1, 101))
     result = iadd_op(d1, d2)
     check_sample_quantiles(result, expected)
+    double_merged = iadd_op(result, result)
+    check_sample_quantiles(double_merged, expected)
+    assert double_merged.n_values == 200
 
 
 def test_add_with_empty_max_centroids(empty_digest: TDigest) -> None:
@@ -233,6 +244,33 @@ def test_updates(
     expected_n = len(start_range) + len(update_input)
     assert d.n_values == expected_n
     assert d.n_centroids <= max_centroids + 1
+
+
+def test_weighted_updates() -> None:
+    d = TDigest()
+    d.batch_update([1, 2, 3], w=[1, 2, 3])
+    assert d.n_values == 3
+    assert d.mass == 6.0
+    assert d.sum() == 14.0
+    d = TDigest.from_values([2.0])
+    d.batch_update([1, 2, 3], w=[3, 2, 1])
+    assert d.mass == 7.0
+    assert d.sum() == 12.0
+    d = TDigest()
+    d.batch_update([1, 2, 3], w=2.0)
+    assert d.mass == 6.0
+    assert d.sum() == 12.0
+    d.update(2, w=4)
+    assert d.mass == 10.0
+    assert d.sum() == 20.0
+    with pytest.raises(ValueError):
+        d.update(1, w=0)
+    with pytest.raises(ValueError):
+        d.batch_update([1, 2], w=[1])
+    with pytest.raises(ValueError):
+        d.batch_update([1, 2], w=[1, -1])
+    with pytest.raises(TypeError):
+        d.batch_update([1, 2], w={1, 2})
 
 
 # -------------------------------------------------------------------
@@ -295,10 +333,12 @@ def test_mean_trimmed_mean_sum(empty_digest: TDigest) -> None:
 # -------------------------------------------------------------------
 def test_to_from_dict() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
+    d.update(6.0)
     d_dict = d.to_dict()
     assert isinstance(d_dict, dict)
     new_d = TDigest.from_dict(d_dict)
     check_tdigest_equality(d, new_d)
+    assert d.mean() == new_d.mean() == 3.0
     d = TDigest.from_values(range(1, 101), max_centroids=3)
     d_dict = d.to_dict()
     new_d = TDigest.from_dict(d_dict)
@@ -329,9 +369,11 @@ def test_to_from_dict() -> None:
 )
 def test_copy_methods(copy_func: Callable[[TDigest], TDigest]) -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
+    d.update(6.0)
     d_copy = copy_func(d)
     check_tdigest_equality(d, d_copy)
     assert id(d_copy) != id(d)
+    assert d.mean() == d_copy.mean() == 3.0
     empty = TDigest()
     empty_copy = copy_func(empty)
     assert len(empty_copy) == 0
@@ -339,9 +381,11 @@ def test_copy_methods(copy_func: Callable[[TDigest], TDigest]) -> None:
 
 def test_pickle_unpickle() -> None:
     d = TDigest.from_values([1.0, 2.0, 3.0])
+    d.update(6.0)
     dumped = pickle.dumps(d)
     unpickled = pickle.loads(dumped)
     check_tdigest_equality(d, unpickled)
+    assert d.mean() == unpickled.mean() == 3.0
     d = TDigest.from_values(range(1, 101), max_centroids=3)
     dumped = pickle.dumps(d)
     unpickled = pickle.loads(dumped)
@@ -381,13 +425,17 @@ def test_iter() -> None:
 
 
 def test_equality() -> None:
-    d1 = TDigest.from_values([1.0, 2.0, 3.0])
-    d2 = TDigest.from_values([2.0, 1.0, 3.0])
-    d3 = TDigest.from_values([1.0, 2.0, 3.1])
-    d4 = TDigest.from_values([1.0, 2.0, 3.0], max_centroids=3)
+    d1 = TDigest.from_values([1, 2, 3])
+    d2 = TDigest.from_values([2.0, 1.0])
+    d2.update(3.0)
+    assert d1.equals(d2)
+    d1.batch_update([0])
+    d2.update(0)
     assert d1 == d2
+    d3 = TDigest.from_values([0, 1, 2, 3.1])
+    d4 = TDigest.from_values([0, 1, 2, 3.1], max_centroids=3)
     assert d1 != d3
-    assert d1 != d4
+    assert d3 != d4
     empty1 = TDigest()
     empty2 = TDigest()
     assert empty1 == empty2

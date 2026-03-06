@@ -1,6 +1,5 @@
 #! python
 # -*- coding: utf-8 -*-
-import os
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -57,6 +56,7 @@ class SingleSampleGSEA(GSEAbase):
         self.ranking = None
         self._noplot = no_plot
         self.permutation_type = "gene_set"
+        assert self.min_size > 0
 
     def corplot(self):
         """NES Correlation plot
@@ -153,7 +153,7 @@ class SingleSampleGSEA(GSEAbase):
 
         gene_names = df.index.to_list()
         if (not self._gene_isupper) and self._gene_toupper:
-            gene_names = [x.upper() for x in gene_names]
+            gene_names = [str(x).upper() for x in gene_names]
             self._logger.info("Genes are converted to uppercase.")
 
         gsum = ssgsea_rs(

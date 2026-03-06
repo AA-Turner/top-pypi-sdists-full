@@ -57,6 +57,12 @@ impl WasmStructureMatcher {
     }
 
     #[wasm_bindgen]
+    pub fn with_attempt_supercell(mut self, val: bool) -> WasmStructureMatcher {
+        self.inner = self.inner.with_attempt_supercell(val);
+        self
+    }
+
+    #[wasm_bindgen]
     pub fn with_element_comparator(mut self, val: bool) -> WasmStructureMatcher {
         let comparator = if val {
             ComparatorType::Element
@@ -212,7 +218,18 @@ impl WasmStructureMatcher {
                 .inner
                 .deduplicate(&structs)
                 .map_err(|err| err.to_string())?;
-            Ok(indices.into_iter().map(|idx| idx as u32).collect())
+            if !indices.skipped.is_empty() {
+                return Err(format!(
+                    "deduplicate skipped structure indices [{}]; use validated inputs or Rust API with on_error=Fail",
+                    indices
+                        .skipped
+                        .iter()
+                        .map(|idx| idx.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            Ok(indices.parents.into_iter().map(|idx| idx as u32).collect())
         })();
         result.into()
     }
@@ -289,4 +306,56 @@ fn parse_class_mapping_by_symbol(
         class_mapping.insert(element, trimmed_class_label.to_string());
     }
     Ok(class_mapping)
+}
+
+/// Count the number of Wyckoff positions in an AFLOW protostructure label.
+#[wasm_bindgen]
+pub fn count_wyckoff_positions(protostructure_label: &str) -> WasmResult<usize> {
+    crate::prototype::count_wyckoff_positions(protostructure_label)
+        .map_err(|err| err.to_string())
+        .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lattice::Lattice;
+    use crate::species::Species;
+    use crate::structure::Structure;
+    use nalgebra::Vector3;
+
+    fn unwrap_wasm_bool(result: WasmResult<bool>) -> bool {
+        match result {
+            WasmResult::Ok { ok } => ok,
+            WasmResult::Err { error } => panic!("Unexpected wasm error: {error}"),
+        }
+    }
+
+    #[test]
+    fn test_with_attempt_supercell_changes_fit_behavior() {
+        let primitive = Structure::new(
+            Lattice::cubic(4.0),
+            vec![Species::neutral(Element::Fe)],
+            vec![Vector3::new(0.0, 0.0, 0.0)],
+        );
+        let supercell = primitive.make_supercell_diag([2, 2, 2]);
+        let primitive_js = JsCrystal::from_structure(&primitive);
+        let supercell_js = JsCrystal::from_structure(&supercell);
+
+        let matcher_no_supercell = WasmStructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(false);
+        let matcher_with_supercell = WasmStructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(true);
+
+        assert!(
+            !unwrap_wasm_bool(matcher_no_supercell.fit(primitive_js.clone(), supercell_js.clone())),
+            "without attempt_supercell, match should fail"
+        );
+        assert!(
+            unwrap_wasm_bool(matcher_with_supercell.fit(primitive_js, supercell_js)),
+            "with attempt_supercell, match should succeed"
+        );
+    }
 }

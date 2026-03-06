@@ -42,7 +42,7 @@ sphinx:
         navigation_with_keys: false
         pygments_dark_style: monokai
         logo:
-          text: "Version __MSPRIME_VERSION__"
+          text: "Version __PKG_VERSION__"
       myst_enable_extensions:
       - colon_fence
       - deflist
@@ -54,7 +54,7 @@ sphinx:
         tskit: ["https://tskit.dev/tskit/docs/stable", null]
         tutorials: ["https://tskit.dev/tutorials/", null]
         stdpopsim: ["https://popsim-consortium.github.io/stdpopsim-docs/stable", null]
-        pyslim: ["https://tskit.dev/pyslim/docs/latest/", null]
+        pyslim: ["https://tskit.dev/pyslim/docs/stable/", null]
         numpy: ["https://numpy.org/doc/stable/", null]
         demes: ["https://popsim-consortium.github.io/demes-docs/main/", null]
         demes-spec: ["https://popsim-consortium.github.io/demes-spec-docs/main/", null]
@@ -70,4 +70,4 @@ sphinx:
       autodoc_typehints: none
 
       myst_substitutions:
-        min_python_version: "3.10"
+        min_python_version: "3.11"

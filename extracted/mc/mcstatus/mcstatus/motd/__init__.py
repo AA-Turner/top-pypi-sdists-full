@@ -4,20 +4,18 @@ import re
 import typing as t
 from dataclasses import dataclass
 
+from mcstatus.motd._simplifies import get_unused_elements, squash_nearby_strings
+from mcstatus.motd._transformers import AnsiTransformer, HtmlTransformer, MinecraftTransformer, PlainTransformer
 from mcstatus.motd.components import Formatting, MinecraftColor, ParsedMotdComponent, TranslationTag, WebColor
-from mcstatus.motd.simplifies import get_unused_elements, squash_nearby_strings
-from mcstatus.motd.transformers import AnsiTransformer, HtmlTransformer, MinecraftTransformer, PlainTransformer
 
 if t.TYPE_CHECKING:
     from typing_extensions import Self
 
-    from mcstatus.responses import RawJavaResponseMotd, RawJavaResponseMotdWhenDict  # circular import
-else:
-    RawJavaResponseMotdWhenDict = dict
+    from mcstatus.responses._raw import RawJavaResponseMotd, RawJavaResponseMotdWhenDict
 
 __all__ = ["Motd"]
 
-MOTD_COLORS_RE = re.compile(r"([\xA7|&][0-9A-FK-OR])", re.IGNORECASE)
+_MOTD_COLORS_RE = re.compile(r"([\xA7|&][0-9A-FK-OR])", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -73,7 +71,7 @@ class Motd:
         """
         parsed_motd: list[ParsedMotdComponent] = []
 
-        split_raw = MOTD_COLORS_RE.split(raw)
+        split_raw = _MOTD_COLORS_RE.split(raw)
         for element in split_raw:
             clean_element = element.lstrip("&§").lower()
             standardized_element = element.replace("&", "§").lower()
@@ -167,8 +165,8 @@ class Motd:
             # achieve gradients.
             try:
                 return WebColor.from_hex(color)
-            except ValueError:
-                raise ValueError(f"Unable to parse color: {color!r}, report this!")
+            except ValueError as e:
+                raise ValueError(f"Unable to parse color: {color!r}, report this!") from e
 
     def simplify(self) -> Self:
         """Create new MOTD without unused elements.
@@ -196,7 +194,7 @@ class Motd:
         Example:
             ``&0Hello &oWorld`` turns into ``Hello World``.
         """
-        return PlainTransformer(_is_called_directly=False).transform(self.parsed)
+        return PlainTransformer().transform(self.parsed)
 
     def to_minecraft(self) -> str:
         """Transform MOTD to the Minecraft representation.
@@ -209,7 +207,7 @@ class Motd:
                 >>> Motd.parse("&0Hello &oWorld")
                 "§0Hello §oWorld"
         """
-        return MinecraftTransformer(_is_called_directly=False).transform(self.parsed)
+        return MinecraftTransformer().transform(self.parsed)
 
     def to_html(self) -> str:
         """Transform MOTD to the HTML format.
@@ -259,7 +257,7 @@ class Motd:
                   Another <span class=obfuscated>World</span>
                 </p>
         """  # noqa: D301 # Use `r"""` if any backslashes in a docstring
-        return HtmlTransformer(bedrock=self.bedrock, _is_called_directly=False).transform(self.parsed)
+        return HtmlTransformer(bedrock=self.bedrock).transform(self.parsed)
 
     def to_ansi(self) -> str:
         """Transform MOTD to the ANSI 24-bit format.
@@ -270,4 +268,4 @@ class Motd:
 
         .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code.
         """
-        return AnsiTransformer(bedrock=self.bedrock, _is_called_directly=False).transform(self.parsed)
+        return AnsiTransformer(bedrock=self.bedrock).transform(self.parsed)

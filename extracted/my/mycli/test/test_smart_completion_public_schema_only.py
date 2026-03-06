@@ -583,8 +583,8 @@ def test_auto_case_heuristic(completer, complete_event):
     position = len("select json_v")
     result = list(completer.get_completions(Document(text=text, cursor_position=position), complete_event))
     assert [x.text for x in result] == [
-        'json_valid',
         'json_value',
+        'json_valid',
     ]
 
 
@@ -747,9 +747,9 @@ def test_backticked_column_completion_two_character(completer, complete_event):
         Completion(text='`fast`', start_position=-2),
         Completion(text='`file`', start_position=-2),
         Completion(text='`full`', start_position=-2),
+        Completion(text='`floor`', start_position=-2),
         Completion(text='`false`', start_position=-2),
         Completion(text='`field`', start_position=-2),
-        Completion(text='`floor`', start_position=-2),
         Completion(text='`fixed`', start_position=-2),
         Completion(text='`float`', start_position=-2),
         Completion(text='`fetch`', start_position=-2),

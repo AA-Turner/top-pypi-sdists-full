@@ -50,17 +50,23 @@ def MedicalLiteratureReviewer(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "research_topic": research_topic,
+            "literature_content": literature_content,
+            "focus_area": focus_area,
+            "study_types": study_types,
+            "quality_level": quality_level,
+            "review_scope": review_scope,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "MedicalLiteratureReviewer",
-            "arguments": {
-                "research_topic": research_topic,
-                "literature_content": literature_content,
-                "focus_area": focus_area,
-                "study_types": study_types,
-                "quality_level": quality_level,
-                "review_scope": review_scope,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

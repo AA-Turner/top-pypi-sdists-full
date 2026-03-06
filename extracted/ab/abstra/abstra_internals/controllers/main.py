@@ -72,6 +72,11 @@ from abstra_internals.templates import (
     new_script_code,
 )
 from abstra_internals.utils.file import path2module
+from abstra_internals.utils.file_search import (
+    find_files_by_glob,
+    grep_files,
+    list_directory_entries,
+)
 from abstra_internals.utils.validate import validate_json
 
 
@@ -1064,6 +1069,176 @@ class MainController:
             "truncated": truncated,
             "matches": result_matches,
         }
+
+    def list_directory(self, path: str = "."):
+        """
+        List the immediate contents of a directory in the project workspace.
+
+        Use this to explore the project structure one level at a time.
+        Start with path="." to see the root, then drill into subdirectories.
+        Unlike read_file_with_pagination, this tells you *what exists* rather
+        than what is inside a file.
+
+        Args:
+            path (str): Relative path from project root. Defaults to "." (root).
+
+        Returns:
+            dict | None: {"path": path, "entries": [...]} where each entry has:
+                - name (str): Basename of the entry.
+                - type (str): "file" or "dir".
+                - extension (str): Lowercase file extension including the dot
+                    (e.g. ".py"), or "" for directories.
+                - size_bytes (int): File size in bytes (0 for directories).
+            Returns None when *path* does not point to a directory.
+
+        Example:
+            ```python
+            # Explore root
+            result = controller.list_directory()
+            # result = {"path": ".", "entries": [
+            #   {"name": "src", "type": "dir", "extension": "", "size_bytes": 0},
+            #   {"name": "main.py", "type": "file", "extension": ".py", "size_bytes": 312},
+            # ]}
+
+            # Drill into src/
+            result = controller.list_directory("src")
+            ```
+
+        Note:
+            - Only lists *immediate* children, not recursive.
+            - Respects .gitignore rules.
+            - Directories are listed before files, both sorted alphabetically.
+
+        Copywritings:
+            List the contents of a directory
+            Listing directory contents...
+        """
+        dir_path = Settings.root_path / path
+        if not dir_path.is_dir():
+            return None
+        entries = list_directory_entries(
+            dir_path, is_ignored_fn=FileSystemService.is_ignored
+        )
+        return {"path": path, "entries": entries}
+
+    def find_files_by_pattern(self, pattern: str, max_results: int = 200):
+        """
+        Find files in the project whose paths match a glob pattern.
+
+        Supports ``**`` for recursive directory matching.  A bare word with
+        no slashes, wildcards, or dots (e.g. ``"utils"``) is automatically
+        expanded to ``"**/utils*"`` so it finds any file whose name starts
+        with that word anywhere in the project.
+
+        Args:
+            pattern (str): Glob pattern relative to the project root.
+                Examples:
+                - "**/*.py"       all Python files (recursive)
+                - "src/**/*.ts"   TypeScript files under src/
+                - "utils"         any file whose name starts with "utils"
+                - "**/test_*"     any file starting with "test_"
+            max_results (int): Upper bound on results returned. Defaults to 200.
+
+        Returns:
+            list[str]: POSIX paths relative to project root, sorted.
+                Empty list if no files match.
+
+        Example:
+            ```python
+            # Find all Python files
+            py_files = controller.find_files_by_pattern("**/*.py")
+
+            # Find a specific module anywhere in the project
+            matches = controller.find_files_by_pattern("file_search")
+            # → ["abstra_internals/utils/file_search.py"]
+
+            # Find test files
+            test_files = controller.find_files_by_pattern("**/test_*")
+            ```
+
+        Note:
+            - Only returns files, never directories.
+            - Respects .gitignore rules.
+            - Results are capped by max_results to protect context window.
+
+        Copywritings:
+            Find files by glob pattern
+            Searching for files matching pattern...
+        """
+        return find_files_by_glob(
+            Settings.root_path,
+            pattern,
+            is_ignored_fn=FileSystemService.is_ignored,
+            max_results=max_results,
+        )
+
+    def grep_codebase(
+        self,
+        query: str,
+        file_pattern: str = "**/*.py",
+        case_sensitive: bool = True,
+        max_results: int = 100,
+    ):
+        """
+        Search for a string or regex across all project files matching a glob.
+
+        This is the cross-file counterpart of search_file_with_context.
+        Use it when you don't know which file contains the code you're
+        looking for.  Results are capped to protect the context window.
+
+        The query is treated as a Python regex.  If it is not a valid regex
+        it falls back to a literal string search, so plain text always works.
+
+        Args:
+            query (str): Plain text or Python regex to search for.
+            file_pattern (str): Glob pattern selecting which files to search.
+                Defaults to "**/*.py" (all Python files).
+                Use "**/*" to search every file in the project.
+            case_sensitive (bool): Whether matching is case-sensitive.
+                Defaults to True.
+            max_results (int): Maximum number of matching lines returned
+                across all files combined. Defaults to 100.
+
+        Returns:
+            list[dict]: Each item has:
+                - file (str): Relative POSIX path of the matching file.
+                - line_number (int): 1-indexed line number of the match.
+                - line (str): Content of the matched line (no trailing newline).
+
+        Example:
+            ```python
+            # Find all uses of a function across the codebase
+            hits = controller.grep_codebase("my_function")
+
+            # Find TODO comments in any file
+            todos = controller.grep_codebase(
+                "TODO", file_pattern="**/*", case_sensitive=False
+            )
+
+            # Find a specific import in Python files
+            hits = controller.grep_codebase(
+                r"^from abstra import", file_pattern="**/*.py"
+            )
+            ```
+
+        Note:
+            - Respects .gitignore rules.
+            - Binary files are silently skipped.
+            - Use search_file_with_context once you know the file, as it
+              provides richer context (surrounding lines).
+
+        Copywritings:
+            Search for text across the codebase
+            Searching codebase for matches...
+        """
+        return grep_files(
+            Settings.root_path,
+            query,
+            file_pattern=file_pattern,
+            case_sensitive=case_sensitive,
+            max_results=max_results,
+            is_ignored_fn=FileSystemService.is_ignored,
+        )
 
     def update_workspace(self, changes: dict[str, Any]):
         """

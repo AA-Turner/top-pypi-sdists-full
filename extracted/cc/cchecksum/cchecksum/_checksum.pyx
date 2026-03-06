@@ -10,11 +10,22 @@ from eth_typing import AnyAddress, ChecksumAddress
 
 cdef const unsigned char* hexdigits = b"0123456789abcdef"
 
+# NOTE: The prange/serial split is a temporary optimization for a weird small-batch
+# path where OpenMP overhead dominates; see PR https://example.com/pr/placeholder
+# for the benchmark methodology/results that justify the current threshold.
+# It’s labeled a temporary optimization because the prange/serial split is a
+# benchmark-driven heuristic to dodge OpenMP overhead on small batches, and that
+# tradeoff/threshold can change with runtime, hardware, or OpenMP behavior rather
+# than being a permanent algorithmic requirement.
+DEF PRANGE_THRESHOLD = 512
+
 
 # this was ripped out of eth_utils and optimized a little bit
 
-cdef extern from "keccak.h":
-    void keccak_256(const unsigned char* data, size_t len, unsigned char* out) nogil
+cdef extern from "_keccak.h":
+    void keccak_256_40(const unsigned char* data, unsigned char* out) nogil
+    const unsigned char CKSUM_HEX_LOWER_MAP[256]
+    const unsigned char CKSUM_HEX_UPPER_MAP[256]
 
 
 cpdef unicode to_checksum_address(value: Union[AnyAddress, str, bytes]):
@@ -84,7 +95,7 @@ cpdef unicode to_checksum_address(value: Union[AnyAddress, str, bytes]):
         )
     
     with nogil:
-        keccak_256(hex_address_bytestr, 40, hash_out)
+        keccak_256_40(hex_address_bytestr, hash_out)
         populate_result_buffer(result_buffer, hex_address_bytestr, hash_out)
         
     # It is faster to decode a buffer with a known size ie buffer[:42]
@@ -139,13 +150,24 @@ cpdef list to_checksum_address_many(object values):
             for i in range(n):
                 hexlify_c_string_to_buffer(packed_ptr + (i * 20), norm_ptr + (i * 40), 20)
 
-            for i in prange(n, schedule="static"):
-                keccak_256(norm_ptr + (i * 40), 40, hash_ptr + (i * 32))
-                checksum_address_to_buffer(
-                    result_ptr + (i * 42),
-                    norm_ptr + (i * 40),
-                    hash_ptr + (i * 32),
-                )
+            # Small batches stay serial to avoid OpenMP overhead; benchmarks in
+            # PR https://example.com/pr/placeholder justify the current threshold.
+            if n < PRANGE_THRESHOLD:
+                for i in range(n):
+                    keccak_256_40(norm_ptr + (i * 40), hash_ptr + (i * 32))
+                    checksum_address_to_buffer(
+                        result_ptr + (i * 42),
+                        norm_ptr + (i * 40),
+                        hash_ptr + (i * 32),
+                    )
+            else:
+                for i in prange(n, schedule="static"):
+                    keccak_256_40(norm_ptr + (i * 40), hash_ptr + (i * 32))
+                    checksum_address_to_buffer(
+                        result_ptr + (i * 42),
+                        norm_ptr + (i * 40),
+                        hash_ptr + (i * 32),
+                    )
 
         output = [None] * n
         for i in range(n):
@@ -189,13 +211,24 @@ cpdef list to_checksum_address_many(object values):
         memcpy(norm_ptr + (i * 40), hex_address_bytestr, 40)
 
     with nogil:
-        for i in prange(n, schedule="static"):
-            keccak_256(norm_ptr + (i * 40), 40, hash_ptr + (i * 32))
-            checksum_address_to_buffer(
-                result_ptr + (i * 42),
-                norm_ptr + (i * 40),
-                hash_ptr + (i * 32),
-            )
+        # Small batches stay serial to avoid OpenMP overhead; benchmarks in
+        # PR https://example.com/pr/placeholder justify the current threshold.
+        if n < PRANGE_THRESHOLD:
+            for i in range(n):
+                keccak_256_40(norm_ptr + (i * 40), hash_ptr + (i * 32))
+                checksum_address_to_buffer(
+                    result_ptr + (i * 42),
+                    norm_ptr + (i * 40),
+                    hash_ptr + (i * 32),
+                )
+        else:
+            for i in prange(n, schedule="static"):
+                keccak_256_40(norm_ptr + (i * 40), hash_ptr + (i * 32))
+                checksum_address_to_buffer(
+                    result_ptr + (i * 42),
+                    norm_ptr + (i * 40),
+                    hash_ptr + (i * 32),
+                )
 
     output = [None] * n
     for i in range(n):
@@ -315,24 +348,8 @@ cdef void populate_result_buffer(
 
 
 cdef inline unsigned char get_char(unsigned char c) noexcept nogil:
-    """This checks if `address_char` falls in the ASCII range for lowercase hexadecimal
-    characters ('a' to 'f'), which correspond to ASCII values 97 to 102. If it does,
-    the character is capitalized.
-    """
-    if c == 97:     # a
-        return 65   # A
-    elif c == 98:   # b
-        return 66   # B
-    elif c == 99:   # c
-        return 67   # C
-    elif c == 100:  # d
-        return 68   # D
-    elif c == 101:  # e
-        return 69   # E
-    elif c == 102:  # f
-        return 70   # F
-    else:
-        return c
+    """Uppercase lowercase hex characters via lookup table; digits pass through."""
+    return CKSUM_HEX_UPPER_MAP[c]
 
 
 cdef inline bint is_hex_lower(unsigned char c) noexcept nogil:
@@ -343,6 +360,7 @@ cdef unsigned char* lowercase_ascii_and_validate(bytes src):
     cdef Py_ssize_t src_len, range_start, i
     cdef unsigned char* c_string
     cdef unsigned char c
+    cdef unsigned char mapped
     
     src_len = PyBytes_GET_SIZE(src)
     c_string = src
@@ -356,46 +374,12 @@ cdef unsigned char* lowercase_ascii_and_validate(bytes src):
     
         for i in range(range_start, src_len):
             c = c_string[i]
-
-            if 65 <= c <= 90:
-                c += 32
-                c_string[i] = c
-
-            if c == 48:  # 0
-                pass
-            elif c == 49:  # 1
-                pass
-            elif c == 50:  # 2
-                pass
-            elif c == 51:  # 3
-                pass
-            elif c == 52:  # 4
-                pass
-            elif c == 53:  # 5
-                pass
-            elif c == 54:  # 6
-                pass
-            elif c == 55:  # 7
-                pass
-            elif c == 56:  # 8
-                pass
-            elif c == 57:  # 9
-                pass
-            elif c == 97:  # a
-                pass
-            elif c == 98:  # b
-                pass
-            elif c == 99:  # c
-                pass
-            elif c == 100:  # d
-                pass
-            elif c == 101:  # e
-                pass
-            elif c == 102:  # f
-                pass
-            else:
+            mapped = CKSUM_HEX_LOWER_MAP[c]
+            if mapped == 0xFF:
                 with gil:
                     raise ValueError("when sending a str, it must be a hex string. " f"Got: {repr(src.decode('ascii'))}")
+            if mapped != c:
+                c_string[i] = mapped
     
     return c_string[range_start:]
 

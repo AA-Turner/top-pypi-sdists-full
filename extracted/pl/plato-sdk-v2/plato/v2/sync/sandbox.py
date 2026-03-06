@@ -53,12 +53,12 @@ from plato._generated.models import (
     DatabaseMutationListenerConfig,
     EnvCleanupResponse,
     Flow,
-    PlatoConfig,
     PrefetchRequest,
     SessionDetailsResponse,
     SessionStateResponse,
     VMManagementRequest,
 )
+from plato.v1.models.sandbox import PlatoConfig
 from plato.v2.async_.flow_executor import FlowExecutor
 from plato.v2.models import SandboxState
 from plato.v2.types import Env, EnvFromArtifact, EnvFromResource, EnvFromSimulator, SimConfigCompute
@@ -1369,7 +1369,7 @@ class SandboxClient:
 
         if db_listener and job_id and not no_tunnel:
             self.console.print(f"Starting tunnel to {db_listener.db_type} on port {db_listener.db_port}...")
-            tunnel = self.tunnel(job_id, db_listener.db_port)
+            tunnel = self.tunnel(job_id, db_listener.db_port or 0)
             tunnel.start()
             time.sleep(1)  # Let tunnel stabilize
             self.console.print(
@@ -1381,7 +1381,7 @@ class SandboxClient:
         if db_listener:
             env["PLATO_DB_HOST"] = "127.0.0.1"
             env["PLATO_DB_PORT"] = str(db_listener.db_port)
-            env["PLATO_DB_USER"] = db_listener.db_user
+            env["PLATO_DB_USER"] = db_listener.db_user or ""
             env["PLATO_DB_PASSWORD"] = db_listener.db_password or ""
             env["PLATO_DB_NAME"] = db_listener.db_database
             env["PLATO_DB_TYPE"] = str(db_listener.db_type)

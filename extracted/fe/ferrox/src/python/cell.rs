@@ -10,7 +10,7 @@ use crate::cell_ops;
 use super::helpers::{StructureJson, parse_struct, structure_to_pydict};
 
 /// Calculate the minimum image distance between two points (in fractional coords).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 fn minimum_image_distance(
     structure: StructureJson,
@@ -29,7 +29,7 @@ fn minimum_image_distance(
 }
 
 /// Calculate the minimum image vector (fractional delta -> cartesian vector).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 fn minimum_image_vector(
     structure: StructureJson,
@@ -45,7 +45,7 @@ fn minimum_image_vector(
 }
 
 /// Perform Niggli reduction on the lattice.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 fn niggli_reduce(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let struc = parse_struct(&structure)?;
@@ -56,7 +56,7 @@ fn niggli_reduce(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict
 }
 
 /// Check if a structure is Niggli reduced (compares against reducing it).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 #[pyo3(signature = (structure, tolerance = 1e-5))]
 fn is_niggli_reduced(structure: StructureJson, tolerance: f64) -> PyResult<bool> {
@@ -80,7 +80,7 @@ fn is_niggli_reduced(structure: StructureJson, tolerance: f64) -> PyResult<bool>
 }
 
 /// Perform Delaunay reduction on the lattice (uses LLL).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 fn delaunay_reduce(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let struc = parse_struct(&structure)?;
@@ -91,7 +91,7 @@ fn delaunay_reduce(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDi
 }
 
 /// Find the supercell matrix for a target number of atoms.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 #[pyo3(signature = (structure, target_atoms = 100))]
 fn find_supercell_matrix(structure: StructureJson, target_atoms: usize) -> PyResult<[[i32; 3]; 3]> {
@@ -104,7 +104,7 @@ fn find_supercell_matrix(structure: StructureJson, target_atoms: usize) -> PyRes
 }
 
 /// Check if two lattices are equivalent.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 #[pyo3(signature = (structure1, structure2, length_tol = 0.01, angle_tol = 1.0))]
 fn lattices_equivalent(
@@ -124,7 +124,7 @@ fn lattices_equivalent(
 }
 
 /// Check if one structure is a supercell of another, returning the transformation matrix if so.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 #[pyo3(signature = (structure, potential_supercell, tolerance = 0.01))]
 fn is_supercell(
@@ -138,7 +138,7 @@ fn is_supercell(
 }
 
 /// Get perpendicular distances for each lattice direction.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.cell")]
 #[pyfunction]
 fn perpendicular_distances(structure: StructureJson) -> PyResult<[f64; 3]> {
     let struc = parse_struct(&structure)?;
@@ -146,18 +146,16 @@ fn perpendicular_distances(structure: StructureJson) -> PyResult<[f64; 3]> {
     Ok([perp[0], perp[1], perp[2]])
 }
 
-/// Register the cell submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "cell")?;
-    submod.add_function(wrap_pyfunction!(minimum_image_distance, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(minimum_image_vector, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(niggli_reduce, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(is_niggli_reduced, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(delaunay_reduce, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(find_supercell_matrix, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(lattices_equivalent, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(is_supercell, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(perpendicular_distances, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register cell functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(minimum_image_distance, module)?)?;
+    module.add_function(wrap_pyfunction!(minimum_image_vector, module)?)?;
+    module.add_function(wrap_pyfunction!(niggli_reduce, module)?)?;
+    module.add_function(wrap_pyfunction!(is_niggli_reduced, module)?)?;
+    module.add_function(wrap_pyfunction!(delaunay_reduce, module)?)?;
+    module.add_function(wrap_pyfunction!(find_supercell_matrix, module)?)?;
+    module.add_function(wrap_pyfunction!(lattices_equivalent, module)?)?;
+    module.add_function(wrap_pyfunction!(is_supercell, module)?)?;
+    module.add_function(wrap_pyfunction!(perpendicular_distances, module)?)?;
     Ok(())
 }

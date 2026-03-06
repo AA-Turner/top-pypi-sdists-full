@@ -23,6 +23,7 @@ from dbos import (
     SetWorkflowID,
     SetWorkflowTimeout,
     WorkflowHandle,
+    WorkflowHandleAsync,
     WorkflowStatusString,
 )
 
@@ -952,13 +953,8 @@ def test_send_recv_temp_wf(dbos: DBOS) -> None:
     assert handle.get_result() == "testsend1"
 
     wfs = DBOS.list_workflows()
-    assert len(wfs) == 2
+    assert len(wfs) == 1
     assert wfs[0].workflow_id == dest_uuid
-    assert wfs[1].workflow_id != dest_uuid
-
-    wfi = DBOS.get_workflow_status(wfs[1].workflow_id)
-    assert wfi
-    assert wfi.name == "<temp>.temp_send_workflow"
 
     assert recv_counter == 1
 
@@ -987,6 +983,125 @@ def test_send_recv_temp_wf(dbos: DBOS) -> None:
 
     x = DBOS.list_workflows(workflow_id_prefix="1" + dest_uuid)
     assert len(x) == 0
+
+
+def test_send_idempotency_key(dbos: DBOS) -> None:
+    recv_two_messages_event = threading.Event()
+
+    @DBOS.workflow()
+    def recv_two_msgs() -> str:
+        msg1 = DBOS.recv(timeout_seconds=10)
+        recv_two_messages_event.set()
+        msg2 = DBOS.recv(timeout_seconds=2)
+        return f"{msg1}-{msg2}"
+
+    # Test 1: Sending with the same idempotency key twice delivers only one message.
+    dest_uuid = str(uuid.uuid4())
+    with SetWorkflowID(dest_uuid):
+        handle = dbos.start_workflow(recv_two_msgs)
+
+    idem_key = str(uuid.uuid4())
+    DBOS.send(dest_uuid, "hello", idempotency_key=idem_key)
+    recv_two_messages_event.wait()
+    # Duplicate send with the same key should be silently ignored.
+    DBOS.send(dest_uuid, "hello_duplicate", idempotency_key=idem_key)
+    # The second recv times out (returns None), proving only one message was delivered.
+    assert handle.get_result() == "hello-None"
+
+    # Test 2: Different idempotency keys deliver separate messages.
+    dest_uuid2 = str(uuid.uuid4())
+
+    @DBOS.workflow()
+    def recv_two_workflow() -> str:
+        msg1 = DBOS.recv("t", timeout_seconds=10)
+        msg2 = DBOS.recv("t", timeout_seconds=10)
+        return f"{msg1}-{msg2}"
+
+    with SetWorkflowID(dest_uuid2):
+        handle2 = dbos.start_workflow(recv_two_workflow)
+
+    DBOS.send(dest_uuid2, "a", "t", idempotency_key=str(uuid.uuid4()))
+    DBOS.send(dest_uuid2, "b", "t", idempotency_key=str(uuid.uuid4()))
+    assert handle2.get_result() == "a-b"
+
+    # Test 3: Send from a workflow with same idempotency key twice delivers only one message.
+    recv_wf_event = threading.Event()
+
+    @DBOS.workflow()
+    def recv_two_msgs_wf_idem() -> str:
+        msg1 = DBOS.recv(timeout_seconds=10)
+        recv_wf_event.set()
+        msg2 = DBOS.recv(timeout_seconds=2)
+        return f"{msg1}-{msg2}"
+
+    dest_uuid_wf = str(uuid.uuid4())
+    with SetWorkflowID(dest_uuid_wf):
+        handle_wf = dbos.start_workflow(recv_two_msgs_wf_idem)
+
+    wf_idem_key = str(uuid.uuid4())
+
+    @DBOS.workflow()
+    def send_with_key_wf(dest: str, msg: str, key: str) -> None:
+        DBOS.send(dest, msg, idempotency_key=key)
+
+    send_with_key_wf(dest_uuid_wf, "hello_wf", wf_idem_key)
+    recv_wf_event.wait()
+    # Duplicate send with the same key should be silently ignored.
+    send_with_key_wf(dest_uuid_wf, "hello_wf_dup", wf_idem_key)
+    assert handle_wf.get_result() == "hello_wf-None"
+
+    # Test 4: Send from a step (without idempotency key).
+    @DBOS.step()
+    def send_from_step(dest: str, msg: str, topic: Optional[str] = None) -> None:
+        DBOS.send(dest, msg, topic)
+
+    dest_uuid3 = str(uuid.uuid4())
+
+    @DBOS.workflow()
+    def recv_one_msg_wf() -> str:
+        return str(DBOS.recv("s", timeout_seconds=10))
+
+    with SetWorkflowID(dest_uuid3):
+        handle3 = dbos.start_workflow(recv_one_msg_wf)
+
+    @DBOS.workflow()
+    def send_from_step_wf() -> None:
+        send_from_step(dest_uuid3, "from_step", "s")
+
+    send_from_step_wf()
+    assert handle3.get_result() == "from_step"
+
+    # Test 5: Send from a step with same idempotency key twice delivers only one message.
+    recv_step_event = threading.Event()
+
+    @DBOS.workflow()
+    def recv_two_msgs_step() -> str:
+        msg1 = DBOS.recv(timeout_seconds=10)
+        recv_step_event.set()
+        msg2 = DBOS.recv(timeout_seconds=2)
+        return f"{msg1}-{msg2}"
+
+    @DBOS.step()
+    def send_from_step_with_key(dest: str, msg: str, key: str) -> None:
+        DBOS.send(dest, msg, idempotency_key=key)
+
+    dest_uuid4 = str(uuid.uuid4())
+    with SetWorkflowID(dest_uuid4):
+        handle4 = dbos.start_workflow(recv_two_msgs_step)
+
+    step_idem_key = str(uuid.uuid4())
+
+    @DBOS.workflow()
+    def send_from_step_idem_wf() -> None:
+        send_from_step_with_key(dest_uuid4, "hello_step", step_idem_key)
+
+    send_from_step_idem_wf()
+    recv_step_event.wait()
+
+    # Duplicate send with the same key should be silently ignored.
+    send_from_step_idem_wf()
+    # The second recv times out (returns None), proving only one message was delivered.
+    assert handle4.get_result() == "hello_step-None"
 
 
 def test_set_get_events(dbos: DBOS, config: DBOSConfig) -> None:
@@ -1409,13 +1524,16 @@ def test_duplicate_registration(
     DBOS.destroy()
     DBOS(config=config)
     DBOS.launch()
-    assert "Duplicate registration of function 'temp_send_workflow'" not in caplog.text
 
     # Reset logging
     logging.getLogger("dbos").propagate = original_propagate
 
 
-def test_app_version(config: DBOSConfig) -> None:
+def test_app_version(
+    config: DBOSConfig,
+    cleanup_test_databases: None,
+    skip_with_sqlite_imprecise_time: None,
+) -> None:
     def is_hex(s: str) -> bool:
         return all(c in "0123456789abcdefABCDEF" for c in s)
 
@@ -1433,9 +1551,12 @@ def test_app_version(config: DBOSConfig) -> None:
     DBOS.launch()
 
     # Verify that app version is correctly set to a hex string
-    app_version = DBOS.application_version
-    assert len(app_version) > 0
-    assert is_hex(app_version)
+    version_one = DBOS.application_version
+    assert len(version_one) > 0
+    assert is_hex(version_one)
+
+    # Track all distinct versions created during this test
+    created_versions = [version_one]
 
     DBOS.destroy(destroy_registry=True)
     assert DBOS.application_version == ""
@@ -1452,7 +1573,7 @@ def test_app_version(config: DBOSConfig) -> None:
     DBOS.launch()
 
     # Verify stability--the same workflow source produces the same app version.
-    assert DBOS.application_version == app_version
+    assert DBOS.application_version == version_one
 
     DBOS.destroy(destroy_registry=True)
     dbos = DBOS(config=config)
@@ -1463,11 +1584,13 @@ def test_app_version(config: DBOSConfig) -> None:
 
     # Verify that changing the workflow source changes the workflow version
     DBOS.launch()
-    assert DBOS.application_version != app_version
+    version_two = DBOS.application_version
+    assert version_two != version_one
+    created_versions.append(version_two)
 
     # Verify that version can be overriden with an environment variable
-    app_version = str(uuid.uuid4())
-    os.environ["DBOS__APPVERSION"] = app_version
+    version_three = str(uuid.uuid4())
+    os.environ["DBOS__APPVERSION"] = version_three
 
     DBOS.destroy(destroy_registry=True)
     dbos = DBOS(config=config)
@@ -1477,16 +1600,17 @@ def test_app_version(config: DBOSConfig) -> None:
         return x
 
     DBOS.launch()
-    assert DBOS.application_version == app_version
+    assert DBOS.application_version == version_three
+    created_versions.append(version_three)
 
     del os.environ["DBOS__APPVERSION"]
 
     # Verify that version and executor ID can be overriden with a config parameter
-    app_version = str(uuid.uuid4())
+    version_four = str(uuid.uuid4())
     executor_id = str(uuid.uuid4())
 
     DBOS.destroy(destroy_registry=True)
-    config["application_version"] = app_version
+    config["application_version"] = version_four
     config["executor_id"] = executor_id
     DBOS(config=config)
 
@@ -1496,12 +1620,101 @@ def test_app_version(config: DBOSConfig) -> None:
         return DBOS.workflow_id
 
     DBOS.launch()
-    assert DBOS.application_version == app_version
+    assert DBOS.application_version == version_four
     assert GlobalParams.executor_id == executor_id == DBOS.executor_id
     wfid = test_workflow()
     handle: WorkflowHandle[str] = DBOS.retrieve_workflow(wfid)
-    assert handle.get_status().app_version == app_version
+    assert handle.get_status().app_version == version_four
     assert handle.get_status().executor_id == executor_id
+    created_versions.append(version_four)
+
+    # ── Test version CRUD via DBOS API ───────────────────────────
+
+    # Create another version by relaunching with a different app_version
+    version_five = str(uuid.uuid4())
+    DBOS.destroy(destroy_registry=True)
+    config["application_version"] = version_five
+    DBOS(config=config)
+
+    @DBOS.workflow()
+    def test_workflow() -> str:
+        return "hello"
+
+    DBOS.launch()
+    created_versions.append(version_five)
+
+    # Verify list_application_versions returns exactly the versions we created
+    versions = DBOS.list_application_versions()
+    version_names = set(v["version_name"] for v in versions)
+    assert version_names == set(created_versions)
+
+    # Verify created_at is set on all versions
+    for v in versions:
+        assert "created_at" in v
+        assert isinstance(v["created_at"], int)
+        assert v["created_at"] > 0
+
+    # get_latest_application_version should return the most recently launched version
+    latest = DBOS.get_latest_application_version()
+    assert latest["version_name"] == version_five
+    assert "created_at" in latest
+
+    # Record created_at before set_latest to verify it doesn't change
+    version_four_created_at = next(
+        v["created_at"] for v in versions if v["version_name"] == version_four
+    )
+
+    # set_latest_application_version changes which version is latest
+    DBOS.set_latest_application_version(version_four)
+    latest = DBOS.get_latest_application_version()
+    assert latest["version_name"] == version_four
+    # created_at should not change when updating timestamp
+    assert latest["created_at"] == version_four_created_at
+    # First entry should be the latest (highest timestamp)
+    versions = DBOS.list_application_versions()
+    assert versions[0]["version_name"] == version_four
+
+    # ── Test version CRUD via Client API ─────────────────────────
+
+    assert config["application_database_url"] is not None
+    assert config["system_database_url"] is not None
+    client = DBOSClient(
+        application_database_url=config["application_database_url"],
+        system_database_url=config["system_database_url"],
+    )
+
+    # Verify client sees exactly the same versions
+    client_versions = client.list_application_versions()
+    client_version_names = set(v["version_name"] for v in client_versions)
+    assert client_version_names == set(created_versions)
+
+    # Verify created_at is present in client results
+    for v in client_versions:
+        assert "created_at" in v
+        assert isinstance(v["created_at"], int)
+        assert v["created_at"] > 0
+
+    client_latest = client.get_latest_application_version()
+    assert client_latest["version_name"] == version_four
+    assert "created_at" in client_latest
+
+    # Record created_at before client update
+    version_five_created_at = next(
+        v["created_at"] for v in client_versions if v["version_name"] == version_five
+    )
+
+    # Set version_five as latest via client
+    client.set_latest_application_version(version_five)
+    client_latest = client.get_latest_application_version()
+    assert client_latest["version_name"] == version_five
+    # created_at should not change when updating timestamp via client
+    assert client_latest["created_at"] == version_five_created_at
+
+    # Verify DBOS API sees the same change
+    assert DBOS.get_latest_application_version()["version_name"] == version_five
+
+    client.destroy()
+    DBOS.destroy(destroy_registry=True)
 
 
 def test_recovery_appversion(config: DBOSConfig) -> None:
@@ -1867,6 +2080,8 @@ def test_custom_database(
 
     key = "key"
     val = "val"
+    ready_evt = threading.Event()
+    send_evt = threading.Event()
 
     @DBOS.transaction()
     def transaction() -> None:
@@ -1876,13 +2091,16 @@ def test_custom_database(
     def recv_workflow() -> Any:
         transaction()
         DBOS.set_event(key, val)
+        ready_evt.set()
+        send_evt.wait()
         return DBOS.recv()
 
     handle = DBOS.start_workflow(recv_workflow)
-    assert DBOS.get_event(handle.workflow_id, key) == val
+    ready_evt.wait()
     DBOS.send(handle.workflow_id, val)
+    send_evt.set()
     assert handle.get_result() == val
-    assert len(DBOS.list_workflows()) == 2
+    assert len(DBOS.list_workflows()) == 1
     steps = DBOS.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
     assert "transaction" in steps[0]["function_name"]
@@ -1893,7 +2111,7 @@ def test_custom_database(
         system_database_url=config["system_database_url"],
         application_database_url=config["application_database_url"],
     )
-    assert len(client.list_workflows()) == 2
+    assert len(client.list_workflows()) == 1
     steps = client.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
     assert "transaction" in steps[0]["function_name"]
@@ -1918,6 +2136,8 @@ def test_custom_schema(
 
     key = "key"
     val = "val"
+    ready_evt = threading.Event()
+    send_evt = threading.Event()
 
     @DBOS.transaction()
     def transaction() -> None:
@@ -1927,13 +2147,16 @@ def test_custom_schema(
     def recv_workflow() -> Any:
         transaction()
         DBOS.set_event(key, val)
+        ready_evt.set()
+        send_evt.wait()
         return DBOS.recv()
 
     handle = DBOS.start_workflow(recv_workflow)
-    assert DBOS.get_event(handle.workflow_id, key) == val
+    ready_evt.wait()
     DBOS.send(handle.workflow_id, val)
+    send_evt.set()
     assert handle.get_result() == val
-    assert len(DBOS.list_workflows()) == 2
+    assert len(DBOS.list_workflows()) == 1
     steps = DBOS.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
     assert "transaction" in steps[0]["function_name"]
@@ -1945,7 +2168,7 @@ def test_custom_schema(
         application_database_url=config["application_database_url"],
         dbos_system_schema=config["dbos_system_schema"],
     )
-    assert len(client.list_workflows()) == 2
+    assert len(client.list_workflows()) == 1
     steps = client.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 4
     assert "transaction" in steps[0]["function_name"]
@@ -1985,18 +2208,23 @@ def test_custom_engine(
 
     key = "key"
     val = "val"
+    ready_evt = threading.Event()
+    send_evt = threading.Event()
 
     @DBOS.workflow()
     def recv_workflow() -> Any:
         DBOS.set_event(key, val)
+        ready_evt.set()
+        send_evt.wait()
         return DBOS.recv()
 
     assert dbos._sys_db.engine == engine
     handle = DBOS.start_workflow(recv_workflow)
-    assert DBOS.get_event(handle.workflow_id, key) == val
+    ready_evt.wait()
     DBOS.send(handle.workflow_id, val)
+    send_evt.set()
     assert handle.get_result() == val
-    assert len(DBOS.list_workflows()) == 2
+    assert len(DBOS.list_workflows()) == 1
     steps = DBOS.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 3
     assert "setEvent" in steps[0]["function_name"]
@@ -2013,7 +2241,7 @@ def test_custom_engine(
         system_database_url="postgresql://bogus:url@not:42/fake",
         system_database_engine=config["system_database_engine"],
     )
-    assert len(client.list_workflows()) == 2
+    assert len(client.list_workflows()) == 1
     steps = client.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 3
     assert "setEvent" in steps[0]["function_name"]
@@ -2022,7 +2250,7 @@ def test_custom_engine(
     client = DBOSClient(
         system_database_engine=config["system_database_engine"],
     )
-    assert len(client.list_workflows()) == 2
+    assert len(client.list_workflows()) == 1
     steps = client.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 3
     assert "setEvent" in steps[0]["function_name"]
@@ -2090,6 +2318,9 @@ def test_custom_serializer(
         def deserialize(self, serialized_data: str) -> Any:
             return json.loads(serialized_data)
 
+        def name(self) -> Any:
+            return "custom_json"
+
     # Configure DBOS with a JSON-based custom serializer
     DBOS.destroy(destroy_registry=True)
     config["serializer"] = JsonSerializer()
@@ -2099,9 +2330,14 @@ def test_custom_serializer(
     key = "key"
     val = "val"
 
+    ready_evt = threading.Event()
+    send_evt = threading.Event()
+
     @DBOS.workflow()
     def recv_workflow(input: str) -> Any:
         DBOS.set_event(key, input)
+        ready_evt.set()
+        send_evt.wait()
         return DBOS.recv()
 
     expected_input = {
@@ -2112,13 +2348,14 @@ def test_custom_serializer(
     # Run an enqueued workflow testing workflow communication methods
     queue = Queue("example_queue")
     handle = queue.enqueue(recv_workflow, val)
-    assert DBOS.get_event(handle.workflow_id, key) == val
+    ready_evt.wait()
     DBOS.send(handle.workflow_id, val)
+    send_evt.set()
     assert handle.get_result() == val
     assert handle.get_status().input == expected_input
 
     # Verify the workflow is correctly stored in the system database
-    assert len(DBOS.list_workflows()) == 2
+    assert len(DBOS.list_workflows()) == 1
     steps = DBOS.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 3
     assert "setEvent" in steps[0]["function_name"]
@@ -2130,7 +2367,7 @@ def test_custom_serializer(
         system_database_url=config["system_database_url"],
         serializer=JsonSerializer(),
     )
-    assert len(client.list_workflows()) == 2
+    assert len(client.list_workflows()) == 1
     steps = client.list_workflow_steps(handle.workflow_id)
     assert len(steps) == 3
     assert "setEvent" in steps[0]["function_name"]
@@ -2149,7 +2386,7 @@ def test_custom_serializer(
         system_database_url=config["system_database_url"],
     )
     workflows = client.list_workflows()
-    assert len(workflows) == 4
+    assert len(workflows) == 2
     assert cast(str, workflows[0].input) == json.dumps(expected_input)
     assert workflows[0].output == json.dumps(val)
 
@@ -2418,3 +2655,124 @@ async def test_run_step_async(dbos: DBOS) -> None:
         assert n_thrown_errors == 5
 
     await test_errors_wf_async()
+
+
+def test_wait_first(dbos: DBOS, client: DBOSClient) -> None:
+    @DBOS.workflow()
+    def fast_workflow() -> str:
+        return "fast"
+
+    @DBOS.workflow()
+    def slow_workflow() -> str:
+        time.sleep(2)
+        return "slow"
+
+    handle_fast = DBOS.start_workflow(fast_workflow)
+    handle_slow = DBOS.start_workflow(slow_workflow)
+
+    # Test DBOS.wait_first
+    result_handle = DBOS.wait_first([handle_fast, handle_slow])
+    assert result_handle.workflow_id == handle_fast.workflow_id
+    assert result_handle.get_result() == "fast"
+
+    # Test client.wait_first with retrieved handles
+    client_fast: WorkflowHandle[str] = client.retrieve_workflow(handle_fast.workflow_id)
+    client_slow: WorkflowHandle[str] = client.retrieve_workflow(handle_slow.workflow_id)
+    client_result = client.wait_first([client_fast, client_slow])
+    # fast_workflow already completed, so it should be returned
+    assert client_result.workflow_id == handle_fast.workflow_id
+    assert client_result.get_result() == "fast"
+
+    # Wait for slow workflow to finish so it doesn't hang
+    handle_slow.get_result()
+
+
+def test_wait_first_empty(dbos: DBOS) -> None:
+    with pytest.raises(ValueError, match="must not be empty"):
+        DBOS.wait_first([])
+
+
+@pytest.mark.asyncio
+async def test_wait_first_async(dbos: DBOS, client: DBOSClient) -> None:
+    @DBOS.workflow()
+    async def fast_async_wf() -> str:
+        return "fast"
+
+    @DBOS.workflow()
+    async def slow_async_wf() -> str:
+        await asyncio.sleep(2)
+        return "slow"
+
+    handle_fast = await DBOS.start_workflow_async(fast_async_wf)
+    handle_slow = await DBOS.start_workflow_async(slow_async_wf)
+
+    # Test DBOS.wait_first_async
+    result_handle = await DBOS.wait_first_async([handle_fast, handle_slow])
+    assert result_handle.workflow_id == handle_fast.workflow_id
+    assert await result_handle.get_result() == "fast"
+
+    # Test client.wait_first_async with retrieved handles
+    client_fast: WorkflowHandleAsync[str] = await client.retrieve_workflow_async(
+        handle_fast.workflow_id
+    )
+    client_slow: WorkflowHandleAsync[str] = await client.retrieve_workflow_async(
+        handle_slow.workflow_id
+    )
+    client_result = await client.wait_first_async([client_fast, client_slow])
+    assert client_result.workflow_id == handle_fast.workflow_id
+    assert await client_result.get_result() == "fast"
+
+    # Wait for slow workflow to finish so it doesn't hang
+    await handle_slow.get_result()
+
+    # Test wait_first_async called from within a workflow and verify checkpointing
+    @DBOS.workflow()
+    async def caller_wf() -> str:
+        h_fast = await DBOS.start_workflow_async(fast_async_wf)
+        h_slow = await DBOS.start_workflow_async(slow_async_wf)
+        winner = await DBOS.wait_first_async([h_fast, h_slow])
+        result: str = await winner.get_result()
+        await h_slow.get_result()
+        return result
+
+    caller_wfid = str(uuid.uuid4())
+    with SetWorkflowID(caller_wfid):
+        assert await caller_wf() == "fast"
+
+    steps = await DBOS.list_workflow_steps_async(caller_wfid)
+    assert len(steps) == 5
+    # Step 1: start fast workflow
+    assert steps[0]["function_name"] == fast_async_wf.__qualname__
+    # Step 2: start slow workflow
+    assert steps[1]["function_name"] == slow_async_wf.__qualname__
+    # Step 3: wait_first returns the fast workflow's ID
+    assert steps[2]["function_name"] == "DBOS.waitFirst"
+    assert steps[2]["output"] == steps[0]["child_workflow_id"]
+    # Step 4: get_result on the fast workflow
+    assert steps[3]["function_name"] == "DBOS.getResult"
+    # Step 5: get_result on the slow workflow
+    assert steps[4]["function_name"] == "DBOS.getResult"
+
+
+def test_get_event_timeout(dbos: DBOS) -> None:
+    @DBOS.workflow()
+    def workflow() -> Any:
+        workflow_id = DBOS.workflow_id
+        assert workflow_id
+        return DBOS.get_event(workflow_id, "key", timeout_seconds=0)
+
+    handle = DBOS.start_workflow(workflow)
+    assert handle.get_result() is None
+    forked_handle = DBOS.fork_workflow(handle.workflow_id, 5)
+    assert forked_handle.get_result() is None
+
+
+def test_recv_timeout(dbos: DBOS) -> None:
+    @DBOS.workflow()
+    def workflow() -> Any:
+        return DBOS.recv(timeout_seconds=0)
+
+    handle = DBOS.start_workflow(workflow)
+    assert handle.get_result() is None
+    forked_handle = DBOS.fork_workflow(handle.workflow_id, 5)
+    assert forked_handle.get_result() is None

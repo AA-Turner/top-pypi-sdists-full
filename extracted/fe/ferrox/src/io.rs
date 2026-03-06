@@ -2897,7 +2897,7 @@ mod tests {
         let coords = vec![Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.5, 0.5, 0.5)];
         let s1 = Structure::new(lattice, species, coords);
 
-        let json = structure_to_json(&s1);
+        let json = structure_to_pymatgen_json(&s1);
         let s2 = parse_structure_json(&json).unwrap();
 
         assert_eq!(s1.num_sites(), s2.num_sites());
@@ -2916,7 +2916,7 @@ mod tests {
         let coords = vec![Vector3::new(0.5, 0.5, 0.5)];
         let s1 = Structure::new(lattice, species, coords);
 
-        let json = structure_to_json(&s1);
+        let json = structure_to_pymatgen_json(&s1);
         assert!(
             json.contains(r#""pbc":[true,true,false]"#),
             "JSON should contain pbc: {json}"
@@ -2945,7 +2945,7 @@ mod tests {
         assert_eq!(s1.properties["source"], serde_json::json!("dft"));
 
         // Round-trip through JSON
-        let json_out = structure_to_json(&s1);
+        let json_out = structure_to_pymatgen_json(&s1);
         let s2 = parse_structure_json(&json_out).unwrap();
 
         assert_eq!(s2.properties.len(), 3);
@@ -3856,7 +3856,7 @@ Mg 0.0 0.0 0.0
     #[test]
     fn test_roundtrip_poscar_batio3_fixture() {
         // Parse BaTiO3 fixture, export, reparse - verifies real-world POSCAR handling
-        let fixture = include_str!("../../../src/site/structures/BaTiO3-tetragonal.poscar");
+        let fixture = include_str!("../tests/fixtures/structures/BaTiO3-tetragonal.poscar");
         let s1 = parse_poscar_str(fixture).unwrap();
         let exported = structure_to_poscar(&s1, None);
         let s2 = parse_poscar_str(&exported).unwrap();
@@ -3873,7 +3873,7 @@ Mg 0.0 0.0 0.0
     #[test]
     fn test_roundtrip_cif_tio2_fixture() {
         // Parse TiO2 CIF fixture, export, reparse
-        let fixture = include_str!("../../../src/site/structures/TiO2.cif");
+        let fixture = include_str!("../tests/fixtures/structures/TiO2.cif");
         let s1 = crate::cif::parse_cif_str(fixture, std::path::Path::new("TiO2.cif")).unwrap();
         let exported = crate::cif::structure_to_cif(&s1, None);
         let s2 =
@@ -3889,7 +3889,7 @@ Mg 0.0 0.0 0.0
     #[test]
     fn test_parse_cif_li10gep2s12_symmetry_expansion() {
         // Li10GeP2S12: P42/nmc (space group 137) with 16 symmetry ops, 9 unique sites
-        let fixture = include_str!("../../../src/site/structures/Li10GeP2S12.cif");
+        let fixture = include_str!("../tests/fixtures/structures/Li10GeP2S12.cif");
         let structure =
             crate::cif::parse_cif_str(fixture, std::path::Path::new("Li10GeP2S12.cif")).unwrap();
 
@@ -3905,7 +3905,7 @@ Mg 0.0 0.0 0.0
     #[test]
     fn test_parse_cif_mof_irmof1_symmetry_expansion() {
         // IRMOF-1: Fm-3m (space group 225) with 192 symmetry ops, 7 unique sites
-        let fixture = include_str!("../../../src/site/structures/mof-issue-127.cif");
+        let fixture = include_str!("../tests/fixtures/structures/mof-issue-127.cif");
         let structure =
             crate::cif::parse_cif_str(fixture, std::path::Path::new("mof-issue-127.cif")).unwrap();
 
@@ -3921,7 +3921,7 @@ Mg 0.0 0.0 0.0
     fn test_parse_cif_p24ru4_aniso_loop_skipping() {
         // P24Ru4H252C296S24N16: C 1 2/c 1 (space group 15) with 8 symmetry ops, 63 unique sites
         // Also has _atom_site_aniso_* loop that must be skipped to find real coordinates
-        let fixture = include_str!("../../../src/site/structures/P24Ru4H252C296S24N16.cif");
+        let fixture = include_str!("../tests/fixtures/structures/P24Ru4H252C296S24N16.cif");
         let structure =
             crate::cif::parse_cif_str(fixture, std::path::Path::new("P24Ru4H252C296S24N16.cif"))
                 .unwrap();
@@ -3936,7 +3936,7 @@ Mg 0.0 0.0 0.0
     #[test]
     fn test_parse_cif_pf_sd_multi_data_blocks() {
         // PF-sd-1601634: CIF with multiple data_ blocks where later blocks have '?' placeholders
-        let fixture = include_str!("../../../src/site/structures/PF-sd-1601634.cif");
+        let fixture = include_str!("../tests/fixtures/structures/PF-sd-1601634.cif");
         let structure =
             crate::cif::parse_cif_str(fixture, std::path::Path::new("PF-sd-1601634.cif")).unwrap();
 
@@ -3950,7 +3950,7 @@ Mg 0.0 0.0 0.0
     fn test_roundtrip_extxyz_quartz_fixture() {
         use std::io::Write;
         // Parse quartz extXYZ fixture, export, reparse
-        let fixture = include_str!("../../../src/site/structures/quartz.extxyz");
+        let fixture = include_str!("../tests/fixtures/structures/quartz.extxyz");
         let mut temp = NamedTempFile::with_suffix(".xyz").unwrap();
         temp.write_all(fixture.as_bytes()).unwrap();
         let s1 = parse_extxyz(temp.path()).unwrap();
@@ -3970,7 +3970,7 @@ Mg 0.0 0.0 0.0
     #[test]
     fn test_roundtrip_json_mp1_fixture() {
         // Parse mp-1 JSON fixture, export, reparse
-        let fixture = include_str!("../../../src/site/structures/mp-1.json");
+        let fixture = include_str!("../tests/fixtures/structures/mp-1.json");
         let s1 = parse_structure_json(fixture).unwrap();
         let exported = structure_to_pymatgen_json(&s1);
         let s2 = parse_structure_json(&exported).unwrap();

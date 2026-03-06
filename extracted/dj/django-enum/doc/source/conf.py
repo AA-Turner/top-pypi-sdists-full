@@ -97,11 +97,22 @@ linkcheck_allow_redirects = True
 autodoc_use_legacy_class_based = True
 
 
+def pypi_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
+    from docutils import nodes
+
+    url = f"https://pypi.org/project/{text}/"
+    node = nodes.reference(rawtext, text, refuri=url, **options)
+    return [node], []
+
+
 def setup(app):
+    from docutils.parsers.rst import roles
     # Register a sphinx.ext.autodoc.between listener to ignore everything
     # between lines that contain the word IGNORE
     app.connect(
         'autodoc-process-docstring',
         between('^.*[*]{79}.*$', exclude=True)
     )
+
+    roles.register_local_role("pypi", pypi_role)
     return app

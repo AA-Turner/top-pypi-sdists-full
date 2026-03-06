@@ -1,29 +1,32 @@
 //! Python bindings for ferrox.
 //!
 //! This module provides PyO3 bindings organized into submodules:
-//! - `ferrox.io` - File I/O and format conversion
-//! - `ferrox.structure` - Structure manipulation and matching
-//! - `ferrox.lattice` - Lattice operations
-//! - `ferrox.neighbors` - Distance and neighbor calculations
-//! - `ferrox.coordination` - Coordination number analysis
-//! - `ferrox.composition` - Formula parsing and composition analysis
-//! - `ferrox.symmetry` - Space group and symmetry operations
-//! - `ferrox.defects` - Point defect generation
-//! - `ferrox.surfaces` - Surface and slab operations
 //! - `ferrox.cell` - Cell reduction and transformations
+//! - `ferrox.composition` - Formula parsing and composition analysis
+//! - `ferrox.convex_hull` - Convex hull and energy-above-hull
+//! - `ferrox.coordination` - Coordination number analysis
+//! - `ferrox.defects` - Point defect generation
 //! - `ferrox.elastic` - Elastic tensor calculations
-//! - `ferrox.rdf` - Radial distribution functions
-//! - `ferrox.xrd` - X-ray diffraction
-//! - `ferrox.oxidation` - Oxidation state analysis
-//! - `ferrox.order_params` - Order parameters (Steinhardt Q)
-//! - `ferrox.trajectory` - Trajectory analysis
+//! - `ferrox.io` - File I/O and format conversion
+//! - `ferrox.lattice` - Lattice operations
 //! - `ferrox.md` - Molecular dynamics integrators
+//! - `ferrox.mp` - Materials Project integration
+//! - `ferrox.neighbors` - Distance and neighbor calculations
+//! - `ferrox.optimizers` - Geometry optimizers (FIRE, CellFIRE)
+//! - `ferrox.order_params` - Order parameters (Steinhardt Q)
+//! - `ferrox.oxidation` - Oxidation state analysis
 //! - `ferrox.potentials` - Classical interatomic potentials
+//! - `ferrox.properties` - Physical property calculations
+//! - `ferrox.rdf` - Radial distribution functions
+//! - `ferrox.species` - Chemical species with oxidation states
+//! - `ferrox.structure` - Structure manipulation and matching
+//! - `ferrox.surfaces` - Surface and slab operations
+//! - `ferrox.symmetry` - Space group and symmetry operations
+//! - `ferrox.trajectory` - Trajectory analysis
+//! - `ferrox.xrd` - X-ray diffraction
 
 // PyO3 proc macros generate code that triggers false positive clippy warnings
 #![allow(clippy::useless_conversion)]
-
-use pyo3::prelude::*;
 
 // Define stub info gatherer for pyo3-stub-gen
 pyo3_stub_gen::define_stub_info_gatherer!(stub_info);
@@ -31,9 +34,13 @@ pyo3_stub_gen::define_stub_info_gatherer!(stub_info);
 // Shared helpers
 pub mod helpers;
 
+// OOP classes
+pub mod classes;
+
 // Submodules
 pub mod cell;
 pub mod composition;
+pub mod convex_hull;
 pub mod coordination;
 pub mod defects;
 pub mod elastic;
@@ -41,6 +48,7 @@ pub mod element;
 pub mod io;
 pub mod lattice;
 pub mod md;
+pub mod mp;
 pub mod neighbors;
 pub mod optimizers;
 pub mod order_params;
@@ -55,34 +63,5 @@ pub mod symmetry;
 pub mod trajectory;
 pub mod xrd;
 
-/// Register all Python submodules.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    // Top-level Element class and functions
-    parent.add_class::<element::Element>()?;
-    element::register(parent)?;
-
-    // Register all submodules
-    io::register(parent)?;
-    structure::register(parent)?;
-    lattice::register(parent)?;
-    neighbors::register(parent)?;
-    coordination::register(parent)?;
-    composition::register(parent)?;
-    symmetry::register(parent)?;
-    defects::register(parent)?;
-    surfaces::register(parent)?;
-    cell::register(parent)?;
-    elastic::register(parent)?;
-    rdf::register(parent)?;
-    xrd::register(parent)?;
-    oxidation::register(parent)?;
-    order_params::register(parent)?;
-    trajectory::register(parent)?;
-    md::register(parent)?;
-    potentials::register(parent)?;
-    optimizers::register(parent)?;
-    properties::register(parent)?;
-    species::register(parent)?;
-
-    Ok(())
-}
+// Declarative submodule definitions (each is a standalone #[pymodule])
+pub mod submodules;

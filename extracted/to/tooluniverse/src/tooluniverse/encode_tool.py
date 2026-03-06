@@ -136,10 +136,17 @@ class ENCODESearchTool:
 
         query: Dict[str, Any] = {"type": search_type, "format": "json"}
 
-        # Add all provided arguments to query
+        # Map user-friendly param names to ENCODE API field names
+        _param_map = {
+            "organism": "replicates.library.biosample.donor.organism.scientific_name",
+            "biosample_type": "biosample_ontology.classification",
+        }
+
+        # Add all provided arguments to query (remapping as needed)
         for key, value in arguments.items():
             if value is not None:
-                query[key] = value
+                mapped_key = _param_map.get(key, key)
+                query[mapped_key] = value
 
         url = f"{base}/search/?{urlencode(query, doseq=True)}"
         try:

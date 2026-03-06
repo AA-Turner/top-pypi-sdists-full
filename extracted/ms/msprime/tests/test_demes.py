@@ -19,6 +19,7 @@
 """
 Test cases for demes support.
 """
+
 # import copy
 import math
 import textwrap
@@ -593,7 +594,8 @@ class TestFromYamlExamples:
         assert "B" == dbg.epochs[0].active_populations[0].name
         assert len(dbg.epochs[1].active_populations) == 2
         active_pops = [_.name for _ in dbg.epochs[1].active_populations]
-        assert "B" in active_pops and "C" in active_pops
+        assert "B" in active_pops
+        assert "C" in active_pops
         assert len(dbg.epochs[2].active_populations) == 1
         assert "A" in dbg.epochs[2].active_populations[0].name
 
@@ -627,10 +629,12 @@ class TestFromYamlExamples:
         assert "D" == dbg.epochs[0].active_populations[0].name
         assert len(dbg.epochs[1].active_populations) == 2
         active_pops = [_.name for _ in dbg.epochs[1].active_populations]
-        assert "B" in active_pops and "D" in active_pops
+        assert "B" in active_pops
+        assert "D" in active_pops
         assert len(dbg.epochs[2].active_populations) == 2
         active_pops = [_.name for _ in dbg.epochs[2].active_populations]
-        assert "B" in active_pops and "C" in active_pops
+        assert "B" in active_pops
+        assert "C" in active_pops
         assert len(dbg.epochs[3].active_populations) == 1
         assert "A" in dbg.epochs[3].active_populations[0].name
 
@@ -774,7 +778,7 @@ class TestToDemes:
             assert epoch.end_size == 1000
 
     @pytest.mark.parametrize(
-        "time_lo,time_hi", [(0, math.inf), (0, 20), (10, math.inf), (10, 20)]
+        ("time_lo", "time_hi"), [(0, math.inf), (0, 20), (10, math.inf), (10, 20)]
     )
     def test_asymmetric_migration_via_rate_change(self, time_lo, time_hi):
         demog = msprime.Demography.isolated_model([1000] * 2)
@@ -846,9 +850,7 @@ class TestToDemes:
     @pytest.mark.parametrize("num_pops", [2, 5, 10])
     def test_symmetric_migration_time_limited(self, num_pops):
         demog = msprime.Demography.isolated_model([1000] * num_pops)
-        demog.add_symmetric_migration_rate_change(
-            100, populations=list(demog), rate=0.1
-        )
+        demog.add_symmetric_migration_rate_change(100, populations=list(demog), rate=0.1)
         demog.add_symmetric_migration_rate_change(200, populations=list(demog), rate=0)
         graph = demog.to_demes()
         assert len(graph.demes) == num_pops
@@ -929,8 +931,8 @@ class TestToDemes:
             demog.to_demes()
 
     @pytest.mark.parametrize(
-        "sizes,times",
-        (([1000], [0]), ([1000, 500], [0, 20]), ([1000, 50, 1000], [0, 20, 30])),
+        ("sizes", "times"),
+        [([1000], [0]), ([1000, 500], [0, 20]), ([1000, 50, 1000], [0, 20, 30])],
     )
     def test_piecewise_constant_sizes(self, sizes, times):
         assert len(sizes) == len(times)
@@ -954,13 +956,13 @@ class TestToDemes:
             assert epochs[j].end_time == times[len(times) - j - 1]
 
     @pytest.mark.parametrize(
-        "sizes,growth_rates,times",
-        (
+        ("sizes", "growth_rates", "times"),
+        [
             ([1000, 500], [0.1, 0], [0, 20]),
             ([1000, None, 1000], [0.1, -0.1, 0], [0, 20, 30]),
             ([1000, 5000, 1000], [0.1, None, 0], [0, 20, 30]),
             ([1000, 5000, None], [0.1, None, 0], [0, 20, 30]),
-        ),
+        ],
     )
     def test_piecewise_exponential_sizes(self, sizes, growth_rates, times):
         assert growth_rates[-1] == 0  # can't convert to demes graph otherwise
@@ -1015,9 +1017,7 @@ class TestToDemes:
     def test_bad_population_size_change(self):
         demog = msprime.Demography.isolated_model([1000] * 2)
         demog.add_mass_migration(100, source="pop_0", dest="pop_1", proportion=1)
-        demog.add_population_parameters_change(
-            200, initial_size=500, population="pop_0"
-        )
+        demog.add_population_parameters_change(200, initial_size=500, population="pop_0")
         with pytest.raises(ValueError, match="outside pop_0's existence interval"):
             demog.to_demes()
 

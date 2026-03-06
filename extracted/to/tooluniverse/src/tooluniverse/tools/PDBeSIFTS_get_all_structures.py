@@ -35,10 +35,16 @@ def PDBeSIFTS_get_all_structures(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"uniprot_accession": uniprot_accession}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "PDBeSIFTS_get_all_structures",
-            "arguments": {"uniprot_accession": uniprot_accession},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

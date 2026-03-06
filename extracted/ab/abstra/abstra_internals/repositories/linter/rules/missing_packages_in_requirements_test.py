@@ -144,3 +144,28 @@ class MissingPackagesInRequirementsTest(BaseTest):
             issue.label for issue in issues if "utils" in issue.label.lower()
         ]
         self.assertEqual(len(issue_packages), 0)
+
+    def test_fix_adds_package_without_version(self):
+        """Fix should add package without version for pip compatibility"""
+        requirements_file = self.root / "requirements.txt"
+        requirements_file.touch()
+
+        script = self.controller.create_tasklet("New script", "script.py")
+        code = "import pandas"
+        script.file_path.write_text(code)
+
+        rule = MissingPackagesInRequirements()
+        issues = rule.find_issues()
+        self.assertEqual(len(issues), 1)
+
+        # Apply the fix
+        issues[0].fixes[0].fix()
+
+        # Verify package was added without version
+        requirements_content = requirements_file.read_text()
+        requirements_lines = requirements_content.strip().split("\n")
+        pandas_lines = [
+            line for line in requirements_lines if line.startswith("pandas")
+        ]
+        self.assertEqual(len(pandas_lines), 1)
+        self.assertEqual(pandas_lines[0], "pandas")

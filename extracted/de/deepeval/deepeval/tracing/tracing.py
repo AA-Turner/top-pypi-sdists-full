@@ -947,9 +947,7 @@ class Observer:
             ):
                 self.trace_uuid = current_trace.uuid
             else:
-                trace = trace_manager.start_new_trace(
-                    metric_collection=self.metric_collection
-                )
+                trace = trace_manager.start_new_trace()
                 self.trace_uuid = trace.uuid
                 current_trace_context.set(trace)
 
@@ -1251,12 +1249,14 @@ def observe(
                     _span = current_span_context.get()
                     _trace = current_trace_context.get()
                     it = iter(original_gen)
+                    last_yielded_value = None
                     return_value = None
                     try:
                         while True:
                             try:
                                 # 1. Pull the next chunk
                                 value = next(it)
+                                last_yielded_value = value
                             except StopIteration as e:
                                 return_value = e.value
                                 break
@@ -1267,15 +1267,19 @@ def observe(
                             current_span_context.set(_span)
                             if _trace is not None:
                                 current_trace_context.set(_trace)
-                                
-                        observer.result = return_value
+
+                        observer.result = (
+                            return_value
+                            if return_value is not None
+                            else last_yielded_value
+                        )
                     except Exception as e:
                         current_span_context.set(_span)
                         if _trace is not None:
                             current_trace_context.set(_trace)
                         observer.__exit__(e.__class__, e, e.__traceback__)
                         raise
-                    finally: # GeneratorExit execption directly brings us to final block
+                    finally:  # GeneratorExit execption directly brings us to final block
                         observer.__exit__(None, None, None)
 
                 return gen()

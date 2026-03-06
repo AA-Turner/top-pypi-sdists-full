@@ -322,7 +322,7 @@ class EBIProteinsExtTool(BaseTool):
             "data": {
                 "accession": data.get("accession"),
                 "entry_name": data.get("entryName"),
-                "sequence_length": data.get("sequence", None),
+                "sequence_length": len(data.get("sequence") or ""),
                 "category_queried": category,
                 "features": features[:100],
                 "total_features": len(data.get("features", [])),

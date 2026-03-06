@@ -59,20 +59,26 @@ def ChIPAtlas_enrichment_analysis(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "bed_data": bed_data,
+            "motif": motif,
+            "gene_list": gene_list,
+            "genome": genome,
+            "antigen_class": antigen_class,
+            "cell_type_class": cell_type_class,
+            "threshold": threshold,
+            "distance": distance,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ChIPAtlas_enrichment_analysis",
-            "arguments": {
-                "operation": operation,
-                "bed_data": bed_data,
-                "motif": motif,
-                "gene_list": gene_list,
-                "genome": genome,
-                "antigen_class": antigen_class,
-                "cell_type_class": cell_type_class,
-                "threshold": threshold,
-                "distance": distance,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

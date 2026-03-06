@@ -1,6 +1,6 @@
 [project]
 name = "django-enum"
-version = "2.4.1"
+version = "2.4.2"
 description = "Full and natural support for enumerations as Django model fields."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -80,7 +80,7 @@ packages = ["src/django_enum"]
 
 [project.optional-dependencies]
 properties = [
-    "enum-properties>=2.5.1"
+    "enum-properties>=2.7.0"
 ]
 filters = ["django-filter>=21"]
 rest = ["djangorestframework>=3.14,<4.0"]

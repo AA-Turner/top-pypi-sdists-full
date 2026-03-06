@@ -1,13 +1,14 @@
 use crate::place::PlaceAndQualifiers;
 use crate::semantic_index::definition::Definition;
+use crate::types::class::DynamicClassLiteral;
 use crate::types::constraints::{ConstraintSet, ConstraintSetBuilder};
 use crate::types::generics::InferableTypeVars;
 use crate::types::protocol_class::ProtocolClass;
 use crate::types::relation::{HasRelationToVisitor, IsDisjointVisitor, TypeRelation};
 use crate::types::variance::VarianceInferable;
 use crate::types::{
-    ApplyTypeMappingVisitor, BoundTypeVarInstance, ClassLiteral, ClassType, DynamicClassLiteral,
-    DynamicType, FindLegacyTypeVarsVisitor, KnownClass, MaterializationKind, MemberLookupPolicy,
+    ApplyTypeMappingVisitor, BoundTypeVarInstance, ClassLiteral, ClassType, DynamicType,
+    FindLegacyTypeVarsVisitor, KnownClass, MaterializationKind, MemberLookupPolicy,
     SpecialFormType, Type, TypeContext, TypeMapping, TypeVarBoundOrConstraints, TypeVarVariance,
     TypedDictType, UnionType, todo_type,
 };
@@ -157,11 +158,15 @@ impl<'db> SubclassOfType<'db> {
                 },
                 _ => Type::SubclassOf(self),
             },
-            SubclassOfInner::TypeVar(typevar) => SubclassOfType::try_from_instance(
-                db,
-                typevar.apply_type_mapping_impl(db, type_mapping, visitor),
-            )
-            .unwrap_or(SubclassOfType::subclass_of_unknown()),
+            SubclassOfInner::TypeVar(typevar) => {
+                let mapped = typevar.apply_type_mapping_impl(db, type_mapping, visitor);
+                if mapped.is_never() {
+                    Type::Never
+                } else {
+                    SubclassOfType::try_from_instance(db, mapped)
+                        .unwrap_or(SubclassOfType::subclass_of_unknown())
+                }
+            }
         }
     }
 

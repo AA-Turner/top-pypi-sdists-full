@@ -1123,6 +1123,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         else:
             self.logger.info("Tailscale already connected, skipping auth/up")
 
+        assert status is not None
         self_name = status.get("Self", {}).get("HostName", "unknown")
         peers = status.get("Peer", {})
         peer_names = [p.get("HostName", "?") for p in peers.values()]

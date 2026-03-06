@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         beta,
         files,
         parsing,
+        classify,
         projects,
         pipelines,
         classifier,
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
     )
     from .resources.files import FilesResource, AsyncFilesResource
     from .resources.parsing import ParsingResource, AsyncParsingResource
+    from .resources.classify import ClassifyResource, AsyncClassifyResource
     from .resources.projects import ProjectsResource, AsyncProjectsResource
     from .resources.beta.beta import BetaResource, AsyncBetaResource
     from .resources.data_sinks import DataSinksResource, AsyncDataSinksResource
@@ -95,13 +97,13 @@ class LlamaCloud(SyncAPIClient):
     ) -> None:
         """Construct a new synchronous LlamaCloud client instance.
 
-        This automatically infers the `api_key` argument from the `LLAMA_CLOUD_API_KEY` environment variable if it is not provided.
+        This automatically infers the `api_key` argument from the `LLAMA_CLOUD_API_KEY` or `LLAMA_PARSE_API_KEY` environment variable if it is not provided.
         """
         if api_key is None:
-            api_key = os.environ.get("LLAMA_CLOUD_API_KEY")
+            api_key = os.environ.get("LLAMA_CLOUD_API_KEY") or os.environ.get("LLAMA_PARSE_API_KEY")
         if api_key is None:
             raise LlamaCloudError(
-                "The api_key client option must be set either by passing api_key to the client or by setting the LLAMA_CLOUD_API_KEY environment variable"
+                "The api_key client option must be set either by passing api_key to the client or by setting the LLAMA_CLOUD_API_KEY or LLAMA_PARSE_API_KEY environment variable"
             )
         self.api_key = api_key
 
@@ -144,6 +146,12 @@ class LlamaCloud(SyncAPIClient):
         from .resources.classifier import ClassifierResource
 
         return ClassifierResource(self)
+
+    @cached_property
+    def classify(self) -> ClassifyResource:
+        from .resources.classify import ClassifyResource
+
+        return ClassifyResource(self)
 
     @cached_property
     def projects(self) -> ProjectsResource:
@@ -323,13 +331,13 @@ class AsyncLlamaCloud(AsyncAPIClient):
     ) -> None:
         """Construct a new async AsyncLlamaCloud client instance.
 
-        This automatically infers the `api_key` argument from the `LLAMA_CLOUD_API_KEY` environment variable if it is not provided.
+        This automatically infers the `api_key` argument from the `LLAMA_CLOUD_API_KEY` or `LLAMA_PARSE_API_KEY` environment variable if it is not provided.
         """
         if api_key is None:
-            api_key = os.environ.get("LLAMA_CLOUD_API_KEY")
+            api_key = os.environ.get("LLAMA_CLOUD_API_KEY") or os.environ.get("LLAMA_PARSE_API_KEY")
         if api_key is None:
             raise LlamaCloudError(
-                "The api_key client option must be set either by passing api_key to the client or by setting the LLAMA_CLOUD_API_KEY environment variable"
+                "The api_key client option must be set either by passing api_key to the client or by setting the LLAMA_CLOUD_API_KEY or LLAMA_PARSE_API_KEY environment variable"
             )
         self.api_key = api_key
 
@@ -372,6 +380,12 @@ class AsyncLlamaCloud(AsyncAPIClient):
         from .resources.classifier import AsyncClassifierResource
 
         return AsyncClassifierResource(self)
+
+    @cached_property
+    def classify(self) -> AsyncClassifyResource:
+        from .resources.classify import AsyncClassifyResource
+
+        return AsyncClassifyResource(self)
 
     @cached_property
     def projects(self) -> AsyncProjectsResource:
@@ -553,6 +567,12 @@ class LlamaCloudWithRawResponse:
         return ClassifierResourceWithRawResponse(self._client.classifier)
 
     @cached_property
+    def classify(self) -> classify.ClassifyResourceWithRawResponse:
+        from .resources.classify import ClassifyResourceWithRawResponse
+
+        return ClassifyResourceWithRawResponse(self._client.classify)
+
+    @cached_property
     def projects(self) -> projects.ProjectsResourceWithRawResponse:
         from .resources.projects import ProjectsResourceWithRawResponse
 
@@ -618,6 +638,12 @@ class AsyncLlamaCloudWithRawResponse:
         from .resources.classifier import AsyncClassifierResourceWithRawResponse
 
         return AsyncClassifierResourceWithRawResponse(self._client.classifier)
+
+    @cached_property
+    def classify(self) -> classify.AsyncClassifyResourceWithRawResponse:
+        from .resources.classify import AsyncClassifyResourceWithRawResponse
+
+        return AsyncClassifyResourceWithRawResponse(self._client.classify)
 
     @cached_property
     def projects(self) -> projects.AsyncProjectsResourceWithRawResponse:
@@ -687,6 +713,12 @@ class LlamaCloudWithStreamedResponse:
         return ClassifierResourceWithStreamingResponse(self._client.classifier)
 
     @cached_property
+    def classify(self) -> classify.ClassifyResourceWithStreamingResponse:
+        from .resources.classify import ClassifyResourceWithStreamingResponse
+
+        return ClassifyResourceWithStreamingResponse(self._client.classify)
+
+    @cached_property
     def projects(self) -> projects.ProjectsResourceWithStreamingResponse:
         from .resources.projects import ProjectsResourceWithStreamingResponse
 
@@ -752,6 +784,12 @@ class AsyncLlamaCloudWithStreamedResponse:
         from .resources.classifier import AsyncClassifierResourceWithStreamingResponse
 
         return AsyncClassifierResourceWithStreamingResponse(self._client.classifier)
+
+    @cached_property
+    def classify(self) -> classify.AsyncClassifyResourceWithStreamingResponse:
+        from .resources.classify import AsyncClassifyResourceWithStreamingResponse
+
+        return AsyncClassifyResourceWithStreamingResponse(self._client.classify)
 
     @cached_property
     def projects(self) -> projects.AsyncProjectsResourceWithStreamingResponse:

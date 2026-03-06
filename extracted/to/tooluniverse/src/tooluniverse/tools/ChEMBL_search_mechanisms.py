@@ -47,16 +47,22 @@ def ChEMBL_search_mechanisms(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "drug_chembl_id": drug_chembl_id,
+            "target_chembl_id": target_chembl_id,
+            "mechanism_of_action__contains": mechanism_of_action__contains,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ChEMBL_search_mechanisms",
-            "arguments": {
-                "drug_chembl_id": drug_chembl_id,
-                "target_chembl_id": target_chembl_id,
-                "mechanism_of_action__contains": mechanism_of_action__contains,
-                "limit": limit,
-                "offset": offset,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

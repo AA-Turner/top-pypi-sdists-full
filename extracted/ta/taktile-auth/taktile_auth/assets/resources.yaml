@@ -219,3 +219,7 @@ workspace_case_queue:
   # write: can create, update and delete case queues
   org_id: wildcard
   ws_id: wildcard
+workspace_user_impersonation:
+  # write: can mint JWTs on behalf of workspace users
+  org_id: wildcard
+  ws_id: wildcard

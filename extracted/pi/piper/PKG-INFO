@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: piper
-Version: 0.15.0
+Version: 0.15.1
 Summary: A lightweight python toolkit for gluing together restartable, robust command line pipelines
 Project-URL: Homepage, https://github.com/databio/pypiper/
 Author: Nathan Sheffield, Johanna Klughammer, Andre Rendeiro
@@ -18,12 +18,11 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Systems Administration
 Requires-Python: >=3.10
-Requires-Dist: logmuse>=0.2.4
-Requires-Dist: pandas
-Requires-Dist: pipestat>=0.13.0
+Requires-Dist: logmuse>=0.3.0
+Requires-Dist: pipestat>=0.13.1
 Requires-Dist: psutil
-Requires-Dist: ubiquerg>=0.9.0
-Requires-Dist: yacman>=0.9.5
+Requires-Dist: ubiquerg>=0.9.1
+Requires-Dist: yacman>=1.0.0
 Provides-Extra: ngstk
 Requires-Dist: numpy; extra == 'ngstk'
 Requires-Dist: pysam; extra == 'ngstk'

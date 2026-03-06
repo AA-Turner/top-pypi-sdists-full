@@ -44,10 +44,16 @@ def GitHub_search_repositories(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"q": q, "sort": sort, "order": order, "per_page": per_page}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "GitHub_search_repositories",
-            "arguments": {"q": q, "sort": sort, "order": order, "per_page": per_page},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -12,12 +12,9 @@ SUPPORTED_BYOM_FORMATS = ["PMML", "ONNX", "H2O", "H2O_DAI", "DATAROBOT", "DATAIK
 
 
 class TrainedModelArtefactsApi(BaseApi):
-
-    path = "/api/trainedModels/{}/artefacts"
+    name = "Trained Model Artefacts API"
+    path = "trainedModels/{}/artefacts"
     type = "TRAINED_MODEL_ARTEFACTS"
-
-    def _get_header_params(self):
-        return self._get_standard_header_params()
 
     def list_artefacts(self, trained_model_id: UUID):
         """
@@ -29,9 +26,12 @@ class TrainedModelArtefactsApi(BaseApi):
         Returns:
             (list): all trained model artefacts
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
 
         return self.tmo_client.get_request(
-            path=(f"{self.path}/listObjects").format(trained_model_id),  # noqa
+            path=(f"{self.base_path + self.path}/listObjects").format(  # noqa
+                trained_model_id
+            ),
             header_params=self._get_header_params(),
             query_params={},
         )["objects"]
@@ -47,10 +47,14 @@ class TrainedModelArtefactsApi(BaseApi):
         Returns:
             (str): the signed url
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
+
         query_params = self.generate_params(["objectKey"], [artefact])
 
         response = self.tmo_client.get_request(
-            path=(f"{self.path}/signedDownloadUrl").format(trained_model_id),  # noqa
+            path=(f"{self.base_path + self.path}/signedDownloadUrl").format(  # noqa
+                trained_model_id
+            ),
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -68,10 +72,14 @@ class TrainedModelArtefactsApi(BaseApi):
         Returns:
             (str): the signed url
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
+
         query_params = self.generate_params(["objectKey"], [artefact])
 
         response = self.tmo_client.get_request(
-            path=(f"{self.path}/signedUploadUrl").format(trained_model_id),  # noqa
+            path=(f"{self.base_path + self.path}/signedUploadUrl").format(  # noqa
+                trained_model_id
+            ),
             header_params=self._get_header_params(),
             query_params=query_params,
         )
@@ -89,6 +97,7 @@ class TrainedModelArtefactsApi(BaseApi):
         Returns:
             None
         """
+        trained_model_id = self.validate_uuid(trained_model_id)
 
         for artefact in self.list_artefacts(trained_model_id):
             signed_url, headers = self.get_signed_download_url(

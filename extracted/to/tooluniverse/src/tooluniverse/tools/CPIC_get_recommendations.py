@@ -23,7 +23,7 @@ def CPIC_get_recommendations(
     Parameters
     ----------
     guideline_id : int
-        CPIC guideline numeric ID (e.g., 100421 for HLA-B/abacavir, 100414 for CYP2D6...
+        CPIC guideline numeric ID (e.g., 100421 for HLA-B/abacavir, 100416 for CYP2D6...
     limit : int | Any
         Maximum number of recommendations to return (default 50)
     offset : int | Any
@@ -41,14 +41,20 @@ def CPIC_get_recommendations(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "guideline_id": guideline_id,
+            "limit": limit,
+            "offset": offset,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "CPIC_get_recommendations",
-            "arguments": {
-                "guideline_id": guideline_id,
-                "limit": limit,
-                "offset": offset,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

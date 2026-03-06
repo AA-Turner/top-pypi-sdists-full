@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-netfields
-Version: 1.4.0
+Version: 1.4.1
 Summary: Django PostgreSQL netfields implementation
 Home-page: https://github.com/jimfunk/django-postgresql-netfields
 Author: James Oakley

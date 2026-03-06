@@ -41,10 +41,20 @@ def ensembl_get_xrefs_by_name(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "name": name,
+            "species": species,
+            "external_db": external_db,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ensembl_get_xrefs_by_name",
-            "arguments": {"name": name, "species": species, "external_db": external_db},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

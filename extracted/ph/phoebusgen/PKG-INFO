@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: phoebusgen
-Version: 3.1.0
+Version: 3.2.0
 Summary: Screen generator for CS-Studio Phoebus displays
 Author-email: Tynan Ford <tford@lbl.gov>, Madeline Park <MadelinePark@lbl.gov>
 License: 		    GNU GENERAL PUBLIC LICENSE
@@ -384,7 +384,7 @@ Suggestions, comments, and pull requests are welcome.
 
 ## Requirements
 
--   Python >= 3.5
+-   Python >= 3.6
 
 ## Install
 Pip Package: [phoebusgen](https://pypi.org/project/phoebusgen/)

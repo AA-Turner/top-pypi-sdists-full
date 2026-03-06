@@ -7,6 +7,14 @@ from enum import Enum
 if t.TYPE_CHECKING:
     from typing_extensions import Self
 
+__all__ = [
+    "Formatting",
+    "MinecraftColor",
+    "ParsedMotdComponent",
+    "TranslationTag",
+    "WebColor",
+]
+
 
 # NOTE: keep in sync with the definition in docs (`docs/api/motd_parsing.rst`)
 # the autodocs plugin does not support type aliases yet, so those have to be
@@ -100,8 +108,8 @@ class WebColor:
 
         try:
             rgb = t.cast("tuple[int, int, int]", tuple(int(hex[i : i + 2], 16) for i in (0, 2, 4)))
-        except ValueError:
-            raise ValueError(f"Failed to parse given hex color: {'#' + hex!r}")
+        except ValueError as e:
+            raise ValueError(f"Failed to parse given hex color: {'#' + hex!r}") from e
 
         return cls.from_rgb(rgb)
 

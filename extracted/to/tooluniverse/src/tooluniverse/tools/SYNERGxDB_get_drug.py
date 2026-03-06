@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def SYNERGxDB_get_drug(
-    operation: str,
     drug_id: int,
+    operation: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -38,10 +38,16 @@ def SYNERGxDB_get_drug(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"operation": operation, "drug_id": drug_id}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "SYNERGxDB_get_drug",
-            "arguments": {"operation": operation, "drug_id": drug_id},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

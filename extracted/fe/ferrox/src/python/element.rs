@@ -392,8 +392,8 @@ pub fn normalize_element_symbol(py: Python<'_>, symbol: &str) -> PyResult<Py<PyD
     Ok(dict.unbind())
 }
 
-/// Register element functions at the top level (Element class is registered in mod.rs).
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    parent.add_function(wrap_pyfunction!(normalize_element_symbol, parent)?)?;
+/// Register element functions at the top level (Element class is exported via lib.rs).
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(normalize_element_symbol, module)?)?;
     Ok(())
 }

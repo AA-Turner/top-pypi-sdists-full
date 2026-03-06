@@ -31,7 +31,7 @@ keywords = [
 ]
 
 [project.urls]
-Repository = "https://github.com/janosh/matterviz"
+Repository = "https://github.com/periodiclabs/ferrox"
 
 [project.optional-dependencies]
 dev = ["numpy", "pymatgen>=2025.10.7", "pytest>=8.0"]
@@ -51,6 +51,7 @@ ignore = [
   "ANN401",
   "BLE001",
   "C408",    # unnecessary-collection-call
+  "C901",    # too-complex
   "COM812",
   "D205",    # blank-line-after-summary
   "EM101",
@@ -98,6 +99,10 @@ isort.split-on-trailing-comma = false
   "RUF059",  # unused unpacked var
   "S101",
 ]
+"notebooks/*" = [
+  "RUF001", # unicode symbols in plots
+  "S101",   # assert for correctness validation
+]
 "__init__.py" = ["F401"]
 "*.pyi" = [
   "D",
@@ -110,13 +115,17 @@ isort.split-on-trailing-comma = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-p no:warnings"
+markers = [
+  "ase_parity: tests comparing ferrox and ASE behavior parity",
+  "pymatgen_parity: tests comparing ferrox and pymatgen matcher parity",
+]
 
 [tool.ty.rules]
 unused-ignore-comment = "warn"
 
 [tool.maturin]
-features = ["python"]
-python-source = "python"
+features = ["python-extension"]
+python-source = "bindings/python"
 module-name = "ferrox._ferrox"
 # Include atomic scattering params JSON (SSOT shared with TypeScript and Rust crate)
 include = [

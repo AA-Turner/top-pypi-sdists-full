@@ -178,32 +178,20 @@ class PharmGKBTool(BaseTool):
             result = api_response.get("data", api_response)
             return {"status": "success", "data": result}
 
-        # If no ID, try to filter by gene or drug if possible via search or direct list
+        # Feature-68A-003: relatedGenes.id filter returns HTTP 400 from PharmGKB API.
+        # Return a clear error rather than false success.
+        gene_id = arguments.get("gene_id")
+        if gene_id:
+            return self._error(
+                f"PharmGKB does not support gene-based clinical annotation lookup. "
+                f"Use PharmGKB_search_genes to find gene '{gene_id}' and obtain "
+                f"annotation IDs, then use annotation_id parameter."
+            )
 
-        try:
-            # Fallback to search-like behavior if possible, but the API is restrictive
-            # For now, return a helpful message if no filter works
-            gene_id = arguments.get("gene_id")
-            if gene_id:
-                # Try to find annotations associated with this gene
-                status_code, api_response, error = self._request_json(
-                    f"{PHARMGKB_BASE_URL}/data/clinicalAnnotation",
-                    {
-                        "relatedGenes.id": gene_id,
-                        "view": "base",
-                    },
-                )
-                if status_code == 200 and not error:
-                    # PharmGKB API returns {"data": {...}, "status": "success"}
-                    result = api_response.get("data", api_response)
-                    return {"status": "success", "data": result}
-
-            result = {
-                "message": "Please provide a specific clinical 'annotation_id'. You can find these IDs by searching for drugs or genes first."
-            }
-            return {"status": "success", "data": result}
-        except Exception as e:
-            return self._error(f"PharmGKB annotation retrieval failed: {str(e)}")
+        return self._error(
+            "annotation_id is required. Use PharmGKB_search_genes or "
+            "PharmGKB_search_drugs to find relevant annotation IDs."
+        )
 
     def _get_dosing_guidelines(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get CPIC/DPWG dosing guidelines."""
@@ -218,23 +206,17 @@ class PharmGKBTool(BaseTool):
             result = api_response.get("data", api_response)
             return {"status": "success", "data": result}
 
-        # Fallback to listing by gene if provided
+        # Feature-67A-003: relatedGenes.symbol filter returns HTTP 400 from PharmGKB API.
+        # Return an error directing users to look up the guideline_id first.
         gene_symbol = arguments.get("gene") or arguments.get("gene_id")
         if gene_symbol:
-            try:
-                # Some guidelines are indexed by related genes
-                status_code, api_response, error = self._request_json(
-                    f"{PHARMGKB_BASE_URL}/data/guideline",
-                    {"relatedGenes.symbol": gene_symbol, "view": "base"},
-                )
-                if status_code == 200 and not error:
-                    # PharmGKB API returns {"data": {...}, "status": "success"}
-                    result = api_response.get("data", api_response)
-                    return {"status": "success", "data": result}
-            except Exception:
-                pass
+            return self._error(
+                f"PharmGKB does not support gene-based guideline lookup. "
+                f"Use PharmGKB_search_genes to find gene '{gene_symbol}', then use the "
+                f"returned guideline IDs with guideline_id parameter."
+            )
 
-        result = {
-            "message": "Please provide a specific 'guideline_id'. Search for the gene first to find associated guidelines."
-        }
-        return {"status": "success", "data": result}
+        return self._error(
+            "guideline_id is required. Use PharmGKB_search_genes or PharmGKB_search_drugs "
+            "to find relevant guideline IDs."
+        )

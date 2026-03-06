@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: Appium-Python-Client
-Version: 5.2.6
+Version: 5.2.7
 Summary: Python client for Appium
 Project-URL: Homepage, http://appium.io/
 Project-URL: Repository, https://github.com/appium/python-client
 Project-URL: Issues, https://github.com/appium/python-client/issues
 Project-URL: Changelog, https://github.com/appium/python-client/blob/master/CHANGELOG.md
-Author-email: Isaac Murchie <isaac@saucelabs.com>
+Author: Isaac Murchie
+Author-email: Kazuaki Matsuo <kazucocoa1117@gmail.com>
 Maintainer: Kazuaki Matsuo, Mykola Mokhnach, Mori Atsushi
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -18,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.9
 Requires-Dist: selenium<5.0,>=4.26

@@ -50,17 +50,23 @@ def SwissDock_dock_ligand(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "ligand_smiles": ligand_smiles,
+            "pdb_id": pdb_id,
+            "exhaustiveness": exhaustiveness,
+            "box_center": box_center,
+            "box_size": box_size,
+            "docking_engine": docking_engine,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "SwissDock_dock_ligand",
-            "arguments": {
-                "ligand_smiles": ligand_smiles,
-                "pdb_id": pdb_id,
-                "exhaustiveness": exhaustiveness,
-                "box_center": box_center,
-                "box_size": box_size,
-                "docking_engine": docking_engine,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

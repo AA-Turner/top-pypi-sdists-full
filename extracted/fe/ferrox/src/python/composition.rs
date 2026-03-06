@@ -47,14 +47,14 @@ fn comp_to_metadata_dict(py: Python<'_>, comp: &Composition) -> PyResult<Py<PyDi
 }
 
 /// Parse a composition formula and return rich metadata.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn parse_composition(py: Python<'_>, formula: &str) -> PyResult<Py<PyDict>> {
     comp_to_metadata_dict(py, &parse_comp(formula)?)
 }
 
 /// Get the atomic fraction of an element.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn get_atomic_fraction(formula: &str, element: &str) -> PyResult<f64> {
     let comp = parse_comp(formula)?;
@@ -64,7 +64,7 @@ fn get_atomic_fraction(formula: &str, element: &str) -> PyResult<f64> {
 }
 
 /// Get the weight fraction of an element.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn get_wt_fraction(formula: &str, element: &str) -> PyResult<f64> {
     let comp = parse_comp(formula)?;
@@ -74,21 +74,21 @@ fn get_wt_fraction(formula: &str, element: &str) -> PyResult<f64> {
 }
 
 /// Get the reduced composition.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn reduced_composition(py: Python<'_>, formula: &str) -> PyResult<Py<PyDict>> {
     comp_to_element_dict(py, &parse_comp(formula)?.reduced_composition())
 }
 
 /// Get the fractional composition.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn fractional_composition(py: Python<'_>, formula: &str) -> PyResult<Py<PyDict>> {
     comp_to_element_dict(py, &parse_comp(formula)?.fractional_composition())
 }
 
 /// Check if a composition is charge balanced.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn is_charge_balanced(formula: &str) -> PyResult<Option<bool>> {
     let comp = parse_comp(formula)?;
@@ -96,7 +96,7 @@ fn is_charge_balanced(formula: &str) -> PyResult<Option<bool>> {
 }
 
 /// Get the total charge of a composition.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn composition_charge(formula: &str) -> PyResult<Option<i32>> {
     let comp = parse_comp(formula)?;
@@ -104,7 +104,7 @@ fn composition_charge(formula: &str) -> PyResult<Option<i32>> {
 }
 
 /// Check if two compositions are almost equal.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 #[pyo3(signature = (formula1, formula2, rel_tol = 1e-6, abs_tol = 1e-8))]
 fn compositions_almost_equal(
@@ -119,7 +119,7 @@ fn compositions_almost_equal(
 }
 
 /// Get a hash of a formula (for fast comparisons).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn formula_hash(formula: &str) -> PyResult<u64> {
     let comp = parse_comp(formula)?;
@@ -127,7 +127,7 @@ fn formula_hash(formula: &str) -> PyResult<u64> {
 }
 
 /// Get a hash based on species (including oxidation states).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn species_hash(formula: &str) -> PyResult<u64> {
     let comp = parse_comp(formula)?;
@@ -135,7 +135,7 @@ fn species_hash(formula: &str) -> PyResult<u64> {
 }
 
 /// Remap elements in a formula.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn remap_elements(
     py: Python<'_>,
@@ -155,28 +155,26 @@ fn remap_elements(
 }
 
 /// Get the reduction factor of a formula.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.composition")]
 #[pyfunction]
 fn get_reduced_factor(formula: &str) -> PyResult<f64> {
     let comp = parse_comp(formula)?;
     Ok(comp.get_reduced_factor())
 }
 
-/// Register the composition submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "composition")?;
-    submod.add_function(wrap_pyfunction!(parse_composition, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_atomic_fraction, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_wt_fraction, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(reduced_composition, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(fractional_composition, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(is_charge_balanced, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(composition_charge, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(compositions_almost_equal, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(formula_hash, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(species_hash, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(remap_elements, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_reduced_factor, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register composition functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(parse_composition, module)?)?;
+    module.add_function(wrap_pyfunction!(get_atomic_fraction, module)?)?;
+    module.add_function(wrap_pyfunction!(get_wt_fraction, module)?)?;
+    module.add_function(wrap_pyfunction!(reduced_composition, module)?)?;
+    module.add_function(wrap_pyfunction!(fractional_composition, module)?)?;
+    module.add_function(wrap_pyfunction!(is_charge_balanced, module)?)?;
+    module.add_function(wrap_pyfunction!(composition_charge, module)?)?;
+    module.add_function(wrap_pyfunction!(compositions_almost_equal, module)?)?;
+    module.add_function(wrap_pyfunction!(formula_hash, module)?)?;
+    module.add_function(wrap_pyfunction!(species_hash, module)?)?;
+    module.add_function(wrap_pyfunction!(remap_elements, module)?)?;
+    module.add_function(wrap_pyfunction!(get_reduced_factor, module)?)?;
     Ok(())
 }

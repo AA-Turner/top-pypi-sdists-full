@@ -12,6 +12,7 @@ from . import (
     get_session_live_logs,
     get_session_logs,
     get_session_logs_download,
+    get_session_state,
     get_session_state_download_url,
     get_session_state_upload_url,
     get_session_status,
@@ -21,6 +22,7 @@ from . import (
     list_session_creators,
     list_sessions,
     list_tags,
+    put_session_state,
     update_session_tags,
 )
 
@@ -38,6 +40,8 @@ __all__ = [
     "get_session_artifact_download",
     "get_session_state_upload_url",
     "get_session_state_download_url",
+    "get_session_state",
+    "put_session_state",
     "get_session_workspace_upload_url",
     "get_session_workspace_download_url",
     "get_session_checkpoint_info",

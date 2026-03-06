@@ -72,6 +72,19 @@ class QuickGOTool(BaseTool):
         if not gene_product_id:
             return {"error": "gene_product_id parameter is required"}
 
+        # Feature-25B-05: detect bare gene symbols (e.g. "TP53") and explain the correct format.
+        # QuickGO requires "DB:Accession" format such as "UniProtKB:P04637".
+        if ":" not in gene_product_id:
+            return {
+                "error": (
+                    f"Invalid gene_product_id format: '{gene_product_id}'. "
+                    "QuickGO requires accession format 'DB:Accession', "
+                    "e.g. 'UniProtKB:P04637' for human TP53. "
+                    "Use `tu run UniProt_search query=TP53` to find the UniProt accession "
+                    "for your gene."
+                )
+            }
+
         url = f"{QUICKGO_BASE_URL}/annotation/search"
         params = {
             "geneProductId": gene_product_id,
@@ -113,6 +126,31 @@ class QuickGOTool(BaseTool):
                     "reference": r.get("reference"),
                 }
             )
+
+        # Feature-25B-04: the annotation endpoint returns goName=null for many records.
+        # Batch-resolve the missing names from the GO terms endpoint.
+        null_ids = list(
+            {a["go_id"] for a in annotations if a["go_id"] and a["go_name"] is None}
+        )
+        if null_ids:
+            try:
+                ids_str = ",".join(null_ids)
+                term_resp = requests.get(
+                    f"{QUICKGO_BASE_URL}/ontology/go/terms/{ids_str}",
+                    headers={"Accept": "application/json"},
+                    timeout=self.timeout,
+                )
+                if term_resp.ok:
+                    id_to_name = {
+                        t["id"]: t.get("name")
+                        for t in term_resp.json().get("results", [])
+                        if "id" in t
+                    }
+                    for a in annotations:
+                        if a["go_name"] is None and a["go_id"] in id_to_name:
+                            a["go_name"] = id_to_name[a["go_id"]]
+            except Exception:
+                pass  # Best-effort; don't fail if name resolution fails
 
         return {
             "data": annotations,

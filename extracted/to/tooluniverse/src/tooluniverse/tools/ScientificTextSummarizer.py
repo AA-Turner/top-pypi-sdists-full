@@ -41,14 +41,20 @@ def ScientificTextSummarizer(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "text": text,
+            "summary_length": summary_length,
+            "focus_area": focus_area,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ScientificTextSummarizer",
-            "arguments": {
-                "text": text,
-                "summary_length": summary_length,
-                "focus_area": focus_area,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

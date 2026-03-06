@@ -1,6 +1,10 @@
 """Asset models for REST-like API."""
 
+from typing import Literal
+
 from pydantic import BaseModel
+
+DgApiEventType = Literal["ASSET_MATERIALIZATION", "ASSET_OBSERVATION"]
 
 
 class DgApiAssetHealthMetadata(BaseModel):
@@ -56,6 +60,39 @@ class DgApiAssetStatus(BaseModel):
     checks_status: DgApiAssetChecksStatus | None
 
 
+class DgApiAutomationCondition(BaseModel):
+    """Automation condition attached to an asset."""
+
+    label: str | None
+    expanded_label: list[str]
+
+
+class DgApiPartitionDefinition(BaseModel):
+    """Partition definition for an asset."""
+
+    description: str
+
+
+class DgApiPartitionMapping(BaseModel):
+    """Mapping of partitions between an asset and a dependency."""
+
+    class_name: str
+    description: str
+
+
+class DgApiAssetDependency(BaseModel):
+    """An upstream dependency with optional partition mapping."""
+
+    asset_key: str
+    partition_mapping: DgApiPartitionMapping | None
+
+
+class DgApiBackfillPolicy(BaseModel):
+    """Backfill policy for a partitioned asset."""
+
+    max_partitions_per_run: int | None
+
+
 class DgApiAsset(BaseModel):
     """Asset resource model."""
 
@@ -69,6 +106,15 @@ class DgApiAsset(BaseModel):
     dependency_keys: list[str] = []  # ["dep/one", "dep/two"]
     # Status fields - populated only for status view
     status: DgApiAssetStatus | None = None
+    # Extended detail fields - populated only for get (single asset)
+    owners: list[dict] | None = None
+    tags: list[dict] | None = None  # [{key: str, value: str}]
+    automation_condition: DgApiAutomationCondition | None = None
+    partition_definition: DgApiPartitionDefinition | None = None
+    backfill_policy: DgApiBackfillPolicy | None = None
+    job_names: list[str] | None = None
+    upstream_dependencies: list[DgApiAssetDependency] | None = None
+    downstream_keys: list[str] | None = None
 
     class Config:
         from_attributes = True
@@ -80,3 +126,54 @@ class DgApiAssetList(BaseModel):
     items: list[DgApiAsset]
     cursor: str | None  # Next cursor for pagination
     has_more: bool  # Whether more results exist
+
+
+class DgApiAssetEvent(BaseModel):
+    """A materialization or observation event for an asset."""
+
+    timestamp: str  # millisecond timestamp string from GraphQL
+    run_id: str
+    event_type: Literal["ASSET_MATERIALIZATION", "ASSET_OBSERVATION"]
+    partition: str | None
+    tags: list[dict]
+    metadata_entries: list[dict]
+
+
+class DgApiAssetEventList(BaseModel):
+    """GET /api/assets/{key}/events response."""
+
+    items: list[DgApiAssetEvent]
+
+
+class DgApiEvaluationNode(BaseModel):
+    """A node in the automation condition evaluation tree."""
+
+    unique_id: str
+    user_label: str | None
+    expanded_label: list[str]
+    start_timestamp: float | None
+    end_timestamp: float | None
+    num_true: int | None
+    num_candidates: int | None
+    is_partitioned: bool
+    child_unique_ids: list[str]
+    operator_type: str
+
+
+class DgApiEvaluationRecord(BaseModel):
+    """An automation condition evaluation record for an asset."""
+
+    evaluation_id: int
+    timestamp: float
+    num_requested: int | None
+    run_ids: list[str]
+    start_timestamp: float | None
+    end_timestamp: float | None
+    root_unique_id: str
+    evaluation_nodes: list[DgApiEvaluationNode] | None = None
+
+
+class DgApiEvaluationRecordList(BaseModel):
+    """GET /api/assets/{key}/evaluations response."""
+
+    items: list[DgApiEvaluationRecord]

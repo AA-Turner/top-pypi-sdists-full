@@ -41,14 +41,20 @@ def DepMap_get_cell_lines(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "tissue": tissue,
+            "cancer_type": cancer_type,
+            "page_size": page_size,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "DepMap_get_cell_lines",
-            "arguments": {
-                "tissue": tissue,
-                "cancer_type": cancer_type,
-                "page_size": page_size,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

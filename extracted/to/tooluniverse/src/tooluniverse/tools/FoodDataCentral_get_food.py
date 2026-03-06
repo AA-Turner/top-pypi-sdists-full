@@ -35,8 +35,13 @@ def FoodDataCentral_get_food(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"fdc_id": fdc_id}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "FoodDataCentral_get_food", "arguments": {"fdc_id": fdc_id}},
+        {
+            "name": "FoodDataCentral_get_food",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

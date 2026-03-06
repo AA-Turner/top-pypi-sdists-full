@@ -41,14 +41,20 @@ def NoveltySignificanceReviewer(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "paper_title": paper_title,
+            "abstract": abstract,
+            "manuscript_text": manuscript_text,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "NoveltySignificanceReviewer",
-            "arguments": {
-                "paper_title": paper_title,
-                "abstract": abstract,
-                "manuscript_text": manuscript_text,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -7,7 +7,7 @@ use super::helpers::{StructureJson, check_site_idx, check_site_pair, parse_struc
 
 /// Get the neighbor list for a structure.
 /// Returns (center_indices, neighbor_indices, images, distances) as separate lists.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.neighbors")]
 #[pyfunction]
 fn get_neighbor_list(
     structure: StructureJson,
@@ -40,7 +40,7 @@ fn get_neighbor_list(
 }
 
 /// Get the distance between two sites.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.neighbors")]
 #[pyfunction]
 fn get_distance(structure: StructureJson, idx_a: usize, idx_b: usize) -> PyResult<f64> {
     let struc = parse_struct(&structure)?;
@@ -49,7 +49,7 @@ fn get_distance(structure: StructureJson, idx_a: usize, idx_b: usize) -> PyResul
 }
 
 /// Get the distance matrix.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.neighbors")]
 #[pyfunction]
 fn distance_matrix(structure: StructureJson) -> PyResult<Vec<Vec<f64>>> {
     let struc = parse_struct(&structure)?;
@@ -57,7 +57,7 @@ fn distance_matrix(structure: StructureJson) -> PyResult<Vec<Vec<f64>>> {
 }
 
 /// Get the distance and periodic image between two sites.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.neighbors")]
 #[pyfunction]
 fn get_distance_and_image(
     structure: StructureJson,
@@ -70,7 +70,7 @@ fn get_distance_and_image(
 }
 
 /// Get the distance from a site to a point.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.neighbors")]
 #[pyfunction]
 fn distance_from_point(structure: StructureJson, idx: usize, point: [f64; 3]) -> PyResult<f64> {
     if !point.iter().all(|coord| coord.is_finite()) {
@@ -87,7 +87,7 @@ fn distance_from_point(structure: StructureJson, idx: usize, point: [f64; 3]) ->
 }
 
 /// Check if two sites are periodic images of each other.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.neighbors")]
 #[pyfunction]
 fn is_periodic_image(
     structure: StructureJson,
@@ -105,15 +105,13 @@ fn is_periodic_image(
     Ok(struc.is_periodic_image(idx_a, idx_b, tolerance))
 }
 
-/// Register the neighbors submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "neighbors")?;
-    submod.add_function(wrap_pyfunction!(get_neighbor_list, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_distance, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(distance_matrix, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(get_distance_and_image, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(distance_from_point, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(is_periodic_image, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register neighbors functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(get_neighbor_list, module)?)?;
+    module.add_function(wrap_pyfunction!(get_distance, module)?)?;
+    module.add_function(wrap_pyfunction!(distance_matrix, module)?)?;
+    module.add_function(wrap_pyfunction!(get_distance_and_image, module)?)?;
+    module.add_function(wrap_pyfunction!(distance_from_point, module)?)?;
+    module.add_function(wrap_pyfunction!(is_periodic_image, module)?)?;
     Ok(())
 }

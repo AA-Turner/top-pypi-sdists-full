@@ -1,3 +1,4 @@
+from mcstatus._utils import deprecation_warn
 from mcstatus.responses import (
     BaseStatusPlayers,
     BaseStatusResponse,
@@ -10,9 +11,7 @@ from mcstatus.responses import (
     JavaStatusResponse,
     JavaStatusVersion,
 )
-from mcstatus.utils import deprecation_warn
 
-# __all__ is frozen on the moment of deprecation
 __all__ = [
     "BaseStatusPlayers",
     "BaseStatusResponse",
@@ -25,7 +24,6 @@ __all__ = [
     "JavaStatusResponse",
     "JavaStatusVersion",
 ]
-
 
 deprecation_warn(
     obj_name="mcstatus.status_response",

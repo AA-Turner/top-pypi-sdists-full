@@ -5,10 +5,11 @@ import os.path as op
 import re
 import subprocess
 import sys
+from collections.abc import Generator
 from io import StringIO
 from pathlib import Path
 from shutil import copyfile
-from typing import Any, Generator, Optional, Tuple, Union
+from typing import Any, Optional, Union
 from unittest import mock
 
 import pytest
@@ -39,7 +40,7 @@ class MainWrapper:
         *args: Any,
         count: bool = True,
         std: bool = False,
-    ) -> Union[int, Tuple[int, str, str]]:
+    ) -> Union[int, tuple[int, str, str]]:
         args = tuple(str(arg) for arg in args)
         if count:
             args = ("--count", *args)
@@ -65,7 +66,7 @@ cs = MainWrapper()
 
 
 def run_codespell(
-    args: Tuple[Any, ...] = (),
+    args: tuple[Any, ...] = (),
     cwd: Optional[Path] = None,
 ) -> int:
     """Run codespell."""
@@ -166,6 +167,31 @@ def test_basic(
     # empty directory
     (tmp_path / "empty").mkdir()
     assert cs.main(tmp_path) == 0
+
+
+def test_write_changes_lists_changes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test that -w flag shows list of changes made to file."""
+
+    fname = tmp_path / "misspelled.txt"
+    fname.write_text("This is abandonned\nAnd this is occured\nAlso teh typo\n")
+
+    result = cs.main("-w", fname, std=True)
+    assert isinstance(result, tuple)
+    code, _, stderr = result
+    assert code == 0
+
+    assert "FIXED:" in stderr
+
+    # Check that changes are listed with format: filename:line: wrong ==> right
+    assert "misspelled.txt:1: abandonned ==> abandoned" in stderr
+    assert "misspelled.txt:2: occured ==> occurred" in stderr
+    assert "misspelled.txt:3: teh ==> the" in stderr
+
+    corrected = fname.read_text()
+    assert corrected == "This is abandoned\nAnd this is occurred\nAlso the typo\n"
 
 
 def test_default_word_parsing(
@@ -951,19 +977,19 @@ def test_ignore_multiline_regex_option(
     assert code == EX_USAGE
     assert "usage:" in stdout
 
+    text = """
+    Please see http://example.com/abandonned for info
+    # codespell:ignore-begin
+    '''
+    abandonned
+    abandonned
+    '''
+    # codespell:ignore-end
+    abandonned
+    """
+
     fname = tmp_path / "flag.txt"
-    fname.write_text(
-        """
-        Please see http://example.com/abandonned for info
-        # codespell:ignore-begin
-        '''
-        abandonned
-        abandonned
-        '''
-        # codespell:ignore-end
-        abandonned
-        """
-    )
+    fname.write_text(text)
     assert cs.main(fname) == 4
     assert (
         cs.main(
@@ -973,6 +999,44 @@ def test_ignore_multiline_regex_option(
         )
         == 2
     )
+
+    with FakeStdin(text):
+        assert (
+            cs.main(
+                "-",
+                "--ignore-multiline-regex",
+                "codespell:ignore-begin.*codespell:ignore-end",
+            )
+            == 2
+        )
+
+    fname.write_text("This\nThsi")
+    cs.main(
+        fname,
+        "-w",
+        "--ignore-multiline-regex",
+        "codespell:ignore-begin.*codespell:ignore-end",
+    )
+    assert fname.read_text() == "This\nThis"
+
+    fname.write_text(text)
+    cs.main(
+        fname,
+        "-w",
+        "--ignore-multiline-regex",
+        "codespell:ignore-begin.*codespell:ignore-end",
+    )
+    fixed_text = """
+    Please see http://example.com/abandoned for info
+    # codespell:ignore-begin
+    '''
+    abandonned
+    abandonned
+    '''
+    # codespell:ignore-end
+    abandoned
+    """
+    assert fname.read_text() == fixed_text
 
 
 def test_uri_regex_option(
@@ -1373,7 +1437,7 @@ def FakeStdin(text: str) -> Generator[None, None, None]:
 
 def run_codespell_stdin(
     text: str,
-    args: Tuple[Any, ...],
+    args: tuple[Any, ...],
     cwd: Optional[Path] = None,
 ) -> int:
     """Run codespell in stdin mode and return number of lines in output."""
@@ -1390,14 +1454,14 @@ def run_codespell_stdin(
     return output.count("\n")
 
 
-def test_stdin(tmp_path: Path) -> None:
+def test_stdin(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Test running the codespell executable."""
     input_file_lines = 4
     text = ""
     for _ in range(input_file_lines):
         text += "abandonned\n"
     for single_line_per_error in (True, False):
-        args: Tuple[str, ...] = ()
+        args: tuple[str, ...] = ()
         if single_line_per_error:
             args = ("--stdin-single-line",)
         # we expect 'input_file_lines' number of lines with
@@ -1405,3 +1469,58 @@ def test_stdin(tmp_path: Path) -> None:
         assert run_codespell_stdin(
             text, args=args, cwd=tmp_path
         ) == input_file_lines * (2 - int(single_line_per_error))
+
+    with FakeStdin("Thsi is a line"):
+        result = cs.main("-", "-w", std=True)
+        assert isinstance(result, tuple)
+        code, stdout, _ = result
+        assert stdout == "---\nThis is a line"
+        assert code == 0
+
+    with FakeStdin("Thsi is a line"):
+        result = cs.main("-", "--stdin-single-line", std=True)
+        assert isinstance(result, tuple)
+        code, stdout, _ = result
+        assert stdout == "1: Thsi ==> This\n"
+        assert code == 1
+
+
+def test_args_from_file(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import textwrap
+
+    print()
+    fname1 = tmp_path / "tmp1"
+    fname2 = tmp_path / "tmp2"
+    fname3 = tmp_path / "tmp3"
+    fname_list = tmp_path / "tmp_list"
+    fname_list.write_text(f"{fname1} {fname2}\n{fname3}")
+    fname1.write_text("abandonned\ncode")
+    fname2.write_text("exmaple\n")
+    fname3.write_text("abilty\n")
+    print(f"{fname_list=}")
+    args = ["codespell", f"@{fname_list}"]
+    print(f"Running: {args=}")
+    cp = subprocess.run(  # noqa: S603
+        args,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    code = cp.returncode
+    stdout = cp.stdout
+    stderr = cp.stderr
+    print(f"{code=}")
+    print(f"stdout:\n{textwrap.indent(stdout, '    ')}")
+    print(f"stderr:\n{textwrap.indent(stderr, '    ')}")
+    assert "tmp1:1: abandonned ==> abandoned\n" in stdout, f"{stdout=}"
+    assert "tmp2:1: exmaple ==> example\n" in stdout, f"{stdout=}"
+    assert "tmp3:1: abilty ==> ability\n" in stdout, f"{stdout=}"
+    assert code, f"{code=}"
+
+    # Run same test via cs_.main() so code coverage checks work.
+    print("Testing with direct call to cs_.main()")
+    r = cs_.main(*args[1:])
+    print(f"{r=}")

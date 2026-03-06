@@ -35,10 +35,12 @@ def HPA_get_protein_interactions_by_gene(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"gene_name": gene_name}.items() if v is not None}
     return get_shared_client().run_one_function(
         {
             "name": "HPA_get_protein_interactions_by_gene",
-            "arguments": {"gene_name": gene_name},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

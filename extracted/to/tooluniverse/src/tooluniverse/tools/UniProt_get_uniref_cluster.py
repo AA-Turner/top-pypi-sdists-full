@@ -35,8 +35,13 @@ def UniProt_get_uniref_cluster(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"cluster_id": cluster_id}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "UniProt_get_uniref_cluster", "arguments": {"cluster_id": cluster_id}},
+        {
+            "name": "UniProt_get_uniref_cluster",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

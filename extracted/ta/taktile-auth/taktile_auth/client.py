@@ -10,6 +10,7 @@ import requests
 from jwt.algorithms import RSAAlgorithm
 from pydantic import BaseModel, ValidationError
 
+from taktile_auth._logging import get_logger
 from taktile_auth._metrics import emit_metric
 from taktile_auth.exceptions import InvalidAuthException, TaktileAuthException
 from taktile_auth.schemas.session import SessionState
@@ -17,8 +18,11 @@ from taktile_auth.schemas.token import TaktileIdToken
 from taktile_auth.settings import settings
 from taktile_auth.utils.cache import Cache
 
+logger = get_logger()
+
 ALGORITHM = "RS256"
 PUBLIC_KEY_CACHE_KEY = "_jwks"
+PUBLIC_KEY_REFRESH_MARKER = "_refresh:_jwks"
 REFRESH_MARKER_PREFIX = "_refresh:"
 
 
@@ -102,6 +106,25 @@ class AuthClient:
                 ):
                     return self._extract_key(jwks, kid)
 
+                # Past speedup window — use a marker to avoid stampeding
+                try:
+                    won_marker = self._cache.put_marker(
+                        PUBLIC_KEY_REFRESH_MARKER,
+                        ttl_seconds=settings.AUTH_SERVER_TIMEOUT_SECONDS,
+                    )
+                except Exception:
+                    won_marker = True
+                if not won_marker:
+                    logger.info(
+                        "Public key refresh already in progress, "
+                        "using cached key"
+                    )
+                    return self._extract_key(jwks, kid)
+                logger.info(
+                    "Public key cache stale, refreshing from %s",
+                    self.public_key_url,
+                )
+
         try:
             response = requests.get(
                 self.public_key_url,
@@ -111,6 +134,10 @@ class AuthClient:
             response.raise_for_status()
         except requests.exceptions.RequestException:
             if jwks is not None:
+                logger.warning(
+                    "Failed to fetch public key from %s, using cached key",
+                    self.public_key_url,
+                )
                 return self._extract_key(jwks, kid)
             raise TaktileAuthException("No public key found") from None
         else:
@@ -199,7 +226,12 @@ class AuthClient:
                     # Fall through if the cache doesn't support put_marker
                     won_marker = True
                 if not won_marker:
+                    logger.info(
+                        "JWT refresh already in progress, using cached token"
+                    )
                     should_refresh = False
+                else:
+                    logger.info("JWT cache stale, refreshing from taktile-api")
 
             if not session_state.jwt or should_refresh:
                 tapi_response = self._refresh_jwt(session_state=session_state)

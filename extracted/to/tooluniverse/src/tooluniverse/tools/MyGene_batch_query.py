@@ -41,10 +41,16 @@ def MyGene_batch_query(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"gene_ids": gene_ids, "species": species, "fields": fields}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "MyGene_batch_query",
-            "arguments": {"gene_ids": gene_ids, "species": species, "fields": fields},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

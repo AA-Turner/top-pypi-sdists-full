@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from plato._generated.errors import raise_for_status
-from plato._generated.models import PlatoConfig
+from plato._generated.models import AppApiV2SchemasArtifactSimConfigDataset
 
 
 def _build_request_args(
@@ -36,17 +36,17 @@ def sync(
     session_id: str,
     authorization: str | None = None,
     x_api_key: str | None = None,
-) -> dict[str, PlatoConfig | None]:
-    """Get parsed plato-config for all jobs in a session.
+) -> dict[str, AppApiV2SchemasArtifactSimConfigDataset | None]:
+    """Get plato-config for all jobs in a session.
 
-    Returns the plato_config YAML content parsed into typed PlatoConfig objects
-    with discriminated union types for services and listeners.
+    Returns the flat plato_config (compute, listeners, metadata, services)
+    for each job.
 
     Args:
         session_id: The session ID.
 
     Returns:
-        Dict mapping job_id to PlatoConfig (or None on error).
+        Dict mapping job_id to SimConfigDataset (or None on error).
 
     Raises:
         404: If session not found."""
@@ -67,17 +67,17 @@ async def asyncio(
     session_id: str,
     authorization: str | None = None,
     x_api_key: str | None = None,
-) -> dict[str, PlatoConfig | None]:
-    """Get parsed plato-config for all jobs in a session.
+) -> dict[str, AppApiV2SchemasArtifactSimConfigDataset | None]:
+    """Get plato-config for all jobs in a session.
 
-    Returns the plato_config YAML content parsed into typed PlatoConfig objects
-    with discriminated union types for services and listeners.
+    Returns the flat plato_config (compute, listeners, metadata, services)
+    for each job.
 
     Args:
         session_id: The session ID.
 
     Returns:
-        Dict mapping job_id to PlatoConfig (or None on error).
+        Dict mapping job_id to SimConfigDataset (or None on error).
 
     Raises:
         404: If session not found."""

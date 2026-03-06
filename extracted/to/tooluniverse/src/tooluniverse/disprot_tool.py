@@ -15,7 +15,7 @@ from typing import Dict, Any
 from .base_tool import BaseTool
 from .tool_registry import register_tool
 
-DISPROT_BASE_URL = "https://disprot.org/api"
+DISPROT_BASE_URL = "https://www.disprot.org/api"
 
 
 @register_tool("DisProtTool")
@@ -43,7 +43,7 @@ class DisProtTool(BaseTool):
         except requests.exceptions.Timeout:
             return {"error": f"DisProt API timed out after {self.timeout}s."}
         except requests.exceptions.ConnectionError:
-            return {"error": "Failed to connect to DisProt API (disprot.org)."}
+            return {"error": "Failed to connect to DisProt API (www.disprot.org)."}
         except requests.exceptions.HTTPError as e:
             status = e.response.status_code if e.response is not None else "unknown"
             if status == 404:

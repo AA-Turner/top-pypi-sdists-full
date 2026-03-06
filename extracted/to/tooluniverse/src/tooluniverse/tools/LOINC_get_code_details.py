@@ -35,8 +35,13 @@ def LOINC_get_code_details(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"loinc_code": loinc_code}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "LOINC_get_code_details", "arguments": {"loinc_code": loinc_code}},
+        {
+            "name": "LOINC_get_code_details",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

@@ -28,6 +28,7 @@ import copy
 import fnmatch
 import importlib
 import logging
+import re
 import shutil
 import subprocess
 
@@ -270,7 +271,7 @@ def _generate_scenarios(
     return scenarios
 
 
-def _run_scenarios(
+def _run_scenarios(  # noqa: C901
     scenarios: Scenarios,
     command_args: CommandArgs,
     default_config: config.Config | None,
@@ -285,6 +286,14 @@ def _run_scenarios(
     Raises:
         ScenarioFailureError: when a scenario fails prematurely.
     """
+    num_workers = command_args.get("workers", 1)
+    if num_workers > 1:
+        from molecule.worker import run_scenarios_parallel, validate_worker_args  # noqa: PLC0415
+
+        validate_worker_args(command_args)
+        run_scenarios_parallel(scenarios, command_args, default_config, num_workers)
+        return
+
     # Run initial create
     create_results = execute_subcommand_default(
         default_config,
@@ -408,10 +417,18 @@ def execute_subcommand(
         current_config: An instance of a Molecule config.
         subcommand_and_args: A string representing the subcommand and arguments.
 
+    Raises:
+        MoleculeError: If an invalid subcommand name is provided.
+
     Returns:
         The result of the subcommand.
     """
     (subcommand, *args) = subcommand_and_args.split(" ")
+
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+", subcommand):
+        msg = f"Invalid subcommand name: {subcommand}"
+        raise MoleculeError(msg)
+
     command_module = importlib.import_module(f"molecule.command.{subcommand}")
     command = getattr(command_module, text.camelize(subcommand))
 

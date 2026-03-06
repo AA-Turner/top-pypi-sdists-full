@@ -3,7 +3,8 @@ import typing as t
 import pytest
 
 from mcstatus.motd import Motd
-from mcstatus.responses import QueryPlayers, QueryResponse, QuerySoftware, RawQueryResponse
+from mcstatus.responses import QueryPlayers, QueryResponse, QuerySoftware
+from mcstatus.responses._raw import RawQueryResponse
 from tests.responses import BaseResponseTest
 
 
@@ -75,6 +76,13 @@ class TestQueryResponse(BaseResponseTest):
             },
         }
 
+    def test_deprecated_map_alias(self, build: QueryResponse):
+        with pytest.warns(
+            DeprecationWarning,
+            match=r"^QueryResponse\.map is deprecated and scheduled for removal in 13\.0\.0, use map_name instead\.$",
+        ):
+            assert build.map == build.map_name
+
 
 @BaseResponseTest.construct
 class TestQueryPlayers(BaseResponseTest):
@@ -101,6 +109,13 @@ class TestQueryPlayers(BaseResponseTest):
             },
             players_list=["Dinnerbone", "Djinnibone", "Steve"],
         )
+
+    def test_deprecated_names_alias(self, build: QueryPlayers):
+        with pytest.warns(
+            DeprecationWarning,
+            match=r"^QueryPlayers\.names is deprecated and scheduled for removal in 13\.0\.0, use 'list' attribute instead\.$",
+        ):
+            assert build.names == build.list
 
 
 class TestQuerySoftware:

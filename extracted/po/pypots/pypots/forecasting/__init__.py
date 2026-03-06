@@ -12,12 +12,14 @@ from .film import FiLM
 from .fits import FITS
 from .gpt4ts import GPT4TS
 from .micn import MICN
+from .mixlinear import MixLinear
 from .moderntcn import ModernTCN
 from .moment import MOMENT
 from .segrnn import SegRNN
 from .tefn import TEFN
 from .timellm import TimeLLM
 from .timemixer import TimeMixer
+from .timemixerpp import TimeMixerPP
 from .timesnet import TimesNet
 from .transformer import Transformer
 
@@ -28,6 +30,7 @@ __all__ = [
     "FITS",
     "TEFN",
     "TimeMixer",
+    "TimeMixerPP",
     "TimeLLM",
     "GPT4TS",
     "MOMENT",
@@ -37,4 +40,5 @@ __all__ = [
     "MICN",
     "DLinear",
     "FiLM",
+    "MixLinear",
 ]

@@ -274,6 +274,8 @@ default_tool_files = {
     # DisGeNET - Gene-Disease Associations
     # DGIdb - Drug Gene Interactions
     "dgidb": os.path.join(current_dir, "data", "dgidb_tools.json"),
+    # LOVD - Leiden Open Variation Database
+    "lovd": os.path.join(current_dir, "data", "lovd_tools.json"),
     # STITCH - Chemical-Protein Interactions
     "stitch": os.path.join(current_dir, "data", "stitch_tools.json"),
     # CIViC - Clinical Interpretation of Variants in Cancer
@@ -306,6 +308,8 @@ default_tool_files = {
     "omim": os.path.join(current_dir, "data", "omim_tools.json"),
     # Orphanet - Rare Disease Encyclopedia
     "orphanet": os.path.join(current_dir, "data", "orphanet_tools.json"),
+    # GenCC - Gene Curation Coalition (Gene-Disease Validity)
+    "gencc": os.path.join(current_dir, "data", "gencc_tools.json"),
     # DisGeNET - Gene-Disease Associations
     "disgenet": os.path.join(current_dir, "data", "disgenet_tools.json"),
     # BindingDB - Protein-Ligand Binding Affinities
@@ -414,6 +418,8 @@ default_tool_files = {
     "cath": os.path.join(current_dir, "data", "cath_tools.json"),
     # MeSH - Medical Subject Headings (NLM controlled vocabulary for PubMed indexing)
     "mesh": os.path.join(current_dir, "data", "mesh_tools.json"),
+    # JLCSearch and DigiKey have moved to tooluniverse-circuit sub-package.
+    # Install with: pip install tooluniverse[circuit]
     # HPO - Human Phenotype Ontology (phenotype terms, hierarchy, clinical genetics)
     "hpo": os.path.join(current_dir, "data", "hpo_tools.json"),
     # Reactome Analysis Service - Pathway enrichment/overrepresentation analysis
@@ -711,6 +717,10 @@ default_tool_files = {
     "mibig": os.path.join(current_dir, "data", "mibig_tools.json"),
     # ScanProsite - Protein motif scanning against PROSITE patterns (ExPASy/SIB)
     "scanprosite": os.path.join(current_dir, "data", "scanprosite_tools.json"),
+    # PROSITE - Protein motif/domain database entry lookup and search (ExPASy/SIB)
+    "prosite": os.path.join(current_dir, "data", "prosite_tools.json"),
+    # Mondo Disease Ontology - unified disease search, details, and phenotypes
+    "mondo": os.path.join(current_dir, "data", "mondo_tools.json"),
     # PDBe Graph API - Bound molecules, UniProt mappings, compound details, FunPDBe
     "pdbe_graph": os.path.join(current_dir, "data", "pdbe_graph_tools.json"),
     # NCBI Gene - E-utilities gene search and summary (Entrez Gene)
@@ -953,6 +963,28 @@ default_tool_files = {
     "swissadme": os.path.join(current_dir, "data", "swissadme_tools.json"),
     # MetaboAnalyst - Metabolomics pathway enrichment, name mapping, biomarker sets (KEGG + local stats)
     "metaboanalyst": os.path.join(current_dir, "data", "metaboanalyst_tools.json"),
+    # VDJdb - TCR/BCR clonotype database with antigen specificity (226K+ records)
+    "vdjdb": os.path.join(current_dir, "data", "vdjdb_tools.json"),
+    # PDBePISA - Protein Interfaces, Surfaces and Assemblies analysis
+    "pdbepisa": os.path.join(current_dir, "data", "pdbepisa_tools.json"),
+    # DynaMut2 - Protein stability prediction from single-point mutations (ddG)
+    "dynamut2": os.path.join(current_dir, "data", "dynamut2_tools.json"),
+    # SIDER - Drug side effects from drug labels (MedDRA-coded, with frequencies)
+    "sider": os.path.join(current_dir, "data", "sider_tools.json"),
+    # OpenFDA Drug Approvals - FDA drug approval history, products, and submissions
+    "openfda_approvals": os.path.join(
+        current_dir, "data", "openfda_approval_tools.json"
+    ),
+    # BridgeDb - Biological identifier mapping across 45+ databases (HMDB, ChEBI, KEGG, PubChem, etc.)
+    "bridgedb": os.path.join(current_dir, "data", "bridgedb_tools.json"),
+    # GTDB - Genome Taxonomy Database for standardized prokaryotic taxonomy
+    "gtdb": os.path.join(current_dir, "data", "gtdb_tools.json"),
+    # Drug property filters: Lipinski Ro5, QED, PAINS, Veber, Egan, Ghose (RDKit)
+    "drug_properties": os.path.join(current_dir, "data", "drug_properties_tools.json"),
+    # Non-Compartmental Analysis (NCA) for pharmacokinetics: AUC, t½, CL, Vd, F
+    "nca": os.path.join(current_dir, "data", "nca_tools.json"),
+    # RDKit cheminformatics: pharmacophore features and matched molecular pairs (MMP)
+    "rdkit_cheminfo": os.path.join(current_dir, "data", "rdkit_cheminfo_tools.json"),
 }
 
 # Auto-load any user-provided tools from ~/.tooluniverse/user_tools/

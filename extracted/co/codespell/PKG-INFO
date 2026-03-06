@@ -1,13 +1,12 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: codespell
-Version: 2.4.1
+Version: 2.4.2
 Summary: Fix common misspellings in text files
 Author-email: Lucas De Marchi <lucas.de.marchi@gmail.com>
-License: GPL-2.0-only
+License-Expression: GPL-2.0-only
 Project-URL: homepage, https://github.com/codespell-project/codespell
 Project-URL: repository, https://github.com/codespell-project/codespell
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development
 Classifier: Operating System :: Microsoft :: Windows
@@ -17,13 +16,12 @@ Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Provides-Extra: dev
@@ -47,6 +45,7 @@ Requires-Dist: mypy; extra == "types"
 Requires-Dist: pytest; extra == "types"
 Requires-Dist: pytest-cov; extra == "types"
 Requires-Dist: pytest-dependency; extra == "types"
+Dynamic: license-file
 
 codespell
 =========
@@ -70,7 +69,7 @@ Useful links
 Requirements
 ------------
 
-Python 3.8 or above.
+Python 3.9 or above.
 
 Installation
 ------------
@@ -169,7 +168,7 @@ You can select the optional dictionaries with the ``--builtin`` option.
 Ignoring words
 --------------
 
-When ignoring false positives, note that spelling errors are *case-insensitive* but words to ignore are *case-sensitive*. For example, the dictionary entry ``wrod`` will also match the typo ``Wrod``, but to ignore it you must pass ``Wrod``.
+When ignoring false positives, note that spelling errors are *case-insensitive* but words to ignore are *case-sensitive*. For example, the dictionary entry ``wrod`` will also match the typo ``Wrod``, but to ignore it you must pass ``wrod`` (to match the case of the dictionary entry).
 
 The words to ignore can be passed in two ways:
 
@@ -279,6 +278,13 @@ instead of these invalid entries:
 
 .. _tomli: https://pypi.org/project/tomli/
 
+Reading arguments from file
+---------------------------
+
+Additional arguments can be read from a file with ``@PATH``. Arguments are
+extracted using ``shlex.split()``.
+
+
 pre-commit hook
 ---------------
 
@@ -287,7 +293,7 @@ codespell also works with `pre-commit <https://pre-commit.com/>`_, using
 .. code-block:: yaml
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.4
+    rev: v2.4.1
     hooks:
     - id: codespell
 
@@ -296,7 +302,7 @@ If one configures codespell using the `pyproject.toml` file instead use:
 .. code-block:: yaml
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.4
+    rev: v2.4.1
     hooks:
     - id: codespell
       additional_dependencies:

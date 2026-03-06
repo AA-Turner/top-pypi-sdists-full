@@ -214,20 +214,20 @@ class SMCP(FastMCP):
         during tool loading. Useful for excluding entire categories of tools
         (e.g., all ToolFinder types or all OpenTarget tools).
 
-    space : str or list of str, optional
-        Space configuration URI(s) to load. Can be a single URI string or a list
-        of URIs for loading multiple Space configurations. Supported formats:
+    profile : str or list of str, optional
+        Profile configuration URI(s) to load. Can be a single URI string or a list
+        of URIs for loading multiple Profile configurations. Supported formats:
         - Local file: "./config.yaml" or "/path/to/config.yaml"
         - HuggingFace: "hf:username/repo" or "hf:username/repo/file.yaml"
         - HTTP URL: "https://example.com/config.yaml"
 
-        When provided, Space configurations are loaded after tool initialization,
+        When provided, Profile configurations are loaded after tool initialization,
         applying LLM settings, hooks, and tool selections from the configuration files.
-        Multiple spaces can be loaded sequentially, with later configurations
+        Multiple profiles can be loaded sequentially, with later configurations
         potentially overriding earlier ones.
 
-        Example: space="./my-workspace.yaml"
-        Example: space=["hf:community/bio-tools", "./custom-tools.yaml"]
+        Example: profile="./my-workspace.yaml"
+        Example: profile=["hf:community/bio-tools", "./custom-tools.yaml"]
 
     auto_expose_tools : bool, default True
         Whether to automatically expose ToolUniverse tools as MCP tools.
@@ -303,7 +303,9 @@ class SMCP(FastMCP):
         tool_config_files: Optional[Dict[str, str]] = None,
         include_tool_types: Optional[List[str]] = None,
         exclude_tool_types: Optional[List[str]] = None,
-        space: Optional[Union[str, List[str]]] = None,
+        profile: Optional[Union[str, List[str]]] = None,
+        workspace: Optional[str] = None,
+        use_global: bool = False,
         auto_expose_tools: bool = True,
         search_enabled: bool = True,
         max_workers: int = 5,
@@ -339,6 +341,8 @@ class SMCP(FastMCP):
                 hook_config=hook_config,
                 hook_type=hook_type,
                 enable_name_shortening=True,
+                workspace=workspace,
+                use_global=use_global,
             )
 
         # Configuration
@@ -350,7 +354,7 @@ class SMCP(FastMCP):
         self.tool_config_files = tool_config_files or {}
         self.include_tool_types = include_tool_types or []
         self.exclude_tool_types = exclude_tool_types or []
-        self.space = space
+        self.profile = profile
         self.compact_mode = compact_mode
         # In compact mode, don't auto-expose all tools
         self.auto_expose_tools = False if compact_mode else auto_expose_tools
@@ -360,9 +364,9 @@ class SMCP(FastMCP):
         self.hook_config = hook_config
         self.hook_type = hook_type
 
-        # Space configuration storage
-        self.space_llm_config = None
-        self.space_metadata = None
+        # Profile configuration storage
+        self.profile_llm_config = None
+        self.profile_metadata = None
 
         # Thread pool for concurrent tool execution
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -376,35 +380,35 @@ class SMCP(FastMCP):
         self.task_manager = TaskManager(tool_universe=self.tooluniverse)
         self._task_manager_started = False
 
-        # Load Space configurations first if provided
-        if space:
-            self._load_space_configs(space)
+        # Load Profile configurations first if provided
+        if profile:
+            self._load_profile_configs(profile)
 
-        # Initialize SMCP-specific features (after Space is loaded)
+        # Initialize SMCP-specific features (after Profile is loaded)
         self._setup_smcp_tools()
 
         # Register custom MCP methods
         self._register_custom_mcp_methods()
 
-    def _load_space_configs(self, space: Union[str, List[str]]):
+    def _load_profile_configs(self, profile: Union[str, List[str]]):
         """
-        Load Space configurations.
+        Load Profile configurations.
 
-        This method loads Space configuration(s) and retrieves the LLM config
+        This method loads Profile configuration(s) and retrieves the LLM config
         and metadata from ToolUniverse. It completely reuses ToolUniverse's
-        load_space functionality without reimplementing any logic.
+        load_profile functionality without reimplementing any logic.
 
         Args:
-            space: Space URI or list of URIs (e.g., "./config.yaml",
+            profile: Profile URI or list of URIs (e.g., "./config.yaml",
                       "hf:user/repo", or ["config1.yaml", "config2.yaml"])
         """
-        space_list = [space] if isinstance(space, str) else space
+        profile_list = [profile] if isinstance(profile, str) else profile
 
-        for uri in space_list:
-            self.logger.info("📦 Loading Space: %s", uri)
+        for uri in profile_list:
+            self.logger.info("📦 Loading Profile: %s", uri)
 
-            # Pass filtering parameters from SMCP to load_space
-            config = self.tooluniverse.load_space(
+            # Pass filtering parameters from SMCP to load_profile
+            config = self.tooluniverse.load_profile(
                 uri,
                 exclude_tools=self.exclude_tools,
                 exclude_categories=self.exclude_categories,
@@ -415,19 +419,19 @@ class SMCP(FastMCP):
             )
 
             # Get configurations from ToolUniverse (complete reuse)
-            self.space_metadata = self.tooluniverse.get_space_metadata()
-            self.space_llm_config = self.tooluniverse.get_space_llm_config()
+            self.profile_metadata = self.tooluniverse.get_profile_metadata()
+            self.profile_llm_config = self.tooluniverse.get_profile_llm_config()
 
-            self.logger.info("✅ Space loaded: %s", config.get("name", "Unknown"))
+            self.logger.info("✅ Profile loaded: %s", config.get("name", "Unknown"))
 
     def get_llm_config(self) -> Optional[Dict[str, Any]]:
         """
-        Get the current Space LLM configuration.
+        Get the current Profile LLM configuration.
 
         Returns:
             LLM configuration dictionary or None if not set
         """
-        return self.space_llm_config
+        return self.profile_llm_config
 
     def _register_custom_mcp_methods(self):
         """
@@ -509,7 +513,7 @@ class SMCP(FastMCP):
             return
         for category in ("tool_finder", "compact_mode"):
             try:
-                self.tooluniverse.load_tools(tool_type=[category])
+                self._load_tools_with_filters(tool_type=[category])
             except Exception as e:
                 self.logger.debug(f"Could not load category {category}: {e}")
 
@@ -872,9 +876,9 @@ class SMCP(FastMCP):
         preloaded_count = (
             len(preloaded_tools) if isinstance(preloaded_tools, list) else 0
         )
-        space_loaded = (
-            self.space
-            and hasattr(self.tooluniverse, "_current_space_config")
+        profile_loaded = (
+            self.profile
+            and hasattr(self.tooluniverse, "_current_profile_config")
             and preloaded_count > 0
         )
 
@@ -884,15 +888,15 @@ class SMCP(FastMCP):
             )
             self._ensure_compact_mode_categories()
 
-        if space_loaded:
+        if profile_loaded:
             self.logger.info(
-                f"Space configuration loaded {preloaded_count} tool(s), skipping additional loading"
+                f"Profile configuration loaded {preloaded_count} tool(s), skipping additional loading"
             )
             self._ensure_compact_mode_categories()
         elif preloaded_count == 0 and self.tool_categories:
             self._load_by_categories()
-        elif (self.auto_expose_tools or self.compact_mode) and not space_loaded:
-            # Load all tools by default (unless Space already handled it)
+        elif (self.auto_expose_tools or self.compact_mode) and not profile_loaded:
+            # Load all tools by default (unless Profile already handled it)
             self._load_tools_with_filters()
             self._ensure_compact_mode_categories()
             if self.compact_mode:
@@ -1129,7 +1133,7 @@ class SMCP(FastMCP):
                     "Attempting to load tool_finder category for search functionality"
                 )
                 try:
-                    self.tooluniverse.load_tools(tool_type=["tool_finder"])
+                    self._load_tools_with_filters(tool_type=["tool_finder"])
                 except Exception as e:
                     self.logger.debug(f"Could not load tool_finder category: {e}")
 

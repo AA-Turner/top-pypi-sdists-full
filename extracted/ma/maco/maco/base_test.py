@@ -31,6 +31,7 @@ class BaseTest(unittest.TestCase):
     # if your extractors are in a folder 'extractors' next to a folder of tests
     path: str = None
     create_venv: bool = False
+    enable_venv_cache: bool = False
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -40,8 +41,10 @@ class BaseTest(unittest.TestCase):
             Exception: when name or path is not set.
         """
         if not cls.name or not cls.path:
-            raise Exception("name and path must be set")
-        cls.c = collector.Collector(cls.path, include=[cls.name], create_venv=cls.create_venv)
+            raise Exception("name and path must be set")  # noqa: TRY002
+        cls.c = collector.Collector(
+            cls.path, include=[cls.name], create_venv=cls.create_venv, enable_venv_cache=cls.enable_venv_cache
+        )
         return super().setUpClass()
 
     def test_default_metadata(self):
@@ -58,8 +61,7 @@ class BaseTest(unittest.TestCase):
         runs = self.c.match(stream)
         if not runs:
             raise NoHitException("no yara rule hit")
-        resp = self.c.extract(stream, self.name)
-        return resp
+        return self.c.extract(stream, self.name)
 
     @classmethod
     def _get_location(cls) -> str:

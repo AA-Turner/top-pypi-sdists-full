@@ -9,9 +9,9 @@ from ._shared_client import get_shared_client
 
 
 def search_clinical_trials(
-    query_term: str,
     condition: Optional[str] = None,
     intervention: Optional[str] = None,
+    query_term: Optional[str] = None,
     pageSize: Optional[int] = None,
     pageToken: Optional[str] = None,
     *,
@@ -47,16 +47,22 @@ def search_clinical_trials(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "condition": condition,
+            "intervention": intervention,
+            "query_term": query_term,
+            "pageSize": pageSize,
+            "pageToken": pageToken,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "search_clinical_trials",
-            "arguments": {
-                "condition": condition,
-                "intervention": intervention,
-                "query_term": query_term,
-                "pageSize": pageSize,
-                "pageToken": pageToken,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

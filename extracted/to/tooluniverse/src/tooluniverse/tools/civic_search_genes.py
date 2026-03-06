@@ -9,8 +9,10 @@ from ._shared_client import get_shared_client
 
 
 def civic_search_genes(
-    query: Optional[str] = None,
     limit: Optional[int] = 10,
+    name: Optional[str] = None,
+    query: Optional[str] = None,
+    gene_name: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -21,10 +23,14 @@ def civic_search_genes(
 
     Parameters
     ----------
-    query : str
-        Optional search query to filter genes by name or description. If not provided...
     limit : int
         Maximum number of genes to return (default: 10, recommended max: 100)
+    name : str
+        Gene symbol to search for (e.g., "EGFR", "BRAF", "BRCA1"). Alias: use 'query'...
+    query : str
+        Gene symbol to search for (e.g., "FLT3", "KRAS", "TP53"). Alias for 'name'.
+    gene_name : str
+        Gene symbol to search for. Alias for 'name'.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -38,8 +44,22 @@ def civic_search_genes(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "limit": limit,
+            "name": name,
+            "query": query,
+            "gene_name": gene_name,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
-        {"name": "civic_search_genes", "arguments": {"query": query, "limit": limit}},
+        {
+            "name": "civic_search_genes",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

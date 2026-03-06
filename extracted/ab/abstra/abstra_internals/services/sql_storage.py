@@ -1,3 +1,4 @@
+import errno
 import json
 import shutil
 import threading
@@ -20,6 +21,7 @@ T = TypeVar("T", bound=Serializable)
 
 MAX_RETRIES = 5
 BASE_DELAY = 0.05
+MAX_LOCK_RETRIES = 3
 
 
 class SqlStorage(Generic[T]):
@@ -40,8 +42,30 @@ class SqlStorage(Generic[T]):
     def _locked(self):
         """Acquire both thread lock (intra-process) and file lock (cross-process)."""
         with self._thread_lock:
-            with self._file_lock:
-                yield
+            last_error: Optional[OSError] = None
+            for _ in range(MAX_LOCK_RETRIES):
+                try:
+                    self._file_lock.acquire()
+                except OSError as e:
+                    if e.errno == errno.ESTALE:
+                        last_error = e
+                        AbstraLogger.capture_exception(e)
+                        self._file_lock = FileLock(
+                            str(self.directory_path / ".lock"), timeout=30
+                        )
+                        continue
+                    raise
+                try:
+                    yield
+                finally:
+                    try:
+                        self._file_lock.release()
+                    except OSError as release_error:
+                        AbstraLogger.capture_exception(release_error)
+                return
+            raise last_error or RuntimeError(
+                "Failed to acquire file lock after retries"
+            )
 
     @property
     def tables(self) -> FileSystemJsonTables:

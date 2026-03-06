@@ -35,8 +35,13 @@ def RxNorm_get_drug_names(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"drug_name": drug_name}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "RxNorm_get_drug_names", "arguments": {"drug_name": drug_name}},
+        {
+            "name": "RxNorm_get_drug_names",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

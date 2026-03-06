@@ -6,7 +6,7 @@
 use crate::element::Element;
 use crate::error::OnError;
 use crate::lattice::Lattice;
-use crate::pbc::{is_coord_subset_pbc, pbc_shortest_vectors, wrap_frac_coords};
+use crate::pbc::{is_coord_subset_pbc, pbc_shortest_vectors, wrap_frac_coords_pbc};
 use crate::species::Species;
 use crate::structure::Structure;
 use itertools::Itertools;
@@ -286,6 +286,19 @@ impl StructureMatcher {
         }
     }
 
+    fn compositions_equal(&self, struct1: &Structure, struct2: &Structure) -> bool {
+        match self.comparator_type {
+            ComparatorType::Element => {
+                struct1.composition().reduced_composition()
+                    == struct2.composition().reduced_composition()
+            }
+            ComparatorType::Species => {
+                struct1.species_composition().reduced_composition()
+                    == struct2.species_composition().reduced_composition()
+            }
+        }
+    }
+
     /// Get reduced structure (Niggli reduced, optionally primitive).
     ///
     /// Matches pymatgen's `_get_reduced_structure` behavior:
@@ -293,32 +306,93 @@ impl StructureMatcher {
     /// 2. If `primitive_cell` is true, reduce to primitive cell via symmetry analysis
     ///
     /// Properties from the original structure are preserved.
-    fn get_reduced_structure(&self, structure: &Structure) -> Structure {
-        let mut result = structure.clone();
+    fn has_oxidation_states(structure: &Structure) -> bool {
+        structure.site_occupancies.iter().any(|site_occ| {
+            site_occ
+                .species
+                .iter()
+                .any(|(species, _)| species.oxidation_state.is_some())
+        })
+    }
 
+    fn should_skip_primitive_reduction(&self, structure: &Structure) -> bool {
+        self.comparator_type == ComparatorType::Species && Self::has_oxidation_states(structure)
+    }
+
+    fn niggli_reduce_structure(structure: &Structure) -> Structure {
+        let mut reduced_structure = structure.clone();
         // Do Niggli reduction on the lattice
-        if let Ok(niggli) = result.lattice.get_niggli_reduced(1e-5) {
+        if let Ok(niggli_lattice) = reduced_structure.lattice.get_niggli_reduced(1e-5) {
             // Transform coordinates to new lattice
-            let old_cart = result.cart_coords();
-            result.lattice = niggli;
-            result.frac_coords = result.lattice.get_fractional_coords(&old_cart);
+            let original_cart_coords = reduced_structure.cart_coords();
+            let original_pbc = reduced_structure.lattice.pbc;
+            reduced_structure.lattice = niggli_lattice;
+            reduced_structure.lattice.pbc = original_pbc;
+            reduced_structure.frac_coords = reduced_structure
+                .lattice
+                .get_fractional_coords(&original_cart_coords);
             // Wrap to [0, 1)
-            for coord in &mut result.frac_coords {
-                *coord = wrap_frac_coords(coord);
+            for frac_coord in &mut reduced_structure.frac_coords {
+                *frac_coord = wrap_frac_coords_pbc(frac_coord, reduced_structure.lattice.pbc);
             }
         }
+        reduced_structure
+    }
+
+    fn try_get_reduced_structure(&self, structure: &Structure) -> crate::error::Result<Structure> {
+        let mut result = Self::niggli_reduce_structure(structure);
 
         // Reduce to primitive cell if requested (skip empty structures)
         if self.primitive_cell
             && result.num_sites() > 0
-            && let Ok(mut prim) = result.get_primitive(1e-4)
+            && !self.should_skip_primitive_reduction(&result)
         {
+            let original_pbc = result.lattice.pbc;
+            let mut prim = result.get_primitive(1e-4)?;
             // Preserve properties from original structure
             prim.properties = result.properties.clone();
+            prim.lattice.pbc = original_pbc;
             result = prim;
         }
 
-        result
+        Ok(result)
+    }
+
+    fn get_reduced_structure_with_on_error(
+        &self,
+        structure: &Structure,
+        operation_name: &str,
+    ) -> Structure {
+        match self.try_get_reduced_structure(structure) {
+            Ok(reduced_structure) => reduced_structure,
+            Err(error) => {
+                if self.on_error.should_fail() {
+                    panic!(
+                        "StructureMatcher::{operation_name} failed to reduce structure: {error}"
+                    );
+                }
+                tracing::warn!(
+                    operation_name,
+                    error = %error,
+                    "StructureMatcher skipping primitive reduction after error"
+                );
+                Self::niggli_reduce_structure(structure)
+            }
+        }
+    }
+
+    fn has_integer_supercell_ratio(site_count_a: usize, site_count_b: usize) -> bool {
+        site_count_a > 0
+            && site_count_b > 0
+            && (site_count_a.is_multiple_of(site_count_b)
+                || site_count_b.is_multiple_of(site_count_a))
+    }
+
+    pub(crate) fn reduce_structure_for_batch(
+        &self,
+        structure: &Structure,
+    ) -> crate::error::Result<Structure> {
+        self.try_get_reduced_structure(structure)
     }
 
     /// Preprocess structures for matching (reduces then prepares pair).
@@ -329,8 +403,8 @@ impl StructureMatcher {
         struct1: &Structure,
         struct2: &Structure,
     ) -> (Structure, Structure, usize, bool) {
-        let s1 = self.get_reduced_structure(struct1);
-        let s2 = self.get_reduced_structure(struct2);
+        let s1 = self.get_reduced_structure_with_on_error(struct1, "preprocess");
+        let s2 = self.get_reduced_structure_with_on_error(struct2, "preprocess");
         self.preprocess_pair(s1, s2)
     }
 
@@ -345,24 +419,20 @@ impl StructureMatcher {
         mut s1: Structure,
         mut s2: Structure,
     ) -> (Structure, Structure, usize, bool) {
-        // Determine supercell factor with bounds checking
-        // Maximum supercell factor to prevent extremely expensive computations
-        const MAX_SUPERCELL_FACTOR: usize = 10;
-
         let (supercell_factor, s1_supercell) = if self.attempt_supercell {
             // Guard against division by zero
             if s1.num_sites() == 0 || s2.num_sites() == 0 {
                 (1, true)
-            } else {
-                let ratio = s2.num_sites() as f64 / s1.num_sites() as f64;
-                if ratio < 2.0 / 3.0 {
-                    // Clamp to valid range [1, MAX_SUPERCELL_FACTOR]
-                    let factor = (1.0 / ratio).round() as usize;
-                    (factor.clamp(1, MAX_SUPERCELL_FACTOR), false)
+            } else if s2.num_sites() >= s1.num_sites() {
+                if s2.num_sites().is_multiple_of(s1.num_sites()) {
+                    (s2.num_sites() / s1.num_sites(), true)
                 } else {
-                    let factor = ratio.round() as usize;
-                    (factor.clamp(1, MAX_SUPERCELL_FACTOR), true)
+                    (1, true)
                 }
+            } else if s1.num_sites().is_multiple_of(s2.num_sites()) {
+                (s1.num_sites() / s2.num_sites(), false)
+            } else {
+                (1, true)
             }
         } else {
             (1, true)
@@ -445,21 +515,48 @@ impl StructureMatcher {
         source: &Structure,
         supercell_size: usize,
     ) -> Vec<(Lattice, Matrix3<i32>)> {
-        let all_mappings = source.lattice.find_all_mappings(
-            target_lattice,
-            self.latt_len_tol,
-            self.angle_tol,
-            true,
-        );
-
-        all_mappings
+        source
+            .lattice
+            .find_all_mappings_with_determinant(
+                target_lattice,
+                self.latt_len_tol,
+                self.angle_tol,
+                true,
+                supercell_size,
+            )
             .into_iter()
-            .filter(|(_, _, scale_m)| {
-                let det = scale_m.map(|x| x as f64).determinant().abs();
-                (det - supercell_size as f64).abs() < 0.5
-            })
             .map(|(latt, _, scale_m)| (latt, scale_m))
             .collect()
+    }
+
+    fn sorted_lattice_candidates(
+        &self,
+        target_lattice: &Lattice,
+        source: &Structure,
+        supercell_size: usize,
+    ) -> Vec<(Lattice, Matrix3<i32>)> {
+        let mut lattice_candidates = self.get_lattices(target_lattice, source, supercell_size);
+        lattice_candidates.sort_by(|(lattice_a, _), (lattice_b, _)| {
+            let score_a = Self::lattice_similarity_score(lattice_a, target_lattice);
+            let score_b = Self::lattice_similarity_score(lattice_b, target_lattice);
+            score_a.total_cmp(&score_b)
+        });
+        lattice_candidates
+    }
+
+    fn lattice_similarity_score(candidate_lattice: &Lattice, target_lattice: &Lattice) -> f64 {
+        let candidate_lengths = candidate_lattice.lengths();
+        let target_lengths = target_lattice.lengths();
+        let candidate_angles = candidate_lattice.angles();
+        let target_angles = target_lattice.angles();
+
+        let mut score = 0.0;
+        for axis_idx in 0..3 {
+            let length_norm = target_lengths[axis_idx].abs().max(f64::EPSILON);
+            score += (candidate_lengths[axis_idx] - target_lengths[axis_idx]).abs() / length_norm;
+            score += (candidate_angles[axis_idx] - target_angles[axis_idx]).abs() / 180.0;
+        }
+        score
     }
 
     /// Compute average lattice from two lattices.
@@ -469,14 +566,17 @@ impl StructureMatcher {
         let angles1 = l1.angles();
         let angles2 = l2.angles();
 
-        Lattice::from_parameters(
+        let mut avg_lattice = Lattice::from_parameters(
             (params1[0] + params2[0]) / 2.0,
             (params1[1] + params2[1]) / 2.0,
             (params1[2] + params2[2]) / 2.0,
             (angles1[0] + angles2[0]) / 2.0,
             (angles1[1] + angles2[1]) / 2.0,
             (angles1[2] + angles2[2]) / 2.0,
-        )
+        );
+        debug_assert_eq!(l1.pbc, l2.pbc, "PBC mismatch in average_lattice");
+        avg_lattice.pbc = l1.pbc;
+        avg_lattice
     }
 
     /// Compute Cartesian distances using Hungarian algorithm.
@@ -552,8 +652,9 @@ impl StructureMatcher {
         s2_fc: &[Vector3<f64>],
         frac_tol: [f64; 3],
         mask: &[Vec<bool>],
+        pbc: [bool; 3],
     ) -> bool {
-        is_coord_subset_pbc(s2_fc, s1_fc, frac_tol, mask, [true, true, true])
+        is_coord_subset_pbc(s2_fc, s1_fc, frac_tol, mask, pbc)
     }
 
     /// Strict matching - s1 should contain all sites in s2.
@@ -565,6 +666,10 @@ impl StructureMatcher {
         break_on_match: bool,
         use_rms: bool,
     ) -> Option<(f64, Vec<f64>, Vec<usize>)> {
+        if struct1.lattice.pbc != struct2.lattice.pbc {
+            return None;
+        }
+
         let mask = self.get_mask(struct1, struct2);
 
         if mask.is_empty() {
@@ -588,8 +693,12 @@ impl StructureMatcher {
 
         let mut best_match: Option<(f64, Vec<f64>, Vec<usize>)> = None;
 
-        // Get all lattice mappings
-        let lattices = self.get_lattices(&struct2.lattice, struct1, supercell_factor);
+        // For non-periodic matching, avoid enumerating periodic lattice mappings.
+        let lattices = if struct1.lattice.pbc.iter().any(|&is_periodic| is_periodic) {
+            self.sorted_lattice_candidates(&struct2.lattice, struct1, supercell_factor)
+        } else {
+            vec![(struct2.lattice.clone(), Matrix3::identity())]
+        };
 
         if lattices.is_empty() {
             return None;
@@ -614,7 +723,7 @@ impl StructureMatcher {
             let mut s1_fc = latt.get_fractional_coords(&s1_cart);
             // Wrap to [0, 1)
             for coord in &mut s1_fc {
-                *coord = wrap_frac_coords(coord);
+                *coord = wrap_frac_coords_pbc(coord, struct1.lattice.pbc);
             }
 
             let s2_fc = &struct2.frac_coords;
@@ -625,12 +734,23 @@ impl StructureMatcher {
                     continue;
                 }
 
-                let translation = s1_fc[s1i] - s2_fc[struct2_translation_idx];
+                let mut translation = s1_fc[s1i] - s2_fc[struct2_translation_idx];
+                for axis in 0..3 {
+                    if !struct1.lattice.pbc[axis] {
+                        translation[axis] = 0.0;
+                    }
+                }
                 let translated_s2_fc: Vec<Vector3<f64>> =
                     s2_fc.iter().map(|frac| frac + translation).collect();
 
                 // Check if fractional coords match
-                if Self::cmp_fstruct(&s1_fc, &translated_s2_fc, frac_coord_tol, &mask) {
+                if Self::cmp_fstruct(
+                    &s1_fc,
+                    &translated_s2_fc,
+                    frac_coord_tol,
+                    &mask,
+                    struct1.lattice.pbc,
+                ) {
                     // Compute distances
                     if let Some((distances, _adjusted_translation, mapping)) = self.cart_dists(
                         &s1_fc,
@@ -684,6 +804,88 @@ impl StructureMatcher {
         }
     }
 
+    fn explicit_supercell_matrices(supercell_factor: usize) -> Vec<[[i32; 3]; 3]> {
+        let mut scaling_matrices = Vec::new();
+        for factor_a in 1..=supercell_factor {
+            if !supercell_factor.is_multiple_of(factor_a) {
+                continue;
+            }
+            let remaining_after_a = supercell_factor / factor_a;
+            for factor_d in 1..=remaining_after_a {
+                if !remaining_after_a.is_multiple_of(factor_d) {
+                    continue;
+                }
+                let factor_f = remaining_after_a / factor_d;
+                let Some(factor_a_i32) = i32::try_from(factor_a).ok() else {
+                    continue;
+                };
+                let Some(factor_d_i32) = i32::try_from(factor_d).ok() else {
+                    continue;
+                };
+                let Some(factor_f_i32) = i32::try_from(factor_f).ok() else {
+                    continue;
+                };
+
+                // Enumerate upper-triangular Hermite-like matrices with determinant n.
+                for offset_b in 0..factor_d {
+                    let Some(offset_b_i32) = i32::try_from(offset_b).ok() else {
+                        continue;
+                    };
+                    for offset_c in 0..factor_f {
+                        let Some(offset_c_i32) = i32::try_from(offset_c).ok() else {
+                            continue;
+                        };
+                        for offset_e in 0..factor_f {
+                            let Some(offset_e_i32) = i32::try_from(offset_e).ok() else {
+                                continue;
+                            };
+                            scaling_matrices.push([
+                                [factor_a_i32, offset_b_i32, offset_c_i32],
+                                [0, factor_d_i32, offset_e_i32],
+                                [0, 0, factor_f_i32],
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+        scaling_matrices
+    }
+
+    fn match_with_explicit_supercell(&self, struct1: &Structure, struct2: &Structure) -> bool {
+        let (smaller_structure, larger_structure) = if struct1.num_sites() <= struct2.num_sites() {
+            (struct1, struct2)
+        } else {
+            (struct2, struct1)
+        };
+
+        if smaller_structure.num_sites() == 0 || larger_structure.num_sites() == 0 {
+            return false;
+        }
+        if larger_structure.num_sites() % smaller_structure.num_sites() != 0 {
+            return false;
+        }
+
+        let exact_supercell_factor = larger_structure.num_sites() / smaller_structure.num_sites();
+        if exact_supercell_factor <= 1 {
+            return false;
+        }
+
+        for scaling_matrix in Self::explicit_supercell_matrices(exact_supercell_factor) {
+            let Ok(expanded_structure) = smaller_structure.make_supercell(scaling_matrix) else {
+                continue;
+            };
+            if self
+                .match_internal(&expanded_structure, larger_structure, 1, true, true, false)
+                .is_some_and(|(match_value, _, _)| match_value <= self.site_pos_tol)
+            {
+                return true;
+            }
+        }
+
+        false
+    }
+
     /// Check if two structures match.
     ///
     /// # Returns
@@ -697,8 +899,8 @@ impl StructureMatcher {
     pub fn fit(&self, struct1: &Structure, struct2: &Structure) -> bool {
         // Reduce structures then delegate to fit_preprocessed
         self.fit_preprocessed(
-            &self.get_reduced_structure(struct1),
-            &self.get_reduced_structure(struct2),
+            &self.get_reduced_structure_with_on_error(struct1, "fit"),
+            &self.get_reduced_structure_with_on_error(struct2, "fit"),
         )
     }
 
@@ -708,6 +910,9 @@ impl StructureMatcher {
     ///
     /// `Some((rms, max_dist))` if structures match, `None` otherwise.
     pub fn get_rms_dist(&self, struct1: &Structure, struct2: &Structure) -> Option<(f64, f64)> {
+        if struct1.lattice.pbc != struct2.lattice.pbc {
+            return None;
+        }
         let (s1, s2, supercell_factor, s1_supercell) = self.preprocess(struct1, struct2);
         self.match_internal(&s1, &s2, supercell_factor, s1_supercell, false, true)
             .map(|(rms, distances, _)| {
@@ -765,9 +970,14 @@ impl StructureMatcher {
         let union = elements1.union(&elements2).count();
         let composition_distance = 1.0 - (intersection as f64 / union as f64);
 
-        // Get reduced structures to check their sizes (greedy matching operates on reduced structures)
-        let s1_reduced = self.get_reduced_structure(struct1);
-        let s2_reduced = self.get_reduced_structure(struct2);
+        // Use non-panicking reduction fallback here so this method always returns
+        // a finite distance, independent of the on_error policy.
+        let s1_reduced = self
+            .try_get_reduced_structure(struct1)
+            .unwrap_or_else(|_| Self::niggli_reduce_structure(struct1));
+        let s2_reduced = self
+            .try_get_reduced_structure(struct2)
+            .unwrap_or_else(|_| Self::niggli_reduce_structure(struct2));
         let n1_reduced = s1_reduced.num_sites();
         let n2_reduced = s2_reduced.num_sites();
 
@@ -808,10 +1018,11 @@ impl StructureMatcher {
         // are comparable regardless of the original cell sizes.
         let scale1 = (1.0 / vol1).powf(1.0 / 3.0);
         let scale2 = (1.0 / vol2).powf(1.0 / 3.0);
-        let lattice1 = Lattice::new(*s1.lattice.matrix() * scale1);
-        let lattice2 = Lattice::new(*s2.lattice.matrix() * scale2);
+        let mut lattice1 = Lattice::new(*s1.lattice.matrix() * scale1);
+        let mut lattice2 = Lattice::new(*s2.lattice.matrix() * scale2);
+        lattice1.pbc = s1.lattice.pbc;
+        lattice2.pbc = s2.lattice.pbc;
 
-        // Keep fractional coords for proper PBC wrapping (works for any lattice shape)
         let frac1 = &s1.frac_coords;
         let frac2 = &s2.frac_coords;
 
@@ -857,14 +1068,18 @@ impl StructureMatcher {
                 let tgt_cart = target_latt.get_cartesian_coords(&[*tgt_frac])[0];
                 let cart_diff = tgt_cart - src_cart;
 
-                // Convert to fractional for wrapping (use source lattice as reference)
+                // Convert to fractional for minimum-image wrapping (source lattice
+                // as reference). Only wrap along periodic axes.
                 let frac_diff = source_latt.get_fractional_coords(&[cart_diff])[0];
+                let pbc = source_latt.pbc;
+                let wrap = |val: f64, periodic: bool| {
+                    if periodic { val - val.round() } else { val }
+                };
                 let wrapped_frac = Vector3::new(
-                    frac_diff.x - frac_diff.x.round(),
-                    frac_diff.y - frac_diff.y.round(),
-                    frac_diff.z - frac_diff.z.round(),
+                    wrap(frac_diff.x, pbc[0]),
+                    wrap(frac_diff.y, pbc[1]),
+                    wrap(frac_diff.z, pbc[2]),
                 );
-                // Convert wrapped fractional diff back to Cartesian for actual distance
                 let wrapped_cart_diff = source_latt.get_cartesian_coords(&[wrapped_frac])[0];
                 let dist = wrapped_cart_diff.norm();
 
@@ -1099,12 +1314,19 @@ impl StructureMatcher {
     /// Use this when you've already called `reduce_structure` on both inputs.
     /// For general use, prefer `fit` which handles preprocessing automatically.
     pub fn fit_preprocessed(&self, reduced1: &Structure, reduced2: &Structure) -> bool {
+        if reduced1.lattice.pbc != reduced2.lattice.pbc {
+            return false;
+        }
+
         // Use preprocess_pair to handle supercell factor and volume scaling
         let (s1, s2, supercell_factor, s1_supercell) =
             self.preprocess_pair(reduced1.clone(), reduced2.clone());
 
         // Composition check
-        if s1.composition() != s2.composition() {
+        if self.composition_hash(&s1) != self.composition_hash(&s2) {
+            return false;
+        }
+        if !self.compositions_equal(&s1, &s2) {
             return false;
         }
 
@@ -1112,16 +1334,30 @@ impl StructureMatcher {
         if !self.attempt_supercell && s1.num_sites() != s2.num_sites() {
             return false;
         }
+        if self.attempt_supercell
+            && s1.num_sites() != s2.num_sites()
+            && !Self::has_integer_supercell_ratio(s1.num_sites(), s2.num_sites())
+        {
+            return false;
+        }
 
-        self.match_internal(&s1, &s2, supercell_factor, s1_supercell, true, false)
+        if self
+            .match_internal(&s1, &s2, supercell_factor, s1_supercell, true, false)
             .is_some_and(|(val, _, _)| val <= self.site_pos_tol)
+        {
+            return true;
+        }
+
+        self.attempt_supercell
+            && s1.num_sites() != s2.num_sites()
+            && self.match_with_explicit_supercell(&s1, &s2)
     }
 
     /// Apply Niggli reduction and optionally primitive cell reduction.
     ///
     /// Use this to preprocess structures before calling `fit_preprocessed`.
     pub fn reduce_structure(&self, structure: &Structure) -> Structure {
-        self.get_reduced_structure(structure)
+        self.get_reduced_structure_with_on_error(structure, "reduce_structure")
     }
 }
 
@@ -1161,6 +1397,16 @@ mod tests {
             Lattice::cubic(5.64),
             vec![Species::neutral(Element::Na), Species::neutral(Element::Cl)],
             vec![Vector3::new(0.01, 0.0, 0.0), Vector3::new(0.51, 0.5, 0.5)],
+        )
+    }
+
+    fn make_degenerate_lattice_structure(element: Element) -> Structure {
+        let degenerate_lattice =
+            Lattice::new(Matrix3::new(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0));
+        Structure::new(
+            degenerate_lattice,
+            vec![Species::neutral(element)],
+            vec![Vector3::new(0.0, 0.0, 0.0)],
         )
     }
 
@@ -1424,7 +1670,7 @@ mod tests {
         // s1, s2, s1_copy, s2_copy
         let structures = vec![s1.clone(), s2.clone(), s1.clone(), s2.clone()];
         let matcher = StructureMatcher::new();
-        let mapping = matcher.deduplicate(&structures).unwrap();
+        let mapping = matcher.deduplicate(&structures).unwrap().parents;
 
         // Index 0 -> 0 (first Fe)
         // Index 1 -> 1 (first Cu)
@@ -1633,6 +1879,27 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "StructureMatcher::fit failed to reduce structure")]
+    fn test_on_error_fail_panics_in_fit() {
+        let invalid_structure = make_degenerate_lattice_structure(Element::Fe);
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(crate::error::OnError::Fail);
+        let _ = matcher.fit(&invalid_structure, &invalid_structure);
+    }
+
+    #[test]
+    fn test_on_error_skip_does_not_panic_in_fit() {
+        let invalid_structure = make_degenerate_lattice_structure(Element::Fe);
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(crate::error::OnError::Skip);
+        let result =
+            std::panic::catch_unwind(|| matcher.fit(&invalid_structure, &invalid_structure));
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn test_comparator_type_element() {
         // Test that element comparator ignores oxidation states
         // Use primitive_cell=false to preserve oxidation states (moyo strips them)
@@ -1721,8 +1988,11 @@ mod tests {
         );
         let matcher = StructureMatcher::new().with_primitive_cell(false);
 
-        // Should handle gracefully without panicking (returns false for pathological lattice)
-        let _ = matcher.fit(&s, &s);
+        // Near-degenerate but non-singular lattice should still self-match deterministically.
+        assert!(
+            matcher.fit(&s, &s),
+            "Near-degenerate lattice should match itself"
+        );
     }
 
     // =========================================================================
@@ -2221,6 +2491,131 @@ mod tests {
     }
 
     #[test]
+    fn test_attempt_supercell_matches_in_core_paths() {
+        let primitive = make_simple_cubic(Element::Fe, 4.0);
+        let supercell_coords: Vec<_> = (0..8)
+            .map(|idx| {
+                Vector3::new(
+                    (idx & 1) as f64 * 0.5,
+                    ((idx >> 1) & 1) as f64 * 0.5,
+                    ((idx >> 2) & 1) as f64 * 0.5,
+                )
+            })
+            .collect();
+        let supercell = Structure::new(
+            Lattice::cubic(8.0),
+            vec![Species::neutral(Element::Fe); 8],
+            supercell_coords,
+        );
+
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(true);
+
+        assert!(
+            matcher.fit(&primitive, &supercell),
+            "attempt_supercell should match primitive and supercell in fit() path"
+        );
+
+        let reduced_primitive = matcher.reduce_structure(&primitive);
+        let reduced_supercell = matcher.reduce_structure(&supercell);
+        assert!(
+            matcher.fit_preprocessed(&reduced_primitive, &reduced_supercell),
+            "attempt_supercell should match primitive and supercell in fit_preprocessed() path"
+        );
+    }
+
+    #[test]
+    fn test_attempt_supercell_matches_nondiagonal_supercell() {
+        let primitive = make_simple_cubic(Element::Fe, 4.0);
+        let nondiagonal_supercell = primitive
+            .make_supercell([[2, 1, 0], [0, 2, 0], [0, 0, 1]])
+            .unwrap();
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(true);
+
+        assert!(
+            matcher.fit(&primitive, &nondiagonal_supercell),
+            "attempt_supercell should match non-diagonal supercells"
+        );
+    }
+
+    #[test]
+    fn test_attempt_supercell_matches_factor_above_ten() {
+        let primitive = make_simple_cubic(Element::Fe, 4.0);
+        let larger_supercell = primitive.make_supercell_diag([11, 1, 1]);
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(true);
+
+        assert!(
+            matcher.fit(&primitive, &larger_supercell),
+            "attempt_supercell should match valid supercells even when factor > 10"
+        );
+    }
+
+    #[test]
+    fn test_attempt_supercell_is_symmetric_for_large_factor() {
+        let primitive = make_simple_cubic(Element::Fe, 4.0);
+        let larger_supercell = primitive.make_supercell_diag([11, 1, 1]);
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(true);
+
+        assert!(matcher.fit(&primitive, &larger_supercell));
+        assert!(matcher.fit(&larger_supercell, &primitive));
+    }
+
+    #[test]
+    fn test_attempt_supercell_rejects_non_integer_site_ratio() {
+        let two_site_structure = make_bcc(Element::Fe, 2.87);
+        let three_site_structure = Structure::new(
+            Lattice::cubic(4.0),
+            vec![
+                Species::neutral(Element::Fe),
+                Species::neutral(Element::Fe),
+                Species::neutral(Element::Fe),
+            ],
+            vec![
+                Vector3::new(0.0, 0.0, 0.0),
+                Vector3::new(0.5, 0.5, 0.0),
+                Vector3::new(0.5, 0.0, 0.5),
+            ],
+        );
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(true);
+
+        assert!(!matcher.fit(&two_site_structure, &three_site_structure));
+    }
+
+    #[test]
+    fn test_fit_preprocessed_rejects_non_integer_site_ratio() {
+        let two_site_structure = make_bcc(Element::Fe, 2.87);
+        let three_site_structure = Structure::new(
+            Lattice::cubic(4.0),
+            vec![
+                Species::neutral(Element::Fe),
+                Species::neutral(Element::Fe),
+                Species::neutral(Element::Fe),
+            ],
+            vec![
+                Vector3::new(0.0, 0.0, 0.0),
+                Vector3::new(0.5, 0.5, 0.0),
+                Vector3::new(0.5, 0.0, 0.5),
+            ],
+        );
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_attempt_supercell(true);
+        let reduced_two_site = matcher.reduce_structure(&two_site_structure);
+        let reduced_three_site = matcher.reduce_structure(&three_site_structure);
+
+        assert!(!matcher.fit_preprocessed(&reduced_two_site, &reduced_three_site));
+    }
+
+    #[test]
     fn test_rms_distance() {
         let s = make_simple_cubic(Element::Fe, 4.0);
         let matcher = StructureMatcher::new().with_primitive_cell(false);
@@ -2356,6 +2751,35 @@ mod tests {
         assert!(matcher.get_structure_distance(&empty, &empty) < 1e-10);
         let d = matcher.get_structure_distance(&empty, &non_empty);
         assert!((d - EMPTY_STRUCTURE_DISTANCE).abs() < 1e-10, "Got {d}");
+    }
+
+    #[test]
+    fn test_structure_distance_on_error_fail_returns_finite_for_degenerate_structures() {
+        let degenerate = make_degenerate_lattice_structure(Element::Fe);
+        let matcher_fail = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(crate::error::OnError::Fail);
+        let matcher_skip = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_on_error(crate::error::OnError::Skip);
+
+        let result = std::panic::catch_unwind(|| {
+            matcher_fail.get_structure_distance(&degenerate, &degenerate)
+        });
+        assert!(
+            result.is_ok(),
+            "get_structure_distance should not panic even when on_error=Fail"
+        );
+        let distance = result.unwrap();
+        let distance_skip = matcher_skip.get_structure_distance(&degenerate, &degenerate);
+        assert!(
+            distance.is_finite(),
+            "distance should be finite, got {distance}"
+        );
+        assert!(
+            (distance - distance_skip).abs() < 1e-10,
+            "on_error policy should not affect get_structure_distance: fail={distance}, skip={distance_skip}"
+        );
     }
 
     #[test]
@@ -2615,6 +3039,171 @@ mod tests {
         assert!(
             with_prim.fit(&primitive, &supercell),
             "With primitive_cell, supercell should reduce to match primitive"
+        );
+    }
+
+    #[test]
+    fn test_species_comparator_default_primitive_cell_keeps_oxidation_semantics() {
+        let lattice = Lattice::cubic(4.0);
+        let s_fe2 = Structure::new(
+            lattice.clone(),
+            vec![Species::new(Element::Fe, Some(2))],
+            vec![Vector3::new(0.0, 0.0, 0.0)],
+        );
+        let s_fe3 = Structure::new(
+            lattice,
+            vec![Species::new(Element::Fe, Some(3))],
+            vec![Vector3::new(0.0, 0.0, 0.0)],
+        );
+
+        let matcher = StructureMatcher::new().with_comparator(ComparatorType::Species);
+        assert!(
+            !matcher.fit(&s_fe2, &s_fe3),
+            "Species comparator must reject different oxidation states even with primitive_cell=true"
+        );
+    }
+
+    #[test]
+    fn test_non_periodic_matching_does_not_wrap_coordinates() {
+        let mut non_periodic_lattice = Lattice::cubic(4.0);
+        non_periodic_lattice.pbc = [false, false, false];
+
+        let site_origin = Structure::new(
+            non_periodic_lattice.clone(),
+            vec![Species::neutral(Element::Fe)],
+            vec![Vector3::new(0.0, 0.0, 0.0)],
+        );
+        let site_shifted = Structure::new(
+            non_periodic_lattice,
+            vec![Species::neutral(Element::Fe)],
+            vec![Vector3::new(1.0, 0.0, 0.0)],
+        );
+        assert!((site_origin.frac_coords[0].x - 0.0).abs() < 1e-12);
+        assert!((site_shifted.frac_coords[0].x - 1.0).abs() < 1e-12);
+
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(false)
+            .with_site_pos_tol(1e-3);
+        assert!(
+            !matcher.fit(&site_origin, &site_shifted),
+            "Non-periodic matching should not wrap coordinates across unit boundaries"
+        );
+    }
+
+    #[test]
+    fn test_primitive_reduction_preserves_non_periodic_pbc() {
+        let mut non_periodic_lattice = Lattice::cubic(4.0);
+        non_periodic_lattice.pbc = [false, false, false];
+
+        let site_origin = Structure::new(
+            non_periodic_lattice.clone(),
+            vec![Species::neutral(Element::Fe)],
+            vec![Vector3::new(0.0, 0.0, 0.0)],
+        );
+        let site_shifted = Structure::new(
+            non_periodic_lattice,
+            vec![Species::neutral(Element::Fe)],
+            vec![Vector3::new(1.0, 0.0, 0.0)],
+        );
+
+        let matcher = StructureMatcher::new()
+            .with_primitive_cell(true)
+            .with_site_pos_tol(1e-3);
+        let reduced_origin = matcher.reduce_structure(&site_origin);
+        assert_eq!(reduced_origin.lattice.pbc, [false, false, false]);
+        assert!(
+            !matcher.fit(&site_origin, &site_shifted),
+            "primitive reduction must preserve non-periodic PBC semantics"
+        );
+    }
+
+    /// Single-atom structure at given fractional position.
+    fn atom_at(latt: Lattice, elem: Element, frac: Vector3<f64>) -> Structure {
+        Structure::new(latt, vec![Species::neutral(elem)], vec![frac])
+    }
+
+    #[test]
+    fn test_structure_distance_respects_non_periodic_pbc() {
+        // Frac coords 0.0 and 0.9 in 10 Å cell: periodic wraps (1 Å), non-periodic doesn't (9 Å)
+        let periodic_latt = Lattice::cubic(10.0);
+        let mut non_periodic_latt = Lattice::cubic(10.0);
+        non_periodic_latt.pbc = [false, false, false];
+        let origin = Vector3::new(0.0, 0.0, 0.0);
+        let shifted = Vector3::new(0.9, 0.0, 0.0);
+
+        let matcher = StructureMatcher::new().with_primitive_cell(false);
+        let dist_periodic = matcher.get_structure_distance(
+            &atom_at(periodic_latt.clone(), Element::Fe, origin),
+            &atom_at(periodic_latt, Element::Fe, shifted),
+        );
+        let dist_non_periodic = matcher.get_structure_distance(
+            &atom_at(non_periodic_latt.clone(), Element::Fe, origin),
+            &atom_at(non_periodic_latt, Element::Fe, shifted),
+        );
+
+        assert!(
+            dist_non_periodic > dist_periodic * 3.0,
+            "Non-periodic distance ({dist_non_periodic:.4}) should be much larger than \
+             periodic distance ({dist_periodic:.4}) — wrapping must be disabled for pbc=false"
+        );
+    }
+
+    #[test]
+    fn test_structure_distance_mixed_pbc_per_axis() {
+        // Periodic in x only: x-shift wraps (small), y-shift doesn't (large)
+        let mut latt = Lattice::cubic(10.0);
+        latt.pbc = [true, false, false];
+        let origin = Vector3::new(0.0, 0.0, 0.0);
+
+        let matcher = StructureMatcher::new().with_primitive_cell(false);
+        let base = atom_at(latt.clone(), Element::Cu, origin);
+        let dist_x = matcher.get_structure_distance(
+            &base,
+            &atom_at(latt.clone(), Element::Cu, Vector3::new(0.9, 0.0, 0.0)),
+        );
+        let dist_y = matcher.get_structure_distance(
+            &base,
+            &atom_at(latt, Element::Cu, Vector3::new(0.0, 0.9, 0.0)),
+        );
+
+        assert!(
+            dist_y > dist_x * 3.0,
+            "Non-periodic y distance ({dist_y:.4}) should be much larger than \
+             periodic x distance ({dist_x:.4})"
+        );
+    }
+
+    #[test]
+    fn test_structure_distance_asymmetric_pbc_is_order_independent() {
+        // s1 is periodic, s2 is non-periodic. The distance must be the same
+        // regardless of argument order so the source/target swap uses the
+        // correct structure's PBC for wrapping.
+        let mut periodic_latt = Lattice::cubic(10.0);
+        periodic_latt.pbc = [true, true, true];
+        let mut non_periodic_latt = Lattice::cubic(10.0);
+        non_periodic_latt.pbc = [false, false, false];
+
+        let shifted = Vector3::new(0.9, 0.0, 0.0);
+        let origin = Vector3::new(0.0, 0.0, 0.0);
+
+        let pbc_struct = Structure::new(
+            periodic_latt,
+            vec![Species::neutral(Element::Fe), Species::neutral(Element::Fe)],
+            vec![origin, shifted],
+        );
+        let nopbc_struct = Structure::new(
+            non_periodic_latt,
+            vec![Species::neutral(Element::Fe), Species::neutral(Element::Fe)],
+            vec![origin, shifted],
+        );
+
+        let matcher = StructureMatcher::new().with_primitive_cell(false);
+        let dist_ab = matcher.get_structure_distance(&pbc_struct, &nopbc_struct);
+        let dist_ba = matcher.get_structure_distance(&nopbc_struct, &pbc_struct);
+
+        assert!(
+            (dist_ab - dist_ba).abs() < 1e-10,
+            "Distance must be order-independent: d(A,B)={dist_ab:.6} vs d(B,A)={dist_ba:.6}"
         );
     }
 

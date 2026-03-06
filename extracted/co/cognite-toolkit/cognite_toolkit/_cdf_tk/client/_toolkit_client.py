@@ -37,6 +37,7 @@ from .api.robotics import RoboticsAPI
 from .api.search_config import SearchConfigurationsAPI
 from .api.security_categories import SecurityCategoriesAPI
 from .api.sequences import SequencesAPI
+from .api.signal_sinks import SignalSinksAPI
 from .api.simulators import SimulatorsAPI
 from .api.spaces import SpacesAPI
 from .api.streamlit_ import StreamlitAPI
@@ -89,6 +90,7 @@ class ToolAPI:
         self.transformations = TransformationsAPI(http_client)
         self.workflows = WorkflowsAPI(http_client)
         self.data_products = DataProductsAPI(http_client)
+        self.signal_sinks = SignalSinksAPI(http_client)
         self.streamlit = StreamlitAPI(http_client)
 
 
@@ -101,7 +103,7 @@ class ToolkitClient(CogniteClient):
         super().__init__(config=config)
         http_client = HTTPClient(self.config, console=console)
         self.http_client = http_client
-        self.console = console or Console(markup=True)
+        self.console: Console = console or Console(markup=True)
         self.tool = ToolAPI(http_client, self.console)
 
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)

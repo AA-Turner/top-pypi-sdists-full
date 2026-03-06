@@ -28,8 +28,7 @@ class Map(models.Model):
         NAVIGATION_NIGHT  = 8, "Navigation Night",  "navigation-night",   1
         # fmt: on
 
-        @symmetric()  # type: ignore[prop-decorator]
-        @property
+        @symmetric()
         def uri(self):
             return f"mapbox://styles/mapbox/{self.slug}-v{self.version}"
 

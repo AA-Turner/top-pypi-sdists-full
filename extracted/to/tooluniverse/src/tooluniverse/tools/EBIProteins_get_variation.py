@@ -41,14 +41,20 @@ def EBIProteins_get_variation(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "accession": accession,
+            "source_type": source_type,
+            "disease_only": disease_only,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EBIProteins_get_variation",
-            "arguments": {
-                "accession": accession,
-                "source_type": source_type,
-                "disease_only": disease_only,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -4,19 +4,9 @@ from tmo.api.iterator_base_api import IteratorBaseApi
 
 
 class ModelApi(IteratorBaseApi):
-
-    path = "/api/models"
+    name = "Model API"
+    path = "models"
     type = "MODEL"
-
-    def _get_header_params(self):
-        return self._get_standard_header_params(
-            accept_types=[
-                self.json_type,
-                "application/hal+json",
-                "text/uri-list",
-                "application/x-spring-data-compact+json",
-            ]
-        )
 
     def find_by_source_id(self, source_model_id: str, projection: str = None):
         """
@@ -29,12 +19,14 @@ class ModelApi(IteratorBaseApi):
         Returns:
             (dict): model
         """
+        source_model_id = self.validate_uuid(source_model_id)
+
         query_vars = ["sourceId", "projection"]
         query_vals = [source_model_id, projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            f"{self.path}/search/findBySourceId",
+            f"{self.base_path + self.path}/search/findBySourceId",
             self._get_header_params(),
             query_params,
         )
@@ -50,12 +42,16 @@ class ModelApi(IteratorBaseApi):
         Returns:
             (dict): model commits
         """
+        model_id = self.validate_uuid(model_id)
+
         query_vars = ["projection"]
         query_vals = [projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            f"{self.path}/{model_id}/commits", self._get_header_params(), query_params
+            f"{self.base_path + self.path}/{model_id}/commits",
+            self._get_header_params(),
+            query_params,
         )
 
     def diff_commits(
@@ -73,12 +69,14 @@ class ModelApi(IteratorBaseApi):
         Returns:
             (str): difference between model commits
         """
+        model_id = self.validate_uuid(model_id)
+
         query_vars = ["projection"]
         query_vals = [projection]
         query_params = self.generate_params(query_vars, query_vals)
 
         return self.tmo_client.get_request(
-            f"{self.path}/{model_id}/diff/{commit_id1}/{commit_id2}/",
+            f"{self.base_path + self.path}/{model_id}/diff/{commit_id1}/{commit_id2}/",
             self._get_header_params(),
             query_params,
         )
@@ -95,7 +93,7 @@ class ModelApi(IteratorBaseApi):
         """
 
         return self.tmo_client.post_request(
-            path=self.path,
+            path=self.base_path + self.path,
             header_params=self._get_header_params(),
             query_params={},
             body=model,
@@ -112,10 +110,12 @@ class ModelApi(IteratorBaseApi):
         Returns:
             (dict): job
         """
+        model_id = self.validate_uuid(model_id)
+
         self.required_params(["datasetId"], training_request)
 
         return self.tmo_client.post_request(
-            path=f"{self.path}/{model_id}/train",
+            path=f"{self.base_path + self.path}/{model_id}/train",
             header_params=self._get_header_params(),
             query_params={},
             body=training_request,
@@ -132,10 +132,12 @@ class ModelApi(IteratorBaseApi):
         Returns:
             (dict): job
         """
+        model_id = self.validate_uuid(model_id)
+
         self.required_params(["artefactImportId", "externalId"], import_request)
 
         return self.tmo_client.post_request(
-            path=f"{self.path}/{model_id}/import",
+            path=f"{self.base_path + self.path}/{model_id}/import",
             header_params=self._get_header_params(),
             query_params={},
             body=import_request,

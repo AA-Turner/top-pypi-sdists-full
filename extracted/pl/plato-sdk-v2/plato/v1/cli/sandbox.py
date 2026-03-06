@@ -1311,7 +1311,7 @@ def sandbox_sync(
                     )
                 else:
                     console.print(f"[red]Sync failed: {stderr}[/red]")
-                raise typer.Exit(exit_code)
+                raise typer.Exit(exit_code or 1)
 
         if json_output:
             console.print(

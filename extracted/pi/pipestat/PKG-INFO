@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipestat
-Version: 0.13.0
+Version: 0.13.1
 Summary: A pipeline results reporter
 Project-URL: Homepage, https://github.com/pepkit/pipestat
 Author: Michal Stolarczyk, Nathan Sheffield, Donald Campbell
@@ -21,11 +21,10 @@ Requires-Python: >=3.10
 Requires-Dist: eido
 Requires-Dist: jinja2
 Requires-Dist: jsonschema
-Requires-Dist: logmuse>=0.2.5
-Requires-Dist: pandas
+Requires-Dist: logmuse>=0.3.0
 Requires-Dist: pyyaml
-Requires-Dist: ubiquerg>=0.8.0
-Requires-Dist: yacman>=0.9.5
+Requires-Dist: ubiquerg>=0.9.1
+Requires-Dist: yacman>=1.0.0
 Provides-Extra: dbbackend
 Requires-Dist: psycopg>=3.1.13; extra == 'dbbackend'
 Requires-Dist: pydantic<3.0.0,>=2.5.3; extra == 'dbbackend'

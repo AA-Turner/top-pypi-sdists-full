@@ -47,16 +47,22 @@ def InterProScan_scan_sequence(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "sequence": sequence,
+            "email": email,
+            "title": title,
+            "go_terms": go_terms,
+            "pathways": pathways,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "InterProScan_scan_sequence",
-            "arguments": {
-                "sequence": sequence,
-                "email": email,
-                "title": title,
-                "go_terms": go_terms,
-                "pathways": pathways,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

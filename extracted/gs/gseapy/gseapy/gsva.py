@@ -1,10 +1,8 @@
 #! python
 # -*- coding: utf-8 -*-
 
-import os
 from typing import Dict, List, Optional, Union
 
-import numpy as np
 import pandas as pd
 
 from gseapy.base import GSEAbase
@@ -64,6 +62,7 @@ class GSVA(GSEAbase):
         # self.seed = seed
         self.ranking = None
         self.permutation_type = "gene_set"
+        assert self.min_size > 0
 
     def load_data(self) -> pd.DataFrame:
         # load data
@@ -105,7 +104,7 @@ class GSVA(GSEAbase):
         self._logger.info("Start to run GSVA...Might take a while................")
         gene_names = df.index.to_list()
         if (not self._gene_isupper) and self._gene_toupper:
-            gene_names = [x.upper() for x in gene_names]
+            gene_names = [str(x).upper() for x in gene_names]
             self._logger.info("Genes are converted to uppercase.")
         # run
         gsum = gsva_rs(

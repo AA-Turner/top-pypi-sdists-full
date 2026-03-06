@@ -141,14 +141,17 @@ class KEGGFindGenes(KEGGRESTTool):
         self.endpoint = "/find/genes"
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Find genes with keyword."""
+        """Find genes with keyword, optionally filtered by organism."""
         keyword = arguments.get("keyword", "")
         if not keyword:
             return {"status": "error", "error": "keyword is required"}
 
-        # KEGG API requires the search term in the URL path
-        # For gene search, we don't need organism prefix in the URL
-        endpoint = f"{self.endpoint}/{keyword}"
+        # Use organism-specific endpoint when provided (e.g., /find/hsa/ALDH)
+        organism = arguments.get("organism", "").strip()
+        if organism:
+            endpoint = f"/find/{organism}/{keyword}"
+        else:
+            endpoint = f"{self.endpoint}/{keyword}"
         result = self._make_request(endpoint)
 
         # Parse gene results

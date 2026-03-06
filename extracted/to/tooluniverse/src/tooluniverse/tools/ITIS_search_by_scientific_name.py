@@ -35,10 +35,14 @@ def ITIS_search_by_scientific_name(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v for k, v in {"scientific_name": scientific_name}.items() if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ITIS_search_by_scientific_name",
-            "arguments": {"scientific_name": scientific_name},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

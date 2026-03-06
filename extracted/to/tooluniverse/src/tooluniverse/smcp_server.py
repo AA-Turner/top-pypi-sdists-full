@@ -12,6 +12,44 @@ import sys
 from .smcp import SMCP
 
 
+def _add_profile_args(parser: argparse.ArgumentParser) -> None:
+    """Add the shared --load / --workspace / --global argument group to *parser*."""
+    group = parser.add_argument_group("Profile Configuration")
+    group.add_argument(
+        "--load",
+        "-l",
+        type=str,
+        metavar="CONFIG",
+        help="""Load profile configuration (preset/workspace).
+
+Supports multiple formats:
+  \u2022 HuggingFace:      username/repo, hf:username/repo@v1.0.0
+  \u2022 Local files:      ./config.yaml, /absolute/path.yaml
+  \u2022 HTTP URLs:        https://example.com/config.yaml
+
+Examples:
+  --load "community/proteomics-toolkit"
+  --load "./my-config.yaml"
+  --load "https://example.com/config.yaml"
+        """,
+    )
+    group.add_argument(
+        "--workspace",
+        "-w",
+        type=str,
+        metavar="DIR",
+        help="Local workspace directory to scan for tool files (*.py and *.json). "
+        "Overrides TOOLUNIVERSE_HOME environment variable.",
+    )
+    group.add_argument(
+        "--global",
+        dest="use_global",
+        action="store_true",
+        help="Use the global workspace (~/.tooluniverse) instead of the local default "
+        "(./.tooluniverse). Has no effect if --workspace or TOOLUNIVERSE_HOME is set.",
+    )
+
+
 def run_http_server():
     """
     Run SMCP server with streamable-http transport on localhost:8000
@@ -41,32 +79,13 @@ Examples:
   # Start with compact mode (only expose core tools)
   tooluniverse-smcp-server --compact-mode
 
-  # Load Space configuration
+  # Load Profile configuration
   tooluniverse-smcp-server --load "community/proteomics-toolkit"
   tooluniverse-smcp-server --load "./my-config.yaml"
         """,
     )
 
-    # Space configuration options
-    space_group = parser.add_argument_group("Space Configuration")
-    space_group.add_argument(
-        "--load",
-        "-l",
-        type=str,
-        metavar="CONFIG",
-        help="""Load space configuration (preset/workspace).
-
-Supports multiple formats:
-  • HuggingFace:      username/repo, hf:username/repo@v1.0.0
-  • Local files:      ./config.yaml, /absolute/path.yaml
-  • HTTP URLs:        https://example.com/config.yaml
-
-Examples:
-  --load "community/proteomics-toolkit"
-  --load "./my-config.yaml"
-  --load "https://example.com/config.yaml"
-        """,
-    )
+    _add_profile_args(parser)
 
     # Hook configuration options
     hook_group = parser.add_argument_group("Hook Configuration")
@@ -142,10 +161,12 @@ Examples:
 
         print()
 
-        # Create SMCP server with Space support
+        # Create SMCP server with Profile support
         server = SMCP(
             name=args.name,
-            space=args.load,  # Pass Space URI directly to SMCP
+            profile=args.load,  # Pass Profile URI directly to SMCP
+            workspace=args.workspace,
+            use_global=args.use_global,
             auto_expose_tools=True,
             search_enabled=True,
             max_workers=5,
@@ -240,33 +261,14 @@ Examples:
   # Start with compact mode (only expose core tools)
   tooluniverse-smcp-stdio --compact-mode
 
-  # Load Space configuration
+  # Load Profile configuration
   tooluniverse-smcp-stdio --load "hf:community/proteomics-toolkit"
   tooluniverse-smcp-stdio --load "./my-config.yaml"
   tooluniverse-smcp-stdio --load "https://example.com/config.yaml"
         """,
     )
 
-    # Space configuration options
-    space_group = parser.add_argument_group("Space Configuration")
-    space_group.add_argument(
-        "--load",
-        "-l",
-        type=str,
-        metavar="CONFIG",
-        help="""Load space configuration (preset/workspace).
-
-Supports multiple formats:
-  • HuggingFace:      username/repo, hf:username/repo@v1.0.0
-  • Local files:      ./config.yaml, /absolute/path.yaml
-  • HTTP URLs:        https://example.com/config.yaml
-
-Examples:
-  --load "community/proteomics-toolkit"
-  --load "./my-config.yaml"
-  --load "https://example.com/config.yaml"
-        """,
-    )
+    _add_profile_args(parser)
 
     # Tool selection options
     tool_group = parser.add_mutually_exclusive_group()
@@ -586,10 +588,12 @@ Examples:
         print(f"⚡ Max workers: {args.max_workers}", file=sys.stderr)
         print(file=sys.stderr)
 
-        # Create SMCP server with Space and tool configuration support
+        # Create SMCP server with Profile and tool configuration support
         server = SMCP(
             name=args.name,
-            space=args.load,  # Pass Space URI directly to SMCP
+            profile=args.load,  # Pass Profile URI directly to SMCP
+            workspace=args.workspace,
+            use_global=args.use_global,
             tool_categories=tool_categories,
             exclude_tools=exclude_tools,
             exclude_categories=exclude_categories,
@@ -675,32 +679,13 @@ Examples:
   # Start with compact mode for Claude Desktop
   tooluniverse-smcp --compact-mode --transport stdio
 
-  # Load Space configuration
+  # Load Profile configuration
   tooluniverse-smcp --load "community/proteomics-toolkit" --port 8000
   tooluniverse-smcp --load "./my-config.yaml" --transport stdio
         """,
     )
 
-    # Space configuration options
-    space_group = parser.add_argument_group("Space Configuration")
-    space_group.add_argument(
-        "--load",
-        "-l",
-        type=str,
-        metavar="CONFIG",
-        help="""Load space configuration (preset/workspace).
-
-Supports multiple formats:
-  • HuggingFace:      username/repo, hf:username/repo@v1.0.0
-  • Local files:      ./config.yaml, /absolute/path.yaml
-  • HTTP URLs:        https://example.com/config.yaml
-
-Examples:
-  --load "community/proteomics-toolkit"
-  --load "./my-config.yaml"
-  --load "https://example.com/config.yaml"
-        """,
-    )
+    _add_profile_args(parser)
 
     # Tool selection options
     tool_group = parser.add_mutually_exclusive_group()
@@ -991,10 +976,12 @@ Examples:
         print(f"⚡ Max workers: {args.max_workers}")
         print()
 
-        # Create SMCP server with Space and hook support
+        # Create SMCP server with Profile and hook support
         server = SMCP(
             name=args.name,
-            space=args.load,  # Pass Space URI directly to SMCP
+            profile=args.load,  # Pass Profile URI directly to SMCP
+            workspace=args.workspace,
+            use_global=args.use_global,
             tool_categories=tool_categories,
             exclude_tools=exclude_tools,
             exclude_categories=exclude_categories,
@@ -1028,13 +1015,27 @@ Examples:
 
 def run_default_stdio_server():
     """
-    Default ToolUniverse command that runs stdio server with compact mode enabled.
-
-    This is a convenience wrapper around run_stdio_server that automatically
-    enables --compact-mode for quick setup.
+    Default ToolUniverse command: MCP stdio server with compact mode on by default.
     """
-    # Inject --compact-mode into sys.argv if not already present
-    import sys
+    if "--help" in sys.argv or "-h" in sys.argv:
+        sys.stdout.write(
+            "usage: tooluniverse [options]\n\n"
+            "Start ToolUniverse as an MCP stdio server (compact mode on by default).\n\n"
+            "options:\n"
+            "  -h, --help          show this help message and exit\n"
+            "  --load CONFIG       Profile config to load (./my.yaml, hf:user/repo, https://...)\n"
+            "  --workspace DIR     Local workspace directory (default: ./.tooluniverse)\n"
+            "  --global            Use global workspace (~/.tooluniverse)\n"
+            "  --verbose           Enable verbose logging\n\n"
+            "examples:\n"
+            "  tooluniverse\n"
+            "  tooluniverse --load ./life-science.yaml\n"
+            "  tooluniverse --load hf:community/genomics-tools\n"
+            "  tooluniverse --global\n\n"
+            "For advanced options (hooks, tool filtering, etc.) use:\n"
+            "  tooluniverse-smcp-stdio --help\n"
+        )
+        sys.exit(0)
 
     if "--compact-mode" not in sys.argv:
         sys.argv.append("--compact-mode")

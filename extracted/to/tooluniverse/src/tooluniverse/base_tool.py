@@ -211,6 +211,25 @@ class BaseTool:
             if e.validator == "enum":
                 error_msg += f". Allowed values: {e.validator_value}."
 
+            # Feature-25A-03: when a required property is missing, check if the user
+            # provided a case-variant of it (e.g. kinase_id instead of kinase_ID).
+            # If so, surface a "Did you mean?" hint to help them fix the typo.
+            if e.validator == "required" and isinstance(filtered_arguments, dict):
+                # e.message looks like: "'kinase_ID' is a required property"
+                # Extract the missing property name from the message.
+                import re as _re
+
+                _m = _re.match(r"'([^']+)' is a required property", e.message)
+                if _m:
+                    missing_prop = _m.group(1)
+                    provided_lower = {k.lower(): k for k in filtered_arguments}
+                    if missing_prop.lower() in provided_lower:
+                        wrong_key = provided_lower[missing_prop.lower()]
+                        error_msg += (
+                            f" (you passed '{wrong_key}' — "
+                            f"did you mean '{missing_prop}'?)"
+                        )
+
             return ToolValidationError(
                 error_msg,
                 details={
@@ -270,13 +289,40 @@ class BaseTool:
         Returns
             Structured ToolError instance
         """
+        # ValueError always signals a caller-side input problem (not server error)
+        if isinstance(exception, ValueError):
+            return ToolValidationError(f"Validation error: {exception}")
+
+        # Feature-25A-01: for HTTP errors, include the response body so callers see
+        # the upstream API's actual message rather than a generic "Base API error".
+        response = getattr(exception, "response", None)
+        response_detail = ""
+        if response is not None:
+            try:
+                body = response.json()
+                # Surface common error fields used across APIs
+                for key in ("message", "error", "detail", "description", "reason"):
+                    if key in body:
+                        response_detail = f" — API said: {body[key]}"
+                        break
+                else:
+                    # Fall back to raw text (truncated to avoid noise)
+                    text = response.text
+                    if text:
+                        response_detail = f" — API response: {text[:200]}"
+            except Exception:
+                text = getattr(response, "text", "")
+                if text:
+                    response_detail = f" — API response: {text[:200]}"
+
         error_str = str(exception).lower()
+        full_msg = f"{exception}{response_detail}"
 
         for keywords, error_class, prefix in self._ERROR_CLASSIFICATION:
             if any(kw in error_str for kw in keywords):
-                return error_class(f"{prefix}: {exception}")
+                return error_class(f"{prefix}: {full_msg}")
 
-        return ToolServerError(f"Unexpected error: {exception}")
+        return ToolServerError(f"Unexpected error: {full_msg}")
 
     def get_cache_key(self, arguments: Dict[str, Any]) -> str:
         """

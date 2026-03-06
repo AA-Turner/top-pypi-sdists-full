@@ -188,7 +188,8 @@ pub fn process_text_node(
             // the current block's content, not from a previous block's closing.
             // Without this distinction, the second paragraph after a "\n\n" boundary
             // would incorrectly suppress the trailing space before inline elements.
-            let current_block_output = &output[ctx.block_content_start..];
+            let safe_start = ctx.block_content_start.min(output.len());
+            let current_block_output = &output[safe_start..];
             let at_paragraph_break = current_block_output.ends_with("\n\n");
             if !at_paragraph_break {
                 if has_double_newline {

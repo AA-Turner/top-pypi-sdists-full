@@ -9,7 +9,7 @@ import json
 import os
 import re
 import shutil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 import numpy as np
 import onnx
@@ -27,9 +27,30 @@ from onnx2tf.tflite_builder.accuracy_evaluator import (
     _is_integer_or_bool_dtype,
     _normalize_tensor_name,
     _quantize_for_tflite_input,
+    _resize_tflite_inputs_if_needed,
 )
 from onnx2tf.utils.tempdir_cleanup import make_managed_tempdir
 from onnx2tf.utils.common_functions import dummy_onnx_inference
+
+
+class _LiteInterpreterProtocol(Protocol):
+    def allocate_tensors(self) -> None:
+        ...
+
+    def get_input_details(self) -> List[Dict[str, Any]]:
+        ...
+
+    def get_tensor_details(self) -> List[Dict[str, Any]]:
+        ...
+
+    def set_tensor(self, tensor_index: int, value: Any) -> None:
+        ...
+
+    def get_tensor(self, tensor_index: int) -> Any:
+        ...
+
+    def invoke(self) -> None:
+        ...
 
 
 def _default_output_paths(onnx_path: str, output_dir: str) -> Tuple[str, str]:
@@ -611,7 +632,7 @@ def _get_onnx_eval_outputs(
 def _invoke_tflite_with_onnx_inputs(
     *,
     onnx_graph: onnx.ModelProto,
-    interpreter: Any,
+    interpreter: _LiteInterpreterProtocol,
     onnx_input_datas_for_validation: Dict[str, np.ndarray],
 ) -> None:
     input_specs = _collect_onnx_input_specs(onnx_graph)
@@ -622,6 +643,7 @@ def _invoke_tflite_with_onnx_inputs(
         tflite_details=tflite_input_details,
     )
 
+    adapted_inputs: Dict[str, np.ndarray] = {}
     for onnx_input_name in onnx_input_names:
         input_data = onnx_input_datas_for_validation.get(onnx_input_name)
         if input_data is None:
@@ -634,8 +656,37 @@ def _invoke_tflite_with_onnx_inputs(
                 f"input_name={onnx_input_name}"
             )
         detail = tflite_input_map[onnx_input_name]
-        adapted = _adapt_input_layout_for_tflite_input(np.asarray(input_data), detail)
-        quantized = _quantize_for_tflite_input(adapted, detail)
+        adapted_inputs[onnx_input_name] = _adapt_input_layout_for_tflite_input(
+            np.asarray(input_data),
+            detail,
+        )
+
+    if _resize_tflite_inputs_if_needed(
+        interpreter=interpreter,
+        onnx_input_names=onnx_input_names,
+        tflite_input_map=tflite_input_map,
+        adapted_inputs=adapted_inputs,
+    ):
+        interpreter.allocate_tensors()
+        tflite_input_details = interpreter.get_input_details()
+        tflite_input_map = _build_tflite_detail_map(
+            onnx_names=onnx_input_names,
+            tflite_details=tflite_input_details,
+        )
+        adapted_inputs = {
+            onnx_input_name: _adapt_input_layout_for_tflite_input(
+                np.asarray(onnx_input_datas_for_validation.get(
+                    onnx_input_name,
+                    onnx_input_datas_for_validation.get(_normalize_tensor_name(onnx_input_name)),
+                )),
+                tflite_input_map[onnx_input_name],
+            )
+            for onnx_input_name in onnx_input_names
+        }
+
+    for onnx_input_name in onnx_input_names:
+        detail = tflite_input_map[onnx_input_name]
+        quantized = _quantize_for_tflite_input(adapted_inputs[onnx_input_name], detail)
         interpreter.set_tensor(detail["index"], quantized)
     interpreter.invoke()
 
@@ -866,7 +917,7 @@ def generate_op_error_report(
     onnx_output_meta = _build_onnx_output_meta(onnx_graph)
     onnx_tensor_names = list(onnx_output_meta.keys())
 
-    interpreter = _create_tflite_interpreter(tflite_path)
+    interpreter: _LiteInterpreterProtocol = _create_tflite_interpreter(tflite_path)
     interpreter.allocate_tensors()
     tflite_tensor_details = interpreter.get_tensor_details()
     tflite_base_detail_map = _build_tflite_base_detail_map(tflite_tensor_details)

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-lite
-Version: 3.2.0
-Summary: Lite type annotations for aiobotocore 3.2.0 generated with mypy-boto3-builder 8.12.0
+Version: 3.2.1
+Summary: Lite type annotations for aiobotocore 3.2.1 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -33,7 +33,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-aiobotocore-full<3.3.0,>=3.2.0; extra == "full"
 Provides-Extra: aiobotocore
-Requires-Dist: aiobotocore==3.2.0; extra == "aiobotocore"
+Requires-Dist: aiobotocore==3.2.1; extra == "aiobotocore"
 Provides-Extra: all
 Requires-Dist: types-aiobotocore-accessanalyzer<3.3.0,>=3.2.0; extra == "all"
 Requires-Dist: types-aiobotocore-account<3.3.0,>=3.2.0; extra == "all"
@@ -177,6 +177,7 @@ Requires-Dist: types-aiobotocore-elasticache<3.3.0,>=3.2.0; extra == "all"
 Requires-Dist: types-aiobotocore-elasticbeanstalk<3.3.0,>=3.2.0; extra == "all"
 Requires-Dist: types-aiobotocore-elb<3.3.0,>=3.2.0; extra == "all"
 Requires-Dist: types-aiobotocore-elbv2<3.3.0,>=3.2.0; extra == "all"
+Requires-Dist: types-aiobotocore-elementalinference<3.3.0,>=3.2.0; extra == "all"
 Requires-Dist: types-aiobotocore-emr<3.3.0,>=3.2.0; extra == "all"
 Requires-Dist: types-aiobotocore-emr-containers<3.3.0,>=3.2.0; extra == "all"
 Requires-Dist: types-aiobotocore-emr-serverless<3.3.0,>=3.2.0; extra == "all"
@@ -740,6 +741,8 @@ Provides-Extra: elb
 Requires-Dist: types-aiobotocore-elb<3.3.0,>=3.2.0; extra == "elb"
 Provides-Extra: elbv2
 Requires-Dist: types-aiobotocore-elbv2<3.3.0,>=3.2.0; extra == "elbv2"
+Provides-Extra: elementalinference
+Requires-Dist: types-aiobotocore-elementalinference<3.3.0,>=3.2.0; extra == "elementalinference"
 Provides-Extra: emr
 Requires-Dist: types-aiobotocore-emr<3.3.0,>=3.2.0; extra == "emr"
 Provides-Extra: emr-containers
@@ -1295,7 +1298,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [aiobotocore 3.2.0](https://pypi.org/project/aiobotocore/)
+Type annotations for [aiobotocore 3.2.1](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1352,7 +1355,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==3.2.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==3.2.1' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1625,9 +1628,9 @@ repository.
 
 ## Submodules
 
-- `types-aiobotocore-lite[full]` - Type annotations for all 413 services in one
+- `types-aiobotocore-lite[full]` - Type annotations for all 414 services in one
   package (recommended).
-- `types-aiobotocore-lite[all]` - Type annotations for all 413 services in
+- `types-aiobotocore-lite[all]` - Type annotations for all 414 services in
   separate packages.
 - `types-aiobotocore-lite[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/),
@@ -2067,6 +2070,9 @@ repository.
   service.
 - `types-aiobotocore-lite[elbv2]` - Type annotations for
   [ElasticLoadBalancingv2](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elbv2/)
+  service.
+- `types-aiobotocore-lite[elementalinference]` - Type annotations for
+  [ElementalInference](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/)
   service.
 - `types-aiobotocore-lite[emr]` - Type annotations for
   [EMR](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_emr/)

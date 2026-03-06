@@ -41,14 +41,20 @@ def EpiGraphDB_get_mendelian_randomization(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "exposure_trait": exposure_trait,
+            "outcome_trait": outcome_trait,
+            "pval_threshold": pval_threshold,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EpiGraphDB_get_mendelian_randomization",
-            "arguments": {
-                "exposure_trait": exposure_trait,
-                "outcome_trait": outcome_trait,
-                "pval_threshold": pval_threshold,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

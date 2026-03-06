@@ -45,10 +45,16 @@ def ols_get_efo_term_children(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"iri": iri, "obo_id": obo_id, "size": size}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ols_get_efo_term_children",
-            "arguments": {"iri": iri, "obo_id": obo_id, "size": size},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

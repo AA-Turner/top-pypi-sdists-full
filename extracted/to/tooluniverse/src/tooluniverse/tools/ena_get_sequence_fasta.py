@@ -38,10 +38,16 @@ def ena_get_sequence_fasta(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"accession": accession, "download": download}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ena_get_sequence_fasta",
-            "arguments": {"accession": accession, "download": download},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

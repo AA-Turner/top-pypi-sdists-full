@@ -49,8 +49,13 @@ class GTExExpressionTool:
         )
         timeout = int(self.tool_config.get("settings", {}).get("timeout", 30))
 
-        query = {"gencodeId": arguments.get("ensembl_gene_id")}
-        url = f"{base}/expression/geneExpression?{urlencode(query)}"
+        # Feature-69A-001: /expression/geneExpression with gtex_v10 returns empty.
+        # Use /expression/medianGeneExpression with gtex_v8 for reliable results.
+        query = {
+            "gencodeId": arguments.get("ensembl_gene_id"),
+            "datasetId": "gtex_v8",
+        }
+        url = f"{base}/expression/medianGeneExpression?{urlencode(query)}"
         try:
             api_response = _http_get(
                 url, headers={"Accept": "application/json"}, timeout=timeout
@@ -70,7 +75,7 @@ class GTExExpressionTool:
 
             return {
                 "source": "GTEx",
-                "endpoint": "expression/geneExpression",
+                "endpoint": "expression/medianGeneExpression",
                 "query": query,
                 "data": wrapped_data,
                 "success": True,
@@ -79,7 +84,7 @@ class GTExExpressionTool:
             return {
                 "error": str(e),
                 "source": "GTEx",
-                "endpoint": "expression/geneExpression",
+                "endpoint": "expression/medianGeneExpression",
                 "success": False,
             }
 
@@ -128,6 +133,7 @@ class GTExEQTLTool:
 
         query: Dict[str, Any] = {
             "gencodeId": arguments.get("ensembl_gene_id"),
+            "datasetId": arguments.get("dataset_id", "gtex_v10"),
         }
         if "page" in arguments:
             query["page"] = int(arguments["page"])

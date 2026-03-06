@@ -105,10 +105,11 @@ class PubChemRESTTool(BaseTool):
         try:
             # Increase timeout to 30 seconds and add MaxRecords parameter to limit results
             if "fastsubstructure" in url or "fastsimilarity" in url:
+                max_records = arguments.get("max_results", 10)
                 if "?" in url:
-                    url += "&MaxRecords=10"
+                    url += f"&MaxRecords={max_records}"
                 else:
-                    url += "?MaxRecords=10"
+                    url += f"?MaxRecords={max_records}"
 
             resp = requests.get(url, timeout=30)
         except requests.Timeout:

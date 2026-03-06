@@ -13,9 +13,17 @@ from pycarlo.features.ingestion.models import (
 
 
 class TestTag(TestCase):
-    def test_to_dict(self):
+    def test_to_dict_key_value(self):
         tag = Tag(key="env", value="prod")
         assert tag.to_dict() == {"key": "env", "value": "prod"}
+
+    def test_to_dict_key_only(self):
+        tag = Tag(key="pii")
+        assert tag.to_dict() == {"key": "pii"}
+
+    def test_to_dict_key_with_none_value(self):
+        tag = Tag(key="sensitive", value=None)
+        assert tag.to_dict() == {"key": "sensitive"}
 
 
 class TestAssetField(TestCase):

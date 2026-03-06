@@ -44,15 +44,21 @@ def Wikipedia_get_content(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "title": title,
+            "language": language,
+            "extract_type": extract_type,
+            "max_chars": max_chars,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "Wikipedia_get_content",
-            "arguments": {
-                "title": title,
-                "language": language,
-                "extract_type": extract_type,
-                "max_chars": max_chars,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

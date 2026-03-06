@@ -35,8 +35,13 @@ def cBioPortal_get_sample_lists(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"study_id": study_id}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "cBioPortal_get_sample_lists", "arguments": {"study_id": study_id}},
+        {
+            "name": "cBioPortal_get_sample_lists",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

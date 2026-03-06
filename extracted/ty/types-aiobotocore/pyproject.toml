@@ -4,10 +4,10 @@
 
 [project]
 name = "types-aiobotocore"
-version = "3.2.0"
+version = "3.2.1"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for aiobotocore 3.2.0 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for aiobotocore 3.2.1 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -68,7 +68,7 @@ full = [
     "types-aiobotocore-full>=3.2.0, <3.3.0",
 ]
 aiobotocore = [
-    "aiobotocore==3.2.0",
+    "aiobotocore==3.2.1",
 ]
 all = [
     "types-aiobotocore-accessanalyzer>=3.2.0, <3.3.0",
@@ -213,6 +213,7 @@ all = [
     "types-aiobotocore-elasticbeanstalk>=3.2.0, <3.3.0",
     "types-aiobotocore-elb>=3.2.0, <3.3.0",
     "types-aiobotocore-elbv2>=3.2.0, <3.3.0",
+    "types-aiobotocore-elementalinference>=3.2.0, <3.3.0",
     "types-aiobotocore-emr>=3.2.0, <3.3.0",
     "types-aiobotocore-emr-containers>=3.2.0, <3.3.0",
     "types-aiobotocore-emr-serverless>=3.2.0, <3.3.0",
@@ -919,6 +920,9 @@ elb = [
 ]
 elbv2 = [
     "types-aiobotocore-elbv2>=3.2.0, <3.3.0",
+]
+elementalinference = [
+    "types-aiobotocore-elementalinference>=3.2.0, <3.3.0",
 ]
 emr = [
     "types-aiobotocore-emr>=3.2.0, <3.3.0",

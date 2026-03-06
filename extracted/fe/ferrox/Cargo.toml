@@ -1,16 +1,17 @@
 [package]
 name = "ferrox"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2024"
 rust-version = "1.93"
 authors = ["Janosh Riebesell <janosh.riebesell@gmail.com>"]
 description = "High-performance base layer for computational materials science"
 license = "MIT"
-repository = "https://github.com/janosh/matterviz"
+repository = "https://github.com/periodiclabs/ferrox"
 keywords = ["atomistic-simulation", "materials-science", "molecular-dynamics", "crystallography", "rust"]
 include = [
   "src/**/*.rs",
   "src/**/*.json", # atomic scattering params - SSOT shared with TypeScript
+  "build.rs",
   "Cargo.toml",
   "readme.md",
 ]
@@ -21,8 +22,8 @@ crate-type = ["cdylib", "rlib"] # cdylib for Python/WASM, rlib for Rust
 
 [dependencies]
 # Python bindings
-# When building the extension module (python feature), use extension-module
-# When generating stubs (stub-gen feature), link against Python directly
+# `python` provides core Python bindings without extension-module linker behavior.
+# `python-extension` adds extension-module for wheels/maturin builds.
 pyo3 = { version = "0.27.2", optional = true }
 pyo3-stub-gen = { version = "0.18", optional = true }
 
@@ -67,6 +68,10 @@ glob = "0.3"
 tracing = "0.1"
 flate2 = "1.1"  # gzip decompression for element data
 
+# Materials Project S3 open data access (optional)
+ureq = { version = "3", optional = true }
+roxmltree = { version = "0.20", optional = true }
+
 # File format parsing
 extxyz = "0.2"
 
@@ -81,10 +86,19 @@ pyo3-build-config = { version = "0.27.2", optional = true }
 
 [features]
 default = ["rayon"]
-# python feature: for building the extension module (loaded into Python interpreter)
-python = ["dep:pyo3", "dep:pyo3-build-config", "dep:pyo3-stub-gen", "rayon", "pyo3/extension-module", "pyo3/abi3-py311"]
+# python feature: shared Python bindings without extension-module linker behavior
+python = [
+  "dep:pyo3",
+  "dep:pyo3-build-config",
+  "dep:pyo3-stub-gen",
+  "rayon",
+  "mp",
+  "pyo3/abi3-py311",
+]
+# python-extension feature: extension module loaded into Python interpreter
+python-extension = ["python", "pyo3/extension-module"]
 # stub-gen feature: for running stub_gen binary (no extension-module, doesn't need Python runtime)
-stub-gen = ["dep:pyo3", "dep:pyo3-build-config", "dep:pyo3-stub-gen", "rayon", "pyo3/abi3-py311"]
+stub-gen = ["python"]
 wasm = [
   "dep:console_error_panic_hook",
   "dep:js-sys",
@@ -93,12 +107,9 @@ wasm = [
   "dep:wasm-bindgen",
 ]
 rayon = ["dep:rayon"]
+mp = ["dep:ureq", "dep:roxmltree"]
 
 [[bin]]
 name = "stub_gen"
 path = "src/bin/stub_gen.rs"
 required-features = ["stub-gen"]
-
-[[bench]]
-name = "matcher_bench"
-harness = false

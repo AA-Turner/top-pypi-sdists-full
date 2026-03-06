@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from multiprocessing import Queue
 from queue import Empty
-from threading import Event, Thread
+from threading import Event, Lock, Thread
 from typing import Generator, Optional, Type, Union
 
 import pika
@@ -86,6 +86,8 @@ class RabbitMQConsumer(Consumer):
         self.connection_factory = connection_factory
         self._heartbeat_thread = None
         self._heartbeat_stop_evt = Event()
+        self._pending_callbacks = 0
+        self._pending_callbacks_lock = Lock()
 
         self._connect()
         self._start_heartbeat_thread()
@@ -192,6 +194,9 @@ class RabbitMQConsumer(Consumer):
             f"[{self.logger_prefix}] Adding ack callback for [{msg.delivery_tag}]"
         )
 
+        with self._pending_callbacks_lock:
+            self._pending_callbacks += 1
+
         def callback():
             AbstraLogger.debug(
                 f"[{self.logger_prefix}] Acknowledging message [{msg.delivery_tag}]"
@@ -207,6 +212,9 @@ class RabbitMQConsumer(Consumer):
                 AbstraLogger.error(
                     f"[{self.logger_prefix}] Error acknowledging message [{msg.delivery_tag}]: {e}"
                 )
+            finally:
+                with self._pending_callbacks_lock:
+                    self._pending_callbacks -= 1
 
         self.connection.add_callback_threadsafe(callback)
 
@@ -220,6 +228,9 @@ class RabbitMQConsumer(Consumer):
         AbstraLogger.debug(
             f"[{self.logger_prefix}] Adding nack callback for [{msg.delivery_tag}]"
         )
+
+        with self._pending_callbacks_lock:
+            self._pending_callbacks += 1
 
         def callback():
             AbstraLogger.debug(
@@ -238,6 +249,9 @@ class RabbitMQConsumer(Consumer):
                 AbstraLogger.error(
                     f"[{self.logger_prefix}] Error nacking message [{msg.delivery_tag}]: {e}"
                 )
+            finally:
+                with self._pending_callbacks_lock:
+                    self._pending_callbacks -= 1
 
         self.connection.add_callback_threadsafe(callback)
 
@@ -326,11 +340,23 @@ class RabbitMQConsumer(Consumer):
         AbstraLogger.debug(f"[{self.logger_prefix}] Exiting consumer context manager")
 
         if self.connection:
-            # Process any pending ACK/NACK callbacks while heartbeat thread keeps connection alive
-            self.connection.process_data_events(time_limit=60)
-            AbstraLogger.warning(f"[{self.logger_prefix}] Data events processed")
-
             self._stop_heartbeat_thread()
+
+            deadline = time.time() + 5.0
+            while time.time() < deadline:
+                with self._pending_callbacks_lock:
+                    if self._pending_callbacks == 0:
+                        break
+                try:
+                    self.connection.process_data_events(time_limit=0)
+                except Exception as e:
+                    AbstraLogger.warning(
+                        f"[{self.logger_prefix}] Error flushing callbacks: {e}"
+                    )
+                    break
+                time.sleep(0.1)
+
+            AbstraLogger.warning(f"[{self.logger_prefix}] Data events processed")
 
             if self.connection.is_open:
                 AbstraLogger.warning(f"[{self.logger_prefix}] Cancelling channel")
@@ -679,10 +705,12 @@ class RabbitMQFanoutConsumer(Consumer):
         AbstraLogger.debug(f"[{self.logger_prefix}] Exiting consumer context manager")
 
         if self.connection:
-            # Process any pending ACK/NACK callbacks while heartbeat thread keeps connection alive
-            self.connection.process_data_events(time_limit=60)
-
             self._stop_heartbeat_thread()
+
+            try:
+                self.connection.process_data_events(time_limit=0)
+            except Exception:
+                pass
 
             if self.connection.is_open:
                 self.channel.cancel()

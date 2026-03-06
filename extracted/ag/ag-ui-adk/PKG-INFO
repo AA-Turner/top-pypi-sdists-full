@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ag-ui-adk
-Version: 0.5.0
+Version: 0.5.1
 Author: Mark Fogle
 Author-email: Mark Fogle <mark@contextable.com>
 Requires-Dist: ag-ui-protocol>=0.1.11

@@ -68,6 +68,7 @@ class EBIProteinsInteractionsTool(BaseTool):
         accession = arguments.get("accession", "")
         if not accession:
             return {"error": "accession is required (e.g., 'P04637')."}
+        limit = int(arguments.get("limit", 25))
 
         url = f"{EBI_PROTEINS_BASE_URL}/proteins/interaction/{accession}"
         response = requests.get(
@@ -112,15 +113,17 @@ class EBIProteinsInteractionsTool(BaseTool):
         unique_interactions = sorted(
             seen.values(), key=lambda x: x["experiments"], reverse=True
         )
+        truncated = unique_interactions[:limit]
 
         return {
             "data": {
                 "query_accession": accession,
-                "interactions": unique_interactions,
+                "interactions": truncated,
             },
             "metadata": {
                 "source": "EBI Proteins API / IntAct (ebi.ac.uk/proteins)",
                 "total_interactions": len(unique_interactions),
+                "returned": len(truncated),
             },
         }
 
@@ -144,7 +147,8 @@ class EBIProteinsInteractionsTool(BaseTool):
 
         # Extract protein metadata from first entry
         first_entry = data[0]
-        protein_name = first_entry.get("accession", accession)
+        # Feature-66B-008a: "accession" returns the accession again; use "name" for protein name
+        protein_name = first_entry.get("name", accession)
         protein_existence = first_entry.get("proteinExistence")
         organism = None
         taxonomy = first_entry.get("taxonomy")
@@ -153,6 +157,8 @@ class EBIProteinsInteractionsTool(BaseTool):
 
         # Collect all interactions across entries
         all_interactions = []
+        # Feature-66B-008c: diseases/locations are properties of the query protein only (data[0]),
+        # not of all interaction partners — iterating all entries mixes partner data in.
         diseases = set()
         locations = set()
 
@@ -172,24 +178,23 @@ class EBIProteinsInteractionsTool(BaseTool):
                     }
                 )
 
-            # Extract diseases
-            for disease in entry.get("diseases", []):
-                disease_name = (
-                    disease.get("diseaseId")
-                    or disease.get("acronym")
-                    or disease.get("type")
-                )
-                if disease_name:
-                    diseases.add(str(disease_name))
+        # Extract diseases and locations from the query protein entry only
+        for disease in first_entry.get("diseases", []):
+            # Feature-67B-003A: disease.get("type") returns the UniProt type discriminator
+            # string "DISEASE" (not a disease name) — omit it from the fallback chain.
+            disease_name = disease.get("diseaseId") or disease.get("acronym")
+            if disease_name:
+                diseases.add(str(disease_name))
 
-            # Extract subcellular locations
-            for loc in entry.get("subcellularLocations", []):
-                for subloc in loc.get("locations", [loc]):
-                    loc_name = (
-                        subloc.get("value") if isinstance(subloc, dict) else str(subloc)
-                    )
-                    if loc_name:
-                        locations.add(str(loc_name))
+        for loc in first_entry.get("subcellularLocations", []):
+            for subloc in loc.get("locations", [loc]):
+                # Feature-66B-008b: subloc["value"] is wrong; the value is nested under "location"
+                if isinstance(subloc, dict):
+                    loc_name = subloc.get("location", {}).get("value")
+                else:
+                    loc_name = str(subloc)
+                if loc_name:
+                    locations.add(str(loc_name))
 
         # Deduplicate and sort
         seen = {}

@@ -316,7 +316,7 @@ class BVBRCTool(BaseTool):
         if taxon_id:
             conditions.append(f"eq(taxon_id,{taxon_id})")
         if protein_name:
-            conditions.append(f"eq(protein_name,{protein_name})")
+            conditions.append(f'eq(protein_name,"{protein_name}")')
         if epitope_type:
             conditions.append(f"eq(epitope_type,{epitope_type})")
         if organism:

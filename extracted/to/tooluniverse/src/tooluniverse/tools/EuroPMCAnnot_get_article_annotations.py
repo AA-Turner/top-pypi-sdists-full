@@ -38,10 +38,19 @@ def EuroPMCAnnot_get_article_annotations(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "article_id": article_id,
+            "annotation_type": annotation_type,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "EuroPMCAnnot_get_article_annotations",
-            "arguments": {"article_id": article_id, "annotation_type": annotation_type},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

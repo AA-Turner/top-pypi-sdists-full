@@ -593,8 +593,8 @@ class GDCMutationFrequencyTool:
         if not gene_symbol:
             return {"status": "error", "error": "gene_symbol parameter is required"}
 
-        # Use the genes endpoint for mutation frequency
-        url = f"{base}/genes?filters=%7B%22op%22%3A%22%3D%22%2C%22content%22%3A%7B%22field%22%3A%22symbol%22%2C%22value%22%3A%5B%22{gene_symbol}%22%5D%7D%7D&fields=symbol,name,gene_id,case_cnv_gain,case_cnv_loss,cnv_case,ssm_case,is_cancer_gene_census"
+        # Use the genes endpoint for gene info
+        url = f"{base}/genes?filters=%7B%22op%22%3A%22%3D%22%2C%22content%22%3A%7B%22field%22%3A%22symbol%22%2C%22value%22%3A%5B%22{gene_symbol}%22%5D%7D%7D&fields=symbol,name,gene_id,biotype,description,is_cancer_gene_census"
 
         try:
             data = _http_get(

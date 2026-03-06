@@ -39,6 +39,8 @@ from IPython.utils.decorators import undoc
 from typing import Tuple, Optional, TYPE_CHECKING
 from collections.abc import Iterable
 import typing
+import typing as t
+from typing import cast
 from warnings import warn
 from weakref import ref, WeakSet
 
@@ -88,6 +90,9 @@ class DummyDB:
         pass
 
     def __exit__(self, *args, **kwargs):  # type: ignore [no-untyped-def]
+        pass
+
+    def close(self, *args, **kwargs):  # type: ignore [no-untyped-def]
         pass
 
 
@@ -343,6 +348,10 @@ class HistoryAccessor(HistoryAccessorBase):
             )
         # success! reset corrupt db count
         self._corrupt_db_counter = 0
+
+    def __del__(self) -> None:
+        if hasattr(self, "db"):
+            self.db.close()
 
     def writeout_cache(self) -> None:
         """Overridden by HistoryManager to dump the cache before certain
@@ -712,6 +721,7 @@ class HistoryManager(HistoryAccessor):
     def __del__(self) -> None:
         if self.save_thread is not None:
             self.save_thread.stop()
+        HistoryAccessor.__del__(self)
 
     @classmethod
     def _stop_thread(cls) -> None:
@@ -1131,7 +1141,7 @@ class HistorySavingThread(threading.Thread):
                 if hm() is not None:
                     self.db = sqlite3.connect(
                         str(hm().hist_file),  # type: ignore [union-attr]
-                        **hm().connection_options,  # type: ignore [union-attr]
+                        **cast(dict[str, t.Any], hm().connection_options),  # type: ignore [union-attr]
                     )
             while True:
                 self.save_flag.wait()

@@ -50,17 +50,23 @@ def NeuroMorpho_search_neurons(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "query_field": query_field,
+            "query_value": query_value,
+            "filter_field": filter_field,
+            "filter_value": filter_value,
+            "page": page,
+            "size": size,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "NeuroMorpho_search_neurons",
-            "arguments": {
-                "query_field": query_field,
-                "query_value": query_value,
-                "filter_field": filter_field,
-                "filter_value": filter_value,
-                "page": page,
-                "size": size,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

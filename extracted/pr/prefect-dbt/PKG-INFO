@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-dbt
-Version: 0.7.19
+Version: 0.7.20
 Summary: Prefect integrations for working with dbt
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0

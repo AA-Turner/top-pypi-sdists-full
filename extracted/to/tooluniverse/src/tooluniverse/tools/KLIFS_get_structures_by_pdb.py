@@ -35,8 +35,13 @@ def KLIFS_get_structures_by_pdb(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"pdb_codes": pdb_codes}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "KLIFS_get_structures_by_pdb", "arguments": {"pdb_codes": pdb_codes}},
+        {
+            "name": "KLIFS_get_structures_by_pdb",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

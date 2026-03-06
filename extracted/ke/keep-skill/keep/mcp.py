@@ -13,14 +13,15 @@ ChromaDB cross-process safety is handled at the store layer.
 """
 
 import asyncio
+import json
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from .api import Keeper
+from .api import Keeper, _text_content_id
 from .cli import render_context, render_find_context, expand_prompt
 
 # ---------------------------------------------------------------------------
@@ -102,7 +103,9 @@ async def keep_put(
             if is_uri:
                 item = keeper.put(uri=content, id=id, summary=summary, tags=tags)
             else:
-                item = keeper.put(content, id=id, summary=summary, tags=tags)
+                # Match CLI behavior: inline text defaults to content-addressed IDs.
+                doc_id = id or _text_content_id(content)
+                item = keeper.put(content, id=doc_id, summary=summary, tags=tags)
         except (ValueError, OSError) as e:
             return f"Error: {e}"
 
@@ -381,6 +384,56 @@ async def keep_prompt(
             return f"Prompt not found: {name}"
 
         return expand_prompt(result, kp=keeper)
+
+
+@mcp.tool(
+    description=(
+        "Run one continuation tick. Continuations are stateful multi-step memory interactions "
+        "with automatic refinement and decision support. "
+        "Pass a payload dict with the continuation request — see docs/CONTINUATIONS.md for the full schema. "
+        "Common fields: cursor (omit to start new), top-level flow fields, overrides, work_results."
+    ),
+    annotations=_IDEMPOTENT,
+)
+async def keep_continue(
+    payload: Annotated[dict[str, Any], Field(
+        description=(
+            "Continuation request object. "
+            "To start a new flow: {\"goal\": \"...\", \"profile\": \"query.auto\"}. "
+            "To continue: {\"cursor\": \"...\"}. "
+            "To submit work results: {\"cursor\": \"...\", \"work_results\": [...]}."
+        ),
+    )],
+) -> str:
+    """Run one continuation tick."""
+    async with _lock:
+        keeper = _get_keeper()
+        try:
+            result = keeper.continue_flow(payload)
+        except (ValueError, OSError) as e:
+            return f"Error: {e}"
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool(
+    description=(
+        "Execute a pending work item from a continuation flow. "
+        "Returns a work_result envelope with outputs and quality metrics."
+    ),
+    annotations=_IDEMPOTENT,
+)
+async def keep_continue_work(
+    cursor: Annotated[str, Field(description="Cursor containing the flow context.")],
+    work_id: Annotated[str, Field(description="Work item to execute.")],
+) -> str:
+    """Execute a pending continuation work item."""
+    async with _lock:
+        keeper = _get_keeper()
+        try:
+            result = keeper.continue_run_work(cursor, work_id)
+        except (ValueError, OSError) as e:
+            return f"Error: {e}"
+    return json.dumps(result, indent=2)
 
 
 # ---------------------------------------------------------------------------

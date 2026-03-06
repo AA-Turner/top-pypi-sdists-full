@@ -5,7 +5,7 @@
 
 use crate::utils::element_cache::ElementCache;
 use crate::utils::is_definition_list_item;
-use crate::utils::mkdocs_attr_list::is_standalone_attr_list;
+use crate::utils::mkdocs_attr_list::{ATTR_LIST_PATTERN, is_standalone_attr_list};
 use crate::utils::mkdocs_snippets::is_snippet_block_delimiter;
 use crate::utils::regex_cache::{
     DISPLAY_MATH_REGEX, EMAIL_PATTERN, EMOJI_SHORTCODE_REGEX, FOOTNOTE_REF_REGEX, HTML_ENTITY_REGEX, HTML_TAG_PATTERN,
@@ -61,6 +61,9 @@ pub struct ReflowOptions {
     pub abbreviations: Option<Vec<String>>,
     /// How to measure string length for line-length comparisons
     pub length_mode: ReflowLengthMode,
+    /// Whether to treat {#id .class key="value"} as atomic (unsplittable) elements.
+    /// Enabled for MkDocs and Kramdown flavors.
+    pub attr_lists: bool,
 }
 
 impl Default for ReflowOptions {
@@ -73,6 +76,7 @@ impl Default for ReflowOptions {
             semantic_line_breaks: false,
             abbreviations: None,
             length_mode: ReflowLengthMode::default(),
+            attr_lists: false,
         }
     }
 }
@@ -411,16 +415,25 @@ fn trim_preserving_hard_break(s: &str) -> String {
     }
 }
 
+/// Parse markdown elements using the appropriate parser based on options.
+fn parse_elements(text: &str, options: &ReflowOptions) -> Vec<Element> {
+    if options.attr_lists {
+        parse_markdown_elements_with_attr_lists(text)
+    } else {
+        parse_markdown_elements(text)
+    }
+}
+
 pub fn reflow_line(line: &str, options: &ReflowOptions) -> Vec<String> {
     // For sentence-per-line mode, always process regardless of length
     if options.sentence_per_line {
-        let elements = parse_markdown_elements(line);
+        let elements = parse_elements(line, options);
         return reflow_elements_sentence_per_line(&elements, &options.abbreviations);
     }
 
     // For semantic line breaks mode, use cascading split strategy
     if options.semantic_line_breaks {
-        let elements = parse_markdown_elements(line);
+        let elements = parse_elements(line, options);
         return reflow_elements_semantic(&elements, options);
     }
 
@@ -431,7 +444,7 @@ pub fn reflow_line(line: &str, options: &ReflowOptions) -> Vec<String> {
     }
 
     // Parse the markdown to identify elements
-    let elements = parse_markdown_elements(line);
+    let elements = parse_elements(line, options);
 
     // Reflow the elements into lines
     reflow_elements(&elements, options)
@@ -504,6 +517,8 @@ enum Element {
     HtmlEntity(String),
     /// Hugo/Go template shortcode {{< ... >}} or {{% ... %}}
     HugoShortcode(String),
+    /// MkDocs/kramdown attribute list {#id .class key="value"}
+    AttrList(String),
     /// Inline code `code`
     Code(String),
     /// Bold text **text** or __text__
@@ -557,6 +572,7 @@ impl std::fmt::Display for Element {
             Element::HtmlTag(s) => write!(f, "{s}"),
             Element::HtmlEntity(s) => write!(f, "{s}"),
             Element::HugoShortcode(s) => write!(f, "{s}"),
+            Element::AttrList(s) => write!(f, "{s}"),
             Element::Code(s) => write!(f, "`{s}`"),
             Element::Bold { content, underscore } => {
                 if *underscore {
@@ -716,6 +732,14 @@ fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
 /// 6. Shortcut reference links [ref] - detected last to avoid false positives
 /// 7. Other elements (code, bold, italic, etc.) - processed normally
 fn parse_markdown_elements(text: &str) -> Vec<Element> {
+    parse_markdown_elements_inner(text, false)
+}
+
+fn parse_markdown_elements_with_attr_lists(text: &str) -> Vec<Element> {
+    parse_markdown_elements_inner(text, true)
+}
+
+fn parse_markdown_elements_inner(text: &str, attr_lists: bool) -> Vec<Element> {
     let mut elements = Vec::new();
     let mut remaining = text;
 
@@ -881,6 +905,7 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
         let mut next_special = remaining.len();
         let mut special_type = "";
         let mut pulldown_emphasis: Option<&EmphasisSpan> = None;
+        let mut attr_list_len: usize = 0;
 
         // Check for code spans (not handled by pulldown-cmark in this context)
         if let Some(pos) = remaining.find('`')
@@ -888,6 +913,20 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
         {
             next_special = pos;
             special_type = "code";
+        }
+
+        // Check for MkDocs/kramdown attr lists - {#id .class key="value"}
+        if attr_lists
+            && let Some(pos) = remaining.find('{')
+            && pos < next_special
+        {
+            if let Some(m) = ATTR_LIST_PATTERN.find(&remaining[pos..]) {
+                if m.start() == 0 {
+                    next_special = pos;
+                    special_type = "attr_list";
+                    attr_list_len = m.end();
+                }
+            }
         }
 
         // Check for emphasis using pulldown-cmark's pre-extracted spans
@@ -1171,6 +1210,10 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
                         elements.push(Element::Text(remaining.to_string()));
                         break;
                     }
+                }
+                "attr_list" => {
+                    elements.push(Element::AttrList(remaining[..attr_list_len].to_string()));
+                    remaining = &remaining[attr_list_len..];
                 }
                 "pulldown_emphasis" => {
                     // Use pre-extracted emphasis/strikethrough span from pulldown-cmark
@@ -1592,25 +1635,38 @@ fn cascade_split_line(
     line_length: usize,
     abbreviations: &Option<Vec<String>>,
     length_mode: ReflowLengthMode,
+    attr_lists: bool,
 ) -> Vec<String> {
     if line_length == 0 || display_len(text, length_mode) <= line_length {
         return vec![text.to_string()];
     }
 
-    let elements = parse_markdown_elements(text);
+    let elements = parse_markdown_elements_inner(text, attr_lists);
     let element_spans = compute_element_spans(&elements);
 
     // Try clause punctuation split
     if let Some((first, rest)) = split_at_clause_punctuation(text, line_length, &element_spans, length_mode) {
         let mut result = vec![first];
-        result.extend(cascade_split_line(&rest, line_length, abbreviations, length_mode));
+        result.extend(cascade_split_line(
+            &rest,
+            line_length,
+            abbreviations,
+            length_mode,
+            attr_lists,
+        ));
         return result;
     }
 
     // Try break-word split
     if let Some((first, rest)) = split_at_break_word(text, line_length, &element_spans, length_mode) {
         let mut result = vec![first];
-        result.extend(cascade_split_line(&rest, line_length, abbreviations, length_mode));
+        result.extend(cascade_split_line(
+            &rest,
+            line_length,
+            abbreviations,
+            length_mode,
+            attr_lists,
+        ));
         return result;
     }
 
@@ -1623,6 +1679,7 @@ fn cascade_split_line(
         semantic_line_breaks: false,
         abbreviations: abbreviations.clone(),
         length_mode,
+        attr_lists,
     };
     reflow_elements(&elements, &options)
 }
@@ -1651,6 +1708,7 @@ fn reflow_elements_semantic(elements: &[Element], options: &ReflowOptions) -> Ve
                 options.line_length,
                 &options.abbreviations,
                 length_mode,
+                options.attr_lists,
             ));
         }
     }

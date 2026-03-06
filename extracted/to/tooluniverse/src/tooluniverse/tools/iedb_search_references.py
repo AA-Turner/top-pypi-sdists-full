@@ -47,16 +47,22 @@ def iedb_search_references(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "limit": limit,
+            "offset": offset,
+            "order": order,
+            "select": select,
+            "filters": filters,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "iedb_search_references",
-            "arguments": {
-                "limit": limit,
-                "offset": offset,
-                "order": order,
-                "select": select,
-                "filters": filters,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -38,13 +38,19 @@ def ExperimentalDesignScorer(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "hypothesis": hypothesis,
+            "design_description": design_description,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "ExperimentalDesignScorer",
-            "arguments": {
-                "hypothesis": hypothesis,
-                "design_description": design_description,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

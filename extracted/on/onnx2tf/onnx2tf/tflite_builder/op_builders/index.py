@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -33,13 +33,18 @@ def _prefer_int32_index_output_dtype(
     dtype = str(requested_dtype).upper()
     if dtype == "INT32":
         return "INT32"
-    # LiteRT.js cannot consume INT64; prefer INT32 for index-like outputs.
+    if dtype == "UINT32":
+        return "UINT32"
+    # LiteRT.js cannot consume 64-bit integers; prefer 32-bit index-like outputs.
+    preferred_dtype = "INT32"
+    if dtype == "UINT64":
+        preferred_dtype = "UINT32"
     tensor = ctx.model_ir.tensors.get(tensor_name, None)
     if tensor is not None:
-        tensor.dtype = "INT32"
+        tensor.dtype = preferred_dtype
     if hasattr(ctx, "dtype_map") and isinstance(ctx.dtype_map, dict):
-        ctx.dtype_map[str(tensor_name)] = "INT32"
-    return "INT32"
+        ctx.dtype_map[str(tensor_name)] = preferred_dtype
+    return preferred_dtype
 
 
 def _propagate_shape(ctx: Any, src_tensor_name: str, dst_tensor_name: str) -> None:
@@ -176,7 +181,7 @@ def _add_reshape_operator(
         f"{output_name}_reshape_shape",
         np.asarray([int(v) for v in list(new_shape)], dtype=np.int32),
     )
-    options = {
+    options: dict[str, Any] = {
         "newShape": [int(v) for v in list(new_shape)],
     }
     if bool(preserve_dynamic_shape):
@@ -219,6 +224,25 @@ def _add_binary_op(
     )
 
 
+def _resolve_positive_axis_dim(
+    *,
+    input_shape: list[int],
+    input_signature: list[int],
+    axis: int,
+) -> int:
+    if 0 <= int(axis) < int(len(input_signature)):
+        signature_dim = int(input_signature[int(axis)])
+        if signature_dim < 0:
+            return -1
+        if signature_dim > 0:
+            return int(signature_dim)
+    if 0 <= int(axis) < int(len(input_shape)):
+        static_dim = int(input_shape[int(axis)])
+        if static_dim > 0:
+            return int(static_dim)
+    return -1
+
+
 def build_gather_op(node: Any, ctx: Any) -> None:
     params_name = node.inputs[0].name
     indices_name = node.inputs[1].name
@@ -228,6 +252,42 @@ def build_gather_op(node: Any, ctx: Any) -> None:
     ctx.ensure_tensor(output_name)
 
     input_shape = [int(v) for v in ctx.get_tensor_shape(params_name)]
+    params_dtype = str(ctx.get_tensor_dtype(params_name)).upper()
+    if params_dtype in {"INT64", "UINT64"}:
+        runtime_params_dtype = _prefer_int32_index_output_dtype(
+            ctx=ctx,
+            tensor_name=params_name,
+            requested_dtype=params_dtype,
+        )
+        if runtime_params_dtype != params_dtype:
+            casted_params_name = ctx.add_intermediate_tensor(
+                f"{output_name}_gather_params_{runtime_params_dtype.lower()}",
+                dtype=runtime_params_dtype,
+                shape=input_shape,
+            )
+            casted_params_tensor = ctx.model_ir.tensors.get(casted_params_name, None)
+            src_params_tensor = ctx.model_ir.tensors.get(params_name, None)
+            if casted_params_tensor is not None and src_params_tensor is not None:
+                casted_params_tensor.shape_signature = (
+                    [int(v) for v in list(src_params_tensor.shape_signature)]
+                    if src_params_tensor.shape_signature is not None
+                    else [int(v) for v in input_shape]
+                )
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[params_name],
+                    outputs=[casted_params_name],
+                    options={
+                        "inDataType": params_dtype,
+                        "outDataType": runtime_params_dtype,
+                    },
+                )
+            )
+            params_name = casted_params_name
+            params_dtype = runtime_params_dtype
+            input_shape = [int(v) for v in ctx.get_tensor_shape(params_name)]
+
     params_tensor = ctx.model_ir.tensors.get(params_name, None)
     input_signature = (
         [int(v) for v in list(params_tensor.shape_signature)]
@@ -246,6 +306,12 @@ def build_gather_op(node: Any, ctx: Any) -> None:
         )
 
     output_tensor = ctx.model_ir.tensors[output_name]
+    output_tensor.dtype = params_dtype
+    output_tensor.quantization = _clone_quantization(
+        params_tensor.quantization if params_tensor is not None else None
+    )
+    if hasattr(ctx, "dtype_map") and isinstance(ctx.dtype_map, dict):
+        ctx.dtype_map[str(output_name)] = params_dtype
     existing_output_signature = (
         [int(v) for v in list(output_tensor.shape_signature)]
         if output_tensor.shape_signature is not None
@@ -265,7 +331,11 @@ def build_gather_op(node: Any, ctx: Any) -> None:
     if indices_const is not None:
         indices_const_arr = np.asarray(indices_const)
         if np.issubdtype(indices_const_arr.dtype, np.integer) and bool(np.any(indices_const_arr < 0)):
-            axis_dim = int(input_shape[int(axis)]) if int(axis) < int(len(input_shape)) else -1
+            axis_dim = _resolve_positive_axis_dim(
+                input_shape=input_shape,
+                input_signature=input_signature,
+                axis=axis,
+            )
             if axis_dim <= 0:
                 raise NotImplementedError(
                     f"Gather negative constant indices require known positive axis dimension. "
@@ -443,7 +513,108 @@ def build_gather_op(node: Any, ctx: Any) -> None:
             )
             gather_indices_name = gather_indices_i32_name
 
+    gather_indices_const = ctx.get_constant_array(gather_indices_name)
+    if gather_indices_const is None:
+        axis_dim = _resolve_positive_axis_dim(
+            input_shape=input_shape,
+            input_signature=input_signature,
+            axis=axis,
+        )
+        if axis_dim > 0:
+            runtime_indices_shape = [int(v) for v in gather_indices_shape]
+            runtime_indices_signature = [int(v) for v in gather_indices_signature]
+            if len(runtime_indices_shape) == 0:
+                runtime_indices_shape = [1]
+            if len(runtime_indices_signature) == 0:
+                runtime_indices_signature = [1]
+
+            gather_indices_zero_name = ctx.add_const_tensor(
+                f"{output_name}_gather_indices_zero_i32",
+                np.asarray([0], dtype=np.int32),
+            )
+            gather_axis_dim_name = ctx.add_const_tensor(
+                f"{output_name}_gather_axis_dim_i32",
+                np.asarray([int(axis_dim)], dtype=np.int32),
+            )
+
+            gather_indices_is_negative_name = ctx.add_intermediate_tensor(
+                f"{output_name}_gather_indices_is_negative",
+                dtype="BOOL",
+                shape=runtime_indices_shape,
+            )
+            gather_indices_is_negative_tensor = ctx.model_ir.tensors.get(gather_indices_is_negative_name, None)
+            if gather_indices_is_negative_tensor is not None:
+                gather_indices_is_negative_tensor.shape_signature = [
+                    int(v) for v in runtime_indices_signature
+                ]
+                gather_indices_is_negative_tensor.shape = [
+                    int(v) if int(v) >= 0 else 1 for v in runtime_indices_signature
+                ]
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="LESS",
+                    inputs=[gather_indices_name, gather_indices_zero_name],
+                    outputs=[gather_indices_is_negative_name],
+                    options={},
+                )
+            )
+
+            gather_indices_wrapped_runtime_name = ctx.add_intermediate_tensor(
+                f"{output_name}_gather_indices_wrapped_runtime",
+                dtype="INT32",
+                shape=runtime_indices_shape,
+            )
+            gather_indices_wrapped_runtime_tensor = ctx.model_ir.tensors.get(
+                gather_indices_wrapped_runtime_name, None
+            )
+            if gather_indices_wrapped_runtime_tensor is not None:
+                gather_indices_wrapped_runtime_tensor.shape_signature = [
+                    int(v) for v in runtime_indices_signature
+                ]
+                gather_indices_wrapped_runtime_tensor.shape = [
+                    int(v) if int(v) >= 0 else 1 for v in runtime_indices_signature
+                ]
+            _add_binary_op(
+                ctx=ctx,
+                op_type="ADD",
+                lhs_name=gather_indices_name,
+                rhs_name=gather_axis_dim_name,
+                output_name=gather_indices_wrapped_runtime_name,
+            )
+
+            gather_indices_normalized_name = ctx.add_intermediate_tensor(
+                f"{output_name}_gather_indices_normalized",
+                dtype="INT32",
+                shape=runtime_indices_shape,
+            )
+            gather_indices_normalized_tensor = ctx.model_ir.tensors.get(
+                gather_indices_normalized_name, None
+            )
+            if gather_indices_normalized_tensor is not None:
+                gather_indices_normalized_tensor.shape_signature = [
+                    int(v) for v in runtime_indices_signature
+                ]
+                gather_indices_normalized_tensor.shape = [
+                    int(v) if int(v) >= 0 else 1 for v in runtime_indices_signature
+                ]
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="SELECT",
+                    inputs=[
+                        gather_indices_is_negative_name,
+                        gather_indices_wrapped_runtime_name,
+                        gather_indices_name,
+                    ],
+                    outputs=[gather_indices_normalized_name],
+                    options={},
+                )
+            )
+            gather_indices_name = gather_indices_normalized_name
+            gather_indices_shape = [int(v) for v in runtime_indices_shape]
+            gather_indices_signature = [int(v) for v in runtime_indices_signature]
+
     gather_output_name = output_name
+    gather_output_signature: list[int] = []
     if bool(scalar_indices_semantics) and input_rank > 1:
         gather_output_signature = (
             [int(v) for v in input_signature[:int(axis)]]
@@ -474,9 +645,41 @@ def build_gather_op(node: Any, ctx: Any) -> None:
     )
 
     if gather_output_name != output_name:
+        if len(gather_output_signature) == 0:
+            gather_output_tensor = ctx.model_ir.tensors.get(gather_output_name, None)
+            if gather_output_tensor is not None:
+                gather_output_signature = (
+                    [int(v) for v in list(gather_output_tensor.shape_signature)]
+                    if gather_output_tensor.shape_signature is not None
+                    else [int(v) for v in list(gather_output_tensor.shape)]
+                )
+            if len(gather_output_signature) == 0:
+                gather_output_signature = [1]
+        reshape_target_signature = (
+            [int(v) for v in list(output_tensor.shape_signature)]
+            if output_tensor.shape_signature is not None
+            else [int(v) for v in list(output_tensor.shape)]
+        )
+        if _is_unknown_rank_placeholder_tensor(ctx, output_name):
+            reshape_target_signature = (
+                [int(v) for v in gather_output_signature[:int(axis)]]
+                + [int(v) for v in gather_output_signature[int(axis) + 1:]]
+            )
+            if len(reshape_target_signature) == 0:
+                reshape_target_signature = [1]
+            output_tensor.shape_signature = [int(v) for v in reshape_target_signature]
+            output_tensor.shape = [
+                int(v) if int(v) >= 0 else 1 for v in reshape_target_signature
+            ]
+        reshape_const_shape = [int(v) for v in reshape_target_signature]
+        reshape_options_shape = (
+            []
+            if any(int(v) < 0 for v in reshape_const_shape)
+            else [int(v) for v in reshape_const_shape]
+        )
         gather_out_shape_const = ctx.add_const_tensor(
             f"{output_name}_gather_scalar_reshape_shape",
-            np.asarray([int(v) for v in list(output_tensor.shape)], dtype=np.int32),
+            np.asarray(reshape_const_shape, dtype=np.int32),
         )
         ctx.add_operator(
             OperatorIR(
@@ -484,7 +687,7 @@ def build_gather_op(node: Any, ctx: Any) -> None:
                 inputs=[gather_output_name, gather_out_shape_const],
                 outputs=[output_name],
                 options={
-                    "newShape": [int(v) for v in list(output_tensor.shape)],
+                    "newShape": reshape_options_shape,
                     "preserveDynamicShape": True,
                 },
             )
@@ -507,6 +710,42 @@ def build_gather_nd_op(node: Any, ctx: Any) -> None:
         )
 
     params_shape = [int(v) for v in ctx.get_tensor_shape(params_name)]
+    params_dtype = str(ctx.get_tensor_dtype(params_name)).upper()
+    if params_dtype in {"INT64", "UINT64"}:
+        runtime_params_dtype = _prefer_int32_index_output_dtype(
+            ctx=ctx,
+            tensor_name=params_name,
+            requested_dtype=params_dtype,
+        )
+        if runtime_params_dtype != params_dtype:
+            casted_params_name = ctx.add_intermediate_tensor(
+                f"{output_name}_gather_nd_params_{runtime_params_dtype.lower()}",
+                dtype=runtime_params_dtype,
+                shape=params_shape,
+            )
+            casted_params_tensor = ctx.model_ir.tensors.get(casted_params_name, None)
+            src_params_tensor = ctx.model_ir.tensors.get(params_name, None)
+            if casted_params_tensor is not None and src_params_tensor is not None:
+                casted_params_tensor.shape_signature = (
+                    [int(v) for v in list(src_params_tensor.shape_signature)]
+                    if src_params_tensor.shape_signature is not None
+                    else [int(v) for v in params_shape]
+                )
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[params_name],
+                    outputs=[casted_params_name],
+                    options={
+                        "inDataType": params_dtype,
+                        "outDataType": runtime_params_dtype,
+                    },
+                )
+            )
+            params_name = casted_params_name
+            params_dtype = runtime_params_dtype
+            params_shape = [int(v) for v in ctx.get_tensor_shape(params_name)]
+
     params_tensor = ctx.model_ir.tensors.get(params_name, None)
     params_signature = (
         [int(v) for v in list(params_tensor.shape_signature)]
@@ -520,6 +759,14 @@ def build_gather_nd_op(node: Any, ctx: Any) -> None:
         if indices_tensor is not None and indices_tensor.shape_signature is not None
         else [int(v) for v in indices_shape]
     )
+    indices_runtime_signature = [int(v) for v in indices_signature]
+    # Non-constant GatherND indices can remain data-dependent at runtime
+    # even when current static metadata is concrete. Keep gather-prefix dims
+    # dynamic in shape_signature to avoid hard-coding downstream reshape shapes.
+    if indices_tensor is None or indices_tensor.data is None:
+        for dim_idx in range(max(len(indices_runtime_signature) - 1, 0)):
+            if int(indices_runtime_signature[dim_idx]) > 0:
+                indices_runtime_signature[dim_idx] = -1
 
     indices_for_gather_nd = indices_name
     indices_dtype = str(ctx.get_tensor_dtype(indices_name)).upper()
@@ -531,9 +778,9 @@ def build_gather_nd_op(node: Any, ctx: Any) -> None:
         )
         cast_output_tensor = ctx.model_ir.tensors.get(indices_for_gather_nd, None)
         if cast_output_tensor is not None:
-            cast_output_tensor.shape_signature = [int(v) for v in indices_signature]
+            cast_output_tensor.shape_signature = [int(v) for v in indices_runtime_signature]
             cast_output_tensor.shape = [
-                int(v) if int(v) >= 0 else 1 for v in indices_signature
+                int(v) if int(v) >= 0 else 1 for v in indices_runtime_signature
             ]
         ctx.add_operator(
             OperatorIR(
@@ -548,14 +795,20 @@ def build_gather_nd_op(node: Any, ctx: Any) -> None:
         )
 
     output_tensor = ctx.model_ir.tensors[output_name]
+    output_tensor.dtype = params_dtype
+    output_tensor.quantization = _clone_quantization(
+        params_tensor.quantization if params_tensor is not None else None
+    )
+    if hasattr(ctx, "dtype_map") and isinstance(ctx.dtype_map, dict):
+        ctx.dtype_map[str(output_name)] = params_dtype
     inferred_output_signature: Optional[list[int]] = None
-    if len(indices_signature) >= 1:
+    if len(indices_runtime_signature) >= 1:
         gather_dims = int(indices_shape[-1]) if len(indices_shape) > 0 else -1
-        if len(indices_signature) > 0 and int(indices_signature[-1]) > 0:
-            gather_dims = int(indices_signature[-1])
+        if len(indices_runtime_signature) > 0 and int(indices_runtime_signature[-1]) > 0:
+            gather_dims = int(indices_runtime_signature[-1])
         if gather_dims > 0 and gather_dims <= len(params_signature):
             inferred_output_signature = (
-                [int(v) for v in indices_signature[:-1]]
+                [int(v) for v in indices_runtime_signature[:-1]]
                 + [int(v) for v in params_signature[gather_dims:]]
             )
     if inferred_output_signature is None:
@@ -608,40 +861,84 @@ def build_scatter_nd_op(node: Any, ctx: Any) -> None:
     ctx.ensure_tensor(output_name)
 
     data_dtype = str(ctx.get_tensor_dtype(data_name)).upper()
+    data_meta_shape = _tensor_shape_with_signature(ctx, data_name)
     output_tensor = ctx.model_ir.tensors[output_name]
     data_tensor = ctx.model_ir.tensors[data_name]
     output_tensor.dtype = data_dtype
     output_tensor.quantization = _clone_quantization(data_tensor.quantization)
     _propagate_shape(ctx, data_name, output_name)
 
+    updates_meta_shape = _tensor_shape_with_signature(ctx, updates_name)
+    updates_for_scatter = updates_name
+    updates_dtype = str(ctx.get_tensor_dtype(updates_name)).upper()
+    if updates_dtype != data_dtype:
+        updates_const_arr = ctx.get_constant_array(updates_name)
+        if updates_const_arr is not None:
+            updates_for_scatter = ctx.add_const_tensor(
+                f"{output_name}_scatter_nd_updates_cast",
+                np.asarray(updates_const_arr, dtype=_DTYPE_TO_NP[data_dtype]),
+            )
+        else:
+            updates_for_scatter = ctx.add_intermediate_tensor(
+                f"{output_name}_scatter_nd_updates_cast",
+                dtype=data_dtype,
+                shape=[int(v) if int(v) >= 0 else 1 for v in updates_meta_shape],
+            )
+            updates_cast_tensor = ctx.model_ir.tensors.get(updates_for_scatter, None)
+            if updates_cast_tensor is not None:
+                updates_cast_tensor.shape_signature = [int(v) for v in updates_meta_shape]
+                updates_cast_tensor.shape = [
+                    int(v) if int(v) >= 0 else 1 for v in updates_meta_shape
+                ]
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[updates_name],
+                    outputs=[updates_for_scatter],
+                    options={
+                        "inDataType": updates_dtype,
+                        "outDataType": data_dtype,
+                    },
+                )
+            )
+
+    indices_shape = [int(v) for v in ctx.get_tensor_shape(indices_name)]
+    indices_meta_shape = _tensor_shape_with_signature(ctx, indices_name)
+
     indices_for_scatter = indices_name
     indices_dtype = str(ctx.get_tensor_dtype(indices_name)).upper()
     if indices_dtype != "INT32":
-        indices_shape = [int(v) for v in ctx.get_tensor_shape(indices_name)]
-        indices_for_scatter = ctx.add_intermediate_tensor(
-            f"{output_name}_scatter_nd_indices_i32",
-            dtype="INT32",
-            shape=indices_shape,
-        )
-        ctx.add_operator(
-            OperatorIR(
-                op_type="CAST",
-                inputs=[indices_name],
-                outputs=[indices_for_scatter],
-                options={
-                    "inDataType": indices_dtype,
-                    "outDataType": "INT32",
-                },
+        indices_const_arr = ctx.get_constant_array(indices_name)
+        if indices_const_arr is not None:
+            indices_for_scatter = ctx.add_const_tensor(
+                f"{output_name}_scatter_nd_indices_i32",
+                np.asarray(indices_const_arr, dtype=np.int32),
             )
-        )
+        else:
+            indices_for_scatter = ctx.add_intermediate_tensor(
+                f"{output_name}_scatter_nd_indices_i32",
+                dtype="INT32",
+                shape=indices_shape,
+            )
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[indices_name],
+                    outputs=[indices_for_scatter],
+                    options={
+                        "inDataType": indices_dtype,
+                        "outDataType": "INT32",
+                    },
+                )
+            )
 
     data_shape = [int(v) for v in ctx.get_tensor_shape(data_name)]
     rank = int(len(data_shape))
     shape_for_scatter = ""
-    if rank > 0 and all(int(dim) > 0 for dim in data_shape):
+    if rank > 0 and all(int(dim) > 0 for dim in data_meta_shape):
         shape_for_scatter = ctx.add_const_tensor(
             f"{output_name}_scatter_nd_shape",
-            np.asarray(data_shape, dtype=np.int32),
+            np.asarray([int(v) for v in data_meta_shape], dtype=np.int32),
         )
     else:
         shape_for_scatter = ctx.add_intermediate_tensor(
@@ -658,7 +955,121 @@ def build_scatter_nd_op(node: Any, ctx: Any) -> None:
             )
         )
 
-    updates_shape = [int(v) for v in ctx.get_tensor_shape(updates_name)]
+    # ONNX ScatterND accepts negative indices (wrap-around by each indexed axis).
+    # TFLite SCATTER_ND rejects them, so normalize before scattering.
+    k_dim = int(indices_meta_shape[-1]) if len(indices_meta_shape) > 0 else -1
+    if int(k_dim) > 0 and int(rank) > 0 and int(k_dim) <= int(rank):
+        shape_prefix_name = ""
+        static_shape_prefix: np.ndarray | None = None
+        if all(int(v) > 0 for v in data_meta_shape[:k_dim]):
+            static_shape_prefix = np.asarray(data_meta_shape[:k_dim], dtype=np.int32)
+
+        indices_const = ctx.get_constant_array(indices_for_scatter)
+        normalized_const_name = ""
+        if (
+            indices_const is not None
+            and static_shape_prefix is not None
+        ):
+            indices_arr = np.asarray(indices_const)
+            if (
+                indices_arr.ndim >= 1
+                and int(indices_arr.shape[-1]) == int(k_dim)
+                and np.any(indices_arr < 0)
+            ):
+                indices_i64 = indices_arr.astype(np.int64, copy=False)
+                reshape_dims = [1] * (indices_i64.ndim - 1) + [int(k_dim)]
+                mod_base = static_shape_prefix.astype(np.int64, copy=False).reshape(reshape_dims)
+                normalized_const = np.mod(indices_i64 + mod_base, mod_base).astype(np.int32, copy=False)
+                normalized_const_name = ctx.add_const_tensor(
+                    f"{output_name}_scatter_nd_indices_i32_normalized",
+                    normalized_const,
+                )
+                indices_for_scatter = normalized_const_name
+
+        if not normalized_const_name:
+            if static_shape_prefix is not None:
+                shape_prefix_name = ctx.add_const_tensor(
+                    f"{output_name}_scatter_nd_shape_prefix",
+                    static_shape_prefix,
+                )
+            elif int(k_dim) == int(rank):
+                shape_prefix_name = shape_for_scatter
+            else:
+                shape_prefix_indices_name = ctx.add_const_tensor(
+                    f"{output_name}_scatter_nd_shape_prefix_indices",
+                    np.arange(int(k_dim), dtype=np.int32),
+                )
+                shape_prefix_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_scatter_nd_shape_prefix",
+                    dtype="INT32",
+                    shape=[int(k_dim)],
+                )
+                ctx.add_operator(
+                    OperatorIR(
+                        op_type="GATHER",
+                        inputs=[shape_for_scatter, shape_prefix_indices_name],
+                        outputs=[shape_prefix_name],
+                        options={"axis": 0, "batchDims": 0},
+                    )
+                )
+
+            needs_runtime_normalize = indices_const is None
+            if needs_runtime_normalize:
+                zero_i32_name = ctx.add_const_tensor(
+                    f"{output_name}_scatter_nd_zero_i32",
+                    np.asarray(0, dtype=np.int32),
+                )
+                negative_mask_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_scatter_nd_negative_mask",
+                    dtype="BOOL",
+                    shape=indices_meta_shape,
+                )
+                indices_plus_shape_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_scatter_nd_indices_plus_shape",
+                    dtype="INT32",
+                    shape=indices_meta_shape,
+                )
+                indices_wrapped_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_scatter_nd_indices_wrapped",
+                    dtype="INT32",
+                    shape=indices_meta_shape,
+                )
+                normalized_indices_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_scatter_nd_indices_normalized",
+                    dtype="INT32",
+                    shape=indices_meta_shape,
+                )
+                ctx.add_operator(
+                    OperatorIR(
+                        op_type="LESS",
+                        inputs=[indices_for_scatter, zero_i32_name],
+                        outputs=[negative_mask_name],
+                    )
+                )
+                _add_binary_op(
+                    ctx=ctx,
+                    op_type="ADD",
+                    lhs_name=indices_for_scatter,
+                    rhs_name=shape_prefix_name,
+                    output_name=indices_plus_shape_name,
+                )
+                _add_binary_op(
+                    ctx=ctx,
+                    op_type="FLOOR_MOD",
+                    lhs_name=indices_plus_shape_name,
+                    rhs_name=shape_prefix_name,
+                    output_name=indices_wrapped_name,
+                )
+                ctx.add_operator(
+                    OperatorIR(
+                        op_type="SELECT",
+                        inputs=[negative_mask_name, indices_wrapped_name, indices_for_scatter],
+                        outputs=[normalized_indices_name],
+                    )
+                )
+                indices_for_scatter = normalized_indices_name
+
+    updates_shape = [int(v) if int(v) >= 0 else 1 for v in updates_meta_shape]
     ones_scalar = ctx.add_const_tensor(
         f"{output_name}_scatter_nd_one",
         np.asarray(1, dtype=_DTYPE_TO_NP[data_dtype]),
@@ -668,26 +1079,30 @@ def build_scatter_nd_op(node: Any, ctx: Any) -> None:
         ones_scalar_tensor.shape = []
         ones_scalar_tensor.shape_signature = []
     updates_ones = ""
-    if len(updates_shape) > 0 and all(int(dim) > 0 for dim in updates_shape):
+    if len(updates_meta_shape) > 0 and all(int(dim) > 0 for dim in updates_meta_shape):
         updates_ones = ctx.add_const_tensor(
             f"{output_name}_scatter_nd_updates_ones",
-            np.ones(updates_shape, dtype=_DTYPE_TO_NP[data_dtype]),
+            np.ones([int(v) for v in updates_meta_shape], dtype=_DTYPE_TO_NP[data_dtype]),
         )
     else:
         updates_shape_name = ctx.add_intermediate_tensor(
             f"{output_name}_scatter_nd_updates_shape",
             dtype="INT32",
-            shape=[len(updates_shape)] if len(updates_shape) > 0 else [1],
+            shape=[len(updates_meta_shape)] if len(updates_meta_shape) > 0 else [1],
         )
         updates_ones = ctx.add_intermediate_tensor(
             f"{output_name}_scatter_nd_updates_ones",
             dtype=data_dtype,
             shape=updates_shape,
         )
+        updates_ones_tensor = ctx.model_ir.tensors.get(updates_ones, None)
+        if updates_ones_tensor is not None:
+            updates_ones_tensor.shape_signature = [int(v) for v in updates_meta_shape]
+            updates_ones_tensor.shape = [int(v) if int(v) >= 0 else 1 for v in updates_meta_shape]
         ctx.add_operator(
             OperatorIR(
                 op_type="SHAPE",
-                inputs=[updates_name],
+                inputs=[updates_for_scatter],
                 outputs=[updates_shape_name],
                 options={"outType": "INT32"},
             )
@@ -700,26 +1115,31 @@ def build_scatter_nd_op(node: Any, ctx: Any) -> None:
             )
         )
 
+    scatter_work_shape = [int(v) if int(v) > 0 else 1 for v in data_meta_shape]
     mask_scatter = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_nd_mask",
         dtype=data_dtype,
-        shape=data_shape,
+        shape=scatter_work_shape,
     )
     inverse_mask = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_nd_inverse_mask",
         dtype=data_dtype,
-        shape=data_shape,
+        shape=scatter_work_shape,
     )
     retained = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_nd_retained",
         dtype=data_dtype,
-        shape=data_shape,
+        shape=scatter_work_shape,
     )
     scattered_updates = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_nd_updates",
         dtype=data_dtype,
-        shape=data_shape,
+        shape=scatter_work_shape,
     )
+    for tensor_name in [mask_scatter, inverse_mask, retained, scattered_updates]:
+        tensor_ir = ctx.model_ir.tensors.get(tensor_name, None)
+        if tensor_ir is not None:
+            tensor_ir.shape_signature = [int(v) for v in data_meta_shape]
 
     ctx.add_operator(
         OperatorIR(
@@ -747,7 +1167,7 @@ def build_scatter_nd_op(node: Any, ctx: Any) -> None:
     ctx.add_operator(
         OperatorIR(
             op_type="SCATTER_ND",
-            inputs=[indices_for_scatter, updates_name, shape_for_scatter],
+            inputs=[indices_for_scatter, updates_for_scatter, shape_for_scatter],
             outputs=[scattered_updates],
         )
     )
@@ -759,6 +1179,428 @@ def build_scatter_nd_op(node: Any, ctx: Any) -> None:
             options={"fusedActivationFunction": "NONE"},
         )
     )
+
+
+def build_unique_op(node: Any, ctx: Any) -> None:
+    input_name = node.inputs[0].name
+    output_name = node.outputs[0].name
+    ctx.ensure_tensor(input_name)
+    ctx.ensure_tensor(output_name)
+
+    input_dtype = str(ctx.get_tensor_dtype(input_name)).upper()
+    output_dtype = str(ctx.get_tensor_dtype(output_name)).upper()
+    input_meta_shape = _tensor_shape_with_signature(ctx, input_name)
+    output_tensor = ctx.model_ir.tensors[output_name]
+    input_tensor = ctx.model_ir.tensors[input_name]
+    output_tensor.quantization = _clone_quantization(input_tensor.quantization)
+
+    def _mark_scalar(tensor_name: str) -> None:
+        tensor_ir = ctx.model_ir.tensors.get(tensor_name, None)
+        if tensor_ir is not None:
+            tensor_ir.shape = []
+            tensor_ir.shape_signature = []
+
+    axis_attr = node.attrs.get("axis", None)
+    axis_is_none = axis_attr is None
+    if not axis_is_none:
+        axis_norm = _normalize_axis_for_rank(
+            axis=int(axis_attr),
+            rank=int(len(input_meta_shape)),
+        )
+        if int(axis_norm) != 0:
+            raise NotImplementedError(
+                f"Unique lowering supports axis=0 or omitted axis only. op={node.name} axis={axis_attr}"
+            )
+        if int(len(input_meta_shape)) != 2:
+            raise NotImplementedError(
+                f"Unique axis=0 lowering requires rank-2 input. op={node.name} input_shape={input_meta_shape}"
+            )
+        if int(input_meta_shape[1]) <= 0:
+            raise NotImplementedError(
+                f"Unique axis=0 lowering requires static positive second dimension. op={node.name} input_shape={input_meta_shape}"
+            )
+
+        working_input = input_name
+        working_dtype = str(input_dtype)
+        if working_dtype != "INT32":
+            working_dtype = "INT32"
+            working_input = ctx.add_intermediate_tensor(
+                f"{output_name}_unique_input_i32",
+                dtype="INT32",
+                shape=[int(v) if int(v) > 0 else 1 for v in input_meta_shape],
+            )
+            working_input_tensor = ctx.model_ir.tensors.get(working_input, None)
+            if working_input_tensor is not None:
+                working_input_tensor.shape_signature = [int(v) for v in input_meta_shape]
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[input_name],
+                    outputs=[working_input],
+                    options={
+                        "inDataType": input_dtype,
+                        "outDataType": "INT32",
+                    },
+                )
+            )
+
+        row_dim = int(input_meta_shape[0])
+        row_vec_shape = [int(row_dim) if int(row_dim) > 0 else -1]
+        col0_index_name = ctx.add_const_tensor(
+            f"{output_name}_unique_axis0_col0_index",
+            np.asarray([0], dtype=np.int32),
+        )
+        col1_index_name = ctx.add_const_tensor(
+            f"{output_name}_unique_axis0_col1_index",
+            np.asarray([1], dtype=np.int32),
+        )
+        col0_2d_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col0_2d",
+            dtype=working_dtype,
+            shape=[int(row_dim) if int(row_dim) > 0 else 1, 1],
+        )
+        col1_2d_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col1_2d",
+            dtype=working_dtype,
+            shape=[int(row_dim) if int(row_dim) > 0 else 1, 1],
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="GATHER",
+                inputs=[working_input, col0_index_name],
+                outputs=[col0_2d_name],
+                options={"axis": 1, "batchDims": 0},
+            )
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="GATHER",
+                inputs=[working_input, col1_index_name],
+                outputs=[col1_2d_name],
+                options={"axis": 1, "batchDims": 0},
+            )
+        )
+
+        col0_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col0",
+            dtype=working_dtype,
+            shape=row_vec_shape,
+        )
+        col1_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col1",
+            dtype=working_dtype,
+            shape=row_vec_shape,
+        )
+        _add_reshape_operator(
+            ctx=ctx,
+            input_name=col0_2d_name,
+            output_name=col0_name,
+            new_shape=[-1],
+            preserve_dynamic_shape=True,
+        )
+        _add_reshape_operator(
+            ctx=ctx,
+            input_name=col1_2d_name,
+            output_name=col1_name,
+            new_shape=[-1],
+            preserve_dynamic_shape=True,
+        )
+
+        reduce_axes_name = ctx.add_const_tensor(
+            f"{output_name}_unique_axis0_reduce_axes",
+            np.asarray([0], dtype=np.int32),
+        )
+        min0_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_min0",
+            dtype=working_dtype,
+            shape=[],
+        )
+        min1_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_min1",
+            dtype=working_dtype,
+            shape=[],
+        )
+        _mark_scalar(min0_name)
+        _mark_scalar(min1_name)
+        ctx.add_operator(
+            OperatorIR(
+                op_type="REDUCE_MIN",
+                inputs=[col0_name, reduce_axes_name],
+                outputs=[min0_name],
+                options={"keepDims": False},
+            )
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="REDUCE_MIN",
+                inputs=[col1_name, reduce_axes_name],
+                outputs=[min1_name],
+                options={"keepDims": False},
+            )
+        )
+
+        col0_shift_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col0_shift",
+            dtype=working_dtype,
+            shape=row_vec_shape,
+        )
+        col1_shift_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col1_shift",
+            dtype=working_dtype,
+            shape=row_vec_shape,
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="SUB",
+            lhs_name=col0_name,
+            rhs_name=min0_name,
+            output_name=col0_shift_name,
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="SUB",
+            lhs_name=col1_name,
+            rhs_name=min1_name,
+            output_name=col1_shift_name,
+        )
+
+        max1_shift_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_max1_shift",
+            dtype=working_dtype,
+            shape=[],
+        )
+        _mark_scalar(max1_shift_name)
+        ctx.add_operator(
+            OperatorIR(
+                op_type="REDUCE_MAX",
+                inputs=[col1_shift_name, reduce_axes_name],
+                outputs=[max1_shift_name],
+                options={"keepDims": False},
+            )
+        )
+        one_i32_name = ctx.add_const_tensor(
+            f"{output_name}_unique_axis0_one",
+            np.asarray(1, dtype=np.int32),
+        )
+        _mark_scalar(one_i32_name)
+        base_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_base",
+            dtype=working_dtype,
+            shape=[],
+        )
+        _mark_scalar(base_name)
+        _add_binary_op(
+            ctx=ctx,
+            op_type="ADD",
+            lhs_name=max1_shift_name,
+            rhs_name=one_i32_name,
+            output_name=base_name,
+        )
+
+        key_mul_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_key_mul",
+            dtype=working_dtype,
+            shape=row_vec_shape,
+        )
+        key_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_key",
+            dtype=working_dtype,
+            shape=row_vec_shape,
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="MUL",
+            lhs_name=col0_shift_name,
+            rhs_name=base_name,
+            output_name=key_mul_name,
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="ADD",
+            lhs_name=key_mul_name,
+            rhs_name=col1_shift_name,
+            output_name=key_name,
+        )
+
+        unique_key_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_keys_unique",
+            dtype=working_dtype,
+            shape=[-1],
+        )
+        unique_idx_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_indices",
+            dtype="INT32",
+            shape=row_vec_shape,
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="UNIQUE",
+                inputs=[key_name],
+                outputs=[unique_key_name, unique_idx_name],
+                options={"idxOutType": "INT32"},
+            )
+        )
+
+        col0_shift_unique_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col0_shift_unique",
+            dtype=working_dtype,
+            shape=[-1],
+        )
+        col1_shift_unique_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col1_shift_unique",
+            dtype=working_dtype,
+            shape=[-1],
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="DIV",
+            lhs_name=unique_key_name,
+            rhs_name=base_name,
+            output_name=col0_shift_unique_name,
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="FLOOR_MOD",
+            lhs_name=unique_key_name,
+            rhs_name=base_name,
+            output_name=col1_shift_unique_name,
+        )
+
+        col0_unique_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col0_unique",
+            dtype=working_dtype,
+            shape=[-1],
+        )
+        col1_unique_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col1_unique",
+            dtype=working_dtype,
+            shape=[-1],
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="ADD",
+            lhs_name=col0_shift_unique_name,
+            rhs_name=min0_name,
+            output_name=col0_unique_name,
+        )
+        _add_binary_op(
+            ctx=ctx,
+            op_type="ADD",
+            lhs_name=col1_shift_unique_name,
+            rhs_name=min1_name,
+            output_name=col1_unique_name,
+        )
+
+        col0_unique_2d_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col0_unique_2d",
+            dtype=working_dtype,
+            shape=[-1, 1],
+        )
+        col1_unique_2d_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_col1_unique_2d",
+            dtype=working_dtype,
+            shape=[-1, 1],
+        )
+        _add_reshape_operator(
+            ctx=ctx,
+            input_name=col0_unique_name,
+            output_name=col0_unique_2d_name,
+            new_shape=[-1, 1],
+            preserve_dynamic_shape=True,
+        )
+        _add_reshape_operator(
+            ctx=ctx,
+            input_name=col1_unique_name,
+            output_name=col1_unique_2d_name,
+            new_shape=[-1, 1],
+            preserve_dynamic_shape=True,
+        )
+
+        rows_i32_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_axis0_rows_i32",
+            dtype=working_dtype,
+            shape=[-1, int(input_meta_shape[1])],
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="CONCATENATION",
+                inputs=[col0_unique_2d_name, col1_unique_2d_name],
+                outputs=[rows_i32_name],
+                options={"axis": 1, "fusedActivationFunction": "NONE"},
+            )
+        )
+
+        if output_dtype == "INT32":
+            _add_reshape_operator(
+                ctx=ctx,
+                input_name=rows_i32_name,
+                output_name=output_name,
+                new_shape=[-1, int(input_meta_shape[1])],
+                preserve_dynamic_shape=True,
+            )
+            return
+        ctx.add_operator(
+            OperatorIR(
+                op_type="CAST",
+                inputs=[rows_i32_name],
+                outputs=[output_name],
+                options={
+                    "inDataType": "INT32",
+                    "outDataType": output_dtype,
+                },
+            )
+        )
+        return
+
+    unique_input_name = input_name
+    if int(len(input_meta_shape)) != 1:
+        unique_input_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_flatten_input",
+            dtype=input_dtype,
+            shape=[-1],
+        )
+        _add_reshape_operator(
+            ctx=ctx,
+            input_name=input_name,
+            output_name=unique_input_name,
+            new_shape=[-1],
+            preserve_dynamic_shape=True,
+        )
+
+    unique_input_dtype = str(ctx.get_tensor_dtype(unique_input_name)).upper()
+    flat_shape = _tensor_shape_with_signature(ctx, unique_input_name)
+    unique_values_name = output_name
+    if str(output_dtype) != str(unique_input_dtype):
+        unique_values_name = ctx.add_intermediate_tensor(
+            f"{output_name}_unique_values_raw",
+            dtype=unique_input_dtype,
+            shape=[-1],
+        )
+    unique_idx_name = ctx.add_intermediate_tensor(
+        f"{output_name}_unique_indices",
+        dtype="INT32",
+        shape=flat_shape,
+    )
+    ctx.add_operator(
+        OperatorIR(
+            op_type="UNIQUE",
+            inputs=[unique_input_name],
+            outputs=[unique_values_name, unique_idx_name],
+            options={"idxOutType": "INT32"},
+        )
+    )
+    if str(unique_values_name) != str(output_name):
+        ctx.add_operator(
+            OperatorIR(
+                op_type="CAST",
+                inputs=[unique_values_name],
+                outputs=[output_name],
+                options={
+                    "inDataType": unique_input_dtype,
+                    "outDataType": output_dtype,
+                },
+            )
+        )
 
 
 def build_scatter_elements_op(node: Any, ctx: Any) -> None:
@@ -776,6 +1618,15 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
     indices_meta_shape = _tensor_shape_with_signature(ctx, indices_name)
     updates_meta_shape = _tensor_shape_with_signature(ctx, updates_name)
     rank = int(len(data_shape))
+    indices_rank = int(len(indices_meta_shape))
+    updates_rank = int(len(updates_meta_shape))
+    coord_rank = int(indices_rank) if int(indices_rank) >= int(updates_rank) else int(updates_rank)
+    coord_shape_meta = (
+        [int(v) for v in indices_meta_shape]
+        if int(indices_rank) >= int(updates_rank)
+        else [int(v) for v in updates_meta_shape]
+    )
+    leading_rank_pad = int(max(int(indices_rank) - int(updates_rank), 0))
     axis = _normalize_axis_for_rank(
         axis=int(node.attrs.get("axis", 0)),
         rank=rank,
@@ -890,7 +1741,7 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
     indices_shape_name = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_elements_indices_shape",
         dtype="INT32",
-        shape=[int(rank)] if int(rank) > 0 else [1],
+        shape=[int(coord_rank)] if int(coord_rank) > 0 else [1],
     )
     ctx.add_operator(
         OperatorIR(
@@ -903,7 +1754,7 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
     indices_shape_plus_one_name = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_elements_indices_shape_plus_one",
         dtype="INT32",
-        shape=[int(rank + 1)],
+        shape=[int(coord_rank + 1)],
     )
     coord_last_dim_name = ctx.add_const_tensor(
         f"{output_name}_scatter_elements_coord_last_dim",
@@ -922,6 +1773,22 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
     )
 
     coord_expanded_names: list[str] = []
+    updates_shape_name = ""
+    if any(int(v) <= 0 for v in updates_meta_shape):
+        updates_shape_name = ctx.add_intermediate_tensor(
+            f"{output_name}_scatter_elements_updates_shape",
+            dtype="INT32",
+            shape=[int(updates_rank)] if int(updates_rank) > 0 else [1],
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="SHAPE",
+                inputs=[updates_name],
+                outputs=[updates_shape_name],
+                options={"outType": "INT32"},
+            )
+        )
+
     range_start_name = ctx.add_const_tensor(
         f"{output_name}_scatter_elements_range_start",
         np.asarray([0], dtype=np.int32),
@@ -933,13 +1800,21 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
     range_start_scalar_name = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_elements_range_start_scalar",
         dtype="INT32",
-        shape=[1],
+        shape=[],
     )
     range_delta_scalar_name = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_elements_range_delta_scalar",
         dtype="INT32",
-        shape=[1],
+        shape=[],
     )
+    range_start_scalar_tensor = ctx.model_ir.tensors.get(range_start_scalar_name, None)
+    if range_start_scalar_tensor is not None:
+        range_start_scalar_tensor.shape = []
+        range_start_scalar_tensor.shape_signature = []
+    range_delta_scalar_tensor = ctx.model_ir.tensors.get(range_delta_scalar_name, None)
+    if range_delta_scalar_tensor is not None:
+        range_delta_scalar_tensor.shape = []
+        range_delta_scalar_tensor.shape_signature = []
     ctx.add_operator(
         OperatorIR(
             op_type="SQUEEZE",
@@ -957,42 +1832,58 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
         )
     )
     for dim in range(rank):
+        target_dim = int(dim + leading_rank_pad)
         coord_base_name = normalized_indices_name
         if dim != axis:
-            dim_index_name = ctx.add_const_tensor(
-                f"{output_name}_scatter_elements_dim_{dim}_index",
-                np.asarray([int(dim)], dtype=np.int32),
-            )
-            dim_size_name = ctx.add_intermediate_tensor(
-                f"{output_name}_scatter_elements_dim_{dim}_size",
-                dtype="INT32",
-                shape=[1],
-            )
-            dim_size_scalar_name = ctx.add_intermediate_tensor(
-                f"{output_name}_scatter_elements_dim_{dim}_size_scalar",
-                dtype="INT32",
-                shape=[1],
-            )
-            ctx.add_operator(
-                OperatorIR(
-                    op_type="GATHER",
-                    inputs=[indices_shape_name, dim_index_name],
-                    outputs=[dim_size_name],
-                    options={"axis": 0, "batchDims": 0},
+            dim_size_scalar_name = ""
+            if int(updates_meta_shape[dim]) > 0:
+                dim_size_scalar_name = ctx.add_const_tensor(
+                    f"{output_name}_scatter_elements_dim_{dim}_size_scalar",
+                    np.asarray(int(updates_meta_shape[dim]), dtype=np.int32),
                 )
-            )
-            ctx.add_operator(
-                OperatorIR(
-                    op_type="SQUEEZE",
-                    inputs=[dim_size_name],
-                    outputs=[dim_size_scalar_name],
-                    options={"squeezeDims": [0]},
+                dim_size_scalar_tensor = ctx.model_ir.tensors.get(dim_size_scalar_name, None)
+                if dim_size_scalar_tensor is not None:
+                    dim_size_scalar_tensor.shape = []
+                    dim_size_scalar_tensor.shape_signature = []
+            else:
+                dim_index_name = ctx.add_const_tensor(
+                    f"{output_name}_scatter_elements_dim_{dim}_index",
+                    np.asarray([int(dim)], dtype=np.int32),
                 )
-            )
+                dim_size_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_scatter_elements_dim_{dim}_size",
+                    dtype="INT32",
+                    shape=[1],
+                )
+                dim_size_scalar_name = ctx.add_intermediate_tensor(
+                    f"{output_name}_scatter_elements_dim_{dim}_size_scalar",
+                    dtype="INT32",
+                    shape=[],
+                )
+                dim_size_scalar_tensor = ctx.model_ir.tensors.get(dim_size_scalar_name, None)
+                if dim_size_scalar_tensor is not None:
+                    dim_size_scalar_tensor.shape = []
+                    dim_size_scalar_tensor.shape_signature = []
+                ctx.add_operator(
+                    OperatorIR(
+                        op_type="GATHER",
+                        inputs=[updates_shape_name, dim_index_name],
+                        outputs=[dim_size_name],
+                        options={"axis": 0, "batchDims": 0},
+                    )
+                )
+                ctx.add_operator(
+                    OperatorIR(
+                        op_type="SQUEEZE",
+                        inputs=[dim_size_name],
+                        outputs=[dim_size_scalar_name],
+                        options={"squeezeDims": [0]},
+                    )
+                )
             range_name = ctx.add_intermediate_tensor(
                 f"{output_name}_scatter_elements_dim_{dim}_range",
                 dtype="INT32",
-                shape=[int(indices_meta_shape[dim]) if int(indices_meta_shape[dim]) > 0 else -1],
+                shape=[int(updates_meta_shape[dim]) if int(updates_meta_shape[dim]) > 0 else -1],
             )
             ctx.add_operator(
                 OperatorIR(
@@ -1002,14 +1893,14 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
                 )
             )
 
-            reshape_pattern = [1 for _ in range(rank)]
-            reshape_pattern[dim] = -1
+            reshape_pattern = [1 for _ in range(coord_rank)]
+            reshape_pattern[target_dim] = -1
             range_reshaped_name = ctx.add_intermediate_tensor(
                 f"{output_name}_scatter_elements_dim_{dim}_range_reshaped",
                 dtype="INT32",
                 shape=[
-                    int(indices_meta_shape[idx]) if idx == dim else 1
-                    for idx in range(rank)
+                    int(coord_shape_meta[idx]) if idx == int(target_dim) else 1
+                    for idx in range(coord_rank)
                 ],
             )
             _add_reshape_operator(
@@ -1019,10 +1910,10 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
                 new_shape=[int(v) for v in reshape_pattern],
             )
 
-            tile_mask = np.ones((rank,), dtype=np.int32)
-            tile_mask[dim] = 0
-            tile_unit = np.zeros((rank,), dtype=np.int32)
-            tile_unit[dim] = 1
+            tile_mask = np.ones((coord_rank,), dtype=np.int32)
+            tile_mask[target_dim] = 0
+            tile_unit = np.zeros((coord_rank,), dtype=np.int32)
+            tile_unit[target_dim] = 1
             tile_mask_name = ctx.add_const_tensor(
                 f"{output_name}_scatter_elements_dim_{dim}_tile_mask",
                 tile_mask,
@@ -1034,12 +1925,12 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
             tile_multiple_masked_name = ctx.add_intermediate_tensor(
                 f"{output_name}_scatter_elements_dim_{dim}_tile_masked",
                 dtype="INT32",
-                shape=[int(rank)],
+                shape=[int(coord_rank)],
             )
             tile_multiple_name = ctx.add_intermediate_tensor(
                 f"{output_name}_scatter_elements_dim_{dim}_tile_multiple",
                 dtype="INT32",
-                shape=[int(rank)],
+                shape=[int(coord_rank)],
             )
             _add_binary_op(
                 ctx=ctx,
@@ -1058,7 +1949,7 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
             coord_base_name = ctx.add_intermediate_tensor(
                 f"{output_name}_scatter_elements_dim_{dim}_coord",
                 dtype="INT32",
-                shape=indices_meta_shape,
+                shape=coord_shape_meta,
             )
             ctx.add_operator(
                 OperatorIR(
@@ -1071,7 +1962,7 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
         coord_expanded_name = ctx.add_intermediate_tensor(
             f"{output_name}_scatter_elements_dim_{dim}_coord_expanded",
             dtype="INT32",
-            shape=[int(v) for v in indices_meta_shape] + [1],
+            shape=[int(v) for v in coord_shape_meta] + [1],
         )
         ctx.add_operator(
             OperatorIR(
@@ -1079,7 +1970,7 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
                 inputs=[coord_base_name, indices_shape_plus_one_name],
                 outputs=[coord_expanded_name],
                 options={
-                    "newShape": [int(v) for v in list(indices_meta_shape)] + [1],
+                    "newShape": [int(v) for v in list(coord_shape_meta)] + [1],
                 },
             )
         )
@@ -1090,7 +1981,7 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
         coordinates_name = ctx.add_intermediate_tensor(
             f"{output_name}_scatter_elements_coordinates",
             dtype="INT32",
-            shape=[int(v) for v in indices_meta_shape] + [int(rank)],
+            shape=[int(v) for v in coord_shape_meta] + [int(rank)],
         )
         ctx.add_operator(
             OperatorIR(
@@ -1098,7 +1989,7 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
                 inputs=coord_expanded_names,
                 outputs=[coordinates_name],
                 options={
-                    "axis": int(rank),
+                    "axis": int(coord_rank),
                     "fusedActivationFunction": "NONE",
                 },
             )
@@ -1135,6 +2026,39 @@ def build_scatter_elements_op(node: Any, ctx: Any) -> None:
                 },
             )
         )
+    if int(indices_rank) > int(updates_rank):
+        updates_padded_name = ctx.add_intermediate_tensor(
+            f"{output_name}_scatter_elements_updates_padded",
+            dtype=data_dtype,
+            shape=([1] * int(leading_rank_pad)) + [int(v) for v in updates_meta_shape],
+        )
+        _add_reshape_operator(
+            ctx=ctx,
+            input_name=updates_for_scatter_name,
+            output_name=updates_padded_name,
+            new_shape=([1] * int(leading_rank_pad)) + [int(v) for v in updates_meta_shape],
+        )
+        updates_tile_multiples = np.asarray(
+            [int(v) for v in coord_shape_meta[:leading_rank_pad]] + [1] * int(updates_rank),
+            dtype=np.int32,
+        )
+        updates_tile_multiples_name = ctx.add_const_tensor(
+            f"{output_name}_scatter_elements_updates_tile_multiples",
+            updates_tile_multiples,
+        )
+        updates_broadcast_name = ctx.add_intermediate_tensor(
+            f"{output_name}_scatter_elements_updates_broadcast",
+            dtype=data_dtype,
+            shape=[int(v) for v in coord_shape_meta],
+        )
+        ctx.add_operator(
+            OperatorIR(
+                op_type="TILE",
+                inputs=[updates_padded_name, updates_tile_multiples_name],
+                outputs=[updates_broadcast_name],
+            )
+        )
+        updates_for_scatter_name = updates_broadcast_name
 
     updates_flat_name = ctx.add_intermediate_tensor(
         f"{output_name}_scatter_elements_updates_flat",
@@ -2543,6 +3467,7 @@ def build_topk_op(node: Any, ctx: Any) -> None:
                 "TopK k input must be scalar-like (shape [] or [1]) in flatbuffer_direct. "
                 f"op={node.name} k_shape={k_shape}"
             )
+    runtime_dynamic_k = ctx.get_constant_array(k_for_topk_name) is None
 
     topk_values_shape = (
         [int(values_output_shape[int(v)]) for v in perm_to_last]
@@ -2564,6 +3489,15 @@ def build_topk_op(node: Any, ctx: Any) -> None:
         if perm_to_last is not None and len(indices_output_signature) == len(perm_to_last)
         else [int(v) for v in indices_output_signature]
     )
+    if runtime_dynamic_k:
+        if len(topk_values_signature) > 0:
+            topk_values_signature[-1] = -1
+        if len(topk_indices_signature) > 0:
+            topk_indices_signature[-1] = -1
+        if int(axis) < len(values_output_signature):
+            values_output_signature[int(axis)] = -1
+        if int(axis) < len(indices_output_signature):
+            indices_output_signature[int(axis)] = -1
 
     values_topk_name = (
         values_output_name

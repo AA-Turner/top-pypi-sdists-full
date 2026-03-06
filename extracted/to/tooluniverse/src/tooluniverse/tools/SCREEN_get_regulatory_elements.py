@@ -41,14 +41,20 @@ def SCREEN_get_regulatory_elements(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "gene_name": gene_name,
+            "element_type": element_type,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "SCREEN_get_regulatory_elements",
-            "arguments": {
-                "gene_name": gene_name,
-                "element_type": element_type,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

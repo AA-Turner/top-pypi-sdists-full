@@ -2,8 +2,8 @@ from tmo.api.iterator_base_api import BaseApi
 
 
 class UserAttributesApi(BaseApi):
-
-    path = "/api/userAttributes"
+    name = "User Attributes API"
+    path = "userAttributes"
     type = "USER_ATTRIBUTES"
 
     def _get_header_params(self):
@@ -23,7 +23,7 @@ class UserAttributesApi(BaseApi):
     def get_default_connection(self):
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/search/findByName",
+            path=f"{self.base_path + self.path}/search/findByName",
             header_params=self._get_header_params(),
             query_params=self.generate_params(["name"], ["DEFAULT_CONNECTION"]),
         )

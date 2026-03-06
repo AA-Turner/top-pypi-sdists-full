@@ -44,15 +44,21 @@ def DNA_find_orfs(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "sequence": sequence,
+            "min_length": min_length,
+            "strand": strand,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "DNA_find_orfs",
-            "arguments": {
-                "operation": operation,
-                "sequence": sequence,
-                "min_length": min_length,
-                "strand": strand,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

@@ -44,15 +44,21 @@ def DrugSynergy_calculate_hsa(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "effects_a": effects_a,
+            "effects_b": effects_b,
+            "effects_combo": effects_combo,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "DrugSynergy_calculate_hsa",
-            "arguments": {
-                "operation": operation,
-                "effects_a": effects_a,
-                "effects_b": effects_b,
-                "effects_combo": effects_combo,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

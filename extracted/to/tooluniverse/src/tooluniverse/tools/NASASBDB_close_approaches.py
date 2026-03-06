@@ -50,17 +50,23 @@ def NASASBDB_close_approaches(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "dist-max": dist_max,
+            "date-min": date_min,
+            "date-max": date_max,
+            "h-max": h_max,
+            "des": des,
+            "limit": limit,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "NASASBDB_close_approaches",
-            "arguments": {
-                "dist-max": dist_max,
-                "date-min": date_min,
-                "date-max": date_max,
-                "h-max": h_max,
-                "des": des,
-                "limit": limit,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

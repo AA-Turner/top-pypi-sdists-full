@@ -1777,9 +1777,22 @@ impl WebRTCPeerConnection {
                 match state {
                     RTCPeerConnectionState::Disconnected => {
                         if trickle_ice {
-                            // With trickle ICE, attempt recovery via ICE restart
+                            // Skip ICE restart if this tube is already shutting down.
+                            // This prevents spurious restart attempts when the Gateway
+                            // intentionally closes the session (e.g. AI threat lockout,
+                            // manual termination, RBI session end via guacd 514 error).
+                            if is_closing.load(Ordering::Acquire) {
+                                debug!("Connection disconnected for tube {} but already closing - skipping ICE restart", tube_id);
+                                return;
+                            }
                             info!("Connection disconnected for tube {}, considering ICE restart (trickle_ice enabled)", tube_id);
                             tokio::time::sleep(crate::config::ice_disconnected_wait()).await;
+                            // Re-check after the wait - close_tube() may have been called
+                            // while we were sleeping (race between Python teardown and ICE event).
+                            if is_closing.load(Ordering::Acquire) {
+                                debug!("Connection disconnected for tube {} - tube closed during wait - skipping ICE restart", tube_id);
+                                return;
+                            }
                             network_integration.trigger_ice_restart(&tube_id, "connection disconnected");
                         } else {
                             // Without trickle ICE, disconnected is terminal - close the tube
@@ -1809,7 +1822,11 @@ impl WebRTCPeerConnection {
                     },
                     RTCPeerConnectionState::Failed => {
                         if trickle_ice {
-                            // With trickle ICE, attempt recovery via ICE restart
+                            // Skip ICE restart if this tube is already shutting down.
+                            if is_closing.load(Ordering::Acquire) {
+                                debug!("Connection failed for tube {} but already closing - skipping ICE restart", tube_id);
+                                return;
+                            }
                             warn!("Connection failed for tube {}, triggering immediate ICE restart (trickle_ice enabled)", tube_id);
                             network_integration.trigger_ice_restart(&tube_id, "connection failed");
                         } else {

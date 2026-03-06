@@ -41,14 +41,20 @@ def FDA_get_drug_name_by_principal_display_panel(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "display_panel_content": display_panel_content,
+            "limit": limit,
+            "skip": skip,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "FDA_get_drug_name_by_principal_display_panel",
-            "arguments": {
-                "display_panel_content": display_panel_content,
-                "limit": limit,
-                "skip": skip,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

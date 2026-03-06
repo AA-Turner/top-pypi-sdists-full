@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-gcp"
-version = "0.28.17"
+version = "0.28.18"
 description = "Package for GCP-specific Dagster framework op and resource components."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -22,8 +22,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "dagster==1.12.17",
-    "dagster-pandas==0.28.17",
+    "dagster==1.12.18",
+    "dagster-pandas==0.28.18",
     "db-dtypes",
     "google-api-python-client",
     "google-cloud-bigquery>=1.28.3",

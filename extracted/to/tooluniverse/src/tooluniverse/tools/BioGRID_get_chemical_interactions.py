@@ -50,17 +50,23 @@ def BioGRID_get_chemical_interactions(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "gene_names": gene_names,
+            "chemical_names": chemical_names,
+            "organism": organism,
+            "interaction_action": interaction_action,
+            "limit": limit,
+            "include_evidence": include_evidence,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BioGRID_get_chemical_interactions",
-            "arguments": {
-                "gene_names": gene_names,
-                "chemical_names": chemical_names,
-                "organism": organism,
-                "interaction_action": interaction_action,
-                "limit": limit,
-                "include_evidence": include_evidence,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

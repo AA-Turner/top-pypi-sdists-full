@@ -86,6 +86,10 @@ pub enum FerroxError {
         "Periodic boundary conditions require a cell matrix, but cell is None. Either provide a cell matrix or disable PBC."
     )]
     PbcWithoutCell,
+
+    /// Invalid argument (not tied to a specific structure index).
+    #[error("Invalid argument: {reason}")]
+    InvalidArgument { reason: String },
 }
 
 /// Result type alias for ferrox operations.
@@ -129,14 +133,12 @@ pub fn check_sites_different(site_a: usize, site_b: usize) -> Result<()> {
 #[inline]
 pub fn check_positive(value: f64, name: &str) -> Result<()> {
     if !value.is_finite() {
-        return Err(FerroxError::InvalidStructure {
-            index: 0,
+        return Err(FerroxError::InvalidArgument {
             reason: format!("{name} must be finite, got {value}"),
         });
     }
     if value <= 0.0 {
-        return Err(FerroxError::InvalidStructure {
-            index: 0,
+        return Err(FerroxError::InvalidArgument {
             reason: format!("{name} must be positive, got {value}"),
         });
     }
@@ -147,14 +149,12 @@ pub fn check_positive(value: f64, name: &str) -> Result<()> {
 #[inline]
 pub fn check_non_negative(value: f64, name: &str) -> Result<()> {
     if !value.is_finite() {
-        return Err(FerroxError::InvalidStructure {
-            index: 0,
+        return Err(FerroxError::InvalidArgument {
             reason: format!("{name} must be finite, got {value}"),
         });
     }
     if value < 0.0 {
-        return Err(FerroxError::InvalidStructure {
-            index: 0,
+        return Err(FerroxError::InvalidArgument {
             reason: format!("{name} must be non-negative, got {value}"),
         });
     }
@@ -264,6 +264,12 @@ mod tests {
             (
                 FerroxError::PbcWithoutCell,
                 &["Periodic", "boundary", "cell", "None"],
+            ),
+            (
+                FerroxError::InvalidArgument {
+                    reason: "out of range".to_string(),
+                },
+                &["Invalid argument", "out of range"],
             ),
         ];
 

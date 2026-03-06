@@ -1436,10 +1436,12 @@ class CustomDashboardWidgetDataSourceType(sgqlc.types.Enum):
     * `JOB_EXECUTIONS`None
     * `METRICS`None
     * `MONITOR`None
+    * `MONITOR_METRICS`None
+    * `TABLE_METRICS`None
     """
 
     __schema__ = schema
-    __choices__ = ("JOB_EXECUTIONS", "METRICS", "MONITOR")
+    __choices__ = ("JOB_EXECUTIONS", "METRICS", "MONITOR", "MONITOR_METRICS", "TABLE_METRICS")
 
 
 class CustomDashboardWidgetType(sgqlc.types.Enum):
@@ -4254,20 +4256,25 @@ class Permission(sgqlc.types.Enum):
 
     Enumeration Choices:
 
-    * `CatalogAccess`None
-    * `CatalogEdit`None
+    * `AlertsAccess`None
+    * `AlertsEdit`None
+    * `AlertsUpdateStatus`None
+    * `AssetsAccess`None
+    * `AssetsEdit`None
     * `DashboardAccess`None
     * `DashboardEdit`None
     * `DashboardEditTheirOwn`None
     * `DataExportsAccess`None
+    * `DataProductsAccess`None
+    * `DataProductsEdit`None
+    * `DataProductsEditTheirOwn`None
     * `DataproductsAccess`None
     * `DataproductsEdit`None
     * `DataproductsEditTheirOwn`None
     * `GraphqlMutate`None
     * `GraphqlQuery`None
-    * `IncidentsAccess`None
-    * `IncidentsEdit`None
-    * `IncidentsUpdateStatus`None
+    * `LineageAccess`None
+    * `LineageEdit`None
     * `MonitorExceptionsAccess`None
     * `MonitorExceptionsEdit`None
     * `MonitorsAccess`None
@@ -4277,19 +4284,18 @@ class Permission(sgqlc.types.Enum):
     * `MonitorsDraft`None
     * `MonitorsEdit`None
     * `PerformanceAccess`None
-    * `PipelinesAccess`None
-    * `PipelinesEdit`None
-    * `ProductsAccess`None
-    * `ProductsDiscoveryAccess`None
-    * `ProductsObservabilityAccess`None
     * `SettingsAccess`None
+    * `SettingsAgentsAccess`None
+    * `SettingsAgentsEdit`None
     * `SettingsApiAccess`None
     * `SettingsApiEdit`None
     * `SettingsApiManageTokens`None
+    * `SettingsAuthorizationGroupsAccess`None
+    * `SettingsAuthorizationGroupsEdit`None
+    * `SettingsAuthorizationGroupsManageDomainsManagers`None
+    * `SettingsAuthorizationGroupsManageOwners`None
     * `SettingsBillingAccess`None
-    * `SettingsCollectionPreferencesEdit`None
-    * `SettingsCollectionPreferencesList`None
-    * `SettingsCollectionPreferencesUpgrade`None
+    * `SettingsBillingEdit`None
     * `SettingsDomainsAccess`None
     * `SettingsDomainsEdit`None
     * `SettingsDomainsList`None
@@ -4297,10 +4303,10 @@ class Permission(sgqlc.types.Enum):
     * `SettingsEdit`None
     * `SettingsIngestionAccess`None
     * `SettingsIngestionEdit`None
+    * `SettingsIngestionManageCollection`None
     * `SettingsIntegrationsAccess`None
     * `SettingsIntegrationsEdit`None
-    * `SettingsMutedDataAccess`None
-    * `SettingsMutedDataEdit`None
+    * `SettingsListIamResources`None
     * `SettingsNetworkAccess`None
     * `SettingsNetworkEdit`None
     * `SettingsNotificationsAccess`None
@@ -4308,37 +4314,41 @@ class Permission(sgqlc.types.Enum):
     * `SettingsPiiFiltersEdit`None
     * `SettingsPiiFiltersList`None
     * `SettingsPiiFiltersViewMetrics`None
+    * `SettingsRolesAccess`None
+    * `SettingsRolesEdit`None
     * `SettingsSecretsAccess`None
     * `SettingsSecretsEdit`None
     * `SettingsSecretsViewValues`None
-    * `SettingsUsageAccess`None
-    * `SettingsUsageEdit`None
+    * `SettingsSetAccountName`None
+    * `SettingsSsoAccess`None
+    * `SettingsSsoEdit`None
     * `SettingsUserSubscribeWeeklyDigest`None
     * `SettingsUsersAccess`None
     * `SettingsUsersEdit`None
-    * `SettingsUsersEditAuthProvisioning`None
-    * `SettingsUsersEditSso`None
-    * `SettingsUsersManageDomainsManagers`None
-    * `SettingsUsersManageOwners`None
     * `UsersList`None
     """
 
     __schema__ = schema
     __choices__ = (
-        "CatalogAccess",
-        "CatalogEdit",
+        "AlertsAccess",
+        "AlertsEdit",
+        "AlertsUpdateStatus",
+        "AssetsAccess",
+        "AssetsEdit",
         "DashboardAccess",
         "DashboardEdit",
         "DashboardEditTheirOwn",
         "DataExportsAccess",
+        "DataProductsAccess",
+        "DataProductsEdit",
+        "DataProductsEditTheirOwn",
         "DataproductsAccess",
         "DataproductsEdit",
         "DataproductsEditTheirOwn",
         "GraphqlMutate",
         "GraphqlQuery",
-        "IncidentsAccess",
-        "IncidentsEdit",
-        "IncidentsUpdateStatus",
+        "LineageAccess",
+        "LineageEdit",
         "MonitorExceptionsAccess",
         "MonitorExceptionsEdit",
         "MonitorsAccess",
@@ -4348,19 +4358,18 @@ class Permission(sgqlc.types.Enum):
         "MonitorsDraft",
         "MonitorsEdit",
         "PerformanceAccess",
-        "PipelinesAccess",
-        "PipelinesEdit",
-        "ProductsAccess",
-        "ProductsDiscoveryAccess",
-        "ProductsObservabilityAccess",
         "SettingsAccess",
+        "SettingsAgentsAccess",
+        "SettingsAgentsEdit",
         "SettingsApiAccess",
         "SettingsApiEdit",
         "SettingsApiManageTokens",
+        "SettingsAuthorizationGroupsAccess",
+        "SettingsAuthorizationGroupsEdit",
+        "SettingsAuthorizationGroupsManageDomainsManagers",
+        "SettingsAuthorizationGroupsManageOwners",
         "SettingsBillingAccess",
-        "SettingsCollectionPreferencesEdit",
-        "SettingsCollectionPreferencesList",
-        "SettingsCollectionPreferencesUpgrade",
+        "SettingsBillingEdit",
         "SettingsDomainsAccess",
         "SettingsDomainsEdit",
         "SettingsDomainsList",
@@ -4368,10 +4377,10 @@ class Permission(sgqlc.types.Enum):
         "SettingsEdit",
         "SettingsIngestionAccess",
         "SettingsIngestionEdit",
+        "SettingsIngestionManageCollection",
         "SettingsIntegrationsAccess",
         "SettingsIntegrationsEdit",
-        "SettingsMutedDataAccess",
-        "SettingsMutedDataEdit",
+        "SettingsListIamResources",
         "SettingsNetworkAccess",
         "SettingsNetworkEdit",
         "SettingsNotificationsAccess",
@@ -4379,18 +4388,17 @@ class Permission(sgqlc.types.Enum):
         "SettingsPiiFiltersEdit",
         "SettingsPiiFiltersList",
         "SettingsPiiFiltersViewMetrics",
+        "SettingsRolesAccess",
+        "SettingsRolesEdit",
         "SettingsSecretsAccess",
         "SettingsSecretsEdit",
         "SettingsSecretsViewValues",
-        "SettingsUsageAccess",
-        "SettingsUsageEdit",
+        "SettingsSetAccountName",
+        "SettingsSsoAccess",
+        "SettingsSsoEdit",
         "SettingsUserSubscribeWeeklyDigest",
         "SettingsUsersAccess",
         "SettingsUsersEdit",
-        "SettingsUsersEditAuthProvisioning",
-        "SettingsUsersEditSso",
-        "SettingsUsersManageDomainsManagers",
-        "SettingsUsersManageOwners",
         "UsersList",
     )
 
@@ -5748,6 +5756,24 @@ class TraceFilterFieldName(sgqlc.types.Enum):
     )
 
 
+class TraceMetricGroup(sgqlc.types.Enum):
+    """Metric groups for time series queries.      Each group maps to a
+    set of individual TraceTimeSeriesMetric values.     Use
+    METRIC_GROUP_TO_METRICS to expand a group to its metrics.
+
+    Enumeration Choices:
+
+    * `ERRORS`None
+    * `OVERVIEW`None
+    * `TOKENS`None
+    * `TRACE_COUNT`None
+    * `TRACE_LATENCY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ERRORS", "OVERVIEW", "TOKENS", "TRACE_COUNT", "TRACE_LATENCY")
+
+
 class TraceSegmentField(sgqlc.types.Enum):
     """Fields available for segmenting time series data.      Note: Span-
     level segmentation is intentionally not supported.      Workflows
@@ -5815,6 +5841,7 @@ class TraceTimeSeriesMetric(sgqlc.types.Enum):
 
     Enumeration Choices:
 
+    * `CHANGE_IN_TRACES`None
     * `COMPLETION_TOKENS`None
     * `LATENCY_AVG`None
     * `LATENCY_P50`None
@@ -5827,6 +5854,7 @@ class TraceTimeSeriesMetric(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "CHANGE_IN_TRACES",
         "COMPLETION_TOKENS",
         "LATENCY_AVG",
         "LATENCY_P50",
@@ -8444,7 +8472,7 @@ class GetTraceOverviewInput(sgqlc.types.Input):
         "end_time",
         "include_previous_period_comparison",
         "filters",
-        "segment_filters",
+        "segment_filter",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Agent name to filter by"""
@@ -8470,14 +8498,10 @@ class GetTraceOverviewInput(sgqlc.types.Input):
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
     """Optional filters to refine results"""
 
-    segment_filters = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null("TraceSegmentFilterInput")),
-        graphql_name="segmentFilters",
-    )
-    """List of segment dimension filters. Each entry filters traces by
-    one dimension (MODEL, WORKFLOW, or TASK) using OR logic within the
-    dimension and AND logic across dimensions. Omitted or empty list
-    returns all traces.
+    segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
+    """Optional segment dimension filter. Filters traces by one dimension
+    (MODEL, WORKFLOW, or TASK) using OR logic within the values list.
+    Omitted or null returns all traces.
     """
 
 
@@ -8491,8 +8515,8 @@ class GetTraceTimeSeriesInput(sgqlc.types.Input):
         "start_time",
         "end_time",
         "bucket_size",
-        "metrics",
-        "segment_by",
+        "metric_group",
+        "segment_filter",
         "filters",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
@@ -8514,14 +8538,21 @@ class GetTraceTimeSeriesInput(sgqlc.types.Input):
     )
     """Size of time buckets (MINUTE, HOUR, DAY, WEEK)"""
 
-    metrics = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TraceTimeSeriesMetric))),
-        graphql_name="metrics",
+    metric_group = sgqlc.types.Field(
+        sgqlc.types.non_null(TraceMetricGroup), graphql_name="metricGroup"
     )
-    """Metrics to include in the response"""
+    """Metric group to return. Each group maps to a set of metrics:
+    OVERVIEW (count + latency + tokens), TRACE_COUNT (total traces +
+    change in traces), TRACE_LATENCY (avg/p50/p95/p99), TOKENS
+    (total/prompt/completion tokens).
+    """
 
-    segment_by = sgqlc.types.Field(TraceSegmentField, graphql_name="segmentBy")
-    """Optional field to segment data by (WORKFLOW, TASK, MODEL)"""
+    segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
+    """Optional segment dimension filter. Specifies the field to group
+    results by (MODEL, WORKFLOW, or TASK) and an optional list of
+    values to restrict results to. An empty values list returns all
+    values for that dimension.
+    """
 
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
     """Optional filters to refine results"""
@@ -11719,8 +11750,27 @@ class WidgetConfig(sgqlc.types.Input):
 
 class WidgetDataSourceUnionInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("time_series_id", "monitor_id", "data_source_id", "type")
+    __field_names__ = (
+        "time_series_id",
+        "field",
+        "segments",
+        "mcon",
+        "metric",
+        "monitor_id",
+        "data_source_id",
+        "type",
+    )
     time_series_id = sgqlc.types.Field(UUID, graphql_name="timeSeriesId")
+
+    field = sgqlc.types.Field(String, graphql_name="field")
+
+    segments = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segments"
+    )
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+    metric = sgqlc.types.Field(String, graphql_name="metric")
 
     monitor_id = sgqlc.types.Field(UUID, graphql_name="monitorId")
 
@@ -14407,6 +14457,14 @@ class AgentTraceTableEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class AgentTraceTableValidationResult(sgqlc.types.Type):
+    """Result of validating an agent trace table."""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class AggregatedMetricDataType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("query_group", "metric_aggregation", "timestamp", "value")
@@ -15174,6 +15232,18 @@ class AssetIncludeDatabase(sgqlc.types.Type):
     )
 
     tables = sgqlc.types.Field(GenericScalar, graphql_name="tables")
+
+
+class AssetOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("mcon", "asset_id", "asset_type")
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+
+    asset_id = sgqlc.types.Field(String, graphql_name="assetId")
+    """Object ID extracted from the MCON"""
+
+    asset_type = sgqlc.types.Field(String, graphql_name="assetType")
+    """Object type extracted from the MCON"""
 
 
 class AssetSelection(sgqlc.types.Type):
@@ -28942,7 +29012,7 @@ class MsTeamsChannelList(sgqlc.types.Type):
 
 class MsTeamsInstallation(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("uuid", "name", "team_link", "team_id")
+    __field_names__ = ("uuid", "name", "team_link", "team_id", "last_error_message")
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
@@ -28951,6 +29021,11 @@ class MsTeamsInstallation(sgqlc.types.Type):
     team_link = sgqlc.types.Field(String, graphql_name="teamLink")
 
     team_id = sgqlc.types.Field(String, graphql_name="teamId")
+
+    last_error_message = sgqlc.types.Field(String, graphql_name="lastErrorMessage")
+    """Last error message received when sending a notification to this MS
+    Teams integration, if any
+    """
 
 
 class MsTeamsInstallationList(sgqlc.types.Type):
@@ -50246,6 +50321,7 @@ class Query(sgqlc.types.Type):
         "get_open_telemetry_data_stores",
         "get_agent_metadata",
         "get_agent_trace_tables",
+        "validate_agent_trace_table",
         "get_traces_filters",
         "get_traces_filters_data",
         "get_traces",
@@ -50971,6 +51047,44 @@ class Query(sgqlc.types.Type):
         graphql_name="getAgentTraceTables",
     )
     """(experimental) Get all agent trace tables"""
+
+    validate_agent_trace_table = sgqlc.types.Field(
+        AgentTraceTableValidationResult,
+        graphql_name="validateAgentTraceTable",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionUuid", default=None
+                    ),
+                ),
+                (
+                    "span_format",
+                    sgqlc.types.Arg(AgentTraceFormatEnum, graphql_name="spanFormat", default=None),
+                ),
+                ("lookback_days", sgqlc.types.Arg(Int, graphql_name="lookbackDays", default=1)),
+            )
+        ),
+    )
+    """(experimental) Validate that a table contains queryable agent
+    trace data
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON of the table to validate
+    * `connection_uuid` (`UUID!`): Connection UUID to query the table
+    * `span_format` (`AgentTraceFormatEnum`): Format of spans in the
+      table
+    * `lookback_days` (`Int`): Number of days to look back for data
+      (default: 1) (default: `1`)
+    """
 
     get_traces_filters = sgqlc.types.Field(
         sgqlc.types.list_of("TraceFilter"), graphql_name="getTracesFilters"
@@ -64840,6 +64954,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
             )
         ),
     )
@@ -64855,6 +64970,7 @@ class Query(sgqlc.types.Type):
       value
     * `include_terms` (`[String!]`): Filter to segments where all
       terms are present in segment fields
+    * `metric` (`String`): Filter to this metric
     """
 
     get_segmented_where_condition_label_count = sgqlc.types.Field(
@@ -64880,6 +64996,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
             )
         ),
     )
@@ -64893,6 +65010,7 @@ class Query(sgqlc.types.Type):
     * `warehouse_uuid` (`UUID`): DEPRECATED
     * `include_terms` (`[String!]`): Filter to segments where all
       terms are present in segment fields
+    * `metric` (`String`): Filter to this metric
     """
 
     get_comparison_monitor_segment_labels = sgqlc.types.Field(
@@ -64916,6 +65034,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
             )
         ),
     )
@@ -64930,6 +65049,7 @@ class Query(sgqlc.types.Type):
       value.
     * `include_terms` (`[String!]`): Filter to segments where all
       terms are present in segment label
+    * `metric` (`String`): Filter to this metric
     """
 
     get_comparison_monitor_segment_label_count = sgqlc.types.Field(
@@ -64951,6 +65071,7 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
             )
         ),
     )
@@ -64961,6 +65082,7 @@ class Query(sgqlc.types.Type):
     * `monitor_uuid` (`UUID!`): Filter to this monitor.
     * `include_terms` (`[String!]`): Filter to segments where all
       terms are present in segment label
+    * `metric` (`String`): Filter to this metric
     """
 
     get_downstream_bi = sgqlc.types.Field(
@@ -78810,6 +78932,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "priority",
         "status",
         "tables",
+        "assets",
         "audiences",
         "monitor_tags",
         "invalid_rows",
@@ -78853,6 +78976,9 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     tables = sgqlc.types.Field(sgqlc.types.list_of(TableOutput), graphql_name="tables")
     """Tables or views associated with the alert"""
+
+    assets = sgqlc.types.Field(sgqlc.types.list_of(AssetOutput), graphql_name="assets")
+    """Assets (MCONs) associated with the alert"""
 
     audiences = sgqlc.types.Field(sgqlc.types.list_of(AudienceRef), graphql_name="audiences")
     """List of audiences associated with the alert"""
@@ -85222,6 +85348,7 @@ class ObjectProperty(sgqlc.types.Type, Node):
         "property_value",
         "property_source_type",
         "property_source",
+        "property_extra",
     )
     mcon_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mconId")
     """Unique asset identifier"""
@@ -85240,6 +85367,11 @@ class ObjectProperty(sgqlc.types.Type, Node):
 
     property_source = sgqlc.types.Field(String, graphql_name="propertySource")
     """The origin of the property (e.g. snowflake, bigquery, etc.)"""
+
+    property_extra = sgqlc.types.Field(JSONString, graphql_name="propertyExtra")
+    """Extra structured data a property source stores alongside its core
+    fields
+    """
 
 
 class OpsgenieIncident(sgqlc.types.Type, NodeWithUUID):
@@ -88905,6 +89037,28 @@ class WidgetDataSourceMonitor(sgqlc.types.Type, WidgetDataSourceInterface):
     __schema__ = schema
     __field_names__ = ("monitor_id",)
     monitor_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorId")
+
+
+class WidgetDataSourceMonitorMetrics(sgqlc.types.Type, WidgetDataSourceInterface):
+    __schema__ = schema
+    __field_names__ = ("monitor_id", "metric", "field", "segments")
+    monitor_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorId")
+
+    metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
+
+    field = sgqlc.types.Field(String, graphql_name="field")
+
+    segments = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segments"
+    )
+
+
+class WidgetDataSourceTableMetrics(sgqlc.types.Type, WidgetDataSourceInterface):
+    __schema__ = schema
+    __field_names__ = ("mcon", "metric")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+
+    metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
 
 
 class WidgetOptionsGraph(sgqlc.types.Type, WidgetOptionsInterface):

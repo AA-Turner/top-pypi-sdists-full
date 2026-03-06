@@ -119,12 +119,27 @@ class EVETool(BaseTool):
                 for tc in transcript_consequences:
                     eve_score = tc.get("eve_score")
                     if eve_score is not None:
+                        # Build protein_change from amino_acids + protein_start
+                        # VEP returns amino_acids as "R/L" and protein_start as 248
+                        amino_acids = tc.get("amino_acids")
+                        protein_start = tc.get("protein_start")
+                        if amino_acids and protein_start:
+                            parts = amino_acids.split("/")
+                            if len(parts) == 2:
+                                protein_change = (
+                                    f"p.{parts[0]}{protein_start}{parts[1]}"
+                                )
+                            else:
+                                protein_change = amino_acids
+                        else:
+                            protein_change = None
                         results.append(
                             {
                                 "transcript_id": tc.get("transcript_id"),
                                 "gene_symbol": tc.get("gene_symbol"),
-                                "protein_change": tc.get("hgvsp"),
+                                "protein_change": protein_change,
                                 "eve_score": eve_score,
+                                "eve_class": tc.get("eve_class"),
                                 "classification": self._classify_score(eve_score),
                                 "consequence": tc.get("consequence_terms", []),
                                 "polyphen_prediction": tc.get("polyphen_prediction"),

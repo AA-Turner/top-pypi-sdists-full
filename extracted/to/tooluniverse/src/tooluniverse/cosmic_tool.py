@@ -37,7 +37,14 @@ class COSMICTool(BaseTool):
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the COSMIC API call based on operation type."""
-        operation = arguments.get("operation", "search")
+        operation = arguments.get("operation")
+        if not operation:
+            # Infer operation from tool config const value (each COSMIC tool
+            # has a fixed const in the schema, e.g., "search" or "get_by_gene")
+            schema_op = (
+                self.parameter.get("properties", {}).get("operation", {}).get("const")
+            )
+            operation = schema_op or "search"
 
         if operation == "search":
             return self._search_mutations(arguments)
@@ -59,18 +66,30 @@ class COSMICTool(BaseTool):
                 - max_results: Maximum results to return (default 20, max 500)
                 - genome_build: Genome build version (37 or 38, default 37)
         """
-        terms = arguments.get("terms", "")
+        terms = (
+            arguments.get("terms")
+            or arguments.get("query")
+            or arguments.get("gene", "")
+        )
         if not terms:
-            return {"status": "error", "error": "Missing required parameter: terms"}
+            return {
+                "status": "error",
+                "error": "Missing required parameter: terms (or query/gene)",
+            }
 
         max_results = min(arguments.get("max_results", 20), 500)
         genome_build = arguments.get("genome_build", 37)
+        # Request more records than needed to compensate for deduplication:
+        # COSMIC NLM API returns sample-level records (same mutation many times
+        # across different cancer samples). Request up to 20x more to ensure
+        # we get enough unique mutations after dedup. Cap at 500 (API limit).
+        fetch_count = min(max_results * 20, 500)
 
         # Display fields: MutationID, GeneName, MutationCDS, MutationAA
         # Extra fields for more details
         params = {
             "terms": terms,
-            "maxList": max_results,
+            "maxList": fetch_count,
             "grchv": genome_build,
             "df": "MutationID,GeneName,MutationCDS,MutationAA",
             "ef": "MutationID,GeneName,MutationCDS,MutationAA,PrimarySite,PrimaryHistology,MutationGenomePosition,MutationStrand",
@@ -90,22 +109,56 @@ class COSMICTool(BaseTool):
             if isinstance(data, list) and len(data) >= 4:
                 total_count = data[0]
                 codes = data[1] if data[1] else []
+                # extra_data is a dict of field_name -> list (indexed by position)
                 extra_data = data[2] if data[2] else {}
-                display_strings = data[3] if data[3] else []
 
-                # Parse results
+                # Parse and deduplicate results by mutation_id+mutation_aa
                 results = []
+                seen = set()
                 for i, code in enumerate(codes):
+                    gene = (
+                        extra_data.get("GeneName", [])[i]
+                        if i < len(extra_data.get("GeneName", []))
+                        else None
+                    )
+                    mutation_cds = (
+                        extra_data.get("MutationCDS", [])[i]
+                        if i < len(extra_data.get("MutationCDS", []))
+                        else None
+                    )
+                    mutation_aa = (
+                        extra_data.get("MutationAA", [])[i]
+                        if i < len(extra_data.get("MutationAA", []))
+                        else None
+                    )
+                    prim_site = (
+                        extra_data.get("PrimarySite", [])[i]
+                        if i < len(extra_data.get("PrimarySite", []))
+                        else None
+                    )
+                    prim_hist = (
+                        extra_data.get("PrimaryHistology", [])[i]
+                        if i < len(extra_data.get("PrimaryHistology", []))
+                        else None
+                    )
+
+                    # Deduplicate: keep first occurrence of each mutation_id+aa pair
+                    key = (code, mutation_aa)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+
                     result = {
                         "mutation_id": code,
-                        "display": display_strings[i]
-                        if i < len(display_strings)
-                        else None,
+                        "gene": gene,
+                        "mutation_cds": mutation_cds,
+                        "mutation_aa": mutation_aa,
+                        "primary_site": prim_site,
+                        "primary_histology": prim_hist,
                     }
-                    # Add extra fields if available
-                    if extra_data and code in extra_data:
-                        result.update(extra_data[code])
                     results.append(result)
+                    if len(results) >= max_results:
+                        break
 
                 return {
                     "status": "success",
@@ -145,16 +198,20 @@ class COSMICTool(BaseTool):
                 - max_results: Maximum results (default 100, max 500)
                 - genome_build: Genome build version (37 or 38)
         """
-        gene = arguments.get("gene", "")
+        gene = arguments.get("gene") or arguments.get("gene_name", "")
         if not gene:
-            return {"status": "error", "error": "Missing required parameter: gene"}
+            return {
+                "status": "error",
+                "error": "Missing required parameter: gene (or gene_name)",
+            }
 
         max_results = min(arguments.get("max_results", 100), 500)
         genome_build = arguments.get("genome_build", 37)
+        fetch_count = min(max_results * 20, 500)
 
         params = {
             "terms": gene,
-            "maxList": max_results,
+            "maxList": fetch_count,
             "grchv": genome_build,
             "q": f"GeneName:{gene}",
             "df": "MutationID,GeneName,MutationCDS,MutationAA",
@@ -174,20 +231,68 @@ class COSMICTool(BaseTool):
             if isinstance(data, list) and len(data) >= 4:
                 total_count = data[0]
                 codes = data[1] if data[1] else []
+                # extra_data is a dict of field_name -> list (indexed by position)
                 extra_data = data[2] if data[2] else {}
-                display_strings = data[3] if data[3] else []
 
+                # Parse and deduplicate results by mutation_id+mutation_aa
                 results = []
+                seen = set()
                 for i, code in enumerate(codes):
+                    gene_name = (
+                        extra_data.get("GeneName", [])[i]
+                        if i < len(extra_data.get("GeneName", []))
+                        else gene
+                    )
+                    mutation_cds = (
+                        extra_data.get("MutationCDS", [])[i]
+                        if i < len(extra_data.get("MutationCDS", []))
+                        else None
+                    )
+                    mutation_aa = (
+                        extra_data.get("MutationAA", [])[i]
+                        if i < len(extra_data.get("MutationAA", []))
+                        else None
+                    )
+                    prim_site = (
+                        extra_data.get("PrimarySite", [])[i]
+                        if i < len(extra_data.get("PrimarySite", []))
+                        else None
+                    )
+                    prim_hist = (
+                        extra_data.get("PrimaryHistology", [])[i]
+                        if i < len(extra_data.get("PrimaryHistology", []))
+                        else None
+                    )
+                    genome_pos = (
+                        extra_data.get("MutationGenomePosition", [])[i]
+                        if i < len(extra_data.get("MutationGenomePosition", []))
+                        else None
+                    )
+                    fathmm = (
+                        extra_data.get("Fathmm", [])[i]
+                        if i < len(extra_data.get("Fathmm", []))
+                        else None
+                    )
+
+                    # Deduplicate: keep first occurrence of each mutation_id+aa pair
+                    key = (code, mutation_aa)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+
                     result = {
                         "mutation_id": code,
-                        "display": display_strings[i]
-                        if i < len(display_strings)
-                        else None,
+                        "gene": gene_name,
+                        "mutation_cds": mutation_cds,
+                        "mutation_aa": mutation_aa,
+                        "primary_site": prim_site,
+                        "primary_histology": prim_hist,
+                        "genome_position": genome_pos,
+                        "fathmm_prediction": fathmm,
                     }
-                    if extra_data and code in extra_data:
-                        result.update(extra_data[code])
                     results.append(result)
+                    if len(results) >= max_results:
+                        break
 
                 return {
                     "status": "success",

@@ -20,6 +20,7 @@ from imbue.mng.cli.connect import connect
 from imbue.mng.cli.create import create
 from imbue.mng.cli.default_command_group import DefaultCommandGroup
 from imbue.mng.cli.destroy import destroy
+from imbue.mng.cli.events import events
 from imbue.mng.cli.exec import exec_command
 from imbue.mng.cli.gc import gc
 from imbue.mng.cli.help_formatter import get_help_metadata
@@ -27,7 +28,6 @@ from imbue.mng.cli.issue_reporting import handle_not_implemented_error
 from imbue.mng.cli.issue_reporting import handle_unexpected_error
 from imbue.mng.cli.limit import limit
 from imbue.mng.cli.list import list_command
-from imbue.mng.cli.logs import logs
 from imbue.mng.cli.message import message
 from imbue.mng.cli.migrate import migrate
 from imbue.mng.cli.plugin import plugin as plugin_command
@@ -96,14 +96,14 @@ class AliasAwareGroup(DefaultCommandGroup):
             return result
         except NotImplementedError as e:
             _call_on_error_hook(ctx, e)
-            handle_not_implemented_error(e)
+            handle_not_implemented_error(e, is_interactive=ctx.meta.get("is_interactive"))
         except (click.ClickException, click.Abort, click.exceptions.Exit, BaseMngError, bdb.BdbQuit) as e:
             _call_on_error_hook(ctx, e)
             raise
         except Exception as e:
             _call_on_error_hook(ctx, e)
             if ctx.meta.get("is_error_reporting_enabled", False):
-                handle_unexpected_error(e)
+                handle_unexpected_error(e, is_interactive=ctx.meta.get("is_interactive"))
             raise
 
     def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
@@ -300,7 +300,7 @@ BUILTIN_COMMANDS: list[click.Command] = [
     destroy,
     exec_command,
     list_command,
-    logs,
+    events,
     connect,
     message,
     provision,

@@ -138,3 +138,14 @@ from ..plugins.aws import assume_role
 from . import ob_internal
 from ..plugins.apps.core.app_deploy_decorator import app_deploy
 from . import apps
+
+# persist perimeter into current
+from metaflow import current
+import os
+
+current._update_env(
+    {
+        "perimeter": metaflow.metaflow_config_funcs.METAFLOW_CONFIG.get("OBP_PERIMETER")
+        or os.environ.get("OBP_PERIMETER")
+    }
+)

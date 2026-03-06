@@ -44,15 +44,21 @@ def OpenTargets_search_gwas_studies_by_disease(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "diseaseIds": diseaseIds,
+            "enableIndirect": enableIndirect,
+            "size": size,
+            "index": index,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "OpenTargets_search_gwas_studies_by_disease",
-            "arguments": {
-                "diseaseIds": diseaseIds,
-                "enableIndirect": enableIndirect,
-                "size": size,
-                "index": index,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

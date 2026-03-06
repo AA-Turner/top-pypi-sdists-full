@@ -6,6 +6,7 @@ from typing import Union
 
 from teradataml import DataFrame
 
+from tmo.api.base_entity_api import BaseEntityApiMixin
 from tmo.api.dataset_template_api import (
     DatasetTemplateApi,
     FeaturesEntityTargets,
@@ -13,16 +14,20 @@ from tmo.api.dataset_template_api import (
     Predictions,
     Variable,
 )
-from tmo.api.iterator_base_api import IteratorBaseApi
 from tmo.types.dataset import Dataset, Scope
-from tmo.types.dataset_metadata import TypeEnum
+from tmo.types.dataset_metadata import (
+    TypeEnum,
+    CatalogType,
+    body_type_string_to_catalog_type,
+)
 from tmo.types.exceptions import EntityNotFoundError
 
 logger = logging.getLogger(__name__)
 
 
-class DatasetApi(IteratorBaseApi):
-    path = "/api/datasets"
+class DatasetApi(BaseEntityApiMixin):
+    name = "Dataset API"
+    path = "datasets"
     type = "DATASET"
 
     def create(
@@ -150,7 +155,7 @@ class DatasetApi(IteratorBaseApi):
         entity_targets = FeaturesEntityTargets().set_entity(entity)
         if sql and "target_entity" in sql:
             logger.debug(f"Using custom SQL for target_entity: {sql['target_entity']}")
-            entity_targets.sql(sql["target_entity"])
+            entity_targets.set_sql(sql["target_entity"])
         else:
             query = (
                 f"SELECT {entity_columns[0]}, {', '.join(target_columns)} FROM"
@@ -220,7 +225,7 @@ class DatasetApi(IteratorBaseApi):
         }
 
         response = self.tmo_client.post_request(
-            path=self.path,
+            path=self.base_path + self.path,
             header_params=self._get_header_params(),
             query_params={},
             body=dataset_request,
@@ -243,7 +248,7 @@ class DatasetApi(IteratorBaseApi):
             (dict): dataset
         """
         return self.tmo_client.post_request(
-            path=self.path,
+            path=self.base_path + self.path,
             header_params=self._get_header_params(),
             query_params={},
             body=dataset,
@@ -261,7 +266,7 @@ class DatasetApi(IteratorBaseApi):
         """
 
         return self.tmo_client.get_request(
-            path=f"{self.path}/{str(id)}/render",
+            path=f"{self.base_path + self.path}/{str(id)}/render",
             header_params=self._get_header_params(),
             query_params={},
         )
@@ -280,18 +285,13 @@ class DatasetApi(IteratorBaseApi):
         Returns:
             DataFrame or list[Dataset]: combined DataFrame of all datasets or list of Dataset objects
         """
-        query_vars = ["name", "projection"]
-        query_vals = [name, projection]
-        query_params = self.generate_params(query_vars, query_vals)
 
-        response = self.tmo_client.get_request(
-            path=f"{self.path}/search/findByName",
-            header_params=self._get_header_params(),
-            query_params=query_params,
+        response = self.build_get_request(
+            "/search/findByName", {"name": name}, projection
         )
 
-        return self._process_datasets_response(
-            response, return_dataframe, f" for: {name}"
+        return self.process_entities_response(
+            response, return_dataframe, f" with name like: {name}"
         )
 
     def find_by_dataset_template_id(
@@ -318,239 +318,92 @@ class DatasetApi(IteratorBaseApi):
             return_dataframe (bool): if True, returns combined DataFrame; if False, returns list of Dataset objects
 
         Returns:
-            DataFrame or list[Dataset] or None: combined DataFrame of all datasets or list of Dataset objects
+            DataFrame or list[Dataset] or None: combined DataFrame of all datasets or list of Dataset objects.
+            Returns None only if dataset_template_id is not a valid UUID. Returns empty list/DataFrame if no datasets found or parsing fails.
         """
-        # Validate and convert UUID
-        validated_id = self._validate_and_convert_uuid(
-            dataset_template_id, "dataset_template_id"
-        )
-        if validated_id is None:
-            return None if return_dataframe else []
-
-        # Build query parameters
-        query_vars = [
-            "datasetTemplateId",
-            "archived",
-            "projection",
-            "page",
-            "size",
-            "sort",
-        ]
-        query_vals = [validated_id, archived, projection, page, size, sort]
-        query_params = self.generate_params(query_vars, query_vals)
-
-        # Execute API request
-        response = self.tmo_client.get_request(
-            path=f"{self.path}/search/findByDatasetTemplateId",
-            header_params=self._get_header_params(),
-            query_params=query_params,
-        )
-
-        # Process and return response
-        return self._process_datasets_response(
-            response, return_dataframe, f" for template id: {validated_id}"
-        )
-
-    def find_all(
-        self,
-        projection: str = None,
-        page: int = None,
-        size: int = None,
-        sort: str = None,
-        return_dataframe: bool = False,
-    ):
-        """
-        Returns all datasets.
-
-        Parameters:
-            projection (str): projection type
-            page (int): page number
-            size (int): number of records in a page
-            sort (str): column name and sorting order
-            return_dataframe (bool): if True, returns DataFrame; if False, returns list of Dataset objects
-
-        Returns:
-            DataFrame or list[Dataset]: combined DataFrame of all datasets or list of Dataset objects
-        """
-        query_vars = ["projection", "page", "size", "sort"]
-        query_vals = [projection, page, size, sort]
-        built_query_params = self.generate_params(query_vars, query_vals)
-
-        response = self.tmo_client.get_request(
-            path=f"{self.path}",
-            header_params=self._get_header_params(),
-            query_params=built_query_params,
-        )
-
-        return self._process_datasets_response(response, return_dataframe)
-
-    def _get_header_params(self):
-        return self._get_standard_header_params(
-            accept_types=[
-                self.json_type,
-                "application/hal+json",
-                "text/uri-list",
-                "application/x-spring-data-compact+json",
-            ]
-        )
-
-    def _process_datasets_response(
-        self, response: dict, return_dataframe: bool, context: str = ""
-    ) -> DataFrame | list[Dataset] | None:
-        """
-        Helper method to process API response containing datasets.
-        Reduces cognitive complexity by extracting common processing logic.
-
-        Parameters:
-            response (dict): API response containing datasets
-            return_dataframe (bool): if True, returns DataFrame; if False, returns list
-            context (str): context message for logging (e.g., "for name: xyz")
-
-        Returns:
-            DataFrame or list[Dataset] or None: processed datasets
-        """
-        try:
-            datasets_data = response.get("_embedded", {}).get("datasets", [])
-
-            if not datasets_data:
-                logger.info(f"No datasets found{context}")
-                return None if return_dataframe else []
-
-            datasets = []
-            for dataset_data in datasets_data:
-                dataset = self._parse_dataset_from_response(dataset_data)
-                if dataset:
-                    datasets.append(dataset)
-
-            return (
-                self._datasets_to_dataframe(datasets) if return_dataframe else datasets
-            )
-
-        except Exception as e:
-            logger.error(f"Error while parsing dataset response: {str(e)}")
-            return None if return_dataframe else []
-
-    @staticmethod
-    def _validate_and_convert_uuid(
-        value: Union[str, uuid.UUID], param_name: str = "id"
-    ) -> uuid.UUID | None:
-        """
-        Helper method to validate and convert a value to UUID.
-
-        Parameters:
-            value: value to convert (str or UUID)
-            param_name: parameter name for logging
-
-        Returns:
-            UUID or None: converted UUID or None if invalid
-        """
-        if isinstance(value, uuid.UUID):
-            return value
-
-        try:
-            return uuid.UUID(value)
-        except ValueError:
-            logger.error(f"Invalid UUID format for {param_name}: {value}")
+        dataset_template_id = self.validate_uuid(dataset_template_id)
+        if dataset_template_id is None:
             return None
 
+        response = self.build_get_request(
+            "/search/findByDatasetTemplateId",
+            {"datasetTemplateId": dataset_template_id, "archived": archived},
+            projection,
+            page,
+            size,
+            sort,
+        )
+
+        # Process and return response (returns list of datasets, not single dataset)
+        return self.process_entities_response(
+            response,
+            return_dataframe,
+            f" for dataset template id: {dataset_template_id}",
+        )
+
     @staticmethod
-    def _parse_dataset_from_response(dataset_data: dict) -> Dataset | None:
-        """Helper method to parse a single dataset from API response"""
+    def _get_catalog_from_metadata(metadata: dict) -> CatalogType:
+        """
+        Helper method to extract catalog type from metadata.
+
+        Parameters:
+            metadata (dict): metadata dictionary from API response
+        Returns:
+            CatalogType: extracted catalog type or default to VANTAGE
+        """
+        if not metadata:
+            logger.warning(
+                "No metadata found in response, defaulting catalog type to VANTAGE"
+            )
+            return CatalogType.VANTAGE
+
+        catalog_body_type = metadata.get("type")
+
         try:
+            return body_type_string_to_catalog_type(catalog_body_type)
+        except ValueError:
+            logger.warning(
+                f"Unknown catalog type in metadata: {catalog_body_type}, defaulting to"
+                " VANTAGE"
+            )
+            return CatalogType.VANTAGE
+
+    def _parse_entity_from_dictionary(self, response: dict) -> Dataset | None:
+        """
+        Helper method to parse a single dataset from API response
+
+        Parameters:
+            response (dict): API response containing dataset information
+        Returns:
+            Dataset or None: parsed Dataset object or None if parsing fails
+        """
+        try:
+            # Validate required fields exist
+            if not response.get("id"):
+                logger.error("Dataset response missing 'id' field")
+                return None
+            if not response.get("datasetTemplateId"):
+                logger.error("Dataset response missing 'datasetTemplateId' field")
+                return None
+
+            metadata = response.get("metadata")
+            catalog_type = self._get_catalog_from_metadata(metadata)
             dataset = Dataset(
-                dataset_template_id=uuid.UUID(dataset_data.get("datasetTemplateId")),
-                name=dataset_data.get("name"),
-                description=dataset_data.get("description"),
-                scope=Scope(dataset_data.get("scope")),
+                id=uuid.UUID(response.get("id")),
+                dataset_template_id=uuid.UUID(response.get("datasetTemplateId")),
+                name=response.get("name"),
+                description=response.get("description"),
+                scope=Scope(response.get("scope", "train").lower()),
+                catalog_type=catalog_type,
             )
 
-            dataset.id = dataset_data.get("id")
+            from tmo.api.utils.metadata_parser import parse_metadata_from_response
 
-            # get metadata
-            metadata = dataset_data.get("metadata")
-            if not metadata:
-                return dataset
-
-            features_data = metadata.get("features", {})
-            entity_targets_data = metadata.get("entityAndTargets", {})
-            predictions_data = metadata.get("predictions", {})
-
-            # Extract entity
-            entity = features_data.get("entity")
-            dataset.entity = entity
-
-            # Extract targets
-            if "variables" in entity_targets_data:
-                target_variables = []
-                for variable in entity_targets_data.get("variables", []):
-                    if variable.get("type") == "target":
-                        target_variables.append(variable.get("name"))
-                dataset.target = target_variables
-
-            # Set up the metadata structure
-            dataset.metadata = Metadata()
-            dataset.metadata.features = FeaturesEntityTargets()
-            dataset.metadata.entityAndTargets = FeaturesEntityTargets()
-            dataset.metadata.predictions = Predictions()
-            dataset.metadata.type = metadata.get("type")
-
-            # Parse entity target columns
-            entity_target_columns = []  # noqa
-            for variable in entity_targets_data.get("variables", []):  # noqa
-                column = Variable()
-                column.name = variable.get("name")
-                column.dataType = variable.get("dataType")
-                column.type = variable.get("type")
-                entity_target_columns.append(column)
-            dataset.metadata.entityAndTargets.variables = entity_target_columns
-            dataset.metadata.entityAndTargets.entity = entity
-            dataset.metadata.entityAndTargets.sql = entity_targets_data.get("sql")
-
-            # Parse feature columns
-            feature_columns = []  # noqa
-            for variable in features_data.get("variables", []):
-                column = Variable()
-                column.name = variable.get("name")
-                column.dataType = variable.get("dataType")
-                column.type = variable.get("type")
-                feature_columns.append(column)
-            dataset.metadata.features.variables = feature_columns
-            dataset.metadata.features.entity = entity
-            dataset.metadata.features.sql = features_data.get("sql")
-
-            # Parse predictions
-            dataset.metadata.predictions.database = predictions_data.get("database")
-            dataset.metadata.predictions.entity_sql = predictions_data.get("entitySql")
-            dataset.metadata.predictions.table = predictions_data.get("table")
+            dataset.metadata = parse_metadata_from_response(
+                metadata, catalog_type, dataset
+            )
 
             return dataset
-
         except Exception as e:
-            logger.error(f"Error parsing dataset: {str(e)}")
-            return None
-
-    @staticmethod
-    def _datasets_to_dataframe(datasets: list[Dataset]):
-        """
-        Helper method to combine multiple datasets into a single DataFrame
-
-        Parameters:
-            datasets (list[Dataset]): list of datasets to combine
-
-        Returns:
-            DataFrame: Combined DataFrame containing all datasets, or None if conversion fails
-        """
-        if not datasets:
-            return None
-
-        try:
-            from tmo.util.utils import to_dataframe
-
-            combined_data = []
-            for dataset in datasets:
-                combined_data.append(dataset.get_df_template())
-
-            return to_dataframe(combined_data)
-        except Exception as e:
-            logger.error(f"Could not combine datasets to DataFrame: {str(e)}")
+            logger.error(f"Error parsing dataset from response: {str(e)}")
             return None

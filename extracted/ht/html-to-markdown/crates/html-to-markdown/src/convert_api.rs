@@ -681,3 +681,371 @@ pub fn metadata_config_from_json(json: &str) -> Result<MetadataConfig> {
     let update: crate::MetadataConfigUpdate = parse_json(json)?;
     Ok(MetadataConfig::from(update))
 }
+
+// ============================================================================
+// Table Extraction API (requires visitor feature)
+// ============================================================================
+
+/// Extracted table data from HTML conversion.
+///
+/// Each instance represents a single `<table>` element found during conversion.
+/// Tables are collected in document order.
+#[cfg(feature = "visitor")]
+#[derive(Debug, Clone)]
+#[cfg_attr(
+    any(feature = "serde", feature = "metadata"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
+pub struct TableData {
+    /// Table cells organized as rows x columns. Cell contents are already
+    /// converted to the target output format (markdown/djot/plain).
+    pub cells: Vec<Vec<String>>,
+    /// Complete rendered table in the target output format.
+    pub markdown: String,
+    /// Per-row flag indicating whether the row was inside `<thead>`.
+    pub is_header_row: Vec<bool>,
+}
+
+/// Result of HTML-to-markdown conversion with extracted table data.
+#[cfg(feature = "visitor")]
+#[derive(Debug, Clone)]
+#[cfg_attr(
+    any(feature = "serde", feature = "metadata"),
+    derive(serde::Serialize, serde::Deserialize)
+)]
+pub struct ConversionWithTables {
+    /// Converted markdown/djot/plain text content.
+    pub content: String,
+    /// Extended metadata (if metadata extraction was requested).
+    #[cfg(feature = "metadata")]
+    pub metadata: Option<ExtendedMetadata>,
+    /// All tables found in the HTML, in document order.
+    pub tables: Vec<TableData>,
+}
+
+#[cfg(feature = "visitor")]
+#[derive(Debug)]
+struct TableCollector {
+    tables: Vec<TableData>,
+    current_rows: Vec<Vec<String>>,
+    current_is_header: Vec<bool>,
+}
+
+#[cfg(feature = "visitor")]
+impl TableCollector {
+    fn new() -> Self {
+        Self {
+            tables: Vec::new(),
+            current_rows: Vec::new(),
+            current_is_header: Vec::new(),
+        }
+    }
+}
+
+#[cfg(feature = "visitor")]
+impl visitor::HtmlVisitor for TableCollector {
+    fn visit_table_start(&mut self, _ctx: &visitor::NodeContext) -> visitor::VisitResult {
+        self.current_rows.clear();
+        self.current_is_header.clear();
+        visitor::VisitResult::Continue
+    }
+
+    fn visit_table_row(
+        &mut self,
+        _ctx: &visitor::NodeContext,
+        cells: &[String],
+        is_header: bool,
+    ) -> visitor::VisitResult {
+        self.current_rows.push(cells.to_vec());
+        self.current_is_header.push(is_header);
+        visitor::VisitResult::Continue
+    }
+
+    fn visit_table_end(&mut self, _ctx: &visitor::NodeContext, output: &str) -> visitor::VisitResult {
+        if !self.current_rows.is_empty() {
+            self.tables.push(TableData {
+                cells: std::mem::take(&mut self.current_rows),
+                markdown: output.to_string(),
+                is_header_row: std::mem::take(&mut self.current_is_header),
+            });
+        }
+        visitor::VisitResult::Continue
+    }
+}
+
+/// Convert HTML to markdown/djot/plain text with structured table extraction.
+///
+/// Combines conversion, optional metadata extraction, and table data collection
+/// in a single DOM walk. Each table found in the HTML is returned with its
+/// cell contents (already converted to the target format) and rendered output.
+///
+/// # Arguments
+///
+/// * `html` - The HTML string to convert
+/// * `options` - Optional conversion options (defaults to `ConversionOptions::default()`)
+/// * `metadata_cfg` - Optional metadata extraction configuration (requires `metadata` feature)
+///
+/// # Example
+///
+/// ```ignore
+/// use html_to_markdown_rs::convert_with_tables;
+///
+/// let html = r#"<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>"#;
+/// let result = convert_with_tables(html, None, None).unwrap();
+/// assert_eq!(result.tables.len(), 1);
+/// assert_eq!(result.tables[0].cells[0], vec!["Name", "Age"]);
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if HTML parsing fails or if the input contains invalid UTF-8.
+#[cfg(feature = "visitor")]
+pub fn convert_with_tables(
+    html: &str,
+    options: Option<ConversionOptions>,
+    #[cfg(feature = "metadata")] metadata_cfg: Option<MetadataConfig>,
+    #[cfg(not(feature = "metadata"))] _metadata_cfg: Option<()>,
+) -> Result<ConversionWithTables> {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let collector = Rc::new(RefCell::new(TableCollector::new()));
+    let visitor_handle: visitor::VisitorHandle = Rc::clone(&collector) as visitor::VisitorHandle;
+
+    #[cfg(feature = "metadata")]
+    let result = {
+        let metadata_config = metadata_cfg.unwrap_or_default();
+        let (content, metadata) = convert_with_metadata(html, options, metadata_config, Some(visitor_handle))?;
+        let tables = Rc::try_unwrap(collector)
+            .map_err(|_| ConversionError::Other("failed to recover table collector state".into()))?
+            .into_inner()
+            .tables;
+        ConversionWithTables {
+            content,
+            metadata: Some(metadata),
+            tables,
+        }
+    };
+
+    #[cfg(not(feature = "metadata"))]
+    let result = {
+        let content = convert_with_visitor(html, options, Some(visitor_handle))?;
+        let tables = Rc::try_unwrap(collector)
+            .map_err(|_| ConversionError::Other("failed to recover table collector state".into()))?
+            .into_inner()
+            .tables;
+        ConversionWithTables { content, tables }
+    };
+
+    Ok(result)
+}
+
+#[cfg(test)]
+#[cfg(feature = "visitor")]
+mod table_extraction_tests {
+    use super::*;
+
+    fn tables_from_html(html: &str) -> ConversionWithTables {
+        convert_with_tables(
+            html,
+            None,
+            #[cfg(feature = "metadata")]
+            None,
+            #[cfg(not(feature = "metadata"))]
+            None,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_convert_with_tables_basic() {
+        let html = r#"<table><tr><th>Name</th><th>Age</th></tr><tr><td>Alice</td><td>30</td></tr></table>"#;
+        let result = tables_from_html(html);
+        assert_eq!(result.tables.len(), 1);
+        assert_eq!(result.tables[0].cells.len(), 2);
+        assert_eq!(result.tables[0].cells[0], vec!["Name", "Age"]);
+        assert_eq!(result.tables[0].cells[1], vec!["Alice", "30"]);
+        assert!(result.tables[0].is_header_row[0]);
+        assert!(!result.tables[0].is_header_row[1]);
+        assert!(result.tables[0].markdown.contains('|'));
+    }
+
+    #[test]
+    fn test_convert_with_tables_nested() {
+        let html = r#"
+        <table>
+            <tr><th>Category</th><th>Details</th></tr>
+            <tr>
+                <td>Project Alpha</td>
+                <td>
+                    <table>
+                        <tr><th>Task</th><th>Status</th></tr>
+                        <tr><td>001</td><td>Done</td></tr>
+                    </table>
+                </td>
+            </tr>
+        </table>"#;
+        let result = tables_from_html(html);
+        assert!(
+            result.tables.len() >= 2,
+            "Expected at least 2 tables (outer + nested), got {}",
+            result.tables.len()
+        );
+    }
+
+    #[test]
+    fn test_convert_with_tables_no_tables() {
+        let html = "<p>No tables here</p>";
+        let result = tables_from_html(html);
+        assert!(result.tables.is_empty());
+        assert!(result.content.contains("No tables here"));
+    }
+
+    #[test]
+    fn test_convert_with_tables_empty_table() {
+        let result = tables_from_html("<table></table>");
+        assert!(result.tables.is_empty(), "Empty table should not produce TableData");
+    }
+
+    #[test]
+    fn test_convert_with_tables_headers_only() {
+        let html = r#"<table><thead><tr><th>A</th><th>B</th></tr></thead></table>"#;
+        let result = tables_from_html(html);
+        assert_eq!(result.tables.len(), 1);
+        assert!(result.tables[0].is_header_row[0]);
+        assert_eq!(result.tables[0].cells[0], vec!["A", "B"]);
+    }
+
+    #[test]
+    fn test_convert_with_tables_thead_tbody_tfoot() {
+        let html = r#"
+        <table>
+            <thead><tr><th>H1</th></tr></thead>
+            <tbody><tr><td>B1</td></tr></tbody>
+            <tfoot><tr><td>F1</td></tr></tfoot>
+        </table>"#;
+        let result = tables_from_html(html);
+        assert_eq!(result.tables.len(), 1);
+        let t = &result.tables[0];
+        assert!(t.is_header_row[0], "thead row should be header");
+        assert!(!t.is_header_row[1], "tbody row should not be header");
+        assert_eq!(t.cells[0], vec!["H1"]);
+        assert_eq!(t.cells[1], vec!["B1"]);
+    }
+
+    #[test]
+    fn test_convert_with_tables_multiple_separate() {
+        let html = r#"
+        <table><tr><td>T1</td></tr></table>
+        <p>Between tables</p>
+        <table><tr><td>T2</td></tr></table>"#;
+        let result = tables_from_html(html);
+        assert_eq!(result.tables.len(), 2, "Should find 2 separate tables");
+    }
+
+    #[test]
+    fn test_convert_with_tables_special_chars() {
+        let html = r#"<table><tr><td>a | b</td><td>c*d</td></tr></table>"#;
+        let result = tables_from_html(html);
+        assert_eq!(result.tables.len(), 1);
+        assert!(!result.tables[0].cells[0].is_empty());
+    }
+
+    #[test]
+    fn test_convert_with_tables_single_cell() {
+        let html = r#"<table><tr><td>Only cell</td></tr></table>"#;
+        let result = tables_from_html(html);
+        assert_eq!(result.tables.len(), 1);
+        assert_eq!(result.tables[0].cells.len(), 1);
+        assert_eq!(result.tables[0].cells[0], vec!["Only cell"]);
+    }
+
+    #[test]
+    fn test_convert_with_tables_content_preserved() {
+        let html = r#"<p>Before</p><table><tr><td>Cell</td></tr></table><p>After</p>"#;
+        let result = tables_from_html(html);
+        assert!(result.content.contains("Before"));
+        assert!(result.content.contains("After"));
+        assert!(result.content.contains('|'), "Markdown table should appear in content");
+    }
+
+    #[test]
+    fn test_convert_with_tables_with_options() {
+        let options = ConversionOptions {
+            heading_style: crate::options::HeadingStyle::Underlined,
+            ..ConversionOptions::default()
+        };
+        let html = r#"<h1>Title</h1><table><tr><td>Cell</td></tr></table>"#;
+        let result = convert_with_tables(
+            html,
+            Some(options),
+            #[cfg(feature = "metadata")]
+            None,
+            #[cfg(not(feature = "metadata"))]
+            None,
+        )
+        .unwrap();
+        assert_eq!(result.tables.len(), 1);
+        assert!(result.content.contains("Title"));
+    }
+
+    #[test]
+    fn test_convert_with_tables_plain_text_format() {
+        let options = ConversionOptions {
+            output_format: crate::options::OutputFormat::Plain,
+            ..ConversionOptions::default()
+        };
+        let html = r#"<table><tr><th>Name</th></tr><tr><td>Alice</td></tr></table>"#;
+        let result = convert_with_tables(
+            html,
+            Some(options),
+            #[cfg(feature = "metadata")]
+            None,
+            #[cfg(not(feature = "metadata"))]
+            None,
+        )
+        .unwrap();
+        assert!(
+            !result.tables.is_empty(),
+            "Tables should be populated even with plain text output format"
+        );
+        assert_eq!(result.tables[0].cells[0], vec!["Name"]);
+    }
+
+    #[cfg(feature = "metadata")]
+    #[test]
+    fn test_convert_with_tables_metadata_integration() {
+        let html = r#"<html lang="en"><head><title>Test</title></head><body>
+            <table><tr><th>Col</th></tr><tr><td>Val</td></tr></table>
+        </body></html>"#;
+        let config = MetadataConfig::default();
+        let result = convert_with_tables(html, None, Some(config)).unwrap();
+        assert_eq!(result.tables.len(), 1);
+        let meta = result.metadata.as_ref().expect("metadata should be present");
+        assert_eq!(meta.document.language, Some("en".to_string()));
+    }
+
+    #[cfg(feature = "metadata")]
+    #[test]
+    fn test_convert_with_tables_plain_text_metadata() {
+        let options = ConversionOptions {
+            output_format: crate::options::OutputFormat::Plain,
+            ..ConversionOptions::default()
+        };
+        let html = r#"<html lang="fr"><body>
+            <table><tr><td>Cell</td></tr></table>
+        </body></html>"#;
+        let config = MetadataConfig::default();
+        let result = convert_with_tables(html, Some(options), Some(config)).unwrap();
+        assert!(
+            !result.tables.is_empty(),
+            "Tables should be populated in plain text mode"
+        );
+        let meta = result.metadata.as_ref().expect("metadata should be present");
+        assert_eq!(
+            meta.document.language,
+            Some("fr".to_string()),
+            "Metadata should be populated in plain text mode"
+        );
+    }
+}

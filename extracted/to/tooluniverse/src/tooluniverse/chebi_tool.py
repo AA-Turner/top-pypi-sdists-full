@@ -12,6 +12,7 @@ API: https://www.ebi.ac.uk/chebi/backend/api/
 No authentication required. Free for all use.
 """
 
+import re
 import requests
 from typing import Dict, Any
 from .base_tool import BaseTool
@@ -175,15 +176,16 @@ class ChEBITool(BaseTool):
         compounds = []
         for hit in results[:limit]:
             source = hit.get("_source", {})
+            # Strip HTML tags from name (ChEBI stores stereochemistry as HTML)
+            raw_name = source.get("name", "")
+            clean_name = re.sub(r"<[^>]+>", "", raw_name)
             compounds.append(
                 {
                     "chebi_accession": source.get("chebi_accession", ""),
-                    "name": source.get("name", ""),
+                    "name": clean_name,
                     "formula": source.get("formula", None),
                     "mass": source.get("mass", None),
                     "stars": source.get("stars", None),
-                    "smiles": source.get("smiles", None),
-                    "inchikey": source.get("inchikey", None),
                 }
             )
 

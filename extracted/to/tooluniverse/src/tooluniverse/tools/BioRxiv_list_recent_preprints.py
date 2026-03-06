@@ -44,15 +44,21 @@ def BioRxiv_list_recent_preprints(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "start_date": start_date,
+            "end_date": end_date,
+            "server": server,
+            "cursor": cursor,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "BioRxiv_list_recent_preprints",
-            "arguments": {
-                "start_date": start_date,
-                "end_date": end_date,
-                "server": server,
-                "cursor": cursor,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

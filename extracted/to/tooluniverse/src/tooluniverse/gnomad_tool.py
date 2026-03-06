@@ -73,7 +73,7 @@ class gnomADGraphQLTool(BaseTool):
 
             return {
                 "status": "success",
-                "data": result,
+                "data": data,
                 "url": getattr(response, "url", self.endpoint_url),
             }
 

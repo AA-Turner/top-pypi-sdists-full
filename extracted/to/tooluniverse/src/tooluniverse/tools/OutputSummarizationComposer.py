@@ -50,17 +50,23 @@ def OutputSummarizationComposer(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "tool_output": tool_output,
+            "query_context": query_context,
+            "tool_name": tool_name,
+            "chunk_size": chunk_size,
+            "focus_areas": focus_areas,
+            "max_summary_length": max_summary_length,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "OutputSummarizationComposer",
-            "arguments": {
-                "tool_output": tool_output,
-                "query_context": query_context,
-                "tool_name": tool_name,
-                "chunk_size": chunk_size,
-                "focus_areas": focus_areas,
-                "max_summary_length": max_summary_length,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

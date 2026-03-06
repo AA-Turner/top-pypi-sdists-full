@@ -18,10 +18,31 @@ use crate::io::{
 use super::helpers::{StructureJson, json_to_pydict, parse_struct, structure_to_pydict};
 use crate::structure::Structure;
 
+/// Validate that a cell matrix is 3x3 with all finite values.
+fn validate_cell_matrix(cell: &[Vec<f64>], label: &str) -> PyResult<()> {
+    if cell.len() != 3 || cell.iter().any(|row| row.len() != 3) {
+        let row_lens: Vec<usize> = cell.iter().map(|row| row.len()).collect();
+        return Err(PyValueError::new_err(format!(
+            "{label} matrix must be 3x3, got {} rows with lengths {row_lens:?}",
+            cell.len(),
+        )));
+    }
+    for (row_idx, row) in cell.iter().enumerate() {
+        for (col_idx, &val) in row.iter().enumerate() {
+            if !val.is_finite() {
+                return Err(PyValueError::new_err(format!(
+                    "{label} matrix[{row_idx}][{col_idx}] must be finite, got {val}"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 // === Structure Reading Functions ===
 
 /// Parse a structure file (auto-detects format from extension).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_structure_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
     let structure = parse_structure(Path::new(path))
@@ -30,7 +51,7 @@ fn parse_structure_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
 }
 
 /// Parse trajectory file (extXYZ format).
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_trajectory(py: Python<'_>, path: &str) -> PyResult<Vec<Py<PyDict>>> {
     let frames = parse_extxyz_trajectory(Path::new(path))
@@ -48,7 +69,7 @@ fn parse_trajectory(py: Python<'_>, path: &str) -> PyResult<Vec<Py<PyDict>>> {
 // === Structure Writing Functions ===
 
 /// Write a structure to a file with automatic format detection.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn write_structure_file(structure: StructureJson, path: &str) -> PyResult<()> {
     let struc = parse_struct(&structure)?;
@@ -57,7 +78,7 @@ fn write_structure_file(structure: StructureJson, path: &str) -> PyResult<()> {
 }
 
 /// Convert a structure to POSCAR format string.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 #[pyo3(signature = (structure, comment = None))]
 fn to_poscar(structure: StructureJson, comment: Option<&str>) -> PyResult<String> {
@@ -66,7 +87,7 @@ fn to_poscar(structure: StructureJson, comment: Option<&str>) -> PyResult<String
 }
 
 /// Convert a structure to CIF format string.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 #[pyo3(signature = (structure, data_name = None))]
 fn to_cif(structure: StructureJson, data_name: Option<&str>) -> PyResult<String> {
@@ -75,7 +96,7 @@ fn to_cif(structure: StructureJson, data_name: Option<&str>) -> PyResult<String>
 }
 
 /// Convert a structure to extXYZ format string.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn to_extxyz(structure: StructureJson) -> PyResult<String> {
     let struc = parse_struct(&structure)?;
@@ -83,7 +104,7 @@ fn to_extxyz(structure: StructureJson) -> PyResult<String> {
 }
 
 /// Convert a structure to pymatgen JSON format string.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn to_pymatgen_json(structure: StructureJson) -> PyResult<String> {
     let struc = parse_struct(&structure)?;
@@ -91,7 +112,7 @@ fn to_pymatgen_json(structure: StructureJson) -> PyResult<String> {
 }
 
 /// Alias for to_pymatgen_json for convenience.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn to_json(structure: StructureJson) -> PyResult<String> {
     let struc = parse_struct(&structure)?;
@@ -101,7 +122,7 @@ fn to_json(structure: StructureJson) -> PyResult<String> {
 // === Molecule I/O Functions ===
 
 /// Parse a molecule from pymatgen Molecule JSON format.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_molecule_json(py: Python<'_>, json_str: &str) -> PyResult<Py<PyDict>> {
     let mol = crate::io::parse_molecule_json(json_str)
@@ -111,7 +132,7 @@ fn parse_molecule_json(py: Python<'_>, json_str: &str) -> PyResult<Py<PyDict>> {
 }
 
 /// Convert a molecule to pymatgen JSON format string.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn molecule_to_json(molecule: StructureJson) -> PyResult<String> {
     let mol = crate::io::parse_molecule_json(&molecule.0)
@@ -120,7 +141,7 @@ fn molecule_to_json(molecule: StructureJson) -> PyResult<String> {
 }
 
 /// Convert a molecule to XYZ format string.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 #[pyo3(signature = (molecule, comment = None))]
 fn molecule_to_xyz(molecule: StructureJson, comment: Option<&str>) -> PyResult<String> {
@@ -130,7 +151,7 @@ fn molecule_to_xyz(molecule: StructureJson, comment: Option<&str>) -> PyResult<S
 }
 
 /// Parse a molecule from XYZ file content.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_xyz_str(py: Python<'_>, content: &str) -> PyResult<Py<PyDict>> {
     let mol = crate::io::parse_xyz_str(content)
@@ -140,7 +161,7 @@ fn parse_xyz_str(py: Python<'_>, content: &str) -> PyResult<Py<PyDict>> {
 }
 
 /// Parse a molecule from an XYZ file.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_xyz_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
     let mol = crate::io::parse_xyz(Path::new(path))
@@ -150,7 +171,7 @@ fn parse_xyz_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
 }
 
 /// Parse ASE Atoms dict, returning either a Structure or Molecule dict.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_ase_dict(py: Python<'_>, ase_dict: &Bound<'_, PyDict>) -> PyResult<(String, Py<PyDict>)> {
     let json_module = py.import("json")?;
@@ -161,7 +182,7 @@ fn parse_ase_dict(py: Python<'_>, ase_dict: &Bound<'_, PyDict>) -> PyResult<(Str
 }
 
 /// Parse XYZ file path flexibly, returning Structure if lattice present, Molecule otherwise.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_xyz_flexible(py: Python<'_>, path: &str) -> PyResult<(String, Py<PyDict>)> {
     let result = crate::io::parse_xyz_flexible(Path::new(path))
@@ -172,7 +193,7 @@ fn parse_xyz_flexible(py: Python<'_>, path: &str) -> PyResult<(String, Py<PyDict
 /// Parse a structure from POSCAR content string.
 ///
 /// Supports VASP 5+ format with element symbols. VASP 4 format is not supported.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_poscar_str(py: Python<'_>, content: &str) -> PyResult<Py<PyDict>> {
     let structure = crate::io::parse_poscar_str(content)
@@ -184,7 +205,7 @@ fn parse_poscar_str(py: Python<'_>, content: &str) -> PyResult<Py<PyDict>> {
 /// Parse a structure from a POSCAR file.
 ///
 /// Supports VASP 5+ format with element symbols. VASP 4 format is not supported.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_poscar_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
     let structure = crate::io::parse_poscar(Path::new(path))
@@ -206,7 +227,7 @@ fn parse_poscar_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
 /// - system_idx: list of system indices (all 0 for single structure)
 /// - charge: list of system charges
 /// - spin: list of system spins
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn to_torch_sim_state(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyDict>> {
     let struc = parse_struct(&structure)?;
@@ -221,7 +242,7 @@ fn to_torch_sim_state(py: Python<'_>, structure: StructureJson) -> PyResult<Py<P
 /// - system_idx indicates which system each atom belongs to
 /// - cell contains one 3x3 matrix per system
 /// - charge/spin have one value per system
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn structures_to_torch_sim_state(
     py: Python<'_>,
@@ -248,7 +269,7 @@ fn structures_to_pydicts(py: Python<'_>, structures: &[Structure]) -> PyResult<V
 /// Parse a TorchSim SimState dict to a list of Structure dicts.
 ///
 /// Converts a batched state back to individual structures.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn from_torch_sim_state(
     py: Python<'_>,
@@ -264,7 +285,7 @@ fn from_torch_sim_state(
 }
 
 /// Parse a TorchSim SimState JSON string to a list of Structure dicts.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn parse_torch_sim_state_json(py: Python<'_>, json_str: &str) -> PyResult<Vec<Py<PyDict>>> {
     let structures = crate::io::parse_torch_sim_state(json_str)
@@ -298,7 +319,10 @@ fn extract_site_species(
             .and_then(|oxi| {
                 if oxi.abs() < 1e-10 {
                     None
-                } else if oxi.fract().abs() < 1e-10 {
+                } else if oxi.fract().abs() < 1e-10
+                    && oxi >= f64::from(i8::MIN)
+                    && oxi <= f64::from(i8::MAX)
+                {
                     Some(oxi.round() as i8)
                 } else {
                     None
@@ -314,7 +338,7 @@ fn extract_site_species(
 ///
 /// Handles both periodic structures (with lattice) and non-periodic molecules.
 /// Detection is automatic based on whether the object has a `lattice` attribute.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn from_pymatgen_structure(py: Python<'_>, structure: &Bound<'_, PyAny>) -> PyResult<Py<PyDict>> {
     let charge: f64 = structure
@@ -334,22 +358,7 @@ fn from_pymatgen_structure(py: Python<'_>, structure: &Bound<'_, PyAny>) -> PyRe
         let lattice = structure.getattr("lattice")?;
         let matrix: Vec<Vec<f64>> = lattice.getattr("matrix")?.extract()?;
 
-        if matrix.len() != 3 || matrix.iter().any(|row| row.len() != 3) {
-            return Err(PyValueError::new_err(format!(
-                "Lattice matrix must be 3x3, got {}x{}",
-                matrix.len(),
-                matrix.first().map_or(0, |r| r.len())
-            )));
-        }
-        for (row_idx, row) in matrix.iter().enumerate() {
-            for (col_idx, &val) in row.iter().enumerate() {
-                if !val.is_finite() {
-                    return Err(PyValueError::new_err(format!(
-                        "Lattice matrix[{row_idx}][{col_idx}] must be finite, got {val}"
-                    )));
-                }
-            }
-        }
+        validate_cell_matrix(&matrix, "Lattice")?;
 
         let pbc: [bool; 3] = lattice
             .getattr("pbc")
@@ -457,7 +466,7 @@ fn from_pymatgen_structure(py: Python<'_>, structure: &Bound<'_, PyAny>) -> PyRe
 }
 
 /// Convert a ferrox dict to a pymatgen Structure object.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn to_pymatgen_structure(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyAny>> {
     let pymatgen = py.import("pymatgen.core.structure")?;
@@ -471,7 +480,7 @@ fn to_pymatgen_structure(py: Python<'_>, structure: StructureJson) -> PyResult<P
 }
 
 /// Convert a ferrox dict to a pymatgen Molecule object.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn to_pymatgen_molecule(py: Python<'_>, molecule: StructureJson) -> PyResult<Py<PyAny>> {
     let pymatgen = py.import("pymatgen.core.structure")?;
@@ -486,30 +495,14 @@ fn to_pymatgen_molecule(py: Python<'_>, molecule: StructureJson) -> PyResult<Py<
 }
 
 /// Convert an ASE Atoms object directly to ferrox dict format.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn from_ase_atoms(py: Python<'_>, atoms: &Bound<'_, PyAny>) -> PyResult<Py<PyDict>> {
     let symbols: Vec<String> = atoms.call_method0("get_chemical_symbols")?.extract()?;
     let positions: Vec<[f64; 3]> = atoms.call_method0("get_positions")?.extract()?;
     let cell_obj = atoms.call_method0("get_cell")?;
     let cell: Vec<Vec<f64>> = cell_obj.extract().unwrap_or_else(|_| vec![vec![0.0; 3]; 3]);
-    // Validate cell dimensions and finite values
-    if cell.len() != 3 || cell.iter().any(|row| row.len() != 3) {
-        return Err(PyValueError::new_err(format!(
-            "ASE cell must be 3x3, got {}x{}",
-            cell.len(),
-            cell.first().map_or(0, |r| r.len())
-        )));
-    }
-    for (row_idx, row) in cell.iter().enumerate() {
-        for (col_idx, &val) in row.iter().enumerate() {
-            if !val.is_finite() {
-                return Err(PyValueError::new_err(format!(
-                    "ASE cell[{row_idx}][{col_idx}] must be finite, got {val}"
-                )));
-            }
-        }
-    }
+    validate_cell_matrix(&cell, "ASE cell")?;
     let has_cell = cell.iter().any(|row| row.iter().any(|&v| v.abs() > 1e-10));
     let pbc: [bool; 3] = atoms
         .call_method0("get_pbc")
@@ -578,7 +571,7 @@ fn from_ase_atoms(py: Python<'_>, atoms: &Bound<'_, PyAny>) -> PyResult<Py<PyDic
 }
 
 /// Convert a ferrox dict to an ASE Atoms object.
-#[gen_stub_pyfunction]
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
 #[pyfunction]
 fn to_ase_atoms(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyAny>> {
     let ase = py.import("ase")?;
@@ -649,35 +642,33 @@ fn struct_or_mol_to_pydict(
     }
 }
 
-/// Register the io submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "io")?;
-    submod.add_function(wrap_pyfunction!(parse_structure_file, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_trajectory, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(write_structure_file, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_poscar, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_cif, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_extxyz, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_pymatgen_json, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_json, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_molecule_json, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(molecule_to_json, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(molecule_to_xyz, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_xyz_str, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_xyz_file, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_ase_dict, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_xyz_flexible, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_poscar_str, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_poscar_file, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_torch_sim_state, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(structures_to_torch_sim_state, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(from_torch_sim_state, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(parse_torch_sim_state_json, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(from_pymatgen_structure, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_pymatgen_structure, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_pymatgen_molecule, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(from_ase_atoms, &submod)?)?;
-    submod.add_function(wrap_pyfunction!(to_ase_atoms, &submod)?)?;
-    parent.add_submodule(&submod)?;
+/// Register io functions and classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(parse_structure_file, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_trajectory, module)?)?;
+    module.add_function(wrap_pyfunction!(write_structure_file, module)?)?;
+    module.add_function(wrap_pyfunction!(to_poscar, module)?)?;
+    module.add_function(wrap_pyfunction!(to_cif, module)?)?;
+    module.add_function(wrap_pyfunction!(to_extxyz, module)?)?;
+    module.add_function(wrap_pyfunction!(to_pymatgen_json, module)?)?;
+    module.add_function(wrap_pyfunction!(to_json, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_molecule_json, module)?)?;
+    module.add_function(wrap_pyfunction!(molecule_to_json, module)?)?;
+    module.add_function(wrap_pyfunction!(molecule_to_xyz, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_xyz_str, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_xyz_file, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_ase_dict, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_xyz_flexible, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_poscar_str, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_poscar_file, module)?)?;
+    module.add_function(wrap_pyfunction!(to_torch_sim_state, module)?)?;
+    module.add_function(wrap_pyfunction!(structures_to_torch_sim_state, module)?)?;
+    module.add_function(wrap_pyfunction!(from_torch_sim_state, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_torch_sim_state_json, module)?)?;
+    module.add_function(wrap_pyfunction!(from_pymatgen_structure, module)?)?;
+    module.add_function(wrap_pyfunction!(to_pymatgen_structure, module)?)?;
+    module.add_function(wrap_pyfunction!(to_pymatgen_molecule, module)?)?;
+    module.add_function(wrap_pyfunction!(from_ase_atoms, module)?)?;
+    module.add_function(wrap_pyfunction!(to_ase_atoms, module)?)?;
     Ok(())
 }

@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import dataclasses
+import functools
 import os
 import shutil
 import sys
@@ -78,8 +79,13 @@ def main_inner(global_options: GlobalOptions) -> None:
     `main_inner` is the same as `main`, but it raises FatalError exceptions
     rather than exiting directly.
     """
+    # Default in 3.15+, only needed on 3.14
+    if sys.version_info >= (3, 14):
+        arg_parser = functools.partial(argparse.ArgumentParser, suggest_on_error=True)
+    else:
+        arg_parser = argparse.ArgumentParser
 
-    parser = argparse.ArgumentParser(
+    parser = arg_parser(
         description="Build wheels for all the platforms.",
         epilog="""
             Most options are supplied via environment variables or in
@@ -462,13 +468,6 @@ def detect_warnings(*, options: Options) -> Generator[str, None, None]:
 
     build_selector = options.globals.build_selector
     test_selector = options.globals.test_selector
-
-    if EnableGroup.CPythonExperimentalRiscV64 in build_selector.enable:
-        yield (
-            "'cpython-experimental-riscv64' enable is deprecated and will be removed in a future version. "
-            "It should be removed from tool.cibuildwheel.enable in pyproject.toml "
-            "or CIBW_ENABLE environment variable."
-        )
 
     all_valid_identifiers = [
         config.identifier

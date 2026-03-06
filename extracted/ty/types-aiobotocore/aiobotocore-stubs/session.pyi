@@ -160,6 +160,7 @@ from types_aiobotocore_elasticache.client import ElastiCacheClient
 from types_aiobotocore_elasticbeanstalk.client import ElasticBeanstalkClient
 from types_aiobotocore_elb.client import ElasticLoadBalancingClient
 from types_aiobotocore_elbv2.client import ElasticLoadBalancingv2Client
+from types_aiobotocore_elementalinference.client import ElementalInferenceClient
 from types_aiobotocore_emr.client import EMRClient
 from types_aiobotocore_emr_containers.client import EMRContainersClient
 from types_aiobotocore_emr_serverless.client import EMRServerlessClient
@@ -3186,6 +3187,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[ElasticLoadBalancingv2Client]:
         """
         Create client for ElasticLoadBalancingv2 service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["elementalinference"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[ElementalInferenceClient]:
+        """
+        Create client for ElementalInference service.
         """
 
     @overload  # type: ignore[override]

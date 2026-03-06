@@ -35,8 +35,13 @@ def cBioPortal_get_gene_panels(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {k: v for k, v in {"page_size": page_size}.items() if v is not None}
     return get_shared_client().run_one_function(
-        {"name": "cBioPortal_get_gene_panels", "arguments": {"page_size": page_size}},
+        {
+            "name": "cBioPortal_get_gene_panels",
+            "arguments": _args,
+        },
         stream_callback=stream_callback,
         use_cache=use_cache,
         validate=validate,

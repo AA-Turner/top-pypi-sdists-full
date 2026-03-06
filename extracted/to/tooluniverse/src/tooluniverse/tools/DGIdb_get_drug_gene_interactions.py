@@ -41,14 +41,20 @@ def DGIdb_get_drug_gene_interactions(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "genes": genes,
+            "interaction_sources": interaction_sources,
+            "interaction_types": interaction_types,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "DGIdb_get_drug_gene_interactions",
-            "arguments": {
-                "genes": genes,
-                "interaction_sources": interaction_sources,
-                "interaction_types": interaction_types,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

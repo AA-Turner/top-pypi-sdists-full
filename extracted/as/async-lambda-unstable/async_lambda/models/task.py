@@ -102,6 +102,7 @@ class AsyncLambdaTask(Generic[EventType, RT]):
     ephemeral_storage: Optional[int]
     maximum_concurrency: Optional[Union[int, List[int]]]
     init_tasks: List[Union[Callable[[str], Any], Callable[[], Any]]]
+    snap_start: bool
     _has_run_init_tasks: bool
 
     executable: Callable[[EventType], RT]
@@ -120,6 +121,7 @@ class AsyncLambdaTask(Generic[EventType, RT]):
         init_tasks: Optional[
             List[Union[Callable[[str], Any], Callable[[], Any]]]
         ] = None,
+        snap_start: bool = False,
     ):
         """
         Initialize an AsyncLambdaTask instance.
@@ -135,6 +137,7 @@ class AsyncLambdaTask(Generic[EventType, RT]):
             ephemeral_storage (Optional[int], optional): Ephemeral storage (MB). Defaults to None.
             maximum_concurrency (Optional[Union[int, List[int]]], optional): Maximum concurrency for the task. Defaults to None.
             init_tasks (Optional[List[Union[Callable[[str], Any], Callable[[], Any]]]], optional): Initialization tasks to run before execution. Defaults to None.
+            snap_start (bool): Enables SnapStart with static configuration. Defaults to False.
 
         Raises:
             Exception: If the DLQ (Dead Letter Queue) task ID is specified but does not exist or is not an async-task.
@@ -149,6 +152,7 @@ class AsyncLambdaTask(Generic[EventType, RT]):
         self.memory = memory
         self.ephemeral_storage = ephemeral_storage
         self.maximum_concurrency = maximum_concurrency
+        self.snap_start = snap_start
         if init_tasks is None:
             self.init_tasks = []
         else:
@@ -633,6 +637,10 @@ class AsyncLambdaTask(Generic[EventType, RT]):
             template[self.get_function_logical_id()]["Properties"][
                 "EphemeralStorage"
             ] = {"Size": self.ephemeral_storage}
+        if self.snap_start:
+            template[self.get_function_logical_id()]["Properties"]["SnapStart"] = {
+                "ApplyOn": "PublishedVersions"
+            }
 
         if self.trigger_type in MANAGED_SQS_TASK_TYPES:
             dlq_task = self.get_dlq_task()

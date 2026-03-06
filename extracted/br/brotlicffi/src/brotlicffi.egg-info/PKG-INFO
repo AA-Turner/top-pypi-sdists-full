@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: brotlicffi
-Version: 1.2.0.0
+Version: 1.2.0.1
 Summary: Python CFFI bindings to the Brotli library
 Home-page: https://github.com/python-hyper/brotlicffi
 Author: Cory Benfield
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: cffi>=1.0.0; python_version < "3.13"
@@ -125,6 +126,13 @@ is currently maintained by Seth Michael Larson.
 
 Changelog
 =========
+
+1.2.0.1 (2025-03-05)
+--------------------
+
+- Added support for the free-threaded build of Python 3.14.
+- Concurrent sharing of Compressor or Decompressor objects
+  now raises an exception.
 
 1.2.0.0 (2025-11-21)
 --------------------

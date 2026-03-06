@@ -46,8 +46,8 @@ fn parse_stress(stress: &[[f64; 3]; 3]) -> PyResult<Matrix3<f64>> {
 }
 
 /// FIRE optimizer configuration.
-#[gen_stub_pyclass(module = "ferrox.optimizers")]
-#[pyclass(name = "FireConfig")]
+#[gen_stub_pyclass(module = "ferrox._ferrox.optimizers")]
+#[pyclass(module = "ferrox._ferrox.optimizers", name = "FireConfig")]
 #[derive(Clone)]
 pub struct PyFireConfig {
     pub(crate) inner: optimizers::FireConfig,
@@ -151,8 +151,8 @@ impl PyFireConfig {
 }
 
 /// FIRE optimizer state.
-#[gen_stub_pyclass(module = "ferrox.optimizers")]
-#[pyclass(name = "FireState")]
+#[gen_stub_pyclass(module = "ferrox._ferrox.optimizers")]
+#[pyclass(module = "ferrox._ferrox.optimizers", name = "FireState")]
 pub struct PyFireState {
     inner: optimizers::FireState,
     config: optimizers::FireConfig,
@@ -236,8 +236,8 @@ impl PyFireState {
 }
 
 /// CellFIRE optimizer state (optimizes both positions and cell).
-#[gen_stub_pyclass(module = "ferrox.optimizers")]
-#[pyclass(name = "CellFireState")]
+#[gen_stub_pyclass(module = "ferrox._ferrox.optimizers")]
+#[pyclass(module = "ferrox._ferrox.optimizers", name = "CellFireState")]
 pub struct PyCellFireState {
     inner: optimizers::CellFireState,
     config: optimizers::FireConfig,
@@ -334,12 +334,10 @@ impl PyCellFireState {
     }
 }
 
-/// Register the optimizers submodule.
-pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let submod = PyModule::new(parent.py(), "optimizers")?;
-    submod.add_class::<PyFireConfig>()?;
-    submod.add_class::<PyFireState>()?;
-    submod.add_class::<PyCellFireState>()?;
-    parent.add_submodule(&submod)?;
+/// Register optimizer classes on the given module.
+pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyFireConfig>()?;
+    module.add_class::<PyFireState>()?;
+    module.add_class::<PyCellFireState>()?;
     Ok(())
 }

@@ -41,10 +41,16 @@ def Pharos_get_disease_targets(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {"disease": disease, "tdl": tdl, "top": top}.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "Pharos_get_disease_targets",
-            "arguments": {"disease": disease, "tdl": tdl, "top": top},
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

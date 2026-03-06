@@ -41,14 +41,20 @@ def DoseResponse_fit_curve(
     """
     # Handle mutable defaults to avoid B006 linting error
 
+    # Strip None values so optional parameters don't trigger schema validation errors
+    _args = {
+        k: v
+        for k, v in {
+            "operation": operation,
+            "concentrations": concentrations,
+            "responses": responses,
+        }.items()
+        if v is not None
+    }
     return get_shared_client().run_one_function(
         {
             "name": "DoseResponse_fit_curve",
-            "arguments": {
-                "operation": operation,
-                "concentrations": concentrations,
-                "responses": responses,
-            },
+            "arguments": _args,
         },
         stream_callback=stream_callback,
         use_cache=use_cache,

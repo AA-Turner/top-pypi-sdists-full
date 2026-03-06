@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: gooddata-sdk
-Version: 1.60.0
+Version: 1.61.0
 Summary: GoodData Cloud Python SDK
-Project-URL: Documentation, https://www.gooddata.com/docs/python-sdk/1.60.0
+Project-URL: Documentation, https://www.gooddata.com/docs/python-sdk/1.61.0
 Project-URL: Source, https://github.com/gooddata/gooddata-python-sdk
 Author-email: GoodData <support@gooddata.com>
 License-Expression: MIT
@@ -23,7 +23,7 @@ Requires-Python: <4.0,>=3.10
 Requires-Dist: attrs<=24.2.0,>=21.4.0
 Requires-Dist: brotli==1.2.0
 Requires-Dist: cattrs<=24.1.1,>=22.1.0
-Requires-Dist: gooddata-api-client~=1.60.0
+Requires-Dist: gooddata-api-client~=1.61.0
 Requires-Dist: python-dateutil>=2.5.3
 Requires-Dist: python-dotenv<2.0.0,>=1.0.0
 Requires-Dist: pyyaml>=6.0
@@ -45,7 +45,7 @@ At the moment the SDK provides services to inspect and interact with the Semanti
 * Compute Service
 * Table Service
 
-See [DOCUMENTATION](https://www.gooddata.com/docs/python-sdk/1.60.0) for more details.
+See [DOCUMENTATION](https://www.gooddata.com/docs/python-sdk/1.61.0) for more details.
 
 ## Requirements
 

@@ -1022,6 +1022,17 @@ class HPAGetProteinInteractionsTool(HPASearchApiTool):
         if not gene_name:
             return {"error": "Parameter 'gene_name' is required"}
 
+        # Feature-68B-002: HPA 'ppi' column has been deprecated and returns no data.
+        # Direct users to EBIProteinsInteractionsTool or STRING tools instead.
+        return {
+            "status": "error",
+            "error": (
+                "HPA protein-protein interaction data (ppi column) is no longer available "
+                "via the HPA search API. Use EBIProteins_get_interactions with a UniProt "
+                "accession, or STRING_get_interactions with a gene symbol instead."
+            ),
+        }
+
         # Use 'ppi' column to retrieve protein-protein interactions
         columns = "g,gs,ppi"
         result = self._make_api_request(gene_name, columns)
