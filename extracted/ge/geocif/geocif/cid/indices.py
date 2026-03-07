@@ -684,7 +684,10 @@ class CEIs:
             except Exception as e:
                 print(f"Error processing indices for {key}: {e}")
             # 2) EO indices (NDVI, ESI, GCVI, H-INDEX, etc.)
-            for eo_var in ["GCVI", "NDVI", "ESI4WK", "H-INDEX", "AEF"]:
+            eo_vars = ["GCVI", "NDVI", "ESI4WK", "H-INDEX", "AEF"]
+            if any(c.startswith("fldas_") for c in df_group.columns):
+                eo_vars.append("FLDAS")
+            for eo_var in eo_vars:
                 df_eo = self.compute_eo_indices(df_time_period, df_harvest_year_region, eo_var, key, extended_stage)
                 if not df_eo.empty:
                     frames_group.append(df_eo)
@@ -725,7 +728,7 @@ class CEIs:
         # but if it collapses them, you might only get 1 row.
         # Some indices produce a single value after bounding.
         df = df[df["bounds"] == 1] if "bounds" in df.columns else df
-        df = df.drop(columns=[c for c in ["lat", "lon", "time", "bounds", "time_bounds"] if c in df], errors="ignore")
+        df = df.drop(columns=[c for c in ["time", "bounds", "time_bounds"] if c in df], errors="ignore")
 
         if df.empty:
             return pd.DataFrame()
@@ -789,6 +792,8 @@ class CEIs:
             dict_eo = di.dict_hindex
         elif var == "AEF":
             dict_eo = di.dict_aef
+        elif var == "FLDAS":
+            dict_eo = di.dict_fldas
         else:
             return pd.DataFrame()  # unknown var
 
@@ -797,6 +802,8 @@ class CEIs:
             # Map index name to actual column in df_time_period
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
+            elif iname in di.fldas_col_map:
+                col_name = di.fldas_col_map[iname]
             elif "NDVI" in iname.upper():
                 col_name = "ndvi"
             elif "ESI4WK" in iname.upper():

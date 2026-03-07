@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 import sysconfig
-from typing import Iterable, TypeVar
+from typing import Iterable
 
 from yt_dlp.extractor.youtube.pot.provider import (
     PoTokenProviderError,
@@ -23,7 +23,6 @@ from yt_dlp.utils.traversal import traverse_obj
 
 from yt_dlp_plugins.extractor.getpot_bgutil import BgUtilPTPBase
 
-T = TypeVar('T')
 _FALLBACK_PATHEXT = ('.COM', '.EXE', '.BAT', '.CMD')
 
 
@@ -106,14 +105,17 @@ class BgUtilScriptPTPBase(BgUtilPTPBase, abc.ABC):
     def _jsrt_args(self) -> Iterable[str]:
         return ()
 
+    def _jsrt_envs(self) -> dict:
+        return os.environ.copy()
+
     def _jsrt_path_impl(self) -> str | None:
         jsrt_path = _determine_runtime_path(
             traverse_obj(self.ie.get_param('js_runtimes'), (self._JSRT_EXEC, 'path')),
             self._JSRT_EXEC)
         try:
             output, _, returncode = Popen.run(
-                [jsrt_path, '--version'], text=True, stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=5.0)
+                [jsrt_path, '--version'], env=self._jsrt_envs(), timeout=5.0,
+                text=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             output = output.strip()
         except subprocess.TimeoutExpired:
             self.logger.debug(
@@ -158,22 +160,13 @@ class BgUtilScriptPTPBase(BgUtilPTPBase, abc.ABC):
         super().__init__(*args, **kwargs)
         self._check_script = functools.cache(self._check_script_impl)
 
-    def _base_config_arg(self, key: str, default: T = None) -> str | T:
-        return self.ie._configuration_arg(
-            ie_key='youtubepot-bgutilscript', key=key, default=[default])[0]
-
     @functools.cached_property
     def _server_home(self) -> str:
-        resolve_path = lambda *ps: os.path.abspath(
-            os.path.expanduser(os.path.expandvars(os.path.join(*ps))))
-        if server_home := self._base_config_arg('server_home'):
-            return resolve_path(server_home)
-
-        if script_path := self._base_config_arg('script_path'):
-            return resolve_path(script_path, os.pardir, os.pardir)
+        if path := self._script_path_provided():
+            return path
 
         # default if no arg was passed
-        default_home = resolve_path('~', 'bgutil-ytdlp-pot-provider', 'server')
+        default_home = self._resolve_script_path('~', 'bgutil-ytdlp-pot-provider', 'server')
         self.logger.debug(
             f'No server_home or script_path passed, defaulting to {default_home}', once=True)
         return default_home
@@ -206,7 +199,8 @@ class BgUtilScriptPTPBase(BgUtilPTPBase, abc.ABC):
             return False
         stdout, _, returncode = Popen.run(
             [self._jsrt_path, *self._jsrt_args(), script_path, '--version'],
-            stdout=subprocess.PIPE, text=True, timeout=self._GET_SCRIPT_VSN_TIMEOUT)
+            env=self._jsrt_envs(), timeout=self._GET_SCRIPT_VSN_TIMEOUT,
+            text=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE)
         stdout = stdout.strip()
         if returncode:
             self.logger.warning(
@@ -249,8 +243,8 @@ class BgUtilScriptPTPBase(BgUtilPTPBase, abc.ABC):
 
         try:
             stdout, _, returncode = Popen.run(
-                command_args, stdout=subprocess.PIPE, text=True,
-                timeout=self._GETPOT_TIMEOUT)
+                command_args, env=self._jsrt_envs(), timeout=self._GETPOT_TIMEOUT,
+                text=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE)
             stdout_lines = stdout.strip().splitlines()
             json_resp = stdout_lines.pop()
         except subprocess.TimeoutExpired as e:
@@ -318,6 +312,13 @@ class BgUtilScriptDenoPTP(BgUtilScriptPTPBase):
             f'--allow-write={escpath(self._script_cache_dir)}',
             f'--allow-read={escpath(self._script_cache_dir, node_mods_path)}',
         )
+
+    def _jsrt_envs(self) -> dict:
+        process_env = os.environ.copy()
+        process_env['DENO_NO_PROMPT'] = '1'
+        process_env['DENO_NO_UPDATE_CHECK'] = '1'
+        process_env['FORCE_COLOR'] = 'false'
+        return process_env
 
 
 __all__ = [

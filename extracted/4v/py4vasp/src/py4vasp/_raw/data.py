@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import dataclasses
+import pathlib
+from datetime import datetime
+from typing import Any, Iterable, Optional, Union
 
+from py4vasp._raw import mapping
 from py4vasp._raw.data_wrapper import VaspData
 
 
@@ -14,6 +18,7 @@ def NONE():
 @dataclasses.dataclass(order=True, frozen=True)
 class Version:
     "The version number of VASP."
+
     major: int
     "The major version number."
     minor: int = 0
@@ -82,15 +87,19 @@ class Cell:
 
     lattice_vectors: VaspData
     "Lattice vectors defining the unit cell."
-    scale: float
+    scale: Optional[float] = NONE()
     "Global scaling factor applied to all lattice vectors."
+    idipol: Optional[int] = NONE()
+    """The direction along which dipole correction is applied, if any."""
+    ldipol: Optional[int] = NONE()
+    """Whether dipole correction is applied."""
 
 
 @dataclasses.dataclass
 class CONTCAR:
     """The data corresponding to the CONTCAR file.
 
-    The CONTCAR file contains structural information (lattice, positions, topology),
+    The CONTCAR file contains structural information (lattice, positions, stoichiometry),
     relaxation constraints, and data relevant for continuation calculations.
     """
 
@@ -103,14 +112,105 @@ class CONTCAR:
     lattice_velocities: VaspData = NONE()
     "The current velocities of the lattice vectors."
     ion_velocities: VaspData = NONE()
-    "The current velocities of the ions."
+    "The current velocities of the ions in Cartesian coordinates."
     _predictor_corrector: VaspData = NONE()
     "Internal algorithmic data relevant for restarting calculations."
 
 
 @dataclasses.dataclass
+class CurrentDensity(mapping.Mapping):
+    """The current density evaluated on a grid in the unit cell.
+
+    You may have multiple currents densities which you can set by the *valid_indices*
+    variable. The current_density list should have the same size as the valid_indices.
+    """
+
+    structure: Structure
+    "The structure for which the current density was calculated."
+    current_density: VaspData
+    "The current density on a grid in the unit cell."
+
+
+@dataclasses.dataclass
+class CalculationMetaData:
+    """Metadata about the VASP calculation.
+    This dataclass is not available for Calculation instances."""
+
+    hdf5_original_path: Union[str, pathlib.Path]
+    """The path to the HDF5 file of the original calculation."""
+    tags: Union[str, Iterable[str], None]
+    """Tags associated with the calculation."""
+
+    hdf5_internal_path: Optional[Union[str, pathlib.Path]] = None
+    """The path under which vaspdb has stored the calculation files."""
+
+    infer_none_files: bool = False
+    """Whether to infer links to None files like INCAR etc. where possible."""
+    has_incar: bool = False
+    "Whether an INCAR file is associated with the calculation."
+    has_poscar: bool = False
+    "Whether a POSCAR file is associated with the calculation."
+    has_kpoints: bool = False
+    "Whether a KPOINTS file is associated with the calculation."
+    has_potcar: bool = False
+    "Whether a POTCAR file is associated with the calculation."
+    has_contcar: bool = False
+    "Whether a CONTCAR file is associated with the calculation."
+    has_outcar: bool = False
+    "Whether an OUTCAR file is associated with the calculation."
+
+    # These should be handled by vaspdb
+    added_at: Optional[datetime] = None
+    "The date and time when the calculation data was added to the database."
+    updated_at: Optional[datetime] = None
+    "The date and time when the calculation data was last updated in the database."
+
+    def __post_init__(self):
+        # Convert paths to pathlib Paths
+        for file_attr in ["hdf5_original_path", "hdf5_internal_path"]:
+            file_path = getattr(self, file_attr)
+            if isinstance(file_path, str):
+                object.__setattr__(self, file_attr, pathlib.Path(file_path))
+
+        # Check existence of INCAR, POSCAR, KPOINTS, POTCAR files
+        if self.infer_none_files:
+            for file_attr in [
+                "incar",
+                "poscar",
+                "kpoints",
+                "potcar",
+                "contcar",
+                "outcar",
+            ]:
+                trial_path = self.hdf5_original_path.parent / file_attr.upper()
+                if trial_path.exists():
+                    setattr(self, f"has_{file_attr}", True)
+
+
+@dataclasses.dataclass
+class _DatabaseData:
+    """All additional data that should be written to the database.
+    This dataclass is not available for Calculation instances."""
+
+    metadata: CalculationMetaData
+
+    available_quantities: Optional[dict[str, tuple[bool, list[str]]]] = None
+    """Dict of all py4vasp dataclasses that can be read from the HDF5 file.
+    Keys are constructed like 'group.quantity:selection' where group and
+    selection are optional. The values are booleans indicating whether the quantity is available.
+    The string list contains all aliases that can be used to refer to this particular combination
+    of group, quantity and selection."""
+
+    additional_properties: Optional[dict[str, Any]] = None
+    """Additional properties that get stored in the database.
+    Keys are constructed like 'group.quantity:selection' where group and
+    selection are optional. The values are dictionaries of properties."""
+
+
+@dataclasses.dataclass
 class Density:
     "The electronic charge and magnetization density on the Fourier grid."
+
     structure: Structure
     "The atomic structure to represent the densities."
     charge: VaspData
@@ -148,10 +248,12 @@ class DielectricTensor:
     "The electronic contribution to the dielectric tensor."
     ion: VaspData
     "The ionic contribution to the dielectric tensor."
-    independent_particle: VaspData
-    "The dielectric tensor in the independent particle approximation."
     method: str
     "The method used to generate the dielectric tensor."
+    independent_particle: VaspData = NONE()
+    "The dielectric tensor in the independent particle approximation."
+    cell: Cell = NONE()
+    "The simulation cell used for the calculation."
 
 
 @dataclasses.dataclass
@@ -186,6 +288,34 @@ class Dos:
 
 
 @dataclasses.dataclass
+class EffectiveCoulomb:
+    """The effective Coulomb potential calculated with a cRPA method.
+
+    The effective Coulomb potential U is calculated in VASP using the constrained Random
+    Phase Approximation (cRPA). This method allows to compute the screened Coulomb
+    interaction by excluding specific screening channels, typically those within a
+    correlated subspace such as d or f orbitals.
+    """
+
+    number_wannier_states: int
+    "Number of Wannier functions used to define the correlated subspace."
+    spin_labels: VaspData
+    "Labels for the spin channels used in the calculation."
+    frequencies: VaspData
+    "Frequencies at which the effective Coulomb potential is evaluated."
+    bare_potential_high_cutoff: VaspData
+    "The bare Coulomb potential before screening evaluated with a high cutoff."
+    bare_potential_low_cutoff: VaspData
+    "The bare Coulomb potential before screening evaluated with a low cutoff."
+    screened_potential: VaspData
+    "The screened effective Coulomb potential U."
+    cell: Cell
+    "Unit cell of the crystal."
+    positions: VaspData = NONE()
+    "Positions in units of the lattice vectors where the effective Coulomb potential is evaluated."
+
+
+@dataclasses.dataclass
 class ElasticModulus:
     """The elastic modulus calculated in a linear response calculation.
 
@@ -198,6 +328,152 @@ class ElasticModulus:
     "Elastic modulus when the ions are clamped into their positions."
     relaxed_ion: VaspData
     "Elastic modulus when the position of the ions is relaxed."
+    structure: Optional[Structure] = None
+    "The structure for which the elastic modulus was calculated."
+
+
+@dataclasses.dataclass
+class ElectronicMinimization:
+    """The OSZICAR data as generated by VASP.
+
+    All data generated by VASP and traditionally stored in the OSZICAR file will be
+    stored here. See https://www.vasp.at/wiki/index.php/OSZICAR for more details about
+    what quantities to expect."""
+
+    convergence_data: VaspData
+    "All columns of the OSZICAR file stored for all ionic steps."
+    label: VaspData
+    "Label of all the data from the OSZICAR file."
+    is_elmin_converged: VaspData
+    "Is the electronic minimization step converged?"
+
+
+@dataclasses.dataclass
+class ElectronPhononBandgap(mapping.Mapping):
+    """The bandgap renormalized due to electron-phonon coupling
+
+    The information is derived from a self-energy calculation.
+    """
+
+    chemical_potential: ElectronPhononChemicalPotential
+    "Chemical potential information"
+    fundamental_renorm: VaspData
+    "Renormalization of the fundamental bandgap"
+    fundamental: VaspData
+    "Value of the fundamental bandgap"
+    direct_renorm: VaspData
+    "Renormalization of the direct bandgap"
+    direct: VaspData
+    "Value of the direct bandgap"
+    temperatures: VaspData
+    "List of temperatures at which the bandgap renormalization was computed"
+    nbands_sum: list[int]
+    "Number of bands that were summed over in this instance"
+    delta: list[float]
+    "Value of the imaginary broadening parameter used to evaluate the electron self-energy"
+    scattering_approximation: list[str]
+    "Scattering approximation used to compute the electron self-energy"
+    id_index: VaspData
+    "Index of the elements on each list of variables used to generate instances"
+
+
+@dataclasses.dataclass
+class ElectronPhononChemicalPotential:
+    """The chemical potential for electron-phonon calculations.
+
+    The chemical potential is computed for each temperature and carrier doping.
+    The carrier doping can be specified using only one of:
+    carrier_per_cell, carrier_den or mu
+    """
+
+    fermi_energy: VaspData
+    "The Fermi energy at zero temperature and without doping"
+    chemical_potential: VaspData
+    "The chemical potential for each temperature and doping"
+    carrier_density: VaspData
+    "Computed carrier density for each temperature and doping"
+    temperatures: VaspData
+    "List of temperatures at which the chemical potential is computed"
+    carrier_per_cell: VaspData  # values of the selfen_carrier_per_cell incar tag
+    "The doping specified by the additional number of carriers per cell"
+    carrier_den: VaspData  # values of th selfen_carrier_den incar tag
+    "The doping specified by an additional carrier density"
+    mu: VaspData  # values of the selfen_mu incar tag
+    "The doping specified by an energy shift with respect to the fermi energy"
+
+
+@dataclasses.dataclass
+class ElectronPhononSelfEnergy(mapping.Mapping):
+    """The electron self-energy due to electron-phonon coupling
+
+    This is composed of two Feynman diagrams, the Fan and Debye-Waller.
+    They are compued only for selectes Kohn-Sham states and stored in a flattened array.
+    When the scattering approximation is not SERTA then strictly speaking
+    this is not a self-energy anymore but a scattering rate that is used in the
+    context of solving the Boltzman transport equation (see ElectronPhononTransport)
+    """
+
+    id_index: VaspData
+    "Index of the elements on each list of variables used to generate instances"
+    chemical_potential: ElectronPhononChemicalPotential
+    "Chemical potential information"
+    eigenvalues: VaspData
+    "Kohn-sham eigenvalues on the mesh used for the electron-phonon calculation"
+    temperatures: VaspData
+    "List of temperatures at which the self energy was computed"
+    debye_waller: VaspData
+    "Debye-Waller self-energy contribution as an array flattened along (band,kpoint,spin)"
+    fan: VaspData
+    "Fan self-energy contribution for an array of energies as an array flattened along (band,kpoint,spin)"
+    energies: VaspData
+    "Energies at which the Fan self-energy was evaluated."
+    band_kpoint_spin_index: VaspData
+    "Translate a (band,kpoint,spin) tuple to the flattened array"
+    band_start: int
+    "Index of the lowest band for which the electron self-energy was computed"
+    nbands_sum: int
+    "Number of bands that were summed over in this instance"
+    delta: float
+    "Value of the imaginary broadening parameter used to evaluate the electron self-energy"
+    scattering_approximation: str
+    "Scattering approximation used to compute the electron self-energy"
+
+
+@dataclasses.dataclass
+class ElectronPhononTransport(mapping.Mapping):
+    """Electronic transport quantities limited by electron-phonon scattering
+
+    The electronic transport coefficients are computed based on the electronic group-velocities
+    and scattering rated computed the self-energy accumulators.
+    They are computed for each temperature and chemical potential specified in the INCAR file
+    """
+
+    id_index: VaspData
+    "Index of the elements on each list of variables used to generate instances"
+    chemical_potential: ElectronPhononChemicalPotential
+    "Chemical potential information"
+    temperatures: VaspData
+    "List of temperatures at which the bandgap renormalization was computed"
+    transport_function: VaspData
+    """Transport function which is computed from the electron group-velocities
+    and scattering rated for each temperature and carrier doping
+    """
+    electronic_conductivity: VaspData
+    "Electronic conductivity for each temperature and carrier doping"
+    mobility: VaspData
+    "Electronic mobility for each temperature and carrier doping"
+    seebeck: VaspData
+    "Seebeck coefficient for each temperature and carrier doping"
+    peltier: VaspData
+    "Peltier coefficient for each temperature and carrier doping"
+    electronic_thermal_conductivity: VaspData
+    "Electronic thermal conductivity for each temperature and carrier doping"
+    nbands_sum: int
+    "Number of bands that were summed over in this instance"
+    delta: float
+    "Value of the imaginary broadening parameter used to evaluate the electron self-energy"
+    scattering_approximation: str
+    "Scattering approximation used to compute the electron self-energy"
 
 
 @dataclasses.dataclass
@@ -214,8 +490,18 @@ class Energy:
 
 
 @dataclasses.dataclass
-class Fatband:
-    """Contains the BSE data required to produce a fatband plot."""
+class ExcitonDensity:
+    "The exciton charge density on the real space grid."
+
+    structure: Structure
+    "The atomic structure to represent the densities."
+    exciton_charge: VaspData
+    "The data of exciton charge density."
+
+
+@dataclasses.dataclass
+class ExcitonEigenvector:
+    """Contains the BSE data required to produce a plot of eigenvector contributions."""
 
     dispersion: Dispersion
     "The **k** points and the eigenvalues of the band structure."
@@ -223,8 +509,8 @@ class Fatband:
     "The Fermi energy of the system."
     bse_index: VaspData
     "The connection between spin, band and **k**-point indices to an index of the optical transitions."
-    fatbands: VaspData
-    "Component of the eigenvector, norm can be used for plotting fatbands."
+    eigenvectors: VaspData
+    "Component of the eigenvector, norm can be used for plotting eigenvectors."
     first_valence_band: int
     "Index of the first valence band."
     first_conduction_band: int
@@ -252,6 +538,8 @@ class ForceConstant:
     "Structural information about the system to inform about the atoms the force constants relate to."
     force_constants: VaspData
     "The values of the force constants."
+    selective_dynamics: VaspData = NONE()
+    "Specifies in which directions the atoms may move."
 
 
 @dataclasses.dataclass
@@ -265,7 +553,7 @@ class InternalStrain:
     structure: Structure
     "Structural information about the system to inform about the unit cell."
     internal_strain: VaspData
-    "The  data of the internal strain."
+    "The data of the internal strain."
 
 
 @dataclasses.dataclass
@@ -280,14 +568,20 @@ class Kpoint:
 
     mode: str
     "Mode used to generate the **k**-point list."
-    number: int
-    "Number of **k** points specified in the generation."
     coordinates: VaspData
     "Coordinates of the **k** points as fraction of the reciprocal lattice vectors."
     weights: VaspData
     "Weight of the **k** points used for integration."
     cell: Cell
     "Unit cell of the crystal."
+    number: int = NONE()
+    "Number of **k** points specified in the generation."
+    number_x: int = NONE()
+    "The number of kpoints in x direction."
+    number_y: int = NONE()
+    "The number of kpoints in y direction."
+    number_z: int = NONE()
+    "The number of kpoints in z direction."
     labels: VaspData = NONE()
     "High symmetry label for specific **k** points used in band structures."
     label_indices: VaspData = NONE()
@@ -295,7 +589,7 @@ class Kpoint:
 
 
 @dataclasses.dataclass
-class Magnetism:
+class LocalMoment:
     """The local charges and magnetic moments on the ions.
 
     The projection on orbitals and atoms (LORBIT) distributes all bands over all ions
@@ -313,19 +607,17 @@ class Magnetism:
 
 
 @dataclasses.dataclass
-class ElectronicMinimization:
-    """The OSZICAR data as generated by VASP.
+class Nics:
+    """The nucleus-independent chemical shift."""
 
-    All data generated by VASP and traditionally stored in the OSZICAR file will be
-    stored here. See https://www.vasp.at/wiki/index.php/OSZICAR for more details about
-    what quantities to expect."""
-
-    convergence_data: VaspData
-    "All columns of the OSZICAR file stored for all ionic steps."
-    label: VaspData
-    "Label of all the data from the OSZICAR file."
-    is_elmin_converged: VaspData
-    "Is the electronic minimization step converged?"
+    structure: Structure
+    "Structural information about the system."
+    nics_grid: VaspData = NONE()
+    "The NICS tensor (flattened) at every grid point."
+    nics_points: VaspData = NONE()
+    "The NICS tensor at specfic positions."
+    positions: VaspData = NONE()
+    "Positions at which NICS tensor was evaluated."
 
 
 @dataclasses.dataclass
@@ -344,7 +636,7 @@ class PairCorrelation:
 
 
 @dataclasses.dataclass
-class PartialCharge:
+class PartialDensity:
     """Electronic partial charge and magnetization density on the fine Fourier grid
 
     Possibly not only split by spin, but also by band and kpoint."""
@@ -366,11 +658,11 @@ class PhononBand:
     """The band structure of the phonons.
 
     Contains the eigenvalues and eigenvectors at specifics **q** points in the Brillouin
-    zone. Includes the topology to map atoms onto specific modes."""
+    zone. Includes the stoichiometry to map atoms onto specific modes."""
 
     dispersion: Dispersion
     "The **q** points and the eigenvalues."
-    topology: Topology
+    stoichiometry: Stoichiometry
     "The atom types in the crystal."
     eigenvectors: VaspData
     "The eigenvectors of the phonon modes."
@@ -389,8 +681,20 @@ class PhononDos:
     "Dos at the energies D(E)."
     projections: VaspData
     "Projection of the DOS onto contribution of specific atoms."
-    topology: Topology
+    stoichiometry: Stoichiometry
     "The atom types in the crystal."
+
+
+@dataclasses.dataclass
+class PhononMode:
+    """The mode describes how the ions move under the presence of a phonon."""
+
+    structure: Structure
+    "The underlying structure in which the phonon mode is present."
+    frequencies: VaspData
+    "The phonon frequency of all the modes."
+    eigenvectors: VaspData
+    "The displacement patterns associated with the phonon modes."
 
 
 @dataclasses.dataclass
@@ -405,6 +709,8 @@ class PiezoelectricTensor:
     "The electronic contribution to the piezoelectric tensor"
     ion: VaspData
     "The ionic contribution to the piezoelectric tensor"
+    cell: Cell = NONE()
+    "The final cell used for the calculation."
 
 
 @dataclasses.dataclass
@@ -451,17 +757,78 @@ class Projector:
     and orbitals. This class reports the atoms and orbitals included in the projection.
     """
 
-    topology: Topology
-    "The topology of the system used, i.e., which elements are contained."
+    stoichiometry: Stoichiometry
+    "The stoichiometry of the system used, i.e., which elements are contained."
+    number_spin_projections: int
+    "This is 1 for nonpolarized calculations, 2 for spin polarized ones, and 4 for noncollinear calculations."
     orbital_types: VaspData
     "Character indicating the orbital angular momentum."
-    number_spins: int
-    "Indicates whether the calculation is spin polarized or not."
+
+
+@dataclasses.dataclass
+class RunInfo:
+    "Contains information about the VASP run."
+
+    system: Optional[System] = None
+    "Data of the system."
+    runtime: Optional[RuntimeData] = None
+    "Data about the runtime environment of the VASP calculation."
+
+    fermi_energy: Optional[float] = None
+    "Fermi energy obtained by VASP."
+    bandgap: Optional[Bandgap] = None
+    "The bandgap of the system."
+    len_dos: Optional[int] = None
+    "Dimensionality of DOS data. (1 for non-polarized, 2 for spin polarized, 4 for non-collinear calculations.)"
+    band_dispersion_eigenvalues: Optional[VaspData] = NONE()
+    "The eigenvalues of the band structure dispersion."
+    band_projections: Optional[VaspData] = NONE()
+    "If present, orbital projections of the band structure."
+
+    structure: Optional[Structure] = None
+    "Structural information about the system."
+    contcar: Optional[CONTCAR] = None
+    "The data corresponding to the CONTCAR file."
+
+    phonon_dispersion: Optional[Dispersion] = None
+    "The phonon dispersion of the system."
+
+
+@dataclasses.dataclass
+class RuntimeData:
+    """Data about the runtime environment of the VASP calculation."""
+
+    vasp_version: Union[str, Version] = None
+    "The version of VASP used for the calculation."
+
+    calculation_time: Optional[float] = None
+    "The time taken for the calculation in seconds."
+    calculation_start: Optional[Union[datetime, str]] = None
+    "The date and time when the calculation was started."
+    n_cpus: Optional[int] = None
+    "The number of CPUs used for the calculation."
+    n_gpus: Optional[int] = None
+    "The number of GPUs used for the calculation."
+
+    def __post_init__(self):
+        if isinstance(self.vasp_version, Version):
+            self.vasp_version = f"{self.vasp_version.major}.{self.vasp_version.minor}.{self.vasp_version.patch}"
+
+
+@dataclasses.dataclass
+class Stoichiometry:
+    "Contains the type of ions in the system and how many of each type exist."
+
+    number_ion_types: VaspData
+    "Amount of ions of a particular type."
+    ion_types: VaspData
+    "Element of a particular type."
 
 
 @dataclasses.dataclass
 class Stress:
     "The stress acting on the unit cell at all steps."
+
     structure: Structure
     "Structural information about the system to inform about the unit cell."
     stress: VaspData
@@ -475,32 +842,29 @@ class Structure:
     Reports what ions are in the system and the positions of all ions as well as the
     unit cell for all steps in a relaxation in a MD run."""
 
-    topology: Topology
-    "The topology of the system used, i.e., which elements are contained."
+    stoichiometry: Stoichiometry
+    "The stoichiometry of the system used, i.e., which elements are contained."
     cell: Cell
     "Unit cell of the crystal or simulation cell for molecules."
     positions: VaspData
     "Position of all atoms in the unit cell in units of the lattice vectors."
+    idipol: Optional[int] = NONE()
+    "The direction along which dipole correction is applied, if any."
+    ldipol: Optional[int] = NONE()
+    "Whether dipole correction is applied."
 
 
 @dataclasses.dataclass
 class System:
     "The name of the system set in the input."
+
     system: str
-
-
-@dataclasses.dataclass
-class Topology:
-    "Contains the type of ions in the system and how many of each type exist."
-    number_ion_types: VaspData
-    "Amount of ions of a particular type."
-    ion_types: VaspData
-    "Element of a particular type."
 
 
 @dataclasses.dataclass
 class Velocity:
     "Contains the ion velocities along the trajectory."
+
     structure: Structure
     "Structural information to relate the velocities to."
     velocities: VaspData
@@ -510,6 +874,7 @@ class Velocity:
 @dataclasses.dataclass
 class Workfunction:
     "Describes the minimal energy needed to remove an electron from the crystal to the vacuum."
+
     idipol: int
     "INCAR tag of VASP describing the direction along which the potential is assessed."
     distance: VaspData

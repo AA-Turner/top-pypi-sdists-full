@@ -601,7 +601,7 @@ impl Composition {
     ///
     /// # Returns
     ///
-    /// Vector of [`OxiStateGuess`] with oxidation states and probability scores.
+    /// Vector of `OxiStateGuess` with oxidation states and probability scores.
     ///
     /// # Example
     ///
@@ -618,13 +618,13 @@ impl Composition {
         oxi_states_override: Option<&std::collections::HashMap<Element, Vec<i8>>>,
         use_all_oxi_states: bool,
         max_sites: Option<usize>,
-    ) -> Vec<crate::oxidation::OxiStateGuess> {
+    ) -> Vec<crate::analysis::oxidation::OxiStateGuess> {
         // Collect unique elements and their amounts
         let elem_comp = self.element_composition();
         let elements: Vec<Element> = elem_comp.species.keys().map(|sp| sp.element).collect();
         let amounts: Vec<f64> = elem_comp.species.values().copied().collect();
 
-        crate::oxidation::oxi_state_guesses(
+        crate::analysis::oxidation::oxi_state_guesses(
             &elements,
             &amounts,
             target_charge,
@@ -680,7 +680,7 @@ impl Composition {
         // Check that all oxidation states are close to integers
         // Mixed-valence averages (e.g., 2.67 for Fe3O4) cannot be represented as single i8
         for oxi in best.oxidation_states.values() {
-            if (*oxi - oxi.round()).abs() > crate::oxidation::OXI_INT_TOLERANCE {
+            if (*oxi - oxi.round()).abs() > crate::analysis::oxidation::OXI_INT_TOLERANCE {
                 // Non-integer oxidation state indicates mixed-valence; cannot represent
                 return None;
             }

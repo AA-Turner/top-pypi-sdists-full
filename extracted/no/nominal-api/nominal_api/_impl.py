@@ -4813,6 +4813,8 @@ class connect_download_Platform(ConjureEnumType):
     '''UBUNTU'''
     MACOS = 'MACOS'
     '''MACOS'''
+    MACOS_PKG = 'MACOS_PKG'
+    '''MACOS_PKG'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -5045,6 +5047,52 @@ class datasource_api_BatchGetDataScopeBoundsResponse(ConjureBeanType):
 datasource_api_BatchGetDataScopeBoundsResponse.__name__ = "BatchGetDataScopeBoundsResponse"
 datasource_api_BatchGetDataScopeBoundsResponse.__qualname__ = "BatchGetDataScopeBoundsResponse"
 datasource_api_BatchGetDataScopeBoundsResponse.__module__ = "nominal_api.datasource_api"
+
+
+class datasource_api_BatchGetSeriesCountRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[datasource_api_GetSeriesCountRequest])
+        }
+
+    __slots__: List[str] = ['_requests']
+
+    def __init__(self, requests: List["datasource_api_GetSeriesCountRequest"]) -> None:
+        self._requests = requests
+
+    @builtins.property
+    def requests(self) -> List["datasource_api_GetSeriesCountRequest"]:
+        return self._requests
+
+
+datasource_api_BatchGetSeriesCountRequest.__name__ = "BatchGetSeriesCountRequest"
+datasource_api_BatchGetSeriesCountRequest.__qualname__ = "BatchGetSeriesCountRequest"
+datasource_api_BatchGetSeriesCountRequest.__module__ = "nominal_api.datasource_api"
+
+
+class datasource_api_BatchGetSeriesCountResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'responses': ConjureFieldDefinition('responses', List[datasource_api_GetSeriesCountResponse])
+        }
+
+    __slots__: List[str] = ['_responses']
+
+    def __init__(self, responses: List["datasource_api_GetSeriesCountResponse"]) -> None:
+        self._responses = responses
+
+    @builtins.property
+    def responses(self) -> List["datasource_api_GetSeriesCountResponse"]:
+        return self._responses
+
+
+datasource_api_BatchGetSeriesCountResponse.__name__ = "BatchGetSeriesCountResponse"
+datasource_api_BatchGetSeriesCountResponse.__qualname__ = "BatchGetSeriesCountResponse"
+datasource_api_BatchGetSeriesCountResponse.__module__ = "nominal_api.datasource_api"
 
 
 class datasource_api_ChannelMetadata(ConjureBeanType):
@@ -5630,6 +5678,84 @@ data scope corresponds to an external database or its data was not updated in th
 datasource_api_GetDataScopeBoundsResponse.__name__ = "GetDataScopeBoundsResponse"
 datasource_api_GetDataScopeBoundsResponse.__qualname__ = "GetDataScopeBoundsResponse"
 datasource_api_GetDataScopeBoundsResponse.__module__ = "nominal_api.datasource_api"
+
+
+class datasource_api_GetSeriesCountRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'data_source_rid': ConjureFieldDefinition('dataSourceRid', api_rids_DataSourceRid),
+            'channel': ConjureFieldDefinition('channel', api_Channel),
+            'range': ConjureFieldDefinition('range', api_Range),
+            'tag_filters': ConjureFieldDefinition('tagFilters', OptionalTypeWrapper[scout_compute_api_TagFilters]),
+            'context': ConjureFieldDefinition('context', OptionalTypeWrapper[scout_compute_api_Context])
+        }
+
+    __slots__: List[str] = ['_data_source_rid', '_channel', '_range', '_tag_filters', '_context']
+
+    def __init__(self, channel: str, data_source_rid: str, range: "api_Range", context: Optional["scout_compute_api_Context"] = None, tag_filters: Optional["scout_compute_api_TagFilters"] = None) -> None:
+        self._data_source_rid = data_source_rid
+        self._channel = channel
+        self._range = range
+        self._tag_filters = tag_filters
+        self._context = context
+
+    @builtins.property
+    def data_source_rid(self) -> str:
+        return self._data_source_rid
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+    @builtins.property
+    def range(self) -> "api_Range":
+        return self._range
+
+    @builtins.property
+    def tag_filters(self) -> Optional["scout_compute_api_TagFilters"]:
+        """Tag filters to apply when counting series. Supports IN/NOT_IN operators and AND composition,
+matching the tag filter semantics used in compute queries.
+        """
+        return self._tag_filters
+
+    @builtins.property
+    def context(self) -> Optional["scout_compute_api_Context"]:
+        """Variable context for resolving variables in tag filters. Same context format used in compute APIs.
+        """
+        return self._context
+
+
+datasource_api_GetSeriesCountRequest.__name__ = "GetSeriesCountRequest"
+datasource_api_GetSeriesCountRequest.__qualname__ = "GetSeriesCountRequest"
+datasource_api_GetSeriesCountRequest.__module__ = "nominal_api.datasource_api"
+
+
+class datasource_api_GetSeriesCountResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'series_count': ConjureFieldDefinition('seriesCount', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_series_count']
+
+    def __init__(self, series_count: Optional[int] = None) -> None:
+        self._series_count = series_count
+
+    @builtins.property
+    def series_count(self) -> Optional[int]:
+        """The number of distinct series. Empty if the datasource type does not support series counting
+(e.g. external datasources).
+        """
+        return self._series_count
+
+
+datasource_api_GetSeriesCountResponse.__name__ = "GetSeriesCountResponse"
+datasource_api_GetSeriesCountResponse.__qualname__ = "GetSeriesCountResponse"
+datasource_api_GetSeriesCountResponse.__module__ = "nominal_api.datasource_api"
 
 
 class datasource_api_GetTagValuesForDataSourceRequest(ConjureBeanType):
@@ -25115,6 +25241,37 @@ scout_catalog_AllPropertiesAndLabelsResponse.__qualname__ = "AllPropertiesAndLab
 scout_catalog_AllPropertiesAndLabelsResponse.__module__ = "nominal_api.scout_catalog"
 
 
+class scout_catalog_BatchGetDatasetFilesRequest(ConjureBeanType):
+    """Request to batch get dataset files for a single dataset.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'dataset_rid': ConjureFieldDefinition('datasetRid', str),
+            'file_ids': ConjureFieldDefinition('fileIds', List[datasource_DatasetFileId])
+        }
+
+    __slots__: List[str] = ['_dataset_rid', '_file_ids']
+
+    def __init__(self, dataset_rid: str, file_ids: List[str]) -> None:
+        self._dataset_rid = dataset_rid
+        self._file_ids = file_ids
+
+    @builtins.property
+    def dataset_rid(self) -> str:
+        return self._dataset_rid
+
+    @builtins.property
+    def file_ids(self) -> List[str]:
+        return self._file_ids
+
+
+scout_catalog_BatchGetDatasetFilesRequest.__name__ = "BatchGetDatasetFilesRequest"
+scout_catalog_BatchGetDatasetFilesRequest.__qualname__ = "BatchGetDatasetFilesRequest"
+scout_catalog_BatchGetDatasetFilesRequest.__module__ = "nominal_api.scout_catalog"
+
+
 class scout_catalog_Bounds(ConjureBeanType):
 
     @builtins.classmethod
@@ -25306,6 +25463,39 @@ a file, primarily CSV.
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_catalog_DatasetFile, self._return_none_for_unknown_union_types)
+
+    def batch_get_dataset_files(self, auth_header: str, request: "scout_catalog_BatchGetDatasetFilesRequest") -> Dict[str, "scout_catalog_DatasetFile"]:
+        """Returns dataset files for the given file IDs within a single dataset. Only returns files that
+exist and belong to the specified dataset. Useful for checking ingestion status of many files at once.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/catalog/v1/dataset-files/batchGet'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), Dict[datasource_DatasetFileId, scout_catalog_DatasetFile], self._return_none_for_unknown_union_types)
 
     def get_dataset_files_for_job(self, auth_header: str, ingest_job_rid: str, next_page_token: Optional[str] = None) -> "scout_catalog_DatasetFilesPage":
         _conjure_encoder = ConjureEncoder()
@@ -28503,7 +28693,54 @@ scout_channelvariables_api_ChannelVariableComputeExpressionVisitor.__qualname__ 
 scout_channelvariables_api_ChannelVariableComputeExpressionVisitor.__module__ = "nominal_api.scout_channelvariables_api"
 
 
-class scout_channelvariables_api_ChannelVariableComputeExpressionInput(ConjureUnionType):
+class scout_channelvariables_api_ChannelVariableComputeExpressionInput(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', scout_channelvariables_api_ChannelVariableComputeExpressionInputValue),
+            'data_type': ConjureFieldDefinition('dataType', scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType)
+        }
+
+    __slots__: List[str] = ['_value', '_data_type']
+
+    def __init__(self, data_type: "scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType", value: "scout_channelvariables_api_ChannelVariableComputeExpressionInputValue") -> None:
+        self._value = value
+        self._data_type = data_type
+
+    @builtins.property
+    def value(self) -> "scout_channelvariables_api_ChannelVariableComputeExpressionInputValue":
+        return self._value
+
+    @builtins.property
+    def data_type(self) -> "scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType":
+        return self._data_type
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionInput.__name__ = "ChannelVariableComputeExpressionInput"
+scout_channelvariables_api_ChannelVariableComputeExpressionInput.__qualname__ = "ChannelVariableComputeExpressionInput"
+scout_channelvariables_api_ChannelVariableComputeExpressionInput.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType(ConjureEnumType):
+
+    NUMERIC_SERIES = 'NUMERIC_SERIES'
+    '''NUMERIC_SERIES'''
+    ENUM_SERIES = 'ENUM_SERIES'
+    '''ENUM_SERIES'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType.__name__ = "ChannelVariableComputeExpressionInputDataType"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType.__qualname__ = "ChannelVariableComputeExpressionInputDataType"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType.__module__ = "nominal_api.scout_channelvariables_api"
+
+
+class scout_channelvariables_api_ChannelVariableComputeExpressionInputValue(ConjureUnionType):
     _variable: Optional[str] = None
 
     @builtins.classmethod
@@ -28536,27 +28773,27 @@ class scout_channelvariables_api_ChannelVariableComputeExpressionInput(ConjureUn
         return self._variable
 
     def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor):
-            raise ValueError('{} is not an instance of scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor'.format(visitor.__class__.__name__))
+        if not isinstance(visitor, scout_channelvariables_api_ChannelVariableComputeExpressionInputValueVisitor):
+            raise ValueError('{} is not an instance of scout_channelvariables_api_ChannelVariableComputeExpressionInputValueVisitor'.format(visitor.__class__.__name__))
         if self._type == 'variable' and self.variable is not None:
             return visitor._variable(self.variable)
 
 
-scout_channelvariables_api_ChannelVariableComputeExpressionInput.__name__ = "ChannelVariableComputeExpressionInput"
-scout_channelvariables_api_ChannelVariableComputeExpressionInput.__qualname__ = "ChannelVariableComputeExpressionInput"
-scout_channelvariables_api_ChannelVariableComputeExpressionInput.__module__ = "nominal_api.scout_channelvariables_api"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputValue.__name__ = "ChannelVariableComputeExpressionInputValue"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputValue.__qualname__ = "ChannelVariableComputeExpressionInputValue"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputValue.__module__ = "nominal_api.scout_channelvariables_api"
 
 
-class scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor:
+class scout_channelvariables_api_ChannelVariableComputeExpressionInputValueVisitor:
 
     @abstractmethod
     def _variable(self, variable: str) -> Any:
         pass
 
 
-scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor.__name__ = "ChannelVariableComputeExpressionInputVisitor"
-scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor.__qualname__ = "ChannelVariableComputeExpressionInputVisitor"
-scout_channelvariables_api_ChannelVariableComputeExpressionInputVisitor.__module__ = "nominal_api.scout_channelvariables_api"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputValueVisitor.__name__ = "ChannelVariableComputeExpressionInputValueVisitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputValueVisitor.__qualname__ = "ChannelVariableComputeExpressionInputValueVisitor"
+scout_channelvariables_api_ChannelVariableComputeExpressionInputValueVisitor.__module__ = "nominal_api.scout_channelvariables_api"
 
 
 class scout_channelvariables_api_ChannelVariableComputeExpressionV1(ConjureUnionType):
@@ -79760,6 +79997,40 @@ given an initial set of filters.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), datasource_api_GetAvailableTagValuesResponse, self._return_none_for_unknown_union_types)
 
+    def batch_get_series_count(self, auth_header: str, request: "datasource_api_BatchGetSeriesCountRequest") -> "datasource_api_BatchGetSeriesCountResponse":
+        """Returns the number of distinct series matching each request's datasource, channel, range,
+and tag filters. Each response corresponds positionally to the input request.
+Returns empty seriesCount for non-Nominal datasources.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/data-source/v1/data-sources/batch-get-series-count'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), datasource_api_BatchGetSeriesCountResponse, self._return_none_for_unknown_union_types)
+
 
 scout_datasource_DataSourceService.__name__ = "DataSourceService"
 scout_datasource_DataSourceService.__qualname__ = "DataSourceService"
@@ -86707,6 +86978,68 @@ scout_metadata_CreatedAtQuery.__qualname__ = "CreatedAtQuery"
 scout_metadata_CreatedAtQuery.__module__ = "nominal_api.scout_metadata"
 
 
+class scout_metadata_GetMetadataUsageCountRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'query': ConjureFieldDefinition('query', scout_metadata_MetadataUsageQuery),
+            'resource_types': ConjureFieldDefinition('resourceTypes', OptionalTypeWrapper[List[scout_metadata_ResourceType]]),
+            'workspaces': ConjureFieldDefinition('workspaces', OptionalTypeWrapper[List[api_rids_WorkspaceRid]])
+        }
+
+    __slots__: List[str] = ['_query', '_resource_types', '_workspaces']
+
+    def __init__(self, query: "scout_metadata_MetadataUsageQuery", resource_types: Optional[List["scout_metadata_ResourceType"]] = None, workspaces: Optional[List[str]] = None) -> None:
+        self._query = query
+        self._resource_types = resource_types
+        self._workspaces = workspaces
+
+    @builtins.property
+    def query(self) -> "scout_metadata_MetadataUsageQuery":
+        return self._query
+
+    @builtins.property
+    def resource_types(self) -> Optional[List["scout_metadata_ResourceType"]]:
+        """If omitted, all resource types are included.
+        """
+        return self._resource_types
+
+    @builtins.property
+    def workspaces(self) -> Optional[List[str]]:
+        """If omitted, results will come from all workspaces the user belongs to.
+        """
+        return self._workspaces
+
+
+scout_metadata_GetMetadataUsageCountRequest.__name__ = "GetMetadataUsageCountRequest"
+scout_metadata_GetMetadataUsageCountRequest.__qualname__ = "GetMetadataUsageCountRequest"
+scout_metadata_GetMetadataUsageCountRequest.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_GetMetadataUsageCountResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'count': ConjureFieldDefinition('count', int)
+        }
+
+    __slots__: List[str] = ['_count']
+
+    def __init__(self, count: int) -> None:
+        self._count = count
+
+    @builtins.property
+    def count(self) -> int:
+        return self._count
+
+
+scout_metadata_GetMetadataUsageCountResponse.__name__ = "GetMetadataUsageCountResponse"
+scout_metadata_GetMetadataUsageCountResponse.__qualname__ = "GetMetadataUsageCountResponse"
+scout_metadata_GetMetadataUsageCountResponse.__module__ = "nominal_api.scout_metadata"
+
+
 class scout_metadata_ListPropertiesAndLabelsRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -86769,6 +87102,108 @@ scout_metadata_ListPropertiesAndLabelsResponse.__qualname__ = "ListPropertiesAnd
 scout_metadata_ListPropertiesAndLabelsResponse.__module__ = "nominal_api.scout_metadata"
 
 
+class scout_metadata_MetadataUsageQuery(ConjureUnionType):
+    """Specifies what metadata to count usage for. Exactly one of: a label,
+a property name (counts all resources with any value for that key),
+or a full property key+value pair.
+    """
+    _label: Optional[str] = None
+    _property_name: Optional[str] = None
+    _property: Optional["api_Property"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'label': ConjureFieldDefinition('label', api_Label),
+            'property_name': ConjureFieldDefinition('propertyName', api_PropertyName),
+            'property': ConjureFieldDefinition('property', api_Property)
+        }
+
+    def __init__(
+            self,
+            label: Optional[str] = None,
+            property_name: Optional[str] = None,
+            property: Optional["api_Property"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (label is not None) + (property_name is not None) + (property is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if label is not None:
+                self._label = label
+                self._type = 'label'
+            if property_name is not None:
+                self._property_name = property_name
+                self._type = 'propertyName'
+            if property is not None:
+                self._property = property
+                self._type = 'property'
+
+        elif type_of_union == 'label':
+            if label is None:
+                raise ValueError('a union value must not be None')
+            self._label = label
+            self._type = 'label'
+        elif type_of_union == 'propertyName':
+            if property_name is None:
+                raise ValueError('a union value must not be None')
+            self._property_name = property_name
+            self._type = 'propertyName'
+        elif type_of_union == 'property':
+            if property is None:
+                raise ValueError('a union value must not be None')
+            self._property = property
+            self._type = 'property'
+
+    @builtins.property
+    def label(self) -> Optional[str]:
+        return self._label
+
+    @builtins.property
+    def property_name(self) -> Optional[str]:
+        return self._property_name
+
+    @builtins.property
+    def property(self) -> Optional["api_Property"]:
+        return self._property
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_metadata_MetadataUsageQueryVisitor):
+            raise ValueError('{} is not an instance of scout_metadata_MetadataUsageQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'label' and self.label is not None:
+            return visitor._label(self.label)
+        if self._type == 'propertyName' and self.property_name is not None:
+            return visitor._property_name(self.property_name)
+        if self._type == 'property' and self.property is not None:
+            return visitor._property(self.property)
+
+
+scout_metadata_MetadataUsageQuery.__name__ = "MetadataUsageQuery"
+scout_metadata_MetadataUsageQuery.__qualname__ = "MetadataUsageQuery"
+scout_metadata_MetadataUsageQuery.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_MetadataUsageQueryVisitor:
+
+    @abstractmethod
+    def _label(self, label: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _property_name(self, property_name: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _property(self, property: "api_Property") -> Any:
+        pass
+
+
+scout_metadata_MetadataUsageQueryVisitor.__name__ = "MetadataUsageQueryVisitor"
+scout_metadata_MetadataUsageQueryVisitor.__qualname__ = "MetadataUsageQueryVisitor"
+scout_metadata_MetadataUsageQueryVisitor.__module__ = "nominal_api.scout_metadata"
+
+
 class scout_metadata_ResourceMetadataService(Service):
     """The Resource Metadata Service provides common metadata about resources.
     """
@@ -86805,6 +87240,41 @@ such as runs and videos.
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_metadata_ListPropertiesAndLabelsResponse, self._return_none_for_unknown_union_types)
+
+    def get_metadata_usage_count(self, auth_header: str, request: "scout_metadata_GetMetadataUsageCountRequest") -> "scout_metadata_GetMetadataUsageCountResponse":
+        """Returns the count of resources that use a given label or property. The query can
+match by label, property name (key only), or a full property key+value pair.
+Counts are scoped to the caller's accessible workspaces unless specific workspaces
+are provided.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/metadata/usage-count'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_metadata_GetMetadataUsageCountResponse, self._return_none_for_unknown_union_types)
 
 
 scout_metadata_ResourceMetadataService.__name__ = "ResourceMetadataService"
@@ -96906,6 +97376,41 @@ segment count, min/max timestamps, and average frame rate. Optionally filter by 
         _decoder = ConjureDecoder()
         return None if _response.status_code == 204 else _decoder.decode(_response.json(), OptionalTypeWrapper[scout_video_api_SegmentV2], self._return_none_for_unknown_union_types)
 
+    def get_segment_at_or_after_timestamp(self, auth_header: str, request: "scout_video_api_GetSegmentAtOrAfterTimestampRequest", video_rid: str) -> Optional["scout_video_api_Segment"]:
+        """Returns metadata for the segment containing the requested absolute timestamp. If no segment contains 
+the timestamp, returns the closest segment starting after the timestamp. Returns empty if no segment 
+is found at or after the timestamp.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'videoRid': quote(str(_conjure_encoder.default(video_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/video/v1/videos/{videoRid}/get-segment-at-or-after-timestamp'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return None if _response.status_code == 204 else _decoder.decode(_response.json(), OptionalTypeWrapper[scout_video_api_Segment], self._return_none_for_unknown_union_types)
+
     def get_file_summaries(self, auth_header: str, request: "scout_video_api_GetFileSummariesRequest", video_rid: str) -> "scout_video_api_GetFileSummariesResponse":
         """Returns the min and max absolute timestamps from non-archived video files associated with a given video that
 overlap with an optional set of bounds. The files on the edges of the bounds will be truncated to segments
@@ -97931,6 +98436,31 @@ class scout_video_api_GetPlaylistInBoundsRequest(ConjureBeanType):
 scout_video_api_GetPlaylistInBoundsRequest.__name__ = "GetPlaylistInBoundsRequest"
 scout_video_api_GetPlaylistInBoundsRequest.__qualname__ = "GetPlaylistInBoundsRequest"
 scout_video_api_GetPlaylistInBoundsRequest.__module__ = "nominal_api.scout_video_api"
+
+
+class scout_video_api_GetSegmentAtOrAfterTimestampRequest(ConjureBeanType):
+    """Request to get a segment containing the given timestamp, or the closest segment starting after it.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'timestamp': ConjureFieldDefinition('timestamp', api_Timestamp)
+        }
+
+    __slots__: List[str] = ['_timestamp']
+
+    def __init__(self, timestamp: "api_Timestamp") -> None:
+        self._timestamp = timestamp
+
+    @builtins.property
+    def timestamp(self) -> "api_Timestamp":
+        return self._timestamp
+
+
+scout_video_api_GetSegmentAtOrAfterTimestampRequest.__name__ = "GetSegmentAtOrAfterTimestampRequest"
+scout_video_api_GetSegmentAtOrAfterTimestampRequest.__qualname__ = "GetSegmentAtOrAfterTimestampRequest"
+scout_video_api_GetSegmentAtOrAfterTimestampRequest.__module__ = "nominal_api.scout_video_api"
 
 
 class scout_video_api_GetSegmentByTimestampRequest(ConjureBeanType):
@@ -109920,323 +110450,323 @@ usercreation_api_InternalUserCreationService.__qualname__ = "InternalUserCreatio
 usercreation_api_InternalUserCreationService.__module__ = "nominal_api.usercreation_api"
 
 
-api_ColumnName = str
+scout_chartdefinition_api_LogColumnName = str
 
-api_Label = str
-
-scout_datasource_connection_api_influx_OrgId = str
-
-timeseries_metadata_api_SeriesMetadataName = str
-
-api_PropertyValue = str
-
-module_ParameterName = str
-
-scout_workbookcommon_api_TimeRange = api_Range
-
-timeseries_logicalseries_api_AttributeName = str
-
-themes_api_ChartThemeRid = str
-
-scout_rids_api_SnapshotRid = str
-
-scout_units_api_UnitName = str
-
-ingest_api_FileSuffix = str
-
-scout_datasource_connection_api_TableName = str
-
-timeseries_seriescache_api_Resolution = int
-
-api_PropertyName = str
-
-scout_integrations_api_IntegrationRid = str
+scout_versioning_api_TagName = str
 
 scout_api_DataSourceRefName = str
 
-api_rids_VideoFileRid = str
-
-api_Unit = str
-
 ingest_workflow_api_McapTopicName = str
 
-scout_versioning_api_BranchRid = str
+scout_rids_api_ApiKeyRid = str
 
-datasource_DatasetFileId = str
+scout_rids_api_GroupRid = str
 
-api_rids_AiConversationRid = str
+api_S3Path = str
 
-api_rids_LinkRid = str
+scout_chart_api_JsonString = str
 
-api_rids_WorkspaceRid = str
+scout_rids_api_AssetRid = str
 
-persistent_compute_api_SubscriptionId = str
+storage_writer_api_Field = str
+
+scout_versioning_api_TagRid = str
+
+authorization_ApiKeyRid = str
+
+scout_datasource_connection_api_SchemaName = str
+
+scout_workbookcommon_api_TimeRange = api_Range
+
+api_rids_AttachmentRid = str
+
+scout_video_api_ErrorType = str
+
+comments_api_CommentRid = str
 
 api_McapChannelTopic = str
-
-modules_api_ModuleApplicationRid = str
-
-scout_compute_api_VariableName = str
-
-scout_datasource_connection_api_MeasurementName = str
 
 scout_compute_api_FunctionParameterName = str
 
 scout_compute_api_LocalVariableName = str
 
-scout_workbookcommon_api_WorkbookDataScopeInputId = str
+scout_datasource_connection_api_ColumnName = str
+
+scout_rids_api_VizId = str
+
+scout_savedviews_api_ColumnId = str
 
 scout_channelvariables_api_ChannelVariableName = str
 
-scout_datareview_api_ManualCheckEvaluationRid = str
-
-api_ids_WorkspaceId = str
-
-scout_asset_api_Channel = str
-
-scout_rids_api_FunctionRid = str
-
-scout_units_api_UnitSystem = str
-
-secrets_api_SecretRid = str
+api_rids_DatasetRid = str
 
 timeseries_logicalseries_api_ColumnName = str
 
-scout_datasource_connection_api_LocationName = str
+scout_datasource_connection_api_ConnectionRid = str
 
 scout_layout_api_PanelId = str
 
-api_rids_NominalDataSourceRid = str
-
-scout_compute_api_ErrorCode = int
-
-api_rids_ChunkRid = str
-
-api_rids_ProcedureRid = str
-
-scout_rids_api_CheckAlertRid = str
-
 ingest_api_ContainerizedExtractorRid = str
 
-scout_chart_api_JsonString = str
+scout_datasource_connection_api_LocationName = str
 
-scout_chartdefinition_api_LogTagFilter = Dict[str, List[str]]
+scout_comparisonnotebook_api_ComparisonVizDefinitionMap = Dict[scout_rids_api_VizId, scout_comparisonnotebook_api_VizDefinition]
+
+authentication_api_UserRid = str
+
+secrets_api_SecretRid = str
+
+api_rids_VideoRid = str
+
+comments_api_ReactionRid = str
+
+scout_rids_api_UserRid = str
+
+api_rids_DataSourceRid = str
+
+timeseries_logicalseries_api_SchemaName = str
+
+api_McapChannelId = int
+
+api_LogicalSeriesRid = str
+
+api_ColumnName = str
+
+scout_datasource_connection_api_BucketName = str
+
+api_rids_NominalDataSourceRid = str
+
+datasource_pagination_api_PageToken = str
+
+scout_comparisonnotebook_api_VariableName = str
+
+scout_datasource_connection_api_SecretRid = str
+
+scout_rids_api_FunctionLineageRid = str
+
+scout_rids_api_TemplateRid = str
 
 api_rids_LocalResourceRid = str
 
 scout_checks_api_JobRid = str
 
-api_rids_VideoRid = str
-
-api_rids_AttachmentRid = str
-
-datasource_pagination_api_PageToken = str
-
-scout_datasource_connection_api_ProjectName = str
-
-scout_rids_api_DataReviewRid = str
-
 api_rids_SegmentRid = str
 
-scout_comparisonnotebook_api_VariableName = str
+scout_integrations_api_IntegrationRid = str
 
-scout_run_api_RunRid = str
-
-scout_datasource_connection_api_DatasetName = str
-
-api_TagValue = str
-
-scout_rids_api_RunRefName = str
-
-scout_versioning_api_TagName = str
-
-scout_compute_api_SeriesName = str
+api_Unit = str
 
 timeseries_logicalseries_api_MeasureName = str
 
-scout_run_api_LogSetRid = str
-
-module_VariableName = str
-
-scout_units_api_UnitProperty = str
-
-timeseries_logicalseries_api_MeasurementName = str
-
-api_rids_RemoteConnectionRid = str
-
-datasource_VideoFileId = str
-
-themes_api_HexColor = str
-
-scout_datasource_connection_api_ColumnName = str
-
-storage_writer_api_Field = str
-
-api_TagName = str
-
-authentication_api_UserRid = str
-
-ingest_api_EnvironmentVariable = str
-
-scout_datasource_connection_api_ConnectionRid = str
-
-scout_channelvariables_api_ComputeSpecV1 = str
-
-timeseries_logicalseries_api_TableName = str
-
-scout_rids_api_NotebookRid = str
-
-scout_rids_api_UserRid = str
-
-api_rids_DatasetRid = str
-
-scout_units_api_UnitSymbol = str
-
-timeseries_logicalseries_api_LocationName = str
-
-api_rids_DataSourceRid = str
-
-scout_rids_api_CheckLineageRid = str
-
-api_DataSourceRefName = str
-
-scout_rids_api_VizId = str
-
-scout_comparisonnotebook_api_ComparisonVizDefinitionMap = Dict[scout_rids_api_VizId, scout_comparisonnotebook_api_VizDefinition]
-
-scout_video_api_ErrorType = str
-
-scout_workbookcommon_api_WorkbookDataScopeInputName = str
-
-scout_comparisonnotebook_api_ComparisonChannelVariableMap = Dict[scout_comparisonnotebook_api_VariableName, scout_comparisonnotebook_api_ChannelVariable]
-
-ingest_workflow_api_PresignedUrl = str
-
-timeseries_logicalseries_api_FieldName = str
-
-scout_channelvariables_api_WorkbookChannelVariableMap = Dict[scout_channelvariables_api_ChannelVariableName, scout_channelvariables_api_ChannelVariable]
-
-scout_rids_api_TypeRid = str
-
-scout_compute_api_FunctionReference = str
-
-api_rids_AutomaticCheckEvaluationRid = str
-
-scout_rids_api_TemplateRid = str
-
 timeseries_logicalseries_api_BucketName = str
 
-api_SeriesMetadataRid = str
-
-ingest_api_DataSourceRefName = str
-
-api_ErrorType = str
-
-api_rids_ProcedureExecutionRid = str
-
-scout_compute_api_ComputeWithUnitsRequest = scout_compute_api_ComputeNodeRequest
-
-scout_rids_api_GroupRid = str
+api_rids_ProcedureRid = str
 
 scout_rids_api_Version = int
 
-scout_versioning_api_BranchName = str
+scout_chartdefinition_api_LogTagFilter = Dict[str, List[str]]
 
-storage_writer_api_MeasurementName = str
+scout_datasource_connection_api_influx_OrgId = str
 
-storage_datasource_api_NominalDataSourceId = str
+module_VariableName = str
 
-api_rids_EventRid = str
-
-module_ModuleVersion = str
-
-api_rids_RemoteResourceRid = str
-
-persistent_compute_api_Milliseconds = int
-
-ingest_api_IngestJobRid = str
-
-scout_compute_api_ErrorType = str
-
-scout_rids_api_SavedViewRid = str
-
-scout_rids_api_FunctionLineageRid = str
-
-timeseries_logicalseries_api_DatabaseName = str
-
-modules_api_ModuleRid = str
-
-timeseries_logicalseries_api_SchemaName = str
-
-scout_rids_api_MarkingRid = str
-
-scout_datasource_connection_api_BucketName = str
-
-api_S3Path = str
-
-api_rids_StreamingConnectionRid = str
-
-comments_api_ReactionRid = str
-
-scout_versioning_api_CommitId = str
-
-api_rids_DataConnectorRid = str
-
-scout_run_api_ConnectionRid = str
-
-timeseries_logicalseries_api_DatasetName = str
-
-api_rids_NominalDataSourceOrDatasetRid = str
-
-scout_versioning_api_TagRid = str
-
-scout_chartdefinition_api_AxisId = str
-
-scout_datasource_connection_api_SchemaName = str
-
-scout_savedviews_api_ColumnId = str
-
-scout_api_HexColor = str
-
-scout_datasource_connection_api_SecretRid = str
-
-authorization_ApiKeyRid = str
-
-scout_rids_api_ApiKeyRid = str
-
-ingest_api_ChannelPrefix = OptionalTypeWrapper[str]
-
-scout_chartdefinition_api_LogColumnName = str
-
-scout_rids_api_AssetRid = str
-
-comments_api_CommentRid = str
-
-scout_chartdefinition_api_DataSourceRefName = str
-
-api_LogicalSeriesRid = str
-
-api_SeriesArchetypeRid = api_SeriesMetadataRid
-
-authentication_api_OrgRid = str
+scout_compute_api_SeriesName = str
 
 scout_rids_api_ChecklistRid = str
 
-scout_chartdefinition_api_WorkbookVizDefinitionMap = Dict[scout_rids_api_VizId, scout_chartdefinition_api_VizDefinition]
+persistent_compute_api_Milliseconds = int
 
-api_McapChannelId = int
+scout_datasource_connection_api_TableName = str
 
-api_rids_ConnectAppRid = str
+scout_workbookcommon_api_WorkbookDataScopeInputId = str
+
+api_TagName = str
+
+timeseries_metadata_api_SeriesMetadataName = str
+
+scout_datasource_connection_api_MeasurementName = str
+
+modules_api_ModuleRid = str
+
+storage_datasource_api_NominalDataSourceId = str
+
+api_PropertyName = str
+
+api_rids_NominalDataSourceOrDatasetRid = str
+
+scout_versioning_api_BranchName = str
+
+scout_asset_api_Channel = str
+
+api_Label = str
+
+api_rids_WorkspaceRid = str
+
+module_ParameterName = str
+
+ingest_api_IngestJobRid = str
+
+api_rids_EventRid = str
+
+modules_api_ModuleApplicationRid = str
+
+persistent_compute_api_SubscriptionId = str
+
+scout_rids_api_MarkingRid = str
+
+scout_datareview_api_ManualCheckEvaluationRid = str
+
+scout_units_api_UnitName = str
+
+api_PropertyValue = str
+
+scout_compute_api_FunctionReference = str
+
+scout_rids_api_SavedViewRid = str
+
+api_Token = str
+
+scout_datasource_connection_api_DatasetName = str
 
 scout_rids_api_CheckRid = str
 
+api_rids_VideoFileRid = str
+
+timeseries_logicalseries_api_FieldName = str
+
+scout_units_api_UnitProperty = str
+
 scout_rids_api_AssetRefName = str
 
-api_Token = str
+scout_run_api_RunRid = str
+
+api_TagValue = str
+
+ingest_workflow_api_PresignedUrl = str
+
+storage_writer_api_MeasurementName = str
+
+api_rids_LinkRid = str
+
+api_ids_WorkspaceId = str
+
+ingest_api_DataSourceRefName = str
+
+ingest_api_FileSuffix = str
+
+scout_rids_api_SnapshotRid = str
+
+scout_comparisonnotebook_api_ComparisonChannelVariableMap = Dict[scout_comparisonnotebook_api_VariableName, scout_comparisonnotebook_api_ChannelVariable]
+
+scout_compute_api_ErrorType = str
+
+scout_rids_api_CheckAlertRid = str
+
+scout_run_api_ConnectionRid = str
+
+scout_datasource_connection_api_ProjectName = str
+
+timeseries_logicalseries_api_DatabaseName = str
+
+scout_channelvariables_api_WorkbookChannelVariableMap = Dict[scout_channelvariables_api_ChannelVariableName, scout_channelvariables_api_ChannelVariable]
+
+scout_rids_api_FunctionRid = str
+
+themes_api_HexColor = str
+
+api_rids_RemoteConnectionRid = str
+
+module_ModuleVersion = str
+
+ingest_api_EnvironmentVariable = str
+
+timeseries_logicalseries_api_MeasurementName = str
+
+scout_rids_api_RunRefName = str
+
+authentication_api_OrgRid = str
+
+scout_workbookcommon_api_WorkbookDataScopeInputName = str
+
+scout_compute_api_ComputeWithUnitsRequest = scout_compute_api_ComputeNodeRequest
+
+timeseries_logicalseries_api_TableName = str
+
+api_rids_ConnectAppRid = str
+
+scout_api_HexColor = str
+
+scout_run_api_LogSetRid = str
+
+api_DataSourceRefName = str
+
+api_rids_StreamingConnectionRid = str
+
+scout_rids_api_TypeRid = str
+
+scout_chartdefinition_api_DataSourceRefName = str
+
+timeseries_seriescache_api_Resolution = int
+
+themes_api_ChartThemeRid = str
+
+datasource_DatasetFileId = str
+
+timeseries_logicalseries_api_AttributeName = str
 
 timeseries_logicalseries_api_ProjectName = str
 
 api_Channel = str
 
+api_rids_AutomaticCheckEvaluationRid = str
+
+scout_versioning_api_CommitId = str
+
 scout_datasource_connection_api_SecretName = str
+
+scout_rids_api_CheckLineageRid = str
+
+datasource_VideoFileId = str
+
+api_rids_DataConnectorRid = str
+
+scout_units_api_UnitSystem = str
+
+api_rids_RemoteResourceRid = str
+
+scout_chartdefinition_api_AxisId = str
+
+api_SeriesMetadataRid = str
+
+scout_compute_api_ErrorCode = int
+
+scout_units_api_UnitSymbol = str
+
+scout_compute_api_VariableName = str
+
+ingest_api_ChannelPrefix = OptionalTypeWrapper[str]
+
+scout_rids_api_DataReviewRid = str
+
+scout_channelvariables_api_ComputeSpecV1 = str
+
+scout_rids_api_NotebookRid = str
+
+api_SeriesArchetypeRid = api_SeriesMetadataRid
+
+api_rids_ChunkRid = str
+
+scout_chartdefinition_api_WorkbookVizDefinitionMap = Dict[scout_rids_api_VizId, scout_chartdefinition_api_VizDefinition]
+
+timeseries_logicalseries_api_LocationName = str
+
+api_rids_AiConversationRid = str
+
+scout_versioning_api_BranchRid = str
+
+timeseries_logicalseries_api_DatasetName = str
+
+api_ErrorType = str
+
+api_rids_ProcedureExecutionRid = str
 

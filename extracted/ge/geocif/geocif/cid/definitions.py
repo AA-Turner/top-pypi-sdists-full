@@ -115,3 +115,18 @@ dict_aef = {
     f"AEF_{i}": ["AEF", f"AlphaEarth Foundation embedding band {i}"]
     for i in range(1, 65)
 }
+
+# FLDAS forecast variables (5 variables × 6 lead times, monthly resolution)
+FLDAS_VARIABLES = [
+    "SoilMoist_tavg", "TotalPrecip_tavg", "Tair_tavg", "Evap_tavg", "TWS_tavg"
+]
+FLDAS_LEADS = list(range(6))
+
+dict_fldas = {}
+fldas_col_map = {}  # index_name → raw column name in merged CSV
+
+for _var in FLDAS_VARIABLES:
+    for _lead in FLDAS_LEADS:
+        _key = f"MEAN_FLDAS_{_var}_LEAD{_lead}"
+        dict_fldas[_key] = ["FLDAS", f"Mean FLDAS {_var} (lead {_lead})"]
+        fldas_col_map[_key] = f"fldas_{_var}_lead{_lead}"

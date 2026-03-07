@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowpark-connect
-Version: 1.15.0
+Version: 1.16.0
 Summary: Snowpark Connect for Spark
 Author: Snowflake, Inc
 License: Apache License, Version 2.0
@@ -10,8 +10,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: LICENSE-binary
 License-File: NOTICE-binary
-Requires-Dist: snowpark-connect-deps-1==3.56.3
-Requires-Dist: snowpark-connect-deps-2==3.56.3
+Requires-Dist: snowpark-connect-deps-1==3.56.4
+Requires-Dist: snowpark-connect-deps-2==3.56.4
 Requires-Dist: certifi>=2025.1.31
 Requires-Dist: cloudpickle
 Requires-Dist: fsspec

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pook
-Version: 2.1.5
+Version: 2.1.6
 Summary: HTTP traffic mocking and expectations made easy
 Project-URL: Homepage, https://github.com/h2non/pook
 Author-email: Tomas Aparicio <tomas@aparicio.me>, Sara Marcondes <git@sarayourfriend.pictures>

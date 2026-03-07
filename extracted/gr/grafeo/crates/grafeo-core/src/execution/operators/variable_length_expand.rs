@@ -4,7 +4,7 @@ use super::{Operator, OperatorError, OperatorResult};
 use crate::execution::DataChunk;
 use crate::graph::Direction;
 use crate::graph::GraphStore;
-use grafeo_common::types::{EdgeId, EpochId, LogicalType, NodeId, TxId};
+use grafeo_common::types::{EdgeId, EpochId, LogicalType, NodeId, TransactionId};
 use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -45,7 +45,7 @@ pub struct VariableLengthExpandOperator {
     /// Chunk capacity.
     chunk_capacity: usize,
     /// Transaction ID for MVCC visibility.
-    tx_id: Option<TxId>,
+    transaction_id: Option<TransactionId>,
     /// Epoch for version visibility.
     viewing_epoch: Option<EpochId>,
     /// Materialized input rows.
@@ -185,7 +185,7 @@ impl VariableLengthExpandOperator {
             min_hops,
             max_hops: max_hops.max(min_hops), // Ensure max >= min
             chunk_capacity: 2048,
-            tx_id: None,
+            transaction_id: None,
             viewing_epoch: None,
             input_rows: None,
             current_input_idx: 0,
@@ -222,9 +222,13 @@ impl VariableLengthExpandOperator {
     }
 
     /// Sets the transaction context for MVCC visibility.
-    pub fn with_tx_context(mut self, epoch: EpochId, tx_id: Option<TxId>) -> Self {
+    pub fn with_transaction_context(
+        mut self,
+        epoch: EpochId,
+        transaction_id: Option<TransactionId>,
+    ) -> Self {
         self.viewing_epoch = Some(epoch);
-        self.tx_id = tx_id;
+        self.transaction_id = transaction_id;
         self
     }
 
@@ -281,7 +285,7 @@ impl VariableLengthExpandOperator {
     /// Gets edges from a node, respecting filters and visibility.
     fn get_edges(&self, node_id: NodeId) -> Vec<(NodeId, EdgeId)> {
         let epoch = self.viewing_epoch;
-        let tx_id = self.tx_id;
+        let transaction_id = self.transaction_id;
 
         self.store
             .edges_from(node_id, self.direction)
@@ -304,7 +308,7 @@ impl VariableLengthExpandOperator {
 
                 // Filter by visibility
                 if let Some(epoch) = epoch {
-                    if let Some(tx) = tx_id {
+                    if let Some(tx) = transaction_id {
                         let edge_visible =
                             self.store.get_edge_versioned(*edge_id, epoch, tx).is_some();
                         let target_visible = self
@@ -624,7 +628,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_chain() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         // Create chain: a -> b -> c -> d
         let a = store.create_node(&["Node"]);
@@ -681,7 +685,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_min_hops() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         // Create chain: a -> b -> c
         let a = store.create_node(&["Node"]);
@@ -731,7 +735,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_diamond() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         //     a
         //    / \
@@ -786,7 +790,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_no_matching_edges() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         let a = store.create_node(&["Node"]);
         let b = store.create_node(&["Node"]);
@@ -813,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_single_hop() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         let a = store.create_node(&["Node"]);
         let b = store.create_node(&["Node"]);
@@ -851,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_with_path_length() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         let a = store.create_node(&["Node"]);
         let b = store.create_node(&["Node"]);
@@ -885,7 +889,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_reset() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         let a = store.create_node(&["Node"]);
         let b = store.create_node(&["Node"]);
@@ -924,7 +928,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_name() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
         let scan = Box::new(ScanOperator::with_label(
             Arc::clone(&store) as Arc<dyn GraphStore>,
             "Node",
@@ -943,7 +947,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_empty_input() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
         let scan = Box::new(ScanOperator::with_label(
             Arc::clone(&store) as Arc<dyn GraphStore>,
             "Nonexistent",
@@ -964,7 +968,7 @@ mod tests {
 
     #[test]
     fn test_variable_length_expand_with_chunk_capacity() {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
 
         // Create a star graph: center -> 5 outer nodes
         let center = store.create_node(&["Node"]);

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bleak-retry-connector
-Version: 4.5.0
+Version: 4.6.0
 Summary: A connector for Bleak Clients that handles transient connection failures
 License-Expression: MIT
 License-File: LICENSE

@@ -19,6 +19,10 @@ class OpenAlexTool(BaseTool):
         """Main entry point for the tool."""
         # Backwards/UX compatibility: accept common aliases.
         search_keywords = arguments.get("search_keywords") or arguments.get("query")
+        if not search_keywords or not str(search_keywords).strip():
+            return {
+                "error": "`search_keywords` (or `query`) parameter is required and must be non-empty."
+            }
         max_results = arguments.get("max_results", arguments.get("limit", 10))
         year_from = arguments.get("year_from", None)
         year_to = arguments.get("year_to", None)
@@ -341,6 +345,22 @@ class OpenAlexRESTTool(BaseTool):
         # (OpenAlex rejects unknown params like `query`/`limit` with HTTP 400).
         arguments.pop("query", None)
         arguments.pop("limit", None)
+
+        # Reject empty-string search to avoid querying the entire OpenAlex corpus.
+        if "search" in arguments and not str(arguments["search"]).strip():
+            # If no filter is provided either, an empty search would return
+            # arbitrary results from the entire corpus -- return an error instead.
+            has_filter = bool(
+                arguments.get("filter")
+                or arguments.get("require_has_fulltext")
+                or arguments.get("fulltext_terms")
+            )
+            if not has_filter:
+                raise ValueError(
+                    "`search` (or `query`) parameter is required and must be non-empty "
+                    "unless a `filter` is also provided."
+                )
+            arguments.pop("search", None)
 
         fields = self.tool_config.get("fields", {}) or {}
         path_tmpl = fields.get("path", "")

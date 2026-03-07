@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eval-protocol
-Version: 0.3.21
+Version: 0.3.23
 Summary: The official Python SDK for Eval Protocol (EP.) EP is an open protocol that standardizes how developers author evals for large language model (LLM) applications.
 Author-email: Fireworks AI <info@fireworks.ai>
 License-Expression: MIT
@@ -29,7 +29,7 @@ Requires-Dist: pytest>=6.0.0
 Requires-Dist: pytest-asyncio>=0.21.0
 Requires-Dist: peewee>=3.18.2
 Requires-Dist: backoff>=2.2.0
-Requires-Dist: fireworks-ai==1.0.0a20
+Requires-Dist: fireworks-ai<2,>=1.0.0a20
 Requires-Dist: questionary>=2.0.0
 Requires-Dist: toml>=0.10.0
 Requires-Dist: loguru>=0.6.0

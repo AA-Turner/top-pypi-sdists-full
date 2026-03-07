@@ -373,7 +373,10 @@ class TinyB:
 
     def datasource_file(self, datasource: str):
         try:
-            return self._req(f"/v0/datasources/{datasource}.datasource")
+            include_all_shared_with = "true" if "." in datasource else "false"
+            return self._req(
+                f"/v0/datasources/{datasource}.datasource?include_all_shared_with={include_all_shared_with}"
+            )
         except DoesNotExistException:
             raise Exception(f"Data Source {datasource} not found.")
 

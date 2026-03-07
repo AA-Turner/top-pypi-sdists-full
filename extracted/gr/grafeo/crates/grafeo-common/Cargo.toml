@@ -21,8 +21,7 @@ indexmap.workspace = true
 arcstr.workspace = true
 
 # Hashing
-ahash.workspace = true
-rustc-hash.workspace = true
+foldhash.workspace = true
 
 # Serialization
 serde.workspace = true
@@ -33,15 +32,12 @@ bytes.workspace = true
 # Concurrency
 parking_lot.workspace = true
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [features]
 default = []
 tiered-storage = []
 
 [dev-dependencies]
-proptest.workspace = true
 criterion.workspace = true
 
 [lints]

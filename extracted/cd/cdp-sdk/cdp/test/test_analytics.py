@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cdp.analytics import Analytics, ErrorEventData, should_track_error
+from cdp.analytics import (
+    Analytics,
+    ErrorEventData,
+    should_track_error,
+)
 from cdp.errors import UserInputValidationError
 from cdp.openapi_client.errors import ApiError, HttpErrorType, NetworkError
 

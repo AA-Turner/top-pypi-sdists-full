@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
-use crate::coordination;
+use crate::analysis::coordination;
 
 use super::helpers::{StructureJson, check_site_idx, parse_struct};
 

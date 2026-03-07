@@ -37,7 +37,7 @@ from snowflake.snowpark_connect.utils.udf_utils import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
-from snowflake.snowpark_connect.utils.variant_utils import to_variant_preserving_nulls
+from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
 
 
 def cache_external_udf_wrapper(from_register_udf: bool):
@@ -173,6 +173,7 @@ def register_udf(
             cast_to_original_return_type=is_scala_udf
             or udf._return_type == VariantType(),
             attach_schema_json=is_scala_udf and not isinstance(udf, JavaUdaf),
+            is_scala=is_scala_udf,
         )
         session._udfs[udf_proto.function_name.lower()] = udf
         # scala udfs can be also accessed using `udf.name`
@@ -237,6 +238,7 @@ def map_common_inline_user_defined_udf(
                 return_type=udf._return_type,
                 original_return_type=original_return_type,
                 attach_schema_json=is_scala_udf and not isinstance(udf, JavaUdaf),
+                is_scala=is_scala_udf,
             )
         return snowpark_udf
 
@@ -246,7 +248,7 @@ def map_common_inline_user_defined_udf(
     converted_args = []
     for tc in snowpark_udf_typed_args:
         if is_scala_udf:
-            converted_args.append(to_variant_preserving_nulls(tc.col, tc.typ))
+            converted_args.append(scala_udf_arg_to_variant(tc.col, tc.typ))
         else:
             converted_args.append(tc.col)
 

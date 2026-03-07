@@ -26,7 +26,7 @@ from geocif import logger as log
 from geocif import utils
 from .cid import definitions as di
 from .ml import correlations, feature_engineering as fe, feature_selection as fs
-from .ml import output, stages, stats, trainers, trend, xai
+from .ml import output, spatial_neighbors as sn, stages, stats, trainers, trend, xai
 
 plt.style.use("default")
 
@@ -154,6 +154,18 @@ class Geocif:
         self.run_latest_time_period = self.parser.getboolean("ML", "run_latest_time_period")
         self.run_every_time_period = self.parser.get("ML", "run_every_time_period")
         self.cat_features: list = ast.literal_eval(self.parser.get("ML", "cat_features"))
+        self.use_spatial_neighbors = (
+            parser.getboolean("ML", "use_spatial_neighbors")
+            if parser.has_option("ML", "use_spatial_neighbors") else False
+        )
+        self.spatial_neighbor_method = (
+            parser.get("ML", "spatial_neighbor_method")
+            if parser.has_option("ML", "spatial_neighbor_method") else "knn"
+        )
+        self.spatial_neighbor_k = (
+            parser.getint("ML", "spatial_neighbor_k")
+            if parser.has_option("ML", "spatial_neighbor_k") else 5
+        )
 
     def _setup_feature_dictionaries(self):
         """Setup feature dictionaries and database paths."""
@@ -180,6 +192,7 @@ class Geocif:
             **di.dict_esi4wk,
             **di.dict_hindex,
             **di.dict_aef,
+            **di.dict_fldas,
         }
         
         self.combined_keys = list(self.combined_dict.keys())
@@ -286,6 +299,7 @@ class Geocif:
         self.estimate_ci_for_all = False
         self.check_yield_trend = True
         self.cluster_strategy = "single"
+        self.use_spatial_neighbors = False
         self.select_cei_by = "Index"
         self.use_cumulative_features = True
 
@@ -515,7 +529,8 @@ class Geocif:
         
         self._prepare_train_test_split(df)
         self._compute_detrended_yield()
-        
+        self._add_spatial_neighbor_features()
+
         if self.run_ml:
             self._execute_ml_pipeline(dict_selected_features, dict_best_cei)
 
@@ -566,28 +581,40 @@ class Geocif:
         df.to_csv(dir_output / filename, index=False)
 
     def _add_lat_lon_to_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add latitude/longitude columns by merging with geodata."""
+        """Add latitude/longitude columns by merging with geodata.
+
+        If lat/lon already exist in the data (from geoprepare extraction),
+        use those directly. Otherwise fall back to computing centroids from
+        the admin boundary shapefile.
+        """
+        # If geoprepare already provided non-zero lat/lon, use them as-is
+        if "lat" in df.columns and "lon" in df.columns and (df["lat"] != 0).any():
+            df["Country Region"] = (
+                df["Country"].astype(str) + " " + df["Region"].astype(str)
+            ).str.lower()
+            return df
+
         df["Country Region"] = (
             df["Country"].astype(str) + " " + df["Region"].astype(str)
         ).str.lower()
-        
+
         cols = self._get_geodata_columns()
         self.dg_country = self.dg_country[cols].merge(
             df[["Country Region", self.correlation_plot_groupby]],
             on="Country Region",
             how="outer",
         )
-        
+
         centroids = self.dg_country.to_crs(epsg=6933).centroid.to_crs(epsg=4326)
         self.dg_country["lat"] = centroids.y
         self.dg_country["lon"] = centroids.x
-        
+
         df = df.merge(
             self.dg_country[["Country Region", "lat", "lon"]].drop_duplicates(),
             on="Country Region",
             how="left",
         )
-        
+
         return df
 
     def _get_geodata_columns(self) -> List[str]:
@@ -696,6 +723,62 @@ class Geocif:
         self.target_bins[region_name] = bins
         self.target_class = new_target_column
         self.df_train.loc[group.index, new_target_column] = group[new_target_column]
+
+    def _add_spatial_neighbor_features(self):
+        """Build spatial neighbor graph from training data and add nbr_ features."""
+        if not self.use_spatial_neighbors:
+            return
+
+        # Prefer detrended yield for correlation if available
+        detrended_col = f"Detrended {self.target}"
+        yield_col_for_corr = (
+            detrended_col
+            if self.check_yield_trend and detrended_col in self.df_train.columns
+               and self.df_train[detrended_col].notna().any()
+            else self.target
+        )
+
+        self.neighbor_graph = sn.build_neighbor_graph(
+            self.df_train,
+            admin_col="Region",
+            lat_col="lat",
+            lon_col="lon",
+            yield_col=yield_col_for_corr,
+            method=self.spatial_neighbor_method,
+            k=self.spatial_neighbor_k,
+        )
+
+        # Feature columns = everything except fixed, target, stats, meta
+        exclude_cols = set(
+            self.fixed_columns
+            + self.statistics_columns
+            + [
+                self.target, f"{self.target}_class",
+                "Region_ID", "lat", "lon", "Country Region",
+                f"Detrended {self.target}", "Detrended Model",
+                "Detrended Model Type",
+            ]
+        )
+        feature_cols = [
+            c for c in self.df_train.columns
+            if c not in exclude_cols and not c.startswith("nbr_")
+        ]
+
+        self.df_train = sn.add_neighbor_features(
+            self.df_train, self.neighbor_graph, feature_cols,
+            admin_col="Region", year_col="Harvest Year",
+            yield_col=self.target, prefix="nbr_",
+        )
+        self.df_test = sn.add_neighbor_features(
+            self.df_test, self.neighbor_graph, feature_cols,
+            admin_col="Region", year_col="Harvest Year",
+            yield_col=self.target, prefix="nbr_",
+        )
+
+        self.logger.info(
+            f"Added {len(feature_cols)} neighbor features "
+            f"({self.spatial_neighbor_method}, k={self.spatial_neighbor_k})"
+        )
 
     def _execute_ml_pipeline(self, dict_selected_features: Dict, dict_best_cei: Dict):
         """Execute the machine learning training pipeline."""
@@ -1018,7 +1101,11 @@ class Geocif:
         
         if self.include_lat_lon_as_feature:
             self.feature_names.extend(["lat", "lon"])
-        
+
+        if self.use_spatial_neighbors:
+            nbr_cols = [c for c in self.df_train.columns if c.startswith("nbr_")]
+            self.feature_names.extend(nbr_cols)
+
         self.selected_features = []
 
     # ============================================================================
@@ -1611,7 +1698,11 @@ class Geocif:
         
         if self.last_year_yield_as_feature:
             common_columns.append(f"Last Year {self.target}")
-        
+
+        if self.use_spatial_neighbors:
+            nbr_cols = [c for c in self.df_train.columns if c.startswith("nbr_")]
+            common_columns.extend(nbr_cols)
+
         return common_columns
 
     def _extract_region_subset(
@@ -1639,17 +1730,19 @@ class Geocif:
 
     # Add debug logging in _clean_training_features
     def _clean_training_features(self, X_train: pd.DataFrame) -> pd.DataFrame:
-        """Drop columns with NaNs except lag yield columns."""
-        lag_prefix = "t -"
-        lag_cols = [c for c in X_train.columns if c.startswith(lag_prefix)]
-        
+        """Drop columns with NaNs except lag yield and neighbor columns."""
+        preserve_cols = [
+            c for c in X_train.columns
+            if c.startswith("t -") or c.startswith("nbr_")
+        ]
+
         X_train = (
             X_train
-            .drop(columns=lag_cols)
+            .drop(columns=preserve_cols)
             .dropna(axis=1, how="any")
-            .join(X_train[lag_cols])
+            .join(X_train[preserve_cols])
         )
-        
+
         return X_train
 
     def _fill_missing_values(self):

@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-use ahash::AHashSet;
 use itertools::Itertools;
 use tombi_comment_directive::value::ArrayCommonLintRules;
 use tombi_document_tree::{LiteralValueRef, ValueImpl};
@@ -11,7 +10,8 @@ use tombi_severity_level::SeverityLevelDefaultError;
 use crate::{
     comment_directive::get_tombi_array_comment_directive_and_diagnostics,
     validate::{
-        handle_deprecated, handle_type_mismatch, handle_unused_noqa, not_schema::validate_not,
+        handle_deprecated, handle_type_mismatch, handle_unused_noqa,
+        if_then_else::validate_if_then_else, is_success_or_warning, not_schema::validate_not,
     },
 };
 
@@ -137,8 +137,10 @@ async fn validate_array(
     schema_context: &tombi_schema_store::SchemaContext<'_>,
     lint_rules: Option<&ArrayCommonLintRules>,
 ) -> Result<(), crate::Error> {
-    if let Some(not_schema) = array_schema.not.as_ref() {
-        validate_not(
+    let mut total_diagnostics = vec![];
+
+    if let Some(not_schema) = array_schema.not.as_ref()
+        && let Err(error) = validate_not(
             array_value,
             accessors,
             not_schema,
@@ -147,12 +149,101 @@ async fn validate_array(
             array_value.comment_directives(),
             lint_rules.as_ref().map(|rules| &rules.common),
         )
-        .await?;
+        .await
+    {
+        total_diagnostics.extend(error.diagnostics);
     }
 
-    let mut total_diagnostics = vec![];
+    if let Some(if_then_else_schema) = array_schema.if_then_else.as_ref()
+        && let Err(error) = validate_if_then_else(
+            array_value,
+            accessors,
+            if_then_else_schema,
+            current_schema,
+            schema_context,
+        )
+        .await
+    {
+        total_diagnostics.extend(error.diagnostics);
+    }
 
-    if let Some(items) = &array_schema.items {
+    if let Some(prefix_items) = &array_schema.prefix_items {
+        // Resolve the overflow schema once before the loop
+        let overflow_schema =
+            if let Some(additional_items_schema) = &array_schema.additional_items_schema {
+                tombi_schema_store::resolve_schema_item(
+                    additional_items_schema,
+                    current_schema.schema_uri.clone(),
+                    current_schema.definitions.clone(),
+                    schema_context.store,
+                )
+                .await
+                .inspect_err(|err| log::warn!("{err}"))
+                .ok()
+                .flatten()
+            } else if let Some(items) = &array_schema.items {
+                // 2020-12: items acts as additionalItems when prefixItems is present
+                tombi_schema_store::resolve_schema_item(
+                    items,
+                    current_schema.schema_uri.clone(),
+                    current_schema.definitions.clone(),
+                    schema_context.store,
+                )
+                .await
+                .inspect_err(|err| log::warn!("{err}"))
+                .ok()
+                .flatten()
+            } else {
+                None
+            };
+
+        // Tuple validation: validate each element against its positional schema
+        for (index, value) in array_value.values().iter().enumerate() {
+            let new_accessors = accessors
+                .iter()
+                .cloned()
+                .chain(std::iter::once(tombi_schema_store::Accessor::Index(index)))
+                .collect_vec();
+
+            if index < prefix_items.len() {
+                if let Ok(Some(item_schema)) = tombi_schema_store::resolve_schema_item(
+                    &prefix_items[index],
+                    current_schema.schema_uri.clone(),
+                    current_schema.definitions.clone(),
+                    schema_context.store,
+                )
+                .await
+                .inspect_err(|err| log::warn!("{err}"))
+                {
+                    if let Err(crate::Error { diagnostics, .. }) = value
+                        .validate(&new_accessors, Some(&item_schema), schema_context)
+                        .await
+                    {
+                        total_diagnostics.extend(diagnostics);
+                    }
+                }
+            } else if let Some(overflow) = &overflow_schema {
+                if let Err(crate::Error { diagnostics, .. }) = value
+                    .validate(&new_accessors, Some(overflow), schema_context)
+                    .await
+                {
+                    total_diagnostics.extend(diagnostics);
+                }
+            } else if array_schema.additional_items == Some(false) {
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::ArrayAdditionalItems {
+                        max_items: prefix_items.len(),
+                    }),
+                    range: value.range(),
+                }
+                .push_diagnostic_with_level(
+                    SeverityLevelDefaultError::default(),
+                    &mut total_diagnostics,
+                );
+            }
+        }
+    } else if let Some(items) = &array_schema.items {
+        // Single schema for all items
         if let Ok(Some(current_schema)) = tombi_schema_store::resolve_schema_item(
             items,
             current_schema.schema_uri.clone(),
@@ -176,6 +267,154 @@ async fn validate_array(
                     total_diagnostics.extend(diagnostics);
                 }
             }
+        }
+    }
+
+    if let Some(contains) = &array_schema.contains
+        && let Ok(Some(contains_schema)) = tombi_schema_store::resolve_schema_item(
+            contains,
+            current_schema.schema_uri.clone(),
+            current_schema.definitions.clone(),
+            schema_context.store,
+        )
+        .await
+        .inspect_err(|err| log::warn!("{err}"))
+    {
+        let min_contains = array_schema.min_contains.unwrap_or(1);
+        let max_contains = array_schema.max_contains;
+        let needs_full_count = max_contains.is_some();
+
+        let mut match_count = 0usize;
+        for (index, value) in array_value.values().iter().enumerate() {
+            let new_accessors = accessors
+                .iter()
+                .cloned()
+                .chain(std::iter::once(tombi_schema_store::Accessor::Index(index)))
+                .collect_vec();
+
+            let result = value
+                .validate(&new_accessors, Some(&contains_schema), schema_context)
+                .await;
+            if is_success_or_warning(&result) {
+                match_count += 1;
+                if !needs_full_count && match_count >= min_contains {
+                    break;
+                }
+            }
+        }
+
+        if match_count < min_contains {
+            if array_schema.min_contains.is_some() {
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::ArrayMinContains {
+                        min_contains,
+                        actual: match_count,
+                    }),
+                    range: array_value.range(),
+                }
+                .push_diagnostic_with_level(
+                    SeverityLevelDefaultError::default(),
+                    &mut total_diagnostics,
+                );
+            } else {
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::ArrayContains),
+                    range: array_value.range(),
+                }
+                .push_diagnostic_with_level(
+                    SeverityLevelDefaultError::default(),
+                    &mut total_diagnostics,
+                );
+            }
+        }
+
+        if let Some(max) = max_contains
+            && match_count > max
+        {
+            crate::Diagnostic {
+                kind: Box::new(crate::DiagnosticKind::ArrayMaxContains {
+                    max_contains: max,
+                    actual: match_count,
+                }),
+                range: array_value.range(),
+            }
+            .push_diagnostic_with_level(
+                SeverityLevelDefaultError::default(),
+                &mut total_diagnostics,
+            );
+        }
+    }
+
+    if array_schema.const_value.is_some() || array_schema.r#enum.is_some() {
+        let actual_value = tombi_json_value::Value::Array(
+            array_value
+                .values()
+                .iter()
+                .map(crate::convert::value_to_json_value)
+                .collect(),
+        );
+
+        if let Some(const_value) = &array_schema.const_value {
+            if actual_value != *const_value {
+                let level = lint_rules
+                    .map(|rules| &rules.common)
+                    .and_then(|rules| {
+                        rules
+                            .const_value
+                            .as_ref()
+                            .map(SeverityLevelDefaultError::from)
+                    })
+                    .unwrap_or_default();
+
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::Const {
+                        expected: const_value.to_string(),
+                        actual: actual_value.to_string(),
+                    }),
+                    range: array_value.range(),
+                }
+                .push_diagnostic_with_level(level, &mut total_diagnostics);
+            }
+        } else if lint_rules
+            .and_then(|rules| rules.common.const_value.as_ref())
+            .and_then(|rules| rules.disabled)
+            == Some(true)
+        {
+            handle_unused_noqa(
+                &mut total_diagnostics,
+                array_value.comment_directives(),
+                lint_rules.as_ref().map(|rules| &rules.common),
+                "const-value",
+            );
+        }
+
+        if let Some(r#enum) = &array_schema.r#enum {
+            if !r#enum.iter().any(|item| *item == actual_value) {
+                let level = lint_rules
+                    .map(|rules| &rules.common)
+                    .and_then(|rules| rules.r#enum().map(SeverityLevelDefaultError::from))
+                    .unwrap_or_default();
+
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::Enum {
+                        expected: r#enum.iter().map(|item| item.to_string()).collect(),
+                        actual: actual_value.to_string(),
+                    }),
+                    range: array_value.range(),
+                }
+                .push_diagnostic_with_level(level, &mut total_diagnostics);
+            }
+        } else if lint_rules
+            .and_then(|rules| rules.common.r#enum())
+            .and_then(|rules| rules.disabled)
+            == Some(true)
+        {
+            handle_unused_noqa(
+                &mut total_diagnostics,
+                array_value.comment_directives(),
+                lint_rules.as_ref().map(|rules| &rules.common),
+                "enum",
+            );
         }
     }
 
@@ -343,7 +582,7 @@ fn get_duplicated_ranges(
     let duplicated_values = literal_values
         .iter()
         .filter_map(|(value, count)| if *count > 1 { Some(value) } else { None })
-        .collect::<AHashSet<_>>();
+        .collect::<tombi_hashmap::HashSet<_>>();
 
     for value in array_value.values() {
         if let Some(literal_value) = Option::<LiteralValueRef>::from(value)

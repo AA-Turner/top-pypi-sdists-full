@@ -1,0 +1,174 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mindroom-{{ .Values.customer }}
+  namespace: mindroom-instances
+  labels:
+    app: mindroom
+    customer: {{ .Values.customer | quote }}
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mindroom
+      customer: {{ .Values.customer | quote }}
+  template:
+    metadata:
+      labels:
+        app: mindroom
+        customer: {{ .Values.customer | quote }}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+      - name: mindroom
+        image: {{ .Values.mindroom_image | default "ghcr.io/mindroom-ai/mindroom:latest" }}
+        imagePullPolicy: {{ .Values.mindroom_image_pull_policy | default "Always" }}
+        # Expose the MindRoom port; the runtime serves bot, dashboard, and API traffic.
+        ports:
+        - containerPort: 8765
+          name: api
+        env:
+        - name: OPENAI_API_KEY_FILE
+          value: "/etc/secrets/openai_key"
+        - name: ANTHROPIC_API_KEY_FILE
+          value: "/etc/secrets/anthropic_key"
+        - name: ACCOUNT_ID
+          value: {{ .Values.accountId | quote }}
+        - name: CUSTOMER_ID
+          value: {{ .Values.customer | quote }}
+        - name: MINDROOM_STORAGE_PATH
+          value: {{ .Values.storagePath }}
+        - name: MINDROOM_CONFIG_PATH
+          value: "{{ .Values.storagePath }}/config/config.yaml"
+        - name: MINDROOM_CONFIG_TEMPLATE
+          value: "/app/config.yaml"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: MINDROOM_SANDBOX_PROXY_URL
+          value: "http://localhost:8766"
+        - name: MINDROOM_SANDBOX_PROXY_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: mindroom-api-keys-{{ .Values.customer }}
+              key: sandbox_proxy_token
+        - name: MINDROOM_SANDBOX_EXECUTION_MODE
+          value: "selective"
+        - name: MINDROOM_SANDBOX_PROXY_TOOLS
+          value: "shell,file,python"
+        - name: MATRIX_HOMESERVER
+          value: "http://synapse-{{ .Values.customer }}:8008"
+        - name: MATRIX_SERVER_NAME
+          value: "{{ .Values.customer }}.{{ .Values.baseDomain }}"
+        - name: SUPABASE_URL
+          value: {{ .Values.supabaseUrl | quote }}
+        - name: SUPABASE_SERVICE_KEY_FILE
+          value: "/etc/secrets/supabase_service_key"
+        - name: SUPABASE_ANON_KEY
+          value: {{ .Values.supabaseAnonKey | quote }}
+        - name: MINDROOM_PLATFORM_LOGIN_URL
+          value: "https://app.{{ .Values.baseDomain }}/auth/login"
+        - name: OPENROUTER_API_KEY_FILE
+          value: "/etc/secrets/openrouter_key"
+        - name: GOOGLE_API_KEY_FILE
+          value: "/etc/secrets/google_key"
+        - name: DEEPSEEK_API_KEY_FILE
+          value: "/etc/secrets/deepseek_key"
+        - name: HOME
+          value: {{ .Values.storagePath }}
+        volumeMounts:
+        - name: storage
+          mountPath: {{ .Values.storagePath }}
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+        - name: api-keys
+          mountPath: /etc/secrets
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        # Startup only needs the API process to bind the socket; readiness waits for full bootstrap.
+        startupProbe:
+          httpGet:
+            path: /api/health
+            port: api
+          periodSeconds: 2
+          failureThreshold: 90
+        readinessProbe:
+          httpGet:
+            path: /api/ready
+            port: api
+          periodSeconds: 5
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: api
+          periodSeconds: 10
+          failureThreshold: 6
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+      - name: sandbox-runner
+        image: {{ .Values.mindroom_image | default "ghcr.io/mindroom-ai/mindroom:latest" }}
+        imagePullPolicy: {{ .Values.mindroom_image_pull_policy | default "Always" }}
+        command: ["/app/run-sandbox-runner.sh"]
+        ports:
+        - containerPort: 8766
+        env:
+        - name: MINDROOM_SANDBOX_RUNNER_MODE
+          value: "true"
+        - name: MINDROOM_SANDBOX_PROXY_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: mindroom-api-keys-{{ .Values.customer }}
+              key: sandbox_proxy_token
+        - name: MINDROOM_CONFIG_PATH
+          value: "/app/config.yaml"
+        - name: MINDROOM_STORAGE_PATH
+          value: "/app/workspace/.mindroom"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config.yaml
+          subPath: config.yaml
+          readOnly: true
+        - name: sandbox-workspace
+          mountPath: /app/workspace
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: mindroom-storage-{{ .Values.customer }}
+      - name: config
+        configMap:
+          name: mindroom-config-{{ .Values.customer }}
+      - name: api-keys
+        secret:
+          secretName: mindroom-api-keys-{{ .Values.customer }}
+          defaultMode: 0400
+      - name: sandbox-workspace
+        emptyDir: {}

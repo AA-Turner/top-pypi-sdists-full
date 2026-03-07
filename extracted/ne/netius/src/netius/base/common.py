@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.24.0"
+VERSION = "1.25.1"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -3319,6 +3319,22 @@ class AbstractBase(observer.Observable):
         return connection
 
     def base_connection(self, *args, **kwargs):
+        """
+        Creates a new connection using the base level builder
+        and marks it with the `_base` flag so that upper layers
+        (eg: servers) delegate its I/O handling back to the
+        :class:`Base` class instead of processing it themselves.
+
+        This is used for client-side connections created inside
+        a server context (eg: proxy outbound connections) where
+        the read, write and error events should bypass the
+        server's own handlers.
+
+        :rtype: Connection
+        :return: The newly created connection object with the
+        `_base` flag set to True.
+        """
+
         connection = Base.build_connection(self, *args, **kwargs)
         connection._base = True
         return connection

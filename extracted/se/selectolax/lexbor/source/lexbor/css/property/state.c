@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Alexander Borisov
+ * Copyright (C) 2021-2026 Alexander Borisov
  *
  * Author: Alexander Borisov <borisov@lexbor.com>
  */
@@ -12,9 +12,11 @@
 #include "lexbor/css/property/state.h"
 #include "lexbor/css/property/res.h"
 
-#define LEXBOR_STR_RES_MAP_HEX
-#define LEXBOR_STR_RES_MAP_LOWERCASE
-#include "lexbor/core/str_res.h"
+
+#ifndef LEXBOR_DISABLE_INTERNAL_EXTERN
+    LXB_EXTERN const lxb_char_t lexbor_str_res_map_hex[256];
+    LXB_EXTERN const lxb_char_t lexbor_str_res_map_lowercase[256];
+#endif
 
 #include "lexbor/core/conv.h"
 
@@ -3154,7 +3156,7 @@ lxb_css_property_state_font_family(lxb_css_parser_t *parser,
                 return lxb_css_parser_success(parser);
             }
 
-            return lxb_css_parser_memory_fail(parser);
+            return lxb_css_parser_failed(parser);
         }
 
         lxb_css_syntax_parser_consume(parser);

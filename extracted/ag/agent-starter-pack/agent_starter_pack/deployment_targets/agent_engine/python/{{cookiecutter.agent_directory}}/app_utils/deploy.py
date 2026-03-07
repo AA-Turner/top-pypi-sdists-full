@@ -152,10 +152,10 @@ def print_deployment_success(
         )
         print(f"Service Account: {default_sa}")
 {%- if cookiecutter.is_adk and not cookiecutter.is_adk_live and not cookiecutter.is_a2a %}
-    playground_url = f"https://console.cloud.google.com/vertex-ai/agents/locations/{location}/agent-engines/{agent_engine_id}/playground?project={project}"
+    playground_url = f"https://console.cloud.google.com/vertex-ai/agents/agent-engines/locations/{location}/agent-engines/{agent_engine_id}/playground?project={project}"
     print(f"\n📊 Open Console Playground: {playground_url}\n")
 {%- else %}
-    console_url = f"https://console.cloud.google.com/vertex-ai/agents/locations/{location}/agent-engines/{agent_engine_id}?project={project}"
+    console_url = f"https://console.cloud.google.com/vertex-ai/agents/agent-engines/locations/{location}/agent-engines/{agent_engine_id}?project={project}"
     print(f"\n📊 View in Console: {console_url}\n")
 {%- endif %}
 
@@ -490,6 +490,20 @@ def deploy_agent_engine_app(
 {%- else %}
         remote_agent = client.agent_engines.create(config=config)
 {%- endif %}
+
+    # SDK omits secret_env from the update mask when empty, so clear it explicitly.
+    if set_secrets is not None and not secrets and matching_agents:
+        clear_op = client.agent_engines._update(
+            name=remote_agent.api_resource.name,
+            config={
+                "spec": {"deployment_spec": {"secret_env": []}},
+                "update_mask": "spec.deployment_spec.secret_env",
+            },
+        )
+        _agent_engines_utils._await_operation(
+            operation_name=clear_op.name,
+            get_operation_fn=client.agent_engines._get_agent_operation,
+        )
 
     write_deployment_metadata(remote_agent)
     print_deployment_success(remote_agent, location, project)

@@ -12,9 +12,9 @@ from snowflake import snowpark
 from snowflake.connector.description import PLATFORM
 from snowflake.snowpark.exceptions import SnowparkClientException, SnowparkSQLException
 from snowflake.snowpark.session import _get_active_session
-from snowflake.snowpark_connect.constants import DEFAULT_CONNECTION_NAME
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.utils.artifacts import ArtifactKey
 from snowflake.snowpark_connect.utils.describe_query_cache import (
     instrument_session_for_describe_cache,
 )
@@ -93,6 +93,12 @@ def configure_snowpark_session(session: snowpark.Session):
     session._filenames: dict[str, dict[str, str]] = {}
     # Use thread-safe access when modifying filenames dictionary
     session._filenames_lock = threading.RLock()
+
+    # Thread-safe access when modifying cached artifact hashes
+    session._artifact_hash_cache_lock = threading.RLock()
+    # track already uploaded artifacts to avoid re-uploading the same artifact multiple times in the same session
+    # key: session_id, value: set of ArtifactKey representing uploaded artifacts
+    session._artifact_hash_cache: dict[str, set[ArtifactKey]] = {}
 
     # built-in udf cache
     init_builtin_udf_cache(session)
@@ -214,15 +220,33 @@ def get_or_create_snowpark_session(
     custom_configs: dict | None = None,
 ) -> snowpark.Session:
     """
-    snowpark connect code should use this function to create or get snowpark session
+    snowpark connect code should use this function to create or get snowpark session.
+
+    Connection resolution (when not in SPCS):
+    1. Use 'spark-connect' connection if it exists (backwards compatible)
+    2. Use SNOWFLAKE_DEFAULT_CONNECTION_NAME env var if set
+    3. Use default_connection_name from connections.toml if set
+    4. Use 'default' connection if it exists
+    5. If no connections.toml exists (e.g., Snowflake Notebooks), use existing session
+    6. Error if connections.toml exists but no valid connection is configured
     """
     session_configs = {}
     if _is_running_in_SPCS():
         # Running in SPCS, use environment variables injected by SPCS run time
         # We don't use connections.toml file created by SPCS because of the 0600 permissions issue
         session_configs = _get_session_configs_from_ENV()
-    else:
-        session_configs["connection_name"] = DEFAULT_CONNECTION_NAME
+    elif not (custom_configs and "connection_name" in custom_configs):
+        # Only resolve connection name if not explicitly provided in custom_configs.
+        # Uses our custom resolver which properly handles default_connection_name
+        # from connections.toml (Snowpark's built-in resolution has issues)
+        from snowflake.snowpark_connect.utils.connection_resolver import (
+            resolve_connection_name,
+        )
+
+        resolved_connection = resolve_connection_name()
+        if resolved_connection is not None:
+            session_configs["connection_name"] = resolved_connection
+        # If None, don't set connection_name - let Snowpark use existing session or defaults
 
     if os.getenv("SNOWFLAKE_DATABASE") is not None:
         session_configs["database"] = os.getenv("SNOWFLAKE_DATABASE")
@@ -239,6 +263,7 @@ def get_or_create_snowpark_session(
 
     old_session = _get_current_snowpark_session()
     new_session = snowpark.Session.builder.configs(session_configs).getOrCreate()
+
     if old_session is None or old_session.session_id != new_session.session_id:
         # every new session needs to be configured
         configure_snowpark_session(new_session)

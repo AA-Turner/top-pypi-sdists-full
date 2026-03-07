@@ -63,6 +63,60 @@ impl AsyncQueryResult {
         }
     }
 
+    /// Convert to a pandas DataFrame.
+    ///
+    /// Requires pandas to be installed (`uv add pandas`).
+    #[pyo3(signature = ())]
+    fn to_pandas(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let pd = py.import("pandas").map_err(|_| {
+            pyo3::exceptions::PyModuleNotFoundError::new_err(
+                "pandas is required for to_pandas(). Install it with: uv add pandas",
+            )
+        })?;
+
+        let data = pyo3::types::PyDict::new(py);
+        for (col_idx, col_name) in self.columns.iter().enumerate() {
+            let values = pyo3::types::PyList::empty(py);
+            for row in &self.rows {
+                let val = row
+                    .get(col_idx)
+                    .map_or_else(|| py.None(), |v| PyValue::to_py(v, py));
+                values.append(val)?;
+            }
+            data.set_item(col_name, values)?;
+        }
+
+        let df = pd.call_method1("DataFrame", (data,))?;
+        Ok(df.unbind())
+    }
+
+    /// Convert to a polars DataFrame.
+    ///
+    /// Requires polars to be installed (`uv add polars`).
+    #[pyo3(signature = ())]
+    fn to_polars(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let pl = py.import("polars").map_err(|_| {
+            pyo3::exceptions::PyModuleNotFoundError::new_err(
+                "polars is required for to_polars(). Install it with: uv add polars",
+            )
+        })?;
+
+        let data = pyo3::types::PyDict::new(py);
+        for (col_idx, col_name) in self.columns.iter().enumerate() {
+            let values = pyo3::types::PyList::empty(py);
+            for row in &self.rows {
+                let val = row
+                    .get(col_idx)
+                    .map_or_else(|| py.None(), |v| PyValue::to_py(v, py));
+                values.append(val)?;
+            }
+            data.set_item(col_name, values)?;
+        }
+
+        let df = pl.call_method1("DataFrame", (data,))?;
+        Ok(df.unbind())
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "AsyncQueryResult(columns={:?}, rows={})",
@@ -106,6 +160,16 @@ impl AsyncQueryResultIter {
 /// Create one with `GrafeoDB()` for in-memory storage (fast, temporary) or
 /// `GrafeoDB("path/to/db")` for persistent storage (survives restarts).
 /// Then use [`execute()`](Self::execute) to run GQL queries.
+///
+/// Unlike the Rust API (which uses `db.session()` for query execution),
+/// Python calls `db.execute()` directly. For transactions, use
+/// `db.begin_transaction()` as a context manager:
+///
+/// ```python
+/// with db.begin_transaction() as tx:
+///     tx.execute("INSERT (:Person {name: 'Alix'})")
+///     tx.commit()
+/// ```
 #[pyclass(name = "GrafeoDB")]
 pub struct PyGrafeoDB {
     inner: Arc<RwLock<GrafeoDB>>,
@@ -200,7 +264,7 @@ impl PyGrafeoDB {
     /// Runs a GQL query and returns the results.
     ///
     /// Use params for parameterized queries to avoid injection:
-    ///     result = db.execute("MATCH (p:Person {name: $name}) RETURN p", {"name": "Alice"})
+    ///     result = db.execute("MATCH (p:Person {name: $name}) RETURN p", {"name": "Alix"})
     ///
     /// Query performance metrics are available via `result.execution_time_ms`
     /// and `result.rows_scanned` properties.
@@ -595,7 +659,7 @@ impl PyGrafeoDB {
     ///
     /// Example:
     /// ```python
-    /// db.set_node_property(node_id, "name", "Alice")
+    /// db.set_node_property(node_id, "name", "Alix")
     /// db.set_node_property(node_id, "age", 30)
     /// ```
     fn set_node_property(
@@ -617,8 +681,8 @@ impl PyGrafeoDB {
     ///
     /// Example:
     /// ```python
-    /// alice = db.create_node(["Person"], {"name": "Alice"})
-    /// db.add_node_label(alice.id, "Employee")  # Now has Person and Employee
+    /// alix = db.create_node(["Person"], {"name": "Alix"})
+    /// db.add_node_label(alix.id, "Employee")  # Now has Person and Employee
     /// ```
     fn add_node_label(&self, node_id: u64, label: &str) -> PyResult<bool> {
         let db = self.inner.read();
@@ -632,7 +696,7 @@ impl PyGrafeoDB {
     ///
     /// Example:
     /// ```python
-    /// db.remove_node_label(alice.id, "Contractor")  # Remove Contractor label
+    /// db.remove_node_label(alix.id, "Contractor")  # Remove Contractor label
     /// ```
     fn remove_node_label(&self, node_id: u64, label: &str) -> PyResult<bool> {
         let db = self.inner.read();
@@ -645,9 +709,9 @@ impl PyGrafeoDB {
     ///
     /// Example:
     /// ```python
-    /// labels = db.get_node_labels(alice.id)
+    /// labels = db.get_node_labels(alix.id)
     /// if labels:
-    ///     print(f"Alice has labels: {labels}")
+    ///     print(f"Alix has labels: {labels}")
     /// ```
     fn get_node_labels(&self, node_id: u64) -> PyResult<Option<Vec<String>>> {
         let db = self.inner.read();
@@ -717,7 +781,7 @@ impl PyGrafeoDB {
     /// db.create_property_index("email")
     ///
     /// # Now lookups by email are O(1) instead of O(n)
-    /// nodes = db.find_nodes_by_property("email", "alice@example.com")
+    /// nodes = db.find_nodes_by_property("email", "alix@example.com")
     /// ```
     fn create_property_index(&self, property: &str) -> PyResult<()> {
         let db = self.inner.read();
@@ -1239,7 +1303,7 @@ impl PyGrafeoDB {
     /// db.create_property_index("email")
     ///
     /// # Find nodes by property value
-    /// alice_ids = db.find_nodes_by_property("email", "alice@example.com")
+    /// alice_ids = db.find_nodes_by_property("email", "alix@example.com")
     /// for node_id in alice_ids:
     ///     node = db.get_node(node_id)
     ///     print(f"Found: {node}")
@@ -1264,8 +1328,8 @@ impl PyGrafeoDB {
     /// Example:
     /// ```python
     /// with db.begin_transaction() as tx:
-    ///     tx.execute("CREATE (n:Person {name: 'Alice'})")
-    ///     tx.execute("CREATE (n:Person {name: 'Bob'})")
+    ///     tx.execute("CREATE (n:Person {name: 'Alix'})")
+    ///     tx.execute("CREATE (n:Person {name: 'Gus'})")
     ///     tx.commit()  # Both nodes created atomically
     ///
     /// # With explicit isolation level
@@ -1279,9 +1343,9 @@ impl PyGrafeoDB {
     }
 
     /// Get database statistics.
-    fn stats(&self) -> PyResult<PyDbStats> {
+    fn stats(&self) -> PyResult<PyDatabaseStats> {
         let db = self.inner.read();
-        Ok(PyDbStats {
+        Ok(PyDatabaseStats {
             node_count: db.node_count() as u64,
             edge_count: db.edge_count() as u64,
             label_count: db.label_count() as u64,
@@ -1471,7 +1535,7 @@ impl PyGrafeoDB {
     ///
     /// Example:
     ///     db = GrafeoDB()  # in-memory
-    ///     db.create_node(["Person"], {"name": "Alice"})
+    ///     db.create_node(["Person"], {"name": "Alix"})
     ///     db.save("./mydb")  # save to file
     fn save(&self, path: String) -> PyResult<()> {
         let db = self.inner.read();
@@ -1599,6 +1663,151 @@ impl PyGrafeoDB {
         db.edge_count()
     }
 
+    /// Export all nodes as a pandas DataFrame.
+    ///
+    /// Columns: `id` (int), `labels` (list[str]), plus one column per unique
+    /// property key found across all nodes. Missing properties are `None`.
+    ///
+    /// Requires pandas (`uv add pandas`).
+    ///
+    /// Example:
+    /// ```python
+    /// df = db.nodes_df()
+    /// print(df[df["labels"].apply(lambda l: "Person" in l)])
+    /// ```
+    #[pyo3(signature = ())]
+    fn nodes_df(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let pd = py.import("pandas").map_err(|_| {
+            pyo3::exceptions::PyModuleNotFoundError::new_err(
+                "pandas is required for nodes_df(). Install it with: uv add pandas",
+            )
+        })?;
+
+        let db = self.inner.read();
+        let store = db.store();
+
+        // Collect all nodes and discover property keys
+        let nodes: Vec<_> = store.all_nodes().collect();
+        let mut prop_keys: Vec<String> = Vec::new();
+        let mut prop_key_set = std::collections::HashSet::new();
+        for node in &nodes {
+            for (key, _) in node.properties.iter() {
+                let key_str = key.as_str().to_owned();
+                if prop_key_set.insert(key_str.clone()) {
+                    prop_keys.push(key_str);
+                }
+            }
+        }
+
+        // Build column-oriented data
+        let ids = pyo3::types::PyList::empty(py);
+        let labels = pyo3::types::PyList::empty(py);
+        let prop_columns: Vec<_> = prop_keys
+            .iter()
+            .map(|_| pyo3::types::PyList::empty(py))
+            .collect();
+
+        for node in &nodes {
+            ids.append(node.id.0)?;
+            let node_labels: Vec<&str> = node.labels.iter().map(|l| l.as_ref()).collect();
+            labels.append(
+                pyo3::types::PyList::new(py, &node_labels)
+                    .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+            )?;
+            for (i, key) in prop_keys.iter().enumerate() {
+                let prop_key = grafeo_common::types::PropertyKey::new(key.clone());
+                match node.properties.get(&prop_key) {
+                    Some(v) => prop_columns[i].append(PyValue::to_py(v, py))?,
+                    None => prop_columns[i].append(py.None())?,
+                }
+            }
+        }
+
+        let data = pyo3::types::PyDict::new(py);
+        data.set_item("id", ids)?;
+        data.set_item("labels", labels)?;
+        for (key, col) in prop_keys.iter().zip(prop_columns.iter()) {
+            data.set_item(key, col)?;
+        }
+
+        let df = pd.call_method1("DataFrame", (data,))?;
+        Ok(df.unbind())
+    }
+
+    /// Export all edges as a pandas DataFrame.
+    ///
+    /// Columns: `id` (int), `source` (int), `target` (int), `type` (str),
+    /// plus one column per unique property key. Missing properties are `None`.
+    ///
+    /// Requires pandas (`uv add pandas`).
+    ///
+    /// Example:
+    /// ```python
+    /// df = db.edges_df()
+    /// print(df[df["type"] == "KNOWS"])
+    /// ```
+    #[pyo3(signature = ())]
+    fn edges_df(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let pd = py.import("pandas").map_err(|_| {
+            pyo3::exceptions::PyModuleNotFoundError::new_err(
+                "pandas is required for edges_df(). Install it with: uv add pandas",
+            )
+        })?;
+
+        let db = self.inner.read();
+        let store = db.store();
+
+        // Collect all edges and discover property keys
+        let edges: Vec<_> = store.all_edges().collect();
+        let mut prop_keys: Vec<String> = Vec::new();
+        let mut prop_key_set = std::collections::HashSet::new();
+        for edge in &edges {
+            for (key, _) in edge.properties.iter() {
+                let key_str = key.as_str().to_owned();
+                if prop_key_set.insert(key_str.clone()) {
+                    prop_keys.push(key_str);
+                }
+            }
+        }
+
+        // Build column-oriented data
+        let ids = pyo3::types::PyList::empty(py);
+        let sources = pyo3::types::PyList::empty(py);
+        let targets = pyo3::types::PyList::empty(py);
+        let types = pyo3::types::PyList::empty(py);
+        let prop_columns: Vec<_> = prop_keys
+            .iter()
+            .map(|_| pyo3::types::PyList::empty(py))
+            .collect();
+
+        for edge in &edges {
+            ids.append(edge.id.0)?;
+            sources.append(edge.src.0)?;
+            targets.append(edge.dst.0)?;
+            let edge_type: &str = edge.edge_type.as_ref();
+            types.append(edge_type)?;
+            for (i, key) in prop_keys.iter().enumerate() {
+                let prop_key = grafeo_common::types::PropertyKey::new(key.clone());
+                match edge.properties.get(&prop_key) {
+                    Some(v) => prop_columns[i].append(PyValue::to_py(v, py))?,
+                    None => prop_columns[i].append(py.None())?,
+                }
+            }
+        }
+
+        let data = pyo3::types::PyDict::new(py);
+        data.set_item("id", ids)?;
+        data.set_item("source", sources)?;
+        data.set_item("target", targets)?;
+        data.set_item("type", types)?;
+        for (key, col) in prop_keys.iter().zip(prop_columns.iter()) {
+            data.set_item(key, col)?;
+        }
+
+        let df = pd.call_method1("DataFrame", (data,))?;
+        Ok(df.unbind())
+    }
+
     fn __repr__(&self) -> String {
         "GrafeoDB()".to_string()
     }
@@ -1710,8 +1919,8 @@ impl PyGrafeoDB {
 ///
 /// ```python
 /// with db.begin_transaction() as tx:
-///     tx.execute("INSERT (:Person {name: 'Alice'})")
-///     tx.execute("INSERT (:Person {name: 'Bob'})")
+///     tx.execute("INSERT (:Person {name: 'Alix'})")
+///     tx.execute("INSERT (:Person {name: 'Gus'})")
 ///     tx.commit()  # Both or neither
 /// ```
 ///
@@ -1800,10 +2009,10 @@ impl PyTransaction {
         // Begin the transaction with the specified isolation level
         if let Some(level) = level {
             session
-                .begin_tx_with_isolation(level)
+                .begin_transaction_with_isolation(level)
                 .map_err(PyGrafeoError::from)?;
         } else {
-            session.begin_tx().map_err(PyGrafeoError::from)?;
+            session.begin_transaction().map_err(PyGrafeoError::from)?;
         }
 
         Ok(Self {
@@ -1971,8 +2180,8 @@ impl PyTransaction {
 }
 
 /// Quick stats about your database - node count, edge count, and more.
-#[pyclass(name = "DbStats")]
-pub struct PyDbStats {
+#[pyclass(name = "DatabaseStats")]
+pub struct PyDatabaseStats {
     #[pyo3(get)]
     node_count: u64,
     #[pyo3(get)]
@@ -1984,7 +2193,7 @@ pub struct PyDbStats {
 }
 
 #[pymethods]
-impl PyDbStats {
+impl PyDatabaseStats {
     fn __repr__(&self) -> String {
         format!(
             "DbStats(nodes={}, edges={}, labels={}, properties={})",
@@ -2021,7 +2230,11 @@ fn change_event_to_dict(
     // entity_id and entity_type
     map.insert(
         "entity_id".to_string(),
-        event.entity_id.as_u64().into_py_any(py).unwrap(),
+        event
+            .entity_id
+            .as_u64()
+            .into_py_any(py)
+            .expect("u64 to Python conversion"),
     );
     let entity_type = if event.entity_id.is_node() {
         "node"
@@ -2030,7 +2243,9 @@ fn change_event_to_dict(
     };
     map.insert(
         "entity_type".to_string(),
-        entity_type.into_py_any(py).unwrap(),
+        entity_type
+            .into_py_any(py)
+            .expect("str to Python conversion"),
     );
 
     // kind
@@ -2039,13 +2254,26 @@ fn change_event_to_dict(
         grafeo_engine::cdc::ChangeKind::Update => "update",
         grafeo_engine::cdc::ChangeKind::Delete => "delete",
     };
-    map.insert("kind".to_string(), kind.into_py_any(py).unwrap());
+    map.insert(
+        "kind".to_string(),
+        kind.into_py_any(py).expect("str to Python conversion"),
+    );
 
     // epoch and timestamp
-    map.insert("epoch".to_string(), event.epoch.0.into_py_any(py).unwrap());
+    map.insert(
+        "epoch".to_string(),
+        event
+            .epoch
+            .0
+            .into_py_any(py)
+            .expect("u64 to Python conversion"),
+    );
     map.insert(
         "timestamp".to_string(),
-        event.timestamp.into_py_any(py).unwrap(),
+        event
+            .timestamp
+            .into_py_any(py)
+            .expect("u64 to Python conversion"),
     );
 
     // before (Option<HashMap<String, Value>> -> dict or None)
@@ -2055,7 +2283,7 @@ fn change_event_to_dict(
                 .iter()
                 .map(|(k, v)| (k.clone(), PyValue::to_py(v, py)))
                 .collect();
-            d.into_py_any(py).unwrap()
+            d.into_py_any(py).expect("dict to Python conversion")
         }
         None => py.None(),
     };
@@ -2068,7 +2296,7 @@ fn change_event_to_dict(
                 .iter()
                 .map(|(k, v)| (k.clone(), PyValue::to_py(v, py)))
                 .collect();
-            d.into_py_any(py).unwrap()
+            d.into_py_any(py).expect("dict to Python conversion")
         }
         None => py.None(),
     };

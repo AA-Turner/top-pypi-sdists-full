@@ -194,6 +194,7 @@ def _build_summary_params(parser, inputs):
         ("check_yield_trend", "ML"),
         ("use_single_time_period_as_feature", "ML"),
         ("lag_yield_as_feature", "ML"),
+        ("use_spatial_neighbors", "ML"),
     ]:
         if parser.has_option(section, key):
             params.append((key, parser.get(section, key)))

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Mapping, Optional, Union
 
 from chalk.integrations.named import create_integration_variable, load_integration_variable
 from chalk.streams.base import StreamSource
@@ -23,6 +23,7 @@ _KINESIS_AWS_SESSION_TOKEN_NAME = "KINESIS_AWS_SESSION_TOKEN"
 _KINESIS_ENDPOINT_URL_NAME = "KINESIS_ENDPOINT_URL"
 _KINESIS_CONSUMER_ROLE_ARN_NAME = "KINESIS_CONSUMER_ROLE_ARN"
 _KINESIS_ENHANCED_FANOUT_CONSUMER_NAME_NAME = "KINESIS_ENHANCED_FANOUT_CONSUMER_NAME"
+_KINESIS_DLQ_FORMAT_NAME = "KINESIS_DLQ_FORMAT"
 
 
 class KinesisSource(StreamSource, BaseModel, frozen=True):
@@ -87,6 +88,14 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
     If `None`, uses traditional shared-throughput consumption.
     """
 
+    dlq_format: Optional[Literal["json_envelope", "raw"]] = None
+    """
+    Format for DLQ messages. ``"json_envelope"`` wraps failed messages in a JSON envelope
+    containing error metadata (error message, phase, timestamps, resolver info).
+    ``"raw"`` sends the original message bytes with no metadata.
+    Defaults to ``"raw"`` when not specified.
+    """
+
     def __init__(
         self,
         *,
@@ -102,6 +111,7 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
         endpoint_url: Optional[str] = None,
         consumer_role_arn: Optional[str] = None,
         enhanced_fanout_consumer_name: Optional[str] = None,
+        dlq_format: Optional[Literal["json_envelope", "raw"]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
     ):
         super(KinesisSource, self).__init__(
@@ -165,6 +175,11 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
                 override=integration_variable_override,
             )
             or KinesisSource.__fields__["enhanced_fanout_consumer_name"].default,
+            dlq_format=dlq_format
+            or load_integration_variable(
+                name=_KINESIS_DLQ_FORMAT_NAME, integration_name=name, override=integration_variable_override
+            )
+            or KinesisSource.__fields__["dlq_format"].default,
         )
         self.registry.append(self)
 
@@ -203,6 +218,7 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
                 create_integration_variable(
                     _KINESIS_ENHANCED_FANOUT_CONSUMER_NAME_NAME, self.name, self.enhanced_fanout_consumer_name
                 ),
+                create_integration_variable(_KINESIS_DLQ_FORMAT_NAME, self.name, self.dlq_format),
             ]
             if v is not None
         }

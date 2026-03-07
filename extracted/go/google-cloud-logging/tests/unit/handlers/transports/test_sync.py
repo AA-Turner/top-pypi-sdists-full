@@ -35,8 +35,8 @@ class TestSyncHandler(unittest.TestCase):
         self.assertEqual(transport.logger.name, "python_logger")
 
     def test_send(self):
-        from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
         from google.cloud.logging_v2._helpers import LogSeverity
+        from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
 
         client = _Client(self.PROJECT)
 
@@ -61,8 +61,8 @@ class TestSyncHandler(unittest.TestCase):
         self.assertEqual(transport.logger.log_called_with, EXPECTED_SENT)
 
     def test_send_struct(self):
-        from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
         from google.cloud.logging_v2._helpers import LogSeverity
+        from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
 
         client = _Client(self.PROJECT)
 

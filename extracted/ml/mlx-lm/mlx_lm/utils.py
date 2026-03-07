@@ -47,6 +47,7 @@ MODEL_REMAPPING = {
     "llava": "mistral3",
     "phi-msft": "phixtral",
     "falcon_mamba": "mamba",
+    "joyai_llm_flash": "deepseek_v3",
     "kimi_k2": "deepseek_v3",
     "qwen2_5_vl": "qwen2_vl",
     "minimax_m2": "minimax",
@@ -514,7 +515,7 @@ def sharded_load(
     # weights we need to download.
     model, config = load_model(model_path, lazy=True, strict=False)
 
-    has_pipelining = hasattr(model.model, "pipeline")
+    has_pipelining = hasattr(model, "model") and hasattr(model.model, "pipeline")
     has_tensor_parallel = hasattr(model, "shard")
 
     if pipeline_group is not None and not has_pipelining:

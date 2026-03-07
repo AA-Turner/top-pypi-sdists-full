@@ -15,6 +15,7 @@ from py4vasp._util import convert, import_
 ase = import_.optional("ase")
 ase_cube = import_.optional("ase.io.cube")
 nglview = import_.optional("nglview")
+vaspview = import_.optional("vasp_viewer")
 
 CUBE_FILENAME = "quantity.cube"
 
@@ -114,13 +115,38 @@ class View:
     """Defines if the axes is shown in the viewer"""
     show_axes_at: Sequence[float] = None
     """Defines where the axis is shown, defaults to the origin"""
+    shift: npt.ArrayLike = None
+    """Defines the shift of the origin"""
+    camera: str = "orthographic"
+    """Defines the camera view type (orthographic or perspective)"""
+    atom_radius: float = None
+    """Defines the radius of the atoms in VASP Viewer"""
+    structure_title: str = None
+    """Title of the structure to be shown in VASP Viewer"""
 
     def __post_init__(self):
         self._verify()
 
-    def _ipython_display_(self):
-        widget = self.to_ngl()
-        widget._ipython_display_()
+    def _ipython_display_(self, mode="auto"):
+        if mode == "auto":
+            if import_.is_imported(vaspview):
+                mode = "vasp_viewer"
+            elif import_.is_imported(nglview):
+                mode = "ngl"
+            else:
+                raise exception.IncorrectUsage(
+                    "No supported viewer found. Please install either 'vasp_viewer' or 'nglview' to visualize the structure."
+                )
+
+        if mode == "ngl":
+            widget = self.to_ngl()
+            widget._ipython_display_()
+        elif mode == "vasp_viewer":
+            widget = self.to_vasp_viewer()
+        else:
+            raise exception.IncorrectUsage(
+                f"Mode '{mode}' is not supported. Choose either 'auto', 'ngl' or 'vasp_viewer'."
+            )
 
     def to_ngl(self):
         """Create a widget with NGL
@@ -129,10 +155,11 @@ class View:
         arrows at atom centers. The attributes of View are used as a starting point to
         determine which methods are called (either isosurface, arrows, etc).
         """
-        self._verify()
+        self._verify("ngl")
         trajectory = [self._create_atoms(i) for i in self._iterate_trajectory_frames()]
         ngl_trajectory = nglview.ASETrajectory(trajectory)
         widget = nglview.NGLWidget(ngl_trajectory)
+        widget.camera = self.camera
         if self.grid_scalars:
             self._show_isosurface(widget, trajectory)
         if self.ion_arrows:
@@ -143,23 +170,105 @@ class View:
             self._show_axes(widget, trajectory)
         return widget
 
-    def _verify(self):
-        self._raise_error_if_present_on_multiple_steps(self.grid_scalars)
-        self._raise_error_if_present_on_multiple_steps(self.ion_arrows)
+    def to_vasp_viewer(self):
+        """Create a widget with VASP Viewer
+
+        This method creates the widget required to view a structure, isosurfaces and
+        arrows at atom centers. The attributes of View are added to a dictionary with which
+        to call initialize a VASP Viewer widget."""
+        self._verify()
+        structure: dict = {
+            "atoms_trajectory": self._convert_to_list(self.positions),
+            "atoms_types": self._convert_to_list(self.elements),
+            "lattice_vectors": self._convert_to_list(self.lattice_vectors),
+        }
+
+        # === Atoms options ===
+        if self.atom_radius is not None:
+            structure["selections_atom_radius"] = self.atom_radius
+
+        # === Vector Group options ===
+        if self.ion_arrows is not None:
+            structure["ion_arrow_groups"] = [
+                {
+                    "label": arrow.label,
+                    "quantity": self._convert_to_list(arrow.quantity),
+                    "base_color": arrow.color,
+                    "base_radius": arrow.radius,
+                }
+                for arrow in self.ion_arrows
+            ]
+        if self.grid_scalars is not None:
+            # TODO merge isosurface branch
+            # TODO handle list of grid scalars instead of single grid scalar only
+            # TODO adjust UI to support this
+            structure["grid_scalar_groups"] = [
+                {
+                    "label": grid_quantity.label,
+                    "data": grid_quantity.quantity,  # TODO check type
+                    "isosurfaces": [  # TODO hook this list to isosurface settings
+                        {
+                            "isolevel": isosurface.isolevel,
+                            "color": isosurface.color,  # TODO interpret this as base color of isosurface
+                            "opacity": isosurface.opacity,  # TODO tie this to opacity on isosurface
+                        }
+                        for isosurface in grid_quantity.isosurfaces
+                    ],
+                }
+                for grid_quantity in self.grid_scalars
+            ]
+
+        # === Lattice options ===
+        if self.shift is not None:
+            structure["selections_constant_shift"] = self._convert_to_list(self.shift)
+        if self.supercell is not None:
+            structure["selections_supercell"] = self._convert_to_list(self.supercell)
+
+        # === Visualization options ===
+        if self.camera is not None:
+            structure["selections_camera_mode"] = self.camera
+        if self.show_cell is not None:
+            structure["selections_show_lattice"] = self.show_cell
+        if self.show_axes is not None:
+            structure["selections_show_xyz"] = False
+            structure["selections_show_abc"] = self.show_axes
+            structure["selections_show_xyz_aside"] = self.show_axes
+            structure["selections_show_abc_aside"] = self.show_axes
+        if self.show_axes_at is not None:
+            structure["selections_axes_abc_shift"] = self._convert_to_list(
+                self.show_axes_at
+            )
+            structure["selections_axes_xyz_shift"] = self._convert_to_list(
+                self.show_axes_at
+            )
+
+        # === Meta options ===
+        if self.structure_title:
+            structure["selections_descriptor"] = self.structure_title
+
+        return vaspview.Widget(structure)
+
+    def _verify(self, mode=None):
+        self._raise_error_if_present_on_multiple_steps(self.grid_scalars, mode)
+        self._raise_error_if_present_on_multiple_steps(self.ion_arrows, mode)
         self._raise_error_if_number_steps_inconsistent()
         self._raise_error_if_any_shape_is_incorrect()
 
-    def _raise_error_if_present_on_multiple_steps(self, attributes):
+    def _raise_error_if_present_on_multiple_steps(self, attributes, mode=None):
         if not attributes:
             return
         for attribute in attributes:
-            if len(attribute.quantity) > 1:
-                raise exception.NotImplemented(
-                    """\
-Currently isosurfaces and ion arrows are implemented only for cases where there is only
-one frame in the trajectory. Make sure that either only one frame for the positions
-attribute is supplied with its corresponding grid scalar or ion arrow component."""
-                )
+            try:
+                if len(attribute.quantity) > 1:
+                    if mode == "ngl":
+                        raise exception.NotImplemented(
+                            """\
+    Currently isosurfaces and ion arrows are implemented only for cases where there is only
+    one frame in the trajectory. Make sure that either only one frame for the positions
+    attribute is supplied with its corresponding grid scalar or ion arrow component."""
+                        )
+            except AttributeError:
+                pass
 
     def _raise_error_if_number_steps_inconsistent(self):
         if len(self.elements) == len(self.lattice_vectors) == len(self.positions):
@@ -189,12 +298,30 @@ attribute is supplied with its corresponding grid scalar or ion arrow component.
                 f"Lattice vectors must be a 3x3 unit cell but have the shape {cell_shape}."
             )
 
+    def _convert_to_list(self, attribute):
+        if isinstance(attribute, list):
+            if len(attribute) == 0 or not isinstance(attribute[0], np.ndarray):
+                return attribute
+            else:
+                return [a.tolist() for a in attribute]
+        if isinstance(attribute, tuple):
+            if len(attribute) == 0 or not isinstance(attribute[0], np.ndarray):
+                return list(attribute)
+            else:
+                return [a.tolist() for a in attribute]
+        elif isinstance(attribute, np.ndarray):
+            return attribute.tolist()
+        else:
+            raise exception.NotImplemented(
+                f"Safe conversion of type {type(attribute)} to list is not implemented."
+            )
+
     def _create_atoms(self, step):
         symbols = "".join(self.elements[step])
-        atoms = ase.Atoms(symbols)
-        atoms.cell = self.lattice_vectors[step]
-        atoms.set_scaled_positions(self.positions[step])
-        atoms.set_pbc(True)
+        atoms = ase.Atoms(symbols, cell=self.lattice_vectors[step], pbc=True)
+        shift = np.zeros(3) if self.shift is None else self.shift
+        atoms.set_scaled_positions(np.add(self.positions[step], shift))
+        atoms.wrap()
         atoms = atoms.repeat(self.supercell)
         return atoms
 
@@ -226,9 +353,11 @@ attribute is supplied with its corresponding grid scalar or ion arrow component.
         for grid_scalar in self.grid_scalars:
             if not grid_scalar.isosurfaces:
                 continue
+            quantity = grid_scalar.quantity[step]
+            quantity = self._shift_quantity(quantity)
+            quantity = self._repeat_isosurface(quantity)
             atoms = trajectory[step]
             self._set_atoms_in_standard_form(atoms)
-            quantity = self._repeat_isosurface(grid_scalar.quantity[step])
             with tempfile.TemporaryDirectory() as tmp:
                 filename = os.path.join(tmp, CUBE_FILENAME)
                 ase_cube.write_cube(open(filename, "w"), atoms=atoms, data=quantity)
@@ -240,6 +369,13 @@ attribute is supplied with its corresponding grid scalar or ion arrow component.
                     "opacity": isosurface.opacity,
                 }
                 component.add_surface(**isosurface_options)
+
+    def _shift_quantity(self, quantity):
+        if self.shift is None:
+            return quantity
+        new_grid_center = np.multiply(quantity.shape, self.shift)
+        shift_indices = np.round(new_grid_center).astype(np.int32)
+        return np.roll(quantity, shift_indices, axis=(0, 1, 2))
 
     def _show_arrows_at_atoms(self, widget, trajectory):
         step = 0

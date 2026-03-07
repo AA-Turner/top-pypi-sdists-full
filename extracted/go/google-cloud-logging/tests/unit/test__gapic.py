@@ -13,11 +13,10 @@
 # limitations under the License.
 
 import unittest
+from datetime import datetime
 
 import google.auth.credentials
 import mock
-
-from datetime import datetime
 
 import google.cloud.logging
 from google.cloud import logging_v2
@@ -25,9 +24,8 @@ from google.cloud.logging_v2 import _gapic
 from google.cloud.logging_v2.services.config_service_v2 import ConfigServiceV2Client
 from google.cloud.logging_v2.services.logging_service_v2 import LoggingServiceV2Client
 from google.cloud.logging_v2.services.metrics_service_v2 import MetricsServiceV2Client
-from google.cloud.logging_v2.types import LogSink
 from google.cloud.logging_v2.types import LogEntry as LogEntryPB
-
+from google.cloud.logging_v2.types import LogSink
 
 PROJECT = "PROJECT"
 PROJECT_PATH = f"projects/{PROJECT}"
@@ -40,13 +38,21 @@ class Test_LoggingAPI(unittest.TestCase):
 
     @staticmethod
     def make_logging_api():
-        gapic_client = LoggingServiceV2Client()
+        # Create a dummy credentials object to help ensure unit test isolation
+        creds = mock.Mock(spec=google.auth.credentials.Credentials)
+
+        # Pass those credentials to the GAPIC client
+        gapic_client = LoggingServiceV2Client(credentials=creds)
         handwritten_client = mock.Mock()
         api = _gapic._LoggingAPI(gapic_client, handwritten_client)
         return api
 
     def test_ctor(self):
-        gapic_client = LoggingServiceV2Client()
+        # Create a dummy credentials object to help ensure unit test isolation
+        creds = mock.Mock(spec=google.auth.credentials.Credentials)
+
+        # Pass those credentials to the GAPIC client
+        gapic_client = LoggingServiceV2Client(credentials=creds)
         api = _gapic._LoggingAPI(gapic_client, mock.sentinel.client)
         assert api._gapic_api is gapic_client
         assert api._client is mock.sentinel.client
@@ -210,13 +216,21 @@ class Test_SinksAPI(unittest.TestCase):
 
     @staticmethod
     def make_sinks_api():
-        gapic_client = ConfigServiceV2Client()
+        # Create a dummy credentials object to help ensure unit test isolation
+        creds = mock.Mock(spec=google.auth.credentials.Credentials)
+
+        # Pass those credentials to the GAPIC client
+        gapic_client = ConfigServiceV2Client(credentials=creds)
         handwritten_client = mock.Mock()
         api = _gapic._SinksAPI(gapic_client, handwritten_client)
         return api
 
     def test_ctor(self):
-        gapic_client = ConfigServiceV2Client()
+        # Create a dummy credentials object to help ensure unit test isolation
+        creds = mock.Mock(spec=google.auth.credentials.Credentials)
+
+        # Pass those credentials to the GAPIC client
+        gapic_client = ConfigServiceV2Client(credentials=creds)
         api = _gapic._SinksAPI(gapic_client, mock.sentinel.client)
         assert api._gapic_api is gapic_client
         assert api._client is mock.sentinel.client
@@ -418,13 +432,21 @@ class Test_MetricsAPI(unittest.TestCase):
 
     @staticmethod
     def make_metrics_api():
-        gapic_client = MetricsServiceV2Client()
+        # Create a dummy credentials object to help ensure unit test isolation
+        creds = mock.Mock(spec=google.auth.credentials.Credentials)
+
+        # Pass those credentials to the GAPIC client
+        gapic_client = MetricsServiceV2Client(credentials=creds)
         handwritten_client = mock.Mock()
         api = _gapic._MetricsAPI(gapic_client, handwritten_client)
         return api
 
     def test_ctor(self):
-        gapic_client = MetricsServiceV2Client()
+        # Create a dummy credentials object to help ensure unit test isolation
+        creds = mock.Mock(spec=google.auth.credentials.Credentials)
+
+        # Pass those credentials to the GAPIC client
+        gapic_client = MetricsServiceV2Client(credentials=creds)
         api = _gapic._MetricsAPI(gapic_client, mock.sentinel.client)
         assert api._gapic_api is gapic_client
         assert api._client is mock.sentinel.client
@@ -615,8 +637,7 @@ class Test__parse_log_entry(unittest.TestCase):
         )
 
     def test_unregistered_type(self):
-        from google.protobuf import any_pb2
-        from google.protobuf import descriptor_pool
+        from google.protobuf import any_pb2, descriptor_pool
         from google.protobuf.timestamp_pb2 import Timestamp
 
         pool = descriptor_pool.Default()
@@ -640,10 +661,8 @@ class Test__parse_log_entry(unittest.TestCase):
         self.assertEqual(result["protoPayload"].value, metadata_bytes)
 
     def test_registered_type(self):
-        from google.protobuf import any_pb2
-        from google.protobuf import descriptor_pool
-        from google.protobuf.struct_pb2 import Struct
-        from google.protobuf.struct_pb2 import Value
+        from google.protobuf import any_pb2, descriptor_pool
+        from google.protobuf.struct_pb2 import Struct, Value
 
         pool = descriptor_pool.Default()
         type_name = "google.protobuf.Struct"
@@ -699,8 +718,7 @@ class Test__log_entry_mapping_to_pb(unittest.TestCase):
             self._call_fut(json_mapping)
 
     def test_registered_type(self):
-        from google.protobuf import any_pb2
-        from google.protobuf import descriptor_pool
+        from google.protobuf import any_pb2, descriptor_pool
 
         pool = descriptor_pool.Default()
         type_name = "google.protobuf.Struct"

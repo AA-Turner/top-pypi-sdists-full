@@ -25,7 +25,7 @@ def Reactome_query_by_ids(
     ids : list[str]
         List of Reactome stable identifiers (e.g., 'R-HSA-73817', 'R-HSA-111289'). Mu...
     species : str
-        Optional: Filter by species (e.g., 'Homo sapiens')
+        Optional: Filter by species using exact scientific name (e.g., 'Homo sapiens'...
     types : list[str]
         Optional: Filter by types (e.g., ['Pathway', 'Reaction'])
     stream_callback : Callable, optional

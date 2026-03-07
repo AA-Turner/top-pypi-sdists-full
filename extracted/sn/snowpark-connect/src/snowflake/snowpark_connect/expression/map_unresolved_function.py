@@ -17,6 +17,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import suppress
+from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, Decimal
 from functools import partial, reduce
 from pathlib import Path
@@ -150,7 +151,7 @@ from snowflake.snowpark_connect.utils.udf_cache import (
     register_cached_java_udf,
     register_cached_sql_udf,
 )
-from snowflake.snowpark_connect.utils.variant_utils import to_variant_preserving_nulls
+from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
 from snowflake.snowpark_connect.utils.xxhash64 import (
     DEFAULT_SEED,
     xxhash64_double,
@@ -187,6 +188,27 @@ NAN, INFINITY = float("nan"), float("inf")
 
 class ULongLong(_IntegralType):
     """Unsigned long long integer data type. This maps to the BIGINT data type in Snowflake."""
+
+
+@dataclass
+class OperandInfo:
+    """Holds operand information for type precision calculations."""
+
+    typed_column: TypedColumn
+    unresolved_expr_type: str | None = None
+    arg_name: str | None = None
+
+    @property
+    def typ(self) -> DataType:
+        return self.typed_column.typ
+
+    @property
+    def col(self) -> Column:
+        return self.typed_column.col
+
+    @property
+    def is_literal(self) -> bool:
+        return self.unresolved_expr_type == "literal"
 
 
 def _does_number_overflow(value, type_) -> bool:
@@ -252,6 +274,32 @@ def _validate_numeric_args(
 def unwrap_literal(exp: expressions_proto.Expression):
     """Workaround for Snowpark functions generating invalid SQL when used with fn.lit (SNOW-1871954)"""
     return get_literal_field_and_name(exp.literal)[0]
+
+
+def _resolve_foldable_string_expression(
+    arg_col: Column,
+    arg_name: str,
+    spark_function_name: str,
+    session: Session,
+) -> Optional[str]:
+    if isinstance(arg_col._expression, Literal):
+        literal_value = arg_col._expression.value
+        return None if literal_value is None else str(literal_value)
+
+    try:
+        value = (
+            session.create_dataframe([(1,)])
+            .select(arg_col.cast(StringType()))
+            .collect()[0][0]
+        )
+    except Exception:
+        exception = AnalysisException(
+            f"""[DATATYPE_MISMATCH.NON_FOLDABLE_INPUT] Cannot resolve "{spark_function_name}" due to data type mismatch: the input argument should be a foldable "STRING" expression; however, got "{arg_name}"."""
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
+
+    return value
 
 
 def _coerce_for_comparison(
@@ -677,16 +725,12 @@ def map_unresolved_function(
         case func_name if func_name.lower() in session._udfs:
             # In Spark, UDFs can override built-in functions
             udf = session._udfs[func_name.lower()]
-            if udf.attach_schema_json:
-                # Scala UDF: preserve null elements inside arrays
-                udf_args = [
-                    to_variant_preserving_nulls(arg, tc.typ)
-                    for arg, tc in zip(snowpark_args, snowpark_typed_args)
-                ]
-            else:
-                udf_args = [
-                    snowpark_fn.cast(arg, VariantType()) for arg in snowpark_args
-                ]
+            udf_args = [
+                scala_udf_arg_to_variant(arg, tc.typ)
+                if udf.is_scala
+                else snowpark_fn.cast(arg, VariantType())
+                for arg, tc in zip(snowpark_args, snowpark_typed_args)
+            ]
             if udf.attach_schema_json:
                 schema_json = to_json(
                     [t.typ for t in snowpark_typed_args], escape_quotes=False
@@ -727,20 +771,30 @@ def map_unresolved_function(
                 result_exp = snowpark_fn.when(
                     snowpark_args[1] == 0, snowpark_fn.lit(None)
                 ).otherwise(snowpark_args[0] % snowpark_args[1])
-            match (snowpark_typed_args[0].typ, snowpark_typed_args[1].typ):
-                case (NullType(), NullType()):
-                    result_type = DoubleType()
-                case _:
-                    result_type = _find_common_type(
-                        [arg.typ for arg in snowpark_typed_args]
-                    )
+            result_type = _get_mod_return_type(
+                OperandInfo(
+                    snowpark_typed_args[0], args_types[0], snowpark_arg_names[0]
+                ),
+                OperandInfo(
+                    snowpark_typed_args[1], args_types[1], snowpark_arg_names[1]
+                ),
+            )
+            result_exp = TypedColumn(
+                result_exp.cast(result_type), lambda: [result_type]
+            )
         case "*":
             match (snowpark_typed_args[0].typ, snowpark_typed_args[1].typ):
-                case (DecimalType() as t, NullType()) | (
-                    NullType(),
-                    DecimalType() as t,
-                ):
-                    p1, s1 = _get_type_precision(t)
+                case (DecimalType(), NullType()) | (NullType(), DecimalType()):
+                    decimal_arg = (
+                        snowpark_typed_args[0]
+                        if isinstance(snowpark_typed_args[0].typ, DecimalType)
+                        else snowpark_typed_args[1]
+                    )
+                    p1, s1 = _get_type_precision(
+                        OperandInfo(
+                            decimal_arg,
+                        )
+                    )
                     result_type, _ = _get_decimal_multiplication_result_type(
                         p1, s1, p1, s1
                     )
@@ -749,10 +803,18 @@ def map_unresolved_function(
                     t, (DecimalType, _IntegralType)
                 ):
                     p1, s1 = _get_type_precision(
-                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        )
                     )
                     p2, s2 = _get_type_precision(
-                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        )
                     )
                     (
                         result_type,
@@ -947,8 +1009,16 @@ def map_unresolved_function(
                     result_exp = snowpark_fn.lit(None).cast(result_type)
                 case (NullType(), _) | (_, NullType()):
                     result_type, _ = _get_add_sub_result_type(
-                        snowpark_typed_args[0].typ,
-                        snowpark_typed_args[1].typ,
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        ),
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        ),
                         spark_function_name,
                     )
                     result_exp = snowpark_args[0] + snowpark_args[1]
@@ -1167,8 +1237,16 @@ def map_unresolved_function(
 
                 case _:
                     result_type, overflow_possible = _get_add_sub_result_type(
-                        snowpark_typed_args[0].typ,
-                        snowpark_typed_args[1].typ,
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        ),
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        ),
                         spark_function_name,
                     )
 
@@ -1202,8 +1280,16 @@ def map_unresolved_function(
                     result_exp = snowpark_fn.lit(None).cast(result_type)
                 case (NullType(), _) | (_, NullType()):
                     result_type, _ = _get_add_sub_result_type(
-                        snowpark_typed_args[0].typ,
-                        snowpark_typed_args[1].typ,
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        ),
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        ),
                         spark_function_name,
                     )
                     result_exp = snowpark_args[0] - snowpark_args[1]
@@ -1351,8 +1437,16 @@ def map_unresolved_function(
                     )
                 case _:
                     result_type, overflow_possible = _get_add_sub_result_type(
-                        snowpark_typed_args[0].typ,
-                        snowpark_typed_args[1].typ,
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        ),
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        ),
                         spark_function_name,
                     )
                     result_exp = _arithmetic_operation(
@@ -1367,18 +1461,26 @@ def map_unresolved_function(
 
         case "/":
             match (snowpark_typed_args[0].typ, snowpark_typed_args[1].typ):
-                case (DecimalType() as t1, NullType()):
-                    p1, s1 = _get_type_precision(t1)
+                case (DecimalType(), NullType()):
+                    p1, s1 = _get_type_precision(OperandInfo(snowpark_typed_args[0]))
                     result_type, _ = _get_decimal_division_result_type(p1, s1, p1, s1)
                     result_exp = snowpark_fn.lit(None).cast(result_type)
                 case (DecimalType(), t) | (t, DecimalType()) if isinstance(
                     t, (DecimalType, _IntegralType)
                 ):
                     p1, s1 = _get_type_precision(
-                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        )
                     )
                     p2, s2 = _get_type_precision(
-                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        )
                     )
                     result_type, overflow_possible = _get_decimal_division_result_type(
                         p1, s1, p2, s2
@@ -2695,7 +2797,9 @@ def map_unresolved_function(
                             .otherwise(result_exp)
                         )
 
-                result_exp = TypedColumn(result_exp, lambda: [result_type])
+                result_exp = TypedColumn(
+                    result_exp.cast(result_type), lambda: [result_type]
+                )
             elif (
                 # Limitation: type exception is currently only supported when literals are given to ceil(ing)
                 len(snowpark_args)
@@ -3012,6 +3116,8 @@ def map_unresolved_function(
             result_exp = snowpark_fn.function("cot")(snowpark_args[0])
             result_exp = TypedColumn(result_exp, lambda: [DoubleType()])
         case "count":
+            result_type = LongType()
+
             if exp.unresolved_function.is_distinct:
                 result_exp = snowpark_fn.count_distinct(*snowpark_args)
                 spark_function_name = spark_function_name.replace(
@@ -3038,10 +3144,11 @@ def map_unresolved_function(
                     )
                 else:
                     result_exp = snowpark_fn.call_function("COUNT", *snowpark_args)
-            result_exp = TypedColumn(result_exp, lambda: [LongType()])
+            result_exp = _resolve_aggregate_exp(result_exp, result_type)
         case "count_if":
+            result_type = LongType()
             result_exp = snowpark_fn.call_function("COUNT_IF", snowpark_args[0])
-            result_exp = TypedColumn(result_exp, lambda: [LongType()])
+            result_exp = _resolve_aggregate_exp(result_exp, result_type)
         case "count_min_sketch":
             _validate_arity(4)
 
@@ -4289,7 +4396,7 @@ def map_unresolved_function(
                     # The `Literal` class does not support generation through _expression.sql, so we need to add a special case for it.
                     arg_sql = to_sql(expr.value, expr.datatype)
                 else:
-                    arg_sql = expr.sql
+                    arg_sql = session._analyzer.analyze(expr, defaultdict())
                 # If the original element is NULL, the result of the cast will also be NULL.
                 # Schema checking of fields (dropping extra fields, NULLing missing fields) is handled by the server.
                 sf_type = convert_sp_to_sf_type(result_type)
@@ -6984,12 +7091,16 @@ def map_unresolved_function(
             result_type = DoubleType()
             result_exp = snowpark_fn.lit(math.pi, datatype=result_type)
         case "pmod":
-            dividend_type = snowpark_typed_args[0].typ
-            divisor_type = snowpark_typed_args[1].typ
-            result_type = _get_pmod_return_type(dividend_type, divisor_type)
+            dividend_operand = OperandInfo(
+                snowpark_typed_args[0], args_types[0], snowpark_arg_names[0]
+            )
+            divisor_operand = OperandInfo(
+                snowpark_typed_args[1], args_types[1], snowpark_arg_names[1]
+            )
+            result_type = _get_mod_return_type(dividend_operand, divisor_operand)
             if result_type:
-                if not isinstance(dividend_type, _NumericType) or not isinstance(
-                    divisor_type, _NumericType
+                if not isinstance(dividend_operand.typ, _NumericType) or not isinstance(
+                    divisor_operand.typ, _NumericType
                 ):
                     result_exp = snowpark_fn.lit(None)
                 else:
@@ -7008,7 +7119,7 @@ def map_unresolved_function(
                 result_exp = TypedColumn(result_exp, lambda: [result_type])
             else:
                 exception = AnalysisException(
-                    f"""pyspark.errors.exceptions.captured.AnalysisException: [DATATYPE_MISMATCH.BINARY_OP_DIFF_TYPES] Cannot resolve "{spark_function_name}" due to data type mismatch: the left and right operands of the binary operator have incompatible types ("{dividend_type}" and "{divisor_type}")."""
+                    f"""pyspark.errors.exceptions.captured.AnalysisException: [DATATYPE_MISMATCH.BINARY_OP_DIFF_TYPES] Cannot resolve "{spark_function_name}" due to data type mismatch: the left and right operands of the binary operator have incompatible types ("{dividend_operand.typ}" and "{divisor_operand.typ}")."""
                 )
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
@@ -7670,7 +7781,7 @@ def map_unresolved_function(
                     )
                 result_type = _bounded_decimal(precision, scale)
             elif isinstance(snowpark_typed_args[0].typ, NullType):
-                result_type = FloatType()
+                result_type = DoubleType()
             else:
                 result_type = snowpark_typed_args[0].typ
         case "row_number":
@@ -8842,138 +8953,114 @@ def map_unresolved_function(
             # - "MI", and "S" may only be used once at the beginning or end of the format string.
             # - "$" may only be used once before all digits in the number format (but after "MI" or "S").
             # - There must be a "0" or "9" to both the left and right of a comma (,) or "G".
-            # - The format string must not be empty, and ther must be at least one "0", or "9" in the format string.
+            # - The format string must not be empty, and there must be at least one "0", or "9" in the format string.
             # PySpark itself checks the format string for validity before it gets to SAS, so we can make the assumption that all
             # of the above are true.
 
             # TRANSLATE SPARK FORMAT STRING TO EQUIVALENT SNOWFLAKE FORMAT STRING
             spark_fmt = snowpark_args[1]
-
-            # Snowflake does not support the "PR" format element, we must remove it and add angle brackets if necessary.
-            # To do so we must keep track of whether "PR" was used and remove it if it was.
-            PR_used = spark_fmt.endswith("PR")
-            snowpark_fmt = snowpark_fn.replace(spark_fmt, "PR")
-
-            # Spark does not include negative signs when no explicit sign format literal ("S" or "MI") is present.
-            # Snowflake does include negative signs normally, so we need to remove them if not explicitly requested.
-            # We also must keep track of whether "MI" or "S" were used and where they were placed.
-            MI_at_start = spark_fmt.startswith("MI")
-            S_at_start = spark_fmt.startswith("S")
-            MI_at_end = spark_fmt.endswith("MI")
-            S_at_end = spark_fmt.endswith("S")
-            snowpark_fmt = snowpark_fn.replace(snowpark_fmt, "MI")
-            snowpark_fmt = snowpark_fn.replace(snowpark_fmt, "S")
-
-            # Snowflake appends the currency symbol after the left-padding spaces, Spark before.
-            # We must remove the currency symbol if it was present and add it back after the format string.
-            currency_used = snowpark_fmt.startswith("$")
-            snowpark_fmt = snowpark_fn.replace(snowpark_fmt, "$")
-
-            # Replace the decimal point with "D" to make regular expressions and replacements easier.
-            snowpark_fmt = snowpark_fn.replace(snowpark_fmt, ".", snowpark_fn.lit("D"))
-
-            # Spark always prints trailing 0's after a decimal point, even if the literal used is "9".
-            # Snowflake does not print trailing 0's when "9" is used, so must replace them with "0"s.
-            decimal_used = snowpark_fmt.contains(snowpark_fn.lit("D"))
-            # Handle this by splitting the format string at the decimal point.
-            split_by_decimal = snowpark_fn.split(snowpark_fmt, snowpark_fn.lit("D"))
-            before_decimal = snowpark_fn.element_at(split_by_decimal, 0)
-            after_decimal = snowpark_fn.element_at(split_by_decimal, 1)
-            # Some edge cases rely on knowing if there are no digit placeholders before or after the decimal point.
-            before_decimal_empty = before_decimal == ""
-            after_demical_empty = after_decimal == ""
-            # When both 0's and 9's are used as digit placeholders in the integer component of the number format,
-            # Spark has different rules for printing depending on whether the "G" or "," is present. We can make
-            # our handling more consistent in SAS by replacing all digit placeholders with the first digit we find.
-            before_decimal = snowpark_fn.regexp_replace(
-                before_decimal,
-                "[09]",
-                snowpark_fn.regexp_extract(before_decimal, "^(0|9)", 1),
+            spark_fmt_value = _resolve_foldable_string_expression(
+                arg_col=spark_fmt,
+                arg_name=snowpark_arg_names[1],
+                spark_function_name=function_name,
+                session=session,
             )
-            snowpark_fmt = snowpark_fn.when(
-                decimal_used,
-                snowpark_fn.concat(
-                    before_decimal,
-                    snowpark_fn.when(
-                        after_demical_empty, snowpark_fn.lit("")
-                    ).otherwise(snowpark_fn.lit("D")),
-                    snowpark_fn.replace(after_decimal, "9", "0"),
-                ),
-            ).otherwise(
-                # When a number is 0, Spark does not print the digit when the "9" format element is used
-                # and is not followed by a decimal point. Snowflake does print the digit.
-                # We use the "B" format element to get this behavior with a Snowflake format string.
-                snowpark_fn.concat(snowpark_fn.lit("B"), before_decimal)
-            )
-            # Snowflake by default inserts a space in front of positive numbers when explicit sign format
-            # elements are not used. Spark does not, so we have to insert an explicit sign format element,
-            # and remove the added sign after.
-            snowpark_fmt = snowpark_fn.concat(snowpark_fmt, snowpark_fn.lit("S"))
 
-            # FORMAT THE NUMBER AND POST-PROCESS TO MATCH SPARK
-            formatted = snowpark_fn.to_char(
-                snowpark_fn.abs(snowpark_args[0]), snowpark_fmt
-            )
-            # Snowflake will print negative signs by default even if "S" or "MI" are not present.
-            # Spark does not, so we apply the absolute value function to the numeric column first,
-            # then remove all printed "+" signs due to the "S" format element we added.
-            formatted = snowpark_fn.replace(formatted, "+")
-            # Add currency symbol back if it was present.
-            formatted = snowpark_fn.when(
-                currency_used,
-                snowpark_fn.concat(snowpark_fn.lit("$"), formatted),
-            ).otherwise(formatted)
-            # Handle printing signs before or after the number as necessary.
-            positive_sign = snowpark_fn.when(
-                S_at_start | S_at_end, snowpark_fn.lit("+")
-            ).otherwise(snowpark_fn.lit(" "))
-            formatted = snowpark_fn.when(
-                snowpark_args[0] < 0,
-                snowpark_fn.when(
-                    MI_at_start | S_at_start,
-                    snowpark_fn.concat(snowpark_fn.lit("-"), formatted),
+            if spark_fmt_value is not None:
+                PR_used = spark_fmt_value.endswith("PR")
+                MI_at_start = spark_fmt_value.startswith("MI")
+                S_at_start = spark_fmt_value.startswith("S")
+                MI_at_end = spark_fmt_value.endswith("MI")
+                S_at_end = spark_fmt_value.endswith("S")
+
+                snowpark_fmt_value = spark_fmt_value.replace("PR", "")
+                snowpark_fmt_value = snowpark_fmt_value.replace("MI", "")
+                snowpark_fmt_value = snowpark_fmt_value.replace("S", "")
+
+                currency_used = snowpark_fmt_value.startswith("$")
+                snowpark_fmt_value = snowpark_fmt_value.replace("$", "")
+
+                snowpark_fmt_value = snowpark_fmt_value.replace(".", "D")
+
+                decimal_used = "D" in snowpark_fmt_value
+                if decimal_used:
+                    before_decimal, after_decimal = snowpark_fmt_value.split("D", 1)
+                else:
+                    before_decimal, after_decimal = snowpark_fmt_value, ""
+
+                before_decimal_empty = before_decimal == ""
+                after_demical_empty = after_decimal == ""
+
+                first_digit_match = re.match(r"^(0|9)", before_decimal)
+                first_digit = first_digit_match.group(1) if first_digit_match else ""
+                before_decimal = re.sub("[09]", first_digit, before_decimal)
+
+                if decimal_used:
+                    decimal_separator = "" if after_demical_empty else "D"
+                    snowpark_fmt_value = (
+                        f"{before_decimal}"
+                        f"{decimal_separator}"
+                        f"{after_decimal.replace('9', '0')}"
+                    )
+                else:
+                    # When a number is 0, Spark does not print the digit when the "9"
+                    # format element is used and is not followed by a decimal point.
+                    # Snowflake does print the digit. We use "B" to match Spark.
+                    snowpark_fmt_value = f"B{before_decimal}"
+
+                # Snowflake inserts a leading sign space by default. Add explicit "S"
+                # then strip '+' later so Spark-like positive formatting is preserved.
+                snowpark_fmt_value = f"{snowpark_fmt_value}S"
+                snowpark_fmt = snowpark_fn.lit(snowpark_fmt_value)
+
+                # FORMAT THE NUMBER AND POST-PROCESS TO MATCH SPARK
+                formatted = snowpark_fn.to_char(
+                    snowpark_fn.abs(snowpark_args[0]), snowpark_fmt
                 )
-                .when(
-                    MI_at_end | S_at_end,
-                    snowpark_fn.concat(formatted, snowpark_fn.lit("-")),
+                formatted = snowpark_fn.replace(formatted, "+")
+
+                if currency_used:
+                    formatted = snowpark_fn.concat(snowpark_fn.lit("$"), formatted)
+
+                positive_sign = (
+                    snowpark_fn.lit("+")
+                    if (S_at_start or S_at_end)
+                    else snowpark_fn.lit(" ")
                 )
-                .otherwise(formatted),
-            ).otherwise(
-                snowpark_fn.when(
-                    MI_at_start | S_at_start,
-                    snowpark_fn.concat(positive_sign, formatted),
-                )
-                .when(
-                    MI_at_end | S_at_end, snowpark_fn.concat(formatted, positive_sign)
-                )
-                .otherwise(formatted)
-            )
-            # Edge case where if the following conditions are satisfied, Spark will print a 0 in
-            # front of the decimal point in place of the negative sign.
-            formatted = snowpark_fn.when(
-                MI_at_start & ~currency_used & before_decimal_empty,
-                snowpark_fn.regexp_replace(formatted, r" \.", "0."),
-            ).otherwise(formatted)
-            # Add angle brackets if the "PR" format element was present as is done in Spark.
-            # Additionally, Spark will try to left align all formatted numbers by adding 2
-            # spaces after the number if "PR" is used. We must do the same manually.
-            formatted = snowpark_fn.when(
-                PR_used,
-                snowpark_fn.when(
-                    snowpark_args[0] < 0,
-                    snowpark_fn.concat(
-                        snowpark_fn.lit("<"),
-                        formatted,
-                        snowpark_fn.lit(">"),
-                    ),
-                ).otherwise(snowpark_fn.concat(formatted, snowpark_fn.lit("  "))),
-            ).otherwise(formatted)
-            # Handle edge case where if decimal is used but no digit placeholders are used afterwards,
-            # Spark adds an extra space after the above symbols. We must do the same.
-            result_exp = snowpark_fn.when(
-                decimal_used & after_demical_empty,
-                snowpark_fn.concat(formatted, snowpark_fn.lit(" ")),
-            ).otherwise(formatted)
+
+                if MI_at_start or S_at_start:
+                    formatted = snowpark_fn.when(
+                        snowpark_args[0] < 0,
+                        snowpark_fn.concat(snowpark_fn.lit("-"), formatted),
+                    ).otherwise(snowpark_fn.concat(positive_sign, formatted))
+                elif MI_at_end or S_at_end:
+                    formatted = snowpark_fn.when(
+                        snowpark_args[0] < 0,
+                        snowpark_fn.concat(formatted, snowpark_fn.lit("-")),
+                    ).otherwise(snowpark_fn.concat(formatted, positive_sign))
+
+                # Edge case where Spark prints a 0 before the decimal point.
+                if MI_at_start and (not currency_used) and before_decimal_empty:
+                    formatted = snowpark_fn.regexp_replace(formatted, r" \.", "0.")
+
+                if PR_used:
+                    # Spark wraps negatives in <> and left-aligns positives with 2 spaces.
+                    formatted = snowpark_fn.when(
+                        snowpark_args[0] < 0,
+                        snowpark_fn.concat(
+                            snowpark_fn.lit("<"),
+                            formatted,
+                            snowpark_fn.lit(">"),
+                        ),
+                    ).otherwise(snowpark_fn.concat(formatted, snowpark_fn.lit("  ")))
+
+                # Edge case: decimal used with no trailing placeholders.
+                if decimal_used and after_demical_empty:
+                    result_exp = snowpark_fn.concat(formatted, snowpark_fn.lit(" "))
+                else:
+                    result_exp = formatted
+            else:
+                result_exp = snowpark_fn.lit(None)
             result_type = StringType()
         case "to_csv":
             snowpark_args = [
@@ -9644,7 +9731,17 @@ def map_unresolved_function(
                     )
                 case _:
                     result_exp, result_type = _try_arithmetic_helper(
-                        snowpark_typed_args, snowpark_args, 0
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        ),
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        ),
+                        0,
                     )
                     if result_type is not None:
                         result_exp = TypedColumn(
@@ -9769,10 +9866,18 @@ def map_unresolved_function(
                     | (DecimalType(), DecimalType())
                 ):
                     p1, s1 = _get_type_precision(
-                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        )
                     )
                     p2, s2 = _get_type_precision(
-                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        )
                     )
                     result_type, overflow_possible = _get_decimal_division_result_type(
                         p1, s1, p2, s2
@@ -9971,10 +10076,18 @@ def map_unresolved_function(
                     | (DecimalType(), DecimalType())
                 ):
                     p1, s1 = _get_type_precision(
-                        snowpark_typed_args[0].typ, args_types[0], snowpark_arg_names[0]
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        )
                     )
                     p2, s2 = _get_type_precision(
-                        snowpark_typed_args[1].typ, args_types[1], snowpark_arg_names[1]
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        )
                     )
                     (
                         result_type,
@@ -10137,7 +10250,17 @@ def map_unresolved_function(
                     )
                 case _:
                     result_exp, result_type = _try_arithmetic_helper(
-                        snowpark_typed_args, snowpark_args, 1
+                        OperandInfo(
+                            snowpark_typed_args[0],
+                            args_types[0],
+                            snowpark_arg_names[0],
+                        ),
+                        OperandInfo(
+                            snowpark_typed_args[1],
+                            args_types[1],
+                            snowpark_arg_names[1],
+                        ),
+                        1,
                     )
                     if result_type is not None:
                         result_exp = TypedColumn(
@@ -10189,24 +10312,19 @@ def map_unresolved_function(
                 unbase_arg = snowpark_fn.to_varchar(unbase_arg, "UTF-8")
 
             # Remove all characters that are not base64 characters, as Spark does.
-            value = snowpark_fn.regexp_replace(unbase_arg, "[^A-Za-z0-9+/=]", "")
-            length_mod_4 = snowpark_fn.length(value) % 4
+            cleaned = snowpark_fn.regexp_replace(unbase_arg, "[^A-Za-z0-9+/=]", "")
 
-            result_exp = snowpark_fn.when(
-                length_mod_4 == 0, base64_decoding_function(value)
-            ).otherwise(
-                base64_decoding_function(
-                    snowpark_fn.concat(
-                        value,
-                        snowpark_fn.repeat(snowpark_fn.lit("="), 4 - length_mod_4),
-                    )
-                )
+            pad_count = (4 - snowpark_fn.length(cleaned) % 4) % 4
+            padded = snowpark_fn.concat(
+                cleaned, snowpark_fn.repeat(snowpark_fn.lit("="), pad_count)
             )
+            decoded = base64_decoding_function(padded)
+
             raise_fn = _raise_error_helper(BinaryType(), IllegalArgumentException)
             result_exp = (
                 snowpark_fn.when(unbase_arg.is_null(), snowpark_fn.lit(None))
-                .when(result_exp.is_null(), raise_fn(snowpark_fn.lit("Invalid input")))
-                .otherwise(result_exp)
+                .when(decoded.is_null(), raise_fn(snowpark_fn.lit("Invalid input")))
+                .otherwise(decoded)
             )
             result_type = BinaryType()
         case "unhex":
@@ -10829,8 +10947,8 @@ def _handle_current_timestamp():
     return result_exp
 
 
-def _equivalent_decimal(type):
-    (precision, scale) = _get_type_precision(type)
+def _equivalent_decimal(typ: DataType) -> DecimalType:
+    (precision, scale) = _get_type_precision_from_datatype(typ)
     return DecimalType(precision, scale)
 
 
@@ -10971,52 +11089,38 @@ def _find_common_type(
             raise
 
 
-def _get_pmod_return_type(
-    dividend_type: DataType, divisor_type: DataType
+def _get_mod_return_type(
+    dividend_operand: OperandInfo, divisor_operand: OperandInfo
 ) -> DataType | None:
     """
-    Determines the return type of the `pmod` function based on the types of the dividend and divisor.
+    Determines the return type of the `mod` or `pmod` function based on the types of the dividend and divisor.
 
     Args:
-        dividend_type (DataType): The data type of the dividend.
-        divisor_type (DataType): The data type of the divisor.
+        dividend_operand (OperandInfo): The information about the dividen.
+        divisor_operand (OperandInfo): The information about the divisor.
 
     Returns:
         DataType | None: The resulting data type of the `pmod` operation, or None if the types are invalid.
     """
 
-    def _calculate_decimal_type(
-        decimal_type: DecimalType, other_type: DataType
-    ) -> DataType:
+    def _calculate_decimal_type(d1: DecimalType, d2: DecimalType) -> DataType:
         """
-        Calculates the resulting decimal type when a DecimalType is involved in the `pmod` operation.
+        Calculates the resulting decimal type when a DecimalType is involved in the `mod` or `pmod` operation.
 
         Args:
-            decimal_type (DecimalType): The DecimalType involved in the operation.
-            other_type (DataType): The other data type involved in the operation.
+            d1 (DecimalType): The DecimalType involved in the operation.
+            d2 (DecimalType): The DecimalType involved in the operation.
 
         Returns:
-            DataType: The resulting data type, which could be a DecimalType, FloatType, or DoubleType.
+            DataType: The resulting decimal data type with correct precision and scalel, which could be a DecimalType, FloatType, or DoubleType.
         """
-        match other_type:
-            case ByteType():
-                max_digits = 3
-            case ShortType():
-                max_digits = 5
-            case IntegerType():
-                max_digits = 10
-            case LongType():
-                max_digits = 20
-            case FloatType():
-                return FloatType()
-            case DoubleType():
-                return DoubleType()
-            case _:
-                return decimal_type
-        precision = min(decimal_type.precision, max_digits + decimal_type.scale)
-        return DecimalType(precision, decimal_type.scale)
+        p1, s1 = d1.precision, d1.scale
+        p2, s2 = d2.precision, d2.scale
+        digits = min(p1 - s1, p2 - s2)
+        scale = max(s1, s2)
+        return _bounded_decimal(digits + scale, scale)
 
-    match (dividend_type, divisor_type):
+    match (dividend_operand.typ, divisor_operand.typ):
         # string
         case (StringType(), StringType()):
             result_type = DoubleType()
@@ -11035,21 +11139,24 @@ def _get_pmod_return_type(
         # floating number
         case (DoubleType(), _) | (_, DoubleType()):
             result_type = DoubleType()
+        case (FloatType(), DecimalType()) | (DecimalType(), FloatType()):
+            result_type = DoubleType()
         case (FloatType(), _) | (_, FloatType()):
             result_type = FloatType()
         # decimal number
-        case (DecimalType(), DecimalType() as decimal):
-            result_type = decimal
-        case (DecimalType() as decimal, other) | (other, DecimalType() as decimal):
-            result_type = _calculate_decimal_type(decimal, other)
+        case (DecimalType() as d1, DecimalType() as d2):
+            result_type = _calculate_decimal_type(d1, d2)
+        case (_IntegralType(), DecimalType() as dt):
+            p, s = _get_type_precision(dividend_operand)
+            result_type = _calculate_decimal_type(dt, DecimalType(p, s))
+        case (DecimalType() as dt, _IntegralType()):
+            p, s = _get_type_precision(divisor_operand)
+            result_type = _calculate_decimal_type(DecimalType(p, s), dt)
         # integer number
-        case (LongType(), _) | (_, LongType()):
-            result_type = LongType()
-        case (IntegerType(), _) | (_, IntegerType()) | (ByteType(), _) | (
-            _,
-            ByteType(),
-        ) | (ShortType(), _) | (_, ShortType()):
-            result_type = IntegerType()
+        case (integral_type1, integral_type2) if isinstance(
+            integral_type1, _IntegralType
+        ) and isinstance(integral_type2, _IntegralType):
+            result_type = _find_common_type([integral_type1, integral_type2])
         # default case
         case _:
             result_type = None
@@ -12034,16 +12141,12 @@ def _try_sum_helper(
                 return result, DoubleType()
 
 
-def _get_type_precision(
-    typ: DataType, arg_type: str = None, arg_name: str = None
-) -> tuple[int, int]:
+def _get_type_precision_from_datatype(typ: DataType) -> tuple[int, int]:
     """
-    Returns (precision, scale) needed for a given type.
+    Returns (precision, scale) for a given DataType.
     For integral types, returns the number of digits needed to represent the maximum value.
     For decimal types, returns the type's precision and scale.
     """
-    if arg_type == "literal" and isinstance(typ, _IntegralType):
-        return _get_type_precision_for_integral_literal(typ, val=arg_name)
     match typ:
         case DecimalType():
             return typ.precision, typ.scale
@@ -12059,6 +12162,19 @@ def _get_type_precision(
             return 0, 0  # NULL
         case _:
             return 38, 0  # Default to maximum precision for other types
+
+
+def _get_type_precision(operand: OperandInfo) -> tuple[int, int]:
+    """
+    Returns (precision, scale) needed for a given operand.
+    For integral literals, computes precision from the actual literal value.
+    Otherwise delegates to _get_type_precision_from_datatype.
+    """
+    if operand.is_literal and isinstance(operand.typ, _IntegralType):
+        return _get_type_precision_for_integral_literal(
+            operand.typ, val=operand.arg_name
+        )
+    return _get_type_precision_from_datatype(operand.typ)
 
 
 def _get_type_precision_for_integral_literal(typ: _IntegralType, val: str):
@@ -12141,7 +12257,7 @@ def _arithmetic_operation(
         )
 
     def _cast_arg(tc: TypedColumn) -> Column:
-        _, s = _get_type_precision(tc.typ)
+        _, s = _get_type_precision(OperandInfo(tc))
         typ = (
             DoubleType()
             if s > 0
@@ -12230,7 +12346,9 @@ def _get_decimal_division_result_type(p1, s1, p2, s2) -> tuple[DecimalType, bool
 
 
 def _try_arithmetic_helper(
-    typed_args: List[TypedColumn], snowpark_args: List[Column], operation_type: int
+    operand_left: OperandInfo,
+    operand_right: OperandInfo,
+    operation_type: int,
 ) -> tuple[Column, DataType | None]:
     # Constructs a Snowpark Column expression for a "try-style" arithmetic operation
     # (addition or subtraction, determined by `operation_type`) between two input columns.
@@ -12249,7 +12367,12 @@ def _try_arithmetic_helper(
     # Arithmetic operations involving **Boolean types** will raise an `AnalysisException`.
     # All other unhandled incompatible type combinations result in a NULL literal.
     # The function returns the resulting Snowpark Column expression.
-    match (typed_args[0].typ, typed_args[1].typ):
+
+    # Extract typed columns and snowpark columns from operands
+    typed_args = [operand_left.typed_column, operand_right.typed_column]
+    snowpark_args = [operand_left.col, operand_right.col]
+
+    match (operand_left.typ, operand_right.typ):
         case (_IntegralType() as t1, _IntegralType() as t2):
             result_type = _find_common_type([t1, t2])
             min_val, max_val = get_integral_type_bounds(result_type)
@@ -12352,8 +12475,8 @@ def _try_arithmetic_helper(
             DecimalType(),
         ):
             result_type, overflow_possible = _get_add_sub_result_type(
-                typed_args[0].typ,
-                typed_args[1].typ,
+                operand_left,
+                operand_right,
                 "try_add" if operation_type == 0 else "try_subtract",
             )
 
@@ -12414,16 +12537,16 @@ def _try_arithmetic_helper(
 
 
 def _get_add_sub_result_type(
-    type1: DataType,
-    type2: DataType,
+    operand_left: OperandInfo,
+    operand_right: OperandInfo,
     spark_function_name: str,
 ) -> tuple[DataType, bool]:
     overflow_possible = False
-    result_type = _find_common_type([type1, type2])
+    result_type = _find_common_type([operand_left.typ, operand_right.typ])
     match result_type:
         case DecimalType():
-            p1, s1 = _get_type_precision(type1)
-            p2, s2 = _get_type_precision(type2)
+            p1, s1 = _get_type_precision(operand_left)
+            p2, s2 = _get_type_precision(operand_right)
             result_scale = max(s1, s2)
             result_precision = max(p1 - s1, p2 - s2) + result_scale + 1
             if result_precision > 38:
@@ -12436,7 +12559,7 @@ def _get_add_sub_result_type(
         case NullType():
             result_type = DoubleType()
         case StringType():
-            match (type1, type2):
+            match (operand_left.typ, operand_right.typ):
                 case (_FractionalType(), _) | (_, _FractionalType()):
                     result_type = DoubleType()
                 case (_IntegralType(), _) | (_, _IntegralType()):

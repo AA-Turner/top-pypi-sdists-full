@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hermes-client-python
-Version: 1.8.23
+Version: 1.8.26
 Summary: Async Python client for Hermes search server
 Project-URL: Homepage, https://github.com/SpaceFrontiers/hermes
 Project-URL: Repository, https://github.com/SpaceFrontiers/hermes

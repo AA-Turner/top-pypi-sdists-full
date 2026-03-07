@@ -35,6 +35,7 @@ from sqlframe.base.util import (
     get_column_mapping_from_schema_input,
     is_relativedelta_like,
     normalize_string,
+    safe_parse_identifier,
     verify_pandas_installed,
 )
 
@@ -85,6 +86,7 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
     _udf_registration: t.Type[UDF_REGISTRATION]
 
     SANITIZE_COLUMN_NAMES = False
+    DICT_AS_MAP = True
 
     def __init__(
         self,
@@ -285,6 +287,16 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
                     row_types.append((row_name, default_type))
                 return "struct<" + ", ".join(f"{k}: {v}" for (k, v) in row_types) + ">"
             elif isinstance(value, dict):
+                if not self.DICT_AS_MAP:
+                    struct_types = []
+                    for k, v in value.items():
+                        default_type = get_default_data_type(v)
+                        if not default_type:
+                            continue
+                        struct_types.append((str(k), default_type))
+                    if not struct_types:
+                        return None
+                    return "struct<" + ", ".join(f"{k}: {v}" for (k, v) in struct_types) + ">"
                 sample_row = seq_get(list(value.items()), 0)
                 if not sample_row:
                     return None
@@ -343,6 +355,17 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
                     else None
                 )
         column_mapping = updated_mapping
+
+        def _dict_to_row(value: t.Any) -> t.Any:
+            if isinstance(value, dict):
+                return Row(**{k: _dict_to_row(v) for k, v in value.items()})
+            if isinstance(value, (list, set)):
+                return type(value)(_dict_to_row(v) for v in value)
+            return value
+
+        def _maybe_convert(value: t.Any) -> t.Any:
+            return _dict_to_row(value) if not self.DICT_AS_MAP else value
+
         data_expressions = []
         for row in rows:
             if isinstance(row, (list, tuple, dict)):
@@ -352,10 +375,12 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
                 if isinstance(row, Row):
                     row = row.asDict()
                 if isinstance(row, dict):
-                    row = row.values()
-                data_expressions.append(exp.tuple_(*[F.lit(x).column_expression for x in row]))
+                    row = [row.get(col_name) for col_name in column_mapping]
+                data_expressions.append(
+                    exp.tuple_(*[F.lit(_maybe_convert(x)).column_expression for x in row])
+                )
             else:
-                data_expressions.append(exp.tuple_(*[F.lit(row).column_expression]))
+                data_expressions.append(exp.tuple_(*[F.lit(_maybe_convert(row)).column_expression]))
 
         if column_mapping:
             sel_columns = [
@@ -535,7 +560,7 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
             return []
         case_sensitive_cols = []
         for col in self._cur.description:
-            col_id = exp.parse_identifier(col[0], dialect=self.execution_dialect)
+            col_id = safe_parse_identifier(col[0], dialect=self.execution_dialect)
             col_id._meta = {"case_sensitive": True, **(col_id._meta or {})}
             case_sensitive_cols.append(col_id)
         columns = [
@@ -693,6 +718,21 @@ class _BaseSession(t.Generic[CATALOG, READER, WRITER, DF, TABLE, CONN, UDF_REGIS
             self._session_kwargs = {}
 
         def __getattr__(self, item) -> Self:
+            # When a @property raises AttributeError, Python falls through to __getattr__.
+            # If the attribute is defined on the class as a property, the error came from
+            # the property getter, not from a missing attribute. Re-invoke it to surface
+            # the real error instead of silently returning self.
+            for cls in type(self).__mro__:
+                if item in cls.__dict__:
+                    desc = cls.__dict__[item]
+                    if isinstance(desc, (property, cached_property)):
+                        try:
+                            return (
+                                desc.fget(self) if isinstance(desc, property) else desc.func(self)
+                            )
+                        except AttributeError as e:
+                            raise RuntimeError(f"Error accessing attribute {item!r}: {e!r}") from e
+                    raise AttributeError(item)
             return self
 
         def __call__(self, *args, **kwargs):

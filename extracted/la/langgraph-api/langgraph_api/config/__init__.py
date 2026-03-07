@@ -1,3 +1,4 @@
+import json
 import os
 from os import environ, getenv
 from typing import TYPE_CHECKING, Annotated, Literal, TypeVar, cast
@@ -264,8 +265,17 @@ MAX_STREAM_CHUNK_SIZE_BYTES = env(
 )
 
 
-CHECKPOINTER_CONFIG: CheckpointerConfig | None = env(
-    "LANGGRAPH_CHECKPOINTER", cast=_parse.parse_checkpointer, default=None
+# Resolve checkpointer config: LANGGRAPH_CHECKPOINTER takes precedence,
+# then LS_CHECKPOINTER_BACKEND, matching Go's os.Getenv behavior where
+# both unset and empty-string are treated as "not configured".
+_checkpointer_raw = os.environ.get("LANGGRAPH_CHECKPOINTER", "").strip()
+if not _checkpointer_raw:
+    _ls_backend = os.environ.get("LS_CHECKPOINTER_BACKEND", "").strip()
+    if _ls_backend:
+        _checkpointer_raw = json.dumps({"backend": _ls_backend})
+
+CHECKPOINTER_CONFIG: CheckpointerConfig | None = _parse.parse_checkpointer(
+    _checkpointer_raw or None
 )
 USE_CUSTOM_CHECKPOINTER = bool(
     CHECKPOINTER_CONFIG is not None

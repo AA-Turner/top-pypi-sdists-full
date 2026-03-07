@@ -11,6 +11,7 @@ import sysconfig
 import os
 import os.path as op
 import platform
+from packaging.version import Version
 from pathlib import Path
 
 from Cython import Tempita as tempita
@@ -72,6 +73,9 @@ if sys.platform.startswith('win'):
         ('H5_BUILT_AS_DYNAMIC_LIB', None)
     ])
 
+def version_tuple(dunder_version: str) -> tuple[int, int, int]:
+    v = Version(dunder_version)
+    return (v.major, v.minor, v.micro)
 
 class h5py_build_ext(build_ext):
 
@@ -104,14 +108,7 @@ class h5py_build_ext(build_ext):
             settings['library_dirs'].extend(config.msmpi_lib_dirs)
             settings['libraries'].append('msmpi')
 
-        try:
-            numpy_includes = numpy.get_include()
-        except AttributeError:
-            # if numpy is not installed get the headers from the .egg directory
-            import numpy.core
-            numpy_includes = os.path.join(os.path.dirname(numpy.core.__file__), 'include')
-
-        settings['include_dirs'] += [numpy_includes]
+        settings['include_dirs'] += [numpy.get_include()]
         if config.mpi:
             import mpi4py
             settings['include_dirs'] += [mpi4py.get_include()]
@@ -137,7 +134,7 @@ class h5py_build_ext(build_ext):
         settings['define_macros'].append(('NPY_TARGET_VERSION', 'NPY_1_21_API_VERSION'))
         extensions = [cls._make_extension(m, settings) for m in MODULES]
 
-        if int(numpy.__version__.split('.')[0]) >= 2:
+        if Version(numpy.__version__).major >= 2:
             # Enable NumPy 2.0 C API for modules that require it.
             # NUMPY2_MODULES will not be importable when NumPy 1.x is installed.
             settings['define_macros'].append(('NPY_TARGET_VERSION', 'NPY_2_0_API_VERSION'))
@@ -191,18 +188,23 @@ class h5py_build_ext(build_ext):
             "VOL_MIN_HDF5_VERSION": (1, 11, 5),
             "COMPLEX256_SUPPORT": complex256_support,
             "NUMPY_BUILD_VERSION": numpy.__version__,
-            "NUMPY_BUILD_VERSION_TUPLE": tuple(int(x) for x in numpy.__version__.split('.')[:3]),
+            "NUMPY_BUILD_VERSION_TUPLE": version_tuple(numpy.__version__),
             "CYTHON_BUILD_VERSION": cython_version,
             "PLATFORM_SYSTEM": platform.system(),
             "OBJECTS_USE_LOCKING": True,
             "OBJECTS_DEBUG_ID": False,
             "FREE_THREADING": sysconfig.get_config_var("Py_GIL_DISABLED") == 1,
         }
+        compiler_directives = {}
+        if Version(cython_version) >= Version("3.1.0b1"):
+            compiler_directives["freethreading_compatible"] = True
+
         # Run Cython
         print("Executing cythonize()")
         self.extensions = self.distribution.ext_modules = cythonize(
             self._make_extensions(config, templ_config),
             force=config.changed() or self.force,
+            compiler_directives=compiler_directives,
             language_level=3
         )
 

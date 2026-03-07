@@ -13,8 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from .common import DistanceMetric
-from .data_object import DataObject, DenseVector, SparseVector, Vector
+from .common import (
+    DistanceMetric,
+)
+from .data_object import (
+    DataObject,
+    DenseVector,
+    SparseVector,
+    Vector,
+)
 from .data_object_search_service import (
     AggregateDataObjectsRequest,
     AggregateDataObjectsResponse,
@@ -35,7 +42,6 @@ from .data_object_search_service import (
     SemanticSearch,
     TextSearch,
     VectorSearch,
-    VertexRanker,
 )
 from .data_object_service import (
     BatchCreateDataObjectsRequest,
@@ -48,13 +54,18 @@ from .data_object_service import (
     GetDataObjectRequest,
     UpdateDataObjectRequest,
 )
-from .embedding_config import EmbeddingTaskType, VertexEmbeddingConfig
+from .embedding_config import (
+    EmbeddingTaskType,
+    VertexEmbeddingConfig,
+)
 from .vectorsearch_service import (
     Collection,
     CreateCollectionRequest,
     CreateIndexRequest,
+    DedicatedInfrastructure,
     DeleteCollectionRequest,
     DeleteIndexRequest,
+    DenseScannIndex,
     DenseVectorField,
     ExportDataObjectsMetadata,
     ExportDataObjectsRequest,
@@ -99,7 +110,6 @@ __all__ = (
     "SemanticSearch",
     "TextSearch",
     "VectorSearch",
-    "VertexRanker",
     "AggregationMethod",
     "BatchCreateDataObjectsRequest",
     "BatchCreateDataObjectsResponse",
@@ -115,8 +125,10 @@ __all__ = (
     "Collection",
     "CreateCollectionRequest",
     "CreateIndexRequest",
+    "DedicatedInfrastructure",
     "DeleteCollectionRequest",
     "DeleteIndexRequest",
+    "DenseScannIndex",
     "DenseVectorField",
     "ExportDataObjectsMetadata",
     "ExportDataObjectsRequest",

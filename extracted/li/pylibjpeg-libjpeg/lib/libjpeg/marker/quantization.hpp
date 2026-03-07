@@ -41,7 +41,7 @@
 /*
 ** This class represents the quantization tables.
 **
-** $Id: quantization.hpp,v 1.16 2021/11/15 07:39:43 thor Exp $
+** $Id: quantization.hpp,v 1.17 2025/08/15 09:07:16 thor Exp $
 **
 */
 
@@ -63,6 +63,9 @@ class Quantization : public JKeeper {
   //
   // The actual quantization tables. This marker can hold up to four of them.
   class QuantizationTable *m_pTables[4];
+  //
+  // Indicator whether there are separate tables for cb and cr.
+  bool  m_bComplete;
   //
 public:
   Quantization(class Environ *env);
@@ -98,6 +101,13 @@ public:
   {
     assert(idx < 4);
     return m_pTables[idx];
+  }
+  //
+  // Return an indicator whether tables for all three components
+  // are present, or at most two.
+  bool hasCompleteTables(void) const
+  {
+    return m_bComplete;
   }
 };
 ///

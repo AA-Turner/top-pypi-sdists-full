@@ -25,6 +25,7 @@ class CloudGuardConfigurationArgs:
                  self_manage_resources: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a CloudGuardConfiguration resource.
+
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The OCID of the compartment in which to list resources.
         :param pulumi.Input[_builtins.str] reporting_region: (Updatable) The reporting region
         :param pulumi.Input[_builtins.str] status: (Updatable) Status of Cloud Guard tenant
@@ -102,6 +103,7 @@ class _CloudGuardConfigurationState:
                  status: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering CloudGuardConfiguration resources.
+
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The OCID of the compartment in which to list resources.
         :param pulumi.Input[_builtins.str] reporting_region: (Updatable) The reporting region
         :param pulumi.Input[_builtins.bool] self_manage_resources: (Updatable) Identifies if Oracle managed resources will be created by customers. If no value is specified false is the default.
@@ -203,16 +205,13 @@ class CloudGuardConfiguration(pulumi.CustomResource):
             compartment_id=compartment_id,
             reporting_region=cloud_guard_configuration_reporting_region,
             status=cloud_guard_configuration_status,
-            self_manage_resources=cloud_guard_configuration_self_manage_resources,
-            service_configurations=[{
-                "serviceConfigurationType": cloud_guard_configuration_service_configurations_service_configuration_type,
-                "status": cloud_guard_configuration_service_configurations_status,
-            }])
+            self_manage_resources=cloud_guard_configuration_self_manage_resources)
         ```
 
         ## Import
 
         Import is not supported for this resource.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -250,16 +249,13 @@ class CloudGuardConfiguration(pulumi.CustomResource):
             compartment_id=compartment_id,
             reporting_region=cloud_guard_configuration_reporting_region,
             status=cloud_guard_configuration_status,
-            self_manage_resources=cloud_guard_configuration_self_manage_resources,
-            service_configurations=[{
-                "serviceConfigurationType": cloud_guard_configuration_service_configurations_service_configuration_type,
-                "status": cloud_guard_configuration_service_configurations_status,
-            }])
+            self_manage_resources=cloud_guard_configuration_self_manage_resources)
         ```
 
         ## Import
 
         Import is not supported for this resource.
+
 
         :param str resource_name: The name of the resource.
         :param CloudGuardConfigurationArgs args: The arguments to use to populate this resource's properties.

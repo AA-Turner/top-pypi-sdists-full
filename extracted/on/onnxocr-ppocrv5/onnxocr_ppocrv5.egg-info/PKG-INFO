@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: onnxocr-ppocrv5
-Version: 0.0.7
-Summary: ONNX-based OCR (PP-OCRv5) inference pipeline with DirectML support.
+Version: 0.0.9
+Summary: ONNX-based OCR (PP-OCRv5) inference pipeline.
 Author-email: Your Name <your.email@example.com>
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -208,7 +208,7 @@ License:                                  Apache License
 Project-URL: Homepage, https://github.com/ok-oldking/OnnxOCR
 Project-URL: Repository, https://github.com/ok-oldking/OnnxOCR
 Project-URL: Issues, https://github.com/ok-oldking/OnnxOCR/issues
-Keywords: ocr,onnx,directml,ppocr,text detection,text recognition
+Keywords: ocr,onnx,ppocr,text detection,text recognition
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -232,18 +232,14 @@ Dynamic: license-file
 ### 这是 [https://github.com/jingsongliujing/OnnxOCR](https://github.com/jingsongliujing/OnnxOCR) 的fork 
 
 * 发布了到PIP上
-* 支持dml
 * 仅依赖无版本限制的 pyclipper, shapely, pillow
-* onnx可以根据自己需要安装cpu, gpu或directml
-* 仅打包了"models/ppocrv5/det/det.onnx" "models/ppocrv5/rec/rec.onnx", 没有cls模型
+* 仅打包了"models/ppocrv5/det/det.onnx" "models/ppocrv5/rec/rec.onnx"
 
 ```
 pip install onnxocr-ppocrv5
-pip install onnxocr-ppocrv4
 ```
 
 
 ```python
-# 新增use_dml
-model = ONNXPaddleOcr(use_angle_cls=False, use_gpu=False, use_dml=True)
+model = ONNXPaddleOcr(use_angle_cls=False)
 ```

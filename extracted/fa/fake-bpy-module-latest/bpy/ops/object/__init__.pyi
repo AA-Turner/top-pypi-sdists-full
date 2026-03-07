@@ -2103,6 +2103,7 @@ def make_links_data(
         "DUPLICOLLECTION",
         "FONTS",
         "MODIFIERS",
+        "CONSTRAINTS",
         "EFFECTS",
         "LIGHT_LINKING",
         "SHADOW_LINKING",
@@ -2133,6 +2134,9 @@ def make_links_data(
 
     MODIFIERS
     Copy Modifiers -- Replace Modifiers.
+
+    CONSTRAINTS
+    Copy Constraints -- Replace Constraints.
 
     EFFECTS
     Copy Grease Pencil Effects -- Replace Grease Pencil Effects.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: truefoundry-sdk
-Version: 0.1.20
+Version: 0.2.0
 Summary: 
 Requires-Python: >=3.8
 Classifier: Intended Audience :: Developers
@@ -188,7 +188,6 @@ response = client.users.list(
     offset=0,
     query="query",
     show_invalid_users=True,
-    include_virtual_accounts="includeVirtualAccounts",
 )
 for item in response:
     yield item

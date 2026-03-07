@@ -52,12 +52,13 @@ from chellow.models import (
     VoltageLevel,
 )
 from chellow.utils import (
-    hh_format,
+    date_format,
     parse_bool,
     parse_channel_type,
     parse_date,
     parse_mpan_core,
     parse_pc_code,
+    utc_datetime_now,
 )
 
 process_id = 0
@@ -771,7 +772,10 @@ def general_import_g_batch(sess, action, vals, args):
         reference = add_arg(args, "Reference", vals, 1)
         description = add_arg(args, "Description", vals, 2)
         date_created_str = add_arg(args, "Date Created", vals, 3)
-        date_created = parse_date(date_created_str)
+        if len(date_created_str) == 0:
+            date_created = parse_date(date_created_str)
+        else:
+            date_created = utc_datetime_now()
         g_contract.insert_g_batch(sess, reference, description, date_created)
 
     elif action == "update":
@@ -876,7 +880,10 @@ def general_import_mop_batch(sess, action, vals, args):
         reference = add_arg(args, "Reference", vals, 1)
         description = add_arg(args, "Description", vals, 2)
         date_created_str = add_arg(args, "Date Created", vals, 3)
-        date_created = parse_date(date_created_str)
+        if len(date_created_str) == 0:
+            date_created = parse_date(date_created_str)
+        else:
+            date_created = utc_datetime_now()
         contract.insert_batch(sess, reference, description, date_created)
 
     elif action == "update":
@@ -1043,7 +1050,10 @@ def general_import_dc_batch(sess, action, vals, args):
         reference = add_arg(args, "Reference", vals, 1)
         description = add_arg(args, "Description", vals, 2)
         date_created_str = add_arg(args, "Date Created", vals, 3)
-        date_created = parse_date(date_created_str)
+        if len(date_created_str) == 0:
+            date_created = parse_date(date_created_str)
+        else:
+            date_created = utc_datetime_now()
         contract.insert_batch(sess, reference, description, date_created)
 
     elif action == "update":
@@ -1212,7 +1222,11 @@ def general_import_supplier_batch(sess, action, vals, args):
         reference = add_arg(args, "Reference", vals, 1)
         description = add_arg(args, "Description", vals, 2)
         date_created_str = add_arg(args, "Date Created", vals, 3)
-        date_created = parse_date(date_created_str)
+        if len(date_created_str) == 0:
+            date_created = parse_date(date_created_str)
+        else:
+            date_created = utc_datetime_now()
+
         contract.insert_batch(sess, reference, description, date_created)
 
     elif action == "update":
@@ -1678,7 +1692,7 @@ def general_import_g_register_read(sess, action, vals, args):
             raise BadRequest(
                 f"Can't find a bill in batch {batch_reference} in contract "
                 f"{contract_name} with MPRN {mprn} starting at "
-                f"{hh_format(bill_start_date)}"
+                f"{date_format(bill_start_date)}"
             )
 
         for i in range(4, len(vals), 10):
@@ -1939,7 +1953,7 @@ def general_import_llfc(sess, action, vals, args):
         if llfc is None:
             raise BadRequest(
                 f"Can't find an LLFC for the DNO {dno_code} and 'valid from' "
-                f"date {hh_format(valid_from)}."
+                f"date {date_format(valid_from)}."
             )
 
         llfc_description_str = add_arg(args, "llfc_description", vals, 3)

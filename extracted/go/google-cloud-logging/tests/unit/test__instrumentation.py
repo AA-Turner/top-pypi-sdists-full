@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import unittest
+
 import google.cloud.logging_v2._instrumentation as i
 
 

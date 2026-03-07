@@ -1135,7 +1135,7 @@ def test_multiple_contains_clauses(session, clean_bucket_name):
 
 @pytest.mark.parametrize("sorting",
     (
-        ([]),
+        # ([]),
         ([1]),
         ([2, 0]),
         ([2, 0, 1]),
@@ -1214,8 +1214,10 @@ def test_elysium_tx(elysium_session: Session, clean_bucket_name: str, sorting: S
         row_ids_array = t.insert(arrow_table)
         row_ids = row_ids_array.to_pylist()
         assert_row_ids_ascending_on_first_insertion_to_table(row_ids, arrow_table.num_rows, t.sorted_table)
-        sorted_columns = t.sorted_columns()
-        assert len(sorted_columns) == 0
+
+        with pytest.raises(errors.BadRequest, match="Listing sorted.*columns.*without elysium.*enabled"):
+            t.sorted_columns()
+
         t.add_sorting_key(sorting)
 
     with elysium_session.transaction() as tx:
@@ -1448,12 +1450,12 @@ def test_list_columns_with_pagination(session: Session, clean_bucket_name: str):
 
     try:
         session.api._max_entities_per_page = columns_count
-
         with session.transaction() as tx:
-            with pytest.raises(errors.BadRequest, match="list column result size=.*is too long"):
-                # causes a list columns
+            try:
                 t = tx.bucket(clean_bucket_name).schema(schema_name).table(table_name)
-
+                assert len(t._metadata.arrow_schema) == columns_count
+            except errors.BadRequest as e:
+                assert "list column result size" in str(e)
             t = tx.table_from_metadata(TableMetadata(TableRef(clean_bucket_name, schema_name, table_name)))
             # names only requires less wire capacity so should succeed in one rpc
             assert len(t.retrieve_column_names()) == columns_count

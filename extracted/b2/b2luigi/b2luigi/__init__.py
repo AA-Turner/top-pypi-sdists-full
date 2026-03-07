@@ -8,7 +8,7 @@ from luigi.util import copies
 
 # version must be defined after importing the luigi namespace,
 # otherwise the b2luigi.__version__ gets overwritten by the one from luigi
-__version__ = "1.2.7"
+__version__ = "1.2.8"
 
 # Warn users if they're using an untested Python version
 if sys.version_info[:2] > (3, 11):
@@ -22,7 +22,7 @@ if sys.version_info[:2] > (3, 11):
         stacklevel=2,
     )
 
-from b2luigi.core.parameter import wrap_parameter, BoolParameter
+from b2luigi.core.parameter import wrap_parameter, BoolParameter, BatchIntParameter
 from typing import Optional, Union, Collection
 
 wrap_parameter()
@@ -32,7 +32,9 @@ from b2luigi.core.target import LocalTarget
 from b2luigi.core.temporary_wrapper import on_temporary_files
 from b2luigi.core.dispatchable_task import DispatchableTask, dispatch
 from b2luigi.core.settings import get_setting, set_setting, clear_setting, _setting_file_iterator
-from b2luigi.core.xrootd_targets import XRootDSystem, XRootDTarget
+from b2luigi.core.remote_target import RemoteTarget
+from b2luigi.core.remote_target.xrootd import XRootDSystem, XRootDTarget
+from b2luigi.core.remote_target.webdav import WebDAVSystem, WebDAVTarget
 from b2luigi.cli.process import process
 
 

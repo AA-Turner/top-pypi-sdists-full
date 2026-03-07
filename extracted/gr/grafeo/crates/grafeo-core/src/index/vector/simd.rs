@@ -46,7 +46,7 @@ pub fn has_sse() -> bool {
 /// Returns true if NEON instructions are available (always true on aarch64).
 #[cfg(target_arch = "aarch64")]
 #[inline]
-#[allow(dead_code)]
+#[allow(dead_code)] // Used only when NEON SIMD paths are compiled
 pub fn has_neon() -> bool {
     true // NEON is mandatory on aarch64
 }
@@ -54,21 +54,21 @@ pub fn has_neon() -> bool {
 // Fallback for other architectures (wasm32, riscv, etc.)
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 #[inline]
-#[allow(dead_code)]
+#[allow(dead_code)] // Platform stub: called only on matching target
 pub fn has_avx2() -> bool {
     false
 }
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 #[inline]
-#[allow(dead_code)]
+#[allow(dead_code)] // Platform stub: called only on matching target
 pub fn has_sse() -> bool {
     false
 }
 
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 #[inline]
-#[allow(dead_code)]
+#[allow(dead_code)] // Platform stub: called only on matching target
 pub fn has_neon() -> bool {
     false
 }
@@ -143,15 +143,18 @@ pub fn euclidean_distance_squared_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
         if has_avx2() {
+            // SAFETY: AVX2+FMA availability is checked by `has_avx2()` above
             return unsafe { euclidean_squared_avx2(a, b) };
         }
         if has_sse() {
+            // SAFETY: SSE availability is checked by `has_sse()` above
             return unsafe { euclidean_squared_sse(a, b) };
         }
     }
 
     #[cfg(target_arch = "aarch64")]
     {
+        // SAFETY: NEON is always available on aarch64
         return unsafe { euclidean_squared_neon(a, b) };
     }
 
@@ -171,15 +174,18 @@ pub fn cosine_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
         if has_avx2() {
+            // SAFETY: AVX2+FMA availability is checked by `has_avx2()` above
             return unsafe { cosine_distance_avx2(a, b) };
         }
         if has_sse() {
+            // SAFETY: SSE availability is checked by `has_sse()` above
             return unsafe { cosine_distance_sse(a, b) };
         }
     }
 
     #[cfg(target_arch = "aarch64")]
     {
+        // SAFETY: NEON is always available on aarch64
         return unsafe { cosine_distance_neon(a, b) };
     }
 
@@ -193,15 +199,18 @@ pub fn manhattan_distance_simd(a: &[f32], b: &[f32]) -> f32 {
     #[cfg(target_arch = "x86_64")]
     {
         if has_avx2() {
+            // SAFETY: AVX2+FMA availability is checked by `has_avx2()` above
             return unsafe { manhattan_distance_avx2(a, b) };
         }
         if has_sse() {
+            // SAFETY: SSE availability is checked by `has_sse()` above
             return unsafe { manhattan_distance_sse(a, b) };
         }
     }
 
     #[cfg(target_arch = "aarch64")]
     {
+        // SAFETY: NEON is always available on aarch64
         return unsafe { manhattan_distance_neon(a, b) };
     }
 

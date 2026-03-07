@@ -22,7 +22,9 @@ macro_rules! define_submodule {
 }
 
 // Keep in sync with lib.rs #[pymodule_export] uses and stub_gen.rs submodules array
+define_submodule!(bonding);
 define_submodule!(cell);
+define_submodule!(chempot);
 define_submodule!(composition);
 define_submodule!(convex_hull);
 define_submodule!(coordination);
@@ -44,4 +46,5 @@ define_submodule!(structure);
 define_submodule!(surfaces);
 define_submodule!(symmetry);
 define_submodule!(trajectory);
+define_submodule!(vasp);
 define_submodule!(xrd);

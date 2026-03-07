@@ -26,8 +26,13 @@ from huggingface_hub.cli.buckets import buckets_cli, sync
 from huggingface_hub.cli.cache import cache_cli
 from huggingface_hub.cli.collections import collections_cli
 from huggingface_hub.cli.datasets import datasets_cli
+from huggingface_hub.cli.discussions import discussions_cli
 from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
-from huggingface_hub.cli.extensions import _dispatch_unknown_top_level_extension, extensions_cli
+from huggingface_hub.cli.extensions import (
+    _dispatch_unknown_top_level_extension,
+    _list_installed_extensions_for_help,
+    extensions_cli,
+)
 from huggingface_hub.cli.inference_endpoints import ie_cli
 from huggingface_hub.cli.jobs import jobs_cli
 from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
@@ -40,13 +45,17 @@ from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, version
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
 from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
+from huggingface_hub.cli.webhooks import webhooks_cli
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import ANSI, logging
 
 
 app = typer_factory(
     help="Hugging Face Hub CLI",
-    cls=fallback_typer_group_factory(_dispatch_unknown_top_level_extension),
+    cls=fallback_typer_group_factory(
+        _dispatch_unknown_top_level_extension,
+        extra_commands_provider=_list_installed_extensions_for_help,
+    ),
 )
 
 
@@ -83,6 +92,7 @@ app.add_typer(buckets_cli, name="buckets")
 app.add_typer(cache_cli, name="cache")
 app.add_typer(collections_cli, name="collections")
 app.add_typer(datasets_cli, name="datasets")
+app.add_typer(discussions_cli, name="discussions")
 app.add_typer(jobs_cli, name="jobs")
 app.add_typer(models_cli, name="models")
 app.add_typer(papers_cli, name="papers")
@@ -90,6 +100,7 @@ app.add_typer(repos_cli, name="repos | repo")
 app.add_typer(repo_files_cli, name="repo-files", hidden=True)
 app.add_typer(skills_cli, name="skills")
 app.add_typer(spaces_cli, name="spaces")
+app.add_typer(webhooks_cli, name="webhooks")
 app.add_typer(ie_cli, name="endpoints")
 app.add_typer(extensions_cli, name="extensions | ext")
 

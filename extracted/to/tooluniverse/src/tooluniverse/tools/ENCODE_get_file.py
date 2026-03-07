@@ -21,7 +21,7 @@ def ENCODE_get_file(
     Parameters
     ----------
     accession : str
-        ENCODE file accession identifier (format: ENCFF######, e.g., 'ENCFF001JXO', '...
+        ENCODE file accession identifier (format: ENCFF######, e.g., 'ENCFF001JXO'). ...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

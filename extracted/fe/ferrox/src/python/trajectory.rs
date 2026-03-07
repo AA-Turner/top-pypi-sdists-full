@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 
 use super::helpers::positions_to_vec3;
-use crate::trajectory::{self, MsdCalculator, VacfCalculator};
+use crate::analysis::trajectory::{self, MsdCalculator, VacfCalculator};
 
 /// Validate dimension parameter (must be 1, 2, or 3).
 fn validate_dim(dim: usize) -> PyResult<()> {

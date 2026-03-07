@@ -108,6 +108,8 @@ from .pipe_corrosion_detection import PipeCorrosionDetectionUseCase, PipeCorrosi
 from .overcrowding_detection import OvercrowdingDetectionUseCase, OvercrowdingDetectionConfig
 from .animal_detection import AnimalDetectionUseCase, AnimalDetectionConfig
 from .burglary_detection import BurglaryDetectionConfig, BurglaryDetectionUseCase
+from .landslide_detection import LandslideDetectionUseCase, LandslideDetectionConfig
+
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
 from .skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
@@ -217,6 +219,7 @@ __all__ = [
     'OvercrowdingDetectionUseCase',
     'AnimalDetectionUseCase',
     'BurglaryDetectionUseCase',
+    'LandslideDetectionUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
@@ -322,6 +325,7 @@ __all__ = [
     'OvercrowdingDetectionConfig',
     'AnimalDetectionConfig',
     'BurglaryDetectionConfig',
+    'LandslideDetectionConfig',
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
     'SkinCancerClassificationConfig',

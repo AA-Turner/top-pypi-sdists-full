@@ -15,6 +15,7 @@ class SearchInputUiBlockItemType(Enums.KnownString):
     CONTAINER = "container"
     LOCATION = "location"
     PLATE = "plate"
+    WORKLIST = "worklist"
 
     def __str__(self) -> str:
         return str(self.value)

@@ -4,7 +4,7 @@ use super::{Operator, OperatorError, OperatorResult};
 use crate::execution::DataChunk;
 use crate::graph::Direction;
 use crate::graph::GraphStore;
-use grafeo_common::types::{EdgeId, EpochId, LogicalType, NodeId, TxId};
+use grafeo_common::types::{EdgeId, EpochId, LogicalType, NodeId, TransactionId};
 use std::sync::Arc;
 
 /// An expand operator that traverses edges from source nodes.
@@ -35,7 +35,7 @@ pub struct ExpandOperator {
     /// Whether the operator is exhausted.
     exhausted: bool,
     /// Transaction ID for MVCC visibility (None = use current epoch).
-    tx_id: Option<TxId>,
+    transaction_id: Option<TransactionId>,
     /// Epoch for version visibility.
     viewing_epoch: Option<EpochId>,
 }
@@ -61,7 +61,7 @@ impl ExpandOperator {
             current_edges: Vec::with_capacity(16), // typical node degree
             current_edge_idx: 0,
             exhausted: false,
-            tx_id: None,
+            transaction_id: None,
             viewing_epoch: None,
         }
     }
@@ -75,9 +75,13 @@ impl ExpandOperator {
     /// Sets the transaction context for MVCC visibility.
     ///
     /// When set, the expand will only traverse visible edges and nodes.
-    pub fn with_tx_context(mut self, epoch: EpochId, tx_id: Option<TxId>) -> Self {
+    pub fn with_transaction_context(
+        mut self,
+        epoch: EpochId,
+        transaction_id: Option<TransactionId>,
+    ) -> Self {
         self.viewing_epoch = Some(epoch);
-        self.tx_id = tx_id;
+        self.transaction_id = transaction_id;
         self
     }
 
@@ -121,7 +125,7 @@ impl ExpandOperator {
 
         // Get visibility context
         let epoch = self.viewing_epoch;
-        let tx_id = self.tx_id;
+        let transaction_id = self.transaction_id;
 
         // Get edges from this node
         let edges: Vec<(NodeId, EdgeId)> = self
@@ -146,7 +150,7 @@ impl ExpandOperator {
 
                 // Filter by visibility if we have epoch context
                 if let Some(epoch) = epoch {
-                    if let Some(tx) = tx_id {
+                    if let Some(tx) = transaction_id {
                         // Transaction-aware visibility
                         let edge_visible =
                             self.store.get_edge_versioned(*edge_id, epoch, tx).is_some();
@@ -293,7 +297,7 @@ mod tests {
     /// Creates a new `LpgStore` wrapped in an `Arc` and returns both the
     /// concrete handle (for mutation) and a trait-object handle (for operators).
     fn test_store() -> (Arc<LpgStore>, Arc<dyn GraphStore>) {
-        let store = Arc::new(LpgStore::new());
+        let store = Arc::new(LpgStore::new().unwrap());
         let dyn_store: Arc<dyn GraphStore> = Arc::clone(&store) as Arc<dyn GraphStore>;
         (store, dyn_store)
     }
@@ -303,15 +307,15 @@ mod tests {
         let (store, dyn_store) = test_store();
 
         // Create nodes
-        let alice = store.create_node(&["Person"]);
-        let bob = store.create_node(&["Person"]);
-        let charlie = store.create_node(&["Person"]);
+        let alix = store.create_node(&["Person"]);
+        let gus = store.create_node(&["Person"]);
+        let vincent = store.create_node(&["Person"]);
 
-        // Create edges: Alice -> Bob, Alice -> Charlie
-        store.create_edge(alice, bob, "KNOWS");
-        store.create_edge(alice, charlie, "KNOWS");
+        // Create edges: Alix -> Gus, Alix -> Vincent
+        store.create_edge(alix, gus, "KNOWS");
+        store.create_edge(alix, vincent, "KNOWS");
 
-        // Scan Alice only
+        // Scan Alix only
         let scan = Box::new(ScanOperator::with_label(Arc::clone(&dyn_store), "Person"));
 
         let mut expand = ExpandOperator::new(
@@ -333,30 +337,30 @@ mod tests {
             }
         }
 
-        // Alice -> Bob, Alice -> Charlie
+        // Alix -> Gus, Alix -> Vincent
         assert_eq!(results.len(), 2);
 
-        // All source nodes should be Alice
+        // All source nodes should be Alix
         for (src, _, _) in &results {
-            assert_eq!(*src, alice);
+            assert_eq!(*src, alix);
         }
 
-        // Target nodes should be Bob and Charlie
+        // Target nodes should be Gus and Vincent
         let targets: Vec<NodeId> = results.iter().map(|(_, _, dst)| *dst).collect();
-        assert!(targets.contains(&bob));
-        assert!(targets.contains(&charlie));
+        assert!(targets.contains(&gus));
+        assert!(targets.contains(&vincent));
     }
 
     #[test]
     fn test_expand_with_edge_type_filter() {
         let (store, dyn_store) = test_store();
 
-        let alice = store.create_node(&["Person"]);
-        let bob = store.create_node(&["Person"]);
+        let alix = store.create_node(&["Person"]);
+        let gus = store.create_node(&["Person"]);
         let company = store.create_node(&["Company"]);
 
-        store.create_edge(alice, bob, "KNOWS");
-        store.create_edge(alice, company, "WORKS_AT");
+        store.create_edge(alix, gus, "KNOWS");
+        store.create_edge(alix, company, "WORKS_AT");
 
         let scan = Box::new(ScanOperator::with_label(Arc::clone(&dyn_store), "Person"));
 
@@ -378,19 +382,19 @@ mod tests {
 
         // Only KNOWS edges should be followed
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0], bob);
+        assert_eq!(results[0], gus);
     }
 
     #[test]
     fn test_expand_incoming() {
         let (store, dyn_store) = test_store();
 
-        let alice = store.create_node(&["Person"]);
-        let bob = store.create_node(&["Person"]);
+        let alix = store.create_node(&["Person"]);
+        let gus = store.create_node(&["Person"]);
 
-        store.create_edge(alice, bob, "KNOWS");
+        store.create_edge(alix, gus, "KNOWS");
 
-        // Scan Bob
+        // Scan Gus
         let scan = Box::new(ScanOperator::with_label(Arc::clone(&dyn_store), "Person"));
 
         let mut expand =
@@ -405,10 +409,10 @@ mod tests {
             }
         }
 
-        // Bob <- Alice (Bob's incoming edge from Alice)
+        // Gus <- Alix (Gus's incoming edge from Alix)
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].0, bob); // source in the expand is Bob
-        assert_eq!(results[0].1, alice); // target is Alice (who points to Bob)
+        assert_eq!(results[0].0, gus); // source in the expand is Gus
+        assert_eq!(results[0].1, alix); // target is Alix (who points to Gus)
     }
 
     #[test]

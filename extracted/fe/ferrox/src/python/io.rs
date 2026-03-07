@@ -11,8 +11,9 @@ use pyo3::types::PyDict;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
 use crate::io::{
-    parse_extxyz_trajectory, parse_structure, parse_structure_json, structure_to_extxyz,
-    structure_to_poscar, structure_to_pymatgen_json, write_structure,
+    parse_extxyz_trajectory, parse_optimade_json, parse_optimade_json_list, parse_structure,
+    parse_structure_json, structure_to_extxyz, structure_to_poscar, structure_to_pymatgen_json,
+    write_structure,
 };
 
 use super::helpers::{StructureJson, json_to_pydict, parse_struct, structure_to_pydict};
@@ -37,6 +38,18 @@ fn validate_cell_matrix(cell: &[Vec<f64>], label: &str) -> PyResult<()> {
         }
     }
     Ok(())
+}
+
+/// Convert a 3-vector to `Vector3` after validating all coordinates are finite.
+fn validated_vec3(coords: [f64; 3], label: &str) -> PyResult<nalgebra::Vector3<f64>> {
+    for (idx, val) in coords.into_iter().enumerate() {
+        if !val.is_finite() {
+            return Err(PyValueError::new_err(format!(
+                "{label}[{idx}] must be finite, got {val}"
+            )));
+        }
+    }
+    Ok(nalgebra::Vector3::new(coords[0], coords[1], coords[2]))
 }
 
 // === Structure Reading Functions ===
@@ -92,7 +105,7 @@ fn to_poscar(structure: StructureJson, comment: Option<&str>) -> PyResult<String
 #[pyo3(signature = (structure, data_name = None))]
 fn to_cif(structure: StructureJson, data_name: Option<&str>) -> PyResult<String> {
     let struc = parse_struct(&structure)?;
-    Ok(crate::cif::structure_to_cif(&struc, data_name))
+    Ok(crate::io::cif::structure_to_cif(&struc, data_name))
 }
 
 /// Convert a structure to extXYZ format string.
@@ -101,22 +114,6 @@ fn to_cif(structure: StructureJson, data_name: Option<&str>) -> PyResult<String>
 fn to_extxyz(structure: StructureJson) -> PyResult<String> {
     let struc = parse_struct(&structure)?;
     Ok(structure_to_extxyz(&struc, None))
-}
-
-/// Convert a structure to pymatgen JSON format string.
-#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
-#[pyfunction]
-fn to_pymatgen_json(structure: StructureJson) -> PyResult<String> {
-    let struc = parse_struct(&structure)?;
-    Ok(structure_to_pymatgen_json(&struc))
-}
-
-/// Alias for to_pymatgen_json for convenience.
-#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
-#[pyfunction]
-fn to_json(structure: StructureJson) -> PyResult<String> {
-    let struc = parse_struct(&structure)?;
-    Ok(structure_to_pymatgen_json(&struc))
 }
 
 // === Molecule I/O Functions ===
@@ -212,6 +209,94 @@ fn parse_poscar_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
         .map_err(|err| PyValueError::new_err(format!("{err}")))?;
     let json = crate::io::structure_to_pymatgen_json(&structure);
     json_to_pydict(py, &json)
+}
+
+// === LAMMPS Dump Parsers ===
+
+/// Parse a structure from a LAMMPS dump string.
+///
+/// Only the first frame is parsed. For multi-frame content, use parse_lammps_trajectory.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_lammps_dump_str(py: Python<'_>, content: &str) -> PyResult<Py<PyDict>> {
+    let structure = crate::io::parse_lammps_dump_str(content)
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    let json = crate::io::structure_to_pymatgen_json(&structure);
+    json_to_pydict(py, &json)
+}
+
+/// Parse a structure from a LAMMPS dump file.
+///
+/// Only the first frame is parsed. For multi-frame files, use parse_lammps_trajectory.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_lammps_dump_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
+    let structure = crate::io::parse_lammps_dump(Path::new(path))
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    let json = crate::io::structure_to_pymatgen_json(&structure);
+    json_to_pydict(py, &json)
+}
+
+/// Parse all frames from a LAMMPS dump/trajectory file.
+///
+/// Returns a list of structure dicts, one per frame.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_lammps_trajectory(py: Python<'_>, path: &str) -> PyResult<Vec<Py<PyDict>>> {
+    let frames = crate::io::parse_lammps_trajectory(Path::new(path))
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    frames
+        .into_iter()
+        .map(|frame| {
+            let structure = frame.map_err(|err| PyValueError::new_err(format!("{err}")))?;
+            let json = crate::io::structure_to_pymatgen_json(&structure);
+            json_to_pydict(py, &json)
+        })
+        .collect()
+}
+
+// === XDATCAR Parsers ===
+
+/// Parse a structure from an XDATCAR content string (first frame only).
+///
+/// For multi-frame content, use parse_xdatcar_trajectory.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_xdatcar_str(py: Python<'_>, content: &str) -> PyResult<Py<PyDict>> {
+    let structure = crate::io::parse_xdatcar_str(content)
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    let json = crate::io::structure_to_pymatgen_json(&structure);
+    json_to_pydict(py, &json)
+}
+
+/// Parse a structure from an XDATCAR file (first frame only).
+///
+/// For multi-frame files, use parse_xdatcar_trajectory.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_xdatcar_file(py: Python<'_>, path: &str) -> PyResult<Py<PyDict>> {
+    let structure = crate::io::parse_xdatcar(Path::new(path))
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    let json = crate::io::structure_to_pymatgen_json(&structure);
+    json_to_pydict(py, &json)
+}
+
+/// Parse all frames from an XDATCAR trajectory file.
+///
+/// Returns a list of structure dicts, one per frame.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_xdatcar_trajectory(py: Python<'_>, path: &str) -> PyResult<Vec<Py<PyDict>>> {
+    let frames = crate::io::parse_xdatcar_trajectory(Path::new(path))
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    frames
+        .into_iter()
+        .map(|frame| {
+            let structure = frame.map_err(|err| PyValueError::new_err(format!("{err}")))?;
+            let json = crate::io::structure_to_pymatgen_json(&structure);
+            json_to_pydict(py, &json)
+        })
+        .collect()
 }
 
 // === TorchSim State Conversion ===
@@ -385,14 +470,7 @@ fn from_pymatgen_structure(py: Python<'_>, structure: &Bound<'_, PyAny>) -> PyRe
         for site_result in sites.try_iter()? {
             let site = site_result?;
             let frac: [f64; 3] = site.getattr("frac_coords")?.extract()?;
-            for (idx, &val) in frac.iter().enumerate() {
-                if !val.is_finite() {
-                    return Err(PyValueError::new_err(format!(
-                        "Fractional coordinate[{idx}] must be finite, got {val}"
-                    )));
-                }
-            }
-            frac_coords.push(nalgebra::Vector3::new(frac[0], frac[1], frac[2]));
+            frac_coords.push(validated_vec3(frac, "Fractional coordinate")?);
 
             let species_comp = site.getattr("species")?;
             let species_vec = extract_site_species(&species_comp)?;
@@ -420,14 +498,7 @@ fn from_pymatgen_structure(py: Python<'_>, structure: &Bound<'_, PyAny>) -> PyRe
         for site_result in sites.try_iter()? {
             let site = site_result?;
             let coords: [f64; 3] = site.getattr("coords")?.extract()?;
-            for (idx, &val) in coords.iter().enumerate() {
-                if !val.is_finite() {
-                    return Err(PyValueError::new_err(format!(
-                        "Coordinate[{idx}] must be finite, got {val}"
-                    )));
-                }
-            }
-            cart_coords.push(nalgebra::Vector3::new(coords[0], coords[1], coords[2]));
+            cart_coords.push(validated_vec3(coords, "Coordinate")?);
 
             let species_comp = site.getattr("species")?;
             let site_species = extract_site_species(&species_comp)?;
@@ -537,9 +608,10 @@ fn from_ase_atoms(py: Python<'_>, atoms: &Bound<'_, PyAny>) -> PyResult<Py<PyDic
         ]));
         lattice.pbc = pbc;
 
-        let inv = lattice.inv_matrix();
-        let frac_coords: Vec<nalgebra::Vector3<f64>> =
-            cart_coords.iter().map(|p| inv * p).collect();
+        let frac_coords: Vec<nalgebra::Vector3<f64>> = cart_coords
+            .iter()
+            .map(|cart_coord| lattice.get_fractional_coord(cart_coord))
+            .collect();
 
         let struc = crate::structure::Structure::try_new_full(
             lattice,
@@ -580,7 +652,13 @@ fn to_ase_atoms(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyAny>>
     let (symbols, positions, cell, pbc, charge) = if let Ok(struc) =
         parse_structure_json(&structure.0)
     {
-        let symbols: Vec<String> = struc.species_strings();
+        // Use dominant element symbols (not species_strings) since ASE
+        // needs valid element symbols, not occupancy-annotated strings like "Fe:0.8"
+        let symbols: Vec<String> = struc
+            .species()
+            .iter()
+            .map(|sp| sp.element.symbol().to_string())
+            .collect();
         let positions: Vec<[f64; 3]> = struc
             .cart_coords()
             .iter()
@@ -594,7 +672,11 @@ fn to_ase_atoms(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyAny>>
         ];
         (symbols, positions, Some(cell), struc.pbc, struc.charge)
     } else if let Ok(mol) = crate::io::parse_molecule_json(&structure.0) {
-        let symbols: Vec<String> = mol.species_strings();
+        let symbols: Vec<String> = mol
+            .species()
+            .iter()
+            .map(|sp| sp.element.symbol().to_string())
+            .collect();
         let positions: Vec<[f64; 3]> = mol.cart_coords().iter().map(|c| [c.x, c.y, c.z]).collect();
         (symbols, positions, None, [false, false, false], mol.charge)
     } else {
@@ -619,6 +701,45 @@ fn to_ase_atoms(py: Python<'_>, structure: StructureJson) -> PyResult<Py<PyAny>>
     }
 
     Ok(atoms.unbind())
+}
+
+// === OPTIMADE Parsers ===
+
+/// Parse a single OPTIMADE JSON structure string.
+///
+/// Accepts a bare structure resource or a list response (uses the first entry).
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_optimade(py: Python<'_>, json_str: &str) -> PyResult<Py<PyDict>> {
+    let structure = parse_optimade_json(json_str)
+        .map_err(|err| PyValueError::new_err(format!("Error parsing OPTIMADE JSON: {err}")))?;
+    Ok(structure_to_pydict(py, &structure)?.unbind())
+}
+
+/// Parse an OPTIMADE list response containing multiple structures.
+///
+/// Returns a list of structure dicts, one per entry in the response's `data` array.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn parse_optimade_list(py: Python<'_>, json_str: &str) -> PyResult<Vec<Py<PyDict>>> {
+    let results = parse_optimade_json_list(json_str)
+        .map_err(|err| PyValueError::new_err(format!("Error parsing OPTIMADE list: {err}")))?;
+    results
+        .into_iter()
+        .map(|res| {
+            let structure = res.map_err(|err| {
+                PyValueError::new_err(format!("Error parsing OPTIMADE entry: {err}"))
+            })?;
+            Ok(structure_to_pydict(py, &structure)?.unbind())
+        })
+        .collect()
+}
+
+/// Check whether a JSON string is in OPTIMADE format.
+#[gen_stub_pyfunction(module = "ferrox._ferrox.io")]
+#[pyfunction]
+fn is_optimade(json_str: &str) -> bool {
+    crate::io::is_optimade_json(json_str)
 }
 
 // === Helper Functions ===
@@ -650,8 +771,6 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(to_poscar, module)?)?;
     module.add_function(wrap_pyfunction!(to_cif, module)?)?;
     module.add_function(wrap_pyfunction!(to_extxyz, module)?)?;
-    module.add_function(wrap_pyfunction!(to_pymatgen_json, module)?)?;
-    module.add_function(wrap_pyfunction!(to_json, module)?)?;
     module.add_function(wrap_pyfunction!(parse_molecule_json, module)?)?;
     module.add_function(wrap_pyfunction!(molecule_to_json, module)?)?;
     module.add_function(wrap_pyfunction!(molecule_to_xyz, module)?)?;
@@ -661,6 +780,12 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(parse_xyz_flexible, module)?)?;
     module.add_function(wrap_pyfunction!(parse_poscar_str, module)?)?;
     module.add_function(wrap_pyfunction!(parse_poscar_file, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_lammps_dump_str, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_lammps_dump_file, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_lammps_trajectory, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_xdatcar_str, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_xdatcar_file, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_xdatcar_trajectory, module)?)?;
     module.add_function(wrap_pyfunction!(to_torch_sim_state, module)?)?;
     module.add_function(wrap_pyfunction!(structures_to_torch_sim_state, module)?)?;
     module.add_function(wrap_pyfunction!(from_torch_sim_state, module)?)?;
@@ -670,5 +795,8 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(to_pymatgen_molecule, module)?)?;
     module.add_function(wrap_pyfunction!(from_ase_atoms, module)?)?;
     module.add_function(wrap_pyfunction!(to_ase_atoms, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_optimade, module)?)?;
+    module.add_function(wrap_pyfunction!(parse_optimade_list, module)?)?;
+    module.add_function(wrap_pyfunction!(is_optimade, module)?)?;
     Ok(())
 }

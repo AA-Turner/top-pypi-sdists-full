@@ -66,7 +66,7 @@ jobs:
             arch: "arm64"
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Support long paths
       if: runner.os == 'Windows'
@@ -89,7 +89,7 @@ jobs:
         cat clang-tidy_version.txt
 
     - name: Build wheels
-      uses: pypa/cibuildwheel@v3.0
+      uses: pypa/cibuildwheel@v3.3
       env:
         CIBW_ARCHS: "${{ matrix.arch }}"
         CIBW_BEFORE_TEST: rm -rf {package}/clang_tidy
@@ -99,7 +99,7 @@ jobs:
         # restrict to a single Python version as wheel does not depend on Python:
         CIBW_BUILD: "cp311-${{ matrix.platform }}*"
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: artifacts-wheels-${{ matrix.platform }}-${{ matrix.arch }}
         path: ./wheelhouse/*.whl
@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Override LLVM version (${{ github.event.inputs.llvm_version }})
         if: github.event.inputs.llvm_version
@@ -119,7 +119,7 @@ jobs:
       - name: Build SDist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           path: dist/*.tar.gz
           name: artifacts-sdist
@@ -130,14 +130,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         name: Install Python
         with:
           python-version: '3.13'
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: artifacts-sdist
           path: sdist
@@ -165,18 +165,18 @@ jobs:
     if: github.repository_owner == 'ssciwr'
 
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           pattern: artifacts-*
           merge-multiple: true
           path: dist
 
       - name: Upload to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.12.4
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         if: (startsWith(github.event.ref, 'refs/tags/')) || (github.event.inputs.deploy_to_testpypi == 'false')
 
       - name: Upload to TestPyPI
-        uses: pypa/gh-action-pypi-publish@v1.12.4
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         if: github.event.inputs.deploy_to_testpypi == 'true'
         with:
           repository-url: https://test.pypi.org/legacy/

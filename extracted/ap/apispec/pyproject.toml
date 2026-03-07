@@ -1,6 +1,6 @@
 [project]
 name = "apispec"
-version = "6.9.0"
+version = "6.10.0"
 description = "A pluggable API specification generator. Currently supports the OpenAPI Specification (f.k.a. the Swagger specification)."
 readme = "README.rst"
 license = { file = "LICENSE" }
@@ -47,11 +47,11 @@ marshmallow = ["marshmallow>=3.18.0"]
 docs = [
   "apispec[marshmallow]",
   "pyyaml==6.0.3",
-  "sphinx==8.2.3",
+  "sphinx==9.1.0",
   "sphinx-issues==5.0.1",
-  "sphinx-rtd-theme==3.0.2",
+  "sphinx-rtd-theme==3.1.0",
 ]
-tests = ["apispec[yaml,marshmallow]", "openapi-spec-validator==0.7.2", "pytest"]
+tests = ["apispec[yaml,marshmallow]", "openapi-spec-validator==0.8.4", "pytest"]
 dev = ["apispec[tests]", "tox", "pre-commit>=3.5,<5.0"]
 
 [build-system]

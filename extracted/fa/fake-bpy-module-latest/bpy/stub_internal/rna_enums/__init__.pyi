@@ -292,6 +292,7 @@ type BrushSculptBrushTypeItems = typing.Literal[
     "ROTATE",  # Rotate.
     "TOPOLOGY",  # Slide Relax.
     "BOUNDARY",  # Boundary.
+    "SCENE_PROJECT",  # Scene Project.
     "CLOTH",  # Cloth.
     "SIMPLIFY",  # Simplify.
     "MASK",  # Mask.
@@ -1029,6 +1030,9 @@ type IconItems = typing.Literal[
     "RNA",  # RNA.
     "STRANDS",  # STRANDS.
     "UGLYPACKAGE",  # UGLYPACKAGE.
+    "GP_DRAW_STROKE",  # GP_DRAW_STROKE.
+    "GP_DRAW_FILL",  # GP_DRAW_FILL.
+    "GP_DRAW_BOTH",  # GP_DRAW_BOTH.
     "MOUSE_LMB",  # MOUSE_LMB.
     "MOUSE_MMB",  # MOUSE_MMB.
     "MOUSE_RMB",  # MOUSE_RMB.

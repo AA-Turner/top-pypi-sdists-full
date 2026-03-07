@@ -24,7 +24,7 @@ use uv_distribution_filename::{
 };
 use uv_distribution_types::{
     ConfigSettings, DependencyMetadata, ExtraBuildVariables, Index, IndexLocations,
-    PackageConfigSettings, RequiresPython, SourceDist,
+    PackageConfigSettings, Requirement, RequiresPython, SourceDist,
 };
 use uv_fs::{Simplified, relative_to};
 use uv_install_wheel::LinkMode;
@@ -113,6 +113,7 @@ pub(crate) async fn build_frontend(
     force_pep517: bool,
     clear: bool,
     build_constraints: Vec<RequirementsSource>,
+    build_constraints_from_workspace: Vec<Requirement>,
     hash_checking: Option<HashCheckingMode>,
     python: Option<String>,
     install_mirrors: PythonInstallMirrors,
@@ -123,6 +124,7 @@ pub(crate) async fn build_frontend(
     python_downloads: PythonDownloads,
     concurrency: Concurrency,
     cache: &Cache,
+    workspace_cache: &WorkspaceCache,
     printer: Printer,
     preview: Preview,
 ) -> Result<ExitStatus> {
@@ -140,6 +142,7 @@ pub(crate) async fn build_frontend(
         force_pep517,
         clear,
         &build_constraints,
+        &build_constraints_from_workspace,
         hash_checking,
         python.as_deref(),
         install_mirrors,
@@ -150,6 +153,7 @@ pub(crate) async fn build_frontend(
         python_downloads,
         &concurrency,
         cache,
+        workspace_cache,
         printer,
         preview,
     )
@@ -187,6 +191,7 @@ async fn build_impl(
     force_pep517: bool,
     clear: bool,
     build_constraints: &[RequirementsSource],
+    build_constraints_from_workspace: &[Requirement],
     hash_checking: Option<HashCheckingMode>,
     python_request: Option<&str>,
     install_mirrors: PythonInstallMirrors,
@@ -197,6 +202,7 @@ async fn build_impl(
     python_downloads: PythonDownloads,
     concurrency: &Concurrency,
     cache: &Cache,
+    workspace_cache: &WorkspaceCache,
     printer: Printer,
     preview: Preview,
 ) -> Result<BuildResult> {
@@ -245,11 +251,10 @@ async fn build_impl(
     };
 
     // Attempt to discover the workspace; on failure, save the error for later.
-    let workspace_cache = WorkspaceCache::default();
     let workspace = Workspace::discover(
         src.directory(),
         &DiscoveryOptions::default(),
-        &workspace_cache,
+        workspace_cache,
     )
     .await;
 
@@ -346,6 +351,7 @@ async fn build_impl(
             python_preference,
             python_downloads,
             cache,
+            workspace_cache,
             printer,
             index_locations,
             client_builder.clone(),
@@ -355,6 +361,7 @@ async fn build_impl(
             force_pep517,
             clear,
             build_constraints,
+            build_constraints_from_workspace,
             build_isolation,
             extra_build_dependencies,
             extra_build_variables,
@@ -455,6 +462,7 @@ async fn build_package(
     python_preference: PythonPreference,
     python_downloads: PythonDownloads,
     cache: &Cache,
+    workspace_cache: &WorkspaceCache,
     printer: Printer,
     index_locations: &IndexLocations,
     client_builder: BaseClientBuilder<'_>,
@@ -464,6 +472,7 @@ async fn build_package(
     force_pep517: bool,
     clear: bool,
     build_constraints: &[RequirementsSource],
+    build_constraints_from_workspace: &[Requirement],
     build_isolation: &BuildIsolation,
     extra_build_dependencies: &ExtraBuildDependencies,
     extra_build_variables: &ExtraBuildVariables,
@@ -567,7 +576,8 @@ async fn build_package(
     let build_constraints = Constraints::from_requirements(
         build_constraints
             .into_iter()
-            .map(|constraint| constraint.requirement),
+            .map(|constraint| constraint.requirement)
+            .chain(build_constraints_from_workspace.iter().cloned()),
     );
 
     // Initialize the registry client.
@@ -604,7 +614,6 @@ async fn build_package(
 
     // Initialize any shared state.
     let state = SharedState::default();
-    let workspace_cache = WorkspaceCache::default();
 
     let extra_build_requires =
         LoweredExtraBuildDependencies::from_non_lowered(extra_build_dependencies.clone())
@@ -631,7 +640,7 @@ async fn build_package(
         &hasher,
         exclude_newer,
         sources.clone(),
-        workspace_cache,
+        workspace_cache.clone(),
         concurrency.clone(),
         preview,
     );

@@ -4,7 +4,8 @@
 
 use crate::query::plan::{
     AggregateOp, DistinctOp, ExpandDirection, ExpandOp, FilterOp, JoinOp, JoinType, LimitOp,
-    LogicalOperator, NodeScanOp, ProjectOp, ReturnOp, SkipOp, SortOp, VectorJoinOp, VectorScanOp,
+    LogicalOperator, MultiWayJoinOp, NodeScanOp, ProjectOp, ReturnOp, SkipOp, SortOp, VectorJoinOp,
+    VectorScanOp,
 };
 
 /// Cost of an operation.
@@ -189,6 +190,7 @@ impl CostModel {
             LogicalOperator::Empty => Cost::zero(),
             LogicalOperator::VectorScan(scan) => self.vector_scan_cost(scan, cardinality),
             LogicalOperator::VectorJoin(join) => self.vector_join_cost(join, cardinality),
+            LogicalOperator::MultiWayJoin(mwj) => self.multi_way_join_cost(mwj, cardinality),
             _ => Cost::cpu(cardinality * self.cpu_tuple_cost),
         }
     }
@@ -265,6 +267,22 @@ impl CostModel {
         }
     }
 
+    /// Estimates the cost of a multi-way (leapfrog) join.
+    ///
+    /// Delegates to `leapfrog_join_cost` using per-input cardinality estimates
+    /// derived from the output cardinality divided equally among inputs.
+    fn multi_way_join_cost(&self, mwj: &MultiWayJoinOp, cardinality: f64) -> Cost {
+        let n = mwj.inputs.len();
+        if n == 0 {
+            return Cost::zero();
+        }
+        // Approximate per-input cardinalities: assume each input contributes
+        // cardinality^(1/n) rows (AGM-style uniform assumption)
+        let per_input = cardinality.powf(1.0 / n as f64).max(1.0);
+        let cardinalities: Vec<f64> = (0..n).map(|_| per_input).collect();
+        self.leapfrog_join_cost(n, &cardinalities, cardinality)
+    }
+
     /// Estimates the cost of an aggregation.
     fn aggregate_cost(&self, agg: &AggregateOp, cardinality: f64) -> Cost {
         // Hash aggregation cost
@@ -309,13 +327,13 @@ impl CostModel {
     /// Estimates the cost of a limit operation.
     fn limit_cost(&self, limit: &LimitOp, _cardinality: f64) -> Cost {
         // Limit is very cheap - just counting
-        Cost::cpu(limit.count as f64 * self.cpu_tuple_cost * 0.1)
+        Cost::cpu(limit.count.estimate() * self.cpu_tuple_cost * 0.1)
     }
 
     /// Estimates the cost of a skip operation.
     fn skip_cost(&self, skip: &SkipOp, _cardinality: f64) -> Cost {
         // Skip requires scanning through skipped rows
-        Cost::cpu(skip.count as f64 * self.cpu_tuple_cost)
+        Cost::cpu(skip.count.estimate() * self.cpu_tuple_cost)
     }
 
     /// Estimates the cost of a return operation.
@@ -596,6 +614,7 @@ mod tests {
         let filter = FilterOp {
             predicate: LogicalExpression::Literal(grafeo_common::types::Value::Bool(true)),
             input: Box::new(LogicalOperator::Empty),
+            pushdown_hint: None,
         };
         let cost = model.filter_cost(&filter, 1000.0);
 
@@ -819,16 +838,20 @@ mod tests {
                 AggregateExpr {
                     function: AggregateFunction::Count,
                     expression: None,
+                    expression2: None,
                     distinct: false,
                     alias: Some("cnt".to_string()),
                     percentile: None,
+                    separator: None,
                 },
                 AggregateExpr {
                     function: AggregateFunction::Sum,
                     expression: Some(LogicalExpression::Variable("x".to_string())),
+                    expression2: None,
                     distinct: false,
                     alias: Some("total".to_string()),
                     percentile: None,
+                    separator: None,
                 },
             ],
             input: Box::new(LogicalOperator::Empty),
@@ -859,7 +882,7 @@ mod tests {
     fn test_cost_model_limit() {
         let model = CostModel::new();
         let limit = LimitOp {
-            count: 10,
+            count: 10.into(),
             input: Box::new(LogicalOperator::Empty),
         };
         let cost = model.limit_cost(&limit, 1000.0);
@@ -873,7 +896,7 @@ mod tests {
     fn test_cost_model_skip() {
         let model = CostModel::new();
         let skip = SkipOp {
-            count: 100,
+            count: 100.into(),
             input: Box::new(LogicalOperator::Empty),
         };
         let cost = model.skip_cost(&skip, 1000.0);
@@ -938,6 +961,7 @@ mod tests {
             keys: vec![crate::query::plan::SortKey {
                 expression: LogicalExpression::Variable("a".to_string()),
                 order: SortOrder::Ascending,
+                nulls: None,
             }],
             input: Box::new(LogicalOperator::Empty),
         };
@@ -946,10 +970,12 @@ mod tests {
                 crate::query::plan::SortKey {
                     expression: LogicalExpression::Variable("a".to_string()),
                     order: SortOrder::Ascending,
+                    nulls: None,
                 },
                 crate::query::plan::SortKey {
                     expression: LogicalExpression::Variable("b".to_string()),
                     order: SortOrder::Descending,
+                    nulls: None,
                 },
             ],
             input: Box::new(LogicalOperator::Empty),

@@ -6,10 +6,10 @@
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
+use crate::analysis::oxidation;
 use crate::composition::Composition;
 use crate::element::Element;
 use crate::io::parse_structure_json;
-use crate::oxidation;
 use crate::structure::Structure;
 use crate::wasm_types::{
     JsCrystal, JsOxiStateGuess, JsOxidationStatePair, JsOxidationStates, WasmResult,

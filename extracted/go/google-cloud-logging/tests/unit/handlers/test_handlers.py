@@ -12,27 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import unittest
 from unittest.mock import patch
-import mock
-import json
 
-from google.cloud.logging_v2.handlers.handlers import (
-    _INTERNAL_LOGGERS,
-    EXCLUDED_LOGGER_DEFAULTS,
-)
+import mock
 
 from google.cloud.logging_v2.handlers._monitored_resources import (
     _FUNCTION_ENV_VARS,
     _GAE_ENV_VARS,
 )
-
+from google.cloud.logging_v2.handlers.handlers import (
+    _INTERNAL_LOGGERS,
+    EXCLUDED_LOGGER_DEFAULTS,
+)
 from tests.unit.handlers import (
-    _setup_otel_span_context,
-    _EXPECTED_OTEL_TRACE_ID,
     _EXPECTED_OTEL_SPAN_ID,
+    _EXPECTED_OTEL_TRACE_ID,
     _EXPECTED_OTEL_TRACESAMPLED,
+    _setup_otel_span_context,
 )
 
 
@@ -446,6 +445,7 @@ class TestCloudLoggingHandler(unittest.TestCase):
 
     def test_ctor_defaults(self):
         import sys
+
         from google.cloud.logging_v2.handlers._monitored_resources import (
             _create_global_resource,
         )
@@ -482,6 +482,7 @@ class TestCloudLoggingHandler(unittest.TestCase):
 
     def test_ctor_explicit(self):
         import io
+
         from google.cloud.logging import Resource
 
         resource = Resource("resource_type", {"resource_label": "value"})
@@ -730,8 +731,9 @@ class TestCloudLoggingHandler(unittest.TestCase):
         """
         JSON can contain nested dictionaries of data
         """
-        from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
         import logging
+
+        from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
 
         client = _Client(self.PROJECT)
         handler = self._make_one(

@@ -35,7 +35,9 @@ class BaseRESTTool(BaseTool):
         super().__init__(tool_config)
         self.session = requests.Session()
         self.timeout = 30
-        self.api_name = self.__class__.__name__.replace("RESTTool", "")
+        self.api_name = tool_config.get(
+            "name", self.__class__.__name__.replace("RESTTool", "")
+        )
 
     def _get_param_mapping(self) -> Dict[str, str]:
         """
@@ -58,12 +60,21 @@ class BaseRESTTool(BaseTool):
         """
         url = self.tool_config["fields"]["endpoint"]
 
-        # Replace all path parameters
+        # Replace all path parameters from user args
         for key, value in args.items():
             placeholder = f"{{{key}}}"
             if placeholder in url:
                 # URL encode to handle special characters (e.g., DOIs with slashes)
                 encoded_value = urllib.parse.quote(str(value), safe="")
+                url = url.replace(placeholder, encoded_value)
+
+        # Apply schema defaults for any remaining {param} placeholders
+        for key, prop in (
+            self.tool_config.get("parameter", {}).get("properties", {}).items()
+        ):
+            placeholder = f"{{{key}}}"
+            if placeholder in url and "default" in prop and prop["default"] is not None:
+                encoded_value = urllib.parse.quote(str(prop["default"]), safe="")
                 url = url.replace(placeholder, encoded_value)
 
         return url

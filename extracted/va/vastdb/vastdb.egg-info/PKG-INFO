@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vastdb
-Version: 2.0.13
+Version: 2.0.14
 Summary: VAST Data SDK
 Home-page: https://github.com/vast-data/vastdb_sdk
 Author: VAST DATA
@@ -21,7 +21,7 @@ License-File: LICENSE
 Requires-Dist: aws-requests-auth
 Requires-Dist: ibis-framework~=10.1
 Requires-Dist: sqlglot<28.7,>=23.4
-Requires-Dist: pyarrow~=18.0
+Requires-Dist: pyarrow<=23.0.1,>=18.0
 Requires-Dist: pyarrow-hotfix==0.7
 Requires-Dist: flatbuffers
 Requires-Dist: packaging

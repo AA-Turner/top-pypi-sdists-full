@@ -3,7 +3,7 @@ name = "sarvamai"
 
 [tool.poetry]
 name = "sarvamai"
-version = "0.1.25"
+version = "0.1.26"
 description = ""
 readme = "README.md"
 authors = []

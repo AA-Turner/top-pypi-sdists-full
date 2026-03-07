@@ -8,7 +8,7 @@ use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString};
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use serde_json::Value;
 
-use crate::mp::{MPOpenData, MPRester, MpError, SearchFilter};
+use crate::io::mp::{MPOpenData, MPRester, MpError, SearchFilter};
 
 // === serde_json::Value <-> Py<PyAny> conversion ===
 

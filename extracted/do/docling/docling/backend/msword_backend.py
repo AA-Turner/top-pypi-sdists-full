@@ -4,6 +4,7 @@ from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Callable, Final, Optional, Union
+from urllib.parse import urlparse
 
 from docling_core.types.doc import (
     ContentLayer,
@@ -633,7 +634,14 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
         for c in paragraph.iter_inner_content():
             if isinstance(c, Hyperlink):
                 text = c.text
-                hyperlink = Path(c.address) if c.address else None
+                if c.address:
+                    hyperlink = (
+                        AnyUrl(c.address)
+                        if urlparse(c.address).scheme
+                        else Path(c.address)
+                    )
+                else:
+                    hyperlink = None
                 format = (
                     self._get_format_from_run(c.runs[0])
                     if c.runs and len(c.runs) > 0
@@ -1268,8 +1276,10 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
 
         level = self._get_level()
         prev_indent = self._prev_indent()
-        if self._prev_numid() is None or (
-            self._prev_numid() == numid and self.level_at_new_list is None
+        if (
+            self._prev_numid() is None
+            or self._prev_numid() != numid
+            or (self._prev_numid() == numid and self.level_at_new_list is None)
         ):  # Open new list
             self.level_at_new_list = level
 

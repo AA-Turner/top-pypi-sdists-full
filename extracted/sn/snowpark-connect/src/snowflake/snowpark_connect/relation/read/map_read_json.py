@@ -243,7 +243,6 @@ def map_read_json(
         parallel_load_json_file = snowpark_options.pop("jsonfileparallelloading", False)
         compression = snowpark_options.get("compression", "auto")
         split_size_mb = snowpark_options.pop("splitsizemb", 2)
-        additional_padding_mb = snowpark_options.pop("additionalpaddingmb", 2)
         mode = snowpark_options.pop("mode", "PERMISSIVE")
 
         apply_metadata_exclusion_pattern(snowpark_options)
@@ -259,7 +258,6 @@ def map_read_json(
                 session,
                 paths,
                 split_size_mb,
-                additional_padding_mb,
                 schema,
                 rows_to_infer_schema,
                 drop_field_if_all_null,
@@ -306,7 +304,6 @@ def read_single_bz2_file(
     session: snowpark.Session,
     paths: list[str],
     split_size_mb: int,
-    additional_padding_mb: int,
     schema: StructType | None,
     rows_to_infer_schema: int,
     drop_field_if_all_null: bool,
@@ -320,7 +317,6 @@ def read_single_bz2_file(
         stage_name,
         file_path,
         split_size_mb=split_size_mb,
-        additional_padding_mb=additional_padding_mb,
         mode=mode,
         compressed=compressed,
     )
@@ -333,7 +329,6 @@ def read_single_bz2_file(
                     stage_name,
                     file_path,
                     split_size_mb=split_size_mb,
-                    additional_padding_mb=additional_padding_mb,
                     mode=mode,
                     compressed=compressed,
                 )
@@ -376,6 +371,7 @@ def read_normal_json_files(
     schema: StructType | None,
 ) -> snowpark.DataFrame:
     # Read the normal JSON files, support metadata population
+
     reader = add_filename_metadata_to_reader(
         session.read.options(snowpark_options), raw_options
     )

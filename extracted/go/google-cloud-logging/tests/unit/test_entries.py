@@ -113,6 +113,7 @@ class TestLogEntry(unittest.TestCase):
 
     def test_ctor_explicit(self):
         import datetime
+
         from google.cloud.logging import Resource
 
         LOG_NAME = "projects/%s/logs/%s" % (self.PROJECT, self.LOGGER_NAME)
@@ -199,8 +200,8 @@ class TestLogEntry(unittest.TestCase):
         self.assertIsNone(entry.payload)
 
     def test_from_api_repr_w_loggers_no_logger_match(self):
-        from datetime import datetime
-        from datetime import timezone
+        from datetime import datetime, timezone
+
         from google.cloud.logging import Resource
 
         klass = self._get_target_class()
@@ -281,9 +282,7 @@ class TestLogEntry(unittest.TestCase):
         self.assertIsNone(entry.payload)
 
     def test_from_api_repr_w_loggers_w_logger_match(self):
-        from datetime import datetime
-        from datetime import timedelta
-        from datetime import timezone
+        from datetime import datetime, timedelta, timezone
 
         client = _Client(self.PROJECT)
         IID = "IID"
@@ -339,9 +338,7 @@ class TestLogEntry(unittest.TestCase):
         self.assertIsNone(entry.payload)
 
     def test_from_api_repr_w_folder_path(self):
-        from datetime import datetime
-        from datetime import timedelta
-        from datetime import timezone
+        from datetime import datetime, timedelta, timezone
 
         client = _Client(self.PROJECT)
         IID = "IID"
@@ -411,8 +408,10 @@ class TestLogEntry(unittest.TestCase):
 
     def test_to_api_repr_explicit(self):
         import datetime
-        from google.cloud.logging import Resource
+
         from google.cloud._helpers import _datetime_to_rfc3339
+
+        from google.cloud.logging import Resource
 
         LOG_NAME = "test.log"
         LABELS = {"foo": "bar", "baz": "qux"}
@@ -495,8 +494,10 @@ class TestTextEntry(unittest.TestCase):
 
     def test_to_api_repr_explicit(self):
         import datetime
-        from google.cloud.logging import Resource
+
         from google.cloud._helpers import _datetime_to_rfc3339
+
+        from google.cloud.logging import Resource
 
         LOG_NAME = "test.log"
         TEXT = "This is the entry text"
@@ -582,6 +583,7 @@ class TestStructEntry(unittest.TestCase):
 
     def test_to_api_repr_struct(self):
         from google.protobuf.struct_pb2 import Struct, Value
+
         from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
 
         LOG_NAME = "struct.log"
@@ -596,8 +598,10 @@ class TestStructEntry(unittest.TestCase):
 
     def test_to_api_repr_explicit(self):
         import datetime
-        from google.cloud.logging import Resource
+
         from google.cloud._helpers import _datetime_to_rfc3339
+
+        from google.cloud.logging import Resource
 
         LOG_NAME = "test.log"
         JSON_PAYLOAD = {"key": "value"}
@@ -710,6 +714,7 @@ class TestProtobufEntry(unittest.TestCase):
 
     def test_parse_message(self):
         import json
+
         from google.protobuf.json_format import MessageToJson
         from google.protobuf.struct_pb2 import Struct, Value
 
@@ -724,9 +729,9 @@ class TestProtobufEntry(unittest.TestCase):
 
     def test_to_api_repr_proto_defaults(self):
         from google.protobuf.json_format import MessageToDict
+        from google.protobuf.struct_pb2 import Struct, Value
+
         from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
-        from google.protobuf.struct_pb2 import Struct
-        from google.protobuf.struct_pb2 import Value
 
         LOG_NAME = "test.log"
         message = Struct(fields={"foo": Value(bool_value=True)})
@@ -741,9 +746,9 @@ class TestProtobufEntry(unittest.TestCase):
 
     def test_to_api_repr_proto_inner_struct_field(self):
         from google.protobuf.json_format import MessageToDict
+        from google.protobuf.struct_pb2 import Struct, Value
+
         from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
-        from google.protobuf.struct_pb2 import Struct
-        from google.protobuf.struct_pb2 import Value
 
         LOG_NAME = "test.log"
         inner_struct = Struct(fields={"foo": Value(string_value="bar")})
@@ -759,10 +764,9 @@ class TestProtobufEntry(unittest.TestCase):
 
     def test_to_api_repr_proto_inner_list_field(self):
         from google.protobuf.json_format import MessageToDict
+        from google.protobuf.struct_pb2 import ListValue, Struct, Value
+
         from google.cloud.logging_v2.logger import _GLOBAL_RESOURCE
-        from google.protobuf.struct_pb2 import ListValue
-        from google.protobuf.struct_pb2 import Struct
-        from google.protobuf.struct_pb2 import Value
 
         LOG_NAME = "test.log"
         lines = ListValue(
@@ -780,11 +784,12 @@ class TestProtobufEntry(unittest.TestCase):
 
     def test_to_api_repr_proto_explicit(self):
         import datetime
-        from google.protobuf.json_format import MessageToDict
-        from google.cloud.logging import Resource
+
         from google.cloud._helpers import _datetime_to_rfc3339
-        from google.protobuf.struct_pb2 import Struct
-        from google.protobuf.struct_pb2 import Value
+        from google.protobuf.json_format import MessageToDict
+        from google.protobuf.struct_pb2 import Struct, Value
+
+        from google.cloud.logging import Resource
 
         LOG_NAME = "test.log"
         message = Struct(fields={"foo": Value(bool_value=True)})

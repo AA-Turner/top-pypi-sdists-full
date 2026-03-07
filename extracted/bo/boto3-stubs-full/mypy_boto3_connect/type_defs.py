@@ -149,6 +149,7 @@ from .literals import (
     StringComparisonTypeType,
     TaskTemplateFieldTypeType,
     TaskTemplateStatusType,
+    TestCaseEntryPointTypeType,
     TestCaseExecutionStatusType,
     TestCaseStatusType,
     TimerEligibleParticipantRolesType,
@@ -287,6 +288,7 @@ __all__ = (
     "CaseSlaConfigurationTypeDef",
     "CaseSlaConfigurationUnionTypeDef",
     "ChatContactMetricsTypeDef",
+    "ChatEntryPointParametersTypeDef",
     "ChatEventTypeDef",
     "ChatMessageTypeDef",
     "ChatMetricsTypeDef",
@@ -1975,6 +1977,10 @@ class ChatContactMetricsTypeDef(TypedDict):
     ConversationTurnCount: NotRequired[int]
     AgentFirstResponseTimestamp: NotRequired[datetime]
     AgentFirstResponseTimeInMillis: NotRequired[int]
+
+
+class ChatEntryPointParametersTypeDef(TypedDict):
+    FlowId: NotRequired[str]
 
 
 ChatEventTypeDef = TypedDict(
@@ -7732,8 +7738,9 @@ class TemplatedMessageConfigTypeDef(TypedDict):
 TestCaseEntryPointTypeDef = TypedDict(
     "TestCaseEntryPointTypeDef",
     {
-        "Type": NotRequired[Literal["VOICE_CALL"]],
+        "Type": NotRequired[TestCaseEntryPointTypeType],
         "VoiceCallEntryPointParameters": NotRequired[VoiceCallEntryPointParametersTypeDef],
+        "ChatEntryPointParameters": NotRequired[ChatEntryPointParametersTypeDef],
     },
 )
 

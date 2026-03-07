@@ -2,10 +2,9 @@ use std::{borrow::Cow, ops::Deref, str::FromStr, sync::Arc};
 
 use crate::{
     AllOfSchema, AnyOfSchema, CatalogUri, DocumentSchema, OneOfSchema, SchemaAccessor,
-    SchemaAccessors, SourceSchema, ValueSchema, get_tombi_schemastore_content,
+    SchemaAccessors, SourceSchema, SubSchemaUriMap, ValueSchema, get_tombi_schemastore_content,
     http_client::HttpClient, json::JsonCatalog,
 };
-use ahash::AHashMap;
 use itertools::{Either, Itertools};
 use tokio::sync::RwLock;
 use tombi_ast::SchemaDocumentCommentDirective;
@@ -27,8 +26,11 @@ pub struct AssociateSchemaOptions {
 #[derive(Debug, Clone)]
 pub struct SchemaStore {
     http_client: HttpClient,
-    document_schemas:
-        Arc<tokio::sync::RwLock<AHashMap<SchemaUri, Result<Arc<DocumentSchema>, crate::Error>>>>,
+    document_schemas: Arc<
+        tokio::sync::RwLock<
+            tombi_hashmap::HashMap<SchemaUri, Result<Arc<DocumentSchema>, crate::Error>>,
+        >,
+    >,
     schemas: Arc<RwLock<Vec<crate::Schema>>>,
     options: crate::Options,
     base_dir_path: Arc<RwLock<Option<std::path::PathBuf>>>,
@@ -485,7 +487,48 @@ impl SchemaStore {
             }
             None => return Ok(None),
         };
+        let dialect = object
+            .get("$schema")
+            .and_then(|value| value.as_str())
+            .and_then(|dialect_uri| crate::JsonSchemaDialect::try_from(dialect_uri).ok())
+            .unwrap_or_default();
+        let deprecated_keyword_usages = crate::collect_deprecated_keyword_usages(&object, dialect);
         let document_schema = DocumentSchema::new(object, schema_uri.clone());
+        if !deprecated_keyword_usages.is_empty() {
+            let total = deprecated_keyword_usages.len();
+            let sample_limit = 3;
+            let samples: Vec<String> = deprecated_keyword_usages
+                .iter()
+                .take(sample_limit)
+                .map(|usage| {
+                    if let Some(replacement_hint) = usage.replacement_hint {
+                        format!(
+                            "keyword={} pointer={} hint={}",
+                            usage.keyword, usage.pointer, replacement_hint
+                        )
+                    } else {
+                        format!("keyword={} pointer={}", usage.keyword, usage.pointer)
+                    }
+                })
+                .collect();
+            let remaining = total.saturating_sub(samples.len());
+            if remaining > 0 {
+                log::warn!(
+                    "deprecated JSON Schema keywords used for current dialect: schema_uri={} count={} samples=[{}] ... ({} more occurrences not shown)",
+                    schema_uri,
+                    total,
+                    samples.join("; "),
+                    remaining,
+                );
+            } else {
+                log::warn!(
+                    "deprecated JSON Schema keywords used for current dialect: schema_uri={} count={} samples=[{}]",
+                    schema_uri,
+                    total,
+                    samples.join("; "),
+                );
+            }
+        }
         if let Some(
             ValueSchema::AllOf(AllOfSchema { schemas, .. })
             | ValueSchema::AnyOf(AnyOfSchema { schemas, .. })
@@ -552,19 +595,25 @@ impl SchemaStore {
             None
         };
 
-        let (root_schema, sub_schema_uri_map) = if let Some(source_schema) = source_schema {
-            (source_schema.root_schema, source_schema.sub_schema_uri_map)
-        } else {
-            (None, Default::default())
-        };
+        let (root_schema, sub_schema_uri_map, toml_version) =
+            if let Some(source_schema) = source_schema {
+                let toml_version = source_schema.toml_version();
+                (
+                    source_schema.root_schema,
+                    source_schema.sub_schema_uri_map,
+                    toml_version,
+                )
+            } else {
+                (None, Default::default(), None)
+            };
 
-        Ok(Some(SourceSchema {
-            root_schema: self
-                .try_get_document_schema(schema_uri)
+        Ok(Some(SourceSchema::new(
+            self.try_get_document_schema(schema_uri)
                 .await?
                 .or(root_schema),
             sub_schema_uri_map,
-        }))
+            toml_version,
+        )))
     }
 
     pub async fn resolve_source_schema_from_ast(
@@ -681,28 +730,36 @@ impl SchemaStore {
                             }
                         }
                         None => {
-                            let mut new_source_schema = SourceSchema {
-                                root_schema: None,
-                                sub_schema_uri_map: Default::default(),
-                            };
-                            new_source_schema
-                                .sub_schema_uri_map
+                            let mut sub_schema_uri_map = SubSchemaUriMap::default();
+                            sub_schema_uri_map
                                 .insert(sub_root_keys.clone(), document_schema.schema_uri.clone());
-
-                            source_schema = Some(new_source_schema);
+                            source_schema = Some(SourceSchema::new(
+                                None,
+                                sub_schema_uri_map,
+                                matching_schema.toml_version,
+                            ));
                         }
                     },
                     None => match source_schema {
-                        Some(ref mut source_schema) => {
-                            if source_schema.root_schema.is_none() {
-                                source_schema.root_schema = Some(document_schema);
+                        Some(ref mut existing) => {
+                            if existing.root_schema.is_none() {
+                                let toml_version =
+                                    existing.toml_version().or(matching_schema.toml_version);
+                                let sub_schema_uri_map =
+                                    std::mem::take(&mut existing.sub_schema_uri_map);
+                                *existing = SourceSchema::new(
+                                    Some(document_schema),
+                                    sub_schema_uri_map,
+                                    toml_version,
+                                );
                             }
                         }
                         None => {
-                            source_schema = Some(SourceSchema {
-                                root_schema: Some(document_schema),
-                                sub_schema_uri_map: Default::default(),
-                            });
+                            source_schema = Some(SourceSchema::new(
+                                Some(document_schema),
+                                Default::default(),
+                                matching_schema.toml_version,
+                            ));
                         }
                     },
                 },

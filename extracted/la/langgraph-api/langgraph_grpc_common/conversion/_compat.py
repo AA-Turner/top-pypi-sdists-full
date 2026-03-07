@@ -93,7 +93,7 @@ except ImportError:  # langgraph < 0.5/6
 
         pass
 
-    DEFAULT_RUNTIME = Runtime()  # type: ignore[invalid-assignment]
+    DEFAULT_RUNTIME = Runtime()
 
     class StreamProtocol:
         __slots__ = ("__call__", "modes")
@@ -107,7 +107,7 @@ except ImportError:  # langgraph < 0.5/6
             __call__: Callable,
             modes: set[str],
         ) -> None:
-            self.__call__ = __call__  # type: ignore[assignment]
+            self.__call__ = __call__
             self.modes = modes
 
 

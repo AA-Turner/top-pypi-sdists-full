@@ -42,7 +42,7 @@
 ** This class keeps all the coding tables, Huffman, AC table, quantization
 ** and other side information.
 **
-** $Id: tables.cpp,v 1.213 2024/03/26 10:04:47 thor Exp $
+** $Id: tables.cpp,v 1.214 2025/08/15 09:06:39 thor Exp $
 **
 */
 
@@ -1490,6 +1490,24 @@ class QuantizationTable *Tables::FindQuantizationTable(UBYTE idx) const
   if (t == NULL)
     JPG_THROW(OBJECT_DOESNT_EXIST,"Tables::FindQuantizationTable","requested quantization matrix not defined");
   return t;
+}
+///
+
+/// Tables::QuantizationTableIndexOf
+// Find the quantzation table for component number.
+// This is for encoder-side quantization table assignment.
+UBYTE Tables::QuantizationTableIndexOf(UBYTE component,bool separatechroma) const
+{
+  if (m_pQuant == NULL)
+    JPG_THROW(OBJECT_DOESNT_EXIST,"Tables::QuantizationTableIndexOf","DQT marker missing, no quantization table defined");
+
+  if (separatechroma) {
+    if (component == 2 && m_pQuant->hasCompleteTables())
+      return 2;
+    if (component > 0)
+      return 1;
+  }
+  return 0;
 }
 ///
 

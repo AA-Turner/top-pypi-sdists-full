@@ -53,6 +53,7 @@ fn get_lll_mapping(structure: StructureJson) -> PyResult<[[f64; 3]; 3]> {
 
 /// Register lattice functions and classes on the given module.
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<super::classes::PyLattice>()?;
     module.add_function(wrap_pyfunction!(get_metric_tensor, module)?)?;
     module.add_function(wrap_pyfunction!(get_inv_matrix, module)?)?;
     module.add_function(wrap_pyfunction!(get_reciprocal_lattice, module)?)?;

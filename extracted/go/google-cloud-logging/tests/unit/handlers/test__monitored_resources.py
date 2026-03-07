@@ -12,26 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+import functools
+import logging
+import os
 import unittest
 
-import logging
 import mock
-import os
-import functools
+import pytest
 
+from google.cloud.logging_v2.handlers import _monitored_resources
 from google.cloud.logging_v2.handlers._monitored_resources import (
     _create_app_engine_resource,
-    _create_functions_resource,
-    _create_kubernetes_resource,
-    _create_cloud_run_service_resource,
     _create_cloud_run_job_resource,
+    _create_cloud_run_service_resource,
     _create_compute_resource,
+    _create_functions_resource,
     _create_global_resource,
-    detect_resource,
+    _create_kubernetes_resource,
     add_resource_labels,
+    detect_resource,
 )
-from google.cloud.logging_v2.handlers import _monitored_resources
 from google.cloud.logging_v2.resource import Resource
 
 

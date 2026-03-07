@@ -9,6 +9,7 @@ import pathlib
 import tempfile
 import zipfile
 import zlib
+from dataclasses import dataclass
 
 from snowflake import snowpark
 
@@ -18,7 +19,11 @@ def check_checksum(data: bytes, crc: int) -> bool:
 
 
 def write_artifact(
-    session: snowpark.Session, name: str, data: bytes, overwrite: bool = False
+    session: snowpark.Session,
+    spark_session_id: str,
+    name: str,
+    data: bytes,
+    overwrite: bool = False,
 ) -> str:
     # When using the notebook we have greatly limited disk space (around 1GB), so the provided artifacts cannot be too large.
     # When name starts with "cache/" it indicates that the provided artifact should be compressed to save space on the disk.
@@ -28,18 +33,24 @@ def write_artifact(
         filename = name + ".archive"
     else:
         filename = name
-    return write_temporary_artifact(session, filename, data, overwrite)
+    return write_temporary_artifact(
+        session, spark_session_id, filename, data, overwrite
+    )
 
 
 def write_temporary_artifact(
-    session: snowpark.Session, name: str, data: bytes, overwrite: bool
+    session: snowpark.Session,
+    spark_session_id: str,
+    name: str,
+    data: bytes,
+    overwrite: bool,
 ) -> str:
     # We write to /tmp (or windows equivalent) to keep the data in memory.
     # This is designed to work in TCM as well.
     if os.name != "nt":
-        filepath = f"/tmp/sas-{session.session_id}/{name}"
+        filepath = f"/tmp/sas-{session.session_id}/{spark_session_id}/{name}"
     else:
-        filepath = f"{tempfile.gettempdir()}\\sas-{session.session_id}\\{name}"
+        filepath = f"{tempfile.gettempdir()}\\sas-{session.session_id}\\{spark_session_id}\\{name}"
     # The name comes to us as a path (e.g. cache/<name>), so we need to create
     # the parent directory if it doesn't exist to avoid errors during writing.
     pathlib.Path(filepath).parent.mkdir(parents=True, exist_ok=True)
@@ -50,13 +61,17 @@ def write_temporary_artifact(
     return filepath
 
 
-def write_class_files_to_stage(session: snowpark.Session, files: dict[str, str]) -> str:
+def write_class_files_to_stage(
+    session: snowpark.Session, spark_session_id: str, files: dict[str, str]
+) -> str:
     jar_name = f'{hashlib.sha256(str(files).encode("utf-8")).hexdigest()[:10]}.jar'
     if os.name != "nt":
-        filepath = f"/tmp/sas-{session.session_id}"
+        filepath = f"/tmp/sas-{session.session_id}/{spark_session_id}"
         jar_path = f"{filepath}/{jar_name}"
     else:
-        filepath = f"{tempfile.gettempdir()}\\sas-{session.session_id}"
+        filepath = (
+            f"{tempfile.gettempdir()}\\sas-{session.session_id}\\{spark_session_id}"
+        )
         jar_path = f"{filepath}\\{jar_name}"
     with zipfile.ZipFile(jar_path, "w", zipfile.ZIP_DEFLATED) as jar:
         for name, path in files.items():
@@ -69,3 +84,21 @@ def write_class_files_to_stage(session: snowpark.Session, files: dict[str, str])
         overwrite=True,
     )
     return stage_path + jar_name
+
+
+@dataclass(frozen=True)
+class ArtifactKey:
+    filename: str
+    file_hash: tuple[str, ...]
+
+    def append_chunk_hash(self, chunk_data: bytes) -> "ArtifactKey":
+        content_hash = hashlib.sha256(chunk_data).hexdigest()
+        return ArtifactKey(
+            filename=self.filename,
+            file_hash=self.file_hash + (content_hash,),
+        )
+
+
+def generate_artifact_key(filename: str, data: bytes) -> ArtifactKey:
+    content_hash = hashlib.sha256(data).hexdigest()
+    return ArtifactKey(filename=filename, file_hash=(content_hash,))

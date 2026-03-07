@@ -15,7 +15,7 @@ def OpenTargets_drug_pharmacogenomics_data(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Retrieve pharmacogenomics data for a specific drug, including evidence levels and genotype annota...
 
@@ -34,7 +34,7 @@ def OpenTargets_drug_pharmacogenomics_data(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

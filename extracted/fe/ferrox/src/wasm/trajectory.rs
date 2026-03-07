@@ -2,7 +2,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::trajectory::{MsdCalculator, VacfCalculator};
+use crate::analysis::trajectory::{MsdCalculator, VacfCalculator};
 use crate::wasm::parse_flat_vec3;
 use crate::wasm_types::WasmResult;
 
@@ -142,7 +142,7 @@ pub fn diffusion_from_msd(
     if start_fraction >= end_fraction {
         return WasmResult::err("start_fraction must be < end_fraction");
     }
-    let (diff, r2) = crate::trajectory::diffusion_coefficient_from_msd(
+    let (diff, r2) = crate::analysis::trajectory::diffusion_coefficient_from_msd(
         &msd,
         &times,
         dim,
@@ -160,7 +160,5 @@ pub fn diffusion_from_vacf(vacf: Vec<f64>, dt: f64, dim: usize) -> WasmResult<f6
     if dt <= 0.0 {
         return WasmResult::err("dt must be positive");
     }
-    WasmResult::ok(crate::trajectory::diffusion_coefficient_from_vacf(
-        &vacf, dt, dim,
-    ))
+    WasmResult::ok(crate::analysis::trajectory::diffusion_coefficient_from_vacf(&vacf, dt, dim))
 }

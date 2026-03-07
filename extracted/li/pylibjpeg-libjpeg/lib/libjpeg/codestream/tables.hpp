@@ -42,7 +42,7 @@
 ** This class keeps all the coding tables, huffman, AC table, quantization
 ** and other side information.
 **
-** $Id: tables.hpp,v 1.95 2021/09/08 10:30:06 thor Exp $
+** $Id: tables.hpp,v 1.96 2025/08/15 09:06:39 thor Exp $
 **
 */
 
@@ -290,6 +290,11 @@ public:
   //
   // Find the quantization table of the given index.
   class QuantizationTable *FindQuantizationTable(UBYTE idx) const;
+  //
+  // Find the quantzation table for component number, and whether
+  // we need a separate chroma table.
+  // This is for encoder-side quantization table assignment.
+  UBYTE QuantizationTableIndexOf(UBYTE component,bool separatechroma) const;
   //
   // Return the residual data if any.
   class DataBox *ResidualDataOf(void) const

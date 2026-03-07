@@ -9,7 +9,7 @@ from ._shared_client import get_shared_client
 
 
 def NCBI_SRA_search_runs(
-    operation: str,
+    operation: Optional[str] = None,
     study: Optional[str] = None,
     organism: Optional[str] = None,
     strategy: Optional[str] = None,

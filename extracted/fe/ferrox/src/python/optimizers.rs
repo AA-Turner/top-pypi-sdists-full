@@ -5,7 +5,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
-use crate::optimizers;
+use crate::simulation::optimizers;
 
 use super::helpers::{mat3_to_array, validate_opt, validate_positive_f64};
 

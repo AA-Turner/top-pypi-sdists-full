@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: langchain-azure-ai
-Version: 1.0.61
+Version: 1.0.62
 Summary: An integration package to support Azure AI Foundry capabilities in LangChain/LangGraph ecosystem.
 License: MIT License
          
@@ -23,6 +23,7 @@ License: MIT License
          LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
          OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
          SOFTWARE.
+License-File: LICENSE
 Requires-Python: >=3.10.0,<4.0
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
@@ -30,13 +31,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: opentelemetry
 Provides-Extra: tools
+Provides-Extra: v2
 Requires-Dist: aiohttp (>=3.10,<4.0)
 Requires-Dist: azure-ai-agents (==1.2.0b5)
 Requires-Dist: azure-ai-documentintelligence (>=1.0.2,<2.0.0) ; extra == "tools"
 Requires-Dist: azure-ai-inference[opentelemetry] (>=1.0.0b9,<2.0)
-Requires-Dist: azure-ai-projects (>=1.0,<2.0)
+Requires-Dist: azure-ai-projects (>=1.0.0,<3.0)
+Requires-Dist: azure-ai-projects (>=2.0.0b4) ; extra == "v2"
 Requires-Dist: azure-ai-textanalytics (>=5.3.0,<6.0.0) ; extra == "tools"
 Requires-Dist: azure-ai-vision-imageanalysis (>=1.0.0,<2.0.0) ; extra == "tools"
 Requires-Dist: azure-core (>=1.32,<2.0)
@@ -80,6 +84,12 @@ For using tracing capabilities with OpenTelemetry, you need to add the extras `o
 
 ```bash
 pip install -U langchain-azure-ai[opentelemetry]
+```
+
+This package supports Microsoft Foundry Agents Service using Foundry SDK v2. Use it with:
+
+```bash
+pip install -U langchain-azure-ai[v2]
 ```
 
 ## Quick Start with langchain-azure-ai
@@ -153,6 +163,16 @@ print(' '.join(chunk.content for chunk in message_stream))
 ```
 
 ## Changelog
+
+- **1.0.62**:
+
+    - We introduced support for asynchhronous agents operation and tracing using our OpenTelemetry tracer for context to propagate correctly. [#290].(https://github.com/langchain-ai/langchain-azure/pull/290).
+    - We introduced support for Bash operations in `langchain-azure-dynamic-session`. [#238](https://github.com/langchain-ai/langchain-azure/pull/238).
+    - We introduced support for Agent Service V2 in Microsoft Foundry. [PR #257](https://github.com/langchain-ai/langchain-azure/pull/257).
+    - We added a new tool to generate images based on OpenAI-compatible image generation models. [PR #325](https://github.com/langchain-ai/langchain-azure/pull/325)
+    - We fixed an issue when `on_tool_start` ignores `enable_content_recording`. Now it doesn't. [#261](https://github.com/langchain-ai/langchain-azure/pull/261).
+    - We fixed a problem when uploaded files were not considered by the `CodeInterpreterTool` for the Agent Service. [#256](https://github.com/langchain-ai/langchain-azure/pull/256).
+    - We fixed an issue when using `AzureAIOpenTelemetryTracer` on a Mac. [#234](https://github.com/langchain-ai/langchain-azure/pull/234).
 
 - **1.0.61**:
 

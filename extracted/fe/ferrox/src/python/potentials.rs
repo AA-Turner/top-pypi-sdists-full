@@ -5,7 +5,7 @@ use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
-use crate::potentials;
+use crate::simulation::potentials;
 
 use super::helpers::{
     array_to_mat3, default_pbc, mat3_to_array, positions_to_vec3, validate_array_index,

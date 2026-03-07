@@ -16,6 +16,7 @@ from .utils import (
     build_ref,
     get_examples,
     get_headers,
+    get_links,
     get_parameters,
     get_paths,
     get_responses,
@@ -340,6 +341,24 @@ class TestComponents(RefsSchemaTestMixin):
         ):
             spec.components.example("test_example", {})
 
+    @pytest.mark.parametrize("spec", ("3.0.0",), indirect=True)
+    def test_links(self, spec):
+        link = {
+            "operationRef": "#/paths/~1users~1{user_id}/get",
+            "parameters": {"user_id": "$response.body#/id"},
+        }
+        spec.components.link("GetUser", link)
+        links = get_links(spec)
+        assert "GetUser" in links
+        assert links["GetUser"] == link
+
+    @pytest.mark.parametrize("spec", ("3.0.0",), indirect=True)
+    def test_links_duplicate_name(self, spec):
+        link = {"operationRef": "#/paths/~1users/get"}
+        spec.components.link("GetUser", link)
+        with pytest.raises(APISpecError, match='Another link with name "GetUser"'):
+            spec.components.link("GetUser", link)
+
     def test_security_scheme(self, spec):
         sec_scheme = {"type": "apiKey", "in": "header", "name": "X-API-Key"}
         spec.components.security_scheme("ApiKeyAuth", sec_scheme)
@@ -595,6 +614,34 @@ class TestComponents(RefsSchemaTestMixin):
         )
         assert "Example_2" in examples
 
+    @pytest.mark.parametrize("spec", ("3.0.0",), indirect=True)
+    def test_links_lazy(self, spec):
+        link = {"operationRef": "#/paths/~1users~1{user_id}/get"}
+        spec.components.link("GetUser", link, lazy=True)
+        # Should not appear until referenced
+        links = get_links(spec)
+        assert "GetUser" not in links
+
+        # Reference the link and verify it appears
+        spec.path(
+            path="/path",
+            operations={
+                "get": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "GetUser": "GetUser",  # Reference by name
+                            },
+                        }
+                    }
+                }
+            },
+        )
+        links = get_links(spec)
+        assert "GetUser" in links
+        assert links["GetUser"] == link
+
 
 class TestPath(RefsSchemaTestMixin):
     paths = {
@@ -629,20 +676,7 @@ class TestPath(RefsSchemaTestMixin):
 
     def test_path(self, spec):
         route_spec = self.paths["/pet/{petId}"]["get"]
-        spec.path(
-            path="/pet/{petId}",
-            operations=dict(
-                get=dict(
-                    parameters=route_spec["parameters"],
-                    responses=route_spec["responses"],
-                    produces=route_spec["produces"],
-                    operationId=route_spec["operationId"],
-                    summary=route_spec["summary"],
-                    description=route_spec["description"],
-                    tags=route_spec["tags"],
-                )
-            ),
-        )
+        spec.path(path="/pet/{petId}", operations=dict(get=route_spec))
 
         p = get_paths(spec)["/pet/{petId}"]["get"]
         assert p["parameters"] == route_spec["parameters"]

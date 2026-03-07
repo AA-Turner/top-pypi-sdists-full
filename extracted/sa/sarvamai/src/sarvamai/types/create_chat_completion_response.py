@@ -34,6 +34,8 @@ class CreateChatCompletionResponse(UniversalBaseModel):
     The object type, which is always `chat.completion`.
     """
 
+    service_tier: typing.Optional[str] = None
+    system_fingerprint: typing.Optional[str] = None
     usage: typing.Optional[CompletionUsage] = None
 
     if IS_PYDANTIC_V2:

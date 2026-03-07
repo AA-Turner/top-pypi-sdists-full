@@ -22,9 +22,9 @@ def PharmGKB_get_clinical_annotations(
     Parameters
     ----------
     annotation_id : str
-        PharmGKB clinical annotation ID (e.g., '1449309855').
+        PharmGKB clinical annotation ID (e.g., '1449309855'). Required for reliable r...
     gene_id : str
-        PharmGKB Gene Accession ID (e.g., 'PA128').
+        PharmGKB Gene Accession ID (e.g., 'PA128'). NOTE: Filtering by gene_id is unr...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

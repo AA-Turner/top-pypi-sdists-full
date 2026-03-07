@@ -15,10 +15,10 @@
 # limitations under the License.
 #
 
-''' Parameters are one of the core concepts of Luigi.
+"""Parameters are one of the core concepts of Luigi.
 All Parameters sit on :class:`~luigi.task.Task` classes.
 See :ref:`Parameter` for more info on how to define parameters.
-'''
+"""
 
 import abc
 import datetime
@@ -29,12 +29,26 @@ from ast import literal_eval
 from enum import Enum, IntEnum
 from json import JSONEncoder
 from pathlib import Path
-from typing import Any, Dict, Generic, Optional, Sequence, Tuple, Type, overload
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypedDict,
+    Union,
+    overload,
+)
 
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, Unpack
 
 try:
     import jsonschema
+
     _JSONSCHEMA_ENABLED = True
 except ImportError:
     _JSONSCHEMA_ENABLED = False
@@ -47,7 +61,22 @@ from luigi.cmdline_parser import CmdlineParser
 
 from .freezing import FrozenOrderedDict, recursively_freeze, recursively_unfreeze
 
-_no_value = object()
+
+class _NoValueType:
+    """Sentinel class representing "no default value provided"."""
+
+    _instance: "Optional[_NoValueType]" = None
+
+    def __new__(cls) -> "_NoValueType":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "<no_value>"
+
+
+_no_value = _NoValueType()
 
 
 class ParameterVisibility(IntEnum):
@@ -55,6 +84,7 @@ class ParameterVisibility(IntEnum):
     Possible values for the parameter visibility option. Public is the default.
     See :doc:`/parameters` for more info.
     """
+
     PUBLIC = 0
     HIDDEN = 1
     PRIVATE = 2
@@ -71,6 +101,7 @@ class ParameterException(Exception):
     """
     Base exception.
     """
+
     pass
 
 
@@ -78,6 +109,7 @@ class MissingParameterException(ParameterException):
     """
     Exception signifying that there was a missing Parameter.
     """
+
     pass
 
 
@@ -85,6 +117,7 @@ class UnknownParameterException(ParameterException):
     """
     Exception signifying that an unknown Parameter was supplied.
     """
+
     pass
 
 
@@ -92,6 +125,7 @@ class DuplicateParameterException(ParameterException):
     """
     Exception signifying that a Parameter was specified multiple times.
     """
+
     pass
 
 
@@ -99,6 +133,7 @@ class OptionalParameterTypeWarning(UserWarning):
     """
     Warning class for OptionalParameterMixin with wrong type.
     """
+
     pass
 
 
@@ -107,6 +142,17 @@ class UnconsumedParameterWarning(UserWarning):
 
 
 T = TypeVar("T", default=str)
+
+
+class _ParameterKwargs(TypedDict, total=False):
+    is_global: bool
+    significant: bool
+    description: Optional[str]
+    config_path: Optional[str]
+    positional: bool
+    always_in_help: bool
+    batch_method: Optional[Callable[[Iterable[Any]], Any]]
+    visibility: ParameterVisibility
 
 
 class Parameter(Generic[T]):
@@ -147,11 +193,21 @@ class Parameter(Generic[T]):
 
     Parameter objects may be reused, but you must then set the ``positional=False`` flag.
     """
+
     _counter = 0  # non-atomically increasing counter used for ordering parameters.
 
-    def __init__(self, default=_no_value, is_global=False, significant=True, description=None,
-                 config_path=None, positional=True, always_in_help=False, batch_method=None,
-                 visibility=ParameterVisibility.PUBLIC):
+    def __init__(
+        self,
+        default: Union[T, _NoValueType] = _no_value,
+        is_global: bool = False,
+        significant: bool = True,
+        description: Optional[str] = None,
+        config_path: Optional[str] = None,
+        positional: bool = True,
+        always_in_help: bool = False,
+        batch_method: Optional[Callable[[Iterable[Any]], Any]] = None,
+        visibility: ParameterVisibility = ParameterVisibility.PUBLIC,
+    ):
         """
         :param default: the default value for this parameter. This should match the type of the
                         Parameter, i.e. ``datetime.date`` for ``DateParameter`` or ``int`` for
@@ -186,9 +242,7 @@ class Parameter(Generic[T]):
         self._default = default
         self._batch_method = batch_method
         if is_global:
-            warnings.warn("is_global support is removed. Assuming positional=False",
-                          DeprecationWarning,
-                          stacklevel=2)
+            warnings.warn("is_global support is removed. Assuming positional=False", DeprecationWarning, stacklevel=2)
             positional = False
         self.significant = significant  # Whether different values for this parameter will differentiate otherwise equal tasks
         self.positional = positional
@@ -197,8 +251,8 @@ class Parameter(Generic[T]):
         self.description = description
         self.always_in_help = always_in_help
 
-        if config_path is not None and ('section' not in config_path or 'name' not in config_path):
-            raise ParameterException('config_path must be a hash containing entries for section and name')
+        if config_path is not None and ("section" not in config_path or "name" not in config_path):
+            raise ParameterException("config_path must be a hash containing entries for section and name")
         self._config_path = config_path
 
         self._counter = Parameter._counter  # We need to keep track of this to get the order right (see Task class)
@@ -211,7 +265,17 @@ class Parameter(Generic[T]):
     def __get__(self, instance: Any, owner: Any) -> T: ...
 
     def __get__(self, instance: Any, owner: Any) -> Any:
-        return self
+        if instance is None:
+            return self
+        return instance.__dict__[self._attribute_name]
+
+    def __set_name__(self, owner, name):
+        self._attribute_name = name
+
+    def __set__(self, instance: Any, value: T):
+        if self._attribute_name is None:
+            raise RuntimeError("Parameter name not set. ensure it's defined as a class attribute.")
+        instance.__dict__[self._attribute_name] = value
 
     def _get_value_from_config(self, section, name):
         """Loads the default from the config. Returns _no_value if it doesn't exist"""
@@ -246,9 +310,12 @@ class Parameter(Generic[T]):
             yield (self._parse_or_no_value(found), None)
         yield (self._get_value_from_config(task_name, param_name), None)
         if self._config_path:
-            yield (self._get_value_from_config(self._config_path['section'], self._config_path['name']),
-                   'The use of the configuration [{}] {} is deprecated. Please use [{}] {}'.format(
-                       self._config_path['section'], self._config_path['name'], task_name, param_name))
+            yield (
+                self._get_value_from_config(self._config_path["section"], self._config_path["name"]),
+                "The use of the configuration [{}] {} is deprecated. Please use [{}] {}".format(
+                    self._config_path["section"], self._config_path["name"], task_name, param_name
+                ),
+            )
         yield (self._default, None)
 
     def has_task_value(self, task_name, param_name):
@@ -287,9 +354,9 @@ class Parameter(Generic[T]):
         :return: the combined parsed values
         """
         if not self._is_batchable():
-            raise NotImplementedError('No batch method found')
+            raise NotImplementedError("No batch method found")
         elif not xs:
-            raise ValueError('Empty parameter list passed to parse_list')
+            raise ValueError("Empty parameter list passed to parse_list")
         else:
             return self._batch_method(map(self.parse, xs))
 
@@ -344,7 +411,7 @@ class Parameter(Generic[T]):
 
     @staticmethod
     def _parser_global_dest(param_name, task_name):
-        return task_name + '_' + param_name
+        return task_name + "_" + param_name
 
     @classmethod
     def _parser_kwargs(cls, param_name, task_name=None):
@@ -375,7 +442,7 @@ class OptionalParameterMixin:
         Parse the given value if the value is not None else return an empty string.
         """
         if x is None:
-            return ''
+            return ""
         else:
             return super().serialize(x)
 
@@ -405,10 +472,7 @@ class OptionalParameterMixin:
             except TypeError:
                 param_type = f'type "{self.expected_type.__name__}"'
             warnings.warn(
-                (
-                    f'{self.__class__.__name__} "{param_name}" with value '
-                    f'"{param_value}" is not of {param_type} or None.'
-                ),
+                (f'{self.__class__.__name__} "{param_name}" with value "{param_value}" is not of {param_type} or None.'),
                 OptionalParameterTypeWarning,
             )
 
@@ -436,8 +500,14 @@ class _DateParameterBase(Parameter[datetime.date]):
     Base class Parameter for date (not datetime).
     """
 
-    def __init__(self, interval=1, start=None, **kwargs):
-        super(_DateParameterBase, self).__init__(**kwargs)
+    def __init__(
+        self,
+        default: Union[datetime.date, _NoValueType] = _no_value,
+        interval: int = 1,
+        start: Optional[datetime.date] = None,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
+        super().__init__(default=default, **kwargs)
         self.interval = interval
         self.start = start if start is not None else _UNIX_EPOCH.date()
 
@@ -495,7 +565,7 @@ class DateParameter(_DateParameterBase):
             date = luigi.DateParameter(default=datetime.date.today())
     """
 
-    date_format = '%Y-%m-%d'
+    date_format = "%Y-%m-%d"
 
     def next_in_enumeration(self, value):
         return value + datetime.timedelta(days=self.interval)
@@ -521,7 +591,7 @@ class MonthParameter(DateParameter):
     :py:class:`~luigi.date_interval.Month`.
     """
 
-    date_format = '%Y-%m'
+    date_format = "%Y-%m"
 
     def _add_months(self, date, months):
         """
@@ -560,7 +630,7 @@ class YearParameter(DateParameter):
     :py:class:`~datetime.date` (ignoring the month and day values) or :py:class:`~luigi.date_interval.Year`.
     """
 
-    date_format = '%Y'
+    date_format = "%Y"
 
     def next_in_enumeration(self, value):
         return value.replace(year=value.year + self.interval)
@@ -581,8 +651,14 @@ class _DatetimeParameterBase(Parameter[datetime.datetime]):
     Base class Parameter for datetime
     """
 
-    def __init__(self, interval=1, start=None, **kwargs):
-        super(_DatetimeParameterBase, self).__init__(**kwargs)
+    def __init__(
+        self,
+        default: Union[datetime.datetime, _NoValueType] = _no_value,
+        interval: int = 1,
+        start: Optional[datetime.datetime] = None,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
+        super().__init__(default=default, **kwargs)
         self.interval = interval
         self.start = start if start is not None else _UNIX_EPOCH
 
@@ -650,7 +726,7 @@ class DateHourParameter(_DatetimeParameterBase):
     19:00.
     """
 
-    date_format = '%Y-%m-%dT%H'  # ISO 8601 is to use 'T'
+    date_format = "%Y-%m-%dT%H"  # ISO 8601 is to use 'T'
     _timedelta = datetime.timedelta(hours=1)
 
 
@@ -665,21 +741,17 @@ class DateMinuteParameter(_DatetimeParameterBase):
     The interval parameter can be used to clamp this parameter to every N minutes, instead of every minute.
     """
 
-    date_format = '%Y-%m-%dT%H%M'
+    date_format = "%Y-%m-%dT%H%M"
     _timedelta = datetime.timedelta(minutes=1)
-    deprecated_date_format = '%Y-%m-%dT%HH%M'
+    deprecated_date_format = "%Y-%m-%dT%HH%M"
 
     def parse(self, x):
         try:
             value = datetime.datetime.strptime(x, self.deprecated_date_format)
-            warnings.warn(
-                'Using "H" between hours and minutes is deprecated, omit it instead.',
-                DeprecationWarning,
-                stacklevel=2
-            )
+            warnings.warn('Using "H" between hours and minutes is deprecated, omit it instead.', DeprecationWarning, stacklevel=2)
             return value
         except ValueError:
-            return super(DateMinuteParameter, self).parse(x)
+            return super().parse(x)
 
 
 class DateSecondParameter(_DatetimeParameterBase):
@@ -693,8 +765,17 @@ class DateSecondParameter(_DatetimeParameterBase):
     The interval parameter can be used to clamp this parameter to every N seconds, instead of every second.
     """
 
-    date_format = '%Y-%m-%dT%H%M%S'
+    date_format = "%Y-%m-%dT%H%M%S"
     _timedelta = datetime.timedelta(seconds=1)
+
+
+class StrParameter(Parameter[str]):
+    """
+    Parameter whose value is a ``str``.
+    """
+
+    def parse(self, x):
+        return str(x)
 
 
 class IntParameter(Parameter[int]):
@@ -770,9 +851,14 @@ class BoolParameter(Parameter[bool]):
 
     parsing = IMPLICIT_PARSING
 
-    def __init__(self, *args, **kwargs):
-        self.parsing = kwargs.pop("parsing", self.__class__.parsing)
-        super(BoolParameter, self).__init__(*args, **kwargs)
+    def __init__(
+        self,
+        default: Union[bool, _NoValueType] = _no_value,
+        parsing: str = IMPLICIT_PARSING,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
+        self.parsing = parsing
+        super().__init__(default=default, **kwargs)
         if self._default == _no_value:
             self._default = False
 
@@ -795,7 +881,7 @@ class BoolParameter(Parameter[bool]):
             return None
 
     def _parser_kwargs(self, *args, **kwargs):
-        parser_kwargs = super(BoolParameter, self)._parser_kwargs(*args, **kwargs)
+        parser_kwargs = super()._parser_kwargs(*args, **kwargs)
         if self.parsing == self.IMPLICIT_PARSING:
             parser_kwargs["action"] = "store_true"
         elif self.parsing == self.EXPLICIT_PARSING:
@@ -838,7 +924,7 @@ class DateIntervalParameter(Parameter[date_interval.DateInterval]):
             if i:
                 return i
 
-        raise ValueError('Invalid date interval - could not be parsed')
+        raise ValueError("Invalid date interval - could not be parsed")
 
 
 class TimeDeltaParameter(Parameter[datetime.timedelta]):
@@ -856,6 +942,7 @@ class TimeDeltaParameter(Parameter[datetime.timedelta]):
 
     def _apply_regex(self, regex, input):
         import re
+
         re_match = re.match(regex, input)
         if re_match and any(re_match.groups()):
             kwargs = {}
@@ -876,8 +963,7 @@ class TimeDeltaParameter(Parameter[datetime.timedelta]):
             return "(%s)?" % field(key)
 
         # A little loose: ISO 8601 does not allow weeks in combination with other fields, but this regex does (as does python timedelta)
-        regex = "P(%s|%s(T%s)?)" % (field("weeks"), optional_field("days"),
-                                    "".join([optional_field(key) for key in ["hours", "minutes", "seconds"]]))
+        regex = "P(%s|%s(T%s)?)" % (field("weeks"), optional_field("days"), "".join([optional_field(key) for key in ["hours", "minutes", "seconds"]]))
         return self._apply_regex(regex, input)
 
     def _parseSimple(self, input):
@@ -961,7 +1047,7 @@ class TaskParameter(Parameter[Type[TaskType]]):
         return x.get_task_family()
 
 
-EnumParameterType = TypeVar('EnumParameterType', bound=Enum)
+EnumParameterType = TypeVar("EnumParameterType", bound=Enum)
 
 
 class EnumParameter(Parameter[EnumParameterType]):
@@ -987,17 +1073,23 @@ class EnumParameter(Parameter[EnumParameterType]):
 
     """
 
-    def __init__(self, *args, enum: Optional[Type[EnumParameterType]] = None, **kwargs):
+    def __init__(
+        self,
+        default: Union[EnumParameterType, _NoValueType] = _no_value,
+        *,
+        enum: Optional[Type[EnumParameterType]] = None,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
         if enum is None:
-            raise ParameterException('An enum class must be specified.')
+            raise ParameterException("An enum class must be specified.")
         self._enum = enum
-        super(EnumParameter, self).__init__(*args, **kwargs)
+        super().__init__(default=default, **kwargs)
 
     def parse(self, x):
         try:
             return self._enum[x]
         except KeyError:
-            raise ValueError('Invalid enum value - could not be parsed')
+            raise ValueError("Invalid enum value - could not be parsed")
 
     def serialize(self, x):
         return x.name
@@ -1028,16 +1120,22 @@ class EnumListParameter(Parameter[Tuple[EnumParameterType, ...]]):
 
     """
 
-    _sep = ','
+    _sep = ","
 
-    def __init__(self, *args, enum: Optional[Type[EnumParameterType]] = None, **kwargs):
+    def __init__(
+        self,
+        default: Union[Tuple[EnumParameterType, ...], _NoValueType] = _no_value,
+        *,
+        enum: Optional[Type[EnumParameterType]] = None,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
         if enum is None:
-            raise ParameterException('An enum class must be specified.')
+            raise ParameterException("An enum class must be specified.")
         self._enum = enum
-        super(EnumListParameter, self).__init__(*args, **kwargs)
+        super().__init__(default=default, **kwargs)
 
     def parse(self, x):
-        values = [] if x == '' else x.split(self._sep)
+        values = [] if x == "" else x.split(self._sep)
 
         for i, v in enumerate(values):
             try:
@@ -1062,7 +1160,10 @@ class _DictParamEncoder(JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-class DictParameter(Parameter[Dict[Any, Any]]):
+DictT = TypeVar("DictT", bound=dict, default=Dict[Any, Any])
+
+
+class DictParameter(Parameter[DictT]):
     """
     Parameter whose value is a ``dict``.
 
@@ -1148,22 +1249,17 @@ class DictParameter(Parameter[Dict[Any, Any]]):
 
     def __init__(
         self,
-        *args,
+        default: Union[DictT, _NoValueType] = _no_value,
+        *,
         schema=None,
-        **kwargs,
+        **kwargs: Unpack[_ParameterKwargs],
     ):
         if schema is not None and not _JSONSCHEMA_ENABLED:
-            warnings.warn(
-                "The 'jsonschema' package is not installed so the parameter can not be validated "
-                "even though a schema is given."
-            )
+            warnings.warn("The 'jsonschema' package is not installed so the parameter can not be validated even though a schema is given.")
             self.schema = None
         else:
             self.schema = schema
-        super().__init__(
-            *args,
-            **kwargs,
-        )
+        super().__init__(default=default, **kwargs)
 
     def normalize(self, x):
         """
@@ -1204,7 +1300,10 @@ class OptionalDictParameter(OptionalParameterMixin, DictParameter):
     expected_type = FrozenOrderedDict
 
 
-class ListParameter(Parameter[Tuple[Any, ...]]):
+ListT = TypeVar("ListT", bound=tuple, default=Tuple[Any, ...])
+
+
+class ListParameter(Parameter[ListT]):
     """
     Parameter whose value is a ``list``.
 
@@ -1299,22 +1398,17 @@ class ListParameter(Parameter[Tuple[Any, ...]]):
 
     def __init__(
         self,
-        *args,
+        default: Union[ListT, _NoValueType] = _no_value,
+        *,
         schema=None,
-        **kwargs,
+        **kwargs: Unpack[_ParameterKwargs],
     ):
         if schema is not None and not _JSONSCHEMA_ENABLED:
-            warnings.warn(
-                "The 'jsonschema' package is not installed so the parameter can not be validated "
-                "even though a schema is given."
-            )
+            warnings.warn("The 'jsonschema' package is not installed so the parameter can not be validated even though a schema is given.")
             self.schema = None
         else:
             self.schema = schema
-        super().__init__(
-            *args,
-            **kwargs,
-        )
+        super().__init__(default=default, **kwargs)
 
     def normalize(self, x):
         """
@@ -1361,7 +1455,7 @@ class OptionalListParameter(OptionalParameterMixin, ListParameter):
     expected_type = tuple
 
 
-class TupleParameter(ListParameter):
+class TupleParameter(ListParameter[ListT]):
     """
     Parameter whose value is a ``tuple`` or ``tuple`` of tuples.
 
@@ -1457,10 +1551,17 @@ class NumericalParameter(Parameter[NumericalType]):
         $ luigi --module my_tasks MyTask --my-param-1 -3 --my-param-2 -2
     """
 
-    def __init__(self, *args, var_type: Optional[NumericalType] = None,
-                 min_value: Optional[NumericalType] = None,
-                 max_value: Optional[NumericalType] = None,
-                 left_op=operator.le, right_op=operator.lt, **kwargs):
+    def __init__(
+        self,
+        default: Union[NumericalType, _NoValueType] = _no_value,
+        *,
+        var_type: Optional[Type[NumericalType]] = None,
+        min_value: Optional[NumericalType] = None,
+        max_value: Optional[NumericalType] = None,
+        left_op=operator.le,
+        right_op=operator.lt,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
         """
         :param function var_type: The type of the input variable, e.g. int or float.
         :param min_value: The minimum value permissible in the accepted values
@@ -1491,13 +1592,14 @@ class NumericalParameter(Parameter[NumericalType]):
         self._max_value = max_value
         self._left_op = left_op
         self._right_op = right_op
-        self._permitted_range = (
-            "{var_type} in {left_endpoint}{min_value}, {max_value}{right_endpoint}".format(
-                var_type=self._var_type.__name__,
-                min_value=self._min_value, max_value=self._max_value,
-                left_endpoint="[" if left_op == operator.le else "(",
-                right_endpoint=")" if right_op == operator.lt else "]"))
-        super(NumericalParameter, self).__init__(*args, **kwargs)
+        self._permitted_range = "{var_type} in {left_endpoint}{min_value}, {max_value}{right_endpoint}".format(
+            var_type=self._var_type.__name__,
+            min_value=self._min_value,
+            max_value=self._max_value,
+            left_endpoint="[" if left_op == operator.le else "(",
+            right_endpoint=")" if right_op == operator.lt else "]",
+        )
+        super().__init__(default=default, **kwargs)
         if self.description:
             self.description += " "
         else:
@@ -1506,19 +1608,21 @@ class NumericalParameter(Parameter[NumericalType]):
 
     def parse(self, x):
         value = self._var_type(x)
-        if (self._left_op(self._min_value, value) and self._right_op(value, self._max_value)):
+        if self._left_op(self._min_value, value) and self._right_op(value, self._max_value):
             return value
         else:
-            raise ValueError(
-                "{s} is not in the set of {permitted_range}".format(
-                    s=x, permitted_range=self._permitted_range))
+            raise ValueError("{s} is not in the set of {permitted_range}".format(s=x, permitted_range=self._permitted_range))
 
 
 class OptionalNumericalParameter(OptionalParameterMixin, NumericalParameter):
     """Class to parse optional numerical parameters."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        default: Union[Optional[NumericalType], _NoValueType] = _no_value,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
+        super().__init__(default=default, **kwargs)
         self.expected_type = self._var_type
 
 
@@ -1550,7 +1654,14 @@ class ChoiceParameter(Parameter[ChoiceType]):
     desired.
     """
 
-    def __init__(self, *args, choices: Optional[Sequence[ChoiceType]] = None, var_type: Type[ChoiceType] = str, **kwargs):
+    def __init__(
+        self,
+        default: Union[ChoiceType, _NoValueType] = _no_value,
+        *,
+        choices: Optional[Sequence[ChoiceType]] = None,
+        var_type: Type[ChoiceType] = str,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
         """
         :param function var_type: The type of the input variable, e.g. str, int,
                                   float, etc.
@@ -1563,13 +1674,12 @@ class ChoiceParameter(Parameter[ChoiceType]):
         self._choices = set(choices)
         self._var_type = var_type
         assert all(type(choice) is self._var_type for choice in self._choices), "Invalid type in choices"
-        super(ChoiceParameter, self).__init__(*args, **kwargs)
+        super().__init__(default=default, **kwargs)
         if self.description:
             self.description += " "
         else:
             self.description = ""
-        self.description += (
-            "Choices: {" + ", ".join(str(choice) for choice in self._choices) + "}")
+        self.description += "Choices: {" + ", ".join(str(choice) for choice in self._choices) + "}"
 
     def parse(self, x):
         var = self._var_type(x)
@@ -1579,8 +1689,7 @@ class ChoiceParameter(Parameter[ChoiceType]):
         if x in self._choices:
             return x
         else:
-            raise ValueError("{var} is not a valid choice from {choices}".format(
-                var=x, choices=self._choices))
+            raise ValueError("{var} is not a valid choice from {choices}".format(var=x, choices=self._choices))
 
 
 class ChoiceListParameter(ChoiceParameter[ChoiceType]):
@@ -1610,7 +1719,7 @@ class ChoiceListParameter(ChoiceParameter[ChoiceType]):
     desired.
     """
 
-    _sep = ','
+    _sep = ","
 
     @overload
     def __get__(self, instance: None, owner: Any) -> "Parameter[Tuple[ChoiceType, ...]]": ...
@@ -1621,11 +1730,17 @@ class ChoiceListParameter(ChoiceParameter[ChoiceType]):
     def __get__(self, instance: Any, owner: Any) -> Any:
         return super().__get__(instance, owner)
 
-    def __init__(self, var_type: Type[ChoiceType] = str, *args, **kwargs):
-        super(ChoiceListParameter, self).__init__(var_type=var_type, *args, **kwargs)
+    def __init__(
+        self,
+        default: Union[Tuple[ChoiceType, ...], _NoValueType] = _no_value,
+        var_type: Type[ChoiceType] = str,
+        choices: Optional[Sequence[ChoiceType]] = None,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
+        super().__init__(default=default, var_type=var_type, choices=choices, **kwargs)  # type: ignore[arg-type]
 
     def parse(self, x):
-        values = [] if x == '' else x.split(self._sep)
+        values = [] if x == "" else x.split(self._sep)
         return self.normalize(map(self._var_type, values))
 
     def normalize(self, x):
@@ -1641,8 +1756,14 @@ class ChoiceListParameter(ChoiceParameter[ChoiceType]):
 class OptionalChoiceParameter(OptionalParameterMixin, ChoiceParameter[ChoiceType]):
     """Class to parse optional choice parameters."""
 
-    def __init__(self, var_type: Type[ChoiceType] = str, *args, **kwargs):
-        super().__init__(var_type=var_type, *args, **kwargs)
+    def __init__(
+        self,
+        default: Union[Optional[ChoiceType], _NoValueType] = _no_value,
+        var_type: Type[ChoiceType] = str,
+        choices: Optional[Sequence[ChoiceType]] = None,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
+        super().__init__(default=default, var_type=var_type, choices=choices, **kwargs)  # type: ignore[arg-type]
         self.expected_type = self._var_type
 
 
@@ -1676,12 +1797,19 @@ class PathParameter(Parameter[Path]):
         $ luigi --module my_tasks MyTask --existing-file-path <path> --new-file-path <path>
     """
 
-    def __init__(self, *args, absolute=False, exists=False, **kwargs):
+    def __init__(
+        self,
+        default: Union[Path, _NoValueType] = _no_value,
+        *,
+        absolute: bool = False,
+        exists: bool = False,
+        **kwargs: Unpack[_ParameterKwargs],
+    ):
         """
         :param bool absolute: If set to ``True``, the given path is converted to an absolute path.
         :param bool exists: If set to ``True``, a :class:`ValueError` is raised if the path does not exist.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(default=default, **kwargs)
 
         self.absolute = absolute
         self.exists = exists

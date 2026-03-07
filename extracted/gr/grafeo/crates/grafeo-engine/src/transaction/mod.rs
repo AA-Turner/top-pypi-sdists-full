@@ -70,13 +70,13 @@
 //! let db = GrafeoDB::new_in_memory();
 //! let mut session = db.session();
 //!
-//! session.begin_tx()?;
+//! session.begin_transaction()?;
 //!
 //! // All reads see a consistent snapshot
 //! let result = session.execute("MATCH (n:Person) RETURN n")?;
 //!
 //! // Writes are isolated until commit
-//! session.execute("INSERT (:Person {name: 'Alice'})")?;
+//! session.execute("INSERT (:Person {name: 'Alix'})")?;
 //!
 //! // Commit may fail if write-write conflict detected
 //! session.commit()?;
@@ -90,8 +90,10 @@ mod mvcc;
 pub mod parallel;
 mod prepared;
 
-pub use manager::{EntityId, IsolationLevel, TransactionManager, TxInfo, TxState};
-pub use mvcc::{Version, VersionChain, VersionInfo};
+pub use manager::{
+    EntityId, IsolationLevel, TransactionInfo, TransactionManager, TransactionState,
+};
+pub use mvcc::{VersionChain, VersionInfo};
 pub use prepared::{CommitInfo, PreparedCommit};
 
 #[cfg(feature = "parallel")]

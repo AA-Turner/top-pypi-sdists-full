@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use grafeo_common::types::{EdgeId, EpochId, NodeId, TxId, Value};
+use grafeo_common::types::{EdgeId, EpochId, NodeId, TransactionId, Value};
 use grafeo_common::utils::error::Result;
 use grafeo_core::graph::Direction;
 use grafeo_core::graph::GraphStoreMut;
@@ -38,19 +38,19 @@ pub struct Session {
     #[cfg(feature = "rdf")]
     rdf_store: Arc<RdfStore>,
     /// Transaction manager.
-    tx_manager: Arc<TransactionManager>,
+    transaction_manager: Arc<TransactionManager>,
     /// Query cache shared across sessions.
     query_cache: Arc<QueryCache>,
     /// Current transaction ID (if any). Behind a Mutex so that GQL commands
     /// (`START TRANSACTION`, `COMMIT`, `ROLLBACK`) can manage transactions
     /// from within `execute(&self)`.
-    current_tx: parking_lot::Mutex<Option<TxId>>,
+    current_transaction: parking_lot::Mutex<Option<TransactionId>>,
     /// Whether the current transaction is read-only (blocks mutations).
     read_only_tx: parking_lot::Mutex<bool>,
     /// Whether the session is in auto-commit mode.
     auto_commit: bool,
     /// Adaptive execution configuration.
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Stored for future adaptive re-optimization during execution
     adaptive_config: AdaptiveConfig,
     /// Whether to use factorized execution for multi-hop queries.
     factorized_execution: bool,
@@ -63,9 +63,9 @@ pub struct Session {
     /// GC every N commits (0 = disabled).
     gc_interval: usize,
     /// Node count at the start of the current transaction (for PreparedCommit stats).
-    tx_start_node_count: AtomicUsize,
+    transaction_start_node_count: AtomicUsize,
     /// Edge count at the start of the current transaction (for PreparedCommit stats).
-    tx_start_edge_count: AtomicUsize,
+    transaction_start_edge_count: AtomicUsize,
     /// WAL for logging schema changes.
     #[cfg(feature = "wal")]
     wal: Option<Arc<grafeo_adapters::storage::wal::LpgWal>>,
@@ -81,6 +81,12 @@ pub struct Session {
         parking_lot::Mutex<std::collections::HashMap<String, grafeo_common::types::Value>>,
     /// Override epoch for time-travel queries (None = use transaction/current epoch).
     viewing_epoch_override: parking_lot::Mutex<Option<EpochId>>,
+    /// Savepoints within the current transaction: name -> (next_node_id, next_edge_id) snapshot.
+    savepoints: parking_lot::Mutex<Vec<(String, u64, u64)>>,
+    /// Nesting depth for nested transactions (0 = outermost).
+    /// Nested `START TRANSACTION` creates an auto-savepoint; nested `COMMIT`
+    /// releases it, nested `ROLLBACK` rolls back to it.
+    transaction_nesting_depth: parking_lot::Mutex<u32>,
 }
 
 impl Session {
@@ -88,7 +94,7 @@ impl Session {
     #[allow(dead_code, clippy::too_many_arguments)]
     pub(crate) fn with_adaptive(
         store: Arc<LpgStore>,
-        tx_manager: Arc<TransactionManager>,
+        transaction_manager: Arc<TransactionManager>,
         query_cache: Arc<QueryCache>,
         catalog: Arc<Catalog>,
         adaptive_config: AdaptiveConfig,
@@ -105,9 +111,9 @@ impl Session {
             catalog,
             #[cfg(feature = "rdf")]
             rdf_store: Arc::new(RdfStore::new()),
-            tx_manager,
+            transaction_manager,
             query_cache,
-            current_tx: parking_lot::Mutex::new(None),
+            current_transaction: parking_lot::Mutex::new(None),
             read_only_tx: parking_lot::Mutex::new(false),
             auto_commit: true,
             adaptive_config,
@@ -116,8 +122,8 @@ impl Session {
             query_timeout,
             commit_counter,
             gc_interval,
-            tx_start_node_count: AtomicUsize::new(0),
-            tx_start_edge_count: AtomicUsize::new(0),
+            transaction_start_node_count: AtomicUsize::new(0),
+            transaction_start_edge_count: AtomicUsize::new(0),
             #[cfg(feature = "wal")]
             wal: None,
             #[cfg(feature = "cdc")]
@@ -126,12 +132,22 @@ impl Session {
             time_zone: parking_lot::Mutex::new(None),
             session_params: parking_lot::Mutex::new(std::collections::HashMap::new()),
             viewing_epoch_override: parking_lot::Mutex::new(None),
+            savepoints: parking_lot::Mutex::new(Vec::new()),
+            transaction_nesting_depth: parking_lot::Mutex::new(0),
         }
     }
 
     /// Sets the WAL for this session (shared with the database).
+    ///
+    /// This also wraps `graph_store` in a [`WalGraphStore`] so that mutation
+    /// operators (INSERT, DELETE, SET via queries) log to the WAL.
     #[cfg(feature = "wal")]
     pub(crate) fn set_wal(&mut self, wal: Arc<grafeo_adapters::storage::wal::LpgWal>) {
+        // Wrap the graph store so query-engine mutations are WAL-logged
+        self.graph_store = Arc::new(crate::database::wal_store::WalGraphStore::new(
+            Arc::clone(&self.store),
+            Arc::clone(&wal),
+        ));
         self.wal = Some(wal);
     }
 
@@ -147,7 +163,7 @@ impl Session {
     pub(crate) fn with_rdf_store_and_adaptive(
         store: Arc<LpgStore>,
         rdf_store: Arc<RdfStore>,
-        tx_manager: Arc<TransactionManager>,
+        transaction_manager: Arc<TransactionManager>,
         query_cache: Arc<QueryCache>,
         catalog: Arc<Catalog>,
         adaptive_config: AdaptiveConfig,
@@ -163,9 +179,9 @@ impl Session {
             graph_store,
             catalog,
             rdf_store,
-            tx_manager,
+            transaction_manager,
             query_cache,
-            current_tx: parking_lot::Mutex::new(None),
+            current_transaction: parking_lot::Mutex::new(None),
             read_only_tx: parking_lot::Mutex::new(false),
             auto_commit: true,
             adaptive_config,
@@ -174,8 +190,8 @@ impl Session {
             query_timeout,
             commit_counter,
             gc_interval,
-            tx_start_node_count: AtomicUsize::new(0),
-            tx_start_edge_count: AtomicUsize::new(0),
+            transaction_start_node_count: AtomicUsize::new(0),
+            transaction_start_edge_count: AtomicUsize::new(0),
             #[cfg(feature = "wal")]
             wal: None,
             #[cfg(feature = "cdc")]
@@ -184,6 +200,8 @@ impl Session {
             time_zone: parking_lot::Mutex::new(None),
             session_params: parking_lot::Mutex::new(std::collections::HashMap::new()),
             viewing_epoch_override: parking_lot::Mutex::new(None),
+            savepoints: parking_lot::Mutex::new(Vec::new()),
+            transaction_nesting_depth: parking_lot::Mutex::new(0),
         }
     }
 
@@ -194,7 +212,7 @@ impl Session {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn with_external_store(
         store: Arc<dyn GraphStoreMut>,
-        tx_manager: Arc<TransactionManager>,
+        transaction_manager: Arc<TransactionManager>,
         query_cache: Arc<QueryCache>,
         catalog: Arc<Catalog>,
         adaptive_config: AdaptiveConfig,
@@ -205,14 +223,14 @@ impl Session {
         gc_interval: usize,
     ) -> Self {
         Self {
-            store: Arc::new(LpgStore::new()), // dummy for LpgStore-specific ops
+            store: Arc::new(LpgStore::new().expect("arena allocation for dummy LpgStore")), // dummy for LpgStore-specific ops
             graph_store: store,
             catalog,
             #[cfg(feature = "rdf")]
             rdf_store: Arc::new(RdfStore::new()),
-            tx_manager,
+            transaction_manager,
             query_cache,
-            current_tx: parking_lot::Mutex::new(None),
+            current_transaction: parking_lot::Mutex::new(None),
             read_only_tx: parking_lot::Mutex::new(false),
             auto_commit: true,
             adaptive_config,
@@ -221,8 +239,8 @@ impl Session {
             query_timeout,
             commit_counter,
             gc_interval,
-            tx_start_node_count: AtomicUsize::new(0),
-            tx_start_edge_count: AtomicUsize::new(0),
+            transaction_start_node_count: AtomicUsize::new(0),
+            transaction_start_edge_count: AtomicUsize::new(0),
             #[cfg(feature = "wal")]
             wal: None,
             #[cfg(feature = "cdc")]
@@ -231,6 +249,8 @@ impl Session {
             time_zone: parking_lot::Mutex::new(None),
             session_params: parking_lot::Mutex::new(std::collections::HashMap::new()),
             viewing_epoch_override: parking_lot::Mutex::new(None),
+            savepoints: parking_lot::Mutex::new(Vec::new()),
+            transaction_nesting_depth: parking_lot::Mutex::new(0),
         }
     }
 
@@ -345,14 +365,46 @@ impl Session {
                 name,
                 if_not_exists,
                 typed,
+                like_graph,
+                copy_of,
+                open: _,
             } => {
-                let created = self.store.create_graph(&name);
+                // Validate source graph exists for LIKE / AS COPY OF
+                if let Some(ref src) = like_graph
+                    && self.store.graph(src).is_none()
+                {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!("Source graph '{src}' does not exist"),
+                    )));
+                }
+                if let Some(ref src) = copy_of
+                    && self.store.graph(src).is_none()
+                {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!("Source graph '{src}' does not exist"),
+                    )));
+                }
+
+                let created = self
+                    .store
+                    .create_graph(&name)
+                    .map_err(|e| Error::Internal(e.to_string()))?;
                 if !created && !if_not_exists {
                     return Err(Error::Query(QueryError::new(
                         QueryErrorKind::Semantic,
                         format!("Graph '{name}' already exists"),
                     )));
                 }
+
+                // AS COPY OF: copy data from source graph
+                if let Some(ref src) = copy_of {
+                    self.store
+                        .copy_graph(Some(src), Some(&name))
+                        .map_err(|e| Error::Internal(e.to_string()))?;
+                }
+
                 // Bind to graph type if specified
                 if let Some(type_name) = typed
                     && let Err(e) = self.catalog.bind_graph_type(&name, type_name.clone())
@@ -362,6 +414,14 @@ impl Session {
                         e.to_string(),
                     )));
                 }
+
+                // LIKE: copy graph type binding from source
+                if let Some(ref src) = like_graph
+                    && let Some(src_type) = self.catalog.get_graph_type_binding(src)
+                {
+                    let _ = self.catalog.bind_graph_type(&name, src_type);
+                }
+
                 Ok(QueryResult::empty())
             }
             SessionCommand::DropGraph { name, if_exists } => {
@@ -435,7 +495,7 @@ impl Session {
                         crate::transaction::IsolationLevel::Serializable
                     }
                 });
-                self.begin_tx_inner(read_only, engine_level)?;
+                self.begin_transaction_inner(read_only, engine_level)?;
                 Ok(QueryResult::status("Transaction started"))
             }
             SessionCommand::Commit => {
@@ -445,6 +505,20 @@ impl Session {
             SessionCommand::Rollback => {
                 self.rollback_inner()?;
                 Ok(QueryResult::status("Transaction rolled back"))
+            }
+            SessionCommand::Savepoint(name) => {
+                self.savepoint(&name)?;
+                Ok(QueryResult::status(format!("Savepoint '{name}' created")))
+            }
+            SessionCommand::RollbackToSavepoint(name) => {
+                self.rollback_to_savepoint(&name)?;
+                Ok(QueryResult::status(format!(
+                    "Rolled back to savepoint '{name}'"
+                )))
+            }
+            SessionCommand::ReleaseSavepoint(name) => {
+                self.release_savepoint(&name)?;
+                Ok(QueryResult::status(format!("Savepoint '{name}' released")))
             }
         }
     }
@@ -739,11 +813,118 @@ impl Session {
             }
             SchemaStatement::CreateGraphType(stmt) => {
                 use crate::catalog::GraphTypeDefinition;
+                use grafeo_adapters::query::gql::ast::InlineElementType;
+
+                // GG04: LIKE clause copies type from existing graph
+                let (mut node_types, mut edge_types, open) =
+                    if let Some(ref like_graph) = stmt.like_graph {
+                        // Infer types from the graph's bound type, or use its existing types
+                        if let Some(type_name) = self.catalog.get_graph_type_binding(like_graph) {
+                            if let Some(existing) = self
+                                .catalog
+                                .schema()
+                                .and_then(|s| s.get_graph_type(&type_name))
+                            {
+                                (
+                                    existing.allowed_node_types.clone(),
+                                    existing.allowed_edge_types.clone(),
+                                    existing.open,
+                                )
+                            } else {
+                                (Vec::new(), Vec::new(), true)
+                            }
+                        } else {
+                            // GG22: Infer from graph data (labels used in graph)
+                            let nt = self.catalog.all_node_type_names();
+                            let et = self.catalog.all_edge_type_names();
+                            if nt.is_empty() && et.is_empty() {
+                                (Vec::new(), Vec::new(), true)
+                            } else {
+                                (nt, et, false)
+                            }
+                        }
+                    } else {
+                        (stmt.node_types.clone(), stmt.edge_types.clone(), stmt.open)
+                    };
+
+                // GG03: Register inline element types and add their names
+                for inline in &stmt.inline_types {
+                    match inline {
+                        InlineElementType::Node {
+                            name, properties, ..
+                        } => {
+                            let def = NodeTypeDefinition {
+                                name: name.clone(),
+                                properties: properties
+                                    .iter()
+                                    .map(|p| TypedProperty {
+                                        name: p.name.clone(),
+                                        data_type: PropertyDataType::from_type_name(&p.data_type),
+                                        nullable: p.nullable,
+                                        default_value: None,
+                                    })
+                                    .collect(),
+                                constraints: Vec::new(),
+                            };
+                            // Register or replace so inline defs override existing
+                            self.catalog.register_or_replace_node_type(def);
+                            #[cfg(feature = "wal")]
+                            {
+                                let props_for_wal: Vec<(String, String, bool)> = properties
+                                    .iter()
+                                    .map(|p| (p.name.clone(), p.data_type.clone(), p.nullable))
+                                    .collect();
+                                self.log_schema_wal(&WalRecord::CreateNodeType {
+                                    name: name.clone(),
+                                    properties: props_for_wal,
+                                    constraints: Vec::new(),
+                                });
+                            }
+                            if !node_types.contains(name) {
+                                node_types.push(name.clone());
+                            }
+                        }
+                        InlineElementType::Edge {
+                            name, properties, ..
+                        } => {
+                            let def = EdgeTypeDefinition {
+                                name: name.clone(),
+                                properties: properties
+                                    .iter()
+                                    .map(|p| TypedProperty {
+                                        name: p.name.clone(),
+                                        data_type: PropertyDataType::from_type_name(&p.data_type),
+                                        nullable: p.nullable,
+                                        default_value: None,
+                                    })
+                                    .collect(),
+                                constraints: Vec::new(),
+                            };
+                            self.catalog.register_or_replace_edge_type_def(def);
+                            #[cfg(feature = "wal")]
+                            {
+                                let props_for_wal: Vec<(String, String, bool)> = properties
+                                    .iter()
+                                    .map(|p| (p.name.clone(), p.data_type.clone(), p.nullable))
+                                    .collect();
+                                self.log_schema_wal(&WalRecord::CreateEdgeType {
+                                    name: name.clone(),
+                                    properties: props_for_wal,
+                                    constraints: Vec::new(),
+                                });
+                            }
+                            if !edge_types.contains(name) {
+                                edge_types.push(name.clone());
+                            }
+                        }
+                    }
+                }
+
                 let def = GraphTypeDefinition {
                     name: stmt.name.clone(),
-                    allowed_node_types: stmt.node_types.clone(),
-                    allowed_edge_types: stmt.edge_types.clone(),
-                    open: stmt.open,
+                    allowed_node_types: node_types.clone(),
+                    allowed_edge_types: edge_types.clone(),
+                    open,
                 };
                 let result = if stmt.or_replace {
                     // Drop existing first, ignore error if not found
@@ -758,9 +939,9 @@ impl Session {
                             self,
                             WalRecord::CreateGraphType {
                                 name: stmt.name.clone(),
-                                node_types: stmt.node_types,
-                                edge_types: stmt.edge_types,
-                                open: stmt.open,
+                                node_types,
+                                edge_types,
+                                open,
                             }
                         );
                         Ok(QueryResult::status(format!(
@@ -1190,7 +1371,7 @@ impl Session {
     /// let session = db.session();
     ///
     /// // Create a node
-    /// session.execute("INSERT (:Person {name: 'Alice', age: 30})")?;
+    /// session.execute("INSERT (:Person {name: 'Alix', age: 30})")?;
     ///
     /// // Query nodes
     /// let result = session.execute("MATCH (n:Person) RETURN n.name, n.age")?;
@@ -1205,19 +1386,20 @@ impl Session {
         self.require_lpg("GQL")?;
 
         use crate::query::{
-            Executor, binder::Binder, cache::CacheKey, gql_translator, optimizer::Optimizer,
-            processor::QueryLanguage,
+            Executor, binder::Binder, cache::CacheKey, optimizer::Optimizer,
+            processor::QueryLanguage, translators::gql,
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         let start_time = std::time::Instant::now();
 
         // Parse and translate, checking for session/schema commands first
-        let translation = gql_translator::translate_full(query)?;
+        let translation = gql::translate_full(query)?;
         let logical_plan = match translation {
-            gql_translator::GqlTranslationResult::SessionCommand(cmd) => {
+            gql::GqlTranslationResult::SessionCommand(cmd) => {
                 return self.execute_session_command(cmd);
             }
-            gql_translator::GqlTranslationResult::SchemaCommand(cmd) => {
+            gql::GqlTranslationResult::SchemaCommand(cmd) => {
                 // All DDL is a write operation
                 if *self.read_only_tx.lock() {
                     return Err(grafeo_common::utils::error::Error::Transaction(
@@ -1226,7 +1408,7 @@ impl Session {
                 }
                 return self.execute_schema_command(cmd);
             }
-            gql_translator::GqlTranslationResult::Plan(plan) => {
+            gql::GqlTranslationResult::Plan(plan) => {
                 // Block mutations in read-only transactions
                 if *self.read_only_tx.lock() && plan.root.has_mutations() {
                     return Err(grafeo_common::utils::error::Error::Transaction(
@@ -1258,26 +1440,41 @@ impl Session {
             plan
         };
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        // EXPLAIN: annotate pushdown hints and return the plan tree
+        if optimized_plan.explain {
+            use crate::query::processor::{annotate_pushdown_hints, explain_result};
+            let mut plan = optimized_plan;
+            annotate_pushdown_hints(&mut plan.root, self.graph_store.as_ref());
+            return Ok(explain_result(&plan));
+        }
 
-        // Convert to physical plan with transaction context
-        // (Physical planning cannot be cached as it depends on transaction state)
-        let planner = self.create_planner(viewing_epoch, tx_id);
-        let mut physical_plan = planner.plan(&optimized_plan)?;
+        let has_mutations = optimized_plan.root.has_mutations();
 
-        // Execute the plan
-        let executor = Executor::with_columns(physical_plan.columns.clone())
-            .with_deadline(self.query_deadline());
-        let mut result = executor.execute(physical_plan.operator.as_mut())?;
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Add execution metrics
-        let elapsed_ms = start_time.elapsed().as_secs_f64() * 1000.0;
-        let rows_scanned = result.rows.len() as u64;
-        result.execution_time_ms = Some(elapsed_ms);
-        result.rows_scanned = Some(rows_scanned);
+            // Convert to physical plan with transaction context
+            // (Physical planning cannot be cached as it depends on transaction state)
+            let planner = self.create_planner(viewing_epoch, transaction_id);
+            let mut physical_plan = planner.plan(&optimized_plan)?;
 
-        Ok(result)
+            // Execute the plan
+            let executor = Executor::with_columns(physical_plan.columns.clone())
+                .with_deadline(self.query_deadline());
+            let mut result = executor.execute(physical_plan.operator.as_mut())?;
+
+            // Add execution metrics
+            let rows_scanned = result.rows.len() as u64;
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let elapsed_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+                result.execution_time_ms = Some(elapsed_ms);
+            }
+            result.rows_scanned = Some(rows_scanned);
+
+            Ok(result)
+        })
     }
 
     /// Executes a GQL query with visibility at the specified epoch.
@@ -1311,23 +1508,27 @@ impl Session {
 
         use crate::query::processor::{QueryLanguage, QueryProcessor};
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = Self::query_looks_like_mutation(query);
 
-        // Create processor with transaction context
-        let processor = QueryProcessor::for_graph_store_with_tx(
-            Arc::clone(&self.graph_store),
-            Arc::clone(&self.tx_manager),
-        );
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Apply transaction context if in a transaction
-        let processor = if let Some(tx_id) = tx_id {
-            processor.with_tx_context(viewing_epoch, tx_id)
-        } else {
-            processor
-        };
+            // Create processor with transaction context
+            let processor = QueryProcessor::for_graph_store_with_transaction(
+                Arc::clone(&self.graph_store),
+                Arc::clone(&self.transaction_manager),
+            );
 
-        processor.process(query, QueryLanguage::Gql, Some(&params))
+            // Apply transaction context if in a transaction
+            let processor = if let Some(transaction_id) = transaction_id {
+                processor.with_transaction_context(viewing_epoch, transaction_id)
+            } else {
+                processor
+            };
+
+            processor.process(query, QueryLanguage::Gql, Some(&params))
+        })
     }
 
     /// Executes a GQL query with parameters.
@@ -1366,8 +1567,8 @@ impl Session {
     #[cfg(feature = "cypher")]
     pub fn execute_cypher(&self, query: &str) -> Result<QueryResult> {
         use crate::query::{
-            Executor, binder::Binder, cache::CacheKey, cypher_translator, optimizer::Optimizer,
-            processor::QueryLanguage,
+            Executor, binder::Binder, cache::CacheKey, optimizer::Optimizer,
+            processor::QueryLanguage, translators::cypher,
         };
 
         // Create cache key for this query
@@ -1378,7 +1579,7 @@ impl Session {
             cached_plan
         } else {
             // Parse and translate the query to a logical plan
-            let logical_plan = cypher_translator::translate(query)?;
+            let logical_plan = cypher::translate(query)?;
 
             // Semantic validation
             let mut binder = Binder::new();
@@ -1394,18 +1595,21 @@ impl Session {
             plan
         };
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = optimized_plan.root.has_mutations();
 
-        // Convert to physical plan with transaction context
-        let planner = self.create_planner(viewing_epoch, tx_id);
-        let mut physical_plan = planner.plan(&optimized_plan)?;
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Execute the plan
-        let executor = Executor::with_columns(physical_plan.columns.clone())
-            .with_deadline(self.query_deadline());
-        let result = executor.execute(physical_plan.operator.as_mut())?;
-        Ok(result)
+            // Convert to physical plan with transaction context
+            let planner = self.create_planner(viewing_epoch, transaction_id);
+            let mut physical_plan = planner.plan(&optimized_plan)?;
+
+            // Execute the plan
+            let executor = Executor::with_columns(physical_plan.columns.clone())
+                .with_deadline(self.query_deadline());
+            executor.execute(physical_plan.operator.as_mut())
+        })
     }
 
     /// Executes a Gremlin query.
@@ -1433,10 +1637,10 @@ impl Session {
     /// ```
     #[cfg(feature = "gremlin")]
     pub fn execute_gremlin(&self, query: &str) -> Result<QueryResult> {
-        use crate::query::{Executor, binder::Binder, gremlin_translator, optimizer::Optimizer};
+        use crate::query::{Executor, binder::Binder, optimizer::Optimizer, translators::gremlin};
 
         // Parse and translate the query to a logical plan
-        let logical_plan = gremlin_translator::translate(query)?;
+        let logical_plan = gremlin::translate(query)?;
 
         // Semantic validation
         let mut binder = Binder::new();
@@ -1446,18 +1650,21 @@ impl Session {
         let optimizer = Optimizer::from_graph_store(&*self.graph_store);
         let optimized_plan = optimizer.optimize(logical_plan)?;
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = optimized_plan.root.has_mutations();
 
-        // Convert to physical plan with transaction context
-        let planner = self.create_planner(viewing_epoch, tx_id);
-        let mut physical_plan = planner.plan(&optimized_plan)?;
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Execute the plan
-        let executor = Executor::with_columns(physical_plan.columns.clone())
-            .with_deadline(self.query_deadline());
-        let result = executor.execute(physical_plan.operator.as_mut())?;
-        Ok(result)
+            // Convert to physical plan with transaction context
+            let planner = self.create_planner(viewing_epoch, transaction_id);
+            let mut physical_plan = planner.plan(&optimized_plan)?;
+
+            // Execute the plan
+            let executor = Executor::with_columns(physical_plan.columns.clone())
+                .with_deadline(self.query_deadline());
+            executor.execute(physical_plan.operator.as_mut())
+        })
     }
 
     /// Executes a Gremlin query with parameters.
@@ -1473,23 +1680,27 @@ impl Session {
     ) -> Result<QueryResult> {
         use crate::query::processor::{QueryLanguage, QueryProcessor};
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = Self::query_looks_like_mutation(query);
 
-        // Create processor with transaction context
-        let processor = QueryProcessor::for_graph_store_with_tx(
-            Arc::clone(&self.graph_store),
-            Arc::clone(&self.tx_manager),
-        );
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Apply transaction context if in a transaction
-        let processor = if let Some(tx_id) = tx_id {
-            processor.with_tx_context(viewing_epoch, tx_id)
-        } else {
-            processor
-        };
+            // Create processor with transaction context
+            let processor = QueryProcessor::for_graph_store_with_transaction(
+                Arc::clone(&self.graph_store),
+                Arc::clone(&self.transaction_manager),
+            );
 
-        processor.process(query, QueryLanguage::Gremlin, Some(&params))
+            // Apply transaction context if in a transaction
+            let processor = if let Some(transaction_id) = transaction_id {
+                processor.with_transaction_context(viewing_epoch, transaction_id)
+            } else {
+                processor
+            };
+
+            processor.process(query, QueryLanguage::Gremlin, Some(&params))
+        })
     }
 
     /// Executes a GraphQL query against the LPG store.
@@ -1517,10 +1728,10 @@ impl Session {
     /// ```
     #[cfg(feature = "graphql")]
     pub fn execute_graphql(&self, query: &str) -> Result<QueryResult> {
-        use crate::query::{Executor, binder::Binder, graphql_translator, optimizer::Optimizer};
+        use crate::query::{Executor, binder::Binder, optimizer::Optimizer, translators::graphql};
 
         // Parse and translate the query to a logical plan
-        let logical_plan = graphql_translator::translate(query)?;
+        let logical_plan = graphql::translate(query)?;
 
         // Semantic validation
         let mut binder = Binder::new();
@@ -1530,18 +1741,21 @@ impl Session {
         let optimizer = Optimizer::from_graph_store(&*self.graph_store);
         let optimized_plan = optimizer.optimize(logical_plan)?;
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = optimized_plan.root.has_mutations();
 
-        // Convert to physical plan with transaction context
-        let planner = self.create_planner(viewing_epoch, tx_id);
-        let mut physical_plan = planner.plan(&optimized_plan)?;
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Execute the plan
-        let executor = Executor::with_columns(physical_plan.columns.clone())
-            .with_deadline(self.query_deadline());
-        let result = executor.execute(physical_plan.operator.as_mut())?;
-        Ok(result)
+            // Convert to physical plan with transaction context
+            let planner = self.create_planner(viewing_epoch, transaction_id);
+            let mut physical_plan = planner.plan(&optimized_plan)?;
+
+            // Execute the plan
+            let executor = Executor::with_columns(physical_plan.columns.clone())
+                .with_deadline(self.query_deadline());
+            executor.execute(physical_plan.operator.as_mut())
+        })
     }
 
     /// Executes a GraphQL query with parameters.
@@ -1557,23 +1771,27 @@ impl Session {
     ) -> Result<QueryResult> {
         use crate::query::processor::{QueryLanguage, QueryProcessor};
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = Self::query_looks_like_mutation(query);
 
-        // Create processor with transaction context
-        let processor = QueryProcessor::for_graph_store_with_tx(
-            Arc::clone(&self.graph_store),
-            Arc::clone(&self.tx_manager),
-        );
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Apply transaction context if in a transaction
-        let processor = if let Some(tx_id) = tx_id {
-            processor.with_tx_context(viewing_epoch, tx_id)
-        } else {
-            processor
-        };
+            // Create processor with transaction context
+            let processor = QueryProcessor::for_graph_store_with_transaction(
+                Arc::clone(&self.graph_store),
+                Arc::clone(&self.transaction_manager),
+            );
 
-        processor.process(query, QueryLanguage::GraphQL, Some(&params))
+            // Apply transaction context if in a transaction
+            let processor = if let Some(transaction_id) = transaction_id {
+                processor.with_transaction_context(viewing_epoch, transaction_id)
+            } else {
+                processor
+            };
+
+            processor.process(query, QueryLanguage::GraphQL, Some(&params))
+        })
     }
 
     /// Executes a SQL/PGQ query (SQL:2023 GRAPH_TABLE).
@@ -1604,11 +1822,11 @@ impl Session {
     pub fn execute_sql(&self, query: &str) -> Result<QueryResult> {
         use crate::query::{
             Executor, binder::Binder, cache::CacheKey, optimizer::Optimizer, plan::LogicalOperator,
-            processor::QueryLanguage, sql_pgq_translator,
+            processor::QueryLanguage, translators::sql_pgq,
         };
 
         // Parse and translate (always needed to check for DDL)
-        let logical_plan = sql_pgq_translator::translate(query)?;
+        let logical_plan = sql_pgq::translate(query)?;
 
         // Handle DDL statements directly (they don't go through the query pipeline)
         if let LogicalOperator::CreatePropertyGraph(ref cpg) = logical_plan.root {
@@ -1624,6 +1842,7 @@ impl Session {
                 execution_time_ms: None,
                 rows_scanned: None,
                 status_message: None,
+                gql_status: grafeo_common::utils::GqlStatus::SUCCESS,
             });
         }
 
@@ -1648,18 +1867,21 @@ impl Session {
             plan
         };
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = optimized_plan.root.has_mutations();
 
-        // Convert to physical plan with transaction context
-        let planner = self.create_planner(viewing_epoch, tx_id);
-        let mut physical_plan = planner.plan(&optimized_plan)?;
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Execute the plan
-        let executor = Executor::with_columns(physical_plan.columns.clone())
-            .with_deadline(self.query_deadline());
-        let result = executor.execute(physical_plan.operator.as_mut())?;
-        Ok(result)
+            // Convert to physical plan with transaction context
+            let planner = self.create_planner(viewing_epoch, transaction_id);
+            let mut physical_plan = planner.plan(&optimized_plan)?;
+
+            // Execute the plan
+            let executor = Executor::with_columns(physical_plan.columns.clone())
+                .with_deadline(self.query_deadline());
+            executor.execute(physical_plan.operator.as_mut())
+        })
     }
 
     /// Executes a SQL/PGQ query with parameters.
@@ -1675,23 +1897,27 @@ impl Session {
     ) -> Result<QueryResult> {
         use crate::query::processor::{QueryLanguage, QueryProcessor};
 
-        // Get transaction context for MVCC visibility
-        let (viewing_epoch, tx_id) = self.get_transaction_context();
+        let has_mutations = Self::query_looks_like_mutation(query);
 
-        // Create processor with transaction context
-        let processor = QueryProcessor::for_graph_store_with_tx(
-            Arc::clone(&self.graph_store),
-            Arc::clone(&self.tx_manager),
-        );
+        self.with_auto_commit(has_mutations, || {
+            // Get transaction context for MVCC visibility
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
 
-        // Apply transaction context if in a transaction
-        let processor = if let Some(tx_id) = tx_id {
-            processor.with_tx_context(viewing_epoch, tx_id)
-        } else {
-            processor
-        };
+            // Create processor with transaction context
+            let processor = QueryProcessor::for_graph_store_with_transaction(
+                Arc::clone(&self.graph_store),
+                Arc::clone(&self.transaction_manager),
+            );
 
-        processor.process(query, QueryLanguage::SqlPgq, Some(&params))
+            // Apply transaction context if in a transaction
+            let processor = if let Some(transaction_id) = transaction_id {
+                processor.with_transaction_context(viewing_epoch, transaction_id)
+            } else {
+                processor
+            };
+
+            processor.process(query, QueryLanguage::SqlPgq, Some(&params))
+        })
     }
 
     /// Executes a SPARQL query.
@@ -1702,19 +1928,19 @@ impl Session {
     #[cfg(all(feature = "sparql", feature = "rdf"))]
     pub fn execute_sparql(&self, query: &str) -> Result<QueryResult> {
         use crate::query::{
-            Executor, optimizer::Optimizer, planner_rdf::RdfPlanner, sparql_translator,
+            Executor, optimizer::Optimizer, planner::rdf::RdfPlanner, translators::sparql,
         };
 
         // Parse and translate the SPARQL query to a logical plan
-        let logical_plan = sparql_translator::translate(query)?;
+        let logical_plan = sparql::translate(query)?;
 
         // Optimize the plan
         let optimizer = Optimizer::from_graph_store(&*self.graph_store);
         let optimized_plan = optimizer.optimize(logical_plan)?;
 
         // Convert to physical plan using RDF planner
-        let planner =
-            RdfPlanner::new(Arc::clone(&self.rdf_store)).with_tx_id(*self.current_tx.lock());
+        let planner = RdfPlanner::new(Arc::clone(&self.rdf_store))
+            .with_transaction_id(*self.current_transaction.lock());
         let mut physical_plan = planner.plan(&optimized_plan)?;
 
         // Execute the plan
@@ -1765,17 +1991,20 @@ impl Session {
             "cypher" => {
                 if let Some(p) = params {
                     use crate::query::processor::{QueryLanguage, QueryProcessor};
-                    let processor = QueryProcessor::for_graph_store_with_tx(
-                        Arc::clone(&self.graph_store),
-                        Arc::clone(&self.tx_manager),
-                    );
-                    let (viewing_epoch, tx_id) = self.get_transaction_context();
-                    let processor = if let Some(tx_id) = tx_id {
-                        processor.with_tx_context(viewing_epoch, tx_id)
-                    } else {
-                        processor
-                    };
-                    processor.process(query, QueryLanguage::Cypher, Some(&p))
+                    let has_mutations = Self::query_looks_like_mutation(query);
+                    self.with_auto_commit(has_mutations, || {
+                        let processor = QueryProcessor::for_graph_store_with_transaction(
+                            Arc::clone(&self.graph_store),
+                            Arc::clone(&self.transaction_manager),
+                        );
+                        let (viewing_epoch, transaction_id) = self.get_transaction_context();
+                        let processor = if let Some(transaction_id) = transaction_id {
+                            processor.with_transaction_context(viewing_epoch, transaction_id)
+                        } else {
+                            processor
+                        };
+                        processor.process(query, QueryLanguage::Cypher, Some(&p))
+                    })
                 } else {
                     self.execute_cypher(query)
                 }
@@ -1836,63 +2065,65 @@ impl Session {
     /// let db = GrafeoDB::new_in_memory();
     /// let mut session = db.session();
     ///
-    /// session.begin_tx()?;
-    /// session.execute("INSERT (:Person {name: 'Alice'})")?;
-    /// session.execute("INSERT (:Person {name: 'Bob'})")?;
+    /// session.begin_transaction()?;
+    /// session.execute("INSERT (:Person {name: 'Alix'})")?;
+    /// session.execute("INSERT (:Person {name: 'Gus'})")?;
     /// session.commit()?; // Both inserts committed atomically
     /// # Ok(())
     /// # }
     /// ```
-    pub fn begin_tx(&mut self) -> Result<()> {
-        self.begin_tx_inner(false, None)
+    pub fn begin_transaction(&mut self) -> Result<()> {
+        self.begin_transaction_inner(false, None)
     }
 
     /// Begins a transaction with a specific isolation level.
     ///
-    /// See [`begin_tx`](Self::begin_tx) for the default (`SnapshotIsolation`).
+    /// See [`begin_transaction`](Self::begin_transaction) for the default (`SnapshotIsolation`).
     ///
     /// # Errors
     ///
     /// Returns an error if a transaction is already active.
-    pub fn begin_tx_with_isolation(
+    pub fn begin_transaction_with_isolation(
         &mut self,
         isolation_level: crate::transaction::IsolationLevel,
     ) -> Result<()> {
-        self.begin_tx_inner(false, Some(isolation_level))
+        self.begin_transaction_inner(false, Some(isolation_level))
     }
 
     /// Core transaction begin logic, usable from both `&mut self` and `&self` paths.
-    fn begin_tx_inner(
+    fn begin_transaction_inner(
         &self,
         read_only: bool,
         isolation_level: Option<crate::transaction::IsolationLevel>,
     ) -> Result<()> {
-        let mut current = self.current_tx.lock();
+        let mut current = self.current_transaction.lock();
         if current.is_some() {
-            return Err(grafeo_common::utils::error::Error::Transaction(
-                grafeo_common::utils::error::TransactionError::InvalidState(
-                    "Transaction already active".to_string(),
-                ),
-            ));
+            // Nested transaction: create an auto-savepoint instead of a new tx.
+            drop(current);
+            let mut depth = self.transaction_nesting_depth.lock();
+            *depth += 1;
+            let sp_name = format!("_nested_tx_{}", *depth);
+            self.savepoint(&sp_name)?;
+            return Ok(());
         }
 
-        self.tx_start_node_count
+        self.transaction_start_node_count
             .store(self.store.node_count(), Ordering::Relaxed);
-        self.tx_start_edge_count
+        self.transaction_start_edge_count
             .store(self.store.edge_count(), Ordering::Relaxed);
-        let tx_id = if let Some(level) = isolation_level {
-            self.tx_manager.begin_with_isolation(level)
+        let transaction_id = if let Some(level) = isolation_level {
+            self.transaction_manager.begin_with_isolation(level)
         } else {
-            self.tx_manager.begin()
+            self.transaction_manager.begin()
         };
-        *current = Some(tx_id);
+        *current = Some(transaction_id);
         *self.read_only_tx.lock() = read_only;
         Ok(())
     }
 
     /// Commits the current transaction.
     ///
-    /// Makes all changes since [`begin_tx`](Self::begin_tx) permanent.
+    /// Makes all changes since [`begin_transaction`](Self::begin_transaction) permanent.
     ///
     /// # Errors
     ///
@@ -1903,7 +2134,18 @@ impl Session {
 
     /// Core commit logic, usable from both `&mut self` and `&self` paths.
     fn commit_inner(&self) -> Result<()> {
-        let tx_id = self.current_tx.lock().take().ok_or_else(|| {
+        // Nested transaction: release the auto-savepoint (changes are preserved).
+        {
+            let mut depth = self.transaction_nesting_depth.lock();
+            if *depth > 0 {
+                let sp_name = format!("_nested_tx_{depth}");
+                *depth -= 1;
+                drop(depth);
+                return self.release_savepoint(&sp_name);
+            }
+        }
+
+        let transaction_id = self.current_transaction.lock().take().ok_or_else(|| {
             grafeo_common::utils::error::Error::Transaction(
                 grafeo_common::utils::error::TransactionError::InvalidState(
                     "No active transaction".to_string(),
@@ -1913,25 +2155,27 @@ impl Session {
 
         // Commit RDF store pending operations
         #[cfg(feature = "rdf")]
-        self.rdf_store.commit_tx(tx_id);
+        self.rdf_store.commit_transaction(transaction_id);
 
-        self.tx_manager.commit(tx_id)?;
+        self.transaction_manager.commit(transaction_id)?;
 
         // Sync the LpgStore epoch with the TxManager so that
         // convenience lookups (edge_type, get_edge, get_node) that use
         // store.current_epoch() can see versions created at the latest epoch.
-        self.store.sync_epoch(self.tx_manager.current_epoch());
+        self.store
+            .sync_epoch(self.transaction_manager.current_epoch());
 
-        // Reset read-only flag
+        // Reset read-only flag and clear savepoints
         *self.read_only_tx.lock() = false;
+        self.savepoints.lock().clear();
 
         // Auto-GC: periodically prune old MVCC versions
         if self.gc_interval > 0 {
             let count = self.commit_counter.fetch_add(1, Ordering::Relaxed) + 1;
             if count.is_multiple_of(self.gc_interval) {
-                let min_epoch = self.tx_manager.min_active_epoch();
+                let min_epoch = self.transaction_manager.min_active_epoch();
                 self.store.gc_versions(min_epoch);
-                self.tx_manager.gc();
+                self.transaction_manager.gc();
             }
         }
 
@@ -1940,7 +2184,7 @@ impl Session {
 
     /// Aborts the current transaction.
     ///
-    /// Discards all changes since [`begin_tx`](Self::begin_tx).
+    /// Discards all changes since [`begin_transaction`](Self::begin_transaction).
     ///
     /// # Errors
     ///
@@ -1955,8 +2199,8 @@ impl Session {
     /// let db = GrafeoDB::new_in_memory();
     /// let mut session = db.session();
     ///
-    /// session.begin_tx()?;
-    /// session.execute("INSERT (:Person {name: 'Alice'})")?;
+    /// session.begin_transaction()?;
+    /// session.execute("INSERT (:Person {name: 'Alix'})")?;
     /// session.rollback()?; // Insert is discarded
     /// # Ok(())
     /// # }
@@ -1967,7 +2211,18 @@ impl Session {
 
     /// Core rollback logic, usable from both `&mut self` and `&self` paths.
     fn rollback_inner(&self) -> Result<()> {
-        let tx_id = self.current_tx.lock().take().ok_or_else(|| {
+        // Nested transaction: rollback to the auto-savepoint.
+        {
+            let mut depth = self.transaction_nesting_depth.lock();
+            if *depth > 0 {
+                let sp_name = format!("_nested_tx_{depth}");
+                *depth -= 1;
+                drop(depth);
+                return self.rollback_to_savepoint(&sp_name);
+            }
+        }
+
+        let transaction_id = self.current_transaction.lock().take().ok_or_else(|| {
             grafeo_common::utils::error::Error::Transaction(
                 grafeo_common::utils::error::TransactionError::InvalidState(
                     "No active transaction".to_string(),
@@ -1979,39 +2234,149 @@ impl Session {
         *self.read_only_tx.lock() = false;
 
         // Discard uncommitted versions in the LPG store
-        self.store.discard_uncommitted_versions(tx_id);
+        self.store.discard_uncommitted_versions(transaction_id);
 
         // Discard pending operations in the RDF store
         #[cfg(feature = "rdf")]
-        self.rdf_store.rollback_tx(tx_id);
+        self.rdf_store.rollback_transaction(transaction_id);
+
+        // Clear savepoints
+        self.savepoints.lock().clear();
 
         // Mark transaction as aborted in the manager
-        self.tx_manager.abort(tx_id)
+        self.transaction_manager.abort(transaction_id)
+    }
+
+    /// Creates a named savepoint within the current transaction.
+    ///
+    /// The savepoint captures the current node/edge ID counters so that
+    /// [`rollback_to_savepoint`](Self::rollback_to_savepoint) can discard
+    /// entities created after this point.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no transaction is active.
+    pub fn savepoint(&self, name: &str) -> Result<()> {
+        let _tx_id = self.current_transaction.lock().ok_or_else(|| {
+            grafeo_common::utils::error::Error::Transaction(
+                grafeo_common::utils::error::TransactionError::InvalidState(
+                    "No active transaction".to_string(),
+                ),
+            )
+        })?;
+
+        let next_node = self.store.peek_next_node_id();
+        let next_edge = self.store.peek_next_edge_id();
+        self.savepoints
+            .lock()
+            .push((name.to_string(), next_node, next_edge));
+        Ok(())
+    }
+
+    /// Rolls back to a named savepoint, undoing all writes made after it.
+    ///
+    /// The savepoint and any savepoints created after it are removed.
+    /// Entities with IDs >= the savepoint snapshot are discarded.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no transaction is active or the savepoint does not exist.
+    pub fn rollback_to_savepoint(&self, name: &str) -> Result<()> {
+        let transaction_id = self.current_transaction.lock().ok_or_else(|| {
+            grafeo_common::utils::error::Error::Transaction(
+                grafeo_common::utils::error::TransactionError::InvalidState(
+                    "No active transaction".to_string(),
+                ),
+            )
+        })?;
+
+        let mut savepoints = self.savepoints.lock();
+
+        // Find the savepoint by name (search from the end for nested savepoints)
+        let pos = savepoints
+            .iter()
+            .rposition(|(n, _, _)| n == name)
+            .ok_or_else(|| {
+                grafeo_common::utils::error::Error::Transaction(
+                    grafeo_common::utils::error::TransactionError::InvalidState(format!(
+                        "Savepoint '{name}' not found"
+                    )),
+                )
+            })?;
+
+        let (_, sp_next_node, sp_next_edge) = savepoints[pos].clone();
+
+        // Remove this savepoint and all later ones
+        savepoints.truncate(pos);
+        drop(savepoints);
+
+        // Discard all nodes with ID >= sp_next_node and edges with ID >= sp_next_edge
+        let current_next_node = self.store.peek_next_node_id();
+        let current_next_edge = self.store.peek_next_edge_id();
+
+        let node_ids: Vec<NodeId> = (sp_next_node..current_next_node).map(NodeId::new).collect();
+        let edge_ids: Vec<EdgeId> = (sp_next_edge..current_next_edge).map(EdgeId::new).collect();
+
+        if !node_ids.is_empty() || !edge_ids.is_empty() {
+            self.store
+                .discard_entities_by_id(transaction_id, &node_ids, &edge_ids);
+        }
+
+        Ok(())
+    }
+
+    /// Releases (removes) a named savepoint without rolling back.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no transaction is active or the savepoint does not exist.
+    pub fn release_savepoint(&self, name: &str) -> Result<()> {
+        let _tx_id = self.current_transaction.lock().ok_or_else(|| {
+            grafeo_common::utils::error::Error::Transaction(
+                grafeo_common::utils::error::TransactionError::InvalidState(
+                    "No active transaction".to_string(),
+                ),
+            )
+        })?;
+
+        let mut savepoints = self.savepoints.lock();
+        let pos = savepoints
+            .iter()
+            .rposition(|(n, _, _)| n == name)
+            .ok_or_else(|| {
+                grafeo_common::utils::error::Error::Transaction(
+                    grafeo_common::utils::error::TransactionError::InvalidState(format!(
+                        "Savepoint '{name}' not found"
+                    )),
+                )
+            })?;
+        savepoints.remove(pos);
+        Ok(())
     }
 
     /// Returns whether a transaction is active.
     #[must_use]
     pub fn in_transaction(&self) -> bool {
-        self.current_tx.lock().is_some()
+        self.current_transaction.lock().is_some()
     }
 
     /// Returns the current transaction ID, if any.
     #[must_use]
-    pub(crate) fn current_tx_id(&self) -> Option<TxId> {
-        *self.current_tx.lock()
+    pub(crate) fn current_transaction_id(&self) -> Option<TransactionId> {
+        *self.current_transaction.lock()
     }
 
     /// Returns a reference to the transaction manager.
     #[must_use]
-    pub(crate) fn tx_manager(&self) -> &TransactionManager {
-        &self.tx_manager
+    pub(crate) fn transaction_manager(&self) -> &TransactionManager {
+        &self.transaction_manager
     }
 
     /// Returns the store's current node count and the count at transaction start.
     #[must_use]
     pub(crate) fn node_count_delta(&self) -> (usize, usize) {
         (
-            self.tx_start_node_count.load(Ordering::Relaxed),
+            self.transaction_start_node_count.load(Ordering::Relaxed),
             self.store.node_count(),
         )
     }
@@ -2020,7 +2385,7 @@ impl Session {
     #[must_use]
     pub(crate) fn edge_count_delta(&self) -> (usize, usize) {
         (
-            self.tx_start_edge_count.load(Ordering::Relaxed),
+            self.transaction_start_edge_count.load(Ordering::Relaxed),
             self.store.edge_count(),
         )
     }
@@ -2048,8 +2413,8 @@ impl Session {
     /// let db = GrafeoDB::new_in_memory();
     /// let mut session = db.session();
     ///
-    /// session.begin_tx()?;
-    /// session.execute("INSERT (:Person {name: 'Alice'})")?;
+    /// session.begin_transaction()?;
+    /// session.execute("INSERT (:Person {name: 'Alix'})")?;
     ///
     /// let mut prepared = session.prepare_commit()?;
     /// println!("Nodes written: {}", prepared.info().nodes_written);
@@ -2073,10 +2438,66 @@ impl Session {
         self.auto_commit
     }
 
+    /// Returns `true` if auto-commit should wrap this execution.
+    ///
+    /// Auto-commit kicks in when: the session is in auto-commit mode,
+    /// no explicit transaction is active, and the query mutates data.
+    fn needs_auto_commit(&self, has_mutations: bool) -> bool {
+        self.auto_commit && has_mutations && self.current_transaction.lock().is_none()
+    }
+
+    /// Wraps `body` in an automatic begin/commit when [`needs_auto_commit`]
+    /// returns `true`. On error the transaction is rolled back.
+    fn with_auto_commit<F>(&self, has_mutations: bool, body: F) -> Result<QueryResult>
+    where
+        F: FnOnce() -> Result<QueryResult>,
+    {
+        if self.needs_auto_commit(has_mutations) {
+            self.begin_transaction_inner(false, None)?;
+            match body() {
+                Ok(result) => {
+                    self.commit_inner()?;
+                    Ok(result)
+                }
+                Err(e) => {
+                    let _ = self.rollback_inner();
+                    Err(e)
+                }
+            }
+        } else {
+            body()
+        }
+    }
+
+    /// Quick heuristic: returns `true` when the query text looks like it
+    /// performs a mutation. Used by `_with_params` paths that go through the
+    /// `QueryProcessor` (where the logical plan isn't available before
+    /// execution). False negatives are harmless: the data just won't be
+    /// auto-committed, which matches the prior behaviour.
+    fn query_looks_like_mutation(query: &str) -> bool {
+        let upper = query.to_ascii_uppercase();
+        upper.contains("INSERT")
+            || upper.contains("CREATE")
+            || upper.contains("DELETE")
+            || upper.contains("MERGE")
+            || upper.contains("SET")
+            || upper.contains("REMOVE")
+            || upper.contains("DROP")
+            || upper.contains("ALTER")
+    }
+
     /// Computes the wall-clock deadline for query execution.
     #[must_use]
     fn query_deadline(&self) -> Option<Instant> {
-        self.query_timeout.map(|d| Instant::now() + d)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.query_timeout.map(|d| Instant::now() + d)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = &self.query_timeout;
+            None
+        }
     }
 
     /// Evaluates a simple integer literal from a session parameter expression.
@@ -2090,37 +2511,41 @@ impl Session {
 
     /// Returns the current transaction context for MVCC visibility.
     ///
-    /// Returns `(viewing_epoch, tx_id)` where:
+    /// Returns `(viewing_epoch, transaction_id)` where:
     /// - `viewing_epoch` is the epoch at which to check version visibility
-    /// - `tx_id` is the current transaction ID (if in a transaction)
+    /// - `transaction_id` is the current transaction ID (if in a transaction)
     #[must_use]
-    fn get_transaction_context(&self) -> (EpochId, Option<TxId>) {
+    fn get_transaction_context(&self) -> (EpochId, Option<TransactionId>) {
         // Time-travel override takes precedence (read-only, no tx context)
         if let Some(epoch) = *self.viewing_epoch_override.lock() {
             return (epoch, None);
         }
 
-        if let Some(tx_id) = *self.current_tx.lock() {
+        if let Some(transaction_id) = *self.current_transaction.lock() {
             // In a transaction: use the transaction's start epoch
             let epoch = self
-                .tx_manager
-                .start_epoch(tx_id)
-                .unwrap_or_else(|| self.tx_manager.current_epoch());
-            (epoch, Some(tx_id))
+                .transaction_manager
+                .start_epoch(transaction_id)
+                .unwrap_or_else(|| self.transaction_manager.current_epoch());
+            (epoch, Some(transaction_id))
         } else {
             // No transaction: use current epoch
-            (self.tx_manager.current_epoch(), None)
+            (self.transaction_manager.current_epoch(), None)
         }
     }
 
     /// Creates a planner with transaction context and constraint validator.
-    fn create_planner(&self, viewing_epoch: EpochId, tx_id: Option<TxId>) -> crate::query::Planner {
+    fn create_planner(
+        &self,
+        viewing_epoch: EpochId,
+        transaction_id: Option<TransactionId>,
+    ) -> crate::query::Planner {
         use crate::query::Planner;
 
         let mut planner = Planner::with_context(
             Arc::clone(&self.graph_store),
-            Arc::clone(&self.tx_manager),
-            tx_id,
+            Arc::clone(&self.transaction_manager),
+            transaction_id,
             viewing_epoch,
         )
         .with_factorized_execution(self.factorized_execution)
@@ -2138,9 +2563,12 @@ impl Session {
     /// This is a low-level API for testing and direct manipulation.
     /// If a transaction is active, the node will be versioned with the transaction ID.
     pub fn create_node(&self, labels: &[&str]) -> NodeId {
-        let (epoch, tx_id) = self.get_transaction_context();
-        self.store
-            .create_node_versioned(labels, epoch, tx_id.unwrap_or(TxId::SYSTEM))
+        let (epoch, transaction_id) = self.get_transaction_context();
+        self.store.create_node_versioned(
+            labels,
+            epoch,
+            transaction_id.unwrap_or(TransactionId::SYSTEM),
+        )
     }
 
     /// Creates a node with properties.
@@ -2151,12 +2579,12 @@ impl Session {
         labels: &[&str],
         properties: impl IntoIterator<Item = (&'a str, Value)>,
     ) -> NodeId {
-        let (epoch, tx_id) = self.get_transaction_context();
+        let (epoch, transaction_id) = self.get_transaction_context();
         self.store.create_node_with_props_versioned(
             labels,
-            properties.into_iter().map(|(k, v)| (k, v)),
+            properties,
             epoch,
-            tx_id.unwrap_or(TxId::SYSTEM),
+            transaction_id.unwrap_or(TransactionId::SYSTEM),
         )
     }
 
@@ -2170,9 +2598,14 @@ impl Session {
         dst: NodeId,
         edge_type: &str,
     ) -> grafeo_common::types::EdgeId {
-        let (epoch, tx_id) = self.get_transaction_context();
-        self.store
-            .create_edge_versioned(src, dst, edge_type, epoch, tx_id.unwrap_or(TxId::SYSTEM))
+        let (epoch, transaction_id) = self.get_transaction_context();
+        self.store.create_edge_versioned(
+            src,
+            dst,
+            edge_type,
+            epoch,
+            transaction_id.unwrap_or(TransactionId::SYSTEM),
+        )
     }
 
     // =========================================================================
@@ -2204,9 +2637,9 @@ impl Session {
     /// ```
     #[must_use]
     pub fn get_node(&self, id: NodeId) -> Option<Node> {
-        let (epoch, tx_id) = self.get_transaction_context();
+        let (epoch, transaction_id) = self.get_transaction_context();
         self.store
-            .get_node_versioned(id, epoch, tx_id.unwrap_or(TxId::SYSTEM))
+            .get_node_versioned(id, epoch, transaction_id.unwrap_or(TransactionId::SYSTEM))
     }
 
     /// Gets a single property from a node by ID, bypassing query planning.
@@ -2226,11 +2659,11 @@ impl Session {
     /// # use grafeo_common::types::Value;
     /// # let db = GrafeoDB::new_in_memory();
     /// let session = db.session();
-    /// let id = session.create_node_with_props(&["Person"], [("name", "Alice".into())]);
+    /// let id = session.create_node_with_props(&["Person"], [("name", "Alix".into())]);
     ///
     /// // Direct property access - O(1)
     /// let name = session.get_node_property(id, "name");
-    /// assert_eq!(name, Some(Value::String("Alice".into())));
+    /// assert_eq!(name, Some(Value::String("Alix".into())));
     /// ```
     #[must_use]
     pub fn get_node_property(&self, id: NodeId, key: &str) -> Option<Value> {
@@ -2246,9 +2679,9 @@ impl Session {
     /// - No lock contention
     #[must_use]
     pub fn get_edge(&self, id: EdgeId) -> Option<Edge> {
-        let (epoch, tx_id) = self.get_transaction_context();
+        let (epoch, transaction_id) = self.get_transaction_context();
         self.store
-            .get_edge_versioned(id, epoch, tx_id.unwrap_or(TxId::SYSTEM))
+            .get_edge_versioned(id, epoch, transaction_id.unwrap_or(TransactionId::SYSTEM))
     }
 
     /// Gets outgoing neighbors of a node directly, bypassing query planning.
@@ -2267,14 +2700,14 @@ impl Session {
     /// # use grafeo_engine::GrafeoDB;
     /// # let db = GrafeoDB::new_in_memory();
     /// let session = db.session();
-    /// let alice = session.create_node(&["Person"]);
-    /// let bob = session.create_node(&["Person"]);
-    /// session.create_edge(alice, bob, "KNOWS");
+    /// let alix = session.create_node(&["Person"]);
+    /// let gus = session.create_node(&["Person"]);
+    /// session.create_edge(alix, gus, "KNOWS");
     ///
     /// // Direct neighbor lookup - O(degree)
-    /// let neighbors = session.get_neighbors_outgoing(alice);
+    /// let neighbors = session.get_neighbors_outgoing(alix);
     /// assert_eq!(neighbors.len(), 1);
-    /// assert_eq!(neighbors[0].0, bob);
+    /// assert_eq!(neighbors[0].0, gus);
     /// ```
     #[must_use]
     pub fn get_neighbors_outgoing(&self, node: NodeId) -> Vec<(NodeId, EdgeId)> {
@@ -2302,8 +2735,8 @@ impl Session {
     /// # use grafeo_engine::GrafeoDB;
     /// # let db = GrafeoDB::new_in_memory();
     /// # let session = db.session();
-    /// # let alice = session.create_node(&["Person"]);
-    /// let neighbors = session.get_neighbors_outgoing_by_type(alice, "KNOWS");
+    /// # let alix = session.create_node(&["Person"]);
+    /// let neighbors = session.get_neighbors_outgoing_by_type(alix, "KNOWS");
     /// ```
     #[must_use]
     pub fn get_neighbors_outgoing_by_type(
@@ -2358,8 +2791,8 @@ impl Session {
     /// - Better cache utilization than individual lookups
     #[must_use]
     pub fn get_nodes_batch(&self, ids: &[NodeId]) -> Vec<Option<Node>> {
-        let (epoch, tx_id) = self.get_transaction_context();
-        let tx = tx_id.unwrap_or(TxId::SYSTEM);
+        let (epoch, transaction_id) = self.get_transaction_context();
+        let tx = transaction_id.unwrap_or(TransactionId::SYSTEM);
         ids.iter()
             .map(|&id| self.store.get_node_versioned(id, epoch, tx))
             .collect()
@@ -2418,7 +2851,7 @@ mod tests {
 
         assert!(!session.in_transaction());
 
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
         assert!(session.in_transaction());
 
         session.commit().unwrap();
@@ -2430,14 +2863,14 @@ mod tests {
         let db = GrafeoDB::new_in_memory();
         let mut session = db.session();
 
-        // Without transaction - context should have current epoch and no tx_id
-        let (_epoch1, tx_id1) = session.get_transaction_context();
-        assert!(tx_id1.is_none());
+        // Without transaction - context should have current epoch and no transaction_id
+        let (_epoch1, transaction_id1) = session.get_transaction_context();
+        assert!(transaction_id1.is_none());
 
         // Start a transaction
-        session.begin_tx().unwrap();
-        let (epoch2, tx_id2) = session.get_transaction_context();
-        assert!(tx_id2.is_some());
+        session.begin_transaction().unwrap();
+        let (epoch2, transaction_id2) = session.get_transaction_context();
+        assert!(transaction_id2.is_some());
         // Transaction should have a valid epoch
         let _ = epoch2; // Use the variable
 
@@ -2454,14 +2887,14 @@ mod tests {
         let db = GrafeoDB::new_in_memory();
         let mut session = db.session();
 
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
         session.rollback().unwrap();
         assert!(!session.in_transaction());
     }
 
     #[test]
     fn test_session_rollback_discards_versions() {
-        use grafeo_common::types::TxId;
+        use grafeo_common::types::TransactionId;
 
         let db = GrafeoDB::new_in_memory();
 
@@ -2472,12 +2905,14 @@ mod tests {
 
         // Start a transaction
         let mut session = db.session();
-        session.begin_tx().unwrap();
-        let tx_id = session.current_tx.lock().unwrap();
+        session.begin_transaction().unwrap();
+        let transaction_id = session.current_transaction.lock().unwrap();
 
         // Create a node versioned with the transaction's ID
         let epoch = db.store().current_epoch();
-        let node_in_tx = db.store().create_node_versioned(&["Person"], epoch, tx_id);
+        let node_in_tx = db
+            .store()
+            .create_node_versioned(&["Person"], epoch, transaction_id);
         assert!(node_in_tx.is_valid());
 
         // Should see 2 nodes at this point
@@ -2499,7 +2934,7 @@ mod tests {
         let current_epoch = db.store().current_epoch();
         assert!(
             db.store()
-                .get_node_versioned(node_before, current_epoch, TxId::SYSTEM)
+                .get_node_versioned(node_before, current_epoch, TransactionId::SYSTEM)
                 .is_some(),
             "Original node should still exist"
         );
@@ -2507,7 +2942,7 @@ mod tests {
         // The node created in the transaction should not be accessible
         assert!(
             db.store()
-                .get_node_versioned(node_in_tx, current_epoch, TxId::SYSTEM)
+                .get_node_versioned(node_in_tx, current_epoch, TransactionId::SYSTEM)
                 .is_none(),
             "Transaction node should be gone"
         );
@@ -2525,7 +2960,7 @@ mod tests {
 
         // Start a transaction and create a node through the session
         let mut session = db.session();
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
 
         // Create a node through session.create_node() - should be versioned with tx
         let node_in_tx = session.create_node(&["Person"]);
@@ -2558,10 +2993,10 @@ mod tests {
 
         // Start a transaction and create a node with properties
         let mut session = db.session();
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
 
         let node_in_tx =
-            session.create_node_with_props(&["Person"], [("name", Value::String("Alice".into()))]);
+            session.create_node_with_props(&["Person"], [("name", Value::String("Alix".into()))]);
         assert!(node_in_tx.is_valid());
 
         // Should see 2 nodes
@@ -2628,20 +3063,20 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            // Create a graph: Alice -> Bob, Alice -> Charlie
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let charlie = session.create_node(&["Person"]);
+            // Create a graph: Alix -> Gus, Alix -> Vincent
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let vincent = session.create_node(&["Person"]);
 
-            session.create_edge(alice, bob, "KNOWS");
-            session.create_edge(alice, charlie, "KNOWS");
+            session.create_edge(alix, gus, "KNOWS");
+            session.create_edge(alix, vincent, "KNOWS");
 
             // Execute a path query: MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a, b
             let result = session
                 .execute("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a, b")
                 .unwrap();
 
-            // Should return 2 rows (Alice->Bob, Alice->Charlie)
+            // Should return 2 rows (Alix->Gus, Alix->Vincent)
             assert_eq!(result.row_count(), 2);
             assert_eq!(result.column_count(), 2);
             assert_eq!(result.columns[0], "a");
@@ -2653,20 +3088,20 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            // Create a graph: Alice -KNOWS-> Bob, Alice -WORKS_WITH-> Charlie
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let charlie = session.create_node(&["Person"]);
+            // Create a graph: Alix -KNOWS-> Gus, Alix -WORKS_WITH-> Vincent
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let vincent = session.create_node(&["Person"]);
 
-            session.create_edge(alice, bob, "KNOWS");
-            session.create_edge(alice, charlie, "WORKS_WITH");
+            session.create_edge(alix, gus, "KNOWS");
+            session.create_edge(alix, vincent, "WORKS_WITH");
 
             // Query only KNOWS relationships
             let result = session
                 .execute("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a, b")
                 .unwrap();
 
-            // Should return only 1 row (Alice->Bob)
+            // Should return only 1 row (Alix->Gus)
             assert_eq!(result.row_count(), 1);
         }
 
@@ -2719,16 +3154,16 @@ mod tests {
             let session = db.session();
 
             // Create people with names
-            session.create_node_with_props(&["Person"], [("name", Value::String("Alice".into()))]);
-            session.create_node_with_props(&["Person"], [("name", Value::String("Bob".into()))]);
-            session.create_node_with_props(&["Person"], [("name", Value::String("Alice".into()))]);
+            session.create_node_with_props(&["Person"], [("name", Value::String("Alix".into()))]);
+            session.create_node_with_props(&["Person"], [("name", Value::String("Gus".into()))]);
+            session.create_node_with_props(&["Person"], [("name", Value::String("Alix".into()))]);
 
-            // Query with WHERE clause: name = "Alice"
+            // Query with WHERE clause: name = "Alix"
             let result = session
-                .execute("MATCH (n:Person) WHERE n.name = \"Alice\" RETURN n")
+                .execute("MATCH (n:Person) WHERE n.name = \"Alix\" RETURN n")
                 .unwrap();
 
-            // Should return 2 people named Alice
+            // Should return 2 people named Alix
             assert_eq!(result.row_count(), 2);
         }
 
@@ -2743,14 +3178,14 @@ mod tests {
             session.create_node_with_props(
                 &["Person"],
                 [
-                    ("name", Value::String("Alice".into())),
+                    ("name", Value::String("Alix".into())),
                     ("age", Value::Int64(30)),
                 ],
             );
             session.create_node_with_props(
                 &["Person"],
                 [
-                    ("name", Value::String("Bob".into())),
+                    ("name", Value::String("Gus".into())),
                     ("age", Value::Int64(25)),
                 ],
             );
@@ -2768,8 +3203,8 @@ mod tests {
 
             // Check that we get actual values
             let names: Vec<&Value> = result.rows.iter().map(|r| &r[0]).collect();
-            assert!(names.contains(&&Value::String("Alice".into())));
-            assert!(names.contains(&&Value::String("Bob".into())));
+            assert!(names.contains(&&Value::String("Alix".into())));
+            assert!(names.contains(&&Value::String("Gus".into())));
         }
 
         #[test]
@@ -2780,7 +3215,7 @@ mod tests {
             let session = db.session();
 
             // Create a person
-            session.create_node_with_props(&["Person"], [("name", Value::String("Alice".into()))]);
+            session.create_node_with_props(&["Person"], [("name", Value::String("Alix".into()))]);
 
             // Query returning both node and property
             let result = session
@@ -2793,7 +3228,7 @@ mod tests {
             assert_eq!(result.columns[1], "n.name");
 
             // Second column should be the name
-            assert_eq!(result.rows[0][1], Value::String("Alice".into()));
+            assert_eq!(result.rows[0][1], Value::String("Alix".into()));
         }
     }
 
@@ -2880,10 +3315,10 @@ mod tests {
             let session = db.session();
 
             let id = session
-                .create_node_with_props(&["Person"], [("name", Value::String("Alice".into()))]);
+                .create_node_with_props(&["Person"], [("name", Value::String("Alix".into()))]);
 
             let name = session.get_node_property(id, "name");
-            assert_eq!(name, Some(Value::String("Alice".into())));
+            assert_eq!(name, Some(Value::String("Alix".into())));
 
             // Non-existent property
             let missing = session.get_node_property(id, "missing");
@@ -2895,16 +3330,16 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let edge_id = session.create_edge(alice, bob, "KNOWS");
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let edge_id = session.create_edge(alix, gus, "KNOWS");
 
             let edge = session.get_edge(edge_id);
             assert!(edge.is_some());
             let edge = edge.unwrap();
             assert_eq!(edge.id, edge_id);
-            assert_eq!(edge.src, alice);
-            assert_eq!(edge.dst, bob);
+            assert_eq!(edge.src, alix);
+            assert_eq!(edge.dst, gus);
         }
 
         #[test]
@@ -2923,19 +3358,19 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let carol = session.create_node(&["Person"]);
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let harm = session.create_node(&["Person"]);
 
-            session.create_edge(alice, bob, "KNOWS");
-            session.create_edge(alice, carol, "KNOWS");
+            session.create_edge(alix, gus, "KNOWS");
+            session.create_edge(alix, harm, "KNOWS");
 
-            let neighbors = session.get_neighbors_outgoing(alice);
+            let neighbors = session.get_neighbors_outgoing(alix);
             assert_eq!(neighbors.len(), 2);
 
             let neighbor_ids: Vec<_> = neighbors.iter().map(|(node_id, _)| *node_id).collect();
-            assert!(neighbor_ids.contains(&bob));
-            assert!(neighbor_ids.contains(&carol));
+            assert!(neighbor_ids.contains(&gus));
+            assert!(neighbor_ids.contains(&harm));
         }
 
         #[test]
@@ -2943,19 +3378,19 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let carol = session.create_node(&["Person"]);
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let harm = session.create_node(&["Person"]);
 
-            session.create_edge(bob, alice, "KNOWS");
-            session.create_edge(carol, alice, "KNOWS");
+            session.create_edge(gus, alix, "KNOWS");
+            session.create_edge(harm, alix, "KNOWS");
 
-            let neighbors = session.get_neighbors_incoming(alice);
+            let neighbors = session.get_neighbors_incoming(alix);
             assert_eq!(neighbors.len(), 2);
 
             let neighbor_ids: Vec<_> = neighbors.iter().map(|(node_id, _)| *node_id).collect();
-            assert!(neighbor_ids.contains(&bob));
-            assert!(neighbor_ids.contains(&carol));
+            assert!(neighbor_ids.contains(&gus));
+            assert!(neighbor_ids.contains(&harm));
         }
 
         #[test]
@@ -2963,23 +3398,23 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
             let company = session.create_node(&["Company"]);
 
-            session.create_edge(alice, bob, "KNOWS");
-            session.create_edge(alice, company, "WORKS_AT");
+            session.create_edge(alix, gus, "KNOWS");
+            session.create_edge(alix, company, "WORKS_AT");
 
-            let knows_neighbors = session.get_neighbors_outgoing_by_type(alice, "KNOWS");
+            let knows_neighbors = session.get_neighbors_outgoing_by_type(alix, "KNOWS");
             assert_eq!(knows_neighbors.len(), 1);
-            assert_eq!(knows_neighbors[0].0, bob);
+            assert_eq!(knows_neighbors[0].0, gus);
 
-            let works_neighbors = session.get_neighbors_outgoing_by_type(alice, "WORKS_AT");
+            let works_neighbors = session.get_neighbors_outgoing_by_type(alix, "WORKS_AT");
             assert_eq!(works_neighbors.len(), 1);
             assert_eq!(works_neighbors[0].0, company);
 
             // No edges of this type
-            let no_neighbors = session.get_neighbors_outgoing_by_type(alice, "LIKES");
+            let no_neighbors = session.get_neighbors_outgoing_by_type(alix, "LIKES");
             assert!(no_neighbors.is_empty());
         }
 
@@ -3003,9 +3438,9 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let edge_id = session.create_edge(alice, bob, "KNOWS");
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let edge_id = session.create_edge(alix, gus, "KNOWS");
 
             assert!(session.edge_exists(edge_id));
             assert!(!session.edge_exists(EdgeId::new(9999)));
@@ -3016,17 +3451,17 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let carol = session.create_node(&["Person"]);
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let harm = session.create_node(&["Person"]);
 
-            // Alice knows Bob and Carol (2 outgoing)
-            session.create_edge(alice, bob, "KNOWS");
-            session.create_edge(alice, carol, "KNOWS");
-            // Bob knows Alice (1 incoming for Alice)
-            session.create_edge(bob, alice, "KNOWS");
+            // Alix knows Gus and Harm (2 outgoing)
+            session.create_edge(alix, gus, "KNOWS");
+            session.create_edge(alix, harm, "KNOWS");
+            // Gus knows Alix (1 incoming for Alix)
+            session.create_edge(gus, alix, "KNOWS");
 
-            let (out_degree, in_degree) = session.get_degree(alice);
+            let (out_degree, in_degree) = session.get_degree(alix);
             assert_eq!(out_degree, 2);
             assert_eq!(in_degree, 1);
 
@@ -3042,11 +3477,11 @@ mod tests {
             let db = GrafeoDB::new_in_memory();
             let session = db.session();
 
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
-            let carol = session.create_node(&["Person"]);
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
+            let harm = session.create_node(&["Person"]);
 
-            let nodes = session.get_nodes_batch(&[alice, bob, carol]);
+            let nodes = session.get_nodes_batch(&[alix, gus, harm]);
             assert_eq!(nodes.len(), 3);
             assert!(nodes[0].is_some());
             assert!(nodes[1].is_some());
@@ -3054,7 +3489,7 @@ mod tests {
 
             // With non-existent node
             use grafeo_common::types::NodeId;
-            let nodes_with_missing = session.get_nodes_batch(&[alice, NodeId::new(9999), carol]);
+            let nodes_with_missing = session.get_nodes_batch(&[alix, NodeId::new(9999), harm]);
             assert_eq!(nodes_with_missing.len(), 3);
             assert!(nodes_with_missing[0].is_some());
             assert!(nodes_with_missing[1].is_none()); // Missing node
@@ -3077,16 +3512,18 @@ mod tests {
         }
 
         #[test]
-        fn test_transaction_double_begin_error() {
+        fn test_transaction_double_begin_nests() {
             let db = GrafeoDB::new_in_memory();
             let mut session = db.session();
 
-            session.begin_tx().unwrap();
-            let result = session.begin_tx();
-
-            assert!(result.is_err());
-            // Clean up
-            session.rollback().unwrap();
+            session.begin_transaction().unwrap();
+            // Second begin_transaction creates a nested transaction (auto-savepoint)
+            let result = session.begin_transaction();
+            assert!(result.is_ok());
+            // Commit the inner (releases savepoint)
+            session.commit().unwrap();
+            // Commit the outer
+            session.commit().unwrap();
         }
 
         #[test]
@@ -3113,12 +3550,12 @@ mod tests {
             let mut session = db.session();
 
             // Create nodes outside transaction
-            let alice = session.create_node(&["Person"]);
-            let bob = session.create_node(&["Person"]);
+            let alix = session.create_node(&["Person"]);
+            let gus = session.create_node(&["Person"]);
 
             // Create edge in transaction
-            session.begin_tx().unwrap();
-            let edge_id = session.create_edge(alice, bob, "KNOWS");
+            session.begin_transaction().unwrap();
+            let edge_id = session.create_edge(alix, gus, "KNOWS");
 
             // Edge should be visible in the transaction
             assert!(session.edge_exists(edge_id));
@@ -3156,12 +3593,12 @@ mod tests {
         let mut session = db.session();
 
         // First commit: counter = 1, no GC (not a multiple of 2)
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
         session.create_node(&["A"]);
         session.commit().unwrap();
 
         // Second commit: counter = 2, GC should trigger (multiple of 2)
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
         session.create_node(&["B"]);
         session.commit().unwrap();
 
@@ -3208,7 +3645,8 @@ mod tests {
         use std::sync::Arc;
 
         let config = crate::config::Config::in_memory();
-        let store = Arc::new(grafeo_core::graph::lpg::LpgStore::new()) as Arc<dyn GraphStoreMut>;
+        let store =
+            Arc::new(grafeo_core::graph::lpg::LpgStore::new().unwrap()) as Arc<dyn GraphStoreMut>;
         let db = GrafeoDB::with_store(store, config).unwrap();
 
         let session = db.session();
@@ -3423,7 +3861,7 @@ mod tests {
 
             session.execute("START TRANSACTION").unwrap();
             assert!(session.in_transaction());
-            session.execute("INSERT (:Person {name: 'Alice'})").unwrap();
+            session.execute("INSERT (:Person {name: 'Alix'})").unwrap();
             session.execute("COMMIT").unwrap();
             assert!(!session.in_transaction());
 
@@ -3437,7 +3875,7 @@ mod tests {
             let session = db.session();
 
             session.execute("START TRANSACTION READ ONLY").unwrap();
-            let result = session.execute("INSERT (:Person {name: 'Alice'})");
+            let result = session.execute("INSERT (:Person {name: 'Alix'})");
             assert!(result.is_err());
             let err = result.unwrap_err().to_string();
             assert!(
@@ -3451,8 +3889,8 @@ mod tests {
         fn test_start_transaction_read_only_allows_reads() {
             let db = GrafeoDB::new_in_memory();
             let mut session = db.session();
-            session.begin_tx().unwrap();
-            session.execute("INSERT (:Person {name: 'Alice'})").unwrap();
+            session.begin_transaction().unwrap();
+            session.execute("INSERT (:Person {name: 'Alix'})").unwrap();
             session.commit().unwrap();
 
             session.execute("START TRANSACTION READ ONLY").unwrap();
@@ -3467,7 +3905,7 @@ mod tests {
             let session = db.session();
 
             session.execute("START TRANSACTION").unwrap();
-            session.execute("INSERT (:Person {name: 'Alice'})").unwrap();
+            session.execute("INSERT (:Person {name: 'Alix'})").unwrap();
             session.execute("ROLLBACK").unwrap();
 
             let result = session.execute("MATCH (n:Person) RETURN n.name").unwrap();

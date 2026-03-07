@@ -10,6 +10,7 @@ from ._shared_client import get_shared_client
 
 def OpenCitations_get_citations(
     doi: str,
+    limit: Optional[int | Any] = 100,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
@@ -22,6 +23,8 @@ def OpenCitations_get_citations(
     ----------
     doi : str
         DOI of the paper to find citations for. Do not include 'https://doi.org/' pre...
+    limit : int | Any
+        Maximum number of citations to return. Highly-cited papers can have 10,000+ c...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -36,7 +39,7 @@ def OpenCitations_get_citations(
     # Handle mutable defaults to avoid B006 linting error
 
     # Strip None values so optional parameters don't trigger schema validation errors
-    _args = {k: v for k, v in {"doi": doi}.items() if v is not None}
+    _args = {k: v for k, v in {"doi": doi, "limit": limit}.items() if v is not None}
     return get_shared_client().run_one_function(
         {
             "name": "OpenCitations_get_citations",

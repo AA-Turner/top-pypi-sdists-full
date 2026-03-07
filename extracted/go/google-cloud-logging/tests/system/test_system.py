@@ -12,39 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 import logging
 import numbers
 import os
-import pytest
 import sys
 import unittest
 import uuid
+from datetime import datetime, timedelta, timezone
 
-from google.api_core.exceptions import BadGateway
-from google.api_core.exceptions import Conflict
-from google.api_core.exceptions import InternalServerError
-from google.api_core.exceptions import NotFound
-from google.api_core.exceptions import TooManyRequests
-from google.api_core.exceptions import ResourceExhausted
-from google.api_core.exceptions import RetryError
-from google.api_core.exceptions import ServiceUnavailable
-import google.cloud.logging
+import pytest
+from google.api_core.exceptions import (
+    BadGateway,
+    Conflict,
+    InternalServerError,
+    NotFound,
+    ResourceExhausted,
+    RetryError,
+    ServiceUnavailable,
+    TooManyRequests,
+)
 from google.cloud._helpers import UTC
-from google.cloud.logging_v2.handlers import CloudLoggingHandler
-from google.cloud.logging_v2.handlers.transports import BackgroundThreadTransport
-from google.cloud.logging_v2.handlers.transports import SyncTransport
-from google.cloud.logging_v2 import client
-from google.cloud.logging_v2.resource import Resource
-from google.cloud.logging_v2.entries import TextEntry
-
-from google.protobuf.struct_pb2 import Struct, Value, ListValue, NullValue
-
-from test_utils.retry import RetryErrors
-from test_utils.retry import RetryResult
+from google.protobuf.struct_pb2 import ListValue, NullValue, Struct, Value
+from test_utils.retry import RetryErrors, RetryResult
 from test_utils.system import unique_resource_id
+
+import google.cloud.logging
+from google.cloud.logging_v2 import client
+from google.cloud.logging_v2.entries import TextEntry
+from google.cloud.logging_v2.handlers import CloudLoggingHandler
+from google.cloud.logging_v2.handlers.transports import (
+    BackgroundThreadTransport,
+    SyncTransport,
+)
+from google.cloud.logging_v2.resource import Resource
 
 _RESOURCE_ID = unique_resource_id("-")
 DEFAULT_FILTER = "logName:syslog AND severity>=INFO"
@@ -105,8 +105,24 @@ class Config(object):
 
 
 def setUpModule():
-    Config.CLIENT = client.Client()
-    Config.HTTP_CLIENT = client.Client(_use_grpc=False)
+    # Use GOOGLE_CLOUD_PROJECT or PROJECT_ID
+    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("PROJECT_ID")
+
+    # Check if we have credentials (either via file or environment)
+    # google.auth.default() will check GOOGLE_APPLICATION_CREDENTIALS
+    has_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") is not None
+
+    # Guard: Skip the entire module if the environment is not ready
+    if not project_id or not has_creds:
+        raise unittest.SkipTest(
+            "System tests skipped: GOOGLE_CLOUD_PROJECT and "
+            "GOOGLE_APPLICATION_CREDENTIALS must be set."
+        )
+
+    # Explicitly pass the project to the client
+    # This prevents the client from attempting 'discovery' via the metadata server
+    Config.CLIENT = client.Client(project=project_id)
+    Config.HTTP_CLIENT = client.Client(_use_grpc=False, project=project_id)
 
 
 # Skip the test cases using bigquery, storage and pubsub clients for mTLS testing.
@@ -198,6 +214,7 @@ class TestLogging(unittest.TestCase):
         Test emitting and listing logs containing a google.cloud.audit.AuditLog proto message
         """
         from google.protobuf import descriptor_pool
+
         from google.cloud.logging_v2 import entries
 
         pool = descriptor_pool.Default()
@@ -257,6 +274,7 @@ class TestLogging(unittest.TestCase):
         Test emitting and listing logs containing a google.appengine.logging.v1.RequestLog proto message
         """
         from google.protobuf import descriptor_pool
+
         from google.cloud.logging_v2 import entries
 
         pool = descriptor_pool.Default()
@@ -308,6 +326,7 @@ class TestLogging(unittest.TestCase):
         Test emitting and listing logs containing a google.iam.v1.logging.AuditData proto message
         """
         from google.protobuf import descriptor_pool
+
         from google.cloud.logging_v2 import entries
 
         pool = descriptor_pool.Default()
@@ -723,6 +742,8 @@ class TestLogging(unittest.TestCase):
     def test_log_handler_close(self):
         import multiprocessing
 
+        from google.cloud import logging as cloud_logging  # Ensure import is available
+
         ctx = multiprocessing.get_context("fork")
         LOG_MESSAGE = "This is a test of handler.close before exiting."
         LOGGER_NAME = "close-test"
@@ -736,11 +757,12 @@ class TestLogging(unittest.TestCase):
         # The .close() function before the process exits should prevent the
         # thread shutdown error and let us log the message.
         def subprocess_main():
-            # logger.delete and logger.list_entries work by filtering on log name, so we
-            # can create new objects with the same name and have the queries on the parent
-            # process still work.
+            # Create a fresh client inside the child process to avoid gRPC fork issues.
+            # Do not use the shared Config.CLIENT here.
+            sub_client = cloud_logging.Client()
+
             handler = CloudLoggingHandler(
-                Config.CLIENT, name=handler_name, transport=BackgroundThreadTransport
+                sub_client, name=handler_name, transport=BackgroundThreadTransport
             )
             cloud_logger = logging.getLogger(LOGGER_NAME)
             cloud_logger.addHandler(handler)
@@ -757,33 +779,36 @@ class TestLogging(unittest.TestCase):
     def test_log_client_flush_handlers(self):
         import multiprocessing
 
+        from google.cloud import logging as cloud_logging  # Ensure import is available
+
         ctx = multiprocessing.get_context("fork")
         LOG_MESSAGE = "This is a test of client.flush_handlers before exiting."
         LOGGER_NAME = "close-test"
         handler_name = self._logger_name(LOGGER_NAME)
 
-        # only create the logger to delete, hidden otherwise
         logger = Config.CLIENT.logger(handler_name)
         self.to_delete.append(logger)
 
-        # Run a simulation of logging an entry then immediately shutting down.
-        # The .close() function before the process exits should prevent the
-        # thread shutdown error and let us log the message.
         def subprocess_main():
-            # logger.delete and logger.list_entries work by filtering on log name, so we
-            # can create new objects with the same name and have the queries on the parent
-            # process still work.
+            # Create a fresh client inside the child process to avoid gRPC fork issues.
+            # Do not use the shared Config.CLIENT here.
+            sub_client = cloud_logging.Client()
+
             handler = CloudLoggingHandler(
-                Config.CLIENT, name=handler_name, transport=BackgroundThreadTransport
+                sub_client, name=handler_name, transport=BackgroundThreadTransport
             )
             cloud_logger = logging.getLogger(LOGGER_NAME)
             cloud_logger.addHandler(handler)
             cloud_logger.warning(LOG_MESSAGE)
-            Config.CLIENT.flush_handlers()
+
+            # Flush using the subprocess-local client
+            sub_client.flush_handlers()
 
         proc = ctx.Process(target=subprocess_main)
         proc.start()
         proc.join()
+
+        # The parent's Config.CLIENT remains clean and can now list entries
         entries = _list_entries(logger)
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0].payload, LOG_MESSAGE)
@@ -926,8 +951,9 @@ class TestLogging(unittest.TestCase):
         self.assertTrue(sink.exists())
 
     def _init_bigquery_dataset(self):
-        from google.cloud import bigquery
         from google.cloud.bigquery.dataset import AccessEntry
+
+        from google.cloud import bigquery
 
         dataset_name = ("system_testing_dataset" + _RESOURCE_ID).replace("-", "_")
         dataset_uri = "bigquery.googleapis.com/projects/%s/datasets/%s" % (

@@ -153,7 +153,7 @@ class LineEditor:  # pylint: disable=too-many-instance-attributes
         password_char: str = PASSWORD_CHAR,
         max_width: int = 0,
         ellipsis: str = "\u2026",
-        limit: int = 65536,
+        limit: int = 2048,
         limit_bell: str = "\a",
         scroll_jump: float = 0.5,
         text_sgr: str = "\x1b[38;2;230;225;220m",
@@ -563,7 +563,10 @@ class LineEditor:  # pylint: disable=too-many-instance-attributes
         if not self._kill_ring:
             return LineEditResult()
         self._save_undo()
-        self._insert_at_cursor(self._kill_ring[-1], check_limit=False)
+        n = self._insert_at_cursor(self._kill_ring[-1])
+        if n == 0:
+            self._undo_stack.pop()
+            return LineEditResult()
         return LineEditResult(changed=True)
 
     def _history_prev(self) -> LineEditResult:

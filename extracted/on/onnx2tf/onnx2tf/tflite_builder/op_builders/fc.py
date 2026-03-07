@@ -31,9 +31,15 @@ def _try_build_generic_two_input_einsum(
     if _einsum_has_duplicate_labels(lhs) or _einsum_has_duplicate_labels(rhs) or _einsum_has_duplicate_labels(out):
         return False
 
-    # Keep the existing rank-2 matmul/fully-connected path for performance.
+    # Keep the existing rank-2 matmul/fully-connected path for pure matmul-style equations.
     if len(lhs) == 2 and len(rhs) == 2 and len(out) == 2:
-        return False
+        is_matmul_style = (
+            lhs[1] == rhs[0]
+            and out[0] == lhs[0]
+            and out[1] == rhs[1]
+        )
+        if is_matmul_style:
+            return False
 
     out_set = set(out)
     lhs_set = set(lhs)
@@ -423,11 +429,24 @@ def build_fully_connected_from_gemm_or_matmul(node: Any, ctx: Any) -> None:
             np.asarray(bias_values, dtype=np.float32),
         )
 
+        fc_input_name = _add_cast_if_needed(
+            tensor_name=input_name,
+            suffix="fc_in",
+            target_dtype=compute_dtype,
+        )
+        fc_output_name = output_name
+        if output_dtype != compute_dtype:
+            fc_output_name = ctx.add_intermediate_tensor(
+                f"{output_name}_fc_{str(compute_dtype).lower()}",
+                dtype=compute_dtype,
+                shape=[int(v) for v in list(output_shape)],
+            )
+
         ctx.add_operator(
             OperatorIR(
                 op_type="FULLY_CONNECTED",
-                inputs=[input_name, w_name, b_name],
-                outputs=[output_name],
+                inputs=[fc_input_name, w_name, b_name],
+                outputs=[fc_output_name],
                 options={
                     "fusedActivationFunction": "NONE",
                     "weightsFormat": "DEFAULT",
@@ -436,6 +455,15 @@ def build_fully_connected_from_gemm_or_matmul(node: Any, ctx: Any) -> None:
                 },
             )
         )
+        if fc_output_name != output_name:
+            ctx.add_operator(
+                OperatorIR(
+                    op_type="CAST",
+                    inputs=[fc_output_name],
+                    outputs=[output_name],
+                    options={"inDataType": compute_dtype, "outDataType": output_dtype},
+                )
+            )
         return
 
     # Dynamic GEMM fallback: BATCH_MATMUL (+ alpha/beta/C) so Gemm can remain builtin.

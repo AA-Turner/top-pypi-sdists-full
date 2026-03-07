@@ -35,12 +35,12 @@ class EventSourceResponse(sse_starlette.EventSourceResponse):
                 task_group.cancel_scope.cancel()
 
             task_group.start_soon(wrap, partial(self.stream_response, send))
-            task_group.start_soon(wrap, self.listen_for_exit_signal)
+            task_group.start_soon(wrap, self._listen_for_exit_signal)
 
             if self.data_sender_callable:
                 task_group.start_soon(self.data_sender_callable)
 
-            await wrap(partial(self.listen_for_disconnect, receive))
+            await wrap(partial(self._listen_for_disconnect, receive))
 
         if self.background is not None:  # pragma: no cover, tested in StreamResponse
             await self.background()

@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-cffi"
-version = "1.17.0.20250915"
+version = "1.17.0.20260307"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cffi"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`703f7d074ccd3776f20c77eaeb4563a197948ed9`](https://github.com/python/typeshed/commit/703f7d074ccd3776f20c77eaeb4563a197948ed9).
+[`07ffb67b924d5f532f8b8b72a4902f58faae6aca`](https://github.com/python/typeshed/commit/07ffb67b924d5f532f8b8b72a4902f58faae6aca).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-setuptools']
 
 [project.urls]

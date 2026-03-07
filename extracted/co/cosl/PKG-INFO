@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cosl
-Version: 1.5.0
+Version: 1.6.0
 Summary: Utils for COS Lite charms
 Project-URL: Homepage, https://github.com/canonical/cos-lib
 Project-URL: Bug Tracker, https://github.com/canonical/cos-lib/issues
@@ -221,6 +221,18 @@ Requires-Dist: pydantic
 Requires-Dist: pyyaml
 Requires-Dist: tenacity
 Requires-Dist: typing-extensions
+Provides-Extra: dev
+Requires-Dist: black; extra == 'dev'
+Requires-Dist: codespell; extra == 'dev'
+Requires-Dist: deepdiff; extra == 'dev'
+Requires-Dist: fs; extra == 'dev'
+Requires-Dist: ops[testing]; extra == 'dev'
+Requires-Dist: orderly-set==5.3.0; extra == 'dev'
+Requires-Dist: pyright; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: setuptools<82; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # cosl

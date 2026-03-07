@@ -38,8 +38,8 @@ setup(
     ],
     python_requires=">=3.10,<3.13",
     install_requires=[
-        "snowpark-connect-deps-1==3.56.3",  # Spark JAR dependencies (59MB)
-        "snowpark-connect-deps-2==3.56.3",  # Other JAR dependencies (53MB)
+        "snowpark-connect-deps-1==3.56.4",  # Spark JAR dependencies (59MB)
+        "snowpark-connect-deps-2==3.56.4",  # Other JAR dependencies (53MB)
         "certifi>=2025.1.31",  # prod-297255-inc0132291
         "cloudpickle",
         "fsspec",

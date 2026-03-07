@@ -51,6 +51,7 @@ class TestRequestMiddleware(DjangoBase):
 
     def test_process_request(self):
         from django.test import RequestFactory
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         middleware = self._make_one()

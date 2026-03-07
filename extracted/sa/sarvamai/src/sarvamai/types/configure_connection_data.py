@@ -16,7 +16,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     """
     Specifies the model to use for text-to-speech conversion.
     - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-    - **bulbul:v3-beta**: Advanced model with temperature control (no pitch/loudness)
+    - **bulbul:v3**: Advanced model with temperature control (no pitch/loudness)
     """
 
     target_language_code: ConfigureConnectionDataTargetLanguageCode = pydantic.Field()
@@ -30,7 +30,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     
     **Model Compatibility:**
     - **bulbul:v2:** anushka (default), abhilash, manisha, vidya, arya, karun, hitesh
-    - **bulbul:v3-beta:** aditya (default), ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, shubh, ashutosh, advait, amelia, sophia
+    - **bulbul:v3:** aditya (default), ritu, priya, neha, rahul, pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan, varun, manan, sumit, roopa, kabir, aayan, shubh, ashutosh, advait, amelia, sophia
     
     **Note:** Speaker selection must match the chosen model version.
     """
@@ -41,7 +41,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     while higher values make it sharper. The suitable range is between -0.75 
     and 0.75. Default is 0.0.
     
-    **Note:** NOT supported for bulbul:v3-beta. Will be ignored if provided.
+    **Note:** NOT supported for bulbul:v3. Will be ignored if provided.
     """
 
     pace: typing.Optional[float] = pydantic.Field(default=None)
@@ -51,7 +51,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     
     **Model-specific ranges:**
     - **bulbul:v2:** 0.3 to 3.0
-    - **bulbul:v3-beta:** 0.5 to 2.0
+    - **bulbul:v3:** 0.5 to 2.0
     """
 
     loudness: typing.Optional[float] = pydantic.Field(default=None)
@@ -60,7 +60,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     while higher values make it louder. The suitable range is between 0.3 
     and 3.0. Default is 1.0.
     
-    **Note:** NOT supported for bulbul:v3-beta. Will be ignored if provided.
+    **Note:** NOT supported for bulbul:v3. Will be ignored if provided.
     """
 
     temperature: typing.Optional[float] = pydantic.Field(default=None)
@@ -69,7 +69,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     focused and deterministic, while higher values make it more random. 
     The suitable range is between 0.01 and 1.0. Default is 0.6.
     
-    **Note:** Only supported for bulbul:v3-beta. Will be ignored for bulbul:v2.
+    **Note:** Only supported for bulbul:v3. Will be ignored for bulbul:v2.
     """
 
     speech_sample_rate: typing.Optional[int] = pydantic.Field(default=None)
@@ -79,7 +79,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     
     **Model-specific defaults:**
     - **bulbul:v2:** 22050 Hz
-    - **bulbul:v3-beta:** 24000 Hz
+    - **bulbul:v3:** 24000 Hz
     """
 
     enable_preprocessing: typing.Optional[bool] = pydantic.Field(default=None)
@@ -90,7 +90,7 @@ class ConfigureConnectionData(UniversalBaseModel):
     
     **Model-specific defaults:**
     - **bulbul:v2:** false (optional)
-    - **bulbul:v3-beta:** Always enabled (cannot be disabled)
+    - **bulbul:v3:** Always enabled (cannot be disabled)
     """
 
     output_audio_codec: typing.Optional[ConfigureConnectionDataOutputAudioCodec] = pydantic.Field(default=None)

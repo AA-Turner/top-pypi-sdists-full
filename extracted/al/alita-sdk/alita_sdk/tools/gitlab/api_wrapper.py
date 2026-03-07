@@ -1,6 +1,6 @@
 # api_wrapper.py
 import fnmatch
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from gitlab import GitlabGetError
 from langchain_core.tools import ToolException
@@ -125,6 +125,7 @@ class GitLabAPIWrapper(CodeIndexerToolkit):
     _active_branch: Any = PrivateAttr()
     
     # Import file operation methods from BaseCodeToolApiWrapper
+    _excluded_file_operations: ClassVar[set] = {'edit_file'}
     read_file_chunk = BaseCodeToolApiWrapper.read_file_chunk
     read_multiple_files = BaseCodeToolApiWrapper.read_multiple_files
     search_file = BaseCodeToolApiWrapper.search_file
@@ -330,6 +331,10 @@ class GitLabAPIWrapper(CodeIndexerToolkit):
             return "No open issues available"
 
     def get_issue(self, issue_number: int) -> Dict[str, Any]:
+        """Fetch details of a specific issue including its comments.
+
+        Returns a dict with title, body, and comments as a list of {body, user} dicts.
+        """
         issue = self.repo_instance.issues.get(issue_number)
         page = 0
         comments: List[dict] = []
@@ -347,7 +352,7 @@ class GitLabAPIWrapper(CodeIndexerToolkit):
         return {
             "title": issue.title,
             "body": issue.description,
-            "comments": str(comments),
+            "comments": comments,
         }
 
     def create_pull_request(self, pr_title: str, pr_body: str, branch: str) -> str:

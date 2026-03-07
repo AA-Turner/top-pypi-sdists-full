@@ -134,7 +134,9 @@ fn append_ferrox_exports(stub_root: &Path) -> Result<()> {
     if !content.contains("from . import cell") {
         // Keep in sync with submodules.rs define_submodule! calls and lib.rs #[pymodule_export] uses
         let submodules = [
+            "bonding",
             "cell",
+            "chempot",
             "composition",
             "convex_hull",
             "coordination",

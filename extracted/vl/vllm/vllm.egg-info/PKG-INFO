@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.16.0
+Version: 0.17.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -33,7 +33,7 @@ Requires-Dist: tokenizers>=0.21.1
 Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6
 Requires-Dist: fastapi[standard]>=0.115.0
 Requires-Dist: aiohttp>=3.13.3
-Requires-Dist: openai>=1.99.1
+Requires-Dist: openai<2.25.0,>=1.99.1
 Requires-Dist: pydantic>=2.12.0
 Requires-Dist: prometheus_client>=0.18.0
 Requires-Dist: pillow
@@ -51,7 +51,7 @@ Requires-Dist: partial-json-parser
 Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
 Requires-Dist: gguf>=0.17.0
-Requires-Dist: mistral_common[image]>=1.9.0
+Requires-Dist: mistral_common[image]>=1.9.1
 Requires-Dist: opencv-python-headless>=4.13.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
@@ -73,18 +73,26 @@ Requires-Dist: model-hosting-container-standards<1.0.0,>=0.1.13
 Requires-Dist: mcp
 Requires-Dist: grpcio
 Requires-Dist: grpcio-reflection
+Requires-Dist: opentelemetry-sdk>=1.27.0
+Requires-Dist: opentelemetry-api>=1.27.0
+Requires-Dist: opentelemetry-exporter-otlp>=1.27.0
+Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.1
+Requires-Dist: kaldi-native-fbank>=1.18.7
 Requires-Dist: numba==0.61.2
 Requires-Dist: ray[cgraph]>=2.48.0
-Requires-Dist: torch==2.9.1
-Requires-Dist: torchaudio==2.9.1
-Requires-Dist: torchvision==0.24.1
-Requires-Dist: flashinfer-python==0.6.3
+Requires-Dist: torch==2.10.0
+Requires-Dist: torchaudio==2.10.0
+Requires-Dist: torchvision==0.25.0
+Requires-Dist: flashinfer-python==0.6.4
+Requires-Dist: nvidia-cutlass-dsl>=4.4.0.dev1
+Requires-Dist: quack-kernels>=0.2.7
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: matplotlib; extra == "bench"
 Requires-Dist: seaborn; extra == "bench"
 Requires-Dist: datasets; extra == "bench"
 Requires-Dist: scipy; extra == "bench"
+Requires-Dist: plotly; extra == "bench"
 Provides-Extra: tensorizer
 Requires-Dist: tensorizer==2.10.1; extra == "tensorizer"
 Provides-Extra: fastsafetensors

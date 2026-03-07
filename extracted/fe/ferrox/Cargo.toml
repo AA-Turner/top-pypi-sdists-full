@@ -1,6 +1,6 @@
 [package]
 name = "ferrox"
-version = "0.0.8"
+version = "0.0.9"
 edition = "2024"
 rust-version = "1.93"
 authors = ["Janosh Riebesell <janosh.riebesell@gmail.com>"]
@@ -10,7 +10,8 @@ repository = "https://github.com/periodiclabs/ferrox"
 keywords = ["atomistic-simulation", "materials-science", "molecular-dynamics", "crystallography", "rust"]
 include = [
   "src/**/*.rs",
-  "src/**/*.json", # atomic scattering params - SSOT shared with TypeScript
+  "src/**/*.json",    # atomic scattering params - SSOT shared with TypeScript
+  "src/**/*.json.gz", # element data, oxidation stats, Wyckoff tables
   "build.rs",
   "Cargo.toml",
   "readme.md",
@@ -60,6 +61,7 @@ rand = "0.8"              # random perturbations (0.8 uses getrandom 0.2 with si
 regex = "1.12"            # formula parsing
 meshless_voronoi = "0.7"  # Voronoi tessellation for coordination analysis
 num-complex = "0.4"       # complex numbers for spherical harmonics
+rustfft = "6.4"           # FFT for Fourier analysis of volumetric data
 
 # Utilities
 indexmap = { version = "2.13", features = ["serde"] }

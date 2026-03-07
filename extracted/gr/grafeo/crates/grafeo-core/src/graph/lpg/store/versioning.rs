@@ -1,6 +1,6 @@
 use super::LpgStore;
 use crate::graph::lpg::{EdgeRecord, NodeRecord};
-use grafeo_common::types::{EdgeId, EpochId, NodeId, TxId};
+use grafeo_common::types::{EdgeId, EpochId, NodeId, TransactionId};
 use grafeo_common::utils::hash::{FxHashMap, FxHashSet};
 use std::sync::atomic::Ordering;
 
@@ -17,12 +17,12 @@ impl LpgStore {
     /// The method removes version chain entries created by the specified transaction.
     #[doc(hidden)]
     #[cfg(not(feature = "tiered-storage"))]
-    pub fn discard_uncommitted_versions(&self, tx_id: TxId) {
+    pub fn discard_uncommitted_versions(&self, transaction_id: TransactionId) {
         // Remove uncommitted node versions
         {
             let mut nodes = self.nodes.write();
             for chain in nodes.values_mut() {
-                chain.remove_versions_by(tx_id);
+                chain.remove_versions_by(transaction_id);
             }
             // Remove completely empty chains (no versions left)
             nodes.retain(|_, chain| !chain.is_empty());
@@ -32,13 +32,52 @@ impl LpgStore {
         {
             let mut edges = self.edges.write();
             for chain in edges.values_mut() {
-                chain.remove_versions_by(tx_id);
+                chain.remove_versions_by(transaction_id);
             }
             // Remove completely empty chains (no versions left)
             edges.retain(|_, chain| !chain.is_empty());
         }
 
-        // Counters may be out of sync after rollback — force full recompute
+        // Counters may be out of sync after rollback: force full recompute
+        self.needs_stats_recompute.store(true, Ordering::Relaxed);
+    }
+
+    /// Discards uncommitted versions for specific entities created by a transaction.
+    ///
+    /// Used for savepoint rollback: only reverts the entities written after
+    /// the savepoint, keeping earlier writes intact.
+    #[doc(hidden)]
+    #[cfg(not(feature = "tiered-storage"))]
+    pub fn discard_entities_by_id(
+        &self,
+        transaction_id: TransactionId,
+        node_ids: &[NodeId],
+        edge_ids: &[EdgeId],
+    ) {
+        if !node_ids.is_empty() {
+            let mut nodes = self.nodes.write();
+            for &nid in node_ids {
+                if let Some(chain) = nodes.get_mut(&nid) {
+                    chain.remove_versions_by(transaction_id);
+                    if chain.is_empty() {
+                        nodes.remove(&nid);
+                    }
+                }
+            }
+        }
+
+        if !edge_ids.is_empty() {
+            let mut edges = self.edges.write();
+            for &eid in edge_ids {
+                if let Some(chain) = edges.get_mut(&eid) {
+                    chain.remove_versions_by(transaction_id);
+                    if chain.is_empty() {
+                        edges.remove(&eid);
+                    }
+                }
+            }
+        }
+
         self.needs_stats_recompute.store(true, Ordering::Relaxed);
     }
 
@@ -46,12 +85,12 @@ impl LpgStore {
     /// (Tiered storage version)
     #[doc(hidden)]
     #[cfg(feature = "tiered-storage")]
-    pub fn discard_uncommitted_versions(&self, tx_id: TxId) {
+    pub fn discard_uncommitted_versions(&self, transaction_id: TransactionId) {
         // Remove uncommitted node versions
         {
             let mut versions = self.node_versions.write();
             for index in versions.values_mut() {
-                index.remove_versions_by(tx_id);
+                index.remove_versions_by(transaction_id);
             }
             // Remove completely empty indexes (no versions left)
             versions.retain(|_, index| !index.is_empty());
@@ -61,13 +100,49 @@ impl LpgStore {
         {
             let mut versions = self.edge_versions.write();
             for index in versions.values_mut() {
-                index.remove_versions_by(tx_id);
+                index.remove_versions_by(transaction_id);
             }
             // Remove completely empty indexes (no versions left)
             versions.retain(|_, index| !index.is_empty());
         }
 
-        // Counters may be out of sync after rollback — force full recompute
+        // Counters may be out of sync after rollback: force full recompute
+        self.needs_stats_recompute.store(true, Ordering::Relaxed);
+    }
+
+    /// Discards uncommitted versions for specific entities (tiered storage version).
+    #[doc(hidden)]
+    #[cfg(feature = "tiered-storage")]
+    pub fn discard_entities_by_id(
+        &self,
+        transaction_id: TransactionId,
+        node_ids: &[NodeId],
+        edge_ids: &[EdgeId],
+    ) {
+        if !node_ids.is_empty() {
+            let mut versions = self.node_versions.write();
+            for &nid in node_ids {
+                if let Some(index) = versions.get_mut(&nid) {
+                    index.remove_versions_by(transaction_id);
+                    if index.is_empty() {
+                        versions.remove(&nid);
+                    }
+                }
+            }
+        }
+
+        if !edge_ids.is_empty() {
+            let mut versions = self.edge_versions.write();
+            for &eid in edge_ids {
+                if let Some(index) = versions.get_mut(&eid) {
+                    index.remove_versions_by(transaction_id);
+                    if index.is_empty() {
+                        versions.remove(&eid);
+                    }
+                }
+            }
+        }
+
         self.needs_stats_recompute.store(true, Ordering::Relaxed);
     }
 
@@ -144,7 +219,10 @@ impl LpgStore {
             let versions = self.node_versions.read();
             for (node_id, index) in versions.iter() {
                 for hot_ref in index.hot_refs_for_epoch(epoch) {
-                    let arena = self.arena_allocator.arena(hot_ref.epoch);
+                    let arena = self
+                        .arena_allocator
+                        .arena(hot_ref.epoch)
+                        .expect("epoch must exist for hot version ref");
                     // SAFETY: The offset was returned by alloc_value_with_offset for a NodeRecord
                     let record: &NodeRecord = unsafe { arena.read_at(hot_ref.arena_offset) };
                     node_records.push((node_id.as_u64(), *record));
@@ -161,7 +239,10 @@ impl LpgStore {
             let versions = self.edge_versions.read();
             for (edge_id, index) in versions.iter() {
                 for hot_ref in index.hot_refs_for_epoch(epoch) {
-                    let arena = self.arena_allocator.arena(hot_ref.epoch);
+                    let arena = self
+                        .arena_allocator
+                        .arena(hot_ref.epoch)
+                        .expect("epoch must exist for hot version ref");
                     // SAFETY: The offset was returned by alloc_value_with_offset for an EdgeRecord
                     let record: &EdgeRecord = unsafe { arena.read_at(hot_ref.arena_offset) };
                     edge_records.push((edge_id.as_u64(), *record));
@@ -255,7 +336,7 @@ impl LpgStore {
         // Store labels in node_labels map and label_index
         let mut node_label_set = FxHashSet::default();
         for label in labels {
-            let label_id = self.get_or_create_label_id(*label);
+            let label_id = self.get_or_create_label_id(label);
             node_label_set.insert(label_id);
 
             // Update label index
@@ -270,7 +351,7 @@ impl LpgStore {
         self.node_labels.write().insert(id, node_label_set);
 
         // Create version chain with initial version (using SYSTEM tx for recovery)
-        let chain = VersionChain::with_initial(record, epoch, TxId::SYSTEM);
+        let chain = VersionChain::with_initial(record, epoch, TransactionId::SYSTEM);
         self.nodes.write().insert(id, chain);
         self.live_node_count.fetch_add(1, Ordering::Relaxed);
 
@@ -299,7 +380,7 @@ impl LpgStore {
         // Store labels in node_labels map and label_index
         let mut node_label_set = FxHashSet::default();
         for label in labels {
-            let label_id = self.get_or_create_label_id(*label);
+            let label_id = self.get_or_create_label_id(label);
             node_label_set.insert(label_id);
 
             // Update label index
@@ -314,11 +395,16 @@ impl LpgStore {
         self.node_labels.write().insert(id, node_label_set);
 
         // Allocate record in arena and get offset (create epoch if needed)
-        let arena = self.arena_allocator.arena_or_create(epoch);
-        let (offset, _stored) = arena.alloc_value_with_offset(record);
+        let arena = self
+            .arena_allocator
+            .arena_or_create(epoch)
+            .expect("failed to create arena for epoch");
+        let (offset, _stored) = arena
+            .alloc_value_with_offset(record)
+            .expect("arena allocation failed for node record");
 
         // Create HotVersionRef (using SYSTEM tx for recovery)
-        let hot_ref = HotVersionRef::new(epoch, offset, TxId::SYSTEM);
+        let hot_ref = HotVersionRef::new(epoch, offset, TransactionId::SYSTEM);
         let mut versions = self.node_versions.write();
         versions.insert(id, VersionIndex::with_initial(hot_ref));
         self.live_node_count.fetch_add(1, Ordering::Relaxed);
@@ -346,7 +432,7 @@ impl LpgStore {
         let type_id = self.get_or_create_edge_type_id(edge_type);
 
         let record = EdgeRecord::new(id, src, dst, type_id, epoch);
-        let chain = VersionChain::with_initial(record, epoch, TxId::SYSTEM);
+        let chain = VersionChain::with_initial(record, epoch, TransactionId::SYSTEM);
         self.edges.write().insert(id, chain);
 
         // Update adjacency
@@ -382,11 +468,16 @@ impl LpgStore {
         let record = EdgeRecord::new(id, src, dst, type_id, epoch);
 
         // Allocate record in arena and get offset (create epoch if needed)
-        let arena = self.arena_allocator.arena_or_create(epoch);
-        let (offset, _stored) = arena.alloc_value_with_offset(record);
+        let arena = self
+            .arena_allocator
+            .arena_or_create(epoch)
+            .expect("failed to create arena for epoch");
+        let (offset, _stored) = arena
+            .alloc_value_with_offset(record)
+            .expect("arena allocation failed for edge record");
 
         // Create HotVersionRef (using SYSTEM tx for recovery)
-        let hot_ref = HotVersionRef::new(epoch, offset, TxId::SYSTEM);
+        let hot_ref = HotVersionRef::new(epoch, offset, TransactionId::SYSTEM);
         let mut versions = self.edge_versions.write();
         versions.insert(id, VersionIndex::with_initial(hot_ref));
 

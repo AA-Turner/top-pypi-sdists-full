@@ -1430,6 +1430,60 @@ class ConsolidatedMonitorStatusType(sgqlc.types.Enum):
     )
 
 
+class ConversationFilterFieldName(sgqlc.types.Enum):
+    """Field names for conversation filters.
+
+    Enumeration Choices:
+
+    * `DURATION`None
+    * `STATUS`None
+    * `TOTAL_TOKENS`None
+    * `TURNS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DURATION", "STATUS", "TOTAL_TOKENS", "TURNS")
+
+
+class ConversationSortField(sgqlc.types.Enum):
+    """Fields that can be used for sorting conversations.
+
+    Enumeration Choices:
+
+    * `CONVERSATION_ID`None
+    * `DURATION_SECONDS`None
+    * `END_TIME`None
+    * `START_TIME`None
+    * `STATUS`None
+    * `TOTAL_TOKENS`None
+    * `TURNS`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CONVERSATION_ID",
+        "DURATION_SECONDS",
+        "END_TIME",
+        "START_TIME",
+        "STATUS",
+        "TOTAL_TOKENS",
+        "TURNS",
+    )
+
+
+class ConversationStatus(sgqlc.types.Enum):
+    """Status of a conversation derived from root span errors.
+
+    Enumeration Choices:
+
+    * `COMPLETE`None
+    * `ERROR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETE", "ERROR")
+
+
 class CustomDashboardWidgetDataSourceType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -4268,21 +4322,18 @@ class Permission(sgqlc.types.Enum):
     * `DataProductsAccess`None
     * `DataProductsEdit`None
     * `DataProductsEditTheirOwn`None
-    * `DataproductsAccess`None
-    * `DataproductsEdit`None
-    * `DataproductsEditTheirOwn`None
     * `GraphqlMutate`None
     * `GraphqlQuery`None
     * `LineageAccess`None
     * `LineageEdit`None
-    * `MonitorExceptionsAccess`None
-    * `MonitorExceptionsEdit`None
     * `MonitorsAccess`None
     * `MonitorsAggregates`None
     * `MonitorsDataSamplingAccess`None
     * `MonitorsDataSamplingDownload`None
     * `MonitorsDraft`None
     * `MonitorsEdit`None
+    * `MonitorsExceptionsAccess`None
+    * `MonitorsExceptionsEdit`None
     * `PerformanceAccess`None
     * `SettingsAccess`None
     * `SettingsAgentsAccess`None
@@ -4342,21 +4393,18 @@ class Permission(sgqlc.types.Enum):
         "DataProductsAccess",
         "DataProductsEdit",
         "DataProductsEditTheirOwn",
-        "DataproductsAccess",
-        "DataproductsEdit",
-        "DataproductsEditTheirOwn",
         "GraphqlMutate",
         "GraphqlQuery",
         "LineageAccess",
         "LineageEdit",
-        "MonitorExceptionsAccess",
-        "MonitorExceptionsEdit",
         "MonitorsAccess",
         "MonitorsAggregates",
         "MonitorsDataSamplingAccess",
         "MonitorsDataSamplingDownload",
         "MonitorsDraft",
         "MonitorsEdit",
+        "MonitorsExceptionsAccess",
+        "MonitorsExceptionsEdit",
         "PerformanceAccess",
         "SettingsAccess",
         "SettingsAgentsAccess",
@@ -7332,6 +7380,47 @@ class ConnectionTestOptions(sgqlc.types.Input):
     """Specify tests to run (Redshift only)."""
 
 
+class ConversationFiltersInput(sgqlc.types.Input):
+    """Filters for the getConversations query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "conversation_id_search",
+        "statuses",
+        "min_turns",
+        "max_turns",
+        "min_total_tokens",
+        "max_total_tokens",
+        "min_duration",
+        "max_duration",
+    )
+    conversation_id_search = sgqlc.types.Field(String, graphql_name="conversationIdSearch")
+    """Case-insensitive substring search on conversation_id"""
+
+    statuses = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ConversationStatus)), graphql_name="statuses"
+    )
+    """Filter by status (ERROR, COMPLETE). Empty or omitted returns all."""
+
+    min_turns = sgqlc.types.Field(Int, graphql_name="minTurns")
+    """Minimum number of turns (inclusive)"""
+
+    max_turns = sgqlc.types.Field(Int, graphql_name="maxTurns")
+    """Maximum number of turns (inclusive)"""
+
+    min_total_tokens = sgqlc.types.Field(Int, graphql_name="minTotalTokens")
+    """Minimum total tokens (inclusive)"""
+
+    max_total_tokens = sgqlc.types.Field(Int, graphql_name="maxTotalTokens")
+    """Maximum total tokens (inclusive)"""
+
+    min_duration = sgqlc.types.Field(Float, graphql_name="minDuration")
+    """Minimum conversation duration in seconds"""
+
+    max_duration = sgqlc.types.Field(Float, graphql_name="maxDuration")
+    """Maximum conversation duration in seconds"""
+
+
 class CreateOrUpdateAgentTraceTableInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("uuid", "mcon", "connection_uuid", "span_format")
@@ -8433,6 +8522,79 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
 
     threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
     """Explicit freshness threshold in minutes"""
+
+
+class GetConversationsFiltersDataInput(sgqlc.types.Input):
+    """Input parameters for the getConversationsFiltersData query."""
+
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon", "start_time", "end_time")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table to query"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+
+class GetConversationsInput(sgqlc.types.Input):
+    """Input parameters for the getConversations query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "filters",
+        "first",
+        "after",
+        "last",
+        "before",
+        "sort_field",
+        "sort_direction",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table to query"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+    filters = sgqlc.types.Field(ConversationFiltersInput, graphql_name="filters")
+    """Optional filters"""
+
+    first = sgqlc.types.Field(Int, graphql_name="first")
+    """Number of conversations to fetch (forward pagination)"""
+
+    after = sgqlc.types.Field(String, graphql_name="after")
+    """Cursor for forward pagination"""
+
+    last = sgqlc.types.Field(Int, graphql_name="last")
+    """Number of conversations to fetch (backward pagination)"""
+
+    before = sgqlc.types.Field(String, graphql_name="before")
+    """Cursor for backward pagination"""
+
+    sort_field = sgqlc.types.Field(ConversationSortField, graphql_name="sortField")
+    """Field to sort by (default: start_time)"""
+
+    sort_direction = sgqlc.types.Field(TraceSortDirection, graphql_name="sortDirection")
+    """Sort direction (default: DESC)"""
 
 
 class GetExplanationForEventRequestType(sgqlc.types.Input):
@@ -10199,6 +10361,7 @@ class SelfHostedCredentialsConnectionDetails(sgqlc.types.Input):
         "assumable_role",
         "external_id",
         "bq_project_id",
+        "databricks_warehouse_id",
     )
     connection_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="connectionType")
     """Connection type to test credentials for (e.g. 'snowflake')"""
@@ -10276,6 +10439,11 @@ class SelfHostedCredentialsConnectionDetails(sgqlc.types.Input):
     bq_project_id = sgqlc.types.Field(String, graphql_name="bqProjectId")
     """Optional BigQuery project ID for running queries. Required for
     BigQuery connections with self-hosted credentials.
+    """
+
+    databricks_warehouse_id = sgqlc.types.Field(String, graphql_name="databricksWarehouseId")
+    """Optional Databricks SQL warehouse ID. Required for Databricks SQL
+    warehouse connections with self-hosted credentials.
     """
 
 
@@ -11764,9 +11932,7 @@ class WidgetDataSourceUnionInput(sgqlc.types.Input):
 
     field = sgqlc.types.Field(String, graphql_name="field")
 
-    segments = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segments"
-    )
+    segments = sgqlc.types.Field(GenericScalar, graphql_name="segments")
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
 
@@ -11779,6 +11945,27 @@ class WidgetDataSourceUnionInput(sgqlc.types.Input):
     type = sgqlc.types.Field(
         sgqlc.types.non_null(CustomDashboardWidgetDataSourceType), graphql_name="type"
     )
+
+
+class WidgetDefinitionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("type", "title", "order", "width", "height", "data_sources", "options")
+    type = sgqlc.types.Field(sgqlc.types.non_null(CustomDashboardWidgetType), graphql_name="type")
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+
+    order = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="order")
+
+    width = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="width")
+
+    height = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="height")
+
+    data_sources = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(WidgetDataSourceUnionInput)),
+        graphql_name="dataSources",
+    )
+
+    options = sgqlc.types.Field("WidgetOptionsUnionInput", graphql_name="options")
 
 
 class WidgetOptionsUnionInput(sgqlc.types.Input):
@@ -12283,6 +12470,7 @@ class IMonitor(sgqlc.types.Interface):
         "is_ootb_replacement",
         "timeout",
         "is_agent_trace_aggregation",
+        "dashboards",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier for monitors"""
@@ -12503,6 +12691,11 @@ class IMonitor(sgqlc.types.Interface):
 
     is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
     """If True, aggregate spans by trace_id for agent metric monitors."""
+
+    dashboards = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("MonitorDashboard")), graphql_name="dashboards"
+    )
+    """Dashboards sourced from the monitor."""
 
 
 class IMonitorStatus(sgqlc.types.Interface):
@@ -14000,6 +14193,14 @@ class AddOrUpdateCustomDashboardWidget(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("widget",)
     widget = sgqlc.types.Field(sgqlc.types.non_null("CustomDashboardWidget"), graphql_name="widget")
+
+
+class AddOrUpdateWidgetFromDefinition(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field(
+        sgqlc.types.non_null("WidgetDefinitionResult"), graphql_name="result"
+    )
 
 
 class AddPlatformService(sgqlc.types.Type):
@@ -18102,6 +18303,120 @@ class ContractCommitResults(sgqlc.types.Type):
         sgqlc.types.list_of(ContractCommit), graphql_name="contractCommits"
     )
     """List of commits for all contracts"""
+
+
+class Conversation(sgqlc.types.Type):
+    """A conversation groups one or more agent traces sharing the same
+    conversation_id.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "conversation_id",
+        "turns",
+        "total_tokens",
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "status",
+    )
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Conversation identifier"""
+
+    turns = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="turns")
+    """Number of traces (runs) in this conversation"""
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    """Sum of tokens across all traces in the conversation"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Earliest trace start time in the conversation"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """Latest trace end time in the conversation"""
+
+    duration_seconds = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="durationSeconds"
+    )
+    """Total conversation duration in seconds (end_time - start_time)"""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(ConversationStatus), graphql_name="status")
+    """ERROR if any trace had a root span error, otherwise COMPLETE"""
+
+
+class ConversationFilter(sgqlc.types.Type):
+    """Metadata about a single conversation filter.  Mirrors TraceFilter
+    — tells the frontend what filters exist, how to render them
+    (slider vs checkbox), and which input parameter to use.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("field_name", "display_name", "query_parameter_name", "is_range_filter")
+    field_name = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationFilterFieldName), graphql_name="fieldName"
+    )
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+
+    query_parameter_name = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="queryParameterName"
+    )
+    """Corresponding parameter name(s) in ConversationFiltersInput"""
+
+    is_range_filter = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRangeFilter")
+    """True → render as a min/max slider; False → render as checkboxes"""
+
+
+class ConversationFilterData(sgqlc.types.Type):
+    """Actual data for a single conversation filter in the current time
+    window.  For range filters (turns, tokens, duration): min_value
+    and max_value are set. For enum filters (status): values is set
+    with the options present in the data.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("field_name", "min_value", "max_value", "values")
+    field_name = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationFilterFieldName), graphql_name="fieldName"
+    )
+
+    min_value = sgqlc.types.Field(Float, graphql_name="minValue")
+    """Minimum value (range filters only)"""
+
+    max_value = sgqlc.types.Field(Float, graphql_name="maxValue")
+    """Maximum value (range filters only)"""
+
+    values = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("ConversationFilterValue")), graphql_name="values"
+    )
+    """Available values (enum filters only)"""
+
+
+class ConversationFilterValue(sgqlc.types.Type):
+    """A single value available for an enum conversation filter."""
+
+    __schema__ = schema
+    __field_names__ = ("value", "display_name")
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """Raw value (e.g. 'complete', 'error')"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Human-readable label"""
+
+
+class ConversationsResult(sgqlc.types.Type):
+    """Result of the getConversations query."""
+
+    __schema__ = schema
+    __field_names__ = ("conversations", "page_info")
+    conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Conversation))),
+        graphql_name="conversations",
+    )
+    """Conversations for the current page"""
+
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("TracePageInfo"), graphql_name="pageInfo")
+    """Pagination metadata"""
 
 
 class ConversionResult(sgqlc.types.Type):
@@ -28106,6 +28421,18 @@ class MonitorConfiguration(sgqlc.types.Type):
     """The history days for the monitor"""
 
 
+class MonitorDashboard(sgqlc.types.Type):
+    """Dashboards sourced from monitors"""
+
+    __schema__ = schema
+    __field_names__ = ("id", "title")
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Dashboard id"""
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """Dashboard title"""
+
+
 class MonitorDashboardData(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -29048,6 +29375,7 @@ class Mutation(sgqlc.types.Type):
         "delete_custom_dashboard",
         "add_or_update_custom_dashboard_widget",
         "delete_custom_dashboard_widget",
+        "add_or_update_custom_dashboard_widget_from_definition",
         "update_platform_service",
         "create_or_update_agent_trace_table",
         "delete_agent_trace_table",
@@ -29759,6 +30087,39 @@ class Mutation(sgqlc.types.Type):
 
     * `dashboard_id` (`UUID!`)None
     * `widget_id` (`UUID!`)None
+    """
+
+    add_or_update_custom_dashboard_widget_from_definition = sgqlc.types.Field(
+        AddOrUpdateWidgetFromDefinition,
+        graphql_name="addOrUpdateCustomDashboardWidgetFromDefinition",
+        args=sgqlc.types.ArgDict(
+            (
+                ("dashboard_id", sgqlc.types.Arg(UUID, graphql_name="dashboardId", default=None)),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "widget",
+                    sgqlc.types.Arg(WidgetDefinitionInput, graphql_name="widget", default=None),
+                ),
+                ("widget_id", sgqlc.types.Arg(UUID, graphql_name="widgetId", default=None)),
+                ("widget_json", sgqlc.types.Arg(String, graphql_name="widgetJson", default=None)),
+            )
+        ),
+    )
+    """(experimental) Add or update a custom dashboard widget from a
+    human-readable definition
+
+    Arguments:
+
+    * `dashboard_id` (`UUID`): Required when persisting
+      (dry_run=false)
+    * `dry_run` (`Boolean`): If true, validate without persisting
+      (default: `false`)
+    * `widget` (`WidgetDefinitionInput`): Widget definition (mutually
+      exclusive with widgetJson)
+    * `widget_id` (`UUID`)None
+    * `widget_json` (`String`): Widget definition as a JSON string in
+      the same camelCase format returned by the json field. Mutually
+      exclusive with widget.
     """
 
     update_platform_service = sgqlc.types.Field(
@@ -50318,6 +50679,7 @@ class Query(sgqlc.types.Type):
         "load_custom_dashboard_widget_data",
         "lookup_custom_dashboard_time_series_id_by_mcon",
         "lookup_custom_dashboard_time_series_id_by_monitor",
+        "get_custom_dashboard_widget_as_definition",
         "get_open_telemetry_data_stores",
         "get_agent_metadata",
         "get_agent_trace_tables",
@@ -50327,6 +50689,9 @@ class Query(sgqlc.types.Type):
         "get_traces",
         "get_trace_time_series",
         "get_trace_overview",
+        "get_conversations_filters",
+        "get_conversations_filters_data",
+        "get_conversations",
         "get_agent_segments",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
@@ -51015,6 +51380,35 @@ class Query(sgqlc.types.Type):
     * `where_condition` (`String`)None
     """
 
+    get_custom_dashboard_widget_as_definition = sgqlc.types.Field(
+        "WidgetDefinitionResult",
+        graphql_name="getCustomDashboardWidgetAsDefinition",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "dashboard_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="dashboardId", default=None
+                    ),
+                ),
+                (
+                    "widget_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="widgetId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get a custom dashboard widget as a human-readable
+    definition
+
+    Arguments:
+
+    * `dashboard_id` (`UUID!`)None
+    * `widget_id` (`UUID!`)None
+    """
+
     get_open_telemetry_data_stores = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(OpenTelemetryDataStore))),
         graphql_name="getOpenTelemetryDataStores",
@@ -51191,6 +51585,71 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetTraceOverviewInput!`)None
+    """
+
+    get_conversations_filters = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationFilter))),
+        graphql_name="getConversationsFilters",
+    )
+    """(experimental) Get metadata about filters available for the
+    Conversations tab — field name, display name, input parameter, and
+    whether it is a range slider or checkbox filter. Static; no input
+    required.
+    """
+
+    get_conversations_filters_data = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationFilterData))),
+        graphql_name="getConversationsFiltersData",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationsFiltersDataInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get actual filter values for the current time
+    window: min/max bounds for range filters (turns, tokens, duration)
+    and available enum values for checkbox filters (status). Used to
+    configure slider ranges and populate checkboxes with only the
+    options present in the data. NOTE: stub implementation — returns
+    synthetic data.
+
+    Arguments:
+
+    * `input` (`GetConversationsFiltersDataInput!`)None
+    """
+
+    get_conversations = sgqlc.types.Field(
+        ConversationsResult,
+        graphql_name="getConversations",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationsInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get conversations grouped by conversation_id. Each
+    conversation aggregates one or more agent traces (turns) that
+    share the same conversation_id. NOTE: stub implementation —
+    returns synthetic data until TimescaleDB conversation columns are
+    fully deployed.
+
+    Arguments:
+
+    * `input` (`GetConversationsInput!`)None
     """
 
     get_agent_segments = sgqlc.types.Field(
@@ -78144,6 +78603,39 @@ class WidgetDataResponseType(sgqlc.types.Type):
     offset = sgqlc.types.Field(Int, graphql_name="offset")
 
 
+class WidgetDefinition(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("type", "title", "order", "width", "height", "data_sources", "options")
+    type = sgqlc.types.Field(sgqlc.types.non_null(CustomDashboardWidgetType), graphql_name="type")
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+
+    order = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="order")
+
+    width = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="width")
+
+    height = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="height")
+
+    data_sources = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(WidgetDataSourceInterface)),
+        graphql_name="dataSources",
+    )
+
+    options = sgqlc.types.Field(WidgetOptionsInterface, graphql_name="options")
+
+
+class WidgetDefinitionResult(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("widget_id", "definition", "json")
+    widget_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="widgetId")
+
+    definition = sgqlc.types.Field(
+        sgqlc.types.non_null(WidgetDefinition), graphql_name="definition"
+    )
+
+    json = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="json")
+
+
 class WildcardTemplate(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("template_name", "template_regex")
@@ -89048,9 +89540,7 @@ class WidgetDataSourceMonitorMetrics(sgqlc.types.Type, WidgetDataSourceInterface
 
     field = sgqlc.types.Field(String, graphql_name="field")
 
-    segments = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="segments"
-    )
+    segments = sgqlc.types.Field(GenericScalar, graphql_name="segments")
 
 
 class WidgetDataSourceTableMetrics(sgqlc.types.Type, WidgetDataSourceInterface):

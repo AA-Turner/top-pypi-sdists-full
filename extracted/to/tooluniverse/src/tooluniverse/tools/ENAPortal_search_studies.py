@@ -23,7 +23,7 @@ def ENAPortal_search_studies(
     Parameters
     ----------
     query : str
-        ENA search query. Examples: 'description="cancer"', 'tax_tree(9606)' (human),...
+        ENA search query. IMPORTANT: Plain text keywords (e.g., 'cancer') will cause ...
     limit : int | Any
         Maximum results to return (1-100, default 10).
     fields : str | Any

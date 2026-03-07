@@ -8,7 +8,7 @@ from numba import jit, types
 from .entropy import num_zerocross
 from .utils import _linear_regression, _log_n
 
-all = ["petrosian_fd", "katz_fd", "higuchi_fd", "detrended_fluctuation"]
+__all__ = ["petrosian_fd", "katz_fd", "higuchi_fd", "detrended_fluctuation"]
 
 
 def petrosian_fd(x, axis=-1):
@@ -212,7 +212,7 @@ def _higuchi_fd(x, kmax):
             ll = 0
             n_max = floor((n_times - m - 1) / k)
             n_max = int(n_max)
-            for j in range(1, n_max):
+            for j in range(1, n_max + 1):
                 ll += abs(x[m + j * k] - x[m + (j - 1) * k])
             ll /= k
             ll *= (n_times - 1) / (k * n_max)
@@ -224,7 +224,7 @@ def _higuchi_fd(x, kmax):
         m_lm /= k
         lk[k - 1] = m_lm
         x_reg[k - 1] = log(1.0 / k)
-        y_reg[k - 1] = log(m_lm)
+        y_reg[k - 1] = log(m_lm) if m_lm > 0 else -np.inf
     higuchi, _ = _linear_regression(x_reg, y_reg)
     return higuchi
 
@@ -246,6 +246,25 @@ def higuchi_fd(x, kmax=10):
 
     Notes
     -----
+    For each interval :math:`k` from 1 to ``kmax``, :math:`k` sub-series are
+    constructed from the signal :math:`x` of length :math:`N`. Letting
+    :math:`N_m = \\lfloor (N-m)/k \\rfloor`, the normalised length for each
+    sub-series starting at :math:`m` is:
+
+    .. math::
+
+        L_m(k) = \\frac{N-1}{k^2 \\cdot N_m}
+        \\sum_{j=1}^{N_m} |x_{m+jk} - x_{m+(j-1)k}|
+
+    and the average length across all :math:`k` sub-series is:
+
+    .. math:: L(k) = \\frac{1}{k} \\sum_{m=1}^{k} L_m(k)
+
+    The fractal dimension is then estimated as the slope of the linear
+    regression of :math:`\\log L(k)` against :math:`\\log(1/k)`:
+
+    .. math:: \\text{FD} = \\frac{d \\log L(k)}{d \\log(1/k)}
+
     Original code from the `mne-features <https://mne.tools/mne-features/>`_
     package by Jean-Baptiste Schiratti and Alexandre Gramfort.
 
@@ -257,6 +276,13 @@ def higuchi_fd(x, kmax=10):
     basis of the fractal theory." Physica D: Nonlinear Phenomena 31.2
     (1988): 277-283.
 
+    Esteller, R. et al. (2001). A comparison of waveform fractal dimension
+    algorithms. IEEE Transactions on Circuits and Systems I: Fundamental
+    Theory and Applications, 48(2), 177-183.
+
+    Paivinen, N. et al. (2005). Epileptic seizure detection: A nonlinear
+    viewpoint. Computer methods and programs in biomedicine, 79(2), 151-159.
+
     Examples
     --------
     >>> import numpy as np
@@ -265,39 +291,39 @@ def higuchi_fd(x, kmax=10):
     >>> rng = np.random.default_rng(seed=42)
     >>> x = sn.FractionalGaussianNoise(hurst=0.5, rng=rng).sample(10000)
     >>> print(f"{ant.higuchi_fd(x):.4f}")
-    1.9983
+    1.9980
 
     Fractional Gaussian noise with H = 0.9
 
     >>> rng = np.random.default_rng(seed=42)
     >>> x = sn.FractionalGaussianNoise(hurst=0.9, rng=rng).sample(10000)
     >>> print(f"{ant.higuchi_fd(x):.4f}")
-    1.8517
+    1.8512
 
     Fractional Gaussian noise with H = 0.1
 
     >>> rng = np.random.default_rng(seed=42)
     >>> x = sn.FractionalGaussianNoise(hurst=0.1, rng=rng).sample(10000)
     >>> print(f"{ant.higuchi_fd(x):.4f}")
-    2.0581
+    2.0575
 
     Random
 
     >>> rng = np.random.default_rng(seed=42)
     >>> print(f"{ant.higuchi_fd(rng.random(1000)):.4f}")
-    2.0013
+    1.9975
 
     Pure sine wave
 
     >>> x = np.sin(2 * np.pi * 1 * np.arange(3000) / 100)
     >>> print(f"{ant.higuchi_fd(x):.4f}")
-    1.0091
+    1.0074
 
     Linearly-increasing time-series
 
     >>> x = np.arange(1000)
     >>> print(f"{ant.higuchi_fd(x):.4f}")
-    1.0040
+    1.0000
     """
     x = np.asarray(x, dtype=np.float64)
     kmax = int(kmax)
@@ -352,14 +378,17 @@ def detrended_fluctuation(x):
     Returns
     -------
     alpha : float
-        the estimate alpha (:math:`\\alpha`) for the Hurst parameter.
+        The estimated scaling exponent :math:`\\alpha` (related to the Hurst
+        parameter).
 
-        :math:`\\alpha < 1`` indicates a
-        stationary process similar to fractional Gaussian noise with
-        :math:`H = \\alpha`.
+        :math:`\\alpha < 1` indicates a stationary process similar to
+        fractional Gaussian noise with :math:`H = \\alpha`.
 
-        :math:`\\alpha > 1`` indicates a non-stationary process similar to
-        fractional Brownian motion with :math:`H = \\alpha - 1`
+        :math:`\\alpha > 1` indicates a non-stationary process similar to
+        fractional Brownian motion with :math:`H = \\alpha - 1`.
+
+        :math:`\\alpha \\approx 1` is ambiguous (boundary between the two
+        regimes).
 
     Notes
     -----
@@ -377,16 +406,16 @@ def detrended_fluctuation(x):
     where :math:`\\text{std}(X, k)` is the standard deviation of the process
     :math:`X` calculated over windows of size :math:`k`. In this equation,
     :math:`H` is called the Hurst parameter, which behaves indeed very similar
-    to the Hurst exponant.
+    to the Hurst exponent.
 
     For more details, please refer to the excellent documentation of the
     `nolds <https://cschoel.github.io/nolds/>`_
     Python package by Christopher Scholzel, from which this function is taken:
     https://cschoel.github.io/nolds/nolds.html#detrended-fluctuation-analysis
 
-    Note that the default subseries size is set to
-    entropy.utils._log_n(4, 0.1 * len(x), 1.2)). The current implementation
-    does not allow to manually specify the subseries size or use overlapping
+    Note that the subseries sizes range from 4 to 10% of the signal length,
+    spaced geometrically by a factor of 1.2. The current implementation does
+    not allow to manually specify the subseries sizes or use overlapping
     windows.
 
     The code is a faster (Numba) adaptation of the original code by Christopher

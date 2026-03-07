@@ -17,10 +17,10 @@ import unittest
 import mock
 
 from tests.unit.handlers import (
-    _setup_otel_span_context,
-    _EXPECTED_OTEL_TRACE_ID,
     _EXPECTED_OTEL_SPAN_ID,
+    _EXPECTED_OTEL_TRACE_ID,
     _EXPECTED_OTEL_TRACESAMPLED,
+    _setup_otel_span_context,
 )
 
 _FLASK_TRACE_ID = "flask0id"
@@ -153,6 +153,7 @@ class Test_get_request_data_from_django(unittest.TestCase):
 
     def tearDown(self):
         from django.test.utils import teardown_test_environment
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         teardown_test_environment()
@@ -160,6 +161,7 @@ class Test_get_request_data_from_django(unittest.TestCase):
 
     def test_no_context_header(self):
         from django.test import RequestFactory
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         django_request = RequestFactory().get("/")
@@ -175,6 +177,7 @@ class Test_get_request_data_from_django(unittest.TestCase):
 
     def test_xcloud_header(self):
         from django.test import RequestFactory
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         django_trace_header = "HTTP_X_CLOUD_TRACE_CONTEXT"
@@ -198,6 +201,7 @@ class Test_get_request_data_from_django(unittest.TestCase):
 
     def test_traceparent_header(self):
         from django.test import RequestFactory
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         django_trace_header = "HTTP_TRACEPARENT"
@@ -218,6 +222,7 @@ class Test_get_request_data_from_django(unittest.TestCase):
 
     def test_http_request_populated(self):
         from django.test import RequestFactory
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         expected_path = "http://testserver/123"
@@ -244,6 +249,7 @@ class Test_get_request_data_from_django(unittest.TestCase):
 
     def test_http_request_sparse(self):
         from django.test import RequestFactory
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         expected_path = "http://testserver/123"
@@ -257,6 +263,7 @@ class Test_get_request_data_from_django(unittest.TestCase):
 
     def test_invalid_host_header(self):
         from django.test import RequestFactory
+
         from google.cloud.logging_v2.handlers.middleware import request
 
         invalid_http_host = "testserver%7d"

@@ -2,4 +2,4 @@
 
 import typing
 
-TextToSpeechStreamingModel = typing.Union[typing.Literal["bulbul:v2", "bulbul:v3-beta"], typing.Any]
+TextToSpeechStreamingModel = typing.Union[typing.Literal["bulbul:v2", "bulbul:v3"], typing.Any]

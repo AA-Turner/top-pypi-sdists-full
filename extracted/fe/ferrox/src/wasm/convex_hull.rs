@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
+use crate::analysis::convex_hull::{
+    ConvexHullEntry, calculate_e_above_hull as calculate_e_above_hull_rs,
+};
 use crate::composition::Composition;
-use crate::convex_hull::{ConvexHullEntry, calculate_e_above_hull as calculate_e_above_hull_rs};
 use crate::wasm_types::WasmResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Tsify)]

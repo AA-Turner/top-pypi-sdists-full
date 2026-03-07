@@ -22,7 +22,7 @@ dashmap.workspace = true
 arcstr.workspace = true
 
 # Hashing
-ahash.workspace = true
+foldhash.workspace = true
 
 # Serialization
 serde.workspace = true
@@ -38,20 +38,23 @@ rayon = { workspace = true, optional = true }
 # Async (optional - used by spill module)
 tokio = { workspace = true, optional = true }
 
-# Regex
-regex.workspace = true
+# Regex (use regex-lite for smaller WASM builds)
+regex = { workspace = true, optional = true }
+regex-lite = { workspace = true, optional = true }
+
+# Unicode normalization (for IS NORMALIZED predicate)
+unicode-normalization.workspace = true
 
 # Vector index (optional)
 ordered-float = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 
 [dev-dependencies]
-proptest.workspace = true
 criterion.workspace = true
 tempfile.workspace = true
 
 [features]
-default = ["parallel", "spill", "mmap"]
+default = ["parallel", "spill", "mmap", "regex"]
 parallel = ["rayon", "crossbeam"]  # Morsel-driven parallelism (rayon, crossbeam work-stealing)
 spill = ["tokio"]                  # Disk spilling for out-of-core execution
 mmap = []                          # File-backed vector storage (MmapStorage)

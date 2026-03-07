@@ -4,6 +4,7 @@ mod array_schema;
 mod boolean_schema;
 mod document_schema;
 mod float_schema;
+mod if_then_else_schema;
 mod integer_schema;
 mod local_date_schema;
 mod local_date_time_schema;
@@ -28,6 +29,7 @@ pub use array_schema::{ArraySchema, XTombiArrayValuesOrder};
 pub use boolean_schema::BooleanSchema;
 pub use document_schema::DocumentSchema;
 pub use float_schema::FloatSchema;
+pub use if_then_else_schema::IfThenElseSchema;
 pub use integer_schema::IntegerSchema;
 pub use local_date_schema::LocalDateSchema;
 pub use local_date_time_schema::LocalDateTimeSchema;
@@ -42,18 +44,18 @@ pub use schema_context::SchemaContext;
 pub use schema_cycle_guard::{SchemaCycleGuard, SchemaVisits};
 pub use source_schema::{SourceSchema, SubSchemaUriMap};
 pub use string_schema::StringSchema;
-pub use table_schema::{TableKeysOrderGroup, TableSchema, XTombiTableKeysOrder};
+pub use table_schema::{Dependency, TableKeysOrderGroup, TableSchema, XTombiTableKeysOrder};
 pub use tombi_accessor::{SchemaAccessor, SchemaAccessors};
 pub use tombi_uri::{CatalogUri, SchemaUri};
 pub use value_schema::*;
 
 pub type SchemaProperties =
-    Arc<tokio::sync::RwLock<indexmap::IndexMap<SchemaAccessor, PropertySchema>>>;
+    Arc<tokio::sync::RwLock<tombi_hashmap::IndexMap<SchemaAccessor, PropertySchema>>>;
 pub type SchemaPatternProperties =
-    Arc<tokio::sync::RwLock<ahash::AHashMap<String, PropertySchema>>>;
+    Arc<tokio::sync::RwLock<tombi_hashmap::HashMap<String, PropertySchema>>>;
 pub type SchemaItem = Arc<tokio::sync::RwLock<Referable<ValueSchema>>>;
 pub type SchemaDefinitions =
-    Arc<tokio::sync::RwLock<ahash::AHashMap<String, Referable<ValueSchema>>>>;
+    Arc<tokio::sync::RwLock<tombi_hashmap::HashMap<String, Referable<ValueSchema>>>>;
 pub type ReferableValueSchemas = Arc<tokio::sync::RwLock<Vec<Referable<ValueSchema>>>>;
 
 #[derive(Debug, Clone)]

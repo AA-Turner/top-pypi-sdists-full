@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from copy import deepcopy
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
 import re
-
 import unittest
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 
 import mock
 
@@ -56,6 +53,7 @@ class TestClient(unittest.TestCase):
 
     def test_ctor_defaults(self):
         from google.cloud._http import ClientInfo
+
         from google.cloud.logging_v2._http import Connection
 
         creds = _make_credentials()
@@ -66,6 +64,7 @@ class TestClient(unittest.TestCase):
 
     def test_ctor_explicit(self):
         from google.cloud._http import ClientInfo
+
         from google.cloud.logging_v2._http import Connection
 
         creds = _make_credentials()
@@ -367,10 +366,7 @@ class TestClient(unittest.TestCase):
         self.assertLess(yesterday - timestamp, timedelta(minutes=1))
 
     def test_list_entries_explicit(self):
-        from google.cloud.logging import DESCENDING
-        from google.cloud.logging import ProtobufEntry
-        from google.cloud.logging import StructEntry
-        from google.cloud.logging import Logger
+        from google.cloud.logging import DESCENDING, Logger, ProtobufEntry, StructEntry
 
         PROJECT1 = "PROJECT1"
         PROJECT2 = "PROJECT2"
@@ -466,10 +462,7 @@ class TestClient(unittest.TestCase):
         self.assertLess(yesterday - timestamp, timedelta(minutes=1))
 
     def test_list_entries_explicit_timestamp(self):
-        from google.cloud.logging import DESCENDING
-        from google.cloud.logging import ProtobufEntry
-        from google.cloud.logging import StructEntry
-        from google.cloud.logging import Logger
+        from google.cloud.logging import DESCENDING, Logger, ProtobufEntry, StructEntry
 
         PROJECT1 = "PROJECT1"
         PROJECT2 = "PROJECT2"
@@ -764,9 +757,11 @@ class TestClient(unittest.TestCase):
 
     def test_get_default_handler_app_engine(self):
         import os
+
         from google.cloud._testing import _Monkey
-        from google.cloud.logging_v2.handlers._monitored_resources import _GAE_ENV_VARS
+
         from google.cloud.logging.handlers import CloudLoggingHandler
+        from google.cloud.logging_v2.handlers._monitored_resources import _GAE_ENV_VARS
 
         credentials = _make_credentials()
         client = self._make_one(
@@ -802,8 +797,9 @@ class TestClient(unittest.TestCase):
 
     def test_get_default_handler_general(self):
         import io
-        from google.cloud.logging.handlers import CloudLoggingHandler
+
         from google.cloud.logging import Resource
+        from google.cloud.logging.handlers import CloudLoggingHandler
 
         name = "test-logger"
         resource = Resource("resource_type", {"resource_label": "value"})
@@ -857,8 +853,9 @@ class TestClient(unittest.TestCase):
 
     def test_setup_logging_w_extra_kwargs(self):
         import io
-        from google.cloud.logging.handlers import CloudLoggingHandler
+
         from google.cloud.logging import Resource
+        from google.cloud.logging.handlers import CloudLoggingHandler
 
         name = "test-logger"
         resource = Resource("resource_type", {"resource_label": "value"})
@@ -898,8 +895,9 @@ class TestClient(unittest.TestCase):
 
     def test_setup_logging_w_extra_kwargs_structured_log(self):
         import io
-        from google.cloud.logging.handlers import StructuredLogHandler
+
         from google.cloud.logging import Resource
+        from google.cloud.logging.handlers import StructuredLogHandler
         from google.cloud.logging_v2.client import _GKE_RESOURCE_TYPE
 
         name = "test-logger"
@@ -935,8 +933,9 @@ class TestClient(unittest.TestCase):
 
     def test_flush_handlers_cloud_logging_handler(self):
         import io
-        from google.cloud.logging.handlers import CloudLoggingHandler
+
         from google.cloud.logging import Resource
+        from google.cloud.logging.handlers import CloudLoggingHandler
 
         name = "test-logger"
         resource = Resource("resource_type", {"resource_label": "value"})
@@ -980,8 +979,9 @@ class TestClient(unittest.TestCase):
 
     def test_flush_handlers_structured_log(self):
         import io
-        from google.cloud.logging.handlers import StructuredLogHandler
+
         from google.cloud.logging import Resource
+        from google.cloud.logging.handlers import StructuredLogHandler
         from google.cloud.logging_v2.client import _GKE_RESOURCE_TYPE
 
         name = "test-logger"
@@ -1012,8 +1012,9 @@ class TestClient(unittest.TestCase):
     def test_close_cloud_logging_handler(self):
         import contextlib
         import io
-        from google.cloud.logging.handlers import CloudLoggingHandler
+
         from google.cloud.logging import Resource
+        from google.cloud.logging.handlers import CloudLoggingHandler
 
         name = "test-logger"
         resource = Resource("resource_type", {"resource_label": "value"})
@@ -1044,6 +1045,7 @@ class TestClient(unittest.TestCase):
 
     def test_close_cloud_logging_handler_no_setup_logging(self):
         import contextlib
+
         from google.cloud.logging.handlers import CloudLoggingHandler
 
         credentials = _make_credentials()
@@ -1063,8 +1065,9 @@ class TestClient(unittest.TestCase):
     def test_close_structured_log_handler(self):
         import contextlib
         import io
-        from google.cloud.logging.handlers import StructuredLogHandler
+
         from google.cloud.logging import Resource
+        from google.cloud.logging.handlers import StructuredLogHandler
         from google.cloud.logging_v2.client import _GKE_RESOURCE_TYPE
 
         name = "test-logger"

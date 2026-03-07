@@ -56,8 +56,8 @@ class TestStructuredLogHandler(unittest.TestCase):
         self.assertEqual(handler._json_encoder_cls, CustomJSONEncoder)
 
     def test_format(self):
-        import logging
         import json
+        import logging
 
         labels = {"default_key": "default-value"}
         handler = self._make_one(labels=labels)
@@ -95,8 +95,8 @@ class TestStructuredLogHandler(unittest.TestCase):
         )
 
     def test_format_minimal(self):
-        import logging
         import json
+        import logging
 
         handler = self._make_one()
         record = logging.LogRecord(
@@ -153,8 +153,8 @@ class TestStructuredLogHandler(unittest.TestCase):
         """
         When logging a message with an exception, the stack trace should not be appended
         """
-        import logging
         import json
+        import logging
 
         handler = self._make_one()
         exception_tuple = (Exception, Exception(), None)
@@ -219,7 +219,6 @@ class TestStructuredLogHandler(unittest.TestCase):
     def test_format_with_custom_json_encoder(self):
         import json
         import logging
-
         from pathlib import Path
         from typing import Any
 
@@ -264,8 +263,8 @@ class TestStructuredLogHandler(unittest.TestCase):
     def test_format_with_reserved_json_field(self):
         # drop json_field data with reserved names
         # related issue: https://github.com/googleapis/python-logging/issues/543
-        import logging
         import json
+        import logging
 
         handler = self._make_one()
         message = "hello world"
@@ -383,8 +382,8 @@ class TestStructuredLogHandler(unittest.TestCase):
         self.assertIn(expected_result, result)
 
     def test_format_with_xctc_request(self):
-        import logging
         import json
+        import logging
 
         handler = self._make_one()
         logname = "loggername"
@@ -422,8 +421,8 @@ class TestStructuredLogHandler(unittest.TestCase):
                 self.assertEqual(value, result[key])
 
     def test_format_with_traceparent(self):
-        import logging
         import json
+        import logging
 
         handler = self._make_one()
         logname = "loggername"
@@ -463,8 +462,8 @@ class TestStructuredLogHandler(unittest.TestCase):
         If supported fields were overridden by the user, those choices should
         take precedence.
         """
-        import logging
         import json
+        import logging
 
         default_labels = {
             "default_key": "default-value",
@@ -514,14 +513,14 @@ class TestStructuredLogHandler(unittest.TestCase):
                 self.assertEqual(value, result[key])
 
     def test_format_with_opentelemetry_span(self):
-        import logging
         import json
+        import logging
 
         from tests.unit.handlers import (
-            _setup_otel_span_context,
-            _EXPECTED_OTEL_TRACE_ID,
             _EXPECTED_OTEL_SPAN_ID,
+            _EXPECTED_OTEL_TRACE_ID,
             _EXPECTED_OTEL_TRACESAMPLED,
+            _setup_otel_span_context,
         )
 
         handler = self._make_one()
@@ -541,14 +540,14 @@ class TestStructuredLogHandler(unittest.TestCase):
                 self.assertEqual(value, result[key])
 
     def test_format_with_opentelemetry_span_and_request(self):
-        import logging
         import json
+        import logging
 
         from tests.unit.handlers import (
-            _setup_otel_span_context,
-            _EXPECTED_OTEL_TRACE_ID,
             _EXPECTED_OTEL_SPAN_ID,
+            _EXPECTED_OTEL_TRACE_ID,
             _EXPECTED_OTEL_TRACESAMPLED,
+            _setup_otel_span_context,
         )
 
         handler = self._make_one()
@@ -587,8 +586,8 @@ class TestStructuredLogHandler(unittest.TestCase):
                     self.assertEqual(value, result[key])
 
     def test_format_with_opentelemetry_span_and_overrides(self):
-        import logging
         import json
+        import logging
 
         from tests.unit.handlers import _setup_otel_span_context
 
@@ -618,8 +617,8 @@ class TestStructuredLogHandler(unittest.TestCase):
         """
         User can add json_fields to the record, which should populate the payload
         """
-        import logging
         import json
+        import logging
 
         handler = self._make_one()
         message = "name: %s"
@@ -647,8 +646,8 @@ class TestStructuredLogHandler(unittest.TestCase):
         """
         JSON can contain nested dictionaries of data
         """
-        import logging
         import json
+        import logging
 
         handler = self._make_one()
         json_fields = {"outer": {"inner": {"hello": "world"}}}
@@ -699,7 +698,9 @@ class TestStructuredLogHandler(unittest.TestCase):
 
     def test_emits_instrumentation_info(self):
         import logging
+
         import mock
+
         import google.cloud.logging_v2
 
         handler = self._make_one()
@@ -722,9 +723,10 @@ class TestStructuredLogHandler(unittest.TestCase):
             emit_info.assert_called_once()
 
     def test_valid_instrumentation_info(self):
-        import logging
-        import mock
         import json
+        import logging
+
+        import mock
 
         logger = logging.getLogger("google.cloud.logging_v2.handlers.structured_log")
         with mock.patch.object(logger, "info") as mock_log:

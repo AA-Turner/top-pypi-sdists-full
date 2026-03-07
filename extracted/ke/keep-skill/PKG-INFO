@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: keep-skill
-Version: 0.82.3
+Version: 0.84.0
 Summary: Reflective memory - remember and search documents by meaning
 Project-URL: Homepage, https://keepnotes.ai
 Project-URL: Documentation, https://docs.keepnotes.ai/guides/
-Project-URL: Repository, https://github.com/hughpyle/keep
+Project-URL: Repository, https://github.com/keepnotes-ai/keep
 Author: Hugh Pyle
 License: MIT
 License-File: LICENSE
@@ -25,6 +25,7 @@ Requires-Dist: chromadb>=0.4
 Requires-Dist: google-genai>=1.0.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: mcp>=1.0
+Requires-Dist: mistralai>=1.0
 Requires-Dist: openai>=1.0
 Requires-Dist: pillow>=10.0
 Requires-Dist: pypdf>=6.7.5
@@ -32,6 +33,7 @@ Requires-Dist: pypdfium2>=4.0
 Requires-Dist: python-docx>=1.0
 Requires-Dist: python-pptx>=1.0
 Requires-Dist: pyyaml>=6.0
+Requires-Dist: questionary>=2.0
 Requires-Dist: requests>=2.20
 Requires-Dist: tinytag>=2.0
 Requires-Dist: tomli-w>=1.0
@@ -94,7 +96,7 @@ What makes this more than a vector store: when you view your current context (`k
 - **Edge tags** — Turn tags into navigable relationships with automatic inverse links
 - **Parts** — `analyze` decomposes documents into searchable sections, each with its own embedding and tags
 - **Strings** — Every note is a string of versions; reorganize history by meaning with `keep move`
-- **Works offline** — Local models (MLX, Ollama), or API providers (OpenAI, Gemini, Voyage, Anthropic)
+- **Works offline** — Local models (MLX, Ollama), or API providers (OpenAI, Gemini, Voyage, Anthropic, Mistral)
 
 Backed by ChromaDB for vectors, SQLite for metadata and versions.
 

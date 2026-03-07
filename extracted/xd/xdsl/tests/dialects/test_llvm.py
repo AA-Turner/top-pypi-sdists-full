@@ -576,3 +576,28 @@ def test_func_op_extra_attrs():
     op = llvm.FuncOp("my_func", ft, extra_attrs={"goofy": builtin.StringAttr("goober")})
     assert "goofy" in op.attributes
     assert op.attributes["goofy"] == builtin.StringAttr("goober")
+
+
+def test_fabs_op():
+    val = create_ssa_value(builtin.f32)
+    op = llvm.FAbsOp(val, builtin.f32)
+    assert op.input == val
+    assert op.result.type == builtin.f32
+
+
+def test_fneg_op():
+    val = create_ssa_value(builtin.f32)
+    op = llvm.FNegOp(val)
+    assert op.arg == val
+    assert op.res.type == builtin.f32
+
+
+def test_masked_store_op():
+    value = create_ssa_value(builtin.f32)
+    ptr = create_ssa_value(llvm.LLVMPointerType())
+    mask = create_ssa_value(builtin.IntegerType(1))
+    op = llvm.MaskedStoreOp(value, ptr, mask, alignment=16)
+    assert op.value == value
+    assert op.data == ptr
+    assert op.mask == mask
+    assert op.alignment.value.data == 16

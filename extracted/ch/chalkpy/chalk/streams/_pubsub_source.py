@@ -16,6 +16,7 @@ _PUBSUB_PROJECT_ID_NAME = "PUBSUB_PROJECT_ID"
 _PUBSUB_SUBSCRIPTION_ID_NAME = "PUBSUB_SUBSCRIPTION_ID"
 _PUBSUB_LATE_ARRIVAL_DEADLINE_NAME = "PUBSUB_LATE_ARRIVAL_DEADLINE"
 _PUBSUB_DEAD_LETTER_QUEUE_TOPIC_ID_NAME = "PUBSUB_DEAD_LETTER_QUEUE_TOPIC_ID"
+_PUBSUB_SERVICE_ACCOUNT_CREDENTIALS_B64_NAME = "PUBSUB_SERVICE_ACCOUNT_CREDENTIALS_B64"
 
 
 class PubSubSource(StreamSource, BaseModel, frozen=True):
@@ -45,6 +46,12 @@ class PubSubSource(StreamSource, BaseModel, frozen=True):
     'pubsub.topics.publish' if this is set.
     """
 
+    service_account_credentials_base64: Optional[str] = None
+    """
+    Base64-encoded GCP service account credentials JSON for authenticating with PubSub.
+    When set, these credentials are used instead of the default application credentials.
+    """
+
     def __init__(
         self,
         *,
@@ -53,6 +60,7 @@ class PubSubSource(StreamSource, BaseModel, frozen=True):
         name: Optional[str] = None,
         late_arrival_deadline: Duration = "infinity",
         dead_letter_queue_topic_id: Optional[str] = None,
+        service_account_credentials_base64: Optional[str] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
     ):
         super(PubSubSource, self).__init__(
@@ -79,6 +87,13 @@ class PubSubSource(StreamSource, BaseModel, frozen=True):
                 override=integration_variable_override,
             )
             or PubSubSource.__fields__["dead_letter_queue_topic_id"].default,
+            service_account_credentials_base64=service_account_credentials_base64
+            or load_integration_variable(
+                name=_PUBSUB_SERVICE_ACCOUNT_CREDENTIALS_B64_NAME,
+                integration_name=name,
+                override=integration_variable_override,
+            )
+            or PubSubSource.__fields__["service_account_credentials_base64"].default,
         )
         self.registry.append(self)
 
@@ -107,6 +122,11 @@ class PubSubSource(StreamSource, BaseModel, frozen=True):
                 create_integration_variable(_PUBSUB_LATE_ARRIVAL_DEADLINE_NAME, self.name, self.late_arrival_deadline),
                 create_integration_variable(
                     _PUBSUB_DEAD_LETTER_QUEUE_TOPIC_ID_NAME, self.name, self.dead_letter_queue_topic_id
+                ),
+                create_integration_variable(
+                    _PUBSUB_SERVICE_ACCOUNT_CREDENTIALS_B64_NAME,
+                    self.name,
+                    self.service_account_credentials_base64,
                 ),
             ]
             if v is not None

@@ -26,7 +26,7 @@ pub enum DiagnosticKind {
          {schema_uri}, or add `#:tombi schema.strict = false` as a document comment directive at the \
          top of your document, or set `schema.strict = false` in your `tombi.toml`."
     )]
-    StrictAdditionalKeys {
+    TableStrictAdditionalKeys {
         accessors: SchemaAccessors,
         key: String,
         schema_uri: SchemaUri,
@@ -104,8 +104,24 @@ pub enum DiagnosticKind {
     #[error("Array must contain at least {min_values} values, but found {actual}")]
     ArrayMinValues { min_values: usize, actual: usize },
 
+    #[error("Array must contain at least one item matching the `contains` schema")]
+    ArrayContains,
+
+    #[error(
+        "Array must contain at least {min_contains} items matching the `contains` schema, but found {actual}"
+    )]
+    ArrayMinContains { min_contains: usize, actual: usize },
+
+    #[error(
+        "Array must contain at most {max_contains} items matching the `contains` schema, but found {actual}"
+    )]
+    ArrayMaxContains { max_contains: usize, actual: usize },
+
     #[error("Array values must be unique")]
     ArrayUniqueValues,
+
+    #[error("Additional items are not allowed (tuple schema has {max_items} items)")]
+    ArrayAdditionalItems { max_items: usize },
 
     #[error("Table must contain at most {max_keys} keys, but found {actual}")]
     TableMaxKeys { max_keys: usize, actual: usize },
@@ -124,6 +140,12 @@ pub enum DiagnosticKind {
 
     #[error("\"not\" schema is matched")]
     NotSchemaMatch,
+
+    #[error("When \"{dependent_key}\" is present, \"{required_key}\" is required")]
+    TableDependencyRequired {
+        dependent_key: String,
+        required_key: String,
+    },
 }
 
 #[derive(Debug)]
@@ -139,7 +161,7 @@ impl DiagnosticKind {
             DiagnosticKind::Deprecated { .. } | DiagnosticKind::DeprecatedValue { .. } => {
                 "deprecated"
             }
-            DiagnosticKind::StrictAdditionalKeys { .. } => "strict-additional-keys",
+            DiagnosticKind::TableStrictAdditionalKeys { .. } => "table-strict-additional-keys",
             DiagnosticKind::KeyNotAllowed { .. } => "key-not-allowed",
             DiagnosticKind::KeyPattern { .. } => "key-pattern",
             DiagnosticKind::TypeMismatch { .. } => "type-mismatch",
@@ -161,13 +183,18 @@ impl DiagnosticKind {
             DiagnosticKind::StringPattern { .. } => "string-pattern",
             DiagnosticKind::ArrayMaxValues { .. } => "array-max-values",
             DiagnosticKind::ArrayMinValues { .. } => "array-min-values",
+            DiagnosticKind::ArrayContains => "array-contains",
+            DiagnosticKind::ArrayMinContains { .. } => "array-min-contains",
+            DiagnosticKind::ArrayMaxContains { .. } => "array-max-contains",
             DiagnosticKind::ArrayUniqueValues => "array-unique-values",
+            DiagnosticKind::ArrayAdditionalItems { .. } => "array-additional-items",
             DiagnosticKind::TableMaxKeys { .. } => "table-max-keys",
             DiagnosticKind::TableMinKeys { .. } => "table-min-keys",
             DiagnosticKind::TableKeyRequired { .. } => "table-key-required",
             DiagnosticKind::OneOfMultipleMatch { .. } => "one-of-multiple-match",
             DiagnosticKind::NotSchemaMatch => "not-schema-match",
             DiagnosticKind::KeyEmpty => "key-empty",
+            DiagnosticKind::TableDependencyRequired { .. } => "table-dependency-required",
         }
     }
 }

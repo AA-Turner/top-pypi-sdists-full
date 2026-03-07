@@ -1,0 +1,406 @@
+# Copyright © VASP Software GmbH,
+# Licensed under the Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+import types
+from dataclasses import fields
+from tabnanny import check
+from unittest.mock import patch
+
+import numpy as np
+import pytest
+
+from py4vasp import exception
+from py4vasp._calculation.dos import Dos
+from py4vasp._calculation.projector import SPIN_PROJECTION, Projector
+from py4vasp._raw.data_db import Dos_DB
+
+
+@pytest.fixture
+def Sr2TiO4(raw_data):
+    raw_dos = raw_data.dos("Sr2TiO4")
+    dos = Dos.from_data(raw_dos)
+    dos.ref = types.SimpleNamespace()
+    dos.ref.energies = raw_dos.energies - raw_dos.fermi_energy
+    dos.ref.dos = raw_dos.dos[0]
+    dos.ref.fermi_energy = raw_dos.fermi_energy
+    return dos
+
+
+@pytest.fixture
+def Fe3O4(raw_data):
+    raw_dos = raw_data.dos("Fe3O4")
+    dos = Dos.from_data(raw_dos)
+    dos.ref = types.SimpleNamespace()
+    dos.ref.energies = raw_dos.energies - raw_dos.fermi_energy
+    dos.ref.dos_up = raw_dos.dos[0]
+    dos.ref.dos_down = raw_dos.dos[1]
+    dos.ref.fermi_energy = raw_dos.fermi_energy
+    return dos
+
+
+@pytest.fixture
+def Sr2TiO4_projectors(raw_data):
+    raw_dos = raw_data.dos("Sr2TiO4 with_projectors")
+    dos = Dos.from_data(raw_dos)
+    dos.ref = types.SimpleNamespace()
+    dos.ref.s = np.sum(raw_dos.projections[0, :, 0, :], axis=0)
+    dos.ref.Sr_p = np.sum(raw_dos.projections[0, 0:2, 1:4, :], axis=(0, 1))
+    dos.ref.Sr_d = np.sum(raw_dos.projections[0, 0:2, 4:9, :], axis=(0, 1))
+    dos.ref.Sr_2_p = np.sum(raw_dos.projections[0, 1, 1:4, :], axis=0)
+    dos.ref.Ti = np.sum(raw_dos.projections[0, 2, :, :], axis=0)
+    dos.ref.Ti_dz2 = raw_dos.projections[0, 2, 6, :]
+    dos.ref.O_px = np.sum(raw_dos.projections[0, 3:7, 3, :], axis=0)
+    dos.ref.O_dxy = np.sum(raw_dos.projections[0, 3:7, 4, :], axis=0)
+    dos.ref.O_1 = np.sum(raw_dos.projections[0, 3, :, :], axis=0)
+    return dos
+
+
+@pytest.fixture
+def Fe3O4_projectors(raw_data):
+    raw_dos = raw_data.dos("Fe3O4 with_projectors")
+    dos = Dos.from_data(raw_dos)
+    dos.ref = types.SimpleNamespace()
+    dos.ref.Fe_up = np.sum(raw_dos.projections[0, 0:3, :, :], axis=(0, 1))
+    dos.ref.Fe_down = np.sum(raw_dos.projections[1, 0:3, :, :], axis=(0, 1))
+    dos.ref.p_up = np.sum(raw_dos.projections[0, :, 1, :], axis=0)
+    dos.ref.p_down = np.sum(raw_dos.projections[1, :, 1, :], axis=0)
+    dos.ref.O_d_up = np.sum(raw_dos.projections[0, 3:7, 2, :], axis=0)
+    dos.ref.O_d_down = np.sum(raw_dos.projections[1, 3:7, 2, :], axis=0)
+    dos.ref.selections = Projector.from_data(raw_dos.projectors).selections()
+    return dos
+
+
+@pytest.fixture
+def Ba2PbO4(raw_data):
+    raw_dos = raw_data.dos("Ba2PbO4 noncollinear")
+    dos = Dos.from_data(raw_dos)
+    dos.ref = types.SimpleNamespace()
+    dos.ref.energies = raw_dos.energies - raw_dos.fermi_energy
+    dos.ref.fermi_energy = raw_dos.fermi_energy
+    dos.ref.dos = raw_dos.dos[0]
+    dos.ref.dos_z = np.sum(raw_dos.projections[3], axis=(0, 1))
+    dos.ref.Ba_x = np.sum(raw_dos.projections[1, 0:2, :, :], axis=(0, 1))
+    dos.ref.Pb = np.sum(raw_dos.projections[0, 2, :, :], axis=0)
+    dos.ref.Pb_y = np.sum(raw_dos.projections[2, 2, :, :], axis=0)
+    dos.ref.O_y = np.sum(raw_dos.projections[2, 3:7, :, :], axis=(0, 1))
+    return dos
+
+
+def test_Sr2TiO4_read(Sr2TiO4, Assert):
+    actual = Sr2TiO4.read()
+    Assert.allclose(actual["energies"], Sr2TiO4.ref.energies)
+    Assert.allclose(actual["total"], Sr2TiO4.ref.dos)
+    assert actual["fermi_energy"] == Sr2TiO4.ref.fermi_energy
+
+
+def test_Fe3O4_read(Fe3O4, Assert):
+    actual = Fe3O4.read()
+    Assert.allclose(actual["energies"], Fe3O4.ref.energies)
+    Assert.allclose(actual["up"], Fe3O4.ref.dos_up)
+    Assert.allclose(actual["down"], Fe3O4.ref.dos_down)
+    assert actual["fermi_energy"] == Fe3O4.ref.fermi_energy
+
+
+def test_Fe3O4_projectors_read(Fe3O4_projectors, Assert):
+    actual = Fe3O4_projectors.read("Fe p O(d)")
+    Assert.allclose(actual["Fe_up"], Fe3O4_projectors.ref.Fe_up)
+    Assert.allclose(actual["Fe_down"], Fe3O4_projectors.ref.Fe_down)
+    Assert.allclose(actual["p_up"], Fe3O4_projectors.ref.p_up)
+    Assert.allclose(actual["p_down"], Fe3O4_projectors.ref.p_down)
+    Assert.allclose(actual["O_d_up"], Fe3O4_projectors.ref.O_d_up)
+    Assert.allclose(actual["O_d_down"], Fe3O4_projectors.ref.O_d_down)
+    assert SPIN_PROJECTION not in actual
+
+
+def test_Ba2PbO4_read(Ba2PbO4, Assert):
+    actual = Ba2PbO4.read("Pb Ba(sigma_x) y(Pb, O) sigma_3")
+    Assert.allclose(actual["energies"], Ba2PbO4.ref.energies)
+    Assert.allclose(actual["total"], Ba2PbO4.ref.dos)
+    Assert.allclose(actual["Pb"], Ba2PbO4.ref.Pb)
+    Assert.allclose(actual["Ba_sigma_x"], Ba2PbO4.ref.Ba_x)
+    Assert.allclose(actual["Pb_y"], Ba2PbO4.ref.Pb_y)
+    Assert.allclose(actual["O_y"], Ba2PbO4.ref.O_y)
+    Assert.allclose(actual["sigma_3"], Ba2PbO4.ref.dos_z)
+    assert SPIN_PROJECTION not in actual
+
+
+def test_combine_projectors(Fe3O4_projectors, Assert):
+    actual = Fe3O4_projectors.read("Fe + O(d), Fe - O(d)")
+    addition_up = Fe3O4_projectors.ref.Fe_up + Fe3O4_projectors.ref.O_d_up
+    addition_down = Fe3O4_projectors.ref.Fe_down + Fe3O4_projectors.ref.O_d_down
+    subtraction_up = Fe3O4_projectors.ref.Fe_up - Fe3O4_projectors.ref.O_d_up
+    subtraction_down = Fe3O4_projectors.ref.Fe_down - Fe3O4_projectors.ref.O_d_down
+    Assert.allclose(actual["Fe_up + O_d_up"], addition_up)
+    Assert.allclose(actual["Fe_down + O_d_down"], addition_down)
+    Assert.allclose(actual["Fe_up - O_d_up"], subtraction_up)
+    Assert.allclose(actual["Fe_down - O_d_down"], subtraction_down)
+
+
+def test_read_missing_projectors(Sr2TiO4):
+    with pytest.raises(exception.IncorrectUsage):
+        Sr2TiO4.read("s")
+
+
+def test_read_excess_orbital_types(raw_data, Assert):
+    """Vasp 6.1 may store more orbital types then projections available. This
+    test checks that this does not lead to any issues when an available element
+    is used."""
+    dos = Dos.from_data(raw_data.dos("Fe3O4 excess_orbitals"))
+    actual = dos.read("s p g")
+    zero = np.zeros_like(actual["energies"])
+    Assert.allclose(actual["g_up"], zero)
+    Assert.allclose(actual["g_down"], zero)
+
+
+def test_Sr2TiO4_to_frame(Sr2TiO4, Assert, not_core):
+    actual = Sr2TiO4.to_frame()
+    Assert.allclose(actual.energies, Sr2TiO4.ref.energies)
+    Assert.allclose(actual.total, Sr2TiO4.ref.dos)
+    assert actual.fermi_energy == Sr2TiO4.ref.fermi_energy
+
+
+def test_Fe3O4_to_frame(Fe3O4, Assert, not_core):
+    actual = Fe3O4.to_frame()
+    Assert.allclose(actual.energies, Fe3O4.ref.energies)
+    Assert.allclose(actual.up, Fe3O4.ref.dos_up)
+    Assert.allclose(actual.down, Fe3O4.ref.dos_down)
+    assert actual.fermi_energy == Fe3O4.ref.fermi_energy
+
+
+def test_Sr2TiO4_projectors_to_frame(Sr2TiO4_projectors, Assert, not_core):
+    equivalent_selections = [
+        "s Sr(d) Ti O(px,dxy) 2(p) 4 3(dz2) 1:2(p)",
+        "2( p), dz2(3) Sr(d) p(1:2), s, 4 Ti px(O) O(dxy)",
+    ]
+    for selection in equivalent_selections:
+        actual = Sr2TiO4_projectors.to_frame(selection)
+        Assert.allclose(actual.s, Sr2TiO4_projectors.ref.s)
+        Assert.allclose(actual["1:2_p"], Sr2TiO4_projectors.ref.Sr_p)
+        Assert.allclose(actual.Sr_d, Sr2TiO4_projectors.ref.Sr_d)
+        Assert.allclose(actual.Sr_2_p, Sr2TiO4_projectors.ref.Sr_2_p)
+        Assert.allclose(actual.Ti, Sr2TiO4_projectors.ref.Ti)
+        Assert.allclose(actual.Ti_1_dz2, Sr2TiO4_projectors.ref.Ti_dz2)
+        Assert.allclose(actual.O_px, Sr2TiO4_projectors.ref.O_px)
+        Assert.allclose(actual.O_dxy, Sr2TiO4_projectors.ref.O_dxy)
+        Assert.allclose(actual.O_1, Sr2TiO4_projectors.ref.O_1)
+
+
+def test_Ba2PbO4_to_frame(Ba2PbO4, Assert, not_core):
+    actual = Ba2PbO4.to_frame("sigma_z Pb(total, y) Ba(x) O(sigma_2)")
+    Assert.allclose(actual.energies, Ba2PbO4.ref.energies)
+    Assert.allclose(actual.total, Ba2PbO4.ref.dos)
+    Assert.allclose(actual.sigma_z, Ba2PbO4.ref.dos_z)
+    Assert.allclose(actual.Pb, Ba2PbO4.ref.Pb)
+    Assert.allclose(actual.Pb_y, Ba2PbO4.ref.Pb_y)
+    Assert.allclose(actual.Ba_x, Ba2PbO4.ref.Ba_x)
+    Assert.allclose(actual.O_sigma_2, Ba2PbO4.ref.O_y)
+
+
+def test_Sr2TiO4_plot(Sr2TiO4, Assert):
+    fig = Sr2TiO4.plot()
+    assert fig.xlabel == "Energy (eV)"
+    assert fig.ylabel == "DOS (1/eV)"
+    assert len(fig.series) == 1
+    Assert.allclose(fig.series[0].x, Sr2TiO4.ref.energies)
+    Assert.allclose(fig.series[0].y, Sr2TiO4.ref.dos)
+
+
+def test_Fe3O4_plot(Fe3O4, Assert):
+    fig = Fe3O4.plot()
+    assert len(fig.series) == 2
+    Assert.allclose(fig.series[0].x, fig.series[1].x)
+    Assert.allclose(fig.series[0].y, Fe3O4.ref.dos_up)
+    Assert.allclose(fig.series[1].y, -Fe3O4.ref.dos_down)
+
+
+def test_Sr2TiO4_projectors_plot(Sr2TiO4_projectors, Assert):
+    fig = Sr2TiO4_projectors.plot("s O(px) dz2(3)")
+    assert len(fig.series) == 4  # total Dos + 3 selections
+    Assert.allclose(fig.series[1].y, Sr2TiO4_projectors.ref.s)
+    Assert.allclose(fig.series[2].y, Sr2TiO4_projectors.ref.O_px)
+    Assert.allclose(fig.series[3].y, Sr2TiO4_projectors.ref.Ti_dz2)
+
+
+def test_Fe3O4_projectors_plot(Fe3O4_projectors, Assert):
+    fig = Fe3O4_projectors.plot("Fe p O(d)")
+    data = fig.series
+    assert len(data) == 8  # (total + 3 selections) x 2 (spin resolution)
+    names = [d.label for d in data]
+    Fe_up = names.index("Fe_up")
+    Assert.allclose(data[Fe_up].y, Fe3O4_projectors.ref.Fe_up)
+    Fe_down = names.index("Fe_down")
+    Assert.allclose(data[Fe_down].y, -Fe3O4_projectors.ref.Fe_down)
+    p_up = names.index("p_up")
+    Assert.allclose(data[p_up].y, Fe3O4_projectors.ref.p_up)
+    p_down = names.index("p_down")
+    Assert.allclose(data[p_down].y, -Fe3O4_projectors.ref.p_down)
+    O_d_up = names.index("O_d_up")
+    Assert.allclose(data[O_d_up].y, Fe3O4_projectors.ref.O_d_up)
+    O_d_down = names.index("O_d_down")
+    Assert.allclose(data[O_d_down].y, -Fe3O4_projectors.ref.O_d_down)
+
+
+def test_Ba2PbO4_plot(Ba2PbO4, Assert):
+    fig = Ba2PbO4.plot("sigma_2(Pb, O) z Pb Ba(sigma_x)")
+    data = fig.series
+    assert len(data) == 6  # 1 total, 5 selections
+    names = [d.label for d in data]
+    Assert.allclose(data[names.index("total")].y, Ba2PbO4.ref.dos)
+    Assert.allclose(data[names.index("z")].y, Ba2PbO4.ref.dos_z)
+    Assert.allclose(data[names.index("Ba_sigma_x")].y, Ba2PbO4.ref.Ba_x)
+    Assert.allclose(data[names.index("Pb")].y, Ba2PbO4.ref.Pb)
+    Assert.allclose(data[names.index("Pb_sigma_2")].y, Ba2PbO4.ref.Pb_y)
+    Assert.allclose(data[names.index("O_sigma_2")].y, Ba2PbO4.ref.O_y)
+
+
+def test_plot_combine_projectors(Fe3O4_projectors, Assert):
+    fig = Fe3O4_projectors.plot("Fe(up) + O(d(down)), Fe - p")
+    data = fig.series
+    assert len(data) == 5  # 2 total, 3 selections
+    addition = Fe3O4_projectors.ref.Fe_up + Fe3O4_projectors.ref.O_d_down
+    subtraction_up = Fe3O4_projectors.ref.Fe_up - Fe3O4_projectors.ref.p_up
+    subtraction_down = Fe3O4_projectors.ref.Fe_down - Fe3O4_projectors.ref.p_down
+    names = [d.label for d in data]
+    Assert.allclose(data[names.index("Fe_up + O_d_down")].y, addition)
+    Assert.allclose(data[names.index("Fe_up - p_up")].y, subtraction_up)
+    Assert.allclose(data[names.index("Fe_down - p_down")].y, -subtraction_down)
+
+
+@patch.object(Dos, "to_graph")
+def test_Sr2TiO4_to_plotly(mock_plot, Sr2TiO4):
+    fig = Sr2TiO4.to_plotly("selection")
+    mock_plot.assert_called_once_with("selection")
+    graph = mock_plot.return_value
+    graph.to_plotly.assert_called_once()
+    assert fig == graph.to_plotly.return_value
+
+
+def test_Sr2TiO4_to_image(Sr2TiO4):
+    check_to_image(Sr2TiO4, None, "dos.png")
+    custom_filename = "custom.jpg"
+    check_to_image(Sr2TiO4, custom_filename, custom_filename)
+
+
+def check_to_image(Sr2TiO4, filename_argument, expected_filename):
+    with patch.object(Dos, "to_plotly") as plot:
+        Sr2TiO4.to_image("args", filename=filename_argument, key="word")
+        plot.assert_called_once_with("args", key="word")
+        fig = plot.return_value
+        fig.write_image.assert_called_once_with(Sr2TiO4._path / expected_filename)
+
+
+def test_dos_selections(Fe3O4_projectors):
+    actual = Fe3O4_projectors.selections()
+    actual.pop("dos")  # remove dos selections
+    assert actual == Fe3O4_projectors.ref.selections
+
+
+def test_Sr2TiO4_print(Sr2TiO4, format_):
+    actual, _ = format_(Sr2TiO4)
+    reference = """\
+Dos:
+    energies: [-1.00, 3.00] 50 points
+no projectors"""
+    assert actual == {"text/plain": reference}
+
+
+def test_Fe3O4_print(Fe3O4, format_):
+    actual, _ = format_(Fe3O4)
+    reference = """\
+collinear Dos:
+    energies: [-2.00, 2.00] 50 points
+no projectors"""
+    assert actual == {"text/plain": reference}
+
+
+def test_Sr2TiO4_projectors_print(Sr2TiO4_projectors, format_):
+    actual, _ = format_(Sr2TiO4_projectors)
+    reference = f"""\
+Dos:
+    energies: [-1.00, 3.00] 50 points
+projectors:
+    atoms: Sr, Ti, O
+    orbitals: s, py, pz, px, dxy, dyz, dz2, dxz, dx2y2, fy3x2, fxyz, fyz2, fz3, fxz2, fzx2, fx3"""
+    assert actual == {"text/plain": reference}
+
+
+def test_Ba2PbO4_print(Ba2PbO4, format_):
+    actual, _ = format_(Ba2PbO4)
+    reference = """\
+noncollinear Dos:
+    energies: [-4.00, 1.00] 50 points
+projectors:
+    atoms: Ba, Pb, O
+    orbitals: s, p, d, f
+    spin: total, sigma_x, sigma_y, sigma_z"""
+    assert actual == {"text/plain": reference}
+
+
+def test_factory_methods(raw_data, check_factory_methods):
+    data = raw_data.dos("Sr2TiO4")
+    check_factory_methods(Dos, data)
+
+
+def _check_to_database(dos, fermi_energy=None):
+    db_dict = dos._read_to_database(fermi_energy=fermi_energy)
+    assert "dos:default" in db_dict
+    dos_db: Dos_DB = db_dict["dos:default"]
+
+    assert isinstance(dos_db, Dos_DB)
+
+    _fermi_energy = fermi_energy if fermi_energy is not None else dos.ref.fermi_energy
+    _raw_fermi_energy = dos.ref.fermi_energy
+
+    assert np.isclose(
+        dos_db.energy_min, float(np.min(dos.ref.energies + _raw_fermi_energy))
+    )
+    assert np.isclose(
+        dos_db.energy_max, float(np.max(dos.ref.energies + _raw_fermi_energy))
+    )
+
+    if hasattr(dos.ref, "dos"):
+        for k in ["dos_at_fermi_total", "dos_at_raw_fermi_total"]:
+            assert getattr(dos_db, k) is not None
+        for k in [
+            "dos_at_fermi_up",
+            "dos_at_fermi_down",
+            "dos_at_raw_fermi_up",
+            "dos_at_raw_fermi_down",
+        ]:
+            assert getattr(dos_db, k) is None
+    else:
+        for k in ["dos_at_fermi_total", "dos_at_raw_fermi_total"]:
+            assert getattr(dos_db, k) is None
+        for k in [
+            "dos_at_fermi_up",
+            "dos_at_fermi_down",
+            "dos_at_raw_fermi_up",
+            "dos_at_raw_fermi_down",
+        ]:
+            assert getattr(dos_db, k) is not None
+    for kstr in ["up", "down", "total"]:
+        if _fermi_energy == _raw_fermi_energy:
+            k1 = f"dos_at_fermi_{kstr}"
+            k2 = f"dos_at_raw_fermi_{kstr}"
+            assert (
+                getattr(dos_db, k1) is None and getattr(dos_db, k2) is None
+            ) or np.isclose(getattr(dos_db, k1), getattr(dos_db, k2))
+    for fld in fields(dos_db):
+        if fld.name.startswith("__"):
+            continue
+        v = getattr(dos_db, fld.name)
+        assert v is None or isinstance(v, (int, float))
+
+
+def test_to_database_Sr2TiO4(Sr2TiO4):
+    _check_to_database(Sr2TiO4)
+    _check_to_database(Sr2TiO4, fermi_energy=Sr2TiO4.ref.fermi_energy + 0.5)
+
+
+def test_to_database_Fe3O4(Fe3O4):
+    _check_to_database(Fe3O4)
+    _check_to_database(Fe3O4, fermi_energy=Fe3O4.ref.fermi_energy + 0.5)
+
+
+def test_to_database_Ba2PbO4(Ba2PbO4):
+    _check_to_database(Ba2PbO4)
+    _check_to_database(Ba2PbO4, fermi_energy=Ba2PbO4.ref.fermi_energy + 0.5)

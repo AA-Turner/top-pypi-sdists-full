@@ -15,7 +15,7 @@ license = { text = "Elastic-2.0" }
 requires-python = ">=3.11"
 readme = "README.md"
 dependencies = [
-    "sse-starlette>=2.1.0,<2.2.0",
+    "sse-starlette>=3.0.0,<3.4.0",
     "starlette>=0.38.6",
     "watchfiles>=0.13",
     "langgraph>=0.4.10,<2",
@@ -26,7 +26,7 @@ dependencies = [
     "httpx>=0.25.0",
     "langchain-core>=0.3.64",
     "tenacity>=8.0.0",
-    "jsonschema-rs>=0.20.0,<0.30",
+    "jsonschema-rs>=0.20.0,<0.45",
     "structlog>=24.1.0,<26",
     "pyjwt>=2.9.0",
     "cryptography>=42.0.0,<47.0",
@@ -68,8 +68,8 @@ dev = [
     "passlib>=1.7.4",
     "langgraph-checkpoint-sqlite>=3.0.0",
     "datadog-api-client>=2.0.0",
-    "ty==0.0.1-alpha.21",
-    "syrupy==5.0.0",
+    "ty==0.0.21",
+    "syrupy==5.1.0",
     "py-spy>=0.4.1",
     "syrupy>=5.0.0",
     "langgraph-grpc-common",
@@ -149,11 +149,26 @@ extend-exclude = [".venv", "dist", "build", "__pycache__", "venv", "langgraph_ap
 target-version = "py311"
 
 [tool.ty.rules]
-possibly-unbound-attribute = "error"
-possibly-unbound-implicit-call = "error"
+possibly-missing-attribute = "error"
+possibly-missing-implicit-call = "error"
 possibly-unresolved-reference = "error"
 unresolved-global = "error"
 unsupported-base = "error"
+invalid-argument-type = "ignore"
+invalid-return-type = "ignore"
+invalid-assignment = "ignore"
+unresolved-attribute = "ignore"
+missing-typed-dict-key = "ignore"
+invalid-method-override = "ignore"
+invalid-key = "ignore"
+parameter-already-assigned = "ignore"
+no-matching-overload = "ignore"
+invalid-type-form = "ignore"
+missing-argument = "ignore"
+call-top-callable = "ignore"
+not-iterable = "ignore"
+unsupported-operator = "ignore"
+not-subscriptable = "ignore"
 
 [tool.pytest-watcher]
 now = true

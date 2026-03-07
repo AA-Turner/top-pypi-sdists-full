@@ -36,6 +36,7 @@ class FusionEnvironmentArgs:
                  rules: Optional[pulumi.Input[Sequence[pulumi.Input['FusionEnvironmentRuleArgs']]]] = None):
         """
         The set of arguments for constructing a FusionEnvironment resource.
+
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The unique identifier (OCID) of the compartment where the Fusion Environment is located.
         :param pulumi.Input['FusionEnvironmentCreateFusionEnvironmentAdminUserDetailsArgs'] create_fusion_environment_admin_user_details: The credentials for the Fusion Applications service administrator.
         :param pulumi.Input[_builtins.str] display_name: (Updatable) FusionEnvironment Identifier can be renamed.
@@ -263,6 +264,7 @@ class _FusionEnvironmentState:
                  version: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering FusionEnvironment resources.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] additional_language_packs: (Updatable) Language packs.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] applied_patch_bundles: Patch bundle names
         :param pulumi.Input[_builtins.str] compartment_id: (Updatable) The unique identifier (OCID) of the compartment where the Fusion Environment is located.
@@ -742,7 +744,6 @@ class FusionEnvironment(pulumi.CustomResource):
                 "first_name": fusion_environment_create_fusion_environment_admin_user_details_first_name,
                 "last_name": fusion_environment_create_fusion_environment_admin_user_details_last_name,
                 "username": fusion_environment_create_fusion_environment_admin_user_details_username,
-                "password": fusion_environment_create_fusion_environment_admin_user_details_password,
             },
             display_name=fusion_environment_display_name,
             fusion_environment_family_id=test_fusion_environment_family["id"],
@@ -778,6 +779,7 @@ class FusionEnvironment(pulumi.CustomResource):
         ```sh
         $ pulumi import oci:FusionApps/fusionEnvironment:FusionEnvironment test_fusion_environment "id"
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -822,7 +824,6 @@ class FusionEnvironment(pulumi.CustomResource):
                 "first_name": fusion_environment_create_fusion_environment_admin_user_details_first_name,
                 "last_name": fusion_environment_create_fusion_environment_admin_user_details_last_name,
                 "username": fusion_environment_create_fusion_environment_admin_user_details_username,
-                "password": fusion_environment_create_fusion_environment_admin_user_details_password,
             },
             display_name=fusion_environment_display_name,
             fusion_environment_family_id=test_fusion_environment_family["id"],
@@ -858,6 +859,7 @@ class FusionEnvironment(pulumi.CustomResource):
         ```sh
         $ pulumi import oci:FusionApps/fusionEnvironment:FusionEnvironment test_fusion_environment "id"
         ```
+
 
         :param str resource_name: The name of the resource.
         :param FusionEnvironmentArgs args: The arguments to use to populate this resource's properties.

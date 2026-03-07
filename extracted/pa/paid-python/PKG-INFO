@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: paid-python
-Version: 1.1.0
+Version: 1.2.0
 Summary: 
 Requires-Python: >=3.10,<3.14
 Classifier: Intended Audience :: Developers
@@ -19,7 +19,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: httpx (>=0.21.2)
 Requires-Dist: mutagen (>=1.47.0)
-Requires-Dist: openinference-instrumentation-anthropic (>=0.1.20)
+Requires-Dist: openinference-instrumentation-anthropic (>=0.1.20,<1.0.0)
 Requires-Dist: openinference-instrumentation-bedrock (>=0.1.0)
 Requires-Dist: openinference-instrumentation-google-genai (>=0.1.8)
 Requires-Dist: openinference-instrumentation-instructor (>=0.1.0)

@@ -42,7 +42,7 @@
 **
 ** Represents all data in a single scan, and hence is the SOS marker.
 **
-** $Id: scan.cpp,v 1.120 2024/03/25 18:42:33 thor Exp $
+** $Id: scan.cpp,v 1.121 2025/08/15 09:07:16 thor Exp $
 **
 */
 
@@ -672,18 +672,10 @@ void Scan::InstallDefaults(UBYTE depth,ULONG tagoffset,const struct JPG_TagItem 
   for(UBYTE i = 0;i < depth;i++) {
     UBYTE c = m_ucComponent[i]; // get the component.
 
-    if (/*ishuffman &&*/ colortrafo) {
-      m_ucDCTable[i] = (c == 0)?(0):(1);
-    } else {
-      m_ucDCTable[i] = 0;
-    }
+    m_ucDCTable[i] = m_pFrame->TablesOf()->QuantizationTableIndexOf(c,/*ishuffman &&*/ colortrafo);
     //
     // AC coding not required for predictive.
-    if (/*ishuffman &&*/ !ispredictive && colortrafo) {
-      m_ucACTable[i] = (c == 0)?(0):(1);
-    } else {
-      m_ucACTable[i] = 0;
-    }
+    m_ucACTable[i] = m_pFrame->TablesOf()->QuantizationTableIndexOf(c,/*ishuffman &&*/ !ispredictive && colortrafo);
   } 
   //
   // Install and check the scan parameters for the progressive scan.

@@ -1,6 +1,5 @@
 from libc.stdint cimport uint8_t, uint32_t, uintptr_t
 
-
 cdef extern from "lexbor/core/core.h" nogil:
     ctypedef uint32_t lxb_codepoint_t
     ctypedef unsigned char lxb_char_t
@@ -31,6 +30,19 @@ cdef extern from "lexbor/core/core.h" nogil:
 
     lexbor_str_t* lexbor_str_create()
     lxb_char_t * lexbor_str_data_noi(lexbor_str_t *str)
+
+cdef extern from "lexbor/core/lexbor.h" nogil:
+    ctypedef void *(*lexbor_memory_malloc_f)(size_t size) nogil
+    ctypedef void *(*lexbor_memory_realloc_f)(void *dst, size_t size) nogil
+    ctypedef void *(*lexbor_memory_calloc_f)(size_t num, size_t size) nogil
+    ctypedef void (*lexbor_memory_free_f)(void *dst) nogil
+    lxb_status_t lexbor_memory_setup(
+        lexbor_memory_malloc_f new_malloc,
+        lexbor_memory_realloc_f new_realloc,
+        lexbor_memory_calloc_f new_calloc,
+        lexbor_memory_free_f new_free
+    )
+
 
 cdef extern from "lexbor/html/html.h" nogil:
     ctypedef unsigned int lxb_html_document_opt_t
@@ -375,6 +387,7 @@ cdef extern from "lexbor/css/css.h" nogil:
     lxb_css_parser_t * lxb_css_parser_create()
     lxb_status_t lxb_css_parser_init(lxb_css_parser_t *parser, lxb_css_syntax_tokenizer_t *tkz)
     lxb_css_parser_t * lxb_css_parser_destroy(lxb_css_parser_t *parser, bint self_destroy)
+    void lxb_css_parser_clean(lxb_css_parser_t *parser)
     lxb_css_memory_t * lxb_css_memory_destroy(lxb_css_memory_t *memory, bint self_destroy)
     void lxb_css_selector_list_destroy_memory(lxb_css_selector_list_t *list)
 

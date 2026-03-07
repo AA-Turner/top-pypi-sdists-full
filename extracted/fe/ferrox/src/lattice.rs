@@ -625,7 +625,7 @@ impl Lattice {
     /// explores broad candidate sets for all three lattice vectors.
     ///
     /// For matcher/supercell workflows where a specific `|det(scale_matrix)|` is known,
-    /// prefer [`find_all_mappings_with_determinant`] to reduce combinatorial cost while
+    /// prefer `find_all_mappings_with_determinant` to reduce combinatorial cost while
     /// preserving equivalent determinant-filtered results.
     ///
     /// # Arguments

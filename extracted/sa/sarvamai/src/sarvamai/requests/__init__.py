@@ -9,16 +9,22 @@ from .audio_output_data import AudioOutputDataParams
 from .base_job_parameters import BaseJobParametersParams
 from .bulk_job_callback import BulkJobCallbackParams
 from .bulk_job_init_response_v_1 import BulkJobInitResponseV1Params
+from .chat_completion_message_tool_call import ChatCompletionMessageToolCallParams
+from .chat_completion_named_tool_choice import ChatCompletionNamedToolChoiceParams
+from .chat_completion_named_tool_choice_function import ChatCompletionNamedToolChoiceFunctionParams
 from .chat_completion_request_assistant_message import ChatCompletionRequestAssistantMessageParams
 from .chat_completion_request_message import (
     ChatCompletionRequestMessageParams,
     ChatCompletionRequestMessage_AssistantParams,
     ChatCompletionRequestMessage_SystemParams,
+    ChatCompletionRequestMessage_ToolParams,
     ChatCompletionRequestMessage_UserParams,
 )
 from .chat_completion_request_system_message import ChatCompletionRequestSystemMessageParams
+from .chat_completion_request_tool_message import ChatCompletionRequestToolMessageParams
 from .chat_completion_request_user_message import ChatCompletionRequestUserMessageParams
 from .chat_completion_response_message import ChatCompletionResponseMessageParams
+from .chat_completion_tool import ChatCompletionToolParams
 from .choice import ChoiceParams
 from .completion_usage import CompletionUsageParams
 from .config_message import ConfigMessageParams
@@ -50,6 +56,8 @@ from .files_download_response import FilesDownloadResponseParams
 from .files_request import FilesRequestParams
 from .files_upload_response import FilesUploadResponseParams
 from .flush_signal import FlushSignalParams
+from .function_call import FunctionCallParams
+from .function_definition import FunctionDefinitionParams
 from .job_status_v_1_response import JobStatusV1ResponseParams
 from .language_identification_response import LanguageIdentificationResponseParams
 from .ping_signal import PingSignalParams
@@ -71,6 +79,7 @@ from .task_detail_v_1 import TaskDetailV1Params
 from .task_file_details import TaskFileDetailsParams
 from .text_to_speech_response import TextToSpeechResponseParams
 from .timestamps_model import TimestampsModelParams
+from .tool_choice_option import ToolChoiceOptionParams
 from .transcription_metrics import TranscriptionMetricsParams
 from .translation_response import TranslationResponseParams
 from .transliteration_response import TransliterationResponseParams
@@ -83,14 +92,20 @@ __all__ = [
     "BaseJobParametersParams",
     "BulkJobCallbackParams",
     "BulkJobInitResponseV1Params",
+    "ChatCompletionMessageToolCallParams",
+    "ChatCompletionNamedToolChoiceFunctionParams",
+    "ChatCompletionNamedToolChoiceParams",
     "ChatCompletionRequestAssistantMessageParams",
     "ChatCompletionRequestMessageParams",
     "ChatCompletionRequestMessage_AssistantParams",
     "ChatCompletionRequestMessage_SystemParams",
+    "ChatCompletionRequestMessage_ToolParams",
     "ChatCompletionRequestMessage_UserParams",
     "ChatCompletionRequestSystemMessageParams",
+    "ChatCompletionRequestToolMessageParams",
     "ChatCompletionRequestUserMessageParams",
     "ChatCompletionResponseMessageParams",
+    "ChatCompletionToolParams",
     "ChoiceParams",
     "CompletionUsageParams",
     "ConfigMessageParams",
@@ -122,6 +137,8 @@ __all__ = [
     "FilesRequestParams",
     "FilesUploadResponseParams",
     "FlushSignalParams",
+    "FunctionCallParams",
+    "FunctionDefinitionParams",
     "JobStatusV1ResponseParams",
     "LanguageIdentificationResponseParams",
     "PingSignalParams",
@@ -143,6 +160,7 @@ __all__ = [
     "TaskFileDetailsParams",
     "TextToSpeechResponseParams",
     "TimestampsModelParams",
+    "ToolChoiceOptionParams",
     "TranscriptionMetricsParams",
     "TranslationResponseParams",
     "TransliterationResponseParams",

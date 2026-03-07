@@ -1,6 +1,6 @@
 //! WAL record types and the [`WalEntry`] trait.
 
-use grafeo_common::types::{EdgeId, NodeId, TxId, Value};
+use grafeo_common::types::{EdgeId, NodeId, TransactionId, Value};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +26,7 @@ pub trait WalEntry: Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug
     fn is_checkpoint(&self) -> bool;
 
     /// Creates a checkpoint record for this WAL type.
-    fn make_checkpoint(tx_id: TxId) -> Self;
+    fn make_checkpoint(transaction_id: TransactionId) -> Self;
 }
 
 /// A record in the Write-Ahead Log.
@@ -82,6 +82,22 @@ pub enum WalRecord {
         key: String,
         /// Property value.
         value: Value,
+    },
+
+    /// Remove a property from a node.
+    RemoveNodeProperty {
+        /// Node ID.
+        id: NodeId,
+        /// Property key.
+        key: String,
+    },
+
+    /// Remove a property from an edge.
+    RemoveEdgeProperty {
+        /// Edge ID.
+        id: EdgeId,
+        /// Property key.
+        key: String,
     },
 
     /// Add a label to a node.
@@ -243,43 +259,43 @@ pub enum WalRecord {
 
     // === Transaction Control ===
     /// Transaction commit.
-    TxCommit {
+    TransactionCommit {
         /// Transaction ID.
-        tx_id: TxId,
+        transaction_id: TransactionId,
     },
 
     /// Transaction abort.
-    TxAbort {
+    TransactionAbort {
         /// Transaction ID.
-        tx_id: TxId,
+        transaction_id: TransactionId,
     },
 
     /// Checkpoint marker.
     Checkpoint {
         /// Transaction ID at checkpoint.
-        tx_id: TxId,
+        transaction_id: TransactionId,
     },
 }
 
 impl WalEntry for WalRecord {
     fn requires_sync(&self) -> bool {
-        matches!(self, WalRecord::TxCommit { .. })
+        matches!(self, WalRecord::TransactionCommit { .. })
     }
 
     fn is_commit(&self) -> bool {
-        matches!(self, WalRecord::TxCommit { .. })
+        matches!(self, WalRecord::TransactionCommit { .. })
     }
 
     fn is_abort(&self) -> bool {
-        matches!(self, WalRecord::TxAbort { .. })
+        matches!(self, WalRecord::TransactionAbort { .. })
     }
 
     fn is_checkpoint(&self) -> bool {
         matches!(self, WalRecord::Checkpoint { .. })
     }
 
-    fn make_checkpoint(tx_id: TxId) -> Self {
-        WalRecord::Checkpoint { tx_id }
+    fn make_checkpoint(transaction_id: TransactionId) -> Self {
+        WalRecord::Checkpoint { transaction_id }
     }
 }
 
@@ -362,14 +378,14 @@ mod tests {
         let record = WalRecord::SetNodeProperty {
             id: NodeId::new(5),
             key: "name".to_string(),
-            value: Value::String("Alice".into()),
+            value: Value::String("Alix".into()),
         };
         let parsed = roundtrip(&record);
         match parsed {
             WalRecord::SetNodeProperty { id, key, value } => {
                 assert_eq!(id, NodeId::new(5));
                 assert_eq!(key, "name");
-                assert_eq!(value, Value::String("Alice".into()));
+                assert_eq!(value, Value::String("Alix".into()));
             }
             _ => panic!("Wrong variant"),
         }
@@ -388,6 +404,38 @@ mod tests {
                 assert_eq!(id, EdgeId::new(7));
                 assert_eq!(key, "weight");
                 assert_eq!(value, Value::Float64(std::f64::consts::PI));
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_remove_node_property_roundtrip() {
+        let record = WalRecord::RemoveNodeProperty {
+            id: NodeId::new(5),
+            key: "age".to_string(),
+        };
+        let parsed = roundtrip(&record);
+        match parsed {
+            WalRecord::RemoveNodeProperty { id, key } => {
+                assert_eq!(id, NodeId::new(5));
+                assert_eq!(key, "age");
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_remove_edge_property_roundtrip() {
+        let record = WalRecord::RemoveEdgeProperty {
+            id: EdgeId::new(7),
+            key: "weight".to_string(),
+        };
+        let parsed = roundtrip(&record);
+        match parsed {
+            WalRecord::RemoveEdgeProperty { id, key } => {
+                assert_eq!(id, EdgeId::new(7));
+                assert_eq!(key, "weight");
             }
             _ => panic!("Wrong variant"),
         }
@@ -427,24 +475,28 @@ mod tests {
 
     #[test]
     fn test_tx_commit_roundtrip() {
-        let record = WalRecord::TxCommit {
-            tx_id: TxId::new(100),
+        let record = WalRecord::TransactionCommit {
+            transaction_id: TransactionId::new(100),
         };
         let parsed = roundtrip(&record);
         match parsed {
-            WalRecord::TxCommit { tx_id } => assert_eq!(tx_id, TxId::new(100)),
+            WalRecord::TransactionCommit { transaction_id } => {
+                assert_eq!(transaction_id, TransactionId::new(100));
+            }
             _ => panic!("Wrong variant"),
         }
     }
 
     #[test]
     fn test_tx_abort_roundtrip() {
-        let record = WalRecord::TxAbort {
-            tx_id: TxId::new(200),
+        let record = WalRecord::TransactionAbort {
+            transaction_id: TransactionId::new(200),
         };
         let parsed = roundtrip(&record);
         match parsed {
-            WalRecord::TxAbort { tx_id } => assert_eq!(tx_id, TxId::new(200)),
+            WalRecord::TransactionAbort { transaction_id } => {
+                assert_eq!(transaction_id, TransactionId::new(200));
+            }
             _ => panic!("Wrong variant"),
         }
     }
@@ -452,11 +504,13 @@ mod tests {
     #[test]
     fn test_checkpoint_roundtrip() {
         let record = WalRecord::Checkpoint {
-            tx_id: TxId::new(50),
+            transaction_id: TransactionId::new(50),
         };
         let parsed = roundtrip(&record);
         match parsed {
-            WalRecord::Checkpoint { tx_id } => assert_eq!(tx_id, TxId::new(50)),
+            WalRecord::Checkpoint { transaction_id } => {
+                assert_eq!(transaction_id, TransactionId::new(50));
+            }
             _ => panic!("Wrong variant"),
         }
     }
@@ -478,10 +532,10 @@ mod tests {
     fn test_wal_entry_requires_sync() {
         use super::WalEntry;
 
-        // Only TxCommit should require sync
+        // Only TransactionCommit should require sync
         assert!(
-            WalRecord::TxCommit {
-                tx_id: TxId::new(1)
+            WalRecord::TransactionCommit {
+                transaction_id: TransactionId::new(1)
             }
             .requires_sync()
         );
@@ -495,15 +549,15 @@ mod tests {
         );
 
         assert!(
-            !WalRecord::TxAbort {
-                tx_id: TxId::new(1)
+            !WalRecord::TransactionAbort {
+                transaction_id: TransactionId::new(1)
             }
             .requires_sync()
         );
 
         assert!(
             !WalRecord::Checkpoint {
-                tx_id: TxId::new(1)
+                transaction_id: TransactionId::new(1)
             }
             .requires_sync()
         );
@@ -513,22 +567,22 @@ mod tests {
     fn test_wal_entry_transaction_markers() {
         use super::WalEntry;
 
-        let commit = WalRecord::TxCommit {
-            tx_id: TxId::new(1),
+        let commit = WalRecord::TransactionCommit {
+            transaction_id: TransactionId::new(1),
         };
         assert!(commit.is_commit());
         assert!(!commit.is_abort());
         assert!(!commit.is_checkpoint());
 
-        let abort = WalRecord::TxAbort {
-            tx_id: TxId::new(2),
+        let abort = WalRecord::TransactionAbort {
+            transaction_id: TransactionId::new(2),
         };
         assert!(!abort.is_commit());
         assert!(abort.is_abort());
         assert!(!abort.is_checkpoint());
 
         let checkpoint = WalRecord::Checkpoint {
-            tx_id: TxId::new(3),
+            transaction_id: TransactionId::new(3),
         };
         assert!(!checkpoint.is_commit());
         assert!(!checkpoint.is_abort());
@@ -548,9 +602,11 @@ mod tests {
     fn test_wal_entry_make_checkpoint() {
         use super::WalEntry;
 
-        let record = WalRecord::make_checkpoint(TxId::new(42));
+        let record = WalRecord::make_checkpoint(TransactionId::new(42));
         match record {
-            WalRecord::Checkpoint { tx_id } => assert_eq!(tx_id, TxId::new(42)),
+            WalRecord::Checkpoint { transaction_id } => {
+                assert_eq!(transaction_id, TransactionId::new(42));
+            }
             _ => panic!("make_checkpoint should produce Checkpoint variant"),
         }
     }

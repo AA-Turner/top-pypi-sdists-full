@@ -3638,15 +3638,15 @@ class ToolUniverse:
             bool: True if tools were loaded successfully, False otherwise
         """
         if not self.all_tool_dict:
-            print(
-                "⚠️  Warning: No tools loaded. Automatically running tu.load_tools()..."
+            self.logger.info(
+                "No tools loaded. Automatically running tu.load_tools()..."
             )
             try:
                 self.load_tools()
-                print("✅ Tools loaded successfully.")
+                self.logger.info("Tools loaded successfully.")
                 return True
             except Exception as load_error:
-                print(f"❌ Failed to auto-load tools: {load_error}")
+                self.logger.error(f"Failed to auto-load tools: {load_error}")
                 return False
         return True
 

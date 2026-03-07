@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.2.26.1
+Version: 2026.3.6.1
 Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
 Project-URL: Homepage, https://mergify.com
 Project-URL: Documentation, https://docs.mergify.com
@@ -23,8 +23,8 @@ Requires-Python: >=3.13
 Requires-Dist: aiofiles==25.1.0
 Requires-Dist: click==8.3.1
 Requires-Dist: httpx==0.28.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.39.1
-Requires-Dist: opentelemetry-sdk==1.39.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.40.0
+Requires-Dist: opentelemetry-sdk==1.40.0
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: questionary>=2.0.0
@@ -51,6 +51,11 @@ Upload and analyze CI results to get better visibility into your CI pipeline.
 Learn more about [CI Insights in the
 documentation](https://docs.mergify.com/ci-insights/).
 
+### Scheduled Freezes
+
+Create and manage scheduled freezes to temporarily halt merging of pull requests
+matching specific conditions.
+
 ## Installation
 
 ```shell
@@ -68,6 +73,9 @@ mergify stack --help
 
 # Upload CI results
 mergify ci --help
+
+# Manage scheduled freezes
+mergify freeze --help
 ```
 
 ## Contributing

@@ -22,6 +22,11 @@ def from_torch_sim_state(state_dict: dict[str, Any]) -> list[dict[str, Any]]:
     Converts a batched state back to individual structures.
     """
 
+def is_optimade(json_str: str) -> bool:
+    r"""
+    Check whether a JSON string is in OPTIMADE format.
+    """
+
 def molecule_to_json(molecule: str | dict[str, Any]) -> str:
     r"""
     Convert a molecule to pymatgen JSON format string.
@@ -37,9 +42,44 @@ def parse_ase_dict(ase_dict: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     Parse ASE Atoms dict, returning either a Structure or Molecule dict.
     """
 
+def parse_lammps_dump_file(path: str) -> dict[str, Any]:
+    r"""
+    Parse a structure from a LAMMPS dump file.
+
+    Only the first frame is parsed. For multi-frame files, use parse_lammps_trajectory.
+    """
+
+def parse_lammps_dump_str(content: str) -> dict[str, Any]:
+    r"""
+    Parse a structure from a LAMMPS dump string.
+
+    Only the first frame is parsed. For multi-frame content, use parse_lammps_trajectory.
+    """
+
+def parse_lammps_trajectory(path: str) -> list[dict[str, Any]]:
+    r"""
+    Parse all frames from a LAMMPS dump/trajectory file.
+
+    Returns a list of structure dicts, one per frame.
+    """
+
 def parse_molecule_json(json_str: str) -> dict[str, Any]:
     r"""
     Parse a molecule from pymatgen Molecule JSON format.
+    """
+
+def parse_optimade(json_str: str) -> dict[str, Any]:
+    r"""
+    Parse a single OPTIMADE JSON structure string.
+
+    Accepts a bare structure resource or a list response (uses the first entry).
+    """
+
+def parse_optimade_list(json_str: str) -> list[dict[str, Any]]:
+    r"""
+    Parse an OPTIMADE list response containing multiple structures.
+
+    Returns a list of structure dicts, one per entry in the response's `data` array.
     """
 
 def parse_poscar_file(path: str) -> dict[str, Any]:
@@ -69,6 +109,27 @@ def parse_torch_sim_state_json(json_str: str) -> list[dict[str, Any]]:
 def parse_trajectory(path: str) -> list[dict[str, Any]]:
     r"""
     Parse trajectory file (extXYZ format).
+    """
+
+def parse_xdatcar_file(path: str) -> dict[str, Any]:
+    r"""
+    Parse a structure from an XDATCAR file (first frame only).
+
+    For multi-frame files, use parse_xdatcar_trajectory.
+    """
+
+def parse_xdatcar_str(content: str) -> dict[str, Any]:
+    r"""
+    Parse a structure from an XDATCAR content string (first frame only).
+
+    For multi-frame content, use parse_xdatcar_trajectory.
+    """
+
+def parse_xdatcar_trajectory(path: str) -> list[dict[str, Any]]:
+    r"""
+    Parse all frames from an XDATCAR trajectory file.
+
+    Returns a list of structure dicts, one per frame.
     """
 
 def parse_xyz_file(path: str) -> dict[str, Any]:
@@ -113,19 +174,9 @@ def to_extxyz(structure: str | dict[str, Any]) -> str:
     Convert a structure to extXYZ format string.
     """
 
-def to_json(structure: str | dict[str, Any]) -> str:
-    r"""
-    Alias for to_pymatgen_json for convenience.
-    """
-
 def to_poscar(structure: str | dict[str, Any], comment: str | None = None) -> str:
     r"""
     Convert a structure to POSCAR format string.
-    """
-
-def to_pymatgen_json(structure: str | dict[str, Any]) -> str:
-    r"""
-    Convert a structure to pymatgen JSON format string.
     """
 
 def to_pymatgen_molecule(molecule: str | dict[str, Any]) -> Any:

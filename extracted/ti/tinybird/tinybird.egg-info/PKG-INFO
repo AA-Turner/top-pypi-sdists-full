@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 3.5.3
+Version: 3.5.4
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -56,6 +56,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+3.5.4
+*******
+
+- `Fixed` Pulling vendored data sources from a Classic workspace to migrate to Forward now includes all workspaces in SHARED_WITH.
 
 3.5.3
 *******

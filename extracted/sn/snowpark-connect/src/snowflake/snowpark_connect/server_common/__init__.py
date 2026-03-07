@@ -398,8 +398,8 @@ def _setup_spark_environment(setup_java_home: bool = True) -> None:
                     )
         elif os.name == "nt":
             # We need to check the version of the java executable for Windows
-            version = None
-            major_version = None
+            java_version = None
+            java_major_version = None
             with suppress(Exception):
                 # Construct path to java executable under JAVA_HOME
                 java_executable = os.path.join(java_home, "bin", "java.exe")
@@ -410,31 +410,36 @@ def _setup_spark_environment(setup_java_home: bool = True) -> None:
                     text=True,
                     timeout=5,
                 )
+
                 # java -version outputs to stderr
-                version_output = (
-                    result.stderr.split("\n")[0]
-                    if result.stderr
-                    else result.stdout.split("\n")[0]
-                )
+                lines = (result.stderr if result.stderr else result.stdout).split("\n")
+                version_match = None
 
-                version_match = re.search(r'version "([^"]+)"', version_output)
-                version = version_match.group(1) if version_match else "unknown"
-                logger.info(f"Java version: {version_output}")
-                major_version = version.split(".")[0]
+                for i in range(min(5, len(lines))):
+                    version_match = re.search(r'version "([^"]+)"', lines[i])
+                    if version_match:
+                        logger.info(f"Java version: {lines[i]}")
+                        break
 
-            if major_version is None:
+                if version_match:
+                    java_version = (
+                        version_match.group(1) if version_match else "unknown"
+                    )
+                    java_major_version = java_version.split(".")[0]
+
+            if java_major_version is None:
                 raise RuntimeError(
                     f"Could not determine Java version for JAVA_HOME={java_home}"
                 )
-            elif int(major_version) < 17:
+            elif int(java_major_version) < 17:
                 raise RuntimeError(
-                    f"Java version {version} is not supported (minimum required: Java 17). "
+                    f"Java version {java_version} is not supported (minimum required: Java 17). "
                     "Please set JAVA_HOME to point to Java 17 or higher, or unset JAVA_HOME "
                     f"to use the default Java installation. Current JAVA_HOME={java_home}"
                 )
             else:
                 logger.warning(
-                    f"Using customized Java version for JAVA_HOME={java_home}: {version}"
+                    f"Using customized Java version for JAVA_HOME={java_home}: {java_version}"
                 )
         logger.info("JAVA_HOME=%s", os.environ.get("JAVA_HOME", "Not defined"))
 

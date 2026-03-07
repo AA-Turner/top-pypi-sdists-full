@@ -47,7 +47,6 @@ body = Dashboard(
                                 indexes=[
                                     "*",
                                 ],
-                                group_by=[],
                             ),
                         ],
                     ),

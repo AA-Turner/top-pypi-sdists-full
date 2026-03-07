@@ -25,6 +25,7 @@ from ._ferrox import (
     surfaces as surfaces,
     symmetry as symmetry,
     trajectory as trajectory,
+    vasp as vasp,
     xrd as xrd,
 )
 from ._ferrox import mp as _mp_native
@@ -36,5 +37,8 @@ from .mp import (
 
 MPRester = _mp_native.MPRester
 MPOpenData = _mp_native.MPOpenData
+Composition = composition.Composition
+Lattice = lattice.Lattice
+Species = species.Species
 Structure = structure.Structure
 StructureMatcher = structure.StructureMatcher

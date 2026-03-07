@@ -42,6 +42,13 @@ class X402VerifyInvalidReason(str, Enum):
     INVALID_EXACT_EVM_PAYLOAD_AUTHORIZATION_TO_ADDRESS_KYT = 'invalid_exact_evm_payload_authorization_to_address_kyt'
     INVALID_EXACT_EVM_PAYLOAD_SIGNATURE = 'invalid_exact_evm_payload_signature'
     INVALID_EXACT_EVM_PAYLOAD_SIGNATURE_ADDRESS = 'invalid_exact_evm_payload_signature_address'
+    INVALID_EXACT_EVM_PERMIT2_PAYLOAD_ALLOWANCE_REQUIRED = 'invalid_exact_evm_permit2_payload_allowance_required'
+    INVALID_EXACT_EVM_PERMIT2_PAYLOAD_SIGNATURE = 'invalid_exact_evm_permit2_payload_signature'
+    INVALID_EXACT_EVM_PERMIT2_PAYLOAD_DEADLINE = 'invalid_exact_evm_permit2_payload_deadline'
+    INVALID_EXACT_EVM_PERMIT2_PAYLOAD_VALID_AFTER = 'invalid_exact_evm_permit2_payload_valid_after'
+    INVALID_EXACT_EVM_PERMIT2_PAYLOAD_SPENDER = 'invalid_exact_evm_permit2_payload_spender'
+    INVALID_EXACT_EVM_PERMIT2_PAYLOAD_RECIPIENT = 'invalid_exact_evm_permit2_payload_recipient'
+    INVALID_EXACT_EVM_PERMIT2_PAYLOAD_AMOUNT = 'invalid_exact_evm_permit2_payload_amount'
     INVALID_EXACT_SVM_PAYLOAD_TRANSACTION = 'invalid_exact_svm_payload_transaction'
     INVALID_EXACT_SVM_PAYLOAD_TRANSACTION_AMOUNT_MISMATCH = 'invalid_exact_svm_payload_transaction_amount_mismatch'
     INVALID_EXACT_SVM_PAYLOAD_TRANSACTION_CREATE_ATA_INSTRUCTION = 'invalid_exact_svm_payload_transaction_create_ata_instruction'
@@ -62,6 +69,7 @@ class X402VerifyInvalidReason(str, Enum):
     INVALID_EXACT_SVM_PAYLOAD_TRANSACTION_TRANSFER_TO_INCORRECT_ATA = 'invalid_exact_svm_payload_transaction_transfer_to_incorrect_ata'
     INVALID_EXACT_SVM_PAYLOAD_TRANSACTION_FEE_PAYER_INCLUDED_IN_INSTRUCTION_ACCOUNTS = 'invalid_exact_svm_payload_transaction_fee_payer_included_in_instruction_accounts'
     INVALID_EXACT_SVM_PAYLOAD_TRANSACTION_FEE_PAYER_TRANSFERRING_FUNDS = 'invalid_exact_svm_payload_transaction_fee_payer_transferring_funds'
+    UNKNOWN_ERROR = 'unknown_error'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

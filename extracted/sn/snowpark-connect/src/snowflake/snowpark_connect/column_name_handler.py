@@ -47,6 +47,10 @@ def set_schema_getter(df: DataFrame, get_schema: Callable[[], StructType]) -> No
 
     df.__class__ = PatchedDataFrame
 
+    # If schema was already cached before the class change, update it with emulate_integral_types
+    if df.__dict__.get("schema"):
+        df.__dict__["schema"] = emulate_integral_types(df.__dict__["schema"])
+
 
 # TODO replace plan_id-offset with single unique value
 def make_column_names_snowpark_compatible(

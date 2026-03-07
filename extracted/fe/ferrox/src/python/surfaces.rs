@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
-use crate::surfaces;
+use crate::analysis::surfaces;
 
 use crate::io::structure_to_pymatgen_json;
 

@@ -11,6 +11,9 @@ from ._shared_client import get_shared_client
 def PubMed_search_articles(
     query: str,
     limit: Optional[int] = 10,
+    mindate: Optional[str] = None,
+    maxdate: Optional[str] = None,
+    datetype: Optional[str] = "pdat",
     include_abstract: Optional[bool] = False,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
@@ -26,6 +29,12 @@ def PubMed_search_articles(
         Search query for PubMed articles. Use keywords, author names, journal names, ...
     limit : int
         Number of articles to return. This sets the maximum number of articles retrie...
+    mindate : str
+        Minimum date for results (format: YYYY/MM/DD or YYYY). Requires datetype to b...
+    maxdate : str
+        Maximum date for results (format: YYYY/MM/DD or YYYY). Requires datetype to b...
+    datetype : str
+        Type of date to filter on: 'pdat' (publication date), 'edat' (Entrez date), o...
     include_abstract : bool
         If true, best-effort fetches abstracts via efetch (adds abstract/abstract_sou...
     stream_callback : Callable, optional
@@ -47,6 +56,9 @@ def PubMed_search_articles(
         for k, v in {
             "query": query,
             "limit": limit,
+            "mindate": mindate,
+            "maxdate": maxdate,
+            "datetype": datetype,
             "include_abstract": include_abstract,
         }.items()
         if v is not None

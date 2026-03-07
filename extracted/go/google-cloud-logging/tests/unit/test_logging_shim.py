@@ -18,8 +18,7 @@ import unittest
 
 class TestLoggingShim(unittest.TestCase):
     def test_root_shim_matches_logging_v2(self):
-        from google.cloud import logging
-        from google.cloud import logging_v2
+        from google.cloud import logging, logging_v2
 
         self.assertEqual(logging.__all__, logging_v2.__all__)
 

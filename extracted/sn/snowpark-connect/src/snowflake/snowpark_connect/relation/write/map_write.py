@@ -1372,6 +1372,41 @@ def _overwrite_iceberg_with_fallback(
             raise
 
 
+def _is_complex_structured_type(dt: DataType) -> bool:
+    """Return True if the datatype is a structured complex type (ARRAY, MAP, STRUCT)."""
+    if isinstance(dt, (ArrayType, MapType, StructType)):
+        return getattr(dt, "structured", False)
+    return False
+
+
+def _rewrite_df_for_parquet(input_df: snowpark.DataFrame) -> snowpark.DataFrame:
+    """
+    Cast structured complex-type columns to VARIANT before COPY INTO.
+
+    Snowflake's COPY INTO cannot serialize structured types (ARRAY(T), MAP(K,V),
+    STRUCT) directly to Parquet — it fails with "Cannot determine equivalent
+    parquet data type".  Casting to VARIANT converts the data to semi-structured
+    form that Snowflake *can* write to Parquet.
+
+    On read, the FLATTEN-based schema discovery in map_read_parquet.py detects
+    VARIANT columns, infers the nested schema, and casts back to structured types.
+    """
+    new_cols = []
+    needs_rewrite = False
+    for co in input_df.columns:
+        field_dt = input_df.schema[co].datatype
+        if _is_complex_structured_type(field_dt):
+            new_cols.append(col(co).cast(VariantType()).alias(co))
+            needs_rewrite = True
+        else:
+            new_cols.append(col(co))
+
+    if not needs_rewrite:
+        return input_df
+
+    return input_df.select(new_cols)
+
+
 def rewrite_df(input_df: snowpark.DataFrame, source: str) -> snowpark.DataFrame:
     """
     Rewrite dataframe if needed.
@@ -1405,6 +1440,8 @@ def rewrite_df(input_df: snowpark.DataFrame, source: str) -> snowpark.DataFrame:
                 else:
                     new_cols.append(col(co))
             return input_df.select(new_cols)
+        case "parquet":
+            return _rewrite_df_for_parquet(input_df)
         case _:
             return input_df
 

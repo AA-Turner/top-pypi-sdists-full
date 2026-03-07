@@ -99,6 +99,7 @@ def get_endpoint_config(
     if url == '/v1/messages':
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
@@ -124,6 +125,7 @@ def get_endpoint_config(
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
         }
         if 'model' in json_data:  # pragma: no branch
@@ -339,6 +341,18 @@ def on_response(
 
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
+
+        try:
+            from genai_prices import calc_price, extract_usage
+
+            response_data = response.model_dump()
+            usage_data = extract_usage(response_data, provider_id='anthropic')
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response.model, provider_id='anthropic').total_price),
+            )
+        except Exception:
+            pass
 
     return response
 

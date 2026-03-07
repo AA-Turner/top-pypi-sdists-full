@@ -4394,14 +4394,32 @@ class RestApiClient(BaseApiClient):
 
         return self.backend_version
 
-    def get_views(self, project_id, experiment_key=None):
+    def get_views(self, project_id, experiment_key=None, include_workspace_views=False):
         """
         Return all views for a project, optionally filtered by experiment key.
         """
         payload = {"projectId": project_id}
         if experiment_key is not None:
             payload["experimentKey"] = experiment_key
+        if include_workspace_views:
+            payload["includeWorkspaceViews"] = "true"
         results = self.get_from_endpoint("views/get-all", payload)
+        if results and "views" in results:
+            return results["views"]
+        return []
+
+    def get_chart_template_views(
+        self, project_id, experiment_key=None, include_workspace_views=False
+    ):
+        """
+        Return chart template views for a project from the chart_templates table.
+        """
+        payload = {"projectId": project_id}
+        if experiment_key is not None:
+            payload["experimentKey"] = experiment_key
+        if include_workspace_views:
+            payload["includeWorkspaceViews"] = "true"
+        results = self.get_from_endpoint("views/chart-templates", payload)
         if results and "views" in results:
             return results["views"]
         return []

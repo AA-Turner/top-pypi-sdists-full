@@ -10,8 +10,8 @@ from ._shared_client import get_shared_client
 
 def PubTator3_LiteratureSearch(
     query: str,
-    page: int,
-    page_size: int,
+    page: Optional[int] = 0,
+    page_size: Optional[int] = 20,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

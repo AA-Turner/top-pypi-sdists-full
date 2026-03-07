@@ -42,8 +42,9 @@ from ascii_colors.questionary import (
 from ascii_colors.rich import (
     # Core classes
     Console, Text as RichText, Style, Renderable, ConsoleOptions, Measurement,
+    Prompt,
     # Layout
-    Panel, Padding, Columns,
+    Panel, Padding, Columns, Rule,
     # Data display
     Table, Tree,
     # Content
@@ -58,6 +59,7 @@ from ascii_colors.rich import (
     print as rich_print,
     log as rich_log,
     rule as rich_rule,
+    prompt as rich_prompt,
 )
 
 from ascii_colors.rich.text import Text
@@ -125,12 +127,13 @@ __all__ = [
     # Rich compat (new!)
     "rich",  # Module-like object for `from ascii_colors import rich`
     "Console", "Style", "Renderable", "ConsoleOptions", "Measurement",
-    "Panel", "Padding", "Columns",
+    "Prompt",
+    "Panel", "Padding", "Columns", "Rule",
     "Table", "Tree",
     "Syntax", "Markdown",
     "Live", "Status",
     "BoxStyle",
-    "rich_print", "rich_log", "rich_rule",  # Convenience functions
+    "rich_print", "rich_log", "rich_rule", "rich_prompt", # Convenience functions
     # Aliases to avoid name conflicts
     "RichText",
 ]

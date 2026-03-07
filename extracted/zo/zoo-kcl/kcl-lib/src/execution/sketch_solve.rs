@@ -46,7 +46,7 @@ fn solver_unit(exec_state: &ExecState) -> UnitLength {
     exec_state.length_unit()
 }
 
-pub(super) fn solver_numeric_type(exec_state: &ExecState) -> NumericType {
+pub(crate) fn solver_numeric_type(exec_state: &ExecState) -> NumericType {
     NumericType::Known(UnitType::Length(solver_unit(exec_state)))
 }
 
@@ -98,22 +98,15 @@ pub(super) fn substitute_sketch_vars(
     variables: IndexMap<String, KclValue>,
     surface: &SketchSurface,
     sketch_id: Uuid,
-    sketch: Option<Sketch>,
+    sketch: Option<&Sketch>,
     solve_outcome: &Solved,
     solution_ty: NumericType,
     analysis: Option<&FreedomAnalysis>,
 ) -> Result<HashMap<String, KclValue>, KclError> {
     let mut subbed = HashMap::with_capacity(variables.len());
     for (name, value) in variables {
-        let subbed_value = substitute_sketch_var(
-            value,
-            surface,
-            sketch_id,
-            sketch.as_ref(),
-            solve_outcome,
-            solution_ty,
-            analysis,
-        )?;
+        let subbed_value =
+            substitute_sketch_var(value, surface, sketch_id, sketch, solve_outcome, solution_ty, analysis)?;
         subbed.insert(name, subbed_value);
     }
     Ok(subbed)

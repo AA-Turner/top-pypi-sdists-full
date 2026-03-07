@@ -1667,6 +1667,52 @@ def struct_pack(mapping: Mapping[str, Underscore | Any]):
     return UnderscoreFunction("struct_pack", list(mapping.keys()), *mapping.values())
 
 
+def vertex_predict(
+    body: Underscore | Any,
+    *,
+    endpoint: str,
+    content_type: str | None = None,
+    gcp_credentials_override: str | None = None,
+):
+    """
+    Runs a Vertex AI prediction on the specified endpoint, passing serialized bytes as input.
+
+    Parameters
+    ----------
+    body
+        Bytes feature to pass as the input to the Vertex AI endpoint.
+    endpoint
+        Full Vertex AI endpoint resource name:
+        ``projects/{project}/locations/{location}/endpoints/{endpoint_id}``
+    content_type
+        Content type of the input (e.g. "application/json"). Optional.
+    gcp_credentials_override
+        Service account JSON key string. Falls back to Application Default Credentials if not set.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    encoded_vertex_data: bytes
+    ...    prediction: float = F.vertex_predict(
+    ...        _.encoded_vertex_data,
+    ...        endpoint="projects/my-project/locations/us-central1/endpoints/1234567890",
+    ...        content_type="application/json"
+    ...    )
+    """
+
+    return UnderscoreFunction(
+        "vertex_predict",
+        body,
+        endpoint=endpoint,
+        content_type=content_type,
+        gcp_credentials_override=gcp_credentials_override,
+    )
+
+
 def sagemaker_predict(
     body: Underscore | Any,
     *,
@@ -6264,6 +6310,7 @@ __all__ = (
     "url_extract_host",
     "url_extract_path",
     "url_extract_protocol",
+    "vertex_predict",
     "week_of_year",
     "when",
     "width_bucket",

@@ -37,14 +37,14 @@ class TestRule(unittest.TestCase):
         if include_optional:
             return Rule(
                 action = 'accept',
-                operation = 'sendUserOperation',
-                criteria = [{type=ethValue, ethValue=1000000, operator=>=}, {type=evmAddress, addresses=[0x742d35Cc6634C0532925a3b844Bc454e4438f44e], operator=in}]
+                operation = 'signEndUserSolMessage',
+                criteria = [{type=solMessage, match=^hello ([a-z]+)$}]
             )
         else:
             return Rule(
                 action = 'accept',
-                operation = 'sendUserOperation',
-                criteria = [{type=ethValue, ethValue=1000000, operator=>=}, {type=evmAddress, addresses=[0x742d35Cc6634C0532925a3b844Bc454e4438f44e], operator=in}],
+                operation = 'signEndUserSolMessage',
+                criteria = [{type=solMessage, match=^hello ([a-z]+)$}],
         )
         """
 

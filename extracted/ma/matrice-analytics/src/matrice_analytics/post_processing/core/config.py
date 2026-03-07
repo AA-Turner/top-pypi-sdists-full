@@ -935,6 +935,7 @@ class ConfigManager:
             'overcrowding_detection': None,
             'animal_detection': None,
             'burglary_detection': None,
+            'landslide_detection': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -1611,6 +1612,13 @@ class ConfigManager:
         try:
             from ..usecases.burglary_detection import BurglaryDetectionConfig
             return BurglaryDetectionConfig
+        except ImportError:
+            return None
+
+    def landslide_detection_config_class(self):
+        try:
+            from ..usecases.landslide_detection import LandslideDetectionConfig
+            return LandslideDetectionConfig
         except ImportError:
             return None
         
@@ -3276,6 +3284,21 @@ class ConfigManager:
                 **kwargs
             )
         
+        elif usecase == "landslide_detection":
+            # Import here to avoid circular import
+            from ..usecases.landslide_detection import LandslideDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = LandslideDetectionConfig(
+                category=category or "environmental",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
 
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
@@ -3971,6 +3994,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.burglary_detection import BurglaryDetectionConfig
             default_config = BurglaryDetectionConfig()
+            return default_config.to_dict()
+
+        elif usecase == "landslide_detection":
+            # Import here to avoid circular import
+            from ..usecases.landslide_detection import LandslideDetectionConfig
+            default_config = LandslideDetectionConfig()
             return default_config.to_dict()
             
         #Add all image based usecases here

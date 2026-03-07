@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs-shadcn"
-version = "0.10.0"
+version = "0.10.1"
 description = "Documentation that also shines"
 authors = [
     { name = "Alban Siffer", email = "31479857+asiffer@users.noreply.github.com" },
@@ -22,6 +22,7 @@ dev = [
     "pre-commit>=3.5.0",
     "pygments>=2.19.1",
     "pymdown-extensions>=10.14.2",
+    "pytest-playwright>=0.5.2",
     "ruff>=0.12.11",
     "ty>=0.0.1a21",
     "types-markdown>=3.7.0.20241204",

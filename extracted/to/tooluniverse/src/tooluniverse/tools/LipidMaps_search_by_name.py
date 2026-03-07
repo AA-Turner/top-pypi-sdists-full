@@ -1,7 +1,7 @@
 """
 LipidMaps_search_by_name
 
-Search for lipids by common abbreviation or name in LIPID MAPS Structure Database. Returns matchi...
+Search for lipids by exact abbreviation in LIPID MAPS Structure Database. IMPORTANT: Only exact l...
 """
 
 from typing import Any, Optional, Callable
@@ -17,12 +17,12 @@ def LipidMaps_search_by_name(
     validate: bool = True,
 ) -> Any:
     """
-    Search for lipids by common abbreviation or name in LIPID MAPS Structure Database. Returns matchi...
+    Search for lipids by exact abbreviation in LIPID MAPS Structure Database. IMPORTANT: Only exact l...
 
     Parameters
     ----------
     input_value : str
-        Lipid abbreviation or name (e.g., 'DHA', 'EPA', 'ceramide'). Supports common ...
+        Exact lipid abbreviation used in lipidomics (e.g., 'DHA', 'EPA', 'PC 16:0/18:...
     output_item : str
         Type of output. Options: 'all', 'name', 'formula', 'exactmass', 'smiles', 'cl...
     stream_callback : Callable, optional

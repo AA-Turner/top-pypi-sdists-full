@@ -5,7 +5,7 @@
 from dataclasses import dataclass
 
 import snowflake.snowpark.types as snowpark_type
-from snowflake.snowpark_connect.config import get_scala_version
+from snowflake.snowpark_connect.config import get_scala_version, global_config
 from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     NullHandling,
@@ -43,6 +43,7 @@ import com.snowflake.snowpark_java.types.*;
 public class JavaUDAF {
     private final static String OPERATION_FILE = "__operation_file__";
     private final static String SCHEMA_JSON = "__schema_json__";
+    private final static String SESSION_TIMEZONE = "__session_timezone__";
     private static scala.Function2<__reduce_type__, __reduce_type__, __reduce_type__> operation = null;
     private static UdfPacket udfPacket = null;
 
@@ -51,6 +52,7 @@ public class JavaUDAF {
             return; // Already loaded
         }
 
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
         udfPacket = com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacket(OPERATION_FILE);
         operation = (scala.Function2<__reduce_type__, __reduce_type__, __reduce_type__>) udfPacket.function();
     }
@@ -154,7 +156,7 @@ class JavaUDAFDef:
             .replace("__value_type__", self.java_signature.params[1].data_type)
             .replace(
                 "__mapped_value__",
-                "com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0, SCHEMA_JSON)"
+                "com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0, SCHEMA_JSON, SESSION_TIMEZONE)"
                 if is_variant_input
                 else "input",
             )
@@ -162,6 +164,10 @@ class JavaUDAFDef:
             .replace("__return_type__", return_type)
             .replace("__response_wrapper__", response_wrapper)
             .replace("__schema_json__", self.schema_json)
+            .replace(
+                "__session_timezone__",
+                global_config.spark_sql_session_timeZone or "UTC",
+            )
         )
 
     def to_create_function_sql(self) -> str:
@@ -267,32 +273,32 @@ def create_java_udaf_for_reduce_scala_function(
 
     input_types = pciudf._input_types
 
+    _variant_types = (
+        snowpark_type.ArrayType,
+        snowpark_type.MapType,
+        snowpark_type.VariantType,
+        snowpark_type.StructType,
+        snowpark_type.DateType,
+        snowpark_type.TimestampType,
+    )
+
     java_input_params: list[Param] = []
     sql_input_params: list[Param] = []
     if input_types:  # input_types can be None when no arguments are provided
         for i, input_type in enumerate(input_types):
             param_name = "arg" + str(i)
-            if isinstance(
-                input_type,
-                (
-                    snowpark_type.ArrayType,
-                    snowpark_type.MapType,
-                    snowpark_type.VariantType,
-                ),
-            ):
+            if isinstance(input_type, _variant_types):
                 java_type = "Variant"
                 snowflake_type = "Variant"
             else:
                 java_type = map_type_to_java_type(input_type)
                 snowflake_type = map_type_to_snowflake_type(input_type)
-            # Create the Java arguments and input types string: "arg0: Type0, arg1: Type1, ...".
             java_input_params.append(Param(param_name, java_type))
-            # Create the Snowflake SQL arguments and input types string: "arg0 TYPE0, arg1 TYPE1, ...".
             sql_input_params.append(Param(param_name, snowflake_type))
 
     java_return_type = map_type_to_java_type(pciudf._original_return_type)
-    # If the SQL return type is a MAP or STRUCT, change this to VARIANT because of issues with Java UDAFs.
     sql_return_type = map_type_to_snowflake_type(pciudf._original_return_type)
+
     session = get_or_create_snowpark_session()
 
     imports = build_jvm_udxf_imports(
@@ -300,15 +306,8 @@ def create_java_udaf_for_reduce_scala_function(
         pciudf._payload,
         udf_name,
     )
-    sql_return_type = (
-        "VARIANT"
-        if (
-            sql_return_type.startswith("MAP")
-            or sql_return_type.startswith("OBJECT")
-            or sql_return_type.startswith("ARRAY")
-        )
-        else sql_return_type
-    )
+    if isinstance(pciudf._original_return_type, _variant_types):
+        sql_return_type = "VARIANT"
 
     schema_json = to_json(input_types if input_types else [])
 

@@ -282,6 +282,24 @@ class AgmetGeo(base.BaseGeo):
         if "Yield (tn per ha)" in self.df_ccs.columns:
             self.df_ccs["yield"] = self.df_ccs["Yield (tn per ha)"]
 
+        # Compute production share (%) per region based on last 5 years
+        self.df_ccs["production_share_pct"] = np.nan
+        if "Production (tn)" in self.df_ccs.columns:
+            prod = (
+                self.df_ccs.groupby(["region", "harvest_season"])["Production (tn)"]
+                .first()
+                .reset_index()
+                .dropna(subset=["Production (tn)"])
+            )
+            if not prod.empty:
+                last_5_years = sorted(prod["harvest_season"].unique())[-5:]
+                prod = prod[prod["harvest_season"].isin(last_5_years)]
+                mean_by_region = prod.groupby("region")["Production (tn)"].mean()
+                national_total = mean_by_region.sum()
+                if national_total > 0:
+                    share = (mean_by_region / national_total * 100)
+                    self.df_ccs["production_share_pct"] = self.df_ccs["region"].map(share)
+
         # Drop temporary columns
         drop_cols = ["Region", "Harvest Year", "Season", "Yield (tn per ha)",
                      "Area (ha)", "Production (tn)", "Area"]
@@ -418,9 +436,7 @@ def create_title_for_plot(obj):
     title_line_1 = f"{region_name} ({calendar_region_name}, {country_name})"
     title_line_2 = f"{crop_name} {obj.plot_season}"
 
-    sup_title = f"{title_line_1}\n{title_line_2}"
-
-    return sup_title
+    return f"{title_line_1}\n{title_line_2}"
 
 
 def _create_district_title(obj, cal_region):
@@ -474,7 +490,14 @@ def _process_combination(obj, country, scale, crop, growing_season):
 
             sup_title = create_title_for_plot(obj)
 
-            plot.plots_ts_cur_yr(
+            # Extract production share for this region
+            region_pct = None
+            if "production_share_pct" in obj.df_region.columns:
+                vals = obj.df_region["production_share_pct"].dropna()
+                if not vals.empty:
+                    region_pct = vals.iloc[0]
+
+            plot.AgmetPlotter(
                 obj.df_region,
                 obj.eo_plot,
                 closest=obj.closest,
@@ -484,7 +507,8 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 dir_out=obj.dir_agmet / obj.scale_short,
                 sup_title=sup_title,
                 fname=f"{obj.region}.png",
-            )
+                production_pct=region_pct,
+            ).plot()
 
         ###############################################################
         # Loop 2: District plots (one per calendar region, aggregated)
@@ -545,8 +569,19 @@ def _process_combination(obj, country, scale, crop, growing_season):
 
             sup_title = _create_district_title(obj, cal_region)
 
+            # Sum production shares of all regions in this district
+            district_pct = None
+            if "production_share_pct" in df_district.columns:
+                region_shares = (
+                    df_district.groupby("region")["production_share_pct"]
+                    .first()
+                    .dropna()
+                )
+                if not region_shares.empty:
+                    district_pct = region_shares.sum()
+
             if not df_agg.empty:
-                plot.plots_ts_cur_yr(
+                plot.AgmetPlotter(
                     df_agg,
                     obj.eo_plot,
                     closest=obj.closest,
@@ -556,7 +591,8 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     dir_out=obj.dir_agmet / "district",
                     sup_title=sup_title,
                     fname=f"{cal_region}.png",
-                )
+                    production_pct=district_pct,
+                ).plot()
 
 
 def _agmet_worker(args):

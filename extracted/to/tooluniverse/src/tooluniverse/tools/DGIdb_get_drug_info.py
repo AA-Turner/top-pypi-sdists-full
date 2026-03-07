@@ -1,7 +1,7 @@
 """
 DGIdb_get_drug_info
 
-Get drug information from DGIdb including target genes and interaction details.
+Get basic drug metadata from DGIdb by drug name. Returns drug name, concept ID, and approval stat...
 """
 
 from typing import Any, Optional, Callable
@@ -16,7 +16,7 @@ def DGIdb_get_drug_info(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get drug information from DGIdb including target genes and interaction details.
+    Get basic drug metadata from DGIdb by drug name. Returns drug name, concept ID, and approval stat...
 
     Parameters
     ----------

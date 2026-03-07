@@ -3,7 +3,7 @@ Type annotations for gameliftstreams service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -53,7 +53,7 @@ __all__ = (
 
 ApplicationDeletedWaiterName = Literal["application_deleted"]
 ApplicationReadyWaiterName = Literal["application_ready"]
-ApplicationStatusReasonType = Literal["accessDenied", "internalError"]
+ApplicationStatusReasonType = Literal["accessDenied", "internalError", "sourceModified"]
 ApplicationStatusType = Literal["DELETING", "ERROR", "INITIALIZED", "PROCESSING", "READY"]
 ExportFilesStatusType = Literal["FAILED", "PENDING", "SUCCEEDED"]
 ListApplicationsPaginatorName = Literal["list_applications"]
@@ -70,11 +70,15 @@ StreamClassType = Literal[
     "gen5n_high",
     "gen5n_ultra",
     "gen5n_win2022",
+    "gen6e_pro",
+    "gen6e_pro_win2022",
     "gen6n_high",
     "gen6n_medium",
+    "gen6n_medium_win2022",
     "gen6n_pro",
     "gen6n_pro_win2022",
     "gen6n_small",
+    "gen6n_small_win2022",
     "gen6n_ultra",
     "gen6n_ultra_win2022",
 ]
@@ -217,6 +221,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -256,16 +261,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -305,7 +309,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -480,6 +483,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -521,6 +525,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

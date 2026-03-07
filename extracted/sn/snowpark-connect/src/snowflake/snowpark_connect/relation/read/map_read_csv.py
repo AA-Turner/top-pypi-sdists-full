@@ -405,7 +405,7 @@ def _read_csv_with_partitions(
         return df, read_using_external_table
 
     # Case 2: No schema provided - get headers for column names
-    headers = get_header_names(
+    headers, leading_blanks = get_header_names(
         session,
         path,
         file_format_options,
@@ -413,6 +413,22 @@ def _read_csv_with_partitions(
         raw_options,
         parse_header,
     )
+
+    # Snowflake's SKIP_HEADER counts raw lines including blank ones.
+    # If the file has leading blank lines before the header, SKIP_HEADER=1
+    # would skip a blank line instead of the header.  Increase it so both
+    # the blank lines and the header row are skipped.
+    if leading_blanks > 0 and parse_header:
+        adjusted_format_options = copy.copy(file_format_options)
+        adjusted_format_options["SKIP_HEADER"] = (
+            adjusted_format_options.get("SKIP_HEADER", 0) + leading_blanks
+        )
+        adjusted_format = cached_file_format(session, "csv", adjusted_format_options)
+        adjusted_reader_options = copy.copy(snowpark_reader_options)
+        adjusted_reader_options["FORMAT_NAME"] = adjusted_format
+        reader = add_filename_metadata_to_reader(
+            session.read.options(adjusted_reader_options), raw_options
+        )
 
     if len(headers) > 0:
         # Case 2a: No schema, inferSchema=False => create StringType schema from headers
@@ -431,7 +447,7 @@ def _read_csv_with_partitions(
             )
             reader = reader.schema(effective_schema)
 
-            return _read_file_with_partitions(
+            result_df, result_ext = _read_file_with_partitions(
                 session=session,
                 reader=reader,
                 file_format="csv",
@@ -440,6 +456,7 @@ def _read_csv_with_partitions(
                 snowpark_options=snowpark_reader_options,
                 raw_options=raw_options,
             )
+            return result_df, result_ext
         else:
             # Case 2b: No schema, inferSchema=True => read and validate/rename columns
             (
@@ -563,12 +580,18 @@ def _get_header_names_raw(
     path: str,
     file_format_options: dict[str, Any],
     parse_header: bool,
-) -> list[str]:
+    pattern: str | None = None,
+) -> tuple[list[str], int]:
     """Extract CSV header names by reading the first line as raw text.
 
     Uses ``FIELD_DELIMITER=NONE`` so Snowflake returns the entire first line
     as a single string without CSV parsing.  This avoids parse errors caused
     by malformed rows elsewhere in the file.
+
+    Returns ``(headers, leading_blank_count)`` where *leading_blank_count* is
+    the number of blank lines before the first non-blank line.  The caller
+    uses this to adjust ``SKIP_HEADER`` so that Snowflake skips both the
+    leading blank lines *and* the header row.
     """
     import csv as csv_mod
     import io
@@ -586,40 +609,72 @@ def _get_header_names_raw(
     format_name = cached_file_format(session, "csv", raw_format_options)
     single_schema = StructType([StructField('"RAW_LINE"', StringType(), True)])
 
-    raw_df = (
-        session.read.schema(single_schema)
-        .options(
-            {
-                "FORMAT_NAME": format_name,
-                "ENFORCE_EXISTING_FILE_FORMAT": True,
-            }
-        )
-        .csv(path)
-    )
-    first_row = raw_df.limit(1).collect()
-    if not first_row or first_row[0][0] is None:
-        return []
+    reader_options: dict[str, Any] = {
+        "FORMAT_NAME": format_name,
+        "ENFORCE_EXISTING_FILE_FORMAT": True,
+    }
+    if pattern is not None:
+        reader_options["PATTERN"] = pattern
+
+    raw_df = session.read.schema(single_schema).options(reader_options).csv(path)
+    rows = raw_df.limit(20).collect()
+
+    leading_blanks = 0
+    first_content = None
+    for row in rows:
+        line = row[0]
+        if line is None or line.strip() == "":
+            leading_blanks += 1
+        else:
+            first_content = line
+            break
+
+    if first_content is None:
+        return [], 0
 
     delimiter = file_format_options.get("FIELD_DELIMITER", ",")
-    reader = csv_mod.reader(io.StringIO(first_row[0][0]), delimiter=delimiter)
+    reader = csv_mod.reader(io.StringIO(first_content), delimiter=delimiter)
     cols = next(reader, [])
 
     if parse_header:
         case_sensitive = global_config.spark_sql_caseSensitive
         deduplicated = _deduplicate_column_names_pyspark_style(cols, case_sensitive)
-        return [f'"{name}"' for name in deduplicated]
+        return [f'"{name}"' for name in deduplicated], leading_blanks
     else:
-        return [f'"_c{i}"' for i in range(len(cols))]
+        return [f'"_c{i}"' for i in range(len(cols))], leading_blanks
 
 
 def get_header_names(
     session: snowpark.Session,
-    path: list[str],
+    path: str,
     file_format_options: dict,
     snowpark_read_options: dict,
     raw_options: dict,
     parse_header: bool,
-) -> list[str]:
+) -> tuple[list[str], int]:
+    """Return ``(headers, leading_blank_count)``.
+
+    Uses the raw-line reader as the primary method.  It reads the first
+    non-blank line as a single string and splits it with Python's csv
+    module.  This avoids Snowpark's INFER_SCHEMA path which eagerly
+    validates the stage path and fails on quoted StagePathStr values.
+
+    *leading_blank_count* tells the caller how many blank lines precede
+    the first non-blank line so that ``SKIP_HEADER`` can be adjusted.
+    """
+    raw_headers, leading_blanks = _get_header_names_raw(
+        session,
+        path,
+        file_format_options,
+        parse_header,
+        pattern=snowpark_read_options.get("PATTERN"),
+    )
+    if raw_headers:
+        return raw_headers, leading_blanks
+
+    # Fallback: use the Snowpark reader without INFER_SCHEMA.
+    # This handles edge cases where the raw reader returns nothing
+    # (e.g. truly empty files or unusual encodings).
     no_header_file_format_options = copy.copy(file_format_options)
     no_header_file_format_options["PARSE_HEADER"] = False
     no_header_file_format_options.pop("SKIP_HEADER", None)
@@ -628,38 +683,12 @@ def get_header_names(
     no_header_snowpark_read_options = copy.copy(snowpark_read_options)
     no_header_snowpark_read_options["FORMAT_NAME"] = file_format
     no_header_snowpark_read_options.pop("INFER_SCHEMA", None)
-
-    # If we don't set this, snowpark will try to infer the schema for all rows in the csv file.
-    # Since there's no easy way to just read the header from the csv, we use this approach where we force the df reader to infer the schema for 10 rows and
-    # and we are only interested in the first row to get the header names and discard the inferred schema.
     no_header_snowpark_read_options["INFER_SCHEMA_OPTIONS"] = {
         "MAX_RECORDS_PER_FILE": 1,
     }
 
-    try:
-        header_df = (
-            session.read.options(no_header_snowpark_read_options).csv(path).limit(1)
-        )
-        collected_data = header_df.collect()
-    except Exception as e:
-        if isinstance(e, FileNotFoundError):
-            raise e
-        # The standard reader hit a Snowflake SQL error — likely because
-        # the CSV parser encountered a malformed row while scanning the
-        # stage file (even with LIMIT 1, Snowflake may parse ahead).
-        # Fall back to reading just the first line as raw text, which
-        # bypasses CSV parsing entirely.
-        logger.debug(
-            "Standard header extraction failed for %s; "
-            "falling back to raw-line reader.",
-            path,
-        )
-        raw_headers = _get_header_names_raw(
-            session, path, file_format_options, parse_header
-        )
-        if not raw_headers:
-            raise
-        return raw_headers
+    header_df = session.read.options(no_header_snowpark_read_options).csv(path).limit(1)
+    collected_data = header_df.collect()
 
     if len(collected_data) == 0:
         error_msg = f"Path does not exist or contains no data: {path}"
@@ -675,10 +704,8 @@ def get_header_names(
     num_columns = len(header_df.schema.fields)
 
     if not parse_header:
-        # parse_header=False, use default _c0, _c1, _c2... naming for columns
-        return [f'"_c{i}"' for i in range(num_columns)]
+        return [f'"_c{i}"' for i in range(num_columns)], 0
 
-    # parse_header=True: Read first row as column names and deduplicate
     raw_column_names = [
         header_data[i] if header_data[i] is not None else "" for i in range(num_columns)
     ]
@@ -688,7 +715,7 @@ def get_header_names(
         raw_column_names, case_sensitive
     )
 
-    return [f'"{name}"' for name in deduplicated_names]
+    return [f'"{name}"' for name in deduplicated_names], 0
 
 
 def _emulate_integral_types_for_csv(t: DataType) -> DataType:

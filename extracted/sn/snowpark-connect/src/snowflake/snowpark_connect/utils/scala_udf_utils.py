@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import List
 
 import snowflake.snowpark.types as snowpark_type
-from snowflake.snowpark_connect.config import get_scala_version
+from snowflake.snowpark_connect.config import get_scala_version, global_config
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     NullHandling,
     Param,
@@ -89,7 +89,7 @@ class JavaScalarUDFDef:
 
         for i in range(self.num_args):
             lines.append(
-                f"        var in{i} = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, arg{i}, {i}, __schema_json);"
+                f"        var in{i} = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, arg{i}, {i}, __schema_json, SESSION_TIMEZONE);"
             )
 
         object_types = ", ".join(["Object"] * (self.num_args + 1))
@@ -110,10 +110,12 @@ import com.snowflake.snowpark_java.types.Variant;
 
 public class RecreatedSparkJavaUdf {{
     private static final String OPERATION_FILE = "{operation_file}";
+    private static final String SESSION_TIMEZONE = "{global_config.spark_sql_session_timeZone or 'UTC'}";
     private final UdfPacket udfPacket;
     private final Object func;
 
     public RecreatedSparkJavaUdf() {{
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
         this.udfPacket = com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacket(OPERATION_FILE);
         this.func = udfPacket.function();
     }}

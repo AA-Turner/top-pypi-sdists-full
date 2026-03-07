@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ferrox
-Version: 0.0.8
+Version: 0.0.9
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -11,10 +11,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Dist: numpy ; extra == 'dev'
-Requires-Dist: pymatgen>=2025.10.7 ; extra == 'dev'
-Requires-Dist: pytest>=8.0 ; extra == 'dev'
-Provides-Extra: dev
+Requires-Dist: ase>=3.27 ; extra == 'test'
+Requires-Dist: numpy>=2.4 ; extra == 'test'
+Requires-Dist: pymatgen>=2025.10.7 ; extra == 'test'
+Requires-Dist: pytest>=9 ; extra == 'test'
+Provides-Extra: test
 Summary: High-performance base layer for computational materials science
 Keywords: atomistic-simulation,computational-materials-science,crystallography,materials-science,molecular-dynamics
 Author-email: Janosh Riebesell <janosh.riebesell@gmail.com>

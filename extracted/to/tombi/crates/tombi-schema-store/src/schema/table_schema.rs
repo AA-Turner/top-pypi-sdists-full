@@ -1,7 +1,5 @@
 use std::{borrow::Cow, sync::Arc};
 
-use ahash::AHashMap;
-use indexmap::IndexMap;
 use itertools::Itertools;
 use tombi_accessor::Accessors;
 use tombi_future::{BoxFuture, Boxable};
@@ -14,7 +12,16 @@ use super::{
     CurrentSchema, FindSchemaCandidates, PropertySchema, SchemaAccessor, SchemaDefinitions,
     SchemaItem, SchemaPatternProperties, SchemaUri, ValueSchema,
 };
-use crate::{Accessor, Referable, SchemaProperties, SchemaStore, schema::not_schema::NotSchema};
+use crate::{
+    Accessor, Referable, SchemaProperties, SchemaStore,
+    schema::{if_then_else_schema::IfThenElseSchema, not_schema::NotSchema},
+};
+
+#[derive(Debug, Clone)]
+pub enum Dependency {
+    Property(Vec<String>),
+    Schema(SchemaItem),
+}
 
 use tombi_json::StringNode;
 
@@ -32,6 +39,9 @@ pub struct TableSchema {
     )>,
     pub property_names: Option<SchemaItem>,
     pub required: Option<Vec<String>>,
+    pub dependencies: Option<tombi_hashmap::IndexMap<String, Dependency>>,
+    pub dependent_required: Option<tombi_hashmap::IndexMap<String, Vec<String>>>,
+    pub dependent_schemas: Option<tombi_hashmap::IndexMap<String, SchemaItem>>,
     pub min_properties: Option<usize>,
     pub max_properties: Option<usize>,
     pub keys_order: Option<XTombiTableKeysOrder>,
@@ -43,20 +53,23 @@ pub struct TableSchema {
     pub deprecated: Option<bool>,
     pub additional_key_label: Option<String>,
     pub not: Option<NotSchema>,
+    pub if_then_else: Option<Box<IfThenElseSchema>>,
 }
 
 impl TableSchema {
     pub fn new(
         object_node: &tombi_json::ObjectNode,
         string_formats: Option<&[StringFormat]>,
+        dialect: Option<crate::JsonSchemaDialect>,
     ) -> Self {
-        let mut properties = IndexMap::new();
+        let mut properties = tombi_hashmap::IndexMap::new();
         if let Some(tombi_json::ValueNode::Object(object_node)) = object_node.get("properties") {
             for (key_node, value_node) in object_node.properties.iter() {
                 let Some(object) = value_node.as_object() else {
                     continue;
                 };
-                if let Some(property_schema) = Referable::<ValueSchema>::new(object, string_formats)
+                if let Some(property_schema) =
+                    Referable::<ValueSchema>::new(object, string_formats, dialect)
                 {
                     properties.insert(
                         SchemaAccessor::Key(key_node.value.to_string()),
@@ -70,13 +83,13 @@ impl TableSchema {
         }
         let pattern_properties = match object_node.get("patternProperties") {
             Some(tombi_json::ValueNode::Object(object_node)) => {
-                let mut pattern_properties = AHashMap::new();
+                let mut pattern_properties = tombi_hashmap::HashMap::new();
                 for (pattern, value) in object_node.properties.iter() {
                     let Some(object) = value.as_object() else {
                         continue;
                     };
                     if let Some(value_schema) =
-                        Referable::<ValueSchema>::new(object, string_formats)
+                        Referable::<ValueSchema>::new(object, string_formats, dialect)
                     {
                         pattern_properties.insert(pattern.clone(), value_schema);
                     }
@@ -90,7 +103,8 @@ impl TableSchema {
             match object_node.get("additionalProperties") {
                 Some(tombi_json::ValueNode::Bool(allow)) => (Some(allow.value), None),
                 Some(tombi_json::ValueNode::Object(object_node)) => {
-                    let value_schema = Referable::<ValueSchema>::new(object_node, string_formats);
+                    let value_schema =
+                        Referable::<ValueSchema>::new(object_node, string_formats, dialect);
                     (
                         Some(true),
                         value_schema.map(|schema| {
@@ -146,7 +160,7 @@ impl TableSchema {
                                 },
                             )
                         })
-                        .collect::<AHashMap<_, _>>()
+                        .collect::<tombi_hashmap::HashMap<_, _>>()
                         .into(),
                 )
             }),
@@ -161,6 +175,76 @@ impl TableSchema {
                         .collect()
                 })
             }),
+            dependencies: object_node
+                .get("dependencies")
+                .and_then(|v| v.as_object())
+                .map(|deps_obj| {
+                    let mut deps = tombi_hashmap::IndexMap::new();
+                    for (key, value) in &deps_obj.properties {
+                        match value {
+                            tombi_json::ValueNode::Array(arr) => {
+                                let required_keys: Vec<String> = arr
+                                    .items
+                                    .iter()
+                                    .filter_map(|v| v.as_str().map(ToString::to_string))
+                                    .collect();
+                                deps.insert(
+                                    key.value.to_string(),
+                                    Dependency::Property(required_keys),
+                                );
+                            }
+                            tombi_json::ValueNode::Object(obj) => {
+                                if let Some(schema) =
+                                    Referable::<ValueSchema>::new(obj, string_formats, dialect)
+                                {
+                                    deps.insert(
+                                        key.value.to_string(),
+                                        Dependency::Schema(Arc::new(tokio::sync::RwLock::new(
+                                            schema,
+                                        ))),
+                                    );
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    deps
+                }),
+            dependent_required: object_node
+                .get("dependentRequired")
+                .and_then(|v| v.as_object())
+                .map(|obj| {
+                    let mut map = tombi_hashmap::IndexMap::new();
+                    for (key, value) in &obj.properties {
+                        if let Some(arr) = value.as_array() {
+                            let required_keys: Vec<String> = arr
+                                .items
+                                .iter()
+                                .filter_map(|v| v.as_str().map(ToString::to_string))
+                                .collect();
+                            map.insert(key.value.to_string(), required_keys);
+                        }
+                    }
+                    map
+                }),
+            dependent_schemas: object_node
+                .get("dependentSchemas")
+                .and_then(|v| v.as_object())
+                .map(|obj| {
+                    let mut map = tombi_hashmap::IndexMap::new();
+                    for (key, value) in &obj.properties {
+                        if let Some(schema_obj) = value.as_object()
+                            && let Some(schema) =
+                                Referable::<ValueSchema>::new(schema_obj, string_formats, dialect)
+                        {
+                            map.insert(
+                                key.value.to_string(),
+                                Arc::new(tokio::sync::RwLock::new(schema)),
+                            );
+                        }
+                    }
+                    map
+                }),
             min_properties: object_node
                 .get("minProperties")
                 .and_then(|v| v.as_u64().map(|u| u as usize)),
@@ -196,11 +280,12 @@ impl TableSchema {
             additional_key_label: object_node
                 .get(X_TOMBI_ADDITIONAL_KEY_LABEL)
                 .and_then(|v| v.as_str().map(|s| s.to_string())),
-            not: NotSchema::new(object_node, string_formats),
+            not: NotSchema::new(object_node, string_formats, dialect),
+            if_then_else: IfThenElseSchema::new(object_node, string_formats, dialect).map(Box::new),
             property_names: object_node
                 .get("propertyNames")
                 .and_then(|v| v.as_object())
-                .and_then(|v| Referable::<ValueSchema>::new(v, string_formats))
+                .and_then(|v| Referable::<ValueSchema>::new(v, string_formats, dialect))
                 .map(|schema| Arc::new(tokio::sync::RwLock::new(schema))),
         }
     }

@@ -21,7 +21,8 @@
 //! ## Example
 //!
 //! ```rust,ignore
-//! use ferrox::{Structure, StructureMatcher};
+//! use ferrox::structure::Structure;
+//! use ferrox::structure_matcher::StructureMatcher;
 //!
 //! let matcher = StructureMatcher::new()
 //!     .with_latt_len_tol(0.2)
@@ -43,46 +44,27 @@ pub mod lattice;
 pub mod species;
 pub mod structure;
 
-// Algorithms
+// Foundational utilities
 pub mod algorithms;
-pub mod batch;
 pub mod cell_ops;
-pub mod coordination;
+pub mod neighbors;
+pub mod pbc;
+
+// Structure generation
 pub mod defects;
 pub mod distortions;
-pub mod elastic;
-pub mod md;
-pub mod neighbors;
-pub mod optimizers;
-pub mod order_params;
-pub mod pbc;
-pub mod potentials;
-pub mod rdf;
-pub mod structure_matcher;
-pub mod trajectory;
 
 // Transformations (internal - public API is via Structure methods)
 pub(crate) mod transformations;
 
-// Re-export config structs for use with Structure transformation methods
+// Domain clusters
+pub mod analysis;
+pub mod io;
+pub mod simulation;
+
+// Re-exports for convenience
 pub use algorithms::EnumConfig;
 pub use transformations::{OrderDisorderedConfig, PartialRemoveConfig};
-
-// I/O
-pub mod cif;
-pub mod io;
-
-// Materials Project data access
-#[cfg(feature = "mp")]
-pub mod mp;
-
-// Analysis
-pub mod convex_hull;
-pub mod magnetism;
-pub mod oxidation;
-pub mod prototype;
-pub mod surfaces;
-pub mod xrd;
 
 // Re-exports for convenience
 pub use error::{FerroxError, OnError, Result};
@@ -99,7 +81,7 @@ use pyo3::prelude::*;
 pub mod wasm;
 
 #[cfg(feature = "wasm")]
-pub mod wasm_types;
+pub use wasm::types as wasm_types;
 
 /// Python module entry point using declarative submodules.
 /// Each submodule is a real Python module registered in sys.modules.
@@ -113,7 +95,11 @@ mod _ferrox {
 
     // Keep in sync with submodules.rs define_submodule! calls and stub_gen.rs submodules array
     #[pymodule_export]
+    use crate::python::submodules::bonding;
+    #[pymodule_export]
     use crate::python::submodules::cell;
+    #[pymodule_export]
+    use crate::python::submodules::chempot;
     #[pymodule_export]
     use crate::python::submodules::composition;
     #[pymodule_export]
@@ -156,6 +142,8 @@ mod _ferrox {
     use crate::python::submodules::symmetry;
     #[pymodule_export]
     use crate::python::submodules::trajectory;
+    #[pymodule_export]
+    use crate::python::submodules::vasp;
     #[pymodule_export]
     use crate::python::submodules::xrd;
 

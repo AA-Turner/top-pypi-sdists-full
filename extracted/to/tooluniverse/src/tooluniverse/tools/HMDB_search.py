@@ -1,7 +1,7 @@
 """
 HMDB_search
 
-Search HMDB for metabolites by name, formula, or mass. Returns matching metabolites with HMDB IDs...
+Search for metabolites by name or formula using PubChem. Returns PubChem CIDs (not HMDB IDs) with...
 """
 
 from typing import Any, Optional, Callable
@@ -18,7 +18,7 @@ def HMDB_search(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Search HMDB for metabolites by name, formula, or mass. Returns matching metabolites with HMDB IDs...
+    Search for metabolites by name or formula using PubChem. Returns PubChem CIDs (not HMDB IDs) with...
 
     Parameters
     ----------

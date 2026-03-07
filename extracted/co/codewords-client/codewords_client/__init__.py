@@ -380,6 +380,74 @@ def _patch_perplexity():
     except Exception as e:
         logger.warning("Failed to patch Perplexity", error=str(e))
 
+
+def _patch_replicate():
+    """Monkey patch Replicate Client to auto-inject CodeWords API token.
+
+    The Replicate SDK uses a module-level default_client for replicate.run().
+    We patch Client.__init__ to inject the token, then re-initialize the
+    default client and rebind all module-level methods.
+    """
+    try:
+        import replicate
+        from replicate.client import Client as ReplicateClient
+        if hasattr(ReplicateClient, '_codewords_patched'):
+            return
+
+        _original_init = ReplicateClient.__init__
+
+        def _enhanced_init(self, api_token=None, *, base_url=None, timeout=None, **kwargs):
+            api_token = api_token or os.environ.get('LIBRARY_SECRET_REPLICATE_API_TOKEN') or os.environ.get('REPLICATE_API_TOKEN')
+            _original_init(self, api_token=api_token, base_url=base_url, timeout=timeout, **kwargs)
+
+        ReplicateClient.__init__ = _enhanced_init
+
+        # Re-initialize module-level default client and rebind methods
+        new_client = ReplicateClient()
+        replicate.default_client = new_client
+        replicate.run = new_client.run
+        replicate.async_run = new_client.async_run
+        replicate.stream = new_client.stream
+        replicate.async_stream = new_client.async_stream
+        replicate.models = new_client.models
+        replicate.predictions = new_client.predictions
+        replicate.deployments = new_client.deployments
+
+        ReplicateClient._codewords_patched = True
+        logger.debug("Replicate Client successfully patched for CodeWords auto-configuration")
+
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning("Failed to patch Replicate", error=str(e))
+
+def _patch_linkup():
+    """Monkey patch LinkupClient to auto-inject LINKUP_API_KEY from runtime env.
+
+    The Linkup SDK already reads LINKUP_API_KEY from os.environ, but this
+    patch ensures the runtime-injected env var is used and adds correlation
+    ID propagation.
+    """
+    try:
+        from linkup import LinkupClient
+        if hasattr(LinkupClient, '_codewords_patched'):
+            return
+
+        _original_init = LinkupClient.__init__
+
+        def _enhanced_init(self, api_key=None, base_url="https://api.linkup.so/v1", **kwargs):
+            api_key = api_key or os.environ.get('LINKUP_API_KEY')
+            _original_init(self, api_key=api_key, base_url=base_url, **kwargs)
+
+        LinkupClient.__init__ = _enhanced_init
+        LinkupClient._codewords_patched = True
+        logger.debug("LinkupClient successfully patched for CodeWords auto-configuration")
+
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning("Failed to patch LinkupClient", error=str(e))
+
 def _patch_composio():
     """Monkey patch Composio to auto-inject CodeWords proxy settings.
 
@@ -419,6 +487,8 @@ _patch_openai()
 _patch_anthropic()
 _patch_perplexity()
 _patch_composio()
+_patch_replicate()
+_patch_linkup()
 
 # Export everything
 __all__ = [

@@ -8,17 +8,15 @@ import logging
 
 from snowflake.snowpark.files import SnowflakeFile
 from snowflake.snowpark_connect.utils.bz2_stream_utils import (
-    ByteRange,
-    ResyncingBZ2SplitRawStream,
-    ResyncingLineRecordRawStream,
-    SnowflakeFileByteRangeStream,
+    BZ2DecompressingStream,
+    SnowflakeFileSplitStream,
     calculate_byte_ranges,
 )
 
 
-class ByteRangeGeneratorUDTF:
+class FileSplitsGeneratorUDTF:
     """
-    Snowflake UDTF that generates byte ranges for parallel processing of large files.
+    Snowflake UDTF that generates fil splits for parallel processing of large files.
 
     This UDTF takes a file path (scoped URL) on a Snowflake stage, determines its size,
     and generates byte ranges that can be used for parallel processing.
@@ -28,27 +26,23 @@ class ByteRangeGeneratorUDTF:
             byte_range_generator(
                 BUILD_SCOPED_FILE_URL(@my_stage, 'path/to/file.bz2'),
                 2097152,  -- split_size_bytes (2MB)
-                2097152   -- additional_padding_bytes (2MB)
             )
         );
 
     Returns:
         A table with columns:
+        - split_size_bytes: The logical split size
         - part_number: The partition/split number (0-indexed)
         - start_byte: The starting byte offset for this range
-        - end_byte: The ending byte offset for this range (inclusive)
-        - split_size_bytes: The logical split size (before padding)
-        - file_size: Total size of the file in bytes
     """
 
     def __init__(self) -> None:
-        pass
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     def process(
         self,
         file_path: str,
         split_size_bytes: int,
-        additional_padding_bytes_at_end: int = 2 * 1024 * 1024,
     ):
         """
         Process a file and yield byte ranges.
@@ -56,11 +50,9 @@ class ByteRangeGeneratorUDTF:
         Args:
             file_path: Scoped URL or stage path to the file
             split_size_bytes: Size of each logical split in bytes
-            additional_padding_bytes_at_end: Extra bytes to read beyond split boundary
-                for handling compressed blocks that straddle boundaries
 
         Yields:
-            Tuples of (part_number, start_byte, end_byte, split_size_bytes, file_size)
+            Tuples of (split_size_bytes, part_number, start_byte)
         """
         # Open the file to get its size
         with SnowflakeFile.open(file_path, "rb") as f:
@@ -69,58 +61,61 @@ class ByteRangeGeneratorUDTF:
             file_size = f.tell()
 
         # Generate byte ranges
-        byte_ranges = calculate_byte_ranges(
+        file_splits = calculate_byte_ranges(
             file_size=file_size,
             split_size_bytes=split_size_bytes,
-            additional_padding_bytes_at_end=additional_padding_bytes_at_end,
         )
 
         # Yield each byte range as a row
-        for br in byte_ranges:
-            yield (br.part_number, br.start, br.end, br.split_size_bytes, file_size)
+        for split in file_splits:
+            self._logger.debug(
+                f"Generating file split {split.part_number} of size {split.split_size_bytes} starting at {split.start}"
+            )
+            yield split.split_size_bytes, split.part_number, split.start
 
     def end_partition(self):
         """Called at the end of each partition. No cleanup needed."""
         pass
 
 
-class BZ2FileProcessorUDTF:
+class JsonFileProcessorUDTF:
     """
-    Snowflake UDTF that processes a byte range from a BZ2-compressed file and yields each line as a record.
+    Snowflake UDTF that processes a byte range from a BZ2-compressed or uncompressed file and yields each line as a
+    variant row.
 
-    This UDTF is designed to be used with ByteRangeGeneratorUDTF. It takes the byte range
-    information and processes the compressed data, handling:
-    - BZ2 compression block boundaries (resyncs to valid block starts)
+    This UDTF is designed to be used with FileSplitsGeneratorUDTF. It takes the file split
+    information and processes the compressed or uncompressed data, handling:
+    - BZ2 compression block boundaries (resyncs to valid block starts), if any
     - Newline-delimited record boundaries (handles records spanning blocks)
     - Parallel processing (each split processes its owned records)
 
     Internally uses the chain:
-        SnowflakeFileByteRangeStream → ResyncingBZ2SplitRawStream → ResyncingLineRecordRawStream
+        SnowflakeFileSplitStream → BZ2DecompressingStream → LineReader
 
-    Usage in SQL (chained with ByteRangeGeneratorUDTF):
+    Usage in SQL (chained with FileSplitsGeneratorUDTF):
         -- First get byte ranges, then process each range in parallel
-        WITH byte_ranges AS (
+        WITH file_splits AS (
             SELECT * FROM TABLE(
-                byte_range_generator(
+                FILE_SPLITS_GENERATOR(
                     BUILD_SCOPED_FILE_URL(@my_stage, 'data.jsonl.bz2'),
                     2097152,  -- split_size_bytes (2MB)
-                    2097152   -- additional_padding_bytes (2MB)
                 )
             )
         )
         SELECT
-            br.part_number,
+            fs.part_number,
             records.line_number,
             records.line_content
-        FROM byte_ranges br,
+        FROM file_splits fs,
         TABLE(
-            snowflake_file_uploader(
+            JSON_PARALLEL_LOADER(
                 BUILD_SCOPED_FILE_URL(@my_stage, 'data.jsonl.bz2'),
-                br.part_number,
-                br.start_byte,
-                br.end_byte,
-                br.split_size_bytes
-            ) OVER (PARTITION BY br.part_number)
+                fs.split_size_bytes,
+                fs.part_number,
+                fs.start_byte,
+                mode,
+                compressed
+            ) OVER (PARTITION BY fs.part_number)
         ) records;
 
     Returns:
@@ -135,10 +130,9 @@ class BZ2FileProcessorUDTF:
     def process(
         self,
         file_url: str,
+        split_size_bytes: int,
         part_number: int,
         start_byte: int,
-        end_byte: int,
-        split_size_bytes: int,
         mode: str,
         compressed: bool,
     ):
@@ -147,67 +141,71 @@ class BZ2FileProcessorUDTF:
 
         Args:
             file_url: Scoped URL or stage path to the file
+            split_size_bytes: The logical split size (before padding)
             part_number: The partition/split number (0-indexed)
             start_byte: Starting byte offset for this range
-            end_byte: Ending byte offset for this range (inclusive)
-            split_size_bytes: The logical split size (before padding)
+            mode: PERMISSIVE or FAILFAST (for parsing)
+            compressed: Is the file BZ2 compressed?
 
         Yields:
             Tuples of (line_number, line_content)
         """
-        # Reconstruct ByteRange from arguments
-        byte_range = ByteRange(
-            start=start_byte,
-            end=end_byte,
-            part_number=part_number,
-            split_size_bytes=split_size_bytes,
-        )
 
         # Build the streaming chain:
-        # SnowflakeFileByteRangeStream → ResyncingBZ2SplitRawStream → ResyncingLineRecordRawStream
-
-        # Layer 1: Raw byte range stream from Snowflake file
-        raw_stream = SnowflakeFileByteRangeStream(file_url, byte_range)
-
-        # Layer 2: BZ2 decompression with block resync
-        compressed_stream = (
-            ResyncingBZ2SplitRawStream(raw_stream) if compressed else raw_stream
+        # 1: Raw byte range stream from Snowflake file
+        raw_stream = SnowflakeFileSplitStream(
+            file_url, split_size_bytes, part_number, start_byte
         )
 
-        # Layer 3: Line record extraction with boundary handling
-        record_stream = ResyncingLineRecordRawStream(compressed_stream)
+        # 2: BZ2 decompression with block resync
+        decompressed_stream = (
+            BZ2DecompressingStream(raw_stream) if compressed else raw_stream
+        )
 
-        # Wrap in BufferedReader for efficient line reading
-        buffered_stream = io.BufferedReader(record_stream)
+        # 3: Wrap in BufferedReader for efficient line reading
+        buffered_stream = io.BufferedReader(decompressed_stream)
 
         bytes_read = 0
         line_number = 0
+        # Except for the very first split, always skip the first line as it could be partial record
+        start_consuming_records = decompressed_stream.is_first_split()
         try:
             # Read and yield each line
             for line_bytes in buffered_stream:
                 bytes_read += len(line_bytes)
-                line_number += 1
-                line_content = line_bytes.decode("utf-8", errors="replace").rstrip(
-                    "\n\r"
-                )
-                try:
-                    # Decode bytes to string, strip trailing newline
-                    yield (line_number, json.loads(line_content))
-                except json.JSONDecodeError as e:
-                    if mode.lower() == "failfast":
-                        raise e
-                    else:
-                        # Ignore corrupt records
-                        self._logger.warning("Error parsing line: %s", line_content)
+                if start_consuming_records:
+                    line_number += 1
+                    line_content = line_bytes.decode("utf-8", errors="replace").rstrip(
+                        "\n\r"
+                    )
+                    try:
+                        # Decode bytes to string, strip trailing newline
+                        yield line_number, json.loads(line_content)
+                    except json.JSONDecodeError as e:
+                        record = line_content[:1024]
+                        self._logger.warning("Error parsing line: %s", record)
+                        if mode.lower() == "failfast":
+                            raise ValueError(f"Error parsing line: {record}") from e
+                else:
+                    # We have skipped past the first line in the split
+                    start_consuming_records = True
 
-                # Handle reading last record across split boundaries for uncompressed case
-                # In case of a compressed file this is automatically handled by ResyncingBZ2SplitRawStream
-                if (
-                    not compressed
-                    and (record_stream._skipped_bytes + bytes_read) >= split_size_bytes
-                ):
-                    # We are past the split boundary
-                    break
+                if not compressed and bytes_read > split_size_bytes:
+                    # Uncompressed file case:
+                    # We finished reading the record (line) that is straddling the split boundary
+                    self._logger.debug(
+                        f"Part {part_number} emitted {line_number} records"
+                    )
+                    return
+
+                if compressed and decompressed_stream.num_reads_past_split_boundary > 0:
+                    # Compressed file case:
+                    # We finished reading  the record straddling the BZ2 compress block boundary for the BZ2 block
+                    # that itself straddled the split boundary
+                    self._logger.debug(
+                        f"Part {part_number} emitted {line_number} records"
+                    )
+                    return
         finally:
             buffered_stream.close()
 

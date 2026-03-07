@@ -373,6 +373,7 @@ def select_single_time_period_features(df):
         if re.match(pattern_two_numbers, col)
         or re.match(pattern_no_numbers, col)
         or col.startswith("AEF_")
+        or col.startswith("MEAN_FLDAS_")
     ]
 
     # Create a new DataFrame with the filtered columns

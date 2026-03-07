@@ -157,6 +157,8 @@ from .usecases.running_detection import RunningDetectionConfig, RunningDetection
 from .usecases.people_counting_in_zone import PeopleCountingInZoneConfig, PeopleCountingInZoneUseCase
 from .usecases.animal_detection import AnimalDetectionConfig, AnimalDetectionUseCase
 from .usecases.burglary_detection import BurglaryDetectionConfig, BurglaryDetectionUseCase
+from .usecases.landslide_detection import LandslideDetectionConfig, LandslideDetectionUseCase
+
 #Put all IMAGE based usecases here
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
 from .usecases.skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
@@ -257,6 +259,7 @@ from .usecases import (
     PipeCorrosionDetectionUseCase,
     OvercrowdingDetectionUseCase,
     AnimalDetectionUseCase,
+    LandslideDetectionUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -361,6 +364,7 @@ _pipe_corrosion_detection = PipeCorrosionDetectionUseCase()
 _overcrowding_detection = OvercrowdingDetectionUseCase()
 _animal_detection = AnimalDetectionUseCase()
 _burglary_detection = BurglaryDetectionUseCase()
+_landslide_detection = LandslideDetectionUseCase()
 # Face recognition with embeddings
 _face_recognition = FaceRecognitionEmbeddingUseCase()
 
@@ -467,6 +471,8 @@ registry.register_use_case(_pipe_corrosion_detection.category, _pipe_corrosion_d
 registry.register_use_case(_overcrowding_detection.category, _overcrowding_detection.name, OvercrowdingDetectionUseCase)
 registry.register_use_case(_animal_detection.category, _animal_detection.name, AnimalDetectionUseCase)
 registry.register_use_case(_burglary_detection.category, _burglary_detection.name, BurglaryDetectionUseCase)
+registry.register_use_case(_landslide_detection.category, _landslide_detection.name, LandslideDetectionUseCase)
+
 #Put all IMAGE based usecases here
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
 registry.register_use_case(_skin_cancer_classification.category, _skin_cancer_classification.name, SkinCancerClassificationUseCase)
@@ -749,6 +755,7 @@ __all__ = [
     'OvercrowdingDetectionConfig',
     'AnimalDetectionConfig',
     'BurglaryDetectionConfig',
+    'LandslideDetectionConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
@@ -845,6 +852,7 @@ __all__ = [
     'OvercrowdingDetectionUseCase',
     'AnimalDetectionUseCase',
     'BurglaryDetectionUseCase',
+    'LandslideDetectionUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',

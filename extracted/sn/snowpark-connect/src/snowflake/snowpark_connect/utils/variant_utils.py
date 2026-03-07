@@ -9,70 +9,69 @@ from snowflake import snowpark
 from snowflake.snowpark import Session
 
 
-def _contains_array_type(typ: snowpark_type.DataType) -> bool:
-    """Check if a data type is or contains an ArrayType."""
-    if isinstance(typ, snowpark_type.ArrayType):
+def _needs_recursive_cast(typ: snowpark_type.DataType) -> bool:
+    """Check if a data type needs recursive handling for variant conversion.
+
+    This covers array null-preservation and temporal-to-epoch conversion.
+    """
+    if isinstance(
+        typ,
+        (
+            snowpark_type.ArrayType,
+            snowpark_type.DateType,
+            snowpark_type.TimestampType,
+        ),
+    ):
         return True
     if isinstance(typ, snowpark_type.StructType):
-        return any(_contains_array_type(field.datatype) for field in typ.fields)
+        return any(_needs_recursive_cast(field.datatype) for field in typ.fields)
     if isinstance(typ, snowpark_type.MapType):
-        return _contains_array_type(typ.key_type) or _contains_array_type(
+        return _needs_recursive_cast(typ.key_type) or _needs_recursive_cast(
             typ.value_type
         )
     return False
 
 
-# This is a temporary fix for issue in snowpark. Remove once SNOW-3071683 will be resolved
-def to_variant_preserving_nulls(
+def scala_udf_arg_to_variant(
     col: snowpark.Column, typ: snowpark.types.DataType
 ) -> snowpark.Column:
-    """Cast a column to VariantType, preserving null elements inside arrays.
+    """Cast a column to VariantType with two recursive concerns:
 
-    When casting an array to VARIANT, SQL NULL elements become SQL NULLs (absent values)
-    rather than JSON nulls.  This function transforms null elements within arrays to
-    PARSE_JSON('null') so they are preserved as JSON null values in the resulting VARIANT.
+    1. **Array null-preservation** – SQL NULL elements in arrays become absent
+       values rather than JSON nulls when cast directly; this wraps them via
+       PARSE_JSON('null').
+    2. **Temporal-to-epoch conversion** – DateType → epoch days, TimestampType →
+       epoch microseconds, so the Scala deserializer always receives numbers
+       (no string round-trip or timezone ambiguity).
 
-    Uses the same analyzer-based recursive pattern as ``_coerce_to_type`` in
-    ``map_unresolved_function.py``: the function calls itself with a placeholder
-    column, serialises the resulting expression tree to SQL via the analyzer,
-    then injects that SQL into a TRANSFORM (for arrays) or REDUCE (for maps)
-    lambda.  This naturally handles arbitrary nesting depth without manual
-    variable-name bookkeeping.
-
-    Handles:
-    - ArrayType (including nested arrays like ArrayType(ArrayType(StringType)))
-    - StructType containing arrays
-    - MapType whose values contain arrays (casts MAP→OBJECT first so
-      OBJECT_KEYS works)
-    For types that don't contain arrays, a simple cast to VariantType is used.
+    Both concerns require recursing into StructType, ArrayType and MapType.
     """
     if isinstance(typ, snowpark_type.ArrayType):
         # Recursively build the expression for the element type using a
         # placeholder column "x", then serialize to SQL for the TRANSFORM lambda.
         analyzer = Session.get_active_session()._analyzer
         fn_sql = analyzer.analyze(
-            to_variant_preserving_nulls(
+            scala_udf_arg_to_variant(
                 snowpark_fn.col("x"), typ.element_type
             )._expression,
             defaultdict(),
         )
 
+        # This is a temporary fix for issue in snowpark. Remove once SNOW-3071683 will be resolved
         transformed = snowpark_fn.call_function(
             "transform",
             col,
             snowpark_fn.sql_expr(f"x -> IFNULL({fn_sql}, PARSE_JSON('null'))"),
         )
         return snowpark_fn.cast(transformed, snowpark_type.VariantType())
-    elif isinstance(typ, snowpark_type.StructType) and _contains_array_type(typ):
-        # For structs containing arrays, handle each field recursively and
-        # rebuild via OBJECT_CONSTRUCT.
+    elif isinstance(typ, snowpark_type.StructType) and _needs_recursive_cast(typ):
         construct_args = []
         for field in typ.fields:
             field_col = col[field.name]
             construct_args.append(snowpark_fn.lit(field.name))
-            if _contains_array_type(field.datatype):
+            if _needs_recursive_cast(field.datatype):
                 construct_args.append(
-                    to_variant_preserving_nulls(field_col, field.datatype)
+                    scala_udf_arg_to_variant(field_col, field.datatype)
                 )
             else:
                 construct_args.append(
@@ -82,7 +81,7 @@ def to_variant_preserving_nulls(
             snowpark_fn.object_construct_keep_null(*construct_args),
             snowpark_type.VariantType(),
         )
-    elif isinstance(typ, snowpark_type.MapType) and _contains_array_type(typ):
+    elif isinstance(typ, snowpark_type.MapType) and _needs_recursive_cast(typ):
         # OBJECT_KEYS does not accept MAP type directly, so cast to OBJECT
         # first via TO_OBJECT.
         obj_col = snowpark_fn.call_function("to_object", col)
@@ -91,9 +90,7 @@ def to_variant_preserving_nulls(
         # column "v", then serialize to SQL.
         analyzer = Session.get_active_session()._analyzer
         fn_sql = analyzer.analyze(
-            to_variant_preserving_nulls(
-                snowpark_fn.col("v"), typ.value_type
-            )._expression,
+            scala_udf_arg_to_variant(snowpark_fn.col("v"), typ.value_type)._expression,
             defaultdict(),
         )
 
@@ -119,5 +116,28 @@ def to_variant_preserving_nulls(
         )
         # Extract the result object (state[0]) from the final state
         return snowpark_fn.get(reduce_result, snowpark_fn.lit(0))
+    elif isinstance(typ, snowpark_type.DateType):
+        typed_col = snowpark_fn.cast(col, typ)
+        return snowpark_fn.cast(
+            snowpark_fn.call_function(
+                "DATEDIFF",
+                snowpark_fn.sql_expr("day"),
+                snowpark_fn.sql_expr("'1970-01-01'::DATE"),
+                typed_col,
+            ),
+            snowpark_type.VariantType(),
+        )
+    elif isinstance(typ, snowpark_type.TimestampType):
+        # Cast ensures VARIANT subscript results (from struct fields) become
+        # the correct timestamp flavor (NTZ/LTZ); no-op when already typed.
+        typed_col = snowpark_fn.cast(col, typ)
+        return snowpark_fn.cast(
+            snowpark_fn.call_function(
+                "DATE_PART",
+                snowpark_fn.sql_expr("epoch_microsecond"),
+                typed_col,
+            ),
+            snowpark_type.VariantType(),
+        )
     else:
         return snowpark_fn.cast(col, snowpark_type.VariantType())

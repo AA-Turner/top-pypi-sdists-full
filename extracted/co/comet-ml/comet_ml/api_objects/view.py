@@ -47,6 +47,7 @@ class View:
     # Read-only fields from backend response
     v3: Optional[Any] = None
     source: Optional[str] = None
+    view_source: Optional[str] = None  # "dashboard_template" or "chart_template"
     current: Optional[bool] = None
     unsaved_view: Optional[bool] = None
     created_by: Optional[str] = None
@@ -155,6 +156,7 @@ class View:
             v2=payload.get("v2"),
             v3=payload.get("v3"),
             source=payload.get("source"),
+            view_source=_get("viewSource", "view_source"),
             current=payload.get("current"),
             unsaved_view=_get("unsavedView", "unsaved_view"),
             created_by=_get("createdBy", "created_by"),

@@ -22,17 +22,17 @@ try:
 except ImportError:  # pragma: NO COVER
     import mock
 
-from collections.abc import AsyncIterable, Iterable
 import json
 import math
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
 
+import grpc
+import pytest
 from google.api_core import api_core_version
 from google.protobuf import json_format
-import grpc
 from grpc.experimental import aio
 from proto.marshal.rules import wrappers
 from proto.marshal.rules.dates import DurationRule, TimestampRule
-import pytest
 from requests import PreparedRequest, Request, Response
 from requests.sessions import Session
 
@@ -43,17 +43,22 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import gapic_v1, grpc_helpers, grpc_helpers_async, path_template
-from google.api_core import client_options
+import google.auth
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
 from google.api_core import retry as retries
-import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 
 from google.cloud.vectorsearch_v1beta.services.data_object_search_service import (
     DataObjectSearchServiceAsyncClient,
@@ -1006,10 +1011,9 @@ def test_data_object_search_service_client_get_mtls_endpoint_and_cert_source(
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1054,10 +1058,9 @@ def test_data_object_search_service_client_get_mtls_endpoint_and_cert_source(
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1093,10 +1096,9 @@ def test_data_object_search_service_client_get_mtls_endpoint_and_cert_source(
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -1356,9 +1358,7 @@ def test_data_object_search_service_client_create_channel_credentials_file(
         google.auth, "load_credentials_from_file", autospec=True
     ) as load_creds, mock.patch.object(
         google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    ) as adc, mock.patch.object(grpc_helpers, "create_channel") as create_channel:
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -1473,9 +1473,9 @@ def test_search_data_objects_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.search_data_objects
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.search_data_objects] = (
+            mock_rpc
+        )
         request = {}
         client.search_data_objects(request)
 
@@ -1937,9 +1937,9 @@ def test_query_data_objects_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.query_data_objects
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.query_data_objects] = (
+            mock_rpc
+        )
         request = {}
         client.query_data_objects(request)
 
@@ -2393,9 +2393,9 @@ def test_aggregate_data_objects_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.aggregate_data_objects
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.aggregate_data_objects] = (
+            mock_rpc
+        )
         request = {}
         client.aggregate_data_objects(request)
 
@@ -2833,9 +2833,9 @@ def test_search_data_objects_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.search_data_objects
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.search_data_objects] = (
+            mock_rpc
+        )
 
         request = {}
         client.search_data_objects(request)
@@ -3028,9 +3028,9 @@ def test_query_data_objects_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.query_data_objects
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.query_data_objects] = (
+            mock_rpc
+        )
 
         request = {}
         client.query_data_objects(request)
@@ -3222,9 +3222,9 @@ def test_aggregate_data_objects_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.aggregate_data_objects
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.aggregate_data_objects] = (
+            mock_rpc
+        )
 
         request = {}
         client.aggregate_data_objects(request)
@@ -5311,8 +5311,39 @@ def test_parse_data_object_path():
     assert expected == actual
 
 
+def test_index_path():
+    project = "whelk"
+    location = "octopus"
+    collection = "oyster"
+    index = "nudibranch"
+    expected = "projects/{project}/locations/{location}/collections/{collection}/indexes/{index}".format(
+        project=project,
+        location=location,
+        collection=collection,
+        index=index,
+    )
+    actual = DataObjectSearchServiceClient.index_path(
+        project, location, collection, index
+    )
+    assert expected == actual
+
+
+def test_parse_index_path():
+    expected = {
+        "project": "cuttlefish",
+        "location": "mussel",
+        "collection": "winkle",
+        "index": "nautilus",
+    }
+    path = DataObjectSearchServiceClient.index_path(**expected)
+
+    # Check that the path construction is reversible.
+    actual = DataObjectSearchServiceClient.parse_index_path(path)
+    assert expected == actual
+
+
 def test_common_billing_account_path():
-    billing_account = "whelk"
+    billing_account = "scallop"
     expected = "billingAccounts/{billing_account}".format(
         billing_account=billing_account,
     )
@@ -5322,7 +5353,7 @@ def test_common_billing_account_path():
 
 def test_parse_common_billing_account_path():
     expected = {
-        "billing_account": "octopus",
+        "billing_account": "abalone",
     }
     path = DataObjectSearchServiceClient.common_billing_account_path(**expected)
 
@@ -5332,7 +5363,7 @@ def test_parse_common_billing_account_path():
 
 
 def test_common_folder_path():
-    folder = "oyster"
+    folder = "squid"
     expected = "folders/{folder}".format(
         folder=folder,
     )
@@ -5342,7 +5373,7 @@ def test_common_folder_path():
 
 def test_parse_common_folder_path():
     expected = {
-        "folder": "nudibranch",
+        "folder": "clam",
     }
     path = DataObjectSearchServiceClient.common_folder_path(**expected)
 
@@ -5352,7 +5383,7 @@ def test_parse_common_folder_path():
 
 
 def test_common_organization_path():
-    organization = "cuttlefish"
+    organization = "whelk"
     expected = "organizations/{organization}".format(
         organization=organization,
     )
@@ -5362,7 +5393,7 @@ def test_common_organization_path():
 
 def test_parse_common_organization_path():
     expected = {
-        "organization": "mussel",
+        "organization": "octopus",
     }
     path = DataObjectSearchServiceClient.common_organization_path(**expected)
 
@@ -5372,7 +5403,7 @@ def test_parse_common_organization_path():
 
 
 def test_common_project_path():
-    project = "winkle"
+    project = "oyster"
     expected = "projects/{project}".format(
         project=project,
     )
@@ -5382,7 +5413,7 @@ def test_common_project_path():
 
 def test_parse_common_project_path():
     expected = {
-        "project": "nautilus",
+        "project": "nudibranch",
     }
     path = DataObjectSearchServiceClient.common_project_path(**expected)
 
@@ -5392,8 +5423,8 @@ def test_parse_common_project_path():
 
 
 def test_common_location_path():
-    project = "scallop"
-    location = "abalone"
+    project = "cuttlefish"
+    location = "mussel"
     expected = "projects/{project}/locations/{location}".format(
         project=project,
         location=location,
@@ -5404,8 +5435,8 @@ def test_common_location_path():
 
 def test_parse_common_location_path():
     expected = {
-        "project": "squid",
-        "location": "clam",
+        "project": "winkle",
+        "location": "nautilus",
     }
     path = DataObjectSearchServiceClient.common_location_path(**expected)
 

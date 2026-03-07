@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.mysql-mcp-server
-Version: 1.0.16
+Version: 1.0.17
 Summary: An AWS Labs Model Context Protocol (MCP) server for mysql
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/mysql-mcp-server/

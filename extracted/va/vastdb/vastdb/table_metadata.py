@@ -97,7 +97,7 @@ class TableMetadata:
 
     def load_schema(self, tx: "Transaction") -> None:
         """Load/Reload table schema."""
-        fields = tx._rpc.api.list_all_columns(
+        self.arrow_schema = tx._rpc.api.list_all_columns(
             self.ref.bucket,
             self.ref.schema,
             self.ref.table,
@@ -105,13 +105,11 @@ class TableMetadata:
             txid=tx.active_txid,
             list_imports_table=self.is_imports_table
         )
-        self.arrow_schema = pa.schema(fields)
 
     def load_sorted_columns(self, tx: "Transaction") -> None:
         """Return sorted columns' metadata."""
-        fields = []
         try:
-            fields = tx._rpc.api.list_all_columns(
+            schema = tx._rpc.api.list_all_columns(
                 self.ref.bucket,
                 self.ref.schema,
                 self.ref.table,
@@ -119,8 +117,7 @@ class TableMetadata:
                 txid=tx.active_txid,
                 list_imports_table=self.is_imports_table
             )
-        except errors.BadRequest:
-            raise
+            self._sorted_columns = [f for f in schema]
         except errors.InternalServerError as ise:
             log.warning(
                 "Failed to get the sorted columns Elysium might not be supported: %s",
@@ -130,8 +127,6 @@ class TableMetadata:
         except errors.NotSupportedVersion:
             log.warning("Failed to get the sorted columns, Elysium not supported")
             raise
-        finally:
-            self._sorted_columns = fields
 
     def load_stats(self, tx: "Transaction") -> None:
         """Load/Reload table stats."""

@@ -1,7 +1,7 @@
 """
 HMDB_get_metabolite
 
-Get human metabolite information from HMDB by ID. Returns name, formula, SMILES, classification, ...
+Get human metabolite information from HMDB by ID. Returns basic chemical properties via PubChem c...
 """
 
 from typing import Any, Optional, Callable
@@ -17,7 +17,7 @@ def HMDB_get_metabolite(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get human metabolite information from HMDB by ID. Returns name, formula, SMILES, classification, ...
+    Get human metabolite information from HMDB by ID. Returns basic chemical properties via PubChem c...
 
     Parameters
     ----------

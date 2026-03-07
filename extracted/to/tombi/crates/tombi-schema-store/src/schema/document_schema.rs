@@ -1,6 +1,5 @@
 use std::{str::FromStr, sync::Arc};
 
-use ahash::AHashMap;
 use itertools::Itertools;
 use tombi_config::TomlVersion;
 use tombi_future::{BoxFuture, Boxable};
@@ -9,18 +8,25 @@ use tombi_x_keyword::{StringFormat, X_TOMBI_STRING_FORMATS, X_TOMBI_TOML_VERSION
 use super::{
     FindSchemaCandidates, SchemaDefinitions, SchemaUri, ValueSchema, referable_schema::Referable,
 };
-use crate::{Accessor, SchemaStore};
+use crate::{Accessor, JsonSchemaDialect, SchemaStore};
 
 #[derive(Debug, Clone)]
 pub struct DocumentSchema {
     pub schema_uri: SchemaUri,
+    pub(crate) dialect: Option<JsonSchemaDialect>,
     pub(crate) toml_version: Option<TomlVersion>,
+    pub(crate) string_formats: Option<Vec<StringFormat>>,
     pub value_schema: Option<Arc<ValueSchema>>,
     pub definitions: SchemaDefinitions,
 }
 
 impl DocumentSchema {
     pub fn new(object: tombi_json::ObjectNode, schema_uri: SchemaUri) -> Self {
+        let dialect = object.get("$schema").and_then(|value| match value {
+            tombi_json::ValueNode::String(s) => JsonSchemaDialect::try_from(s.value.as_str()).ok(),
+            _ => None,
+        });
+
         let toml_version = object.get(X_TOMBI_TOML_VERSION).and_then(|obj| match obj {
             tombi_json::ValueNode::String(version) => TomlVersion::from_str(&version.value).ok(),
             _ => None,
@@ -45,15 +51,16 @@ impl DocumentSchema {
                 _ => None,
             });
 
-        let value_schema = ValueSchema::new(&object, string_formats.as_deref()).map(Arc::new);
-        let mut definitions = AHashMap::default();
+        let value_schema =
+            ValueSchema::new_in_dialect(&object, string_formats.as_deref(), dialect).map(Arc::new);
+        let mut definitions = tombi_hashmap::HashMap::default();
         if let Some(tombi_json::ValueNode::Object(object)) = object.get("definitions") {
             for (key, value) in object.properties.iter() {
                 let Some(object) = value.as_object() else {
                     continue;
                 };
                 if let Some(value_schema) =
-                    Referable::<ValueSchema>::new(object, string_formats.as_deref())
+                    Referable::<ValueSchema>::new(object, string_formats.as_deref(), dialect)
                 {
                     definitions.insert(format!("#/definitions/{}", key.value), value_schema);
                 }
@@ -65,7 +72,7 @@ impl DocumentSchema {
                     continue;
                 };
                 if let Some(value_schema) =
-                    Referable::<ValueSchema>::new(object, string_formats.as_deref())
+                    Referable::<ValueSchema>::new(object, string_formats.as_deref(), dialect)
                 {
                     definitions.insert(format!("#/$defs/{}", key.value), value_schema);
                 }
@@ -74,10 +81,20 @@ impl DocumentSchema {
 
         Self {
             schema_uri,
+            dialect,
             toml_version,
+            string_formats,
             value_schema,
             definitions: SchemaDefinitions::new(definitions.into()),
         }
+    }
+
+    pub fn dialect(&self) -> Option<JsonSchemaDialect> {
+        self.dialect
+    }
+
+    pub fn string_formats(&self) -> Option<&[StringFormat]> {
+        self.string_formats.as_deref()
     }
 
     pub fn toml_version(&self) -> Option<TomlVersion> {

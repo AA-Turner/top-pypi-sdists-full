@@ -12,23 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-import mock
-import math
 import datetime
+import math
 
+import mock
+import pytest
+
+import google.cloud.firestore_v1.pipeline_expressions as expr
 from google.cloud.firestore_v1 import _helpers
+from google.cloud.firestore_v1._helpers import GeoPoint
+from google.cloud.firestore_v1.pipeline_expressions import (
+    BooleanExpression,
+    Constant,
+    Expression,
+    Field,
+    Ordering,
+)
 from google.cloud.firestore_v1.types import document as document_pb
 from google.cloud.firestore_v1.types import query as query_pb
 from google.cloud.firestore_v1.types.document import Value
 from google.cloud.firestore_v1.vector import Vector
-from google.cloud.firestore_v1._helpers import GeoPoint
-import google.cloud.firestore_v1.pipeline_expressions as expr
-from google.cloud.firestore_v1.pipeline_expressions import BooleanExpression
-from google.cloud.firestore_v1.pipeline_expressions import Expression
-from google.cloud.firestore_v1.pipeline_expressions import Constant
-from google.cloud.firestore_v1.pipeline_expressions import Field
-from google.cloud.firestore_v1.pipeline_expressions import Ordering
 
 
 @pytest.fixture
@@ -463,58 +466,72 @@ class TestBooleanExpression:
             BooleanExpression._from_query_filter_pb(wrapped_filter_pb, mock_client)
 
     @pytest.mark.parametrize(
-        "op_enum, value, expected_expr_func",
+        "op_enum, value, expected_expr_func, expects_existance",
         [
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.LESS_THAN,
                 10,
                 Expression.less_than,
+                True,
             ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.LESS_THAN_OR_EQUAL,
                 10,
                 Expression.less_than_or_equal,
+                True,
             ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.GREATER_THAN,
                 10,
                 Expression.greater_than,
+                True,
             ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.GREATER_THAN_OR_EQUAL,
                 10,
                 Expression.greater_than_or_equal,
+                True,
             ),
-            (query_pb.StructuredQuery.FieldFilter.Operator.EQUAL, 10, Expression.equal),
+            (
+                query_pb.StructuredQuery.FieldFilter.Operator.EQUAL,
+                10,
+                Expression.equal,
+                True,
+            ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.NOT_EQUAL,
                 10,
                 Expression.not_equal,
+                False,
             ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.ARRAY_CONTAINS,
                 10,
                 Expression.array_contains,
+                True,
             ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.ARRAY_CONTAINS_ANY,
                 [10, 20],
                 Expression.array_contains_any,
+                True,
             ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.IN,
                 [10, 20],
                 Expression.equal_any,
+                True,
             ),
             (
                 query_pb.StructuredQuery.FieldFilter.Operator.NOT_IN,
                 [10, 20],
                 Expression.not_equal_any,
+                False,
             ),
         ],
     )
     def test__from_query_filter_pb_field_filter(
-        self, mock_client, op_enum, value, expected_expr_func
+        self, mock_client, op_enum, value, expected_expr_func, expects_existance
     ):
         """
         test supported field filters
@@ -536,10 +553,11 @@ class TestBooleanExpression:
             [Constant(e) for e in value] if isinstance(value, list) else Constant(value)
         )
         expected_condition = expected_expr_func(field_expr, value)
-        # should include existance checks
-        expected = expr.And(field_expr.exists(), expected_condition)
+        if expects_existance:
+            # some expressions include extra existance checks
+            expected_condition = expr.And(field_expr.exists(), expected_condition)
 
-        assert repr(result) == repr(expected)
+        assert repr(result) == repr(expected_condition)
 
     def test__from_query_filter_pb_field_filter_unknown_op(self, mock_client):
         """

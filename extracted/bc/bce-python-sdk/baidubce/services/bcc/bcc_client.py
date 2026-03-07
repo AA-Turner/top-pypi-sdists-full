@@ -2469,7 +2469,7 @@ class BccClient(bce_base_client.BceBaseClient):
     @required(volume_id=(bytes, str),  # ***Unicode***
               new_cds_size=int)
     def resize_volume(self, volume_id, new_cds_size, new_volume_type,
-                      client_token=None, config=None):
+                      client_token=None, config=None, new_extra_io=None):
         """
         Resizing the specified volume with newly size.
         You can resize the specified volume only when the volume is Available,
@@ -2499,6 +2499,10 @@ class BccClient(bce_base_client.BceBaseClient):
             https://bce.baidu.com/doc/BCC/API.html#.E5.B9.82.E7.AD.89.E6.80.A7
         :type client_token: string
 
+        :param new_extra_io:
+            The number of adjusted additional IOPS, supporting configuration upgrade and downgrade.
+        :type new_extra_io: int
+
         :return:
         :rtype baidubce.bce_response.BceResponse
         """
@@ -2509,6 +2513,8 @@ class BccClient(bce_base_client.BceBaseClient):
         }
         if new_volume_type is not None:
             body['newVolumeType'] = new_volume_type
+        if new_extra_io is not None:
+            body['newExtraIO'] = new_extra_io
         params = None
         if client_token is None:
             params = {
@@ -3253,8 +3259,8 @@ class BccClient(bce_base_client.BceBaseClient):
         return self._send_request(http_methods.POST, path, json.dumps(body),
                                   params=params, config=config)
 
-    def list_security_groups(self, instance_id=None, vpc_id=None, security_group_ids=None, marker=None, max_keys=None,
-                             config=None):
+    def list_security_groups(self, instance_id=None, vpc_id=None, security_group_id=None, security_group_ids=None,
+                             marker=None, max_keys=None, config=None):
         """
         Listing SecurityGroup owned by the authenticated user.
 
@@ -3266,6 +3272,10 @@ class BccClient(bce_base_client.BceBaseClient):
         :param vpc_id:
             filter by vpcId, optional parameter
         :type vpc_id: string
+
+        :param security_group_id:
+            filter by securityGroupId, optional parameter
+        :type security_group_id: string
 
         :param security_group_ids:
             filter by securityGroupIds, optional parameter
@@ -3298,6 +3308,8 @@ class BccClient(bce_base_client.BceBaseClient):
             params['marker'] = marker
         if max_keys is not None:
             params['maxKeys'] = max_keys
+        if security_group_id is not None:
+            params['securityGroupId'] = security_group_id
 
         return self._send_request(http_methods.GET, path,
                                   params=params, config=config)
@@ -3321,7 +3333,7 @@ class BccClient(bce_base_client.BceBaseClient):
     @required(security_group_id=(bytes, str),  # ***Unicode***
               rule=bcc_model.SecurityGroupRuleModel)
     def authorize_security_group_rule(self, security_group_id, rule, client_token=None,
-                                      config=None):
+                                      sg_version=None, config=None):
         """
         authorize a security group rule to the specified security group
 
@@ -3343,6 +3355,10 @@ class BccClient(bce_base_client.BceBaseClient):
             https://bce.baidu.com/doc/BCC/API.html#.E5.B9.82.E7.AD.89.E6.80.A7
         :type client_token: string
 
+        :param sg_version:
+            Security group version number for optimistic locking.
+        :type sg_version: int
+
         :return:
         :rtype baidubce.bce_response.BceResponse
         """
@@ -3353,6 +3369,8 @@ class BccClient(bce_base_client.BceBaseClient):
             params['clientToken'] = generate_client_token()
         else:
             params['clientToken'] = client_token
+        if sg_version is not None:
+            params['sgVersion'] = sg_version
         body = {
             'rule': rule.__dict__
         }
@@ -3362,7 +3380,7 @@ class BccClient(bce_base_client.BceBaseClient):
 
     @required(security_group_id=(bytes, str),  # ***Unicode***
               rule=bcc_model.SecurityGroupRuleModel)
-    def revoke_security_group_rule(self, security_group_id, rule, client_token=None, config=None):
+    def revoke_security_group_rule(self, security_group_id, rule, client_token=None, sg_version=None, config=None):
         """
         revoke a security group rule from the specified security group
         :param security_group_id:
@@ -3380,6 +3398,9 @@ class BccClient(bce_base_client.BceBaseClient):
             See more detail at
             https://bce.baidu.com/doc/BCC/API.html#.E5.B9.82.E7.AD.89.E6.80.A7
         :type client_token: string
+        :param sg_version:
+            Security group version number for optimistic locking.
+        :type sg_version: int
         :return:
         :rtype baidubce.bce_response.BceResponse
         """
@@ -3390,6 +3411,8 @@ class BccClient(bce_base_client.BceBaseClient):
             params['clientToken'] = generate_client_token()
         else:
             params['clientToken'] = client_token
+        if sg_version is not None:
+            params['sgVersion'] = sg_version
         body = {
             'rule': rule.__dict__
         }
@@ -3399,16 +3422,17 @@ class BccClient(bce_base_client.BceBaseClient):
 
     def update_security_group_rule(self, security_group_rule_id,
                                    remark=None,
-                                   direction=None,
                                    protocol=None,
                                    portrange=None,
                                    source_ip=None,
                                    sourcegroup_id=None,
                                    dest_ip=None,
                                    destgroup_id=None,
-                                   config=None):
+                                   sg_version=None,
+                                   client_token=None,
+                                   config=None,):
         """
-            uodate a security group rule from the specified security group
+            update a security group rule from the specified security group
             :param security_group_rule_id:
                 security group rule id.
             :param: remark:
@@ -3431,35 +3455,60 @@ class BccClient(bce_base_client.BceBaseClient):
                 Only works for  direction = "egress".
             :param: destgroup_id:
                 The destination security group id. Cannot coexist with destIP.
-            :param: priority:
-                The parameter specify the priority of the rule(range 1-1000).
+            :param sg_version:
+                Security group version number for optimistic locking.
+            :type sg_version: int
+            :param client_token:
+                An ASCII string whose length is less than 64.
+                The request will be idempotent if client token is provided.
+            :type client_token: string
             :param config:
                 :type config: baidubce.BceClientConfiguration
             :return:
             :rtype baidubce.bce_response.BceResponse
         """
         path = b'/securityGroup/rule/update'
-        body = {
-            'securityGroupRuleId': security_group_rule_id,
-            'remark': remark,
-            'direction': direction,
-            'protocol': protocol,
-            'portRange': portrange,
-            'sourceIp': source_ip,
-            'sourceGroupId': sourcegroup_id,
-            'destIp': dest_ip,
-            'destGroupId': destgroup_id
-        }
+        params = {}
+        if sg_version is not None:
+            params['sgVersion'] = sg_version
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+
+        body = {'securityGroupRuleId': security_group_rule_id}
+        if remark is not None:
+            body['remark'] = remark
+        if protocol is not None:
+            body['protocol'] = protocol
+        if portrange is not None:
+            body['portRange'] = portrange
+        if source_ip is not None:
+            body['sourceIp'] = source_ip
+        if sourcegroup_id is not None:
+            body['sourceGroupId'] = sourcegroup_id
+        if dest_ip is not None:
+            body['destIp'] = dest_ip
+        if destgroup_id is not None:
+            body['destGroupId'] = destgroup_id
+
         return self._send_request(http_methods.PUT, path, json.dumps(body),
-                                  params=None, config=config)
+                                  params=params if params else None, config=config)
 
     @required(security_group_rule_id=(bytes, str))  # ***Unicode***
-    def delete_security_group_rule(self, security_group_rule_id, config=None):
+    def delete_security_group_rule(self, security_group_rule_id, sg_version=None, client_token=None, config=None):
         """
             delete a security group rule from the specified security group
             :param security_group_rule_id:
                 The id of SecurityGroupRule that will be deleted.
-            :type security_group_id: string
+            :type security_group_rule_id: string
+            :param sg_version:
+                Security group version number for optimistic locking.
+            :type sg_version: int
+            :param client_token:
+                An ASCII string whose length is less than 64.
+                The request will be idempotent if client token is provided.
+            :type client_token: string
             :param config:
             :type config: baidubce.BceClientConfiguration
             :return:
@@ -3467,7 +3516,14 @@ class BccClient(bce_base_client.BceBaseClient):
         """
         security_group_rule_id = compat.convert_to_bytes(security_group_rule_id)
         path = b'/securityGroup/rule/%s' % security_group_rule_id
-        return self._send_request(http_methods.DELETE, path, params=None, config=config)
+        params = {}
+        if sg_version is not None:
+            params['sgVersion'] = sg_version
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        return self._send_request(http_methods.DELETE, path, params=params if params else None, config=config)
 
     @required(security_group_id=(bytes, str))  # ***Unicode***
     def get_security_group_detail(self, security_group_id, config=None):
@@ -7136,6 +7192,95 @@ class BccClient(bce_base_client.BceBaseClient):
         return self._send_request(http_methods.POST, path, json.dumps(body),
                                   params=params, config=config)
 
+    def create_snapshot_share(self, snapshot_id, account_ids, client_token=None, config=None):
+        """
+        Create a share link for the specified snapshot.
+
+        :param snapshot_id:
+            Snapshot id.
+        :type snapshot_id: string
+
+        :param account_ids:
+            Account ids that can access the snapshot.
+        :type account_ids: list
+
+        :return:
+        :rtype baidubce.bce_response.BceResponse
+        """
+        path = b'/snapshot/share'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'snapshotId': snapshot_id,
+            'accountIds': account_ids
+        }
+        return self._send_request(http_methods.POST, path, json.dumps(body),
+                                params=params, config=config)
+
+    def cancel_snapshot_share(self, source_snapshot_id, account_ids, share_snapshot_id, client_token=None, config=None):
+        """
+        Cancel a share link for the specified snapshot.
+
+        :param source_snapshot_id:
+            Source snapshot id.
+        :type source_snapshot_id: string
+
+        :param account_ids:
+            Account ids that can access the snapshot.
+        :type account_ids: list
+
+        :param share_snapshot_id:
+            Share snapshot id.
+        :type share_snapshot_id: string
+
+        :return:
+        :rtype baidubce.bce_response.BceResponse
+        """
+        path = b'/snapshot/unShare'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'sourceSnapshotId': source_snapshot_id,
+            'accountIds': account_ids,
+            'shareSnapshotId': share_snapshot_id
+        }
+        return self._send_request(http_methods.POST, path, json.dumps(body),
+                                  params=params, config=config)
+
+    def list_snapshot_share(self, marker, max_keys, client_token=None, config=None):
+        """
+        List all snapshots shared with you.
+
+        :param marker:
+            The marker used for pagination.
+        :type marker: string
+
+        :param max_keys:
+            Maximum number of results returned per request.
+        :type max_keys: int
+
+        :return:
+        :rtype baidubce.bce_response.BceResponse
+        """
+        path = b'/snapshot/snapshotShare/list'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'marker': marker,
+            'maxKeys': max_keys
+        }
+        return self._send_request(http_methods.POST, path, json.dumps(body), params=params, config=config)
+
+
     def enter_rescue_mode(self, instance_id, force_stop, password, client_token=None, config=None):
         """
                 进入救援模式。
@@ -7873,6 +8018,96 @@ class BccClient(bce_base_client.BceBaseClient):
         return self._send_request(http_methods.POST, path, json.dumps(body),
                                   params=params, config=config)
 
+    def get_cds_price(self, purchase_length, payment_timing, storage_type, cds_size_in_gb, purchase_count, zone_name,
+                      encrypt_key=None, client_token=None, config=None):
+        """
+        get_deploy_set
+        """
+        path = b'/volume/getPrice'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'purchaseLength': purchase_length,
+            'paymentTiming': payment_timing,
+            'storageType': storage_type,
+            'cdsSizeInGB': cds_size_in_gb,
+            'purchaseCount': purchase_count,
+            'zoneName': zone_name
+        }
+        if encrypt_key is not None:
+            body['encryptKey'] = encrypt_key
+        return self._send_request(http_methods.POST, path, json.dumps(body),
+                                  params=params, config=config)
+
+    def get_diagnostic_schemas(self, config=None):
+        """
+        get_deploy_set
+        """
+        path = b'/instance/diagnosticReport/schemas'
+        return self._send_request(http_methods.GET, path, config=config)
+
+    def list_diagnostic_report(self, report_id, instance_id, status,
+                               severity, instance_type="bcc", max_keys=100, client_token=None, config=None):
+        """
+        list_diagnostic_report
+        """
+        path = b'/instance/diagnosticReport/list'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'maxKeys': max_keys,
+            'reportId': report_id,
+            'instanceType': instance_type,
+            'instanceId': instance_id,
+            'status': status,
+            'severity': severity
+        }
+        return self._send_request(http_methods.POST, path, json.dumps(body),
+                                  params=params, config=config)
+
+    def create_diagnostic(self, metric_set_id, instance_id, pid, instance_type="bcc", duration=180,
+                      client_token=None, config=None):
+        """
+        create_diagnostic
+        """
+        path = b'/instance/diagnosticReport/create'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'metricSetId': metric_set_id,
+            'instanceType': instance_type,
+            'instanceId': instance_id,
+            'pid': pid,
+            'duration': duration
+        }
+        return self._send_request(http_methods.POST, path, json.dumps(body),
+                                  params=params, config=config)
+
+    def delete_diagnostic_report(self, report_ids, client_token=None, config=None):
+        """
+        delete_diagnostic_report
+        """
+        path = b'/instance/diagnosticReport/delete'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'reportIds': report_ids
+        }
+        return self._send_request(http_methods.POST, path, json.dumps(body),
+                                  params=params, config=config)
+
 
 def generate_client_token_by_uuid():
     """
@@ -7893,31 +8128,5 @@ def generate_client_token_by_random():
     """
     client_token = ''.join(random.sample(string.ascii_letters + string.digits, 36))
     return client_token
-
-
-def get_cds_price(self, purchase_length, payment_timing, storage_type, cds_size_in_gb, purchase_count, zone_name,
-                  encrypt_key=None, client_token=None, config=None):
-    """
-    get_deploy_set
-    """
-    path = b'/volume/getPrice'
-    params = {}
-    if client_token is None:
-        params['clientToken'] = generate_client_token()
-    else:
-        params['clientToken'] = client_token
-    body = {
-        'purchaseLength': purchase_length,
-        'paymentTiming': payment_timing,
-        'storageType': storage_type,
-        'cdsSizeInGB': cds_size_in_gb,
-        'purchaseCount': purchase_count,
-        'zoneName': zone_name
-    }
-    if encrypt_key is not None:
-        body['encryptKey'] = encrypt_key
-    return self._send_request(http_methods.POST, path, json.dumps(body),
-                              params=params, config=config)
-
 
 generate_client_token = generate_client_token_by_uuid

@@ -6,8 +6,10 @@ use pyo3::types::PyDict;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use std::collections::HashSet;
 
+use crate::analysis::convex_hull::{
+    ConvexHullEntry, calculate_e_above_hull as calculate_e_above_hull_rs,
+};
 use crate::composition::Composition;
-use crate::convex_hull::{ConvexHullEntry, calculate_e_above_hull as calculate_e_above_hull_rs};
 
 fn parse_optional_f64(
     label: &str,

@@ -7,7 +7,7 @@
 //!
 //! ```rust,ignore
 //! use ferrox::distortions::{distort_bonds, rattle_structure, DistortionResult};
-//! use ferrox::Structure;
+//! use ferrox::structure::Structure;
 //!
 //! // Distort bonds around a defect site
 //! let results = distort_bonds(&structure, 0, &[-0.4, -0.2, 0.2, 0.4], None, 5.0)?;

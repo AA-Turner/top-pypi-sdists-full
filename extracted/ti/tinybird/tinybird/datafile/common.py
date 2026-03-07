@@ -559,6 +559,8 @@ class Datafile:
                 raise DatafileValidationError(
                     f"Some Kafka params have been provided, but the following required ones are missing: {missing}"
                 )
+            if "kafka_group_id" in node and not str(node["kafka_group_id"]).strip():
+                raise DatafileValidationError("KAFKA_GROUP_ID cannot be empty")
             # Validate S3 params
             if any(param in node for param in BLOB_STORAGE_PARAMS):
                 if missing := [param for param in REQUIRED_BLOB_STORAGE_PARAMS if param not in node]:

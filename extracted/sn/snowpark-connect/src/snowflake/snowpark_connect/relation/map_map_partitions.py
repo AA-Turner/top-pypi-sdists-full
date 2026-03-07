@@ -36,7 +36,7 @@ from snowflake.snowpark_connect.utils.udtf_helper import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
-from snowflake.snowpark_connect.utils.variant_utils import to_variant_preserving_nulls
+from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
 
 
 def map_map_partitions(
@@ -163,14 +163,14 @@ def _map_with_udtf(
                 input_df_container.column_map,
                 ExpressionTyper(input_df),
             )
-            udtf_arg_column = to_variant_preserving_nulls(typed_col.col, typed_col.typ)
+            udtf_arg_column = scala_udf_arg_to_variant(typed_col.col, typed_col.typ)
         else:
             udtf_arg_column = snowpark_fn.col(
                 input_df_container.column_map.get_snowpark_columns()[0]
             )
             spark_col_name = input_df_container.column_map.get_spark_columns()[0]
             arg_types = [input_schema.fields[0].datatype]
-            udtf_arg_column = to_variant_preserving_nulls(udtf_arg_column, arg_types[0])
+            udtf_arg_column = scala_udf_arg_to_variant(udtf_arg_column, arg_types[0])
 
         partition_hint = input_df_container.partition_hint
 

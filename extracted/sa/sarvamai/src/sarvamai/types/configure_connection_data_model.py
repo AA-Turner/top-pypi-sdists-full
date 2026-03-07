@@ -2,4 +2,4 @@
 
 import typing
 
-ConfigureConnectionDataModel = typing.Union[typing.Literal["bulbul:v2", "bulbul:v3-beta"], typing.Any]
+ConfigureConnectionDataModel = typing.Union[typing.Literal["bulbul:v2", "bulbul:v3"], typing.Any]

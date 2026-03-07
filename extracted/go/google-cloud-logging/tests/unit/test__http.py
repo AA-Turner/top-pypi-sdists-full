@@ -48,8 +48,7 @@ class TestConnection(unittest.TestCase):
         self.assertIs(conn._client, client)
 
     def test_build_api_url_w_custom_endpoint(self):
-        from urllib.parse import parse_qsl
-        from urllib.parse import urlsplit
+        from urllib.parse import parse_qsl, urlsplit
 
         custom_endpoint = "https://foo-logging.googleapis.com"
         conn = self._make_one(object(), api_endpoint=custom_endpoint)
@@ -64,6 +63,7 @@ class TestConnection(unittest.TestCase):
 
     def test_extra_headers(self):
         import requests
+
         from google.cloud import _http as base_http
 
         http = mock.create_autospec(requests.Session, instance=True)
@@ -128,9 +128,7 @@ class Test_LoggingAPI(unittest.TestCase):
         return NOW, _datetime_to_rfc3339_w_nanos(NOW)
 
     def test_list_entries_with_limits(self):
-        from google.cloud.logging import Client
-        from google.cloud.logging import TextEntry
-        from google.cloud.logging import Logger
+        from google.cloud.logging import Client, Logger, TextEntry
 
         NOW, TIMESTAMP = self._make_timestamp()
         IID = "IID"
@@ -204,11 +202,13 @@ class Test_LoggingAPI(unittest.TestCase):
         )
 
     def test_list_entries(self):
-        from google.cloud.logging import DESCENDING
-        from google.cloud.logging import Client
-        from google.cloud.logging import Logger
-        from google.cloud.logging import ProtobufEntry
-        from google.cloud.logging import StructEntry
+        from google.cloud.logging import (
+            DESCENDING,
+            Client,
+            Logger,
+            ProtobufEntry,
+            StructEntry,
+        )
 
         PROJECT1 = "PROJECT1"
         PROJECT1_PATH = f"projects/{PROJECT1}"
@@ -868,8 +868,7 @@ class _Connection(object):
         self._responses = responses
 
     def api_request(self, **kw):
-        from google.cloud.exceptions import Conflict
-        from google.cloud.exceptions import NotFound
+        from google.cloud.exceptions import Conflict, NotFound
 
         self._called_with = kw
         if self._raise_conflict:

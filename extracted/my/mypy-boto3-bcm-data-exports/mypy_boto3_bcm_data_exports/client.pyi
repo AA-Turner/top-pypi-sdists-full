@@ -3,7 +3,7 @@ Type annotations for bcm-data-exports service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_data_exports/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -60,6 +60,7 @@ else:
 __all__ = ("BillingandCostManagementDataExportsClient",)
 
 class Exceptions(BaseClientExceptions):
+    AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]

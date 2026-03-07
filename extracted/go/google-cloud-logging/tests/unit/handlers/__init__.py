@@ -20,7 +20,6 @@ import contextlib
 
 import opentelemetry.context
 import opentelemetry.trace
-
 from opentelemetry.trace import NonRecordingSpan
 from opentelemetry.trace.span import TraceFlags
 

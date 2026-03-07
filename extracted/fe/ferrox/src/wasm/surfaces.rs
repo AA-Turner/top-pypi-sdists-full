@@ -2,7 +2,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::surfaces;
+use crate::analysis::surfaces;
 use crate::wasm_types::{JsCrystal, JsMillerIndex, WasmResult};
 
 #[wasm_bindgen]

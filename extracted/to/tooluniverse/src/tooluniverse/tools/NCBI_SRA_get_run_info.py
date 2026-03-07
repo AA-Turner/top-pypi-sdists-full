@@ -9,8 +9,8 @@ from ._shared_client import get_shared_client
 
 
 def NCBI_SRA_get_run_info(
-    operation: str,
     accessions: list[str] | str,
+    operation: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

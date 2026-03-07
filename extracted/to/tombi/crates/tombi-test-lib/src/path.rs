@@ -47,3 +47,69 @@ pub fn recursive_schema_path() -> PathBuf {
         .join("schemas")
         .join("recursive-schema.schema.json")
 }
+
+pub fn if_then_else_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("if-then-else-test.schema.json")
+}
+
+pub fn contains_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("contains-test.schema.json")
+}
+
+pub fn dependencies_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("dependencies-test.schema.json")
+}
+
+pub fn tuple_items_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("tuple-items-test.schema.json")
+}
+
+pub fn prefix_items_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("prefix-items-test.schema.json")
+}
+
+pub fn table_const_enum_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("table-const-enum-test.schema.json")
+}
+
+pub fn array_const_enum_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("array-const-enum-test.schema.json")
+}
+
+pub fn string_format_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("string-format-test.schema.json")
+}
+
+pub fn dependent_required_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("dependent-required-test.schema.json")
+}
+
+pub fn dependent_schemas_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("dependent-schemas-test.schema.json")
+}
+
+pub fn min_max_contains_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("min-max-contains-test.schema.json")
+}

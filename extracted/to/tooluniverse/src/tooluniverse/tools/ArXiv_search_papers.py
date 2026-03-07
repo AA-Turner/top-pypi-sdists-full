@@ -13,11 +13,13 @@ def ArXiv_search_papers(
     limit: Optional[int] = 10,
     sort_by: Optional[str] = "relevance",
     sort_order: Optional[str] = "descending",
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> list[Any]:
+) -> Any:
     """
     Search arXiv for papers by keyword using the public arXiv API. Returns papers with title, abstrac...
 
@@ -31,6 +33,10 @@ def ArXiv_search_papers(
         Sort order for results. Options: 'relevance', 'lastUpdatedDate', 'submittedDate'
     sort_order : str
         Sort direction. Options: 'ascending', 'descending'
+    date_from : str
+        Filter results from this date (format: YYYY-MM-DD). Uses submittedDate range.
+    date_to : str
+        Filter results up to this date (format: YYYY-MM-DD). Uses submittedDate range.
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -40,7 +46,7 @@ def ArXiv_search_papers(
 
     Returns
     -------
-    list[Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 
@@ -52,6 +58,8 @@ def ArXiv_search_papers(
             "limit": limit,
             "sort_by": sort_by,
             "sort_order": sort_order,
+            "date_from": date_from,
+            "date_to": date_to,
         }.items()
         if v is not None
     }

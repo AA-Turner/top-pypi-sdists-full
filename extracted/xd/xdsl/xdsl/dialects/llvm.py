@@ -2151,6 +2151,101 @@ class FPExtOp(GenericCastOp):
 
 
 @irdl_op_definition
+class FAbsOp(IRDLOperation):
+    T: ClassVar = VarConstraint("T", AnyFloatConstr | VectorType.constr(AnyFloatConstr))
+
+    name = "llvm.intr.fabs"
+
+    input = operand_def(T)
+    result = result_def(T)
+
+    fastmathFlags = prop_def(FastMathAttr, default_value=FastMathAttr(None))
+
+    assembly_format = (
+        "`(` operands `)` attr-dict `:` functional-type(operands, results)"
+    )
+
+    irdl_options = (ParsePropInAttrDict(),)
+
+    def __init__(
+        self,
+        input: Operation | SSAValue,
+        result_type: Attribute,
+        fast_math: FastMathAttr | FastMathFlag | None = None,
+    ):
+        if isinstance(fast_math, FastMathFlag | str | None):
+            fast_math = FastMathAttr(fast_math)
+        super().__init__(
+            operands=[input],
+            result_types=[result_type],
+            properties={"fastmathFlags": fast_math},
+        )
+
+
+@irdl_op_definition
+class FNegOp(IRDLOperation):
+    T: ClassVar = VarConstraint("T", AnyFloatConstr | VectorType.constr(AnyFloatConstr))
+
+    name = "llvm.fneg"
+
+    arg = operand_def(T)
+    res = result_def(T)
+
+    fastmathFlags = prop_def(FastMathAttr, default_value=FastMathAttr(None))
+
+    traits = traits_def(Pure(), SameOperandsAndResultType())
+
+    assembly_format = "$arg attr-dict `:` type($arg)"
+
+    irdl_options = (ParsePropInAttrDict(),)
+
+    def __init__(
+        self,
+        arg: Operation | SSAValue,
+        fast_math: FastMathAttr | None = None,
+    ):
+        if fast_math is None:
+            fast_math = FastMathAttr(None)
+        super().__init__(
+            operands=[arg],
+            result_types=[SSAValue.get(arg).type],
+            properties={"fastmathFlags": fast_math},
+        )
+
+
+@irdl_op_definition
+class MaskedStoreOp(IRDLOperation):
+    name = "llvm.intr.masked.store"
+
+    value = operand_def(AnyFloatConstr | VectorType.constr(AnyFloatConstr))
+    data = operand_def(LLVMPointerType)
+    mask = operand_def(I1 | VectorType[I1])
+    alignment = prop_def(IntegerAttr[i32])
+
+    assembly_format = (
+        "$value `,` $data `,` $mask attr-dict `:`"
+        " type($value) `,` type($mask) `into` type($data)"
+    )
+
+    irdl_options = (ParsePropInAttrDict(),)
+
+    def __init__(
+        self,
+        value: Operation | SSAValue,
+        data: Operation | SSAValue,
+        mask: Operation | SSAValue,
+        alignment: int = 32,
+    ):
+        super().__init__(
+            operands=[value, data, mask],
+            result_types=[],
+            properties={
+                "alignment": IntegerAttr(alignment, 32),
+            },
+        )
+
+
+@irdl_op_definition
 class UnreachableOp(IRDLOperation):
     name = "llvm.unreachable"
 
@@ -2171,9 +2266,11 @@ LLVM = Dialect(
         CallOp,
         ConstantOp,
         ExtractValueOp,
+        FAbsOp,
         FAddOp,
         FDivOp,
         FMulOp,
+        FNegOp,
         FPExtOp,
         FRemOp,
         FSubOp,
@@ -2186,6 +2283,7 @@ LLVM = Dialect(
         IntToPtrOp,
         LShrOp,
         LoadOp,
+        MaskedStoreOp,
         MulOp,
         NullOp,
         OrOp,

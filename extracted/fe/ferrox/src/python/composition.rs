@@ -164,6 +164,7 @@ fn get_reduced_factor(formula: &str) -> PyResult<f64> {
 
 /// Register composition functions and classes on the given module.
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<super::classes::PyComposition>()?;
     module.add_function(wrap_pyfunction!(parse_composition, module)?)?;
     module.add_function(wrap_pyfunction!(get_atomic_fraction, module)?)?;
     module.add_function(wrap_pyfunction!(get_wt_fraction, module)?)?;

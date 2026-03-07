@@ -3,7 +3,7 @@
 use nalgebra::Vector3;
 use wasm_bindgen::prelude::*;
 
-use crate::md;
+use crate::simulation::md;
 use crate::wasm_types::WasmResult;
 
 use super::helpers::{

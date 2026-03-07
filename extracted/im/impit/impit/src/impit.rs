@@ -238,6 +238,18 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
         // Use fingerprint if provided, otherwise fall back to browser enum
         if let Some(ref fingerprint) = config.fingerprint {
             tls_config_builder.with_tls_fingerprint(fingerprint.tls.clone());
+
+            if let Some(window_size) = fingerprint.http2.initial_stream_window_size {
+                client = client.http2_initial_stream_window_size(window_size);
+            }
+
+            if let Some(window_size) = fingerprint.http2.initial_connection_window_size {
+                client = client.http2_initial_connection_window_size(window_size);
+            }
+
+            if let Some(max_size) = fingerprint.http2.max_header_list_size {
+                client = client.http2_max_header_list_size(max_size);
+            }
         }
 
         if config.max_http_version == Version::HTTP_3 {
@@ -494,7 +506,13 @@ impl<CookieStoreImpl: CookieStore + 'static> Impit<CookieStoreImpl> {
         let headers = request_options.headers;
         let request = self.build_request(method, url, body, headers);
 
-        let timeout = request_options.timeout;
+        let timeout = match request_options.timeout {
+            None => None,
+            // reqwest has no per-request "no timeout" API; overriding with Duration::MAX is the
+            // conventional way to disable a timeout without rebuilding the client.
+            Some(None) => Some(Duration::MAX),
+            Some(Some(d)) => Some(d),
+        };
         let http3_prior_knowledge = request_options.http3_prior_knowledge;
         self.send(request, timeout, Some(http3_prior_knowledge))
             .await

@@ -2,7 +2,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::elastic;
+use crate::analysis::elastic;
 use crate::wasm_types::{JsMatrix3x3, WasmResult};
 
 fn js_to_matrix3(m: &JsMatrix3x3) -> nalgebra::Matrix3<f64> {

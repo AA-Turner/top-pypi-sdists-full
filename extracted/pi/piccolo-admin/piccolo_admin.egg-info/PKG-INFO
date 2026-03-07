@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: piccolo_admin
-Version: 1.12.0
+Version: 1.13.0
 Summary: A powerful and modern admin interface / CMS, powered by Piccolo and ASGI.
 Home-page: https://github.com/piccolo-orm/piccolo_admin
 Author: Daniel Townsend
@@ -9,15 +9,15 @@ License: MIT
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content :: Content Management System
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: piccolo>=1.7.0

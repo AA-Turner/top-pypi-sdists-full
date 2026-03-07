@@ -658,6 +658,7 @@ class CreateFarmRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     description: NotRequired[str]
     kmsKeyArn: NotRequired[str]
+    costScaleFactor: NotRequired[float]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -1643,6 +1644,7 @@ class UpdateFarmRequestTypeDef(TypedDict):
     farmId: str
     displayName: NotRequired[str]
     description: NotRequired[str]
+    costScaleFactor: NotRequired[float]
 
 
 class UpdateJobRequestTypeDef(TypedDict):
@@ -1887,6 +1889,7 @@ class GetFarmResponseTypeDef(TypedDict):
     displayName: str
     description: str
     kmsKeyArn: str
+    costScaleFactor: float
     createdAt: datetime
     createdBy: str
     updatedAt: datetime

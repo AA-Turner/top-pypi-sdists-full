@@ -1,5 +1,5 @@
 """
-Synthetics: Get a suite returns "OK" response
+Get a suite returns "OK" response
 """
 
 from datadog_api_client import ApiClient, Configuration

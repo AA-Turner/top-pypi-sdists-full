@@ -74,6 +74,8 @@ def get_compression_for_source_and_options(
     compression = options.get("compression", default_compression).upper()
     if compression == "UNCOMPRESSED":
         compression = "NONE"
+    elif compression == "BZIP2" and source in ["json", "csv"]:
+        compression = "BZ2"
 
     if not is_supported_compression(source, compression):
         supported_compressions = supported_compressions_for_format(source)

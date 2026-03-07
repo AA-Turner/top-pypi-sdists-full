@@ -1,0 +1,84 @@
+# Copyright © VASP Software GmbH,
+# Licensed under the Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+import numpy as np
+
+from py4vasp._calculation import _dispersion, base
+from py4vasp._raw import data as raw_data
+from py4vasp._raw.data_db import ExcitonEigenvector_DB
+from py4vasp._util import check, convert
+
+
+class ExcitonEigenvector(base.Refinery):
+    """BSE can compute excitonic properties of materials.
+
+    The Bethe-Salpeter Equation (BSE) accounts for electron-hole interactions
+    involved in excitonic processes. For systems, where excitonic excitations
+    matter the BSE method is an important tool. One can visualize excitonic
+    contributions as so-called "fatbands" plots. Here, the width of the band is
+    adjusted such that the band is wider the larger the contribution is. This
+    approach helps understanding of the electronic transitions and excitonic
+    behavior in materials.
+    """
+
+    _raw_data: raw_data.ExcitonEigenvector
+
+    @base.data_access
+    def __str__(self):
+        shape = self._raw_data.bse_index.shape
+        return f"""BSE eigenvector data:
+    {shape[1]} k-points
+    {shape[3]} valence bands
+    {shape[2]} conduction bands"""
+
+    @base.data_access
+    def to_dict(self):
+        """Read the data into a dictionary.
+
+        Returns
+        -------
+        dict
+            The dictionary contains the relevant k-point distances and labels as well as
+            the electronic band eigenvalues. To produce fatband plots, use the array
+            *bse_index* to access the relevant quantities of the BSE eigenvectors. Note
+            that the dimensions of the bse_index array are **k** points, conduction
+            bands, valence bands and that the conduction and valence band indices may
+            be offset by first_valence_band and first_conduction_band, respectively.
+        """
+        eigenvectors = convert.to_complex(self._raw_data.eigenvectors[:])
+        dispersion = self._dispersion.read()
+        shifted_eigenvalues = (
+            dispersion.pop("eigenvalues") - self._raw_data.fermi_energy
+        )
+        return {
+            **dispersion,
+            "bands": shifted_eigenvalues,
+            "bse_index": self._raw_data.bse_index[:] - 1,
+            "eigenvectors": eigenvectors,
+            "fermi_energy": self._raw_data.fermi_energy,
+            "first_valence_band": self._raw_data.first_valence_band[:] - 1,
+            "first_conduction_band": self._raw_data.first_conduction_band[:] - 1,
+        }
+
+    @base.data_access
+    def _to_database(self, *args, **kwargs):
+        num_bands_valence = None
+        num_bands_conduction = None
+        num_kpoints = None
+
+        if not check.is_none(self._raw_data.bse_index):
+            bse_index = self._raw_data.bse_index[:]
+            num_bands_conduction = np.shape(bse_index)[2]
+            num_bands_valence = np.shape(bse_index)[3]
+            num_kpoints = np.shape(bse_index)[1]
+
+        return {
+            "exciton_eigenvector": ExcitonEigenvector_DB(
+                num_kpoints=num_kpoints,
+                num_valence_bands=num_bands_valence,
+                num_conduction_bands=num_bands_conduction,
+            )
+        }
+
+    @property
+    def _dispersion(self):
+        return _dispersion.Dispersion.from_data(self._raw_data.dispersion)

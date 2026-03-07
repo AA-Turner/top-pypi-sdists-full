@@ -60,6 +60,7 @@ class TelemetryType(Enum):
 
 class EventType(Enum):
     SERVER_STARTED = "scos_server_started"
+    SUBMIT_COMPLETION = "scos_submit_completion"
     WARNING = "scos_warning"
 
 
@@ -246,7 +247,6 @@ ALLOWED_IO_OPTION_VALUES: dict[str, frozenset[str] | str | None] = {
     "rowstoinferschema": "numeric",
     "batchsize": "numeric",
     "splitsizemb": "numeric",
-    "additionalpaddingmb": "numeric",
     "samplingratio": "numeric",
     "maxcolumns": "numeric",
     "maxcharspercolumn": "numeric",
@@ -479,6 +479,11 @@ class Telemetry:
         self._message_queue = queue.Queue(maxsize=10000)
         self._worker_thread = None
 
+        # Track if any request failed during the session (for job completion telemetry)
+        self._any_request_failed = False
+        self._last_error_message = None
+        self._last_error_type = None
+
     def __del__(self):
         self.shutdown()
 
@@ -493,10 +498,19 @@ class Telemetry:
         }
 
     def _basic_telemetry_data(self) -> dict:
-        return {
+        data = {
             **self._get_static_telemetry_data(),
             TelemetryField.KEY_EVENT_ID.value: str(uuid.uuid4()),
         }
+        # Include submit context fields in all server events when present,
+        # so any event can be filtered/correlated by workload.
+        workload_name = os.getenv("SNOWPARK_SUBMIT_WORKLOAD_NAME")
+        if workload_name:
+            data["workload_name"] = workload_name
+        correlation_id = os.getenv("SNOWPARK_SUBMIT_CORRELATION_ID")
+        if correlation_id:
+            data["correlation_id"] = correlation_id
+        return data
 
     def initialize(self, session: Session, source: str = None):
         """
@@ -601,6 +615,11 @@ class Telemetry:
         error_location = _error_location(e)
         if error_location:
             summary["error_location"] = error_location
+
+        # Track session-level failure for job completion telemetry
+        self._any_request_failed = True
+        self._last_error_message = str(e)[:500]  # Limit length
+        self._last_error_type = type(e).__name__
 
     @safe
     def report_config_set(self, pairs: Iterable) -> None:
@@ -809,6 +828,51 @@ class Telemetry:
         self._send(message)
 
     @safe
+    def send_job_completion_telemetry(
+        self,
+        exit_code: int = 0,
+        error: str | None = None,
+        error_type: str | None = None,
+    ):
+        """
+        Send telemetry when a server session ends (always emitted, not just for
+        snowpark-submit runs). An ``execution_context`` field indicates how the
+        server was invoked: "submit" for snowpark-submit jobs, "interactive" otherwise.
+
+        Args:
+            exit_code: The exit code of the job (0 for success, non-zero for failure)
+            error: Optional error message if the job failed
+            error_type: Optional error type/class name
+        """
+        # Determine execution context from env var set by the snowpark-submit CLI.
+        is_submit_job = os.getenv("SNOWPARK_SUBMIT_JOB") == "true"
+        execution_context = "submit" if is_submit_job else "interactive"
+
+        # If any request failed during the session, use that info for completion
+        if self._any_request_failed:
+            exit_code = 1
+            error = error or self._last_error_message
+            error_type = error_type or self._last_error_type
+
+        data = {
+            "execution_context": execution_context,
+            "exit_code": exit_code,
+            "end_time": get_time_millis(),
+        }
+
+        if error:
+            data["error"] = error[:500]  # Limit error message length
+        if error_type:
+            data["error_type"] = error_type
+
+        message = {
+            **self._basic_telemetry_data(),
+            TelemetryField.KEY_TYPE.value: EventType.SUBMIT_COMPLETION.value,
+            TelemetryField.KEY_DATA.value: data,
+        }
+        self._send(message)
+
+    @safe
     def send_request_summary_telemetry(self):
         if self._not_in_request():
             self.send_warning_msg(
@@ -909,7 +973,8 @@ class Telemetry:
 
     def shutdown(self) -> None:
         """Shutdown the telemetry worker thread and flush any remaining messages."""
-        if not self._worker_thread or self._worker_thread.is_alive():
+        if not self._worker_thread or not self._worker_thread.is_alive():
+            # No worker or already dead, nothing to do
             return
 
         try:

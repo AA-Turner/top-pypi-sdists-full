@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
-use crate::potentials;
+use crate::simulation::potentials;
 use crate::wasm::{parse_flat_cell, parse_flat_vec3};
 use crate::wasm_types::WasmResult;
 

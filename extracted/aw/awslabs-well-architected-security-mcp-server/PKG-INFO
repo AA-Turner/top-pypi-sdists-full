@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.well-architected-security-mcp-server
-Version: 0.1.6
+Version: 0.1.7
 Summary: AWS Well-Architected Security Assessment Tool MCP Server
 Requires-Python: >=3.10
 Requires-Dist: boto3>=1.28.0

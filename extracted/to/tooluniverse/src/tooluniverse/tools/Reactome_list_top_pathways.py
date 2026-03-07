@@ -21,7 +21,7 @@ def Reactome_list_top_pathways(
     Parameters
     ----------
     species : str
-        Species name or taxonomy ID (e.g., 'Homo sapiens' or '9606'). To find availab...
+        Species name or taxonomy ID (e.g., 'Homo sapiens' or '9606'). IMPORTANT: Comm...
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False

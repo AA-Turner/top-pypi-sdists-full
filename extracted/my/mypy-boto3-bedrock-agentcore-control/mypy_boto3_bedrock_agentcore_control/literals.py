@@ -35,6 +35,8 @@ __all__ = (
     "ClaimMatchOperatorTypeType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
+    "ContentLevelType",
+    "ContentTypeType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
     "EvaluatorLevelType",
@@ -120,6 +122,8 @@ CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
+ContentLevelType = Literal["FULL_CONTENT", "METADATA_ONLY"]
+ContentTypeType = Literal["MEMORY_RECORDS"]
 CredentialProviderTypeType = Literal["API_KEY", "GATEWAY_IAM_ROLE", "OAUTH"]
 CredentialProviderVendorTypeType = Literal[
     "AtlassianOauth2",
@@ -344,6 +348,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",

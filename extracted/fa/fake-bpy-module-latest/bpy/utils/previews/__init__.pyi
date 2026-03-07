@@ -9,7 +9,7 @@ This allows scripts to generate their own previews, and use them as icons in UI 
 
 --------------------
 
-```__/__/__/scripts/templates_py/ui_previews_custom_icon.py```
+```__/__/__/scripts/templates_py/UI/previews_custom_icon.py```
 
 """
 

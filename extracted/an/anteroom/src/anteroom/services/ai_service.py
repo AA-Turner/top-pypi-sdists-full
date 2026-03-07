@@ -34,6 +34,12 @@ class _StreamTimeoutError(Exception):
     """Raised when the stream stalls mid-response after first token was received."""
 
 
+def _is_html_error(exc: Exception) -> bool:
+    """Check if an API error contains an HTML response instead of JSON."""
+    msg = str(exc).lower()
+    return "<!doctype" in msg or "<html" in msg
+
+
 def create_ai_service(config: AIConfig) -> "AIService":
     """Factory: create an AI service based on provider config.
 
@@ -153,7 +159,7 @@ class AIService:
         while True:
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
-                logger.warning("Stream deadline exceeded before next chunk (%.0fs)", total_timeout)
+                logger.debug("Stream deadline exceeded before next chunk (%.0fs)", total_timeout)
                 try:
                     await stream_iter.aclose()
                 except Exception:
@@ -190,9 +196,9 @@ class AIService:
                     cancel_wait.cancel()
                 remaining_now = deadline - asyncio.get_running_loop().time()
                 if remaining_now <= 0:
-                    logger.warning("Stream total deadline exceeded after %.0fs", total_timeout)
+                    logger.debug("Stream total deadline exceeded after %.0fs", total_timeout)
                 else:
-                    logger.warning("Stream stalled — no chunk for %.0fs (%.0fs remaining)", wait_limit, remaining_now)
+                    logger.debug("Stream stalled — no chunk for %.0fs (%.0fs remaining)", wait_limit, remaining_now)
                 try:
                     await stream_iter.aclose()
                 except Exception:
@@ -563,6 +569,9 @@ class AIService:
                 # APIStatusError covers HTTP errors not caught above (5xx, 404, etc.).
                 # Must be AFTER AuthenticationError, BadRequestError, RateLimitError
                 # which are subclasses of APIStatusError.
+                is_html = _is_html_error(e)
+                if is_html:
+                    logger.debug("API returned HTML instead of JSON: %.500s", e)
                 if e.status_code >= 500:
                     # Server errors (500, 502, 503, etc.) are transient — retry
                     last_transient_error = e
@@ -594,24 +603,33 @@ class AIService:
                     logger.warning("API client error %d: %s", e.status_code, type(e).__name__)
                     if cancel_event and cancel_event.is_set():
                         return  # user cancelled — don't emit error
+                    if is_html:
+                        msg = (
+                            f"API returned an HTML page instead of JSON (HTTP {e.status_code}). "
+                            f"Check that your base URL ({self.config.base_url}) "
+                            f"points to an API endpoint, not a web page."
+                        )
+                    else:
+                        msg = f"API error (HTTP {e.status_code})"
                     yield {
                         "event": "error",
                         "data": {
-                            "message": f"API error (HTTP {e.status_code})",
+                            "message": msg,
                             "code": "api_error",
                             "retryable": False,
                         },
                     }
                     return
             except _StreamTimeoutError:
-                logger.warning("Stream timed out mid-response after first token")
+                stream_elapsed = time.monotonic() - _attempt_start
+                logger.debug("Stream timed out mid-response after first token (%.0fs)", stream_elapsed)
                 self._build_client()
                 if cancel_event and cancel_event.is_set():
                     return  # user cancelled — don't emit retryable error
                 yield {
                     "event": "error",
                     "data": {
-                        "message": "Stream timed out",
+                        "message": f"Stream timed out after {stream_elapsed:.0f}s — response may be incomplete",
                         "code": "timeout",
                         "retryable": True,
                     },
@@ -650,9 +668,24 @@ class AIService:
                         await asyncio.sleep(delay)
                     continue
                 # Last attempt exhausted — fall through to yield error
-            except Exception:
-                logger.exception("AI stream error")
-                yield {"event": "error", "data": {"message": "An internal error occurred", "retryable": False}}
+            except Exception as e:
+                if _is_html_error(e):
+                    logger.debug("API returned HTML instead of JSON: %.500s", e)
+                    yield {
+                        "event": "error",
+                        "data": {
+                            "message": (
+                                f"API returned an HTML page instead of JSON. "
+                                f"Check that your base URL ({self.config.base_url}) "
+                                f"points to an API endpoint, not a web page."
+                            ),
+                            "code": "html_response",
+                            "retryable": False,
+                        },
+                    }
+                else:
+                    logger.exception("AI stream error")
+                    yield {"event": "error", "data": {"message": "An internal error occurred", "retryable": False}}
                 return
 
         # All retries exhausted — yield appropriate error for the last transient error
@@ -684,10 +717,17 @@ class AIService:
                 },
             }
         elif isinstance(last_transient_error, APIStatusError):
+            if _is_html_error(last_transient_error):
+                msg = (
+                    f"API provider returned an error page (HTTP {last_transient_error.status_code}, "
+                    f"{max_attempts} attempts). This is usually transient."
+                )
+            else:
+                msg = f"API server error (HTTP {last_transient_error.status_code}, {max_attempts} attempts)"
             yield {
                 "event": "error",
                 "data": {
-                    "message": f"API server error (HTTP {last_transient_error.status_code}, {max_attempts} attempts)",
+                    "message": msg,
                     "code": "api_error",
                     "retryable": True,
                 },

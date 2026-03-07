@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohomematic
-Version: 2026.3.1
+Version: 2026.3.2
 Summary: Homematic interface for Home Assistant running on Python 3.
 Home-page: https://github.com/sukramj/aiohomematic
 Author-email: SukramJ <sukramj@icloud.com>, Daniel Perna <danielperna84@gmail.com>
@@ -23,7 +23,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -31,7 +30,7 @@ Classifier: Framework :: AsyncIO
 Classifier: Topic :: Home Automation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.13
+Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.12.0
@@ -181,7 +180,7 @@ See [Getting Started](https://sukramj.github.io/aiohomematic/getting_started/) f
 
 ## Requirements
 
-- **Python**: 3.13+
+- **Python**: 3.14+
 - **CCU Firmware**: CCU2 ≥2.61.x, CCU3 ≥3.61.x
 - There is not active testing to identify the minimum required firmware versions.
 
@@ -222,7 +221,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 If you find this project useful, consider [sponsoring](https://github.com/sponsors/SukramJ) the development.
 
 [license-shield]: https://img.shields.io/github/license/SukramJ/aiohomematic.svg?style=for-the-badge
-[pythonbadge]: https://img.shields.io/badge/Python-3.13+-blue?style=for-the-badge&logo=python&logoColor=white
+[pythonbadge]: https://img.shields.io/badge/Python-3.14+-blue?style=for-the-badge&logo=python&logoColor=white
 [release]: https://github.com/SukramJ/aiohomematic/releases
 [releasebadge]: https://img.shields.io/github/v/release/SukramJ/aiohomematic?style=for-the-badge
 [sponsorsbadge]: https://img.shields.io/github/sponsors/SukramJ?style=for-the-badge&label=Sponsors&color=ea4aaa

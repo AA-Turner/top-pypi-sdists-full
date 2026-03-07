@@ -1,7 +1,7 @@
 """
 HMDB_get_diseases
 
-Get disease and pathway associations for a metabolite from HMDB. Returns diseases linked to abnor...
+Attempts to get disease associations for a metabolite from HMDB. Note: HMDB does not provide an o...
 """
 
 from typing import Any, Optional, Callable
@@ -17,7 +17,7 @@ def HMDB_get_diseases(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get disease and pathway associations for a metabolite from HMDB. Returns diseases linked to abnor...
+    Attempts to get disease associations for a metabolite from HMDB. Note: HMDB does not provide an o...
 
     Parameters
     ----------

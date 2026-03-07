@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyAny;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyfunction, gen_stub_pymethods};
 
-use crate::md::{
+use crate::simulation::md::{
     self, LangevinIntegrator, LangevinStepError, MDState, NPTConfig, NPTIntegrator,
     NoseHooverChain, ThermostatStepError, VelocityRescale,
 };

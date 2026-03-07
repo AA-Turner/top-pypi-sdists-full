@@ -1,7 +1,7 @@
 """
 clinvar_get_variant_details
 
-Get detailed variant information from ClinVar by variant ID. Returns comprehensive variant data i...
+Get variant summary information from ClinVar by variant ID. Returns accession, title, genes, clin...
 """
 
 from typing import Any, Optional, Callable
@@ -16,7 +16,7 @@ def clinvar_get_variant_details(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Get detailed variant information from ClinVar by variant ID. Returns comprehensive variant data i...
+    Get variant summary information from ClinVar by variant ID. Returns accession, title, genes, clin...
 
     Parameters
     ----------

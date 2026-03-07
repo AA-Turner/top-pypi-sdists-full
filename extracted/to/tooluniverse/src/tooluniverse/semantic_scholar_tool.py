@@ -48,6 +48,8 @@ class SemanticScholarTool(BaseTool):
     def run(self, arguments):
         query = arguments.get("query")
         limit = arguments.get("limit", 5)
+        year = arguments.get("year")
+        sort = arguments.get("sort")
         include_abstract = bool(arguments.get("include_abstract", False))
         if not query:
             return [
@@ -61,7 +63,11 @@ class SemanticScholarTool(BaseTool):
                     "retryable": False,
                 }
             ]
-        return self._search(query, limit, include_abstract=include_abstract)
+        if limit <= 0:
+            return []
+        return self._search(
+            query, limit, year=year, sort=sort, include_abstract=include_abstract
+        )
 
     def _enforce_rate_limit(self, has_api_key: bool) -> None:
         # Keep anonymous usage below 1 req/sec to reduce 429s.
@@ -99,7 +105,9 @@ class SemanticScholarTool(BaseTool):
             return None
         return payload if isinstance(payload, dict) else None
 
-    def _search(self, query, limit, *, include_abstract: bool = False):
+    def _search(
+        self, query, limit, *, year=None, sort=None, include_abstract: bool = False
+    ):
         params = {
             "query": query,
             "limit": limit,
@@ -121,12 +129,21 @@ class SemanticScholarTool(BaseTool):
                 ]
             ),
         }
+        if year:
+            params["year"] = str(year)
+        if sort:
+            params["sort"] = sort
         headers = {"x-api-key": self.default_api_key} if self.default_api_key else {}
         self._enforce_rate_limit(bool(self.default_api_key))
+        # Use /paper/search/bulk when sorting, as /paper/search silently
+        # ignores the sort parameter and always returns relevance-ranked results.
+        url = self.base_url
+        if sort:
+            url = url.replace("/paper/search", "/paper/search/bulk")
         response = request_with_retry(
             self.session,
             "GET",
-            self.base_url,
+            url,
             params=params,
             headers=headers,
             timeout=20,
@@ -210,7 +227,9 @@ class SemanticScholarTool(BaseTool):
             )
             open_access_pdf_url = (
                 open_access_pdf.get("url")
-                if open_access_pdf and isinstance(open_access_pdf.get("url"), str)
+                if open_access_pdf
+                and isinstance(open_access_pdf.get("url"), str)
+                and open_access_pdf.get("url", "").strip()
                 else None
             )
 
@@ -310,6 +329,7 @@ class SemanticScholarPDFSnippetsTool(BaseTool):
 
         # Get PDF URL
         pdf_url = None
+        lookup_error = None
         if isinstance(open_access_pdf_url, str) and open_access_pdf_url.strip():
             pdf_url = open_access_pdf_url.strip()
         elif isinstance(paper_id, str) and paper_id.strip():
@@ -332,14 +352,18 @@ class SemanticScholarPDFSnippetsTool(BaseTool):
                         data.get("openAccessPdf"), dict
                     ):
                         pdf_url = data["openAccessPdf"].get("url")
-            except Exception:
-                pass
+            except Exception as e:
+                lookup_error = str(e)
 
         if not pdf_url:
+            msg = "Could not determine PDF URL. Provide `open_access_pdf_url` or a valid `paper_id` with available open access PDF."
+            if lookup_error:
+                msg += f" (API lookup failed: {lookup_error})"
             return {
                 "status": "error",
-                "error": "Could not determine PDF URL. Provide `open_access_pdf_url` or a valid `paper_id` with available open access PDF.",
-                "retryable": False,
+                "error": msg,
+                "retryable": "429" in (lookup_error or "")
+                or "timeout" in (lookup_error or "").lower(),
             }
 
         # Check if markitdown is available

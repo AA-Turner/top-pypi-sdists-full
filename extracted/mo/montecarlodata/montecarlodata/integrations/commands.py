@@ -63,6 +63,7 @@ from montecarlodata.integrations.onboarding.fields import (
     SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
     SAP_HANA_DATABASE_TYPE,
     SECRETS_MANAGER_CREDENTIAL_MECHANISM,
+    SELF_HOSTED_CONNECTION_TYPES,
     SELF_HOSTING_MECHANISMS,
     SQL_SERVER_DB_TYPE,
     STARBURST_ENTERPRISE_DATABASE_TYPE,
@@ -1108,7 +1109,7 @@ def add_self_hosted_credentials(ctx, mechanism, key, role, name, **kwargs):
     "--connection-type",
     help="Connection type to test credentials for (e.g. 'snowflake').",
     required=True,
-    type=click.Choice(list(GQL_TO_FRIENDLY_CONNECTION_MAP.keys()), case_sensitive=False),
+    type=click.Choice(SELF_HOSTED_CONNECTION_TYPES, case_sensitive=False),
 )
 @click.option(
     "--self-hosted-credentials-type",
@@ -1212,6 +1213,12 @@ def add_self_hosted_credentials(ctx, mechanism, key, role, name, **kwargs):
     "--bq-project-id",
     help="BigQuery project ID for running queries. "
     "Required for BigQuery connections with self-hosted credentials.",
+    required=False,
+)
+@click.option(
+    "--databricks-warehouse-id",
+    help="Databricks SQL warehouse ID. "
+    "Required for Databricks SQL warehouse connections with self-hosted credentials.",
     required=False,
 )
 @click.option("--name", help="Friendly name for the warehouse.", required=False)

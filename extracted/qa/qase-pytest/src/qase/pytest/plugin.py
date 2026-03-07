@@ -302,7 +302,6 @@ class QasePytestPlugin:
         self._set_testops_ids(item)
         self._set_params(item)
         self._set_suite(item)
-        self._set_relations(item)
         self._get_signature(item)
 
     def finish_pytest_item(self):
@@ -359,7 +358,7 @@ class QasePytestPlugin:
         title = None
         try:
             title = item.get_closest_marker("qase_title").kwargs.get("title")
-        except:
+        except (AttributeError, TypeError):
             pass
 
         if not title:
@@ -371,17 +370,13 @@ class QasePytestPlugin:
         self.runtime.result.signature = QaseUtils.get_signature(
             self.runtime.result.testops_ids, item.nodeid.split("/"), self.runtime.result.params)
 
-    def _set_relations(self, item) -> None:
-        # TODO: Add support for relations
-        pass
-
     def _set_fields(self, item) -> None:
         # Legacy fields support
         for name in ["description", "preconditions", "postconditions", "layer", "severity", "priority", "suite"]:
             try:
                 self.runtime.result.add_field(
                     Field(name, item.get_closest_marker("qase_" + name).kwargs.get(name)))
-            except:
+            except (AttributeError, TypeError):
                 pass
 
         try:
@@ -389,7 +384,7 @@ class QasePytestPlugin:
                 "qase_fields").kwargs.get("fields")
             for name, field in fields:
                 self.runtime.result.add_field(Field(name, field))
-        except:
+        except (AttributeError, TypeError):
             pass
 
     def _set_author(self, item) -> None:
@@ -398,7 +393,7 @@ class QasePytestPlugin:
                 "qase_author").kwargs.get("author"))
             if author != "None":
                 self.runtime.result.add_field(Field("author", author))
-        except:
+        except (AttributeError, TypeError):
             pass
 
     def _set_muted(self, item) -> None:
@@ -406,7 +401,7 @@ class QasePytestPlugin:
             muted = True if item.get_closest_marker("qase_muted") else False
             if muted:
                 self.runtime.result.add_field(Field("muted", "true"))
-        except:
+        except (AttributeError, TypeError):
             pass
 
     def _set_testops_ids(self, item) -> None:
@@ -423,7 +418,7 @@ class QasePytestPlugin:
             else:
                 # Single project mode: use old testops_ids
                 self.runtime.result.testops_ids = QasePytestPlugin._get_qase_ids(item)
-        except:
+        except (AttributeError, TypeError, ValueError):
             pass
 
     def _set_params(self, item) -> None:

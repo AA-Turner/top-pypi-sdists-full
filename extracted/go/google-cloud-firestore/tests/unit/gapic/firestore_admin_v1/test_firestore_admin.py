@@ -22,20 +22,19 @@ try:
 except ImportError:  # pragma: NO COVER
     import mock
 
-import grpc
-from grpc.experimental import aio
-from collections.abc import Iterable, AsyncIterable
-from google.protobuf import json_format
 import json
 import math
+from collections.abc import AsyncIterable, Iterable, Mapping, Sequence
+
+import grpc
 import pytest
 from google.api_core import api_core_version
-from proto.marshal.rules.dates import DurationRule, TimestampRule
-from proto.marshal.rules import wrappers
-from requests import Response
-from requests import Request, PreparedRequest
-from requests.sessions import Session
 from google.protobuf import json_format
+from grpc.experimental import aio
+from proto.marshal.rules import wrappers
+from proto.marshal.rules.dates import DurationRule, TimestampRule
+from requests import PreparedRequest, Request, Response
+from requests.sessions import Session
 
 try:
     from google.auth.aio import credentials as ga_credentials_async
@@ -44,50 +43,53 @@ try:
 except ImportError:  # pragma: NO COVER
     HAS_GOOGLE_AUTH_AIO = False
 
-from google.api_core import client_options
+import google.api_core.operation_async as operation_async  # type: ignore
+import google.auth
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.dayofweek_pb2 as dayofweek_pb2  # type: ignore
+from google.api_core import (
+    client_options,
+    future,
+    gapic_v1,
+    grpc_helpers,
+    grpc_helpers_async,
+    operation,
+    operations_v1,
+    path_template,
+)
 from google.api_core import exceptions as core_exceptions
-from google.api_core import future
-from google.api_core import gapic_v1
-from google.api_core import grpc_helpers
-from google.api_core import grpc_helpers_async
-from google.api_core import operation
-from google.api_core import operation_async  # type: ignore
-from google.api_core import operations_v1
-from google.api_core import path_template
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
-from google.cloud.firestore_admin_v1.services.firestore_admin import (
-    FirestoreAdminAsyncClient,
-)
-from google.cloud.firestore_admin_v1.services.firestore_admin import (
-    FirestoreAdminClient,
-)
-from google.cloud.firestore_admin_v1.services.firestore_admin import pagers
-from google.cloud.firestore_admin_v1.services.firestore_admin import transports
-from google.cloud.firestore_admin_v1.types import backup
-from google.cloud.firestore_admin_v1.types import database
-from google.cloud.firestore_admin_v1.types import database as gfa_database
-from google.cloud.firestore_admin_v1.types import field
-from google.cloud.firestore_admin_v1.types import field as gfa_field
-from google.cloud.firestore_admin_v1.types import firestore_admin
-from google.cloud.firestore_admin_v1.types import index
-from google.cloud.firestore_admin_v1.types import index as gfa_index
-from google.cloud.firestore_admin_v1.types import operation as gfa_operation
-from google.cloud.firestore_admin_v1.types import schedule
-from google.cloud.firestore_admin_v1.types import snapshot
-from google.cloud.firestore_admin_v1.types import user_creds
-from google.cloud.firestore_admin_v1.types import user_creds as gfa_user_creds
 from google.cloud.location import locations_pb2
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import dayofweek_pb2  # type: ignore
-import google.auth
 
+from google.cloud.firestore_admin_v1.services.firestore_admin import (
+    FirestoreAdminAsyncClient,
+    FirestoreAdminClient,
+    pagers,
+    transports,
+)
+from google.cloud.firestore_admin_v1.types import (
+    backup,
+    database,
+    field,
+    firestore_admin,
+    index,
+    realtime_updates,
+    schedule,
+    snapshot,
+    user_creds,
+)
+from google.cloud.firestore_admin_v1.types import database as gfa_database
+from google.cloud.firestore_admin_v1.types import field as gfa_field
+from google.cloud.firestore_admin_v1.types import index as gfa_index
+from google.cloud.firestore_admin_v1.types import operation as gfa_operation
+from google.cloud.firestore_admin_v1.types import user_creds as gfa_user_creds
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -974,10 +976,9 @@ def test_firestore_admin_client_get_mtls_endpoint_and_cert_source(client_class):
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1022,10 +1023,9 @@ def test_firestore_admin_client_get_mtls_endpoint_and_cert_source(client_class):
                             client_cert_source=mock_client_cert_source,
                             api_endpoint=mock_api_endpoint,
                         )
-                        (
-                            api_endpoint,
-                            cert_source,
-                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        api_endpoint, cert_source = (
+                            client_class.get_mtls_endpoint_and_cert_source(options)
+                        )
                         assert api_endpoint == mock_api_endpoint
                         assert cert_source is expected_cert_source
 
@@ -1061,10 +1061,9 @@ def test_firestore_admin_client_get_mtls_endpoint_and_cert_source(client_class):
                 "google.auth.transport.mtls.default_client_cert_source",
                 return_value=mock_client_cert_source,
             ):
-                (
-                    api_endpoint,
-                    cert_source,
-                ) = client_class.get_mtls_endpoint_and_cert_source()
+                api_endpoint, cert_source = (
+                    client_class.get_mtls_endpoint_and_cert_source()
+                )
                 assert api_endpoint == client_class.DEFAULT_MTLS_ENDPOINT
                 assert cert_source == mock_client_cert_source
 
@@ -1311,9 +1310,7 @@ def test_firestore_admin_client_create_channel_credentials_file(
         google.auth, "load_credentials_from_file", autospec=True
     ) as load_creds, mock.patch.object(
         google.auth, "default", autospec=True
-    ) as adc, mock.patch.object(
-        grpc_helpers, "create_channel"
-    ) as create_channel:
+    ) as adc, mock.patch.object(grpc_helpers, "create_channel") as create_channel:
         creds = ga_credentials.AnonymousCredentials()
         file_creds = ga_credentials.AnonymousCredentials()
         load_creds.return_value = (file_creds, None)
@@ -2224,6 +2221,7 @@ def test_get_index(request_type, transport: str = "grpc"):
             density=index.Index.Density.SPARSE_ALL,
             multikey=True,
             shard_count=1178,
+            unique=True,
         )
         response = client.get_index(request)
 
@@ -2242,6 +2240,7 @@ def test_get_index(request_type, transport: str = "grpc"):
     assert response.density == index.Index.Density.SPARSE_ALL
     assert response.multikey is True
     assert response.shard_count == 1178
+    assert response.unique is True
 
 
 def test_get_index_non_empty_request_with_auto_populated_field():
@@ -2372,6 +2371,7 @@ async def test_get_index_async(
                 density=index.Index.Density.SPARSE_ALL,
                 multikey=True,
                 shard_count=1178,
+                unique=True,
             )
         )
         response = await client.get_index(request)
@@ -2391,6 +2391,7 @@ async def test_get_index_async(
     assert response.density == index.Index.Density.SPARSE_ALL
     assert response.multikey is True
     assert response.shard_count == 1178
+    assert response.unique is True
 
 
 @pytest.mark.asyncio
@@ -4093,9 +4094,9 @@ def test_export_documents_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.export_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.export_documents] = (
+            mock_rpc
+        )
         request = {}
         client.export_documents(request)
 
@@ -4424,9 +4425,9 @@ def test_import_documents_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_documents] = (
+            mock_rpc
+        )
         request = {}
         client.import_documents(request)
 
@@ -4760,9 +4761,9 @@ def test_bulk_delete_documents_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.bulk_delete_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.bulk_delete_documents] = (
+            mock_rpc
+        )
         request = {}
         client.bulk_delete_documents(request)
 
@@ -5401,6 +5402,9 @@ def test_get_database(request_type, transport: str = "grpc"):
             free_tier=True,
             etag="etag_value",
             database_edition=database.Database.DatabaseEdition.STANDARD,
+            realtime_updates_mode=realtime_updates.RealtimeUpdatesMode.REALTIME_UPDATES_MODE_ENABLED,
+            firestore_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
+            mongodb_compatible_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
         )
         response = client.get_database(request)
 
@@ -5434,6 +5438,18 @@ def test_get_database(request_type, transport: str = "grpc"):
     assert response.free_tier is True
     assert response.etag == "etag_value"
     assert response.database_edition == database.Database.DatabaseEdition.STANDARD
+    assert (
+        response.realtime_updates_mode
+        == realtime_updates.RealtimeUpdatesMode.REALTIME_UPDATES_MODE_ENABLED
+    )
+    assert (
+        response.firestore_data_access_mode
+        == database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED
+    )
+    assert (
+        response.mongodb_compatible_data_access_mode
+        == database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED
+    )
 
 
 def test_get_database_non_empty_request_with_auto_populated_field():
@@ -5572,6 +5588,9 @@ async def test_get_database_async(
                 free_tier=True,
                 etag="etag_value",
                 database_edition=database.Database.DatabaseEdition.STANDARD,
+                realtime_updates_mode=realtime_updates.RealtimeUpdatesMode.REALTIME_UPDATES_MODE_ENABLED,
+                firestore_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
+                mongodb_compatible_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
             )
         )
         response = await client.get_database(request)
@@ -5606,6 +5625,18 @@ async def test_get_database_async(
     assert response.free_tier is True
     assert response.etag == "etag_value"
     assert response.database_edition == database.Database.DatabaseEdition.STANDARD
+    assert (
+        response.realtime_updates_mode
+        == realtime_updates.RealtimeUpdatesMode.REALTIME_UPDATES_MODE_ENABLED
+    )
+    assert (
+        response.firestore_data_access_mode
+        == database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED
+    )
+    assert (
+        response.mongodb_compatible_data_access_mode
+        == database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED
+    )
 
 
 @pytest.mark.asyncio
@@ -6832,9 +6863,9 @@ def test_create_user_creds_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_user_creds] = (
+            mock_rpc
+        )
         request = {}
         client.create_user_creds(request)
 
@@ -7847,9 +7878,9 @@ def test_enable_user_creds_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.enable_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.enable_user_creds] = (
+            mock_rpc
+        )
         request = {}
         client.enable_user_creds(request)
 
@@ -8196,9 +8227,9 @@ def test_disable_user_creds_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.disable_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.disable_user_creds] = (
+            mock_rpc
+        )
         request = {}
         client.disable_user_creds(request)
 
@@ -8546,9 +8577,9 @@ def test_reset_user_password_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.reset_user_password
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.reset_user_password] = (
+            mock_rpc
+        )
         request = {}
         client.reset_user_password(request)
 
@@ -8887,9 +8918,9 @@ def test_delete_user_creds_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_user_creds] = (
+            mock_rpc
+        )
         request = {}
         client.delete_user_creds(request)
 
@@ -10179,9 +10210,9 @@ def test_restore_database_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.restore_database
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.restore_database] = (
+            mock_rpc
+        )
         request = {}
         client.restore_database(request)
 
@@ -10436,9 +10467,9 @@ def test_create_backup_schedule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_backup_schedule] = (
+            mock_rpc
+        )
         request = {}
         client.create_backup_schedule(request)
 
@@ -10788,9 +10819,9 @@ def test_get_backup_schedule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_backup_schedule] = (
+            mock_rpc
+        )
         request = {}
         client.get_backup_schedule(request)
 
@@ -11128,9 +11159,9 @@ def test_list_backup_schedules_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_backup_schedules
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_backup_schedules] = (
+            mock_rpc
+        )
         request = {}
         client.list_backup_schedules(request)
 
@@ -11464,9 +11495,9 @@ def test_update_backup_schedule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_backup_schedule] = (
+            mock_rpc
+        )
         request = {}
         client.update_backup_schedule(request)
 
@@ -11814,9 +11845,9 @@ def test_delete_backup_schedule_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_backup_schedule] = (
+            mock_rpc
+        )
         request = {}
         client.delete_backup_schedule(request)
 
@@ -13687,9 +13718,9 @@ def test_export_documents_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.export_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.export_documents] = (
+            mock_rpc
+        )
 
         request = {}
         client.export_documents(request)
@@ -13867,9 +13898,9 @@ def test_import_documents_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.import_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.import_documents] = (
+            mock_rpc
+        )
 
         request = {}
         client.import_documents(request)
@@ -14050,9 +14081,9 @@ def test_bulk_delete_documents_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.bulk_delete_documents
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.bulk_delete_documents] = (
+            mock_rpc
+        )
 
         request = {}
         client.bulk_delete_documents(request)
@@ -15141,9 +15172,9 @@ def test_create_user_creds_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_user_creds] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_user_creds(request)
@@ -15705,9 +15736,9 @@ def test_enable_user_creds_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.enable_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.enable_user_creds] = (
+            mock_rpc
+        )
 
         request = {}
         client.enable_user_creds(request)
@@ -15890,9 +15921,9 @@ def test_disable_user_creds_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.disable_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.disable_user_creds] = (
+            mock_rpc
+        )
 
         request = {}
         client.disable_user_creds(request)
@@ -16075,9 +16106,9 @@ def test_reset_user_password_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.reset_user_password
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.reset_user_password] = (
+            mock_rpc
+        )
 
         request = {}
         client.reset_user_password(request)
@@ -16258,9 +16289,9 @@ def test_delete_user_creds_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_user_creds
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_user_creds] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_user_creds(request)
@@ -16960,9 +16991,9 @@ def test_restore_database_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.restore_database
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.restore_database] = (
+            mock_rpc
+        )
 
         request = {}
         client.restore_database(request)
@@ -17104,9 +17135,9 @@ def test_create_backup_schedule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.create_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.create_backup_schedule] = (
+            mock_rpc
+        )
 
         request = {}
         client.create_backup_schedule(request)
@@ -17297,9 +17328,9 @@ def test_get_backup_schedule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.get_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.get_backup_schedule] = (
+            mock_rpc
+        )
 
         request = {}
         client.get_backup_schedule(request)
@@ -17482,9 +17513,9 @@ def test_list_backup_schedules_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.list_backup_schedules
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.list_backup_schedules] = (
+            mock_rpc
+        )
 
         request = {}
         client.list_backup_schedules(request)
@@ -17665,9 +17696,9 @@ def test_update_backup_schedule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.update_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.update_backup_schedule] = (
+            mock_rpc
+        )
 
         request = {}
         client.update_backup_schedule(request)
@@ -17852,9 +17883,9 @@ def test_delete_backup_schedule_rest_use_cached_wrapped_rpc():
         mock_rpc.return_value.name = (
             "foo"  # operation_request.operation in compute client(s) expect a string.
         )
-        client._transport._wrapped_methods[
-            client._transport.delete_backup_schedule
-        ] = mock_rpc
+        client._transport._wrapped_methods[client._transport.delete_backup_schedule] = (
+            mock_rpc
+        )
 
         request = {}
         client.delete_backup_schedule(request)
@@ -19094,6 +19125,7 @@ async def test_get_index_empty_call_grpc_asyncio():
                 density=index.Index.Density.SPARSE_ALL,
                 multikey=True,
                 shard_count=1178,
+                unique=True,
             )
         )
         await client.get_index(request=None)
@@ -19337,6 +19369,9 @@ async def test_get_database_empty_call_grpc_asyncio():
                 free_tier=True,
                 etag="etag_value",
                 database_edition=database.Database.DatabaseEdition.STANDARD,
+                realtime_updates_mode=realtime_updates.RealtimeUpdatesMode.REALTIME_UPDATES_MODE_ENABLED,
+                firestore_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
+                mongodb_compatible_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
             )
         )
         await client.get_database(request=None)
@@ -20034,6 +20069,7 @@ def test_create_index_rest_call_success(request_type):
         "density": 1,
         "multikey": True,
         "shard_count": 1178,
+        "unique": True,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -20374,6 +20410,7 @@ def test_get_index_rest_call_success(request_type):
             density=index.Index.Density.SPARSE_ALL,
             multikey=True,
             shard_count=1178,
+            unique=True,
         )
 
         # Wrap the value into a proper Response obj
@@ -20397,6 +20434,7 @@ def test_get_index_rest_call_success(request_type):
     assert response.density == index.Index.Density.SPARSE_ALL
     assert response.multikey is True
     assert response.shard_count == 1178
+    assert response.unique is True
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -20766,6 +20804,7 @@ def test_update_field_rest_call_success(request_type):
                     "density": 1,
                     "multikey": True,
                     "shard_count": 1178,
+                    "unique": True,
                 }
             ],
             "uses_ancestor_config": True,
@@ -21496,6 +21535,9 @@ def test_create_database_rest_call_success(request_type):
         "free_tier": True,
         "etag": "etag_value",
         "database_edition": 1,
+        "realtime_updates_mode": 1,
+        "firestore_data_access_mode": 1,
+        "mongodb_compatible_data_access_mode": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency
@@ -21704,6 +21746,9 @@ def test_get_database_rest_call_success(request_type):
             free_tier=True,
             etag="etag_value",
             database_edition=database.Database.DatabaseEdition.STANDARD,
+            realtime_updates_mode=realtime_updates.RealtimeUpdatesMode.REALTIME_UPDATES_MODE_ENABLED,
+            firestore_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
+            mongodb_compatible_data_access_mode=database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED,
         )
 
         # Wrap the value into a proper Response obj
@@ -21742,6 +21787,18 @@ def test_get_database_rest_call_success(request_type):
     assert response.free_tier is True
     assert response.etag == "etag_value"
     assert response.database_edition == database.Database.DatabaseEdition.STANDARD
+    assert (
+        response.realtime_updates_mode
+        == realtime_updates.RealtimeUpdatesMode.REALTIME_UPDATES_MODE_ENABLED
+    )
+    assert (
+        response.firestore_data_access_mode
+        == database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED
+    )
+    assert (
+        response.mongodb_compatible_data_access_mode
+        == database.Database.DataAccessMode.DATA_ACCESS_MODE_ENABLED
+    )
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -22008,6 +22065,9 @@ def test_update_database_rest_call_success(request_type):
         "free_tier": True,
         "etag": "etag_value",
         "database_edition": 1,
+        "realtime_updates_mode": 1,
+        "firestore_data_access_mode": 1,
+        "mongodb_compatible_data_access_mode": 1,
     }
     # The version of a generated dependency at test runtime may differ from the version used during generation.
     # Delete any fields which are not present in the current runtime dependency

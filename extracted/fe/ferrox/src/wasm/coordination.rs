@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 use super::helpers::validate_cutoff;
-use crate::coordination;
+use crate::analysis::coordination;
 use crate::wasm_types::{JsCrystal, WasmResult};
 
 /// Get coordination numbers for all sites using cutoff distance.

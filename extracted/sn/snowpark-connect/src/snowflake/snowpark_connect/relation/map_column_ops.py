@@ -1030,6 +1030,22 @@ def map_with_columns(
             with_columns_names_deduped.append(col_name)
             with_columns_exprs_deduped.append(with_columns_exprs[i])
             with_columns_types_deduped.append(with_columns_types[i])
+    # Optimization: Allow flattening between consecutive withColumn calls.
+    # withColumn never drops columns — it keeps all existing ones and adds new ones.
+    # The phantom column problem (SNOW-2306644) only occurs when a subsequent
+    # non-withColumn operation (like .select()) drops the newly added column.
+    # So it's always safe to flatten a withColumn into a previous withColumn.
+    # We clear flatten_disabled on the input so Snowpark can merge the projections,
+    # then re-set it on the result to protect against the next non-withColumn op.
+    # IMPORTANT: Only clear when the input is also a withColumn — other operations
+    # (toDF, _get_temporary_view, etc.) set flatten_disabled for their own reasons.
+    if (
+        rel.with_columns.input.WhichOneof("rel_type") == "with_columns"
+        and hasattr(input_df, "_select_statement")
+        and input_df._select_statement is not None
+    ):
+        input_df._select_statement.flatten_disabled = False
+
     result = input_df.with_columns(
         with_columns_names_deduped, with_columns_exprs_deduped
     ).select(*new_snowpark_columns)
@@ -1090,12 +1106,19 @@ def map_unpivot(
         common_ancestors.discard(snowpark.types.DataType)
         return common_ancestors
 
-    def should_cast_type(df: snowpark.DataFrame, col_names: list[str]) -> bool:
+    def should_cast_type(
+        df: snowpark.DataFrame, col_names: list[str]
+    ) -> tuple[bool, snowpark_types.DataType]:
         # TODO: Follow the Spark type casting semantics and cast input columns to their common parent type.
         # Snowpark unpivot cannot handle columns with different types. For example, GS throws error
         # CONFLICTING_UNPIVOT_COLUMN_TYPES if unpivot_col_names contains an int column and a double column.
         # But Spark unpivot is able to handle such cases.
         # This function only handles the case where the column list contains more than one numerical types.
+        #
+        # Returns:
+        #   A tuple of (should_cast, value_column_type) where:
+        #   - should_cast: True if columns need to be cast to DOUBLE
+        #   - value_column_type: The resulting type of the value column
 
         type_column_list = [
             (
@@ -1128,11 +1151,19 @@ def map_unpivot(
             )
             attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
             raise exception
-        return not is_same_type and contains_numeric_type
+
+        should_cast = not is_same_type and contains_numeric_type
+        from snowflake.snowpark_connect.expression.map_unresolved_function import (
+            _find_common_type,
+        )
+
+        return should_cast, _find_common_type(type_list)
 
     def get_column_names(
         relation: relation_proto.Relation, df: snowpark.DataFrame
-    ) -> tuple[list[str], list[str], list[str], list[str]]:
+    ) -> tuple[
+        list[str], list[str], list[str], list[str], list[snowpark_types.DataType]
+    ]:
         """This function takes the input Snowpark dataframe and the input relation,
         and returns the Snowpark and Spark column names.
 
@@ -1141,15 +1172,18 @@ def map_unpivot(
             id_col_names: contains the Snowpark id column names
             unpivot_col_names: contains the Snowpark unpivot column names
             unpivot_spark_names: contains the Spark unpivot column names
+            id_col_types: contains the types of the id columns
         """
         spark_columns = []
         id_col_names = []
+        id_col_types = []
         typer = ExpressionTyper(input_df)
         for id_col in relation.unpivot.ids:
             spark_name, typed_column = map_single_column_expression(
                 id_col, input_container.column_map, typer
             )
             id_col_names.append(typed_column.col.get_name())
+            id_col_types.append(typed_column.typ)
             spark_columns.append(spark_name)
 
         # unpivot_col_names contains the Snowpark column names sent to GS.
@@ -1184,13 +1218,20 @@ def map_unpivot(
 
         spark_columns.append(relation.unpivot.variable_column_name)
         spark_columns.append(relation.unpivot.value_column_name)
-        return spark_columns, id_col_names, unpivot_col_names, unpivot_spark_names
+        return (
+            spark_columns,
+            id_col_names,
+            unpivot_col_names,
+            unpivot_spark_names,
+            id_col_types,
+        )
 
     (
         spark_columns,
         id_col_names,
         unpivot_col_names,
         unpivot_spark_names,
+        id_col_types,
     ) = get_column_names(rel, input_df)
     (
         snowpark_value_column_name,
@@ -1200,7 +1241,7 @@ def map_unpivot(
         rel.common.plan_id,
         len(spark_columns),
     )
-    cast_type = should_cast_type(input_df, unpivot_col_names)
+    should_cast, value_column_type = should_cast_type(input_df, unpivot_col_names)
 
     # column_project is the project that happens before unpivot. This projection is used to
     # 1. preserve the id column, by projecting the id column to a random name.
@@ -1215,10 +1256,10 @@ def map_unpivot(
     for c in input_container.column_map.get_snowpark_columns():
         c_name = snowpark_functions_col(c, input_container.column_map).get_name()
         if c_name in unpivot_col_names:
-            if cast_type:
+            if should_cast:
                 column_project.append(
                     snowpark_functions_col(c, input_container.column_map)
-                    .cast("DOUBLE")
+                    .cast(value_column_type)
                     .alias(c_name)
                 )
             else:
@@ -1296,10 +1337,21 @@ def map_unpivot(
         )
         .select(*column_reverse_project)
     )
+
+    # Build types list from known information to avoid expensive result.schema.fields call:
+    # - ID column types from input DataFrame
+    # - Variable column is always StringType (contains column names)
+    # - Value column type computed by should_cast_type
+    result_column_types = id_col_types + [
+        snowpark_types.StringType(),
+        value_column_type,
+    ]
+
     return DataFrameContainer.create_with_column_mapping(
         dataframe=result,
         spark_column_names=spark_columns,
         snowpark_column_names=snowpark_columns,
+        snowpark_column_types=result_column_types,
         column_qualifiers=qualifiers,
         parent_column_name_map=input_container.column_map,
         equivalent_snowpark_names=[set()] * len(snowpark_columns),
@@ -1525,9 +1577,7 @@ def _map_group_map_scala(
         JAVA_UDTF_PREFIX,
         create_java_udtf_for_scala_group_map_handling,
     )
-    from snowflake.snowpark_connect.utils.variant_utils import (
-        to_variant_preserving_nulls,
-    )
+    from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
 
     has_initial_state = initial_state_container is not None
     udtf_name = create_java_udtf_for_scala_group_map_handling(
@@ -1576,7 +1626,7 @@ def _map_group_map_scala(
                 )
                 for item in (
                     snowpark_fn.lit(field_name),
-                    to_variant_preserving_nulls(
+                    scala_udf_arg_to_variant(
                         snowpark_fn.col(col_map.snowpark_name),
                         col_type_lookup.get(col_map.snowpark_name, VariantType()),
                     ),
@@ -1589,7 +1639,7 @@ def _map_group_map_scala(
     elif value_type_kind in ("map", "array"):
         value_col = input_container.column_map.get_snowpark_columns()[0]
         value_col_type = col_type_lookup.get(value_col, VariantType())
-        value_expr = to_variant_preserving_nulls(
+        value_expr = scala_udf_arg_to_variant(
             snowpark_fn.col(value_col), value_col_type
         )
         select_cols.append(value_expr.alias(value_col_name))
@@ -1647,7 +1697,7 @@ def _map_group_map_scala(
                 for col_map in initial_state_container.column_map.columns
                 for item in (
                     snowpark_fn.lit(col_map.spark_name),
-                    to_variant_preserving_nulls(
+                    scala_udf_arg_to_variant(
                         snowpark_fn.col(col_map.snowpark_name),
                         initial_col_type_lookup.get(
                             col_map.snowpark_name, VariantType()

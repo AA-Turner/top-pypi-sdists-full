@@ -61,7 +61,7 @@ dependencies = [
   "fastapi",
   "pydantic>=2.1.0", # exclude 2.0.* since it does not support the `json_encoders` configuration setting
   "authlib",
-  "arize-phoenix-client>=1.30.0",
+  "arize-phoenix-client>=1.31.0",
   "email-validator",
   "python-dateutil",
   "prometheus_client",
@@ -77,8 +77,6 @@ phoenix = "phoenix.server.main:main"
 
 [dependency-groups]
 dev = [
-  "hatch",
-  "hatchling",
   "check-wheel-contents",
   "twine",
   "aiobotocore>=3.1.1",
@@ -267,22 +265,6 @@ addopts = [
 ]
 testpaths = [
   "tests",
-]
-
-[tool.hatch.envs.publish]
-dependencies = [
-  "check-wheel-contents",
-  "twine",
-]
-
-[tool.hatch.envs.publish.scripts]
-testpypi = [
-  "check-wheel-contents dist/",
-  "twine upload  --verbose --repository testpypi dist/*",
-]
-pypi = [
-  "check-wheel-contents dist/",
-  "twine upload --verbose dist/*",
 ]
 
 [tool.mypy]

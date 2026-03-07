@@ -5,8 +5,8 @@ from math import floor, log
 import numpy as np
 from numba import jit
 
-all = ["_embed", "_linear_regression", "_log_n", "_xlog2x"]
-epsilon = 10e-9
+__all__ = []
+epsilon = 1e-9
 
 
 def _embed(x, order=3, delay=1):
@@ -15,7 +15,8 @@ def _embed(x, order=3, delay=1):
     Parameters
     ----------
     x : array_like
-        1D-array of shape (n_times) or 2D-array of shape (signal_indice, n_times)
+        1D-array of shape (n_times) or 2D-array of shape (signal_indice,
+        n_times).
     order : int
         Embedding dimension (order).
     delay : int
@@ -106,18 +107,18 @@ def _log_n(min_n, max_n, factor):
 
     Parameters
     ----------
-    min_n (float):
-        minimum value (must be < max_n)
-    max_n (float):
-        maximum value (must be > min_n)
-    factor (float):
-       factor used to increase min_n (must be > 1)
+    min_n : float
+        Minimum value (must be < max_n).
+    max_n : float
+        Maximum value (must be > min_n).
+    factor : float
+        Factor used to increase min_n (must be > 1).
 
     Returns
     -------
-    list of integers:
-        min_n, min_n * factor, min_n * factor^2, ... min_n * factor^i < max_n
-        without duplicates
+    ns : np.ndarray of int64
+        Array of the form min_n, min_n * factor, min_n * factor^2, ...,
+        up to and including the largest value <= max_n, without duplicates.
     """
     max_i = int(floor(log(1.0 * max_n / min_n) / log(factor)))
     ns = [min_n]

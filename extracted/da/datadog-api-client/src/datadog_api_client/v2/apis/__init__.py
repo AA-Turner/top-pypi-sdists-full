@@ -18,6 +18,8 @@ from datadog_api_client.v2.api.csm_threats_api import CSMThreatsApi
 from datadog_api_client.v2.api.case_management_api import CaseManagementApi
 from datadog_api_client.v2.api.case_management_attribute_api import CaseManagementAttributeApi
 from datadog_api_client.v2.api.case_management_type_api import CaseManagementTypeApi
+from datadog_api_client.v2.api.change_management_api import ChangeManagementApi
+from datadog_api_client.v2.api.cloud_authentication_api import CloudAuthenticationApi
 from datadog_api_client.v2.api.cloud_cost_management_api import CloudCostManagementApi
 from datadog_api_client.v2.api.cloud_network_monitoring_api import CloudNetworkMonitoringApi
 from datadog_api_client.v2.api.cloudflare_integration_api import CloudflareIntegrationApi
@@ -38,13 +40,16 @@ from datadog_api_client.v2.api.events_api import EventsApi
 from datadog_api_client.v2.api.fastly_integration_api import FastlyIntegrationApi
 from datadog_api_client.v2.api.fleet_automation_api import FleetAutomationApi
 from datadog_api_client.v2.api.gcp_integration_api import GCPIntegrationApi
+from datadog_api_client.v2.api.google_chat_integration_api import GoogleChatIntegrationApi
 from datadog_api_client.v2.api.high_availability_multi_region_api import HighAvailabilityMultiRegionApi
 from datadog_api_client.v2.api.ip_allowlist_api import IPAllowlistApi
 from datadog_api_client.v2.api.incident_services_api import IncidentServicesApi
 from datadog_api_client.v2.api.incident_teams_api import IncidentTeamsApi
 from datadog_api_client.v2.api.incidents_api import IncidentsApi
+from datadog_api_client.v2.api.integrations_api import IntegrationsApi
 from datadog_api_client.v2.api.jira_integration_api import JiraIntegrationApi
 from datadog_api_client.v2.api.key_management_api import KeyManagementApi
+from datadog_api_client.v2.api.llm_observability_api import LLMObservabilityApi
 from datadog_api_client.v2.api.logs_api import LogsApi
 from datadog_api_client.v2.api.logs_archives_api import LogsArchivesApi
 from datadog_api_client.v2.api.logs_custom_destinations_api import LogsCustomDestinationsApi
@@ -76,6 +81,7 @@ from datadog_api_client.v2.api.rum_replay_playlists_api import RumReplayPlaylist
 from datadog_api_client.v2.api.rum_replay_sessions_api import RumReplaySessionsApi
 from datadog_api_client.v2.api.rum_replay_viewership_api import RumReplayViewershipApi
 from datadog_api_client.v2.api.rum_retention_filters_api import RumRetentionFiltersApi
+from datadog_api_client.v2.api.seats_api import SeatsApi
 from datadog_api_client.v2.api.security_monitoring_api import SecurityMonitoringApi
 from datadog_api_client.v2.api.sensitive_data_scanner_api import SensitiveDataScannerApi
 from datadog_api_client.v2.api.service_accounts_api import ServiceAccountsApi
@@ -118,6 +124,8 @@ __all__ = [
     "CaseManagementApi",
     "CaseManagementAttributeApi",
     "CaseManagementTypeApi",
+    "ChangeManagementApi",
+    "CloudAuthenticationApi",
     "CloudCostManagementApi",
     "CloudNetworkMonitoringApi",
     "CloudflareIntegrationApi",
@@ -138,13 +146,16 @@ __all__ = [
     "FastlyIntegrationApi",
     "FleetAutomationApi",
     "GCPIntegrationApi",
+    "GoogleChatIntegrationApi",
     "HighAvailabilityMultiRegionApi",
     "IPAllowlistApi",
     "IncidentServicesApi",
     "IncidentTeamsApi",
     "IncidentsApi",
+    "IntegrationsApi",
     "JiraIntegrationApi",
     "KeyManagementApi",
+    "LLMObservabilityApi",
     "LogsApi",
     "LogsArchivesApi",
     "LogsCustomDestinationsApi",
@@ -176,6 +187,7 @@ __all__ = [
     "RumReplaySessionsApi",
     "RumReplayViewershipApi",
     "RumRetentionFiltersApi",
+    "SeatsApi",
     "SecurityMonitoringApi",
     "SensitiveDataScannerApi",
     "ServiceAccountsApi",

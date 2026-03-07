@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.170
+Version: 0.4.174
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -47,17 +47,13 @@ Dynamic: license-file
 
 # geocif
 
-
 [![image](https://img.shields.io/pypi/v/geocif.svg)](https://pypi.python.org/pypi/geocif)
-[![image](https://img.shields.io/conda/vn/conda-forge/geocif.svg)](https://anaconda.org/conda-forge/geocif)
-
-
-**Generate Climatic Impact-Drivers (CIDs) from Earth Observation (EO) data**
-
-[Climatic Impact-Drivers for Crop Yield Assessment at NASA Harvest](https://www.loom.com/share/5c2dc62356c6406193cd9d9725c2a6a9)
 
 **Models to visualize and forecast crop conditions and yields**
 
+Generate Climatic Impact-Drivers (CIDs) from Earth Observation (EO) data, build ML yield forecasting models, and produce agmet condition monitoring plots.
+
+[Climatic Impact-Drivers for Crop Yield Assessment at NASA Harvest](https://www.loom.com/share/5c2dc62356c6406193cd9d9725c2a6a9)
 
 -   Free software: MIT license
 -   Documentation: https://ritviksahajpal.github.io/yield_forecasting/
@@ -129,7 +125,7 @@ from geoprepare import geomerge
 geomerge.run(cfg_geoprepare)
 ```
 
-### geocif (indices, ML, agmet, analysis)
+### geocif (indices, ML, agmet, analysis, experiments)
 
 ```python
 from geocif import indices_runner
@@ -147,6 +143,45 @@ analysis.run(cfg_geocif)
 from geocif import experiments
 experiments.run(cfg_geocif, n_trials=30)
 ```
+
+### ML models
+
+geocif supports the following model types (configured via `models` in `[DEFAULT]`):
+
+| Model | Key | Type |
+|-------|-----|------|
+| CatBoost | `catboost` | Gradient boosting |
+| XGBoost | `xgboost` | Gradient boosting |
+| TabPFN | `tabpfn` | Prior-fitted network |
+| TabICL | `tabicl` | In-context learning |
+| NGBoost | `ngboost` | Natural gradient boosting |
+| YDF | `ydf` | Yggdrasil decision forests |
+| Oblique RF | `oblique` | Oblique random forest |
+| Cubist | `cubist` | Rule-based regression |
+| MERF | `merf` | Mixed effects random forest |
+| Linear | `linear` | LassoCV / LogisticRegressionCV |
+| GAM | `gam` | Generalized additive model |
+| GeoSpaNN | `geospaNN` | Geospatial neural network |
+| Median | `median` | Median baseline |
+| Analog | `analog` | Analogous year baseline |
+
+### Feature selection methods
+
+Configured via `feature_selection` in `[ML]`:
+
+`none`, `SelectKBest`, `BorutaPy`, `Leshy`, `gOMP`, `RFECV`, `RFE`, `lasso`, `mrmr`, `SHAP`, `stabl`, `PowerShap`, `BorutaShap`, `Genetic`, `feature_engine`, `multi`
+
+### Spatial neighbor features
+
+Optional GraphSAGE-style preprocessing that computes yield-correlation-weighted averages of neighboring regions' features. Enabled via `[ML]`:
+
+```ini
+use_spatial_neighbors = True
+spatial_neighbor_method = knn   ; knn or full
+spatial_neighbor_k = 5          ; number of nearest neighbors
+```
+
+For each admin region, the neighbor graph is built from training data using haversine distances and Pearson yield correlations as edge weights. Neighbor-aggregated features are added as `nbr_*` columns and flow through standard feature selection.
 
 ### Experiments output
 
@@ -318,9 +353,19 @@ ML_model = False
 [ML]
 model_type = REGRESSION
 target = Yield (tn per ha)
-feature_selection = BorutaPy
+feature_selection = gOMP
+cluster_strategy = single
+check_yield_trend = False
+use_spatial_neighbors = True
+spatial_neighbor_method = knn
+spatial_neighbor_k = 5
+lag_yield_as_feature = True
 lag_years = 3
+median_yield_as_feature = False
+median_years = 5
+include_lat_lon_as_feature = False
 panel_model = True
+cat_features = ["Harvest Year", "Region_ID", "Region"]
 
 [LOGGING]
 log_level = INFO

@@ -19,7 +19,7 @@ def BioGRID_get_chemical_interactions(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Find proteins that interact with chemical compounds (drugs, metabolites, small molecules) from Bi...
 
@@ -46,7 +46,7 @@ def BioGRID_get_chemical_interactions(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

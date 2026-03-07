@@ -4,10 +4,10 @@
 //! in crystal structures, including vacancies, substitutions, interstitials,
 //! and antisite pairs.
 
+use crate::analysis::oxidation::{ChargeStateGuess, guess_defect_charge_states};
 use crate::cell_ops::perpendicular_distances;
 use crate::error::{FerroxError, Result, check_site_bounds, check_sites_different};
 use crate::impl_display_via_as_str;
-use crate::oxidation::{ChargeStateGuess, guess_defect_charge_states};
 use crate::pbc::wrap_frac_coords_pbc;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::pbc::{count_atoms_at_distance, min_distance_to_atoms};

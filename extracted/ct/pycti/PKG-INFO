@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycti
-Version: 7.260305.0
+Version: 7.260306.1
 Summary: Python API client for OpenCTI.
 Home-page: https://github.com/OpenCTI-Platform/opencti/client-python
 Author: Filigran

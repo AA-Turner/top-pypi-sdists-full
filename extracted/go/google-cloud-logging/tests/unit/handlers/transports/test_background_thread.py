@@ -13,15 +13,14 @@
 # limitations under the License.
 
 import contextlib
-import time
 import logging
 import queue
 import re
+import time
 import unittest
+from io import StringIO
 
 import mock
-
-from io import StringIO
 
 
 class TestBackgroundThreadHandler(unittest.TestCase):
@@ -35,7 +34,7 @@ class TestBackgroundThreadHandler(unittest.TestCase):
 
     def _make_one(self, *args, **kw):
         worker_patch = mock.patch(
-            "google.cloud.logging_v2.handlers.transports." "background_thread._Worker",
+            "google.cloud.logging_v2.handlers.transports.background_thread._Worker",
             autospec=True,
         )
         with worker_patch as worker_mock:
@@ -390,6 +389,7 @@ class Test_Worker(unittest.TestCase):
 
     def test_enqueue_defaults(self):
         import datetime
+
         from google.cloud.logging_v2._helpers import LogSeverity
 
         worker = self._make_one(_Logger(self.NAME))
@@ -410,6 +410,7 @@ class Test_Worker(unittest.TestCase):
 
     def test_enqueue_explicit(self):
         import datetime
+
         from google.cloud.logging_v2._helpers import LogSeverity
 
         worker = self._make_one(_Logger(self.NAME))

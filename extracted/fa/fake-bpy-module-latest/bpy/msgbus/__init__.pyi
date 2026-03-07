@@ -69,7 +69,7 @@ def clear_by_owner(owner: typing.Any | None) -> None:
     """
 
 def publish_rna(
-    key: bpy.types.Property | bpy.types.Struct | tuple[bpy.types.Struct, str] | None,
+    *, key: bpy.types.Property | bpy.types.Struct | tuple[bpy.types.Struct, str] | None
 ) -> None:
     """Notify subscribers of changes to this property
     (this typically doesnt need to be called explicitly since changes will automatically publish updates).
@@ -84,11 +84,11 @@ def publish_rna(
     """
 
 def subscribe_rna(
+    *,
     key: bpy.types.Property | bpy.types.Struct | tuple[bpy.types.Struct, str] | None,
     owner: typing.Any | None,
     args: tuple | None,
     notify: collections.abc.Callable[..., None] | None,
-    *,
     options: set[typing.Literal["PERSISTENT"]] | None = set(),
 ) -> None:
     """Register a message bus subscription. It will be cleared when another blend file is

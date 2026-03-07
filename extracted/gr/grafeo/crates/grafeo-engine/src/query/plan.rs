@@ -4,19 +4,92 @@
 //! and physical execution. Both GQL and Cypher queries are translated to this
 //! common representation.
 
+use std::fmt;
+
 use grafeo_common::types::Value;
+
+/// A count expression for SKIP/LIMIT: either a resolved literal or an unresolved parameter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CountExpr {
+    /// A resolved integer count.
+    Literal(usize),
+    /// An unresolved parameter reference (e.g., `$limit`).
+    Parameter(String),
+}
+
+impl CountExpr {
+    /// Returns the resolved count, or panics if still a parameter reference.
+    ///
+    /// Call this only after parameter substitution has run.
+    pub fn value(&self) -> usize {
+        match self {
+            Self::Literal(n) => *n,
+            Self::Parameter(name) => panic!("Unresolved parameter: ${name}"),
+        }
+    }
+
+    /// Returns the resolved count, or an error if still a parameter reference.
+    pub fn try_value(&self) -> Result<usize, String> {
+        match self {
+            Self::Literal(n) => Ok(*n),
+            Self::Parameter(name) => Err(format!("Unresolved SKIP/LIMIT parameter: ${name}")),
+        }
+    }
+
+    /// Returns the count as f64 for cardinality estimation (defaults to 10 for unresolved params).
+    pub fn estimate(&self) -> f64 {
+        match self {
+            Self::Literal(n) => *n as f64,
+            Self::Parameter(_) => 10.0, // reasonable default for unresolved params
+        }
+    }
+}
+
+impl fmt::Display for CountExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Literal(n) => write!(f, "{n}"),
+            Self::Parameter(name) => write!(f, "${name}"),
+        }
+    }
+}
+
+impl From<usize> for CountExpr {
+    fn from(n: usize) -> Self {
+        Self::Literal(n)
+    }
+}
+
+impl PartialEq<usize> for CountExpr {
+    fn eq(&self, other: &usize) -> bool {
+        matches!(self, Self::Literal(n) if n == other)
+    }
+}
 
 /// A logical query plan.
 #[derive(Debug, Clone)]
 pub struct LogicalPlan {
     /// The root operator of the plan.
     pub root: LogicalOperator,
+    /// When true, return the plan tree as text instead of executing.
+    pub explain: bool,
 }
 
 impl LogicalPlan {
     /// Creates a new logical plan with the given root operator.
     pub fn new(root: LogicalOperator) -> Self {
-        Self { root }
+        Self {
+            root,
+            explain: false,
+        }
+    }
+
+    /// Creates an EXPLAIN plan that returns the plan tree without executing.
+    pub fn explain(root: LogicalOperator) -> Self {
+        Self {
+            root,
+            explain: true,
+        }
     }
 }
 
@@ -147,6 +220,9 @@ pub enum LogicalOperator {
     /// Add (merge) triples from one graph to another.
     AddGraph(AddGraphOp),
 
+    /// Per-row aggregation over a list-valued column (horizontal aggregation, GE09).
+    HorizontalAggregate(HorizontalAggregateOp),
+
     // ==================== Vector Search Operators ====================
     /// Scan using vector similarity search.
     VectorScan(VectorScanOp),
@@ -174,9 +250,18 @@ pub enum LogicalOperator {
     /// Apply (lateral join): evaluate a subplan per input row.
     Apply(ApplyOp),
 
+    /// Parameter scan: leaf of a correlated inner plan that receives values
+    /// from the outer Apply operator. The column names match `ApplyOp.shared_variables`.
+    ParameterScan(ParameterScanOp),
+
     // ==================== DDL Operators ====================
     /// Define a property graph schema (SQL/PGQ DDL).
     CreatePropertyGraph(CreatePropertyGraphOp),
+
+    // ==================== Multi-Way Join ====================
+    /// Multi-way join using worst-case optimal join (leapfrog).
+    /// Used for cyclic patterns (triangles, cliques) with 3+ relations.
+    MultiWayJoin(MultiWayJoinOp),
 
     // ==================== Procedure Call Operators ====================
     /// Invoke a stored procedure (CALL ... YIELD).
@@ -222,6 +307,7 @@ impl LogicalOperator {
             Self::Bind(op) => op.input.has_mutations(),
             Self::MapCollect(op) => op.input.has_mutations(),
             Self::Return(op) => op.input.has_mutations(),
+            Self::HorizontalAggregate(op) => op.input.has_mutations(),
             Self::VectorScan(_) | Self::VectorJoin(_) => false,
 
             // Operators with two children
@@ -232,6 +318,7 @@ impl LogicalOperator {
             Self::Intersect(op) => op.left.has_mutations() || op.right.has_mutations(),
             Self::Otherwise(op) => op.left.has_mutations() || op.right.has_mutations(),
             Self::Union(op) => op.inputs.iter().any(|i| i.has_mutations()),
+            Self::MultiWayJoin(op) => op.inputs.iter().any(|i| i.has_mutations()),
             Self::Apply(op) => op.input.has_mutations() || op.subplan.has_mutations(),
 
             // Leaf operators (read-only)
@@ -241,8 +328,368 @@ impl LogicalOperator {
             | Self::TripleScan(_)
             | Self::ShortestPath(_)
             | Self::Empty
+            | Self::ParameterScan(_)
             | Self::CallProcedure(_) => false,
         }
+    }
+}
+
+impl LogicalOperator {
+    /// Formats this operator tree as a human-readable plan for EXPLAIN output.
+    pub fn explain_tree(&self) -> String {
+        let mut output = String::new();
+        self.fmt_tree(&mut output, 0);
+        output
+    }
+
+    fn fmt_tree(&self, out: &mut String, depth: usize) {
+        use std::fmt::Write;
+
+        let indent = "  ".repeat(depth);
+        match self {
+            Self::NodeScan(op) => {
+                let label = op.label.as_deref().unwrap_or("*");
+                let _ = writeln!(out, "{indent}NodeScan ({var}:{label})", var = op.variable);
+                if let Some(input) = &op.input {
+                    input.fmt_tree(out, depth + 1);
+                }
+            }
+            Self::EdgeScan(op) => {
+                let types = if op.edge_types.is_empty() {
+                    "*".to_string()
+                } else {
+                    op.edge_types.join("|")
+                };
+                let _ = writeln!(out, "{indent}EdgeScan ({var}:{types})", var = op.variable);
+            }
+            Self::Expand(op) => {
+                let types = if op.edge_types.is_empty() {
+                    "*".to_string()
+                } else {
+                    op.edge_types.join("|")
+                };
+                let dir = match op.direction {
+                    ExpandDirection::Outgoing => "->",
+                    ExpandDirection::Incoming => "<-",
+                    ExpandDirection::Both => "--",
+                };
+                let hops = match (op.min_hops, op.max_hops) {
+                    (1, Some(1)) => String::new(),
+                    (min, Some(max)) if min == max => format!("*{min}"),
+                    (min, Some(max)) => format!("*{min}..{max}"),
+                    (min, None) => format!("*{min}.."),
+                };
+                let _ = writeln!(
+                    out,
+                    "{indent}Expand ({from}){dir}[:{types}{hops}]{dir}({to})",
+                    from = op.from_variable,
+                    to = op.to_variable,
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Filter(op) => {
+                let hint = match &op.pushdown_hint {
+                    Some(PushdownHint::IndexLookup { property }) => {
+                        format!(" [index: {property}]")
+                    }
+                    Some(PushdownHint::RangeScan { property }) => {
+                        format!(" [range: {property}]")
+                    }
+                    Some(PushdownHint::LabelFirst) => " [label-first]".to_string(),
+                    None => String::new(),
+                };
+                let _ = writeln!(
+                    out,
+                    "{indent}Filter ({expr}){hint}",
+                    expr = fmt_expr(&op.predicate)
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Project(op) => {
+                let cols: Vec<String> = op
+                    .projections
+                    .iter()
+                    .map(|p| {
+                        let expr = fmt_expr(&p.expression);
+                        match &p.alias {
+                            Some(alias) => format!("{expr} AS {alias}"),
+                            None => expr,
+                        }
+                    })
+                    .collect();
+                let _ = writeln!(out, "{indent}Project ({cols})", cols = cols.join(", "));
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Join(op) => {
+                let _ = writeln!(out, "{indent}Join ({ty:?})", ty = op.join_type);
+                op.left.fmt_tree(out, depth + 1);
+                op.right.fmt_tree(out, depth + 1);
+            }
+            Self::Aggregate(op) => {
+                let groups: Vec<String> = op.group_by.iter().map(fmt_expr).collect();
+                let aggs: Vec<String> = op
+                    .aggregates
+                    .iter()
+                    .map(|a| {
+                        let func = format!("{:?}", a.function).to_lowercase();
+                        match &a.alias {
+                            Some(alias) => format!("{func}(...) AS {alias}"),
+                            None => format!("{func}(...)"),
+                        }
+                    })
+                    .collect();
+                let _ = writeln!(
+                    out,
+                    "{indent}Aggregate (group: [{groups}], aggs: [{aggs}])",
+                    groups = groups.join(", "),
+                    aggs = aggs.join(", "),
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Limit(op) => {
+                let _ = writeln!(out, "{indent}Limit ({})", op.count);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Skip(op) => {
+                let _ = writeln!(out, "{indent}Skip ({})", op.count);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Sort(op) => {
+                let keys: Vec<String> = op
+                    .keys
+                    .iter()
+                    .map(|k| {
+                        let dir = match k.order {
+                            SortOrder::Ascending => "ASC",
+                            SortOrder::Descending => "DESC",
+                        };
+                        format!("{} {dir}", fmt_expr(&k.expression))
+                    })
+                    .collect();
+                let _ = writeln!(out, "{indent}Sort ({keys})", keys = keys.join(", "));
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Distinct(op) => {
+                let _ = writeln!(out, "{indent}Distinct");
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Return(op) => {
+                let items: Vec<String> = op
+                    .items
+                    .iter()
+                    .map(|item| {
+                        let expr = fmt_expr(&item.expression);
+                        match &item.alias {
+                            Some(alias) => format!("{expr} AS {alias}"),
+                            None => expr,
+                        }
+                    })
+                    .collect();
+                let distinct = if op.distinct { " DISTINCT" } else { "" };
+                let _ = writeln!(
+                    out,
+                    "{indent}Return{distinct} ({items})",
+                    items = items.join(", ")
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Union(op) => {
+                let _ = writeln!(out, "{indent}Union ({n} branches)", n = op.inputs.len());
+                for input in &op.inputs {
+                    input.fmt_tree(out, depth + 1);
+                }
+            }
+            Self::MultiWayJoin(op) => {
+                let vars = op.shared_variables.join(", ");
+                let _ = writeln!(
+                    out,
+                    "{indent}MultiWayJoin ({n} inputs, shared: [{vars}])",
+                    n = op.inputs.len()
+                );
+                for input in &op.inputs {
+                    input.fmt_tree(out, depth + 1);
+                }
+            }
+            Self::LeftJoin(op) => {
+                let _ = writeln!(out, "{indent}LeftJoin");
+                op.left.fmt_tree(out, depth + 1);
+                op.right.fmt_tree(out, depth + 1);
+            }
+            Self::AntiJoin(op) => {
+                let _ = writeln!(out, "{indent}AntiJoin");
+                op.left.fmt_tree(out, depth + 1);
+                op.right.fmt_tree(out, depth + 1);
+            }
+            Self::Unwind(op) => {
+                let _ = writeln!(out, "{indent}Unwind ({var})", var = op.variable);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Bind(op) => {
+                let _ = writeln!(out, "{indent}Bind ({var})", var = op.variable);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::MapCollect(op) => {
+                let _ = writeln!(
+                    out,
+                    "{indent}MapCollect ({key} -> {val} AS {alias})",
+                    key = op.key_var,
+                    val = op.value_var,
+                    alias = op.alias
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Apply(op) => {
+                let _ = writeln!(out, "{indent}Apply");
+                op.input.fmt_tree(out, depth + 1);
+                op.subplan.fmt_tree(out, depth + 1);
+            }
+            Self::Except(op) => {
+                let all = if op.all { " ALL" } else { "" };
+                let _ = writeln!(out, "{indent}Except{all}");
+                op.left.fmt_tree(out, depth + 1);
+                op.right.fmt_tree(out, depth + 1);
+            }
+            Self::Intersect(op) => {
+                let all = if op.all { " ALL" } else { "" };
+                let _ = writeln!(out, "{indent}Intersect{all}");
+                op.left.fmt_tree(out, depth + 1);
+                op.right.fmt_tree(out, depth + 1);
+            }
+            Self::Otherwise(op) => {
+                let _ = writeln!(out, "{indent}Otherwise");
+                op.left.fmt_tree(out, depth + 1);
+                op.right.fmt_tree(out, depth + 1);
+            }
+            Self::ShortestPath(op) => {
+                let _ = writeln!(
+                    out,
+                    "{indent}ShortestPath ({from} -> {to})",
+                    from = op.source_var,
+                    to = op.target_var
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::Merge(op) => {
+                let _ = writeln!(out, "{indent}Merge ({var})", var = op.variable);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::MergeRelationship(op) => {
+                let _ = writeln!(out, "{indent}MergeRelationship ({var})", var = op.variable);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::CreateNode(op) => {
+                let labels = op.labels.join(":");
+                let _ = writeln!(
+                    out,
+                    "{indent}CreateNode ({var}:{labels})",
+                    var = op.variable
+                );
+                if let Some(input) = &op.input {
+                    input.fmt_tree(out, depth + 1);
+                }
+            }
+            Self::CreateEdge(op) => {
+                let var = op.variable.as_deref().unwrap_or("?");
+                let _ = writeln!(
+                    out,
+                    "{indent}CreateEdge ({from})-[{var}:{ty}]->({to})",
+                    from = op.from_variable,
+                    ty = op.edge_type,
+                    to = op.to_variable
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::DeleteNode(op) => {
+                let _ = writeln!(out, "{indent}DeleteNode ({var})", var = op.variable);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::DeleteEdge(op) => {
+                let _ = writeln!(out, "{indent}DeleteEdge ({var})", var = op.variable);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::SetProperty(op) => {
+                let props: Vec<String> = op
+                    .properties
+                    .iter()
+                    .map(|(k, _)| format!("{}.{k}", op.variable))
+                    .collect();
+                let _ = writeln!(
+                    out,
+                    "{indent}SetProperty ({props})",
+                    props = props.join(", ")
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::AddLabel(op) => {
+                let labels = op.labels.join(":");
+                let _ = writeln!(out, "{indent}AddLabel ({var}:{labels})", var = op.variable);
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::RemoveLabel(op) => {
+                let labels = op.labels.join(":");
+                let _ = writeln!(
+                    out,
+                    "{indent}RemoveLabel ({var}:{labels})",
+                    var = op.variable
+                );
+                op.input.fmt_tree(out, depth + 1);
+            }
+            Self::CallProcedure(op) => {
+                let _ = writeln!(
+                    out,
+                    "{indent}CallProcedure ({name})",
+                    name = op.name.join(".")
+                );
+            }
+            Self::TripleScan(op) => {
+                let _ = writeln!(
+                    out,
+                    "{indent}TripleScan ({s} {p} {o})",
+                    s = fmt_triple_component(&op.subject),
+                    p = fmt_triple_component(&op.predicate),
+                    o = fmt_triple_component(&op.object)
+                );
+                if let Some(input) = &op.input {
+                    input.fmt_tree(out, depth + 1);
+                }
+            }
+            Self::Empty => {
+                let _ = writeln!(out, "{indent}Empty");
+            }
+            // Remaining operators: show a simple name
+            _ => {
+                let _ = writeln!(out, "{indent}{:?}", std::mem::discriminant(self));
+            }
+        }
+    }
+}
+
+/// Format a logical expression compactly for EXPLAIN output.
+fn fmt_expr(expr: &LogicalExpression) -> String {
+    match expr {
+        LogicalExpression::Variable(name) => name.clone(),
+        LogicalExpression::Property { variable, property } => format!("{variable}.{property}"),
+        LogicalExpression::Literal(val) => format!("{val}"),
+        LogicalExpression::Binary { left, op, right } => {
+            format!("{} {op:?} {}", fmt_expr(left), fmt_expr(right))
+        }
+        LogicalExpression::Unary { op, operand } => {
+            format!("{op:?} {}", fmt_expr(operand))
+        }
+        LogicalExpression::FunctionCall { name, args, .. } => {
+            let arg_strs: Vec<String> = args.iter().map(fmt_expr).collect();
+            format!("{name}({})", arg_strs.join(", "))
+        }
+        _ => format!("{expr:?}"),
+    }
+}
+
+/// Format a triple component for EXPLAIN output.
+fn fmt_triple_component(comp: &TripleComponent) -> String {
+    match comp {
+        TripleComponent::Variable(name) => format!("?{name}"),
+        TripleComponent::Iri(iri) => format!("<{iri}>"),
+        TripleComponent::Literal(val) => format!("{val}"),
     }
 }
 
@@ -360,6 +807,21 @@ pub struct JoinCondition {
     pub right: LogicalExpression,
 }
 
+/// Multi-way join for worst-case optimal joins (leapfrog).
+///
+/// Unlike binary `JoinOp`, this joins 3+ relations simultaneously
+/// using the leapfrog trie join algorithm. Preferred for cyclic patterns
+/// (triangles, cliques) where cascading binary joins hit O(N^2).
+#[derive(Debug, Clone)]
+pub struct MultiWayJoinOp {
+    /// Input relations (one per relation in the join).
+    pub inputs: Vec<LogicalOperator>,
+    /// All pairwise join conditions.
+    pub conditions: Vec<JoinCondition>,
+    /// Variables shared across multiple inputs (intersection keys).
+    pub shared_variables: Vec<String>,
+}
+
 /// Aggregate with grouping.
 #[derive(Debug, Clone)]
 pub struct AggregateOp {
@@ -373,19 +835,52 @@ pub struct AggregateOp {
     pub having: Option<LogicalExpression>,
 }
 
+/// Whether a horizontal aggregate operates on edges or nodes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntityKind {
+    /// Aggregate over edges in a path.
+    Edge,
+    /// Aggregate over nodes in a path.
+    Node,
+}
+
+/// Per-row aggregation over a list-valued column (horizontal aggregation, GE09).
+///
+/// For each input row, reads a list of entity IDs from `list_column`, accesses
+/// `property` on each entity, computes the aggregate, and emits the scalar result.
+#[derive(Debug, Clone)]
+pub struct HorizontalAggregateOp {
+    /// The list column name (e.g., `_path_edges_p`).
+    pub list_column: String,
+    /// Whether the list contains edge IDs or node IDs.
+    pub entity_kind: EntityKind,
+    /// The aggregate function to apply.
+    pub function: AggregateFunction,
+    /// The property to access on each entity.
+    pub property: String,
+    /// Output alias for the result column.
+    pub alias: String,
+    /// Input operator.
+    pub input: Box<LogicalOperator>,
+}
+
 /// An aggregate expression.
 #[derive(Debug, Clone)]
 pub struct AggregateExpr {
     /// Aggregate function.
     pub function: AggregateFunction,
-    /// Expression to aggregate.
+    /// Expression to aggregate (first/only argument, y for binary set functions).
     pub expression: Option<LogicalExpression>,
+    /// Second expression for binary set functions (x for COVAR, CORR, REGR_*).
+    pub expression2: Option<LogicalExpression>,
     /// Whether to use DISTINCT.
     pub distinct: bool,
     /// Alias for the result.
     pub alias: Option<String>,
     /// Percentile parameter for PERCENTILE_DISC/PERCENTILE_CONT (0.0 to 1.0).
     pub percentile: Option<f64>,
+    /// Separator string for GROUP_CONCAT / LISTAGG (defaults to space for GROUP_CONCAT, comma for LISTAGG).
+    pub separator: Option<String>,
 }
 
 /// Aggregate function.
@@ -409,10 +904,61 @@ pub enum AggregateFunction {
     StdDev,
     /// Population standard deviation (STDEVP).
     StdDevPop,
+    /// Sample variance (VAR_SAMP / VARIANCE).
+    Variance,
+    /// Population variance (VAR_POP).
+    VariancePop,
     /// Discrete percentile (PERCENTILE_DISC).
     PercentileDisc,
     /// Continuous percentile (PERCENTILE_CONT).
     PercentileCont,
+    /// Concatenate values with separator (GROUP_CONCAT).
+    GroupConcat,
+    /// Return an arbitrary value from the group (SAMPLE).
+    Sample,
+    /// Sample covariance (COVAR_SAMP(y, x)).
+    CovarSamp,
+    /// Population covariance (COVAR_POP(y, x)).
+    CovarPop,
+    /// Pearson correlation coefficient (CORR(y, x)).
+    Corr,
+    /// Regression slope (REGR_SLOPE(y, x)).
+    RegrSlope,
+    /// Regression intercept (REGR_INTERCEPT(y, x)).
+    RegrIntercept,
+    /// Coefficient of determination (REGR_R2(y, x)).
+    RegrR2,
+    /// Regression count of non-null pairs (REGR_COUNT(y, x)).
+    RegrCount,
+    /// Regression sum of squares for x (REGR_SXX(y, x)).
+    RegrSxx,
+    /// Regression sum of squares for y (REGR_SYY(y, x)).
+    RegrSyy,
+    /// Regression sum of cross-products (REGR_SXY(y, x)).
+    RegrSxy,
+    /// Regression average of x (REGR_AVGX(y, x)).
+    RegrAvgx,
+    /// Regression average of y (REGR_AVGY(y, x)).
+    RegrAvgy,
+}
+
+/// Hint about how a filter will be executed at the physical level.
+///
+/// Set during EXPLAIN annotation to communicate pushdown decisions.
+#[derive(Debug, Clone)]
+pub enum PushdownHint {
+    /// Equality predicate resolved via a property index.
+    IndexLookup {
+        /// The indexed property name.
+        property: String,
+    },
+    /// Range predicate resolved via a range/btree index.
+    RangeScan {
+        /// The indexed property name.
+        property: String,
+    },
+    /// No index available, but label narrows the scan before filtering.
+    LabelFirst,
 }
 
 /// Filter rows based on a predicate.
@@ -422,6 +968,8 @@ pub struct FilterOp {
     pub predicate: LogicalExpression,
     /// Input operator.
     pub input: Box<LogicalOperator>,
+    /// Optional hint about pushdown strategy (populated by EXPLAIN).
+    pub pushdown_hint: Option<PushdownHint>,
 }
 
 /// Project specific columns.
@@ -445,8 +993,8 @@ pub struct Projection {
 /// Limit the number of results.
 #[derive(Debug, Clone)]
 pub struct LimitOp {
-    /// Maximum number of rows to return.
-    pub count: usize,
+    /// Maximum number of rows to return (literal or parameter reference).
+    pub count: CountExpr,
     /// Input operator.
     pub input: Box<LogicalOperator>,
 }
@@ -454,8 +1002,8 @@ pub struct LimitOp {
 /// Skip a number of results.
 #[derive(Debug, Clone)]
 pub struct SkipOp {
-    /// Number of rows to skip.
-    pub count: usize,
+    /// Number of rows to skip (literal or parameter reference).
+    pub count: CountExpr,
     /// Input operator.
     pub input: Box<LogicalOperator>,
 }
@@ -476,6 +1024,8 @@ pub struct SortKey {
     pub expression: LogicalExpression,
     /// Sort order.
     pub order: SortOrder,
+    /// Optional null ordering (NULLS FIRST / NULLS LAST).
+    pub nulls: Option<NullsOrdering>,
 }
 
 /// Sort order.
@@ -485,6 +1035,15 @@ pub enum SortOrder {
     Ascending,
     /// Descending order.
     Descending,
+}
+
+/// Null ordering for sort operations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NullsOrdering {
+    /// Nulls sort before all non-null values.
+    First,
+    /// Nulls sort after all non-null values.
+    Last,
 }
 
 /// Remove duplicate results.
@@ -660,6 +1219,19 @@ pub struct ApplyOp {
     pub input: Box<LogicalOperator>,
     /// Subplan to evaluate per outer row.
     pub subplan: Box<LogicalOperator>,
+    /// Variables imported from the outer scope into the inner plan.
+    /// When non-empty, the planner injects these via `ParameterState`.
+    pub shared_variables: Vec<String>,
+}
+
+/// Parameter scan: leaf operator for correlated subquery inner plans.
+///
+/// Emits a single row containing the values injected from the outer Apply.
+/// Column names correspond to the outer variables imported via WITH.
+#[derive(Debug, Clone)]
+pub struct ParameterScanOp {
+    /// Column names for the injected parameters.
+    pub columns: Vec<String>,
 }
 
 /// Left outer join for OPTIONAL patterns.
@@ -1161,7 +1733,7 @@ pub enum LogicalExpression {
     /// List literal.
     List(Vec<LogicalExpression>),
 
-    /// Map literal (e.g., {name: 'Alice', age: 30}).
+    /// Map literal (e.g., {name: 'Alix', age: 30}).
     Map(Vec<(String, LogicalExpression)>),
 
     /// Index access (e.g., `list[0]`).
@@ -1417,6 +1989,7 @@ mod tests {
                     label: Some("Person".into()),
                     input: None,
                 })),
+                pushdown_hint: None,
             })),
         }));
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.22.2
+Version: 1.23.0
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -112,8 +112,8 @@ Requires-Dist: pyarrow>=21.0.0; extra == 'hf'
 Provides-Extra: http
 Requires-Dist: aiohttp>3.9.0; extra == 'http'
 Provides-Extra: hub
-Requires-Dist: dlt-runtime<0.23,>=0.20.0; (python_version >= '3.10') and extra == 'hub'
-Requires-Dist: dlthub<0.23,>=0.21.0; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlt-runtime<0.24,>=0.21.2; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlthub<0.24,>=0.21.1; (python_version >= '3.10') and extra == 'hub'
 Provides-Extra: lancedb
 Requires-Dist: duckdb>=1.4.3; extra == 'lancedb'
 Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'lancedb'
@@ -161,12 +161,13 @@ Provides-Extra: weaviate
 Requires-Dist: weaviate-client<5.0.0,>=4.0.0; extra == 'weaviate'
 Provides-Extra: workspace
 Requires-Dist: duckdb>=0.9; extra == 'workspace'
+Requires-Dist: fastmcp>=3.0.0; (python_version >= '3.10') and extra == 'workspace'
 Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'workspace'
 Requires-Dist: marimo>=0.14.5; extra == 'workspace'
-Requires-Dist: mcp>=1.13.0; (python_version >= '3.10') and extra == 'workspace'
 Requires-Dist: mowidgets>=0.2.1; (python_version >= '3.11') and extra == 'workspace'
 Requires-Dist: pathspec>=0.11.2; extra == 'workspace'
 Requires-Dist: pyarrow>=16.0.0; extra == 'workspace'
+Requires-Dist: pydbml>=1.2.0; extra == 'workspace'
 Description-Content-Type: text/markdown
 
 <h1 align="center">

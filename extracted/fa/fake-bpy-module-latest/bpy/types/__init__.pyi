@@ -17061,6 +17061,9 @@ class Brush(ID, bpy_struct):
     mask_tool: typing.Literal["DRAW", "SMOOTH"]
     """ (default 'DRAW')"""
 
+    minimum_distance: float
+    """ Minimum distance to other scene objects after projecting onto them (in [0, 10], default 0.0)"""
+
     multiplane_scrape_angle: float
     """ Angle between the planes of the crease (in [0, 160], default 0.0)"""
 
@@ -17104,6 +17107,9 @@ class Brush(ID, bpy_struct):
 
     pose_smooth_iterations: int
     """ Smooth iterations applied after calculating the pose factor of each vertex (in [0, 100], default 4)"""
+
+    project_ray_direction_type: typing.Literal["VIEW_NORMAL", "PLANE_NORMAL"]
+    """ Ray Direction (default 'VIEW_NORMAL')"""
 
     rake_factor: float
     """ How much grab will follow cursor rotation (in [0, 10], default 0.0)"""
@@ -17248,6 +17254,9 @@ class Brush(ID, bpy_struct):
 
     use_automasking_view_occlusion: bool
     """ Only affect vertices that are not occluded by other faces (slower performance) (default False)"""
+
+    use_bidirectional: bool
+    """ Project vertices both along along the projection direction and its inverse, choosing the closest intersection. (default False)"""
 
     use_cloth_collision: bool
     """ Collide with objects during the simulation (default False)"""
@@ -86162,6 +86171,9 @@ class SequencerToolSettings(bpy_struct):
 
     snap_ignore_sound: bool
     """ Don't snap to sound strips (default False)"""
+
+    snap_to_all_channels: bool
+    """ Allow snapping to any channel. If disabled, only snap to strips currently on the same channel as transformed strips (default False)"""
 
     snap_to_borders: bool
     """ Snap to preview borders (default False)"""

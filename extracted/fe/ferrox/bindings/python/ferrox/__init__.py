@@ -6,9 +6,37 @@ parallel Rayon processing. Features include I/O (CIF/POSCAR/extXYZ/LAMMPS),
 structure matching, symmetry analysis, molecular dynamics, surface science,
 defect engineering, trajectory analysis, and more.
 
+## OOP API (recommended)
+
+Core types are available as top-level classes with Pythonic interfaces:
+
+- `ferrox.Element` - Periodic table element with properties
+- `ferrox.Species` - Chemical species with optional oxidation state
+- `ferrox.Composition` - Formula parsing, reduction, and analysis
+- `ferrox.Lattice` - Crystallographic lattice with matrix operations
+- `ferrox.Structure` - Crystal structure with symmetry, manipulation, and analysis
+- `ferrox.StructureMatcher` - Structure comparison and deduplication
+
+```python
+from ferrox import Structure, Composition, Lattice, Element
+
+# Create from prototype
+nacl = Structure.from_prototype("rocksalt", ["Na", "Cl"], a=5.64)
+print(nacl)  # Full Formula (Na4 Cl4) ...
+
+# Composition analysis
+comp = Composition("Fe2O3")
+comp.reduced_formula  # 'Fe2O3'
+comp.weight  # 159.69
+
+# Lattice operations
+lat = Lattice.cubic(5.0)
+lat.volume  # 125.0
+```
+
 ## Submodule Organization
 
-Functions are organized into submodules by domain:
+Functions are also organized into submodules by domain (functional API):
 
 - `ferrox.io` - Structure parsing and writing (CIF, POSCAR, XYZ, etc.)
 - `ferrox.structure` - Structure manipulation (supercell, sort, interpolate, etc.)
@@ -32,23 +60,8 @@ Functions are organized into submodules by domain:
 - `ferrox.optimizers` - Geometry optimizers (FIRE, CellFIRE)
 - `ferrox.properties` - Physical property calculations (volume, density, mass)
 - `ferrox.species` - Chemical species with oxidation states
+- `ferrox.vasp` - VASP file support (CHGCAR parsing, Fourier extraction)
 - `ferrox.mp` - Materials Project REST client (no mp_api dependency)
-
-## Usage Example
-
-```python
-from ferrox import Element
-from ferrox import io, structure, defects
-
-# Parse a structure file
-struct = io.parse_structure_file("POSCAR")
-
-# Create a supercell
-supercell = structure.make_supercell(struct, [[2, 0, 0], [0, 2, 0], [0, 0, 2]])
-
-# Create a vacancy defect
-defect = defects.create_vacancy(supercell, 0)
-```
 """
 
 # Top-level classes and submodules
@@ -76,6 +89,7 @@ from ferrox._ferrox import (
     surfaces,
     symmetry,
     trajectory,
+    vasp,
     xrd,
 )
 from ferrox._ferrox import mp as _mp_native
@@ -87,6 +101,9 @@ from ferrox.mp import MPClientError, MPDecodeError, MPHTTPError
 MPRester = _mp_native.MPRester
 MPOpenData = _mp_native.MPOpenData
 
-# Backward-compatible re-exports
+# OOP classes re-exported at top level for convenience
+Composition = composition.Composition
+Lattice = lattice.Lattice
+Species = species.Species
 Structure = structure.Structure
 StructureMatcher = structure.StructureMatcher

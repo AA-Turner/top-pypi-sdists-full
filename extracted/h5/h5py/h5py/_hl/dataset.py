@@ -14,10 +14,13 @@
 import posixpath as pp
 import sys
 from abc import ABC, abstractmethod
+from warnings import warn
 
 import numpy
 
+import h5py.h5t
 from .. import h5, h5s, h5t, h5r, h5d, h5p, h5fd, h5ds, _selector
+from ..h5py_warnings import H5pyDeprecationWarning
 from .base import (
     array_for_new_object, cached_property, Empty, find_item_type, HLObject,
     phil, product, with_phil,
@@ -79,9 +82,18 @@ def make_new_dset(parent, shape=None, dtype=None, data=None, name=None,
         # Named types are used as-is
         tid = dtype.id
         dtype = tid.dtype  # Following code needs this
+    elif isinstance(dtype, h5py.h5t.TypeID):  # Low-level HDF5 data type
+        tid = dtype
+        dtype = tid.dtype
     else:
         # Validate dtype
         if dtype is None and data is None:
+            warn(
+                "Creating a dataset without passing data or dtype is deprecated. "
+                "Pass an explicit dtype. Using dtype='f4' will keep the "
+                "current default behaviour.",
+                category=H5pyDeprecationWarning, stacklevel=3,
+            )
             dtype = numpy.dtype("=f4")
         elif dtype is None and data is not None:
             dtype = data.dtype
@@ -625,6 +637,8 @@ class Dataset(HLObject):
         for x in ('gzip','lzf','szip'):
             if x in self._filters:
                 return x
+        if any(f not in filters._COMP_FILTERS for f in self._filters):
+            return 'unknown'  # Filter from a plugin
         return None
 
     @property
@@ -632,6 +646,21 @@ class Dataset(HLObject):
     def compression_opts(self):
         """ Compression setting.  Int(0-9) for gzip, 2-tuple for szip. """
         return self._filters.get(self.compression, None)
+
+    @property
+    @with_phil
+    def filter_ids(self):
+        """Numeric IDs of HDF5 filters used for this dataset"""
+        pl = self._dcpl
+        return tuple([pl.get_filter(i)[0] for i in range(pl.get_nfilters())])
+
+    @property
+    @with_phil
+    def filter_names(self):
+        """Names, as stored in the file, of the filters used for this dataset"""
+        pl = self._dcpl
+        return tuple([pl.get_filter(i)[3].decode('utf-8', 'surrogateescape')
+                for i in range(pl.get_nfilters())])
 
     @property
     @with_phil
@@ -834,6 +863,9 @@ class Dataset(HLObject):
         * Boolean "mask" array indexing
         """
         args = args if isinstance(args, tuple) else (args,)
+
+        if any(a is None for a in args):  # 'None in args' would fail on arrays
+            raise TypeError("Indexing with None (or np.newaxis) is not supported")
 
         if self._fast_read_ok and (new_dtype is None):
             try:
@@ -1045,9 +1077,6 @@ class Dataset(HLObject):
 
         # Perform the dataspace selection
         selection = sel.select(self.shape, args, dataset=self)
-
-        if selection.nselect == 0:
-            return
 
         # Broadcast scalars if necessary.
         # In order to avoid slow broadcasting filling the destination by

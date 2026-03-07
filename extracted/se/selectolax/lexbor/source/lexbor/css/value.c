@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2023 Alexander Borisov
+ * Copyright (C) 2022-2026 Alexander Borisov
  *
  * Author: Alexander Borisov <borisov@lexbor.com>
  */
@@ -10,12 +10,13 @@
 #include "lexbor/core/serialize.h"
 #include "lexbor/core/conv.h"
 
-#define LEXBOR_STR_RES_MAP_HEX_TO_CHAR_LOWERCASE
-#define LEXBOR_STR_RES_CHAR_TO_TWO_HEX_VALUE_LOWERCASE
-#include "lexbor/core/str_res.h"
 
+#ifndef LEXBOR_DISABLE_INTERNAL_EXTERN
+    LXB_EXTERN const lxb_char_t lexbor_str_res_map_hex_to_char_lowercase[17];
+    LXB_EXTERN const char *lexbor_str_res_char_to_two_hex_value_lowercase[257];
+#endif
 
-static const lexbor_str_t lxb_str_ws = lexbor_str(" ");
+static const lexbor_str_t lxb_css_value_str_ws = lexbor_str(" ");
 static const lexbor_str_t lxb_str_comma = lexbor_str(", ");
 static const lexbor_str_t lxb_str_alpha = lexbor_str(" / ");
 static const lexbor_str_t lxb_str_rp = lexbor_str(")");
@@ -407,7 +408,7 @@ lxb_css_value_color_rgb_sr(const lxb_css_value_color_rgba_t *rgb,
         lexbor_serialize_write(cb, str_rgba.data, str_rgba.length, ctx, status);
     }
 
-    sep = (rgb->old) ? &lxb_str_comma : &lxb_str_ws;
+    sep = (rgb->old) ? &lxb_str_comma : &lxb_css_value_str_ws;
 
     status = lxb_css_value_number_percentage_sr(&rgb->r, cb, ctx);
     if (status != LXB_STATUS_OK) {
@@ -476,7 +477,7 @@ lxb_css_value_color_hsl_sr(const lxb_css_value_color_hsla_t *hsl,
         return status;
     }
 
-    sep = (hsl->old) ? &lxb_str_comma : &lxb_str_ws;
+    sep = (hsl->old) ? &lxb_str_comma : &lxb_css_value_str_ws;
 
     status = lxb_css_value_hue_sr(&hsl->h, cb, ctx);
     if (status != LXB_STATUS_OK) {
@@ -544,14 +545,16 @@ lxb_css_value_color_lab_sr(const lxb_css_value_color_lab_t *lab,
         return status;
     }
 
-    lexbor_serialize_write(cb, lxb_str_ws.data, lxb_str_ws.length, ctx, status);
+    lexbor_serialize_write(cb, lxb_css_value_str_ws.data,
+                           lxb_css_value_str_ws.length, ctx, status);
 
     status = lxb_css_value_number_percentage_sr(&lab->a, cb, ctx);
     if (status != LXB_STATUS_OK) {
         return status;
     }
 
-    lexbor_serialize_write(cb, lxb_str_ws.data, lxb_str_ws.length, ctx, status);
+    lexbor_serialize_write(cb, lxb_css_value_str_ws.data,
+                           lxb_css_value_str_ws.length, ctx, status);
 
     status = lxb_css_value_number_percentage_sr(&lab->b, cb, ctx);
     if (status != LXB_STATUS_OK) {
@@ -604,14 +607,16 @@ lxb_css_value_color_lch_sr(const lxb_css_value_color_lch_t *lch,
         return status;
     }
 
-    lexbor_serialize_write(cb, lxb_str_ws.data, lxb_str_ws.length, ctx, status);
+    lexbor_serialize_write(cb, lxb_css_value_str_ws.data,
+                           lxb_css_value_str_ws.length, ctx, status);
 
     status = lxb_css_value_number_percentage_sr(&lch->c, cb, ctx);
     if (status != LXB_STATUS_OK) {
         return status;
     }
 
-    lexbor_serialize_write(cb, lxb_str_ws.data, lxb_str_ws.length, ctx, status);
+    lexbor_serialize_write(cb, lxb_css_value_str_ws.data,
+                           lxb_css_value_str_ws.length, ctx, status);
 
     status = lxb_css_value_hue_sr(&lch->h, cb, ctx);
     if (status != LXB_STATUS_OK) {

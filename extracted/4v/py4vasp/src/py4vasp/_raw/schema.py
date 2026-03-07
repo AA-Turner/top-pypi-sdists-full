@@ -4,20 +4,33 @@ from __future__ import annotations
 
 import dataclasses
 import textwrap
+from collections import abc
+from typing import Any, Callable, Optional
 
 import numpy as np
 
 from py4vasp import exception
 from py4vasp._util import convert
 
+DEFAULT_SELECTION = "default"
+
 
 class Schema:
     def __init__(self, version):
-        self._sources = {"version": {"default": Source(version)}}
+        self._sources = {"version": {DEFAULT_SELECTION: Source(version)}}
         self._version = version
         self._verified = False
 
-    def add(self, cls, name="default", alias=[], file=None, required=None, **kwargs):
+    def add(
+        self,
+        cls,
+        name=DEFAULT_SELECTION,
+        alias=[],
+        file=None,
+        required=None,
+        data_factory=None,
+        **kwargs,
+    ):
         """Add a new quantity to the schema.
 
         The name of the quantity is deduced from the class you pass in, for example
@@ -35,6 +48,8 @@ class Schema:
             The name this quantity can be accessed under. This is important if multiple
             entries have the same structure but originate from different data in the
             HDF5 file. Choose the name well, because this is exposed to the user.
+        alias : list
+            Alternative names that point to the same quantity.
         file : str
             If you pass a filename, you overwrite the default behavior from where the
             data should be read. You can use this if VASP produces multiple HDF5 files
@@ -42,6 +57,8 @@ class Schema:
         required : raw.Version
             Set a version requirement of the HDF5 file that must be fulfilled so that
             the data can be read without error.
+        data_factory : function
+            Overwrite the default method to read data from file.
         kwargs
             You need to specify for all the fields of the class from where in the HDF5
             file they can be obtained.
@@ -52,7 +69,15 @@ class Schema:
         for label in labels:
             self._raise_error_if_already_in_schema(quantity, label)
             alias_for = name if label != name else None
-            source = Source(cls(**kwargs), file, required, alias_for)
+            data = cls(**kwargs) if data_factory is None else None
+            source = Source(
+                data,
+                file,
+                required,
+                alias_for,
+                data_factory,
+                labels=labels,
+            )
             self._sources[quantity][label] = source
         self._verified = False
 
@@ -73,7 +98,32 @@ class Schema:
         try:
             return self._sources[quantity].keys()
         except KeyError as error:
-            raise exception.FileAccessError(error_message(self, quantity)) from error
+            raise exception.FileAccessError(error_message(self, quantity)) from None
+
+    def unique_selections(self, quantity):
+        try:
+            sources = self._sources[quantity]
+        except KeyError as error:
+            raise exception.FileAccessError(error_message(self, quantity)) from None
+        unique_keys = []
+        for name, source in sources.items():
+            if source.alias_for is None:
+                unique_keys.append(name)
+        return unique_keys
+
+    def _aliases(self, quantity, selection):
+        quantity_name = str.lstrip(quantity, "_")
+        try:
+            sources = self._sources[quantity_name]
+        except KeyError as error:
+            raise exception.FileAccessError(error_message(self, quantity)) from None
+        try:
+            source = sources[selection]
+        except KeyError as error:
+            raise exception.FileAccessError(
+                error_message(self, quantity, selection)
+            ) from None
+        return source.labels
 
     @property
     def verified(self):
@@ -83,16 +133,24 @@ class Schema:
         "Verify that the schema is complete, i.e., all the links are valid."
         for quantity, sources in self._sources.items():
             for name, source in sources.items():
-                self._verify_source(f"{quantity}/{name}", source.data)
+                self._verify_source(f"{quantity}/{name}", source)
         self._verified = True
 
     def _verify_source(self, key, source):
-        for field in dataclasses.fields(source):
-            field = getattr(source, field.name)
+        if source.data is None:
+            self._verify_data_factory_present(key, source.data_factory)
+            return
+        for field in dataclasses.fields(source.data):
+            field = getattr(source.data, field.name)
             if not isinstance(field, Link):
                 continue
             self._verify_quantity_is_in_schema(key, field)
             self._verify_source_is_defined_for_quantity(key, field)
+
+    def _verify_data_factory_present(self, key, data_factory):
+        message = f"Verifying the schema failed because {key} has no data but not a custom data factory"
+        if data_factory is None:
+            raise exception._Py4VaspInternalError(message)
 
     def _verify_quantity_is_in_schema(self, key, field):
         message = f"""Verifying the schema failed in link resolution for {key}, because
@@ -121,6 +179,8 @@ class Source:
     file: str = None
     required: Version = None
     alias_for: str = None
+    data_factory: Callable = None
+    labels: list[str] = dataclasses.field(default_factory=lambda: [DEFAULT_SELECTION])
 
 
 @dataclasses.dataclass
@@ -134,6 +194,22 @@ class Link:
 class Length:
     dataset: str
     __str__ = lambda self: f"length({self.dataset})"
+
+
+@dataclasses.dataclass
+class Sequence(abc.Sequence):
+    size: int
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index):
+        elements = {
+            key: value[index] if isinstance(value, list) else value
+            for key, value in dataclasses.asdict(self).items()
+            if key != "size"
+        }
+        return dataclasses.replace(self, size=1, **elements)
 
 
 def _parse_version(version):
@@ -165,6 +241,9 @@ def _parse_specification(specification):
         yield 8 * " " + f"file: {specification.file}"
     if specification.required:
         yield 8 * " " + f"required: {_parse_requirement(specification.required)}"
+    if specification.data is None:
+        yield 8 * " " + f"data_factory: {specification.data_factory.__qualname__}"
+        return
     for field in dataclasses.fields(specification.data):
         key = field.name
         value = getattr(specification.data, key)
@@ -200,3 +279,56 @@ def error_message(schema, quantity, source=None):
         py4vasp, so please check that you use the most recent version."""
     message = textwrap.dedent(first_part) + " " + textwrap.dedent(second_part)
     return "\n" + "\n".join(textwrap.wrap(message, width=80))
+
+
+def _get_selections_for_subquantities(
+    original_quantity, original_selection, ref_schema
+) -> dict[str, Optional[str]]:
+    actual_selections = {}
+    original_quantity_schema = ref_schema.sources.get(original_quantity, {})
+    original_selection_schema: Source = original_quantity_schema.get(
+        original_selection or DEFAULT_SELECTION, None
+    )
+    if original_selection_schema is None:
+        return actual_selections
+    original_selection_schema = original_selection_schema.data
+    if original_selection_schema is None:
+        return actual_selections
+
+    for subquantity, link in original_selection_schema.__dataclass_fields__.items():
+        actual_link = getattr(original_selection_schema, subquantity)
+        if not isinstance(actual_link, Link):
+            continue
+        actual_selections[actual_link.quantity] = actual_link.source
+        further_selections = _get_selections_for_subquantities(
+            actual_link.quantity, actual_link.source, ref_schema=ref_schema
+        )
+        further_selections = dict(
+            zip(
+                [f"{actual_link.quantity}.{key}" for key in further_selections.keys()],
+                further_selections.values(),
+            )
+        )
+        actual_selections = actual_selections | further_selections
+    return actual_selections
+
+
+def _get_processed_selection(
+    quantity: str,
+    original_quantity: str,
+    original_selection: Optional[str],
+    original_subquantity_selections: dict,
+    subquantity_chain: Optional[str],
+) -> Optional[str]:
+    found_selection = None
+    if quantity == original_quantity:
+        found_selection = original_selection or DEFAULT_SELECTION
+    else:
+        if (
+            subquantity_chain is not None
+            and subquantity_chain in original_subquantity_selections
+        ):
+            found_selection = original_subquantity_selections[subquantity_chain]
+        elif quantity in original_subquantity_selections:
+            found_selection = original_subquantity_selections[quantity]
+    return found_selection or original_selection or DEFAULT_SELECTION

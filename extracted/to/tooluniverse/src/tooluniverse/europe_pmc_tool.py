@@ -553,7 +553,12 @@ class EuropePMCTool(BaseTool):
         for rec in core_results:
             # Extract basic information
             title = rec.get("title")
-            abstract = rec.get("abstractText") or None
+            raw_abstract = rec.get("abstractText") or None
+            # Strip HTML tags that sometimes appear in EuropePMC abstracts
+            if raw_abstract and "<" in raw_abstract:
+                abstract = _extract_text_from_html(raw_abstract) or raw_abstract
+            else:
+                abstract = raw_abstract
             year = rec.get("pubYear")
 
             # Extract author information

@@ -1,0 +1,790 @@
+//! TypeScript-compatible types for WASM bindings using `tsify`.
+//! All types match pymatgen's JSON structure for interoperability.
+
+use serde::{Deserialize, Serialize};
+use tsify_next::Tsify;
+
+/// Result wrapper that serializes to `{ ok: T }` on success or `{ error: string }` on failure.
+/// TypeScript: `WasmResult<T> = { ok: T } | { error: string }`
+#[derive(Debug, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+#[serde(untagged)]
+pub enum WasmResult<T> {
+    /// Success variant
+    Ok {
+        /// The successful result value
+        ok: T,
+    },
+    /// Error variant
+    Err {
+        /// Error message describing what went wrong
+        error: String,
+    },
+}
+
+impl<T> WasmResult<T> {
+    /// Create a success result
+    pub fn ok(value: T) -> Self {
+        WasmResult::Ok { ok: value }
+    }
+
+    /// Create an error result
+    pub fn err(msg: impl Into<String>) -> Self {
+        WasmResult::Err { error: msg.into() }
+    }
+}
+
+impl<T, E: std::fmt::Display> From<Result<T, E>> for WasmResult<T> {
+    fn from(result: Result<T, E>) -> Self {
+        match result {
+            Ok(value) => WasmResult::ok(value),
+            Err(err) => WasmResult::err(err.to_string()),
+        }
+    }
+}
+
+// === Vector and Matrix Types ===
+
+/// 3x3 matrix represented as nested arrays (row-major).
+pub type Matrix3x3 = [[f64; 3]; 3];
+
+/// 3x3 integer matrix for supercell transformations.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsIntMatrix3x3(pub [[i32; 3]; 3]);
+
+/// 3D vector of floats.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsVector3(pub [f64; 3]);
+
+/// Miller index (3D integer vector).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsMillerIndex(pub [i32; 3]);
+
+/// 3x3 float matrix for transformations.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsMatrix3x3(pub [[f64; 3]; 3]);
+
+/// Lattice structure matching pymatgen's JSON format.
+/// Includes both the 3x3 matrix and derived lattice parameters (a, b, c, alpha, beta, gamma, volume)
+/// so that matterviz's Structure component can render without recomputing them client-side.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsLattice {
+    /// 3x3 lattice matrix with lattice vectors as rows (Angstroms)
+    pub matrix: Matrix3x3,
+    /// Periodic boundary conditions along each axis
+    #[serde(default = "default_pbc")]
+    pub pbc: [bool; 3],
+    /// Lattice vector length a (Angstroms)
+    #[serde(default)]
+    pub a: f64,
+    /// Lattice vector length b (Angstroms)
+    #[serde(default)]
+    pub b: f64,
+    /// Lattice vector length c (Angstroms)
+    #[serde(default)]
+    pub c: f64,
+    /// Angle between b and c vectors (degrees)
+    #[serde(default)]
+    pub alpha: f64,
+    /// Angle between a and c vectors (degrees)
+    #[serde(default)]
+    pub beta: f64,
+    /// Angle between a and b vectors (degrees)
+    #[serde(default)]
+    pub gamma: f64,
+    /// Unit cell volume (A^3)
+    #[serde(default)]
+    pub volume: f64,
+}
+
+fn default_pbc() -> [bool; 3] {
+    [true, true, true]
+}
+
+// === Species Types ===
+
+/// Species occupancy at a site (element + occupancy + optional oxidation state).
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsSpeciesOccupancy {
+    /// Element symbol (e.g., "Fe", "O", "Li")
+    pub element: String,
+    /// Site occupancy (0.0 to 1.0, typically 1.0 for ordered sites)
+    #[serde(default = "default_occupancy")]
+    pub occu: f64,
+    /// Optional oxidation state (e.g., 2 for Fe2+, -2 for O2-)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oxidation_state: Option<i8>,
+}
+
+fn default_occupancy() -> f64 {
+    1.0
+}
+
+// === Site Types ===
+
+/// A crystallographic site with species, coordinates, and properties.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsSite {
+    /// Species at this site (can have multiple for disordered sites)
+    pub species: Vec<JsSpeciesOccupancy>,
+    /// Fractional coordinates [a, b, c] in range [0, 1)
+    pub abc: [f64; 3],
+    /// Cartesian coordinates [x, y, z] in Angstroms (optional, computed if missing)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub xyz: Option<[f64; 3]>,
+    /// Site label (defaults to element symbol)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// Site-specific properties (e.g., magnetic moment, charge)
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub properties: serde_json::Map<String, serde_json::Value>,
+}
+
+// === Structure Types ===
+
+/// A crystal structure matching pymatgen's JSON format.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsCrystal {
+    /// The crystal lattice
+    pub lattice: JsLattice,
+    /// List of crystallographic sites
+    pub sites: Vec<JsSite>,
+    /// Structure-level properties
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub properties: serde_json::Map<String, serde_json::Value>,
+}
+
+// === ASE Atoms Types ===
+
+/// ASE Atoms dict format for interoperability.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsAseAtoms {
+    /// Element symbols for each atom
+    pub symbols: Vec<String>,
+    /// Cartesian positions [[x1, y1, z1], ...] in Angstroms
+    pub positions: Vec<[f64; 3]>,
+    /// Cell matrix (3x3), omitted for molecules
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cell: Option<[[f64; 3]; 3]>,
+    /// Periodic boundary conditions
+    #[serde(default)]
+    pub pbc: [bool; 3],
+    /// Additional info dict
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub info: serde_json::Map<String, serde_json::Value>,
+}
+
+// === Neighbor List Types ===
+
+/// Result of neighbor list calculation.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsNeighborList {
+    /// Indices of center atoms
+    pub center_indices: Vec<u32>,
+    /// Indices of neighbor atoms
+    pub neighbor_indices: Vec<u32>,
+    /// Periodic image offsets [h, k, l] for each neighbor
+    pub image_offsets: Vec<[i32; 3]>,
+    /// Distances from center to neighbor (Angstroms)
+    pub distances: Vec<f64>,
+}
+
+// === RMS Distance Types ===
+
+/// Result of RMS distance calculation between two structures.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsRmsDistResult {
+    /// Root mean square distance between matched sites (Angstroms)
+    pub rms: f64,
+    /// Maximum distance between any pair of matched sites (Angstroms)
+    pub max_dist: f64,
+}
+
+// === Symmetry Types ===
+
+/// A symmetry operation (rotation + translation in fractional coordinates).
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsSymmetryOperation {
+    /// 3x3 rotation matrix (integer elements in fractional basis)
+    pub rotation: [[i32; 3]; 3],
+    /// Translation vector in fractional coordinates
+    pub translation: [f64; 3],
+}
+
+/// Full symmetry dataset for a structure.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsSymmetryDataset {
+    /// International space group number (1-230)
+    pub spacegroup_number: u16,
+    /// Space group symbol (e.g., "Fm-3m")
+    pub spacegroup_symbol: String,
+    /// Hall number
+    pub hall_number: u16,
+    /// Crystal system (e.g., "cubic", "hexagonal")
+    pub crystal_system: String,
+    /// Point group Hermann-Mauguin symbol (e.g., "m-3m", "4mm")
+    pub point_group: String,
+    /// Laue group Hermann-Mauguin symbol (e.g., "m-3m", "4/mmm")
+    pub laue_group: String,
+    /// Whether the point group is centrosymmetric (contains inversion)
+    pub is_centrosymmetric: bool,
+    /// Whether the point group is polar (has a unique polar direction)
+    pub is_polar: bool,
+    /// Whether the point group is chiral (contains only proper rotations)
+    pub is_chiral: bool,
+    /// Wyckoff letters for each site
+    pub wyckoff_letters: Vec<String>,
+    /// Site symmetry symbols for each site
+    pub site_symmetry_symbols: Vec<String>,
+    /// Equivalent atoms mapping
+    pub equivalent_atoms: Vec<u32>,
+    /// Symmetry operations
+    pub operations: Vec<JsSymmetryOperation>,
+}
+
+// === Coordination Types ===
+
+/// Information about a neighboring atom in coordination analysis.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsNeighborInfo {
+    /// Index of the neighboring site
+    pub site_index: u32,
+    /// Element symbol of neighbor
+    pub element: String,
+    /// Distance to neighbor (Angstroms)
+    pub distance: f64,
+    /// Periodic image offset
+    pub image: [i32; 3],
+}
+
+/// Local coordination environment for a site.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsLocalEnvironment {
+    /// Index of the central site
+    pub center_index: u32,
+    /// Element at the center
+    pub center_element: String,
+    /// Coordination number
+    pub coordination_number: u32,
+    /// List of coordinating neighbors
+    pub neighbors: Vec<JsNeighborInfo>,
+}
+
+// === Structure Metadata Types ===
+
+/// Metadata about a crystal structure.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsStructureMetadata {
+    /// Number of sites
+    pub num_sites: u32,
+    /// Reduced chemical formula (e.g., "Fe2O3")
+    pub formula: String,
+    /// Anonymous formula with elements replaced by A, B, C... (e.g., "A2B3")
+    pub formula_anonymous: String,
+    /// Hill notation formula (C and H first if present, then alphabetical)
+    pub formula_hill: String,
+    /// Volume in A^3
+    pub volume: f64,
+    /// Density in g/cm^3 (null if zero volume)
+    pub density: Option<f64>,
+    /// Lattice parameters [a, b, c] in Angstroms
+    pub lattice_params: [f64; 3],
+    /// Lattice angles [alpha, beta, gamma] in degrees
+    pub lattice_angles: [f64; 3],
+    /// Whether structure is ordered (no partial occupancies)
+    pub is_ordered: bool,
+}
+
+// === Oxidation Types ===
+
+/// Single oxidation state guess (element -> oxidation state).
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsOxidationStatePair {
+    /// Element symbol (e.g., "Fe", "O")
+    pub element: String,
+    /// Oxidation state (e.g., 3 for Fe3+, -2 for O2-)
+    pub oxidation_state: f64,
+}
+
+/// Oxidation state guess with probability score.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsOxiStateGuess {
+    /// Oxidation states per element
+    pub oxidation_states: Vec<JsOxidationStatePair>,
+    /// Probability score (higher is more likely)
+    pub probability: f64,
+}
+
+/// Oxidation states by element (for guess_oxidation_states result).
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsOxidationStates {
+    /// Element symbols
+    pub elements: Vec<String>,
+    /// Oxidation state for each element (same order as elements)
+    pub oxidation_states: Vec<f64>,
+}
+
+// === Reduction Algorithm Enum ===
+
+/// Lattice reduction algorithm.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+#[serde(rename_all = "lowercase")]
+pub enum JsReductionAlgo {
+    /// Niggli reduction - produces unique reduced cell
+    Niggli,
+    /// LLL reduction - produces nearly orthogonal basis
+    Lll,
+}
+
+// === Conversion Utilities ===
+
+use crate::element::Element;
+use crate::lattice::Lattice;
+use crate::species::{SiteOccupancy, Species};
+use crate::structure::Structure;
+use nalgebra::Vector3;
+use std::collections::HashMap;
+
+impl JsCrystal {
+    /// Convert from internal Structure type to JS-compatible type
+    pub fn from_structure(structure: &Structure) -> Self {
+        let mat = structure.lattice.matrix();
+        let cart_coords = structure.cart_coords();
+
+        let sites: Vec<JsSite> = structure
+            .site_occupancies
+            .iter()
+            .zip(structure.frac_coords.iter())
+            .zip(cart_coords.iter())
+            .enumerate()
+            .map(|(site_idx, ((site_occ, frac_coord), cart_coord))| {
+                let species: Vec<JsSpeciesOccupancy> = site_occ
+                    .species
+                    .iter()
+                    .map(|(species_item, occupancy)| JsSpeciesOccupancy {
+                        element: species_item.element.symbol().to_string(),
+                        occu: *occupancy,
+                        oxidation_state: species_item.oxidation_state,
+                    })
+                    .collect();
+
+                let site_props = structure.site_properties(site_idx);
+                let properties: serde_json::Map<String, serde_json::Value> = site_props
+                    .iter()
+                    .map(|(key, val)| (key.clone(), val.clone()))
+                    .collect();
+
+                JsSite {
+                    species,
+                    abc: [frac_coord.x, frac_coord.y, frac_coord.z],
+                    xyz: Some([cart_coord.x, cart_coord.y, cart_coord.z]),
+                    label: Some(site_occ.species_string()),
+                    properties,
+                }
+            })
+            .collect();
+
+        let properties: serde_json::Map<String, serde_json::Value> = structure
+            .properties
+            .iter()
+            .map(|(key, val)| (key.clone(), val.clone()))
+            .collect();
+
+        let lengths = structure.lattice.lengths();
+        let angles = structure.lattice.angles();
+
+        JsCrystal {
+            lattice: JsLattice {
+                matrix: [
+                    [mat[(0, 0)], mat[(0, 1)], mat[(0, 2)]],
+                    [mat[(1, 0)], mat[(1, 1)], mat[(1, 2)]],
+                    [mat[(2, 0)], mat[(2, 1)], mat[(2, 2)]],
+                ],
+                pbc: structure.lattice.pbc,
+                a: lengths.x,
+                b: lengths.y,
+                c: lengths.z,
+                alpha: angles.x,
+                beta: angles.y,
+                gamma: angles.z,
+                volume: structure.lattice.volume(),
+            },
+            sites,
+            properties,
+        }
+    }
+
+    /// Convert to internal Structure type
+    pub fn to_structure(&self) -> Result<Structure, String> {
+        let m = &self.lattice.matrix;
+        let lattice_matrix = nalgebra::Matrix3::from_row_slice(&[
+            m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2],
+        ]);
+        let mut lattice = Lattice::new(lattice_matrix);
+        lattice.pbc = self.lattice.pbc;
+
+        let mut site_occupancies = Vec::with_capacity(self.sites.len());
+        let mut frac_coords = Vec::with_capacity(self.sites.len());
+
+        for (site_idx, site) in self.sites.iter().enumerate() {
+            if site.species.is_empty() {
+                return Err(format!("Site {site_idx} has no species"));
+            }
+
+            let species: Vec<(Species, f64)> = site
+                .species
+                .iter()
+                .map(|species_occ| {
+                    let element = Element::from_symbol(&species_occ.element)
+                        .ok_or_else(|| format!("Unknown element: {}", species_occ.element))?;
+                    let species = if let Some(oxi) = species_occ.oxidation_state {
+                        Species::new(element, Some(oxi))
+                    } else {
+                        Species::neutral(element)
+                    };
+                    Ok((species, species_occ.occu))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+
+            // Convert site properties from serde_json::Map to HashMap
+            let site_props: HashMap<String, serde_json::Value> = site
+                .properties
+                .iter()
+                .map(|(key, val)| (key.clone(), val.clone()))
+                .collect();
+
+            site_occupancies.push(SiteOccupancy {
+                species,
+                properties: site_props,
+            });
+            frac_coords.push(Vector3::new(site.abc[0], site.abc[1], site.abc[2]));
+        }
+
+        let properties: HashMap<String, serde_json::Value> = self
+            .properties
+            .iter()
+            .map(|(key, val)| (key.clone(), val.clone()))
+            .collect();
+
+        Structure::try_new_from_occupancies_with_properties(
+            lattice,
+            site_occupancies,
+            frac_coords,
+            properties,
+        )
+        .map_err(|err| err.to_string())
+    }
+}
+
+impl JsReductionAlgo {
+    /// Convert to internal ReductionAlgo type
+    pub fn to_internal(&self) -> crate::structure::ReductionAlgo {
+        match self {
+            JsReductionAlgo::Niggli => crate::structure::ReductionAlgo::Niggli,
+            JsReductionAlgo::Lll => crate::structure::ReductionAlgo::LLL,
+        }
+    }
+}
+
+// === XRD Types ===
+
+/// Miller index information for an XRD peak.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsHklInfo {
+    /// Miller indices [h, k, l]
+    pub hkl: [i32; 3],
+    /// Multiplicity (number of symmetry-equivalent reflections)
+    pub multiplicity: usize,
+}
+
+/// XRD pattern result.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsXrdPattern {
+    /// 2-theta angles in degrees
+    pub two_theta: Vec<f64>,
+    /// Peak intensities (scaled 0-100 if scaled=true)
+    pub intensities: Vec<f64>,
+    /// Miller indices for each peak (grouped by unique families)
+    pub hkls: Vec<Vec<JsHklInfo>>,
+    /// d-spacings in Angstroms
+    pub d_spacings: Vec<f64>,
+}
+
+/// XRD calculation options.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct JsXrdOptions {
+    /// X-ray wavelength in Angstroms (default: Cu Ka = 1.54184)
+    #[serde(default = "default_wavelength")]
+    pub wavelength: f64,
+    /// 2-theta range in degrees as [min, max]. None = all accessible angles
+    #[serde(default)]
+    pub two_theta_range: Option<[f64; 2]>,
+    /// Debye-Waller factors per element symbol (thermal damping)
+    #[serde(default)]
+    pub debye_waller_factors: HashMap<String, f64>,
+    /// Whether to scale intensities to 0-100 (default: true)
+    #[serde(default = "default_scaled")]
+    pub scaled: bool,
+}
+
+fn default_wavelength() -> f64 {
+    1.54184
+}
+
+fn default_scaled() -> bool {
+    true
+}
+
+impl Default for JsXrdOptions {
+    fn default() -> Self {
+        Self {
+            wavelength: default_wavelength(),
+            two_theta_range: Some([0.0, 180.0]),
+            debye_waller_factors: HashMap::new(),
+            scaled: true,
+        }
+    }
+}
+
+// === Brillouin Zone Types ===
+
+/// A polygonal face of the Brillouin zone for JS/WASM consumption.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsBrillouinFace {
+    /// Indices into JsBrillouinZone.vertices, ordered counterclockwise from outside.
+    pub vertices: Vec<usize>,
+    /// Outward face normal [nx, ny, nz].
+    pub normal: [f64; 3],
+    /// Miller indices [h, k, l] of the reciprocal lattice vector that generated this face.
+    pub miller_index: [i32; 3],
+}
+
+/// First Brillouin zone data for JS/WASM consumption.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsBrillouinZone {
+    /// Vertex positions in reciprocal space [x, y, z] (Å⁻¹).
+    pub vertices: Vec<[f64; 3]>,
+    /// Polygonal faces of the BZ boundary.
+    pub faces: Vec<JsBrillouinFace>,
+    /// Volume of the BZ (Å⁻³).
+    pub volume: f64,
+}
+
+/// A labeled high-symmetry k-point for JS/WASM consumption.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsHighSymmetryPoint {
+    /// Label (e.g. "Gamma", "X", "L").
+    pub label: String,
+    /// Cartesian position in reciprocal space [kx, ky, kz] (Å⁻¹).
+    pub position: [f64; 3],
+}
+
+// === Composition Types ===
+
+/// Element-amount pair for composition results.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+pub struct JsElementAmount {
+    /// Element symbol
+    pub element: String,
+    /// Amount (count or fraction)
+    pub amount: f64,
+}
+
+/// Information about a parsed chemical composition.
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
+#[tsify(into_wasm_abi)]
+#[serde(rename_all = "camelCase")]
+pub struct JsCompositionInfo {
+    /// Species and their amounts as {element, amount} objects
+    pub species: Vec<JsElementAmount>,
+    /// Full formula string
+    pub formula: String,
+    /// Reduced formula string (e.g., "Fe2O3" from "Fe4O6")
+    pub reduced_formula: String,
+    /// Anonymous formula (e.g., "A2B3")
+    pub formula_anonymous: String,
+    /// Hill notation formula
+    pub formula_hill: String,
+    /// Alphabetically sorted formula
+    pub alphabetical_formula: String,
+    /// Chemical system (e.g., "Fe-O")
+    pub chemical_system: String,
+    /// Total number of atoms
+    pub num_atoms: f64,
+    /// Number of distinct elements
+    pub num_elements: u32,
+    /// Molecular weight in atomic mass units
+    pub weight: f64,
+    /// True if composition is a single element
+    pub is_element: bool,
+    /// Average electronegativity (null if undefined)
+    pub average_electronegativity: Option<f64>,
+    /// Total number of electrons
+    pub total_electrons: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lattice::Lattice;
+    use crate::structure::Structure;
+
+    /// Build a simple NaCl structure for testing.
+    fn nacl_structure() -> Structure {
+        use crate::element::Element;
+        use crate::species::{SiteOccupancy, Species};
+        use nalgebra::Vector3;
+
+        let lattice = Lattice::from_parameters(5.64, 5.64, 5.64, 90.0, 90.0, 90.0);
+        let na = SiteOccupancy::ordered(Species::neutral(Element::Na));
+        let cl = SiteOccupancy::ordered(Species::neutral(Element::Cl));
+        Structure::try_new_from_occupancies(
+            lattice,
+            vec![na, cl],
+            vec![Vector3::new(0.0, 0.0, 0.0), Vector3::new(0.5, 0.5, 0.5)],
+        )
+        .unwrap()
+    }
+
+    // Assert all lattice params match expected NaCl cubic values.
+    fn assert_nacl_lattice(lat: &JsLattice) {
+        for (label, got, expected) in [
+            ("a", lat.a, 5.64),
+            ("b", lat.b, 5.64),
+            ("c", lat.c, 5.64),
+            ("alpha", lat.alpha, 90.0),
+            ("beta", lat.beta, 90.0),
+            ("gamma", lat.gamma, 90.0),
+        ] {
+            assert!((got - expected).abs() < 1e-6, "{label} = {got}");
+        }
+        let expected_vol = 5.64_f64.powi(3);
+        assert!(
+            (lat.volume - expected_vol).abs() < 1e-3,
+            "volume = {} (expected {expected_vol})",
+            lat.volume,
+        );
+    }
+
+    #[test]
+    fn js_lattice_has_params_and_volume() {
+        let lat = &JsCrystal::from_structure(&nacl_structure()).lattice;
+        assert!(lat.matrix[0][0] > 5.0);
+        assert_nacl_lattice(lat);
+    }
+
+    #[test]
+    fn js_crystal_sites_have_xyz() {
+        let js_crystal = JsCrystal::from_structure(&nacl_structure());
+
+        assert_eq!(js_crystal.sites.len(), 2);
+        for (idx, site) in js_crystal.sites.iter().enumerate() {
+            assert!(site.xyz.is_some(), "Site {idx} missing xyz");
+        }
+
+        // Na at origin → xyz ≈ [0, 0, 0]
+        let na_xyz = js_crystal.sites[0].xyz.unwrap();
+        assert!(
+            na_xyz.iter().all(|v| v.abs() < 1e-10),
+            "Na xyz = {na_xyz:?}"
+        );
+
+        // Cl at (0.5, 0.5, 0.5) → xyz ≈ [2.82, 2.82, 2.82]
+        let cl_xyz = js_crystal.sites[1].xyz.unwrap();
+        for coord in cl_xyz {
+            assert!((coord - 2.82).abs() < 0.01, "Cl xyz = {cl_xyz:?}");
+        }
+    }
+
+    #[test]
+    fn js_crystal_roundtrip_preserves_lattice_params() {
+        let js_crystal = JsCrystal::from_structure(&nacl_structure());
+        let roundtripped = js_crystal.to_structure().unwrap();
+        assert_nacl_lattice(&JsCrystal::from_structure(&roundtripped).lattice);
+    }
+
+    #[test]
+    fn js_lattice_deserialize_without_params() {
+        // Backward compat: lattice with only matrix + pbc (no a/b/c/alpha/beta/gamma/volume)
+        let json = serde_json::json!({
+            "matrix": [[5.64, 0.0, 0.0], [0.0, 5.64, 0.0], [0.0, 0.0, 5.64]],
+            "pbc": [true, true, true],
+        });
+        let lattice: JsLattice = serde_json::from_value(json).unwrap();
+        assert!(lattice.matrix[0][0] > 5.0);
+        // Defaults to 0.0 when not provided
+        assert_eq!(lattice.a, 0.0);
+        assert_eq!(lattice.volume, 0.0);
+    }
+
+    #[test]
+    fn cif_parse_produces_complete_js_crystal() {
+        use crate::io::cif::parse_cif_str;
+        use std::path::Path;
+
+        let cif_content = r#"
+data_test
+_cell_length_a    3.6957
+_cell_length_b    3.6957
+_cell_length_c    19.2145
+_cell_angle_alpha 90.0
+_cell_angle_beta  90.0
+_cell_angle_gamma 90.0
+
+loop_
+_space_group_symop_operation_xyz
+'x, y, z'
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+O1 O 0.0 0.5 0.908
+Ni1 Ni 0.0 0.0 0.1045
+La1 La 0.0 0.0 0.3163
+"#;
+        let structure = parse_cif_str(cif_content, Path::new("test.cif")).unwrap();
+        let js_crystal = JsCrystal::from_structure(&structure);
+
+        assert!((js_crystal.lattice.a - 3.6957).abs() < 1e-3);
+        assert!((js_crystal.lattice.c - 19.2145).abs() < 1e-3);
+        assert!(js_crystal.lattice.volume > 200.0);
+
+        assert_eq!(js_crystal.sites.len(), 3);
+        for (idx, site) in js_crystal.sites.iter().enumerate() {
+            let xyz = site.xyz.unwrap_or_else(|| panic!("Site {idx} missing xyz"));
+            for coord in xyz {
+                assert!(coord.is_finite(), "Site {idx} has non-finite xyz coord");
+            }
+        }
+    }
+}

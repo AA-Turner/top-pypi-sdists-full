@@ -1,27 +1,27 @@
 Metadata-Version: 2.4
 Name: concurrencytest
-Version: 0.1.4
-Summary: testtools extension for running unittest suites concurrently
+Version: 0.1.6
+Summary: Python testtools extension for running unittest test suites concurrently
 Home-page: https://github.com/cgoldberg/concurrencytest
 Download-URL: https://pypi.org/project/concurrencytest
 Author: Corey Goldberg
 License: GNU GPLv2+
 Keywords: test,testing,testtools,unittest,concurrency,parallel
-Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
+Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: python-subunit
 Requires-Dist: testtools
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: download-url
 Dynamic: home-page
 Dynamic: keywords
@@ -30,4 +30,97 @@ Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 
-testtools extension for running unittest suites concurrently
+concurrencytest
+===============
+
+![testing goats](https://raw.github.com/cgoldberg/concurrencytest/master/testing-goats.png "testing goats")
+
+Python testtools extension for running unittest test suites concurrently.
+
+----
+
+- Development: [GitHub](https://github.com/cgoldberg/concurrencytest)
+- Download/Install: [PyPI](https://pypi.org/project/concurrencytest)
+- License: [GPLv2+](https://raw.githubusercontent.com/cgoldberg/concurrencytest/refs/heads/master/LICENSE)
+- Copyright (c) 2013-2026 [Corey Goldberg](https://github.com/cgoldberg)
+- Original code from:
+  - Bazaar (`bzrlib.tests.__init__.py`, v2.6, copied Jun 01 2013)
+  - Copyright (c) 2005-2011 Canonical Ltd
+
+----
+
+Install from PyPI:
+```
+pip install concurrencytest
+```
+
+----
+
+Requires:
+
+- support for `os.fork()` (Unix-like systems only)
+- [testtools](https://pypi.python.org/pypi/testtools) : `pip install testtools`
+- [python-subunit](https://pypi.python.org/pypi/python-subunit) : `pip install python-subunit`
+
+----
+
+Example:
+
+```python
+import time
+import unittest
+
+from concurrencytest import ConcurrentTestSuite, fork_for_tests
+
+
+class ExampleTestCase(unittest.TestCase):
+    """Dummy tests that sleep for demo."""
+
+    def test_me_1(self):
+        time.sleep(0.5)
+
+    def test_me_2(self):
+        time.sleep(0.5)
+
+    def test_me_3(self):
+        time.sleep(0.5)
+
+    def test_me_4(self):
+        time.sleep(0.5)
+
+
+runner = unittest.TextTestRunner()
+
+# Run the tests from above sequentially
+suite = unittest.TestLoader().loadTestsFromTestCase(ExampleTestCase)
+runner.run(suite)
+
+# Run same tests concurrently across 4 processes
+suite = unittest.TestLoader().loadTestsFromTestCase(ExampleTestCase)
+concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests(4))
+runner.run(concurrent_suite)
+
+# Run same tests concurrently using 1 process per available CPU core
+suite = unittest.TestLoader().loadTestsFromTestCase(ExampleTestCase)
+concurrent_suite = ConcurrentTestSuite(suite, fork_for_tests())
+runner.run(concurrent_suite)
+```
+Output:
+
+```
+.....
+----------------------------------------------------------------------
+Ran 4 tests in 2.002s
+
+OK
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.510s
+
+OK
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.507s
+
+OK
+```

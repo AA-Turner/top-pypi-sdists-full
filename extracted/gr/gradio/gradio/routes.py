@@ -435,6 +435,7 @@ class App(FastAPI):
         strict_cors: bool = True,
         ssr_mode: bool = False,
         mcp_server: bool | None = None,
+        debug: bool = False,
     ) -> App:
         app_kwargs = app_kwargs or {}
         app_kwargs.setdefault("default_response_class", ORJSONResponse)
@@ -444,7 +445,7 @@ class App(FastAPI):
         app_kwargs["lifespan"] = create_lifespan_handler(
             app_kwargs.get("lifespan", None), *delete_cache
         )
-        app = App(auth_dependency=auth_dependency, **app_kwargs, debug=True)
+        app = App(auth_dependency=auth_dependency, **app_kwargs, debug=debug)
         if blocks.mcp_server_obj:
             blocks.mcp_server_obj.launch_mcp_on_sse(app, mcp_subpath, blocks.root_path)
         router = APIRouter(prefix=API_PREFIX)
@@ -719,7 +720,9 @@ class App(FastAPI):
             root = route_utils.get_root_url(
                 request=request,
                 route_path=f"/{page}",
-                root_path=app.root_path or blocks.custom_mount_path,
+                root_path=app.root_path
+                or request.scope.get("root_path")
+                or blocks.custom_mount_path,
             )
             if (app.auth is None and app.auth_dependency is None) or user is not None:
                 config = utils.safe_deepcopy(blocks.config)
@@ -951,7 +954,9 @@ class App(FastAPI):
             root = route_utils.get_root_url(
                 request=request,
                 route_path="/config",
-                root_path=app.root_path or blocks.custom_mount_path,
+                root_path=app.root_path
+                or request.scope.get("root_path")
+                or blocks.custom_mount_path,
             )
             config["username"] = get_current_user(request)
             if deep_link:
@@ -978,6 +983,9 @@ class App(FastAPI):
             file_name: str,
             req: fastapi.Request,
         ):
+            print(
+                f"id={id}, environment={environment}, type={type}, file_name={file_name}"
+            )
             if environment not in ["client", "server"]:
                 raise HTTPException(
                     status_code=404, detail="Environment not supported."

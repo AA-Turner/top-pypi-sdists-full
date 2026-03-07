@@ -1,7 +1,7 @@
 """
 CPIC_list_guidelines
 
-List all CPIC pharmacogenomic guidelines. Returns 31 evidence-based guidelines for using pharmaco...
+List all CPIC pharmacogenomic guidelines. Returns ~29 evidence-based guidelines (count may vary a...
 """
 
 from typing import Any, Optional, Callable
@@ -15,7 +15,7 @@ def CPIC_list_guidelines(
     validate: bool = True,
 ) -> Any:
     """
-    List all CPIC pharmacogenomic guidelines. Returns 31 evidence-based guidelines for using pharmaco...
+    List all CPIC pharmacogenomic guidelines. Returns ~29 evidence-based guidelines (count may vary a...
 
     Parameters
     ----------

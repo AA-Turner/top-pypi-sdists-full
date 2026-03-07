@@ -28,6 +28,7 @@ else:  # pragma: NO COVER
     # this code path once we drop support for Python 3.7
     import importlib_metadata as metadata
 
+
 from .services.data_object_search_service import (
     DataObjectSearchServiceAsyncClient,
     DataObjectSearchServiceClient,
@@ -62,7 +63,6 @@ from .types.data_object_search_service import (
     SemanticSearch,
     TextSearch,
     VectorSearch,
-    VertexRanker,
 )
 from .types.data_object_service import (
     BatchCreateDataObjectsRequest,
@@ -80,8 +80,10 @@ from .types.vectorsearch_service import (
     Collection,
     CreateCollectionRequest,
     CreateIndexRequest,
+    DedicatedInfrastructure,
     DeleteCollectionRequest,
     DeleteIndexRequest,
+    DenseScannIndex,
     DenseVectorField,
     ExportDataObjectsMetadata,
     ExportDataObjectsRequest,
@@ -217,9 +219,11 @@ __all__ = (
     "DataObject",
     "DataObjectSearchServiceClient",
     "DataObjectServiceClient",
+    "DedicatedInfrastructure",
     "DeleteCollectionRequest",
     "DeleteDataObjectRequest",
     "DeleteIndexRequest",
+    "DenseScannIndex",
     "DenseVector",
     "DenseVectorField",
     "DistanceMetric",
@@ -261,5 +265,4 @@ __all__ = (
     "VectorSearch",
     "VectorSearchServiceClient",
     "VertexEmbeddingConfig",
-    "VertexRanker",
 )

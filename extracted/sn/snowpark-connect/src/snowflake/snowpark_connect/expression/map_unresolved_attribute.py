@@ -13,7 +13,14 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
 )
 from snowflake.snowpark.exceptions import SnowparkSQLException
-from snowflake.snowpark.types import ArrayType, DataType, LongType, MapType, StructType
+from snowflake.snowpark.types import (
+    ArrayType,
+    DataType,
+    LongType,
+    MapType,
+    StructType,
+    VariantType,
+)
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap, ColumnNames
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
@@ -88,12 +95,32 @@ def _resolve_struct_field(
         else:
             raise
 
+    # Check if the source column is VARIANT-based (either typed as VariantType or StructType from discovery)
+    # When the underlying data is VARIANT, getItem() returns VARIANT values
+    is_variant_source = isinstance(col_type, (VariantType, StructType))
+
     field_path = path[1:]
+
     if not global_config.spark_sql_caseSensitive:
-        field_path = _match_path_to_struct(field_path, col_type)
+        field_path, final_type = _match_path_to_struct_with_type(field_path, col_type)
+    else:
+        _, final_type = _match_path_to_struct_with_type(field_path, col_type)
 
     for field_name in field_path:
         col = col.getItem(field_name)
+
+    # When extracting from VARIANT using getItem(), Snowflake returns VARIANT values
+    # We need to cast to the expected type to:
+    # 1. Strip JSON quotes from strings (e.g., "BigQuery" -> BigQuery)
+    # 2. Convert numeric values to proper types (e.g., "1.0" -> 1.0 as double)
+    # 3. Preserve type semantics for downstream operations
+    # Only cast if we have a known type (not VariantType) to avoid unnecessary casts
+    if is_variant_source and field_path and not isinstance(final_type, VariantType):
+        col = snowpark_fn.iff(
+            snowpark_fn.call_function("IS_NULL_VALUE", snowpark_fn.to_variant(col)),
+            snowpark_fn.lit(None),
+            col.cast(final_type),
+        )
 
     return col
 
@@ -698,6 +725,17 @@ def map_unresolved_attribute(
 
 def _match_path_to_struct(path: list[str], col_type: DataType) -> list[str]:
     """Takes a path of names and adjusts them to strictly match the field names in a StructType."""
+    adjusted_path, _ = _match_path_to_struct_with_type(path, col_type)
+    return adjusted_path
+
+
+def _match_path_to_struct_with_type(
+    path: list[str], col_type: DataType
+) -> tuple[list[str], DataType]:
+    """
+    Takes a path of names and adjusts them to strictly match the field names in a StructType.
+    Also returns the final DataType of the resolved field.
+    """
     adjusted_path = []
     typ = col_type
     for i, name in enumerate(path):
@@ -712,6 +750,9 @@ def _match_path_to_struct(path: list[str], col_type: DataType) -> list[str]:
             # For MapType and ArrayType, we can use the name as is.
             adjusted_path.append(name)
             typ = typ.value_type if isinstance(typ, MapType) else typ.element_type
+        elif isinstance(typ, VariantType):
+            # VARIANT allows arbitrary field access
+            adjusted_path.append(name)
         else:
             # If the type is not a struct, map, or array, we cannot access the field.
             exception = AnalysisException(
@@ -719,4 +760,4 @@ def _match_path_to_struct(path: list[str], col_type: DataType) -> list[str]:
             )
             attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
             raise exception
-    return adjusted_path
+    return adjusted_path, typ

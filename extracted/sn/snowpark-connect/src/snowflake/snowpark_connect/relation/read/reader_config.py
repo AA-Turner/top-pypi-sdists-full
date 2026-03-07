@@ -203,6 +203,15 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
     if snowpark_config["escape"] and snowpark_config["escape"] == "\\":
         snowpark_config["escape"] = "\\\\"
 
+    # If quote and escape are the same character, drop the escape.
+    # Snowflake already handles escaping of FIELD_OPTIONALLY_ENCLOSED_BY by
+    # doubling the character (e.g. "" inside a "-enclosed field), so setting
+    # ESCAPE to the same value is redundant and causes a SQL compilation error.
+    quote_char = snowpark_config.get("quote")
+    escape_char = snowpark_config.get("escape")
+    if quote_char and escape_char and quote_char == escape_char:
+        del snowpark_config["escape"]
+
     # Snowflake specific option, number of rows to infer schema for CSV files
     if "rowstoinferschema" in snowpark_config:
         rows_to_infer_schema = snowpark_config["rowstoinferschema"]
@@ -323,7 +332,7 @@ class JsonReaderConfig(ReaderWriterConfig):
                     "dateFormat": "auto",
                     "timestampFormat": "auto",
                     "mode": "PERMISSIVE",
-                    # TODO: multiLine: Union[bool, str, None] = None,
+                    "multiLine": "false",
                     # TODO: allowUnquotedControlChars: Union[bool, str, None] = None,
                     # TODO: lineSep: Optional[str] = None,
                     # TODO: samplingRatio: Union[str, float, None] = None,
@@ -339,7 +348,6 @@ class JsonReaderConfig(ReaderWriterConfig):
                     "processInBulk": "False",
                     "jsonFileParallelLoading": "False",
                     "splitSizeMb": 2,
-                    "additionalPaddingMb": 2,
                 },
                 supported_options={
                     "schema",
@@ -374,7 +382,6 @@ class JsonReaderConfig(ReaderWriterConfig):
                     "processInBulk",
                     "jsonFileParallelLoading",
                     "splitSizeMb",
-                    "additionalPaddingMb",
                 },
                 boolean_config_list=[
                     "multiLine",
@@ -386,7 +393,6 @@ class JsonReaderConfig(ReaderWriterConfig):
                     "rowsToInferSchema",
                     "batchSize",
                     "splitSizeMb",
-                    "additionalPaddingMb",
                 ],
                 float_config_list=["samplingRatio"],
             ),
@@ -427,6 +433,7 @@ class ParquetReaderConfig(ReaderWriterConfig):
                     # "int96RebaseMode",
                     # "mode",
                     "compression",
+                    "rowsToInferSchema",
                 },
                 boolean_config_list=[],
                 int_config_list=[],

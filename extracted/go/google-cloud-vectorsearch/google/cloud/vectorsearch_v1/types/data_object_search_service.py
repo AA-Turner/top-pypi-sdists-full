@@ -20,9 +20,8 @@ from typing import MutableMapping, MutableSequence
 import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.cloud.vectorsearch_v1.types import common
+from google.cloud.vectorsearch_v1.types import common, embedding_config
 from google.cloud.vectorsearch_v1.types import data_object as gcv_data_object
-from google.cloud.vectorsearch_v1.types import embedding_config
 
 __protobuf__ = proto.module(
     package="google.cloud.vectorsearch.v1",
@@ -44,7 +43,6 @@ __protobuf__ = proto.module(
         "BatchSearchDataObjectsRequest",
         "Ranker",
         "ReciprocalRankFusion",
-        "VertexRanker",
         "BatchSearchDataObjectsResponse",
     },
 )
@@ -60,6 +58,7 @@ class AggregationMethod(proto.Enum):
             Count the number of data objects that match
             the filter.
     """
+
     AGGREGATION_METHOD_UNSPECIFIED = 0
     COUNT = 1
 
@@ -764,20 +763,11 @@ class BatchSearchDataObjectsRequest(proto.Message):
 class Ranker(proto.Message):
     r"""Defines a ranker to combine results from multiple searches.
 
-    This message has `oneof`_ fields (mutually exclusive fields).
-    For each oneof, at most one member field can be set at the same time.
-    Setting any member of the oneof automatically clears all other
-    members.
-
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
         rrf (google.cloud.vectorsearch_v1.types.ReciprocalRankFusion):
             Reciprocal Rank Fusion ranking.
-
-            This field is a member of `oneof`_ ``ranker``.
-        vertex (google.cloud.vectorsearch_v1.types.VertexRanker):
-            Vertex AI ranking.
 
             This field is a member of `oneof`_ ``ranker``.
     """
@@ -787,12 +777,6 @@ class Ranker(proto.Message):
         number=1,
         oneof="ranker",
         message="ReciprocalRankFusion",
-    )
-    vertex: "VertexRanker" = proto.Field(
-        proto.MESSAGE,
-        number=2,
-        oneof="ranker",
-        message="VertexRanker",
     )
 
 
@@ -809,46 +793,6 @@ class ReciprocalRankFusion(proto.Message):
     weights: MutableSequence[float] = proto.RepeatedField(
         proto.DOUBLE,
         number=1,
-    )
-
-
-class VertexRanker(proto.Message):
-    r"""Defines a ranker using the Vertex AI ranking service.
-    See
-    https://cloud.google.com/generative-ai-app-builder/docs/ranking
-    for details.
-
-    Attributes:
-        query (str):
-            Required. The query against which the records
-            are ranked and scored.
-        title_template (str):
-            Optional. The template used to generate the
-            record's title.
-        content_template (str):
-            Optional. The template used to generate the
-            record's content.
-        model (str):
-            Required. The model used for ranking
-            documents. If no model is specified, then
-            semantic-ranker-default@latest is used.
-    """
-
-    query: str = proto.Field(
-        proto.STRING,
-        number=1,
-    )
-    title_template: str = proto.Field(
-        proto.STRING,
-        number=2,
-    )
-    content_template: str = proto.Field(
-        proto.STRING,
-        number=3,
-    )
-    model: str = proto.Field(
-        proto.STRING,
-        number=4,
     )
 
 

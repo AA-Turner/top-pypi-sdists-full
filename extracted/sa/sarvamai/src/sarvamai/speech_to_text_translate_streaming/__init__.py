@@ -6,6 +6,8 @@ from .types import (
     SpeechToTextTranslateStreamingFlushSignal,
     SpeechToTextTranslateStreamingHighVadSensitivity,
     SpeechToTextTranslateStreamingInputAudioCodec,
+    SpeechToTextTranslateStreamingMode,
+    SpeechToTextTranslateStreamingModel,
     SpeechToTextTranslateStreamingVadSignals,
 )
 
@@ -13,5 +15,7 @@ __all__ = [
     "SpeechToTextTranslateStreamingFlushSignal",
     "SpeechToTextTranslateStreamingHighVadSensitivity",
     "SpeechToTextTranslateStreamingInputAudioCodec",
+    "SpeechToTextTranslateStreamingMode",
+    "SpeechToTextTranslateStreamingModel",
     "SpeechToTextTranslateStreamingVadSignals",
 ]

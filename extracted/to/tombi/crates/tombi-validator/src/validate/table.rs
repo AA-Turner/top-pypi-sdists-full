@@ -16,7 +16,7 @@ use crate::{
     error::{REQUIRED_KEY_SCORE, TYPE_MATCHED_SCORE},
     validate::{
         handle_deprecated, handle_deprecated_value, handle_type_mismatch, handle_unused_noqa,
-        not_schema::validate_not, string::validate_raw_string,
+        if_then_else::validate_if_then_else, not_schema::validate_not, string::validate_raw_string,
     },
 };
 
@@ -307,7 +307,7 @@ async fn validate_table(
             }
             if table_schema.check_strict_additional_properties_violation(schema_context.strict()) {
                 crate::Diagnostic {
-                    kind: Box::new(crate::DiagnosticKind::StrictAdditionalKeys {
+                    kind: Box::new(crate::DiagnosticKind::TableStrictAdditionalKeys {
                         accessors: SchemaAccessors::from(accessors),
                         schema_uri: current_schema.schema_uri.as_ref().clone(),
                         key: key.to_string(),
@@ -352,9 +352,9 @@ async fn validate_table(
         }
     }
 
-    if let Some(required) = &table_schema.required {
-        let keys = table_value.keys().map(|key| &key.value).collect_vec();
+    let keys = table_value.keys().map(|key| &key.value).collect_vec();
 
+    if let Some(required) = &table_schema.required {
         for required_key in required {
             if !keys.contains(&required_key) {
                 let level = table_rules
@@ -463,6 +463,171 @@ async fn validate_table(
         );
     }
 
+    if let Some(dependencies) = &table_schema.dependencies {
+        for (dependent_key, dependency) in dependencies {
+            if !keys.contains(&dependent_key) {
+                continue;
+            }
+
+            match dependency {
+                tombi_schema_store::Dependency::Property(required_keys) => {
+                    for required_key in required_keys {
+                        if !keys.contains(&required_key) {
+                            crate::Diagnostic {
+                                kind: Box::new(crate::DiagnosticKind::TableDependencyRequired {
+                                    dependent_key: dependent_key.to_string(),
+                                    required_key: required_key.to_string(),
+                                }),
+                                range: table_value.range(),
+                            }
+                            .push_diagnostic_with_level(
+                                SeverityLevelDefaultError::default(),
+                                &mut total_diagnostics,
+                            );
+                        }
+                    }
+                }
+                tombi_schema_store::Dependency::Schema(schema_item) => {
+                    if let Ok(Some(dep_schema)) = tombi_schema_store::resolve_schema_item(
+                        schema_item,
+                        current_schema.schema_uri.clone(),
+                        current_schema.definitions.clone(),
+                        schema_context.store,
+                    )
+                    .await
+                    .inspect_err(|err| log::warn!("{err}"))
+                    {
+                        if let Err(crate::Error { diagnostics, .. }) = table_value
+                            .validate(accessors, Some(&dep_schema), schema_context)
+                            .await
+                        {
+                            total_diagnostics.extend(diagnostics);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some(dependent_required) = &table_schema.dependent_required {
+        for (dependent_key, required_keys) in dependent_required {
+            if !keys.contains(&dependent_key) {
+                continue;
+            }
+
+            for required_key in required_keys {
+                if !keys.contains(&required_key) {
+                    crate::Diagnostic {
+                        kind: Box::new(crate::DiagnosticKind::TableDependencyRequired {
+                            dependent_key: dependent_key.to_string(),
+                            required_key: required_key.to_string(),
+                        }),
+                        range: table_value.range(),
+                    }
+                    .push_diagnostic_with_level(
+                        SeverityLevelDefaultError::default(),
+                        &mut total_diagnostics,
+                    );
+                }
+            }
+        }
+    }
+
+    if let Some(dependent_schemas) = &table_schema.dependent_schemas {
+        for (dependent_key, schema_item) in dependent_schemas {
+            if !keys.contains(&dependent_key) {
+                continue;
+            }
+
+            if let Ok(Some(dep_schema)) = tombi_schema_store::resolve_schema_item(
+                schema_item,
+                current_schema.schema_uri.clone(),
+                current_schema.definitions.clone(),
+                schema_context.store,
+            )
+            .await
+            .inspect_err(|err| log::warn!("{err}"))
+            {
+                if let Err(crate::Error { diagnostics, .. }) = table_value
+                    .validate(accessors, Some(&dep_schema), schema_context)
+                    .await
+                {
+                    total_diagnostics.extend(diagnostics);
+                }
+            }
+        }
+    }
+
+    if table_schema.const_value.is_some() || table_schema.r#enum.is_some() {
+        let actual_object = crate::convert::table_to_json_object(table_value);
+
+        if let Some(const_value) = &table_schema.const_value {
+            if actual_object != *const_value {
+                let level = table_rules
+                    .map(|rules| &rules.common)
+                    .and_then(|rules| {
+                        rules
+                            .const_value
+                            .as_ref()
+                            .map(SeverityLevelDefaultError::from)
+                    })
+                    .unwrap_or_default();
+
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::Const {
+                        expected: tombi_json_value::Value::Object(const_value.clone()).to_string(),
+                        actual: tombi_json_value::Value::Object(actual_object.clone()).to_string(),
+                    }),
+                    range: table_value.range(),
+                }
+                .push_diagnostic_with_level(level, &mut total_diagnostics);
+            }
+        } else if table_rules
+            .and_then(|rules| rules.common.const_value.as_ref())
+            .and_then(|rules| rules.disabled)
+            == Some(true)
+        {
+            handle_unused_noqa(
+                &mut total_diagnostics,
+                table_value.comment_directives(),
+                table_rules.as_ref().map(|rules| &rules.common),
+                "const-value",
+            );
+        }
+
+        if let Some(r#enum) = &table_schema.r#enum {
+            if !r#enum.iter().any(|item| *item == actual_object) {
+                let level = table_rules
+                    .map(|rules| &rules.common)
+                    .and_then(|rules| rules.r#enum().map(SeverityLevelDefaultError::from))
+                    .unwrap_or_default();
+
+                crate::Diagnostic {
+                    kind: Box::new(crate::DiagnosticKind::Enum {
+                        expected: r#enum
+                            .iter()
+                            .map(|item| tombi_json_value::Value::Object(item.clone()).to_string())
+                            .collect(),
+                        actual: tombi_json_value::Value::Object(actual_object).to_string(),
+                    }),
+                    range: table_value.range(),
+                }
+                .push_diagnostic_with_level(level, &mut total_diagnostics);
+            }
+        } else if table_rules
+            .and_then(|rules| rules.common.r#enum())
+            .and_then(|rules| rules.disabled)
+            == Some(true)
+        {
+            handle_unused_noqa(
+                &mut total_diagnostics,
+                table_value.comment_directives(),
+                table_rules.as_ref().map(|rules| &rules.common),
+                "enum",
+            );
+        }
+    }
+
     if let Some(property_name_schema) = &table_schema.property_names
         && let Ok(Some(property_name_current_schema)) = tombi_schema_store::resolve_schema_item(
             property_name_schema,
@@ -536,6 +701,20 @@ async fn validate_table(
             schema_context,
             table_value.comment_directives(),
             table_rules.as_ref().map(|rules| &rules.common),
+        )
+        .await
+        {
+            total_diagnostics.extend(error.diagnostics);
+        }
+    }
+
+    if let Some(if_then_else_schema) = table_schema.if_then_else.as_ref() {
+        if let Err(error) = validate_if_then_else(
+            table_value,
+            accessors,
+            if_then_else_schema,
+            current_schema,
+            schema_context,
         )
         .await
         {

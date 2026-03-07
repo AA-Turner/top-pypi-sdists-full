@@ -14,14 +14,14 @@ def RegulomeDB_query_variant(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Query RegulomeDB for regulatory variant annotations using rsID
 
     Parameters
     ----------
     rsid : str
-        dbSNP rsID (e.g., rs123456)
+        dbSNP rsID (e.g., 'rs4994', 'rs429358')
     stream_callback : Callable, optional
         Callback for streaming output
     use_cache : bool, default False
@@ -31,7 +31,7 @@ def RegulomeDB_query_variant(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

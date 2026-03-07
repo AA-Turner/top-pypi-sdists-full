@@ -44,15 +44,87 @@ class ArXivTool(BaseTool):
         sort_by = arguments.get("sort_by", "relevance")
         # sort_order: ascending | descending
         sort_order = arguments.get("sort_order", "descending")
+        date_from = arguments.get("date_from")
+        date_to = arguments.get("date_to")
 
         if not query:
             return {"error": "`query` parameter is required."}
 
-        return self._search(query, limit, sort_by, sort_order)
+        if limit <= 0:
+            return []
 
-    def _search(self, query, limit, sort_by, sort_order):
+        return self._search(query, limit, sort_by, sort_order, date_from, date_to)
+
+    _VALID_SORT_BY = {"relevance", "lastUpdatedDate", "submittedDate"}
+
+    def _build_search_query(self, query):
+        """Build arXiv search_query, joining multi-word queries with AND.
+
+        If the query already contains arXiv field prefixes (au:, ti:, cat:, abs:, etc.)
+        or boolean operators (AND, OR, ANDNOT), pass it through as-is.
+        Otherwise, split into tokens respecting quoted phrases and join with AND.
+
+        Special handling: single-prefix queries with multi-word unquoted values
+        (e.g. 'au:Shanghua Gao') get auto-quoted ('au:"Shanghua Gao"') so the
+        arXiv API treats the full name as the author field value.
+        """
+        arxiv_prefixes = (
+            "au:",
+            "ti:",
+            "abs:",
+            "cat:",
+            "co:",
+            "jr:",
+            "rn:",
+            "id:",
+            "all:",
+        )
+        has_prefix = any(p in query.lower() for p in arxiv_prefixes)
+        has_boolean = any(f" {op} " in query for op in ("AND", "OR", "ANDNOT"))
+        if has_prefix or has_boolean:
+            # Auto-quote multi-word values for single-prefix queries without
+            # boolean operators (e.g. 'au:Shanghua Gao' → 'au:"Shanghua Gao"')
+            if not has_boolean:
+                # Count how many prefixes appear in the query; only auto-quote
+                # when there is exactly one prefix (e.g., 'au:Shanghua Gao').
+                prefix_count = sum(1 for p in arxiv_prefixes if p in query.lower())
+                if prefix_count == 1:
+                    for prefix in arxiv_prefixes:
+                        if query.lower().startswith(prefix):
+                            value = query[len(prefix) :]
+                            if " " in value and not value.startswith('"'):
+                                return f'{prefix}"{value}"'
+                            break
+            return query
+
+        # Split into tokens while keeping quoted phrases intact.
+        # e.g. '"protein folding" prediction' → ['"protein folding"', 'prediction']
+        tokens = re.findall(r'"[^"]*"|\S+', query)
+        if len(tokens) <= 1:
+            return f"all:{query}"
+        return " AND ".join(f"all:{t}" for t in tokens)
+
+    def _search(self, query, limit, sort_by, sort_order, date_from=None, date_to=None):
+        if sort_by not in self._VALID_SORT_BY:
+            return {
+                "error": f"Invalid sort_by: '{sort_by}'. Valid options: {', '.join(sorted(self._VALID_SORT_BY))}",
+            }
+
+        search_query = self._build_search_query(query)
+
+        # Append date range filter if provided
+        if date_from or date_to:
+            # Use sensible defaults when only one bound is specified:
+            # missing date_from defaults to 19910101 (arXiv launch),
+            # missing date_to defaults to 29991231 (far future).
+            # arXiv submittedDate expects YYYYMMDDHHMMSS (14-char) timestamps
+            start = (date_from or "1991-01-01").replace("-", "") + "000000"
+            end = (date_to or "2999-12-31").replace("-", "") + "235959"
+            date_clause = f"submittedDate:[{start} TO {end}]"
+            search_query = f"{search_query} AND {date_clause}"
+
         params = {
-            "search_query": f"all:{query}",
+            "search_query": search_query,
             "start": 0,
             "max_results": max(1, min(limit, 200)),
             "sortBy": sort_by,

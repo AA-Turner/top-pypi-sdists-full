@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: treelite
-Version: 4.6.1
+Version: 4.7.0
 Summary: Treelite: Universal model exchange format for decision tree forests
 Project-URL: documentation, https://treelite.readthedocs.io/en/latest/
 Project-URL: repository, https://github.com/dmlc/treelite

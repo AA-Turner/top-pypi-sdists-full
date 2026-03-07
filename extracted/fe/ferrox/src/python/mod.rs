@@ -23,6 +23,7 @@
 //! - `ferrox.surfaces` - Surface and slab operations
 //! - `ferrox.symmetry` - Space group and symmetry operations
 //! - `ferrox.trajectory` - Trajectory analysis
+//! - `ferrox.vasp` - VASP file I/O (CHGCAR parsing, Fourier extraction)
 //! - `ferrox.xrd` - X-ray diffraction
 
 // PyO3 proc macros generate code that triggers false positive clippy warnings
@@ -38,7 +39,9 @@ pub mod helpers;
 pub mod classes;
 
 // Submodules
+pub mod bonding;
 pub mod cell;
+pub mod chempot;
 pub mod composition;
 pub mod convex_hull;
 pub mod coordination;
@@ -61,6 +64,7 @@ pub mod structure;
 pub mod surfaces;
 pub mod symmetry;
 pub mod trajectory;
+pub mod vasp;
 pub mod xrd;
 
 // Declarative submodule definitions (each is a standalone #[pymodule])

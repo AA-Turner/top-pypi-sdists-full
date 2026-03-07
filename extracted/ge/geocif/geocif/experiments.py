@@ -119,8 +119,13 @@ def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
         "feature_selection", "lag_years", "lag_yield_as_feature",
         "median_years", "median_yield_as_feature",
         "analogous_year_yield_as_feature", "check_yield_trend",
+        "use_spatial_neighbors", "spatial_neighbor_method", "spatial_neighbor_k",
     ]
-    originals = {key: parser.get("ML", key) for key in ml_keys}
+    originals = {
+        key: parser.get("ML", key)
+        for key in ml_keys
+        if parser.has_option("ML", key)
+    }
 
     def objective(trial):
         params = {
@@ -142,6 +147,13 @@ def optimize_hyperparameters(inputs, logger, parser, n_trials=30):
             "check_yield_trend": trial.suggest_categorical(
                 "check_yield_trend", ["True", "False"],
             ),
+            "use_spatial_neighbors": trial.suggest_categorical(
+                "use_spatial_neighbors", ["True", "False"],
+            ),
+            "spatial_neighbor_method": trial.suggest_categorical(
+                "spatial_neighbor_method", ["knn", "full"],
+            ),
+            "spatial_neighbor_k": trial.suggest_int("spatial_neighbor_k", 2, 8),
         }
 
         experiment_name = f"exp0_{model_tag}_trial{trial.number + 1}"

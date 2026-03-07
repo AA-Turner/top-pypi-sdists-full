@@ -414,6 +414,7 @@ class RegTreeHandler : public OutputHandler<ParsedRegTreeParams> {
   std::vector<float> loss_changes;
   std::vector<float> sum_hessian;
   std::vector<float> base_weights;
+  std::vector<float> leaf_weights;
   std::vector<int> left_children;
   std::vector<int> right_children;
   std::vector<int> parents;
@@ -433,9 +434,8 @@ class RegTreeArrayHandler : public OutputHandler<std::vector<ParsedRegTreeParams
  public:
   RegTreeArrayHandler(std::weak_ptr<Delegator> parent_delegator,
       std::vector<ParsedRegTreeParams>& output, model_builder::ModelBuilder& model_builder);
-  RegTreeArrayHandler(
-      std::weak_ptr<Delegator> parent_delegator, std::vector<ParsedRegTreeParams>&& output)
-      = delete;
+  RegTreeArrayHandler(std::weak_ptr<Delegator> parent_delegator,
+      std::vector<ParsedRegTreeParams>&& output) = delete;
 
   bool StartObject() override;
 

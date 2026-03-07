@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pkgconfig"
-version = "1.5.5"
+version = "1.6.0"
 license = "MIT"
 description = "Interface Python with pkg-config"
 authors = ["Matthias Vogelgesang <matthias.vogelgesang@gmail.com>"]
@@ -18,7 +18,24 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.3"
+python = "^3.9.0"
 
-[tool.poetry.dev-dependencies]
-pytest = "^3.8.2"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
+tox = "^4.29.0"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+# test on all supported Python versions, see also:
+# - pyproject.toml: tool.poetry.dependencies
+# - .github/workflows/ci.yml
+# - README.rst
+envlist = py{39,310,311,312,313,314}
+
+[testenv]
+deps =
+    pytest
+    setuptools
+commands= pytest -v -rs
+"""

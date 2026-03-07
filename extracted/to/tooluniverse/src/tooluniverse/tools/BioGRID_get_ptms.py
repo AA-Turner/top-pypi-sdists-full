@@ -20,7 +20,7 @@ def BioGRID_get_ptms(
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,
     validate: bool = True,
-) -> dict[str, Any]:
+) -> Any:
     """
     Retrieve post-translational modifications (PTM = Protein modifications after translation) for pro...
 
@@ -49,7 +49,7 @@ def BioGRID_get_ptms(
 
     Returns
     -------
-    dict[str, Any]
+    Any
     """
     # Handle mutable defaults to avoid B006 linting error
 

@@ -47,7 +47,9 @@ class ChEMBLRESTTool(BaseTool):
             # Feature-31A-03 fix: /drug.json does not support pref_name__icontains filtering
             # (ChEMBL server silently ignores it). When a name query is given, route to
             # /molecule.json which supports full text filtering.
-            if url.endswith("/drug.json") and (args.get("query") or args.get("q")):
+            if url.endswith("/drug.json") and (
+                args.get("query") or args.get("q") or args.get("pref_name__contains")
+            ):
                 url = url.replace("/drug.json", "/molecule.json")
             # If URL doesn't start with http, prepend base_url
             if not url.startswith("http"):

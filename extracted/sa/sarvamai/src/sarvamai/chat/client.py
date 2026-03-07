@@ -5,9 +5,13 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..requests.chat_completion_request_message import ChatCompletionRequestMessageParams
+from ..requests.chat_completion_tool import ChatCompletionToolParams
 from ..requests.stop_configuration import StopConfigurationParams
+from ..requests.tool_choice_option import ToolChoiceOptionParams
+from ..types.chat_completion_chunk import ChatCompletionChunk
 from ..types.create_chat_completion_response import CreateChatCompletionResponse
 from ..types.reasoning_effort import ReasoningEffort
+from ..types.sarvam_model_ids import SarvamModelIds
 from .raw_client import AsyncRawChatClient, RawChatClient
 
 # this is used as the default value for optional parameters
@@ -29,10 +33,55 @@ class ChatClient:
         """
         return self._raw_client
 
+    @typing.overload
     def completions(
         self,
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: SarvamModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Literal[True],
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        wiki_grounding: typing.Optional[bool] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> typing.Iterator[ChatCompletionChunk]: ...
+
+    @typing.overload
+    def completions(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: SarvamModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Optional[typing.Literal[False]] = ...,
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        wiki_grounding: typing.Optional[bool] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> CreateChatCompletionResponse: ...
+
+    def completions(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: SarvamModelIds,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -44,15 +93,18 @@ class ChatClient:
         frequency_penalty: typing.Optional[float] = OMIT,
         presence_penalty: typing.Optional[float] = OMIT,
         wiki_grounding: typing.Optional[bool] = OMIT,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = OMIT,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateChatCompletionResponse:
+    ) -> typing.Union[CreateChatCompletionResponse, typing.Iterator[ChatCompletionChunk]]:
         """
-        Calls Sarvam LLM API to get the chat completion. Supported model(s): `sarvam-m`.
-
         Parameters
         ----------
         messages : typing.Sequence[ChatCompletionRequestMessageParams]
             A list of messages comprising the conversation so far.
+
+        model : SarvamModelIds
+            Model ID used to generate the response, like `sarvam-m`.
 
         temperature : typing.Optional[float]
             What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
@@ -67,6 +119,7 @@ class ChatClient:
             We generally recommend altering this or `temperature` but not both.
 
         reasoning_effort : typing.Optional[ReasoningEffort]
+            The effort to use for reasoning
 
         max_tokens : typing.Optional[int]
             The maximum number of tokens that can be generated in the chat completion.
@@ -74,6 +127,7 @@ class ChatClient:
         stream : typing.Optional[bool]
             If set to true, the model response data will be streamed to the client
             as it is generated using [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#Event_stream_format).
+            When true, returns an Iterator[ChatCompletionChunk] instead of CreateChatCompletionResponse.
 
         stop : typing.Optional[StopConfigurationParams]
 
@@ -83,6 +137,7 @@ class ChatClient:
         seed : typing.Optional[int]
             This feature is in Beta.
             If specified, our system will make a best effort to sample deterministically, such that repeated requests with the same `seed` and parameters should return the same result.
+            Determinism is not guaranteed, and you should refer to the `system_fingerprint` response parameter to monitor changes in the backend.
 
         frequency_penalty : typing.Optional[float]
             Number between -2.0 and 2.0. Positive values penalize new tokens based on
@@ -95,15 +150,22 @@ class ChatClient:
             to talk about new topics.
 
         wiki_grounding : typing.Optional[bool]
-            If this parameter is enabled, then the model uses a RAG based approach to retrieve relevant chunks from Wikipedia and uses them to answer the question. This is particularly useful for queries seeking factual information.
+            If set to true, the model response will be wiki grounded.
+
+        tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
+            A list of tools the model may call. Currently, only functions are supported as a tool.
+
+        tool_choice : typing.Optional[ToolChoiceOptionParams]
+            Controls which (if any) tool is called by the model.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        CreateChatCompletionResponse
-            Successful Response
+        CreateChatCompletionResponse or Iterator[ChatCompletionChunk]
+            When stream=False (default): CreateChatCompletionResponse.
+            When stream=True: Iterator yielding ChatCompletionChunk objects.
 
         Examples
         --------
@@ -112,12 +174,44 @@ class ChatClient:
         client = SarvamAI(
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
-        client.chat.completions(
-            messages=[{"content": "content", "role": "assistant"}],
+
+        # Non-streaming
+        response = client.chat.completions(
+            messages=[{"role": "user", "content": "Hello"}],
+            model="sarvam-m",
         )
+
+        # Streaming
+        for chunk in client.chat.completions(
+            messages=[{"role": "user", "content": "Hello"}],
+            model="sarvam-m",
+            stream=True,
+        ):
+            print(chunk)
         """
+        if stream is True:
+            return self._raw_client.completions(
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                reasoning_effort=reasoning_effort,
+                max_tokens=max_tokens,
+                stream=True,
+                stop=stop,
+                n=n,
+                seed=seed,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                wiki_grounding=wiki_grounding,
+                tools=tools,
+                tool_choice=tool_choice,
+                request_options=request_options,
+            )
+
         _response = self._raw_client.completions(
             messages=messages,
+            model=model,
             temperature=temperature,
             top_p=top_p,
             reasoning_effort=reasoning_effort,
@@ -129,6 +223,8 @@ class ChatClient:
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
             wiki_grounding=wiki_grounding,
+            tools=tools,
+            tool_choice=tool_choice,
             request_options=request_options,
         )
         return _response.data
@@ -149,10 +245,55 @@ class AsyncChatClient:
         """
         return self._raw_client
 
+    @typing.overload
     async def completions(
         self,
         *,
         messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: SarvamModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Literal[True],
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        wiki_grounding: typing.Optional[bool] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> typing.AsyncIterator[ChatCompletionChunk]: ...
+
+    @typing.overload
+    async def completions(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: SarvamModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Optional[typing.Literal[False]] = ...,
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        wiki_grounding: typing.Optional[bool] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> CreateChatCompletionResponse: ...
+
+    async def completions(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: SarvamModelIds,
         temperature: typing.Optional[float] = OMIT,
         top_p: typing.Optional[float] = OMIT,
         reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
@@ -164,15 +305,18 @@ class AsyncChatClient:
         frequency_penalty: typing.Optional[float] = OMIT,
         presence_penalty: typing.Optional[float] = OMIT,
         wiki_grounding: typing.Optional[bool] = OMIT,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = OMIT,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateChatCompletionResponse:
+    ) -> typing.Union[CreateChatCompletionResponse, typing.AsyncIterator[ChatCompletionChunk]]:
         """
-        Calls Sarvam LLM API to get the chat completion. Supported model(s): `sarvam-m`.
-
         Parameters
         ----------
         messages : typing.Sequence[ChatCompletionRequestMessageParams]
             A list of messages comprising the conversation so far.
+
+        model : SarvamModelIds
+            Model ID used to generate the response, like `sarvam-m`.
 
         temperature : typing.Optional[float]
             What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
@@ -187,6 +331,7 @@ class AsyncChatClient:
             We generally recommend altering this or `temperature` but not both.
 
         reasoning_effort : typing.Optional[ReasoningEffort]
+            The effort to use for reasoning
 
         max_tokens : typing.Optional[int]
             The maximum number of tokens that can be generated in the chat completion.
@@ -194,6 +339,7 @@ class AsyncChatClient:
         stream : typing.Optional[bool]
             If set to true, the model response data will be streamed to the client
             as it is generated using [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#Event_stream_format).
+            When true, returns an AsyncIterator[ChatCompletionChunk] instead of CreateChatCompletionResponse.
 
         stop : typing.Optional[StopConfigurationParams]
 
@@ -203,6 +349,7 @@ class AsyncChatClient:
         seed : typing.Optional[int]
             This feature is in Beta.
             If specified, our system will make a best effort to sample deterministically, such that repeated requests with the same `seed` and parameters should return the same result.
+            Determinism is not guaranteed, and you should refer to the `system_fingerprint` response parameter to monitor changes in the backend.
 
         frequency_penalty : typing.Optional[float]
             Number between -2.0 and 2.0. Positive values penalize new tokens based on
@@ -215,37 +362,72 @@ class AsyncChatClient:
             to talk about new topics.
 
         wiki_grounding : typing.Optional[bool]
-            If this parameter is enabled, then the model uses a RAG based approach to retrieve relevant chunks from Wikipedia and uses them to answer the question. This is particularly useful for queries seeking factual information.
+            If set to true, the model response will be wiki grounded.
+
+        tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
+            A list of tools the model may call. Currently, only functions are supported as a tool.
+
+        tool_choice : typing.Optional[ToolChoiceOptionParams]
+            Controls which (if any) tool is called by the model.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        CreateChatCompletionResponse
-            Successful Response
+        CreateChatCompletionResponse or AsyncIterator[ChatCompletionChunk]
+            When stream=False (default): CreateChatCompletionResponse.
+            When stream=True: AsyncIterator yielding ChatCompletionChunk objects.
 
         Examples
         --------
         import asyncio
-
         from sarvamai import AsyncSarvamAI
 
         client = AsyncSarvamAI(
             api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
         )
 
-
         async def main() -> None:
-            await client.chat.completions(
-                messages=[{"content": "content", "role": "assistant"}],
+            # Non-streaming
+            response = await client.chat.completions(
+                messages=[{"role": "user", "content": "Hello"}],
+                model="sarvam-m",
             )
 
+            # Streaming
+            async for chunk in client.chat.completions(
+                messages=[{"role": "user", "content": "Hello"}],
+                model="sarvam-m",
+                stream=True,
+            ):
+                print(chunk)
 
         asyncio.run(main())
         """
+        if stream is True:
+            return await self._raw_client.completions(
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                reasoning_effort=reasoning_effort,
+                max_tokens=max_tokens,
+                stream=True,
+                stop=stop,
+                n=n,
+                seed=seed,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                wiki_grounding=wiki_grounding,
+                tools=tools,
+                tool_choice=tool_choice,
+                request_options=request_options,
+            )
+
         _response = await self._raw_client.completions(
             messages=messages,
+            model=model,
             temperature=temperature,
             top_p=top_p,
             reasoning_effort=reasoning_effort,
@@ -257,6 +439,8 @@ class AsyncChatClient:
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
             wiki_grounding=wiki_grounding,
+            tools=tools,
+            tool_choice=tool_choice,
             request_options=request_options,
         )
         return _response.data

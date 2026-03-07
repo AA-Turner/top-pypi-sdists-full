@@ -72,7 +72,7 @@ def mixed_quant_predicate_builder(
         if "lm_head" in path:
             return {"group_size": group_size, "bits": high_bits, "mode": mode}
 
-        return {"group_size": group_size, "bits": low_bits}
+        return {"group_size": group_size, "bits": low_bits, "mode": mode}
 
     return mixed_quant_predicate
 
@@ -86,8 +86,8 @@ def convert(
     hf_path: str,
     mlx_path: str = "mlx_model",
     quantize: bool = False,
-    q_group_size: int = 64,
-    q_bits: int = 4,
+    q_group_size: Optional[int] = None,
+    q_bits: Optional[int] = None,
     q_mode: str = "affine",
     dtype: Optional[str] = None,
     upload_repo: str = None,
@@ -128,6 +128,8 @@ def convert(
 
     if dtype is None:
         dtype = config.get("torch_dtype", None)
+    if dtype is None and (text_config := config.get("text_config", None)):
+        dtype = text_config.get("dtype", None)
     if dtype in MODEL_CONVERSION_DTYPES:
         print("[INFO] Using dtype:", dtype)
         dtype = getattr(mx, dtype)

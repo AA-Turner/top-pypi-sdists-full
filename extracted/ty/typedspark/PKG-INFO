@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typedspark
-Version: 1.6.2
+Version: 1.6.3
 Summary: Column-wise type annotations for pyspark DataFrames
 Home-page: https://github.com/kaiko-ai/typedspark
 Author: Nanne Aben

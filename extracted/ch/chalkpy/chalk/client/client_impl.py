@@ -3744,7 +3744,7 @@ https://docs.chalk.ai/cli/apply
             environment_override=context.environment,
             preview_deployment_id=None,
             branch=branch,
-            metadata_request=False,
+            metadata_request=True,
         )
         self._raise_if_200_with_errors(response=response)
         return response

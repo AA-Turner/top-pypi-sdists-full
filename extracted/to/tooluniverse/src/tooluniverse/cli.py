@@ -58,12 +58,14 @@ def _non_neg_int(value: str) -> int:
 
 def _get_tu():
     """Lazy-initialize a ToolUniverse instance."""
-    # Reconfigure logger to stderr in case the singleton was already created
-    # before our env var took effect (e.g., tooluniverse imported elsewhere).
+    # Reconfigure logger to stderr and suppress INFO messages in CLI mode.
+    # The CLI has its own status output; library-level info logs are noise.
     try:
+        import logging
         from tooluniverse.logging_config import reconfigure_for_stdio
 
         reconfigure_for_stdio()
+        logging.getLogger("tooluniverse").setLevel(logging.WARNING)
     except Exception:
         pass
 
@@ -71,9 +73,7 @@ def _get_tu():
 
     tu = ToolUniverse()
     if not tu.all_tool_dict:
-        print("Loading tools…", end="", flush=True, file=sys.stderr)
         tu._auto_load_tools_if_empty()
-        print(f" done ({len(tu.all_tools)} tools)", file=sys.stderr)
     return tu
 
 

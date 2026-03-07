@@ -87,9 +87,20 @@ class PubMedRESTTool(BaseRESTTool):
         if self.default_api_key:
             params["api_key"] = self.default_api_key
 
-        # Handle limit
-        if "limit" in args and args["limit"]:
-            params["retmax"] = args["limit"]
+        # Handle limit — use `is not None` instead of truthiness so that limit=0
+        # is honoured (0 is falsy but is a valid, explicit user choice).
+        if "limit" in args and args["limit"] is not None:
+            params["retmax"] = max(0, int(args["limit"]))
+
+        # Forward date-range parameters for esearch
+        for date_key in ("mindate", "maxdate", "datetype"):
+            if date_key in args and args[date_key]:
+                params[date_key] = args[date_key]
+
+        # Forward sort parameter for esearch
+        # Valid values: pub_date, Author, JournalName, relevance
+        if "sort" in args and args["sort"]:
+            params["sort"] = args["sort"]
 
         # Set retmode to json for elink and esearch (easier parsing)
         endpoint = self.tool_config["fields"]["endpoint"]
@@ -145,7 +156,10 @@ class PubMedRESTTool(BaseRESTTool):
             pmcid = ""
             for aid in article_data.get("articleids", []):
                 if aid.get("idtype") == "pmc":
-                    pmcid = f"PMC{aid['value']}"
+                    raw_val = aid["value"]
+                    # NCBI esummary returns PMC IDs already prefixed (e.g. "PMC12948714").
+                    # Avoid double-prefixing to "PMCPMC12948714".
+                    pmcid = raw_val if raw_val.startswith("PMC") else f"PMC{raw_val}"
                     break
             pmcid = pmcid or None
 
@@ -634,6 +648,14 @@ class PubMedRESTTool(BaseRESTTool):
                             return {
                                 "status": "success",
                                 "data": linkset.get("idurllist", {}),
+                                "url": response.url,
+                            }
+                        else:
+                            # Linkset exists but no linksetdbs or idurllist = no results
+                            return {
+                                "status": "success",
+                                "data": [],
+                                "count": 0,
                                 "url": response.url,
                             }
 

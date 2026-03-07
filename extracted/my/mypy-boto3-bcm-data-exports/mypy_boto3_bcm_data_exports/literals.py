@@ -3,7 +3,7 @@ Type annotations for bcm-data-exports service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_data_exports/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -165,6 +165,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -204,16 +205,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -253,7 +253,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -428,6 +427,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -469,6 +469,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

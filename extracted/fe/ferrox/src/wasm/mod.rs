@@ -10,6 +10,9 @@
 #![allow(missing_docs)]
 
 // Submodules
+pub mod types;
+
+pub mod brillouin;
 pub mod cell;
 pub mod composition;
 pub mod convex_hull;
@@ -38,6 +41,7 @@ pub mod transformations;
 pub mod xrd;
 
 // Re-export all public items from submodules for backward compatibility
+pub use brillouin::*;
 pub use cell::*;
 pub use composition::*;
 pub use convex_hull::*;

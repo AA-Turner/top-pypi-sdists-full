@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "keep-skill"
-version = "0.82.3"
+version = "0.84.0"
 description = "Reflective memory - remember and search documents by meaning"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -33,6 +33,7 @@ dependencies = [
     "openai>=1.0",
     "anthropic>=0.40.0",
     "google-genai>=1.0.0",
+    "mistralai>=1.0",
     # Document extraction
     "pypdf>=6.7.5",
     "pypdfium2>=4.0",
@@ -47,12 +48,14 @@ dependencies = [
     "httpx>=0.27",
     # MCP stdio server
     "mcp>=1.0",
+    # Interactive CLI prompts (setup wizard)
+    "questionary>=2.0",
 ]
 
 [project.urls]
 Homepage = "https://keepnotes.ai"
 Documentation = "https://docs.keepnotes.ai/guides/"
-Repository = "https://github.com/hughpyle/keep"
+Repository = "https://github.com/keepnotes-ai/keep"
 
 [project.optional-dependencies]
 # Local models (macOS Apple Silicon optimized, ~500MB with PyTorch)

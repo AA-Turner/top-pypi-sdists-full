@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.5.1
+Version: 0.5.2
 Summary: Llama Stack
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -51,7 +51,7 @@ Requires-Dist: oci>=2.165.0
 Requires-Dist: numpy>=2.3.2
 Requires-Dist: mcp>=1.23.0
 Provides-Extra: client
-Requires-Dist: llama-stack-client==0.5.1; extra == "client"
+Requires-Dist: llama-stack-client==0.5.2; extra == "client"
 Dynamic: license-file
 
 # Llama Stack

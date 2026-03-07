@@ -44,6 +44,9 @@ class TestEntropy(unittest.TestCase):
             perm_entropy(BANDT_PERM, order=3, delay=0.5)
         with self.assertRaises(ValueError):
             perm_entropy(BANDT_PERM, order=1, delay=1)
+        # delay=0 must raise ValueError (not AssertionError)
+        with self.assertRaises(ValueError):
+            perm_entropy(BANDT_PERM, order=2, delay=0)
 
     def test_spectral_entropy(self):
         spectral_entropy(RANDOM_TS, SF_TS, method="fft")
@@ -57,6 +60,9 @@ class TestEntropy(unittest.TestCase):
             aal(spectral_entropy, axis=1, arr=data, **params),
             spectral_entropy(data, **params),
         )
+        # Invalid method raises ValueError
+        with self.assertRaises(ValueError):
+            spectral_entropy(RANDOM_TS, SF_TS, method="invalid")
 
     def test_svd_entropy(self):
         svd_entropy(RANDOM_TS, order=3, delay=1, normalize=False)
@@ -77,6 +83,20 @@ class TestEntropy(unittest.TestCase):
         sample_entropy(RANDOM_TS, order=2, metric="euclidean")
         with self.assertRaises(ValueError):
             sample_entropy(RANDOM_TS, order=2, metric="wrong")
+        # Explicit tolerance
+        se_tol = sample_entropy(RANDOM_TS, order=2, tolerance=0.1)
+        assert isinstance(se_tol, float)
+        se_tol_long = sample_entropy(RANDOM_TS_LONG, order=2, tolerance=0.1)
+        assert isinstance(se_tol_long, float)
+        # Invalid tolerance type raises TypeError (not AssertionError)
+        with self.assertRaises(TypeError):
+            sample_entropy(RANDOM_TS, order=2, tolerance="bad")
+        # Signal with m-length matches but no (m+1)-length matches → inf
+        x_inf = np.array([0.0, 10.0, 0.0, 20.0])
+        assert sample_entropy(x_inf, order=1, tolerance=0.1) == np.inf
+        # No m-length matches at all → NaN (undefined, not 0)
+        x_no_match = np.array([1.0, 2.0, 3.0, 4.0])
+        assert np.isnan(sample_entropy(x_no_match, order=1, tolerance=0.001))
 
     def test_app_entropy(self):
         ae = app_entropy(RANDOM_TS, order=2)
@@ -89,6 +109,12 @@ class TestEntropy(unittest.TestCase):
         app_entropy(RANDOM_TS, order=3)
         with self.assertRaises(ValueError):
             app_entropy(RANDOM_TS, order=2, metric="wrong")
+        # Explicit tolerance
+        ae_tol = app_entropy(RANDOM_TS, order=2, tolerance=0.1)
+        assert isinstance(ae_tol, float)
+        # Invalid tolerance type raises TypeError (not AssertionError)
+        with self.assertRaises(TypeError):
+            app_entropy(RANDOM_TS, order=2, tolerance="bad")
 
     def test_lziv_complexity(self):
         """Compare to:
@@ -108,6 +134,12 @@ class TestEntropy(unittest.TestCase):
         assert lziv_complexity([1, 2, 3, 4, 5]) == 5
         assert lziv_complexity([1, 2, 3, 4, 5], normalize=True) == 1.0
 
+        # Invalid sequence type raises TypeError (not AssertionError)
+        with self.assertRaises(TypeError):
+            lziv_complexity(12345)
+        # Invalid normalize type raises TypeError (not AssertionError)
+        with self.assertRaises(TypeError):
+            lziv_complexity("1010", normalize="yes")
         # Test with a random sequence
         random_seq = np.random.randint(0, 2, 1000)
         assert lziv_complexity(random_seq, normalize=True) > 0.8
@@ -144,6 +176,17 @@ class TestEntropy(unittest.TestCase):
             aal(hjorth_params, axis=-1, arr=data[:-1, :]).T,
             hjorth_params(data[:-1, :], axis=-1),
         )
+        # sf argument: mobility should be scaled by sf; complexity unchanged
+        sf = 100
+        mob_hz, com_hz = hjorth_params(RANDOM_TS, sf=sf)
+        np.testing.assert_allclose(mob_hz, mob * sf)
+        np.testing.assert_allclose(com_hz, com)
+        # sf=None is identical to not passing sf
+        mob_none, com_none = hjorth_params(RANDOM_TS, sf=None)
+        np.testing.assert_allclose(mob_none, mob)
+        # Invalid sf type raises TypeError
+        with self.assertRaises(TypeError):
+            hjorth_params(RANDOM_TS, sf="100")
 
     def test_notwritable_dtypes(self):
         entropy_funcs = [

@@ -9,7 +9,7 @@ pub fn compute_xrd(
     structure: JsCrystal,
     options: Option<JsXrdOptions>,
 ) -> WasmResult<JsXrdPattern> {
-    use crate::xrd::{XrdConfig, compute_xrd as xrd_compute};
+    use crate::analysis::xrd::{XrdConfig, compute_xrd as xrd_compute};
 
     let result: Result<JsXrdPattern, String> = (|| {
         let struc = structure.to_structure()?;
@@ -66,5 +66,5 @@ pub fn compute_xrd(
 
 #[wasm_bindgen]
 pub fn get_atomic_scattering_params() -> String {
-    crate::xrd::SCATTERING_PARAMS_JSON.to_string()
+    crate::analysis::xrd::SCATTERING_PARAMS_JSON.to_string()
 }

@@ -13,10 +13,10 @@
 # limitations under the License.
 
 import logging
-import pytest
 import unittest
 
 import mock
+import pytest
 
 
 class TestAppEngineHandler(unittest.TestCase):
@@ -32,6 +32,7 @@ class TestAppEngineHandler(unittest.TestCase):
 
     def test_constructor_w_gae_standard_env(self):
         import sys
+
         from google.cloud.logging_v2.handlers import app_engine
 
         client = mock.Mock(project=self.PROJECT, spec=["project"])
@@ -63,6 +64,7 @@ class TestAppEngineHandler(unittest.TestCase):
 
     def test_constructor_w_gae_flex_env(self):
         import io
+
         from google.cloud.logging_v2.handlers import app_engine
 
         client = mock.Mock(project=self.PROJECT, spec=["project"])

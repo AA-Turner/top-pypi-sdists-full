@@ -33,4 +33,6 @@ class CreateChatCompletionResponseParams(typing_extensions.TypedDict):
     The object type, which is always `chat.completion`.
     """
 
+    service_tier: typing_extensions.NotRequired[str]
+    system_fingerprint: typing_extensions.NotRequired[str]
     usage: typing_extensions.NotRequired[CompletionUsageParams]

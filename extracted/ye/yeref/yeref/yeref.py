@@ -8237,7 +8237,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PRO
 
         if POST_ISCOLLAPSE and not POST_ISPAY:
             reply_markup.row(
-                types.InlineKeyboardButton(text="ᴿᵁᴺ", callback_data=f'pst_{ENT_TID}_{POST_TID}_0_1_1_run'))
+                types.InlineKeyboardButton(text="ᴿᵁᴺ", callback_data=f'pst_{ENT_TID}_{POST_TID}_0_1_1_run', style='danger'))
         else:
             reply_markup = await get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POST_BUTTONS,
                                             BASE_P, PROJECT_UN)
@@ -9375,12 +9375,16 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                 if button['knd'] == 'button_in':
                     cb_ = f"pst_{ENT_TID}_{POST_TID}_{button['bid']}_{cur_}_1_btn"
                     counter = '⁰' if button['bid'] not in counters else await upper_register(counters[button['bid']])
-                    btn = types.InlineKeyboardButton(text=f"{counter} {button['lbl']}", callback_data=cb_)
+                    btn = types.InlineKeyboardButton(text=f"{counter} {button['lbl']}",
+                                                     callback_data=cb_,
+                                                     style=button.get('stl', ''))
                     rows[row_index].append(btn)
                 elif button['knd'] == 'like':
                     cb_ = f"pst_{ENT_TID}_{POST_TID}_{button['bid']}_1_1_{button['knd']}"
                     counter = '⁰' if button['bid'] not in counters else await upper_register(counters[button['bid']])
-                    btn = types.InlineKeyboardButton(text=f"{counter} {button['lbl']}", callback_data=cb_)
+                    btn = types.InlineKeyboardButton(text=f"{counter} {button['lbl']}",
+                                                     callback_data=cb_,
+                                                     style=button.get('stl', ''))
                     rows[row_index].append(btn)
                 elif button['knd'] == 'link':
                     if button['lnk'].split('/')[-1] == str(POST_USERTUN):
@@ -9388,11 +9392,15 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     else:
                         url = button['lnk']
 
-                    btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
+                    btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                     url=url,
+                                                     style=button.get('stl', ''))
                     rows[row_index].append(btn)
                 elif button['knd'] in ['pay', 'payment']:
                     if button['web'] != '':
-                        btn = types.InlineKeyboardButton(text=button['lbl'], url=button['web'])
+                        btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                         url=button['web'],
+                                                         style=button.get('stl', ''))
                         rows[row_index].append(btn)
                 elif button['knd'] == 'boost':
                     if str(ENT_TID).startswith(prefix_100):
@@ -9400,7 +9408,9 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     else:
                         url = f"https://t.me/boost?c={str(ENT_TID)}"
 
-                    btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
+                    btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                     url=url,
+                                                     style=button.get('stl', ''))
                     rows[row_index].append(btn)
                 elif button['knd'] == 'share':
                     if PROJECT_USERNAME in ['FereyChannelBot']:
@@ -9411,7 +9421,9 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                         get_link_ = f"{PROJECT_USERNAME}.t.me"
                         txt = urllib.parse.quote(button['lnk'].strip(), safe="")
                         url = f"https://t.me/share/url?url={get_link_}&text={txt}"
-                        btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
+                        btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                         url=url,
+                                                         style=button.get('stl', ''))
                         # rows[row_index].append(btn)
                     elif PROJECT_USERNAME in ['FereyPostBot']:
                         print(f"9412 ===============================")
@@ -9431,14 +9443,16 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                             allow_channel_chats=True,
                         )
                         btn = types.InlineKeyboardButton(text=button['lbl'],
-                                                         switch_inline_query_chosen_chat=switch_in_query_chosen_chat)
+                                                         switch_inline_query_chosen_chat=switch_in_query_chosen_chat,
+                                                         style=button.get('stl', ''))
                     else:
                         print(f"===============================")
                         print(f"===============================")
                         print(f"===============================")
                         print(f"{button=}")
                         btn = types.InlineKeyboardButton(text=button['lbl'],
-                                                         switch_inline_query=f"{ENT_TID} {str(POST_TID)} ~")
+                                                         switch_inline_query=f"{ENT_TID} {str(POST_TID)} ~",
+                                                         style=button.get('stl', ''))
                     rows[row_index].append(btn)
                 elif button['knd'] == 'web':
                     print(f"{button['lnk']=}")
@@ -9461,18 +9475,24 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
 
                     post_fix = '' if PROJECT_USERNAME == 'FereyPostBot' else f"-{tid}"
                     url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}{post_fix}'
-                    btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
+                    btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                     url=url,
+                                                     style=button.get('stl', ''))
                     rows[row_index].append(btn)
                 elif button['knd'] == 'nft':
                     HASH_STR = f"nft-{tid}-{POST_TID}"
                     HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
 
                     url = f'https://t.me/{PROJECT_USERNAME}/nft?startapp=nft-{HASH_VAL}-{tid}'
-                    btn = types.InlineKeyboardButton(text=button['lbl'], url=url)
+                    btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                     url=url,
+                                                     style=button.get('stl', ''))
                     rows[row_index].append(btn)
                 elif button['knd'] == 'copy':
                     copy_text = CopyTextButton(text=button['lnk'])
-                    btn = types.InlineKeyboardButton(text=button['lbl'], copy_text=copy_text)
+                    btn = types.InlineKeyboardButton(text=button['lbl'],
+                                                     copy_text=copy_text,
+                                                     style=button.get('stl', ''))
                     rows[row_index].append(btn)
             except Exception as e:
                 logger.info(log_ % str(e))
@@ -12664,9 +12684,9 @@ async def get_buttons_main(lz, bot_un, BASE_P):
             types.InlineKeyboardButton(text="👩🏽‍💼", url=url_usr),
             types.InlineKeyboardButton(text="🔗", url=url_share),
             types.InlineKeyboardButton(text=f"♥️{text_like}", callback_data=f"like"),
-            types.InlineKeyboardButton(text="ᵗᶢᴿᴬᴾᴴ",  web_app=web_app_),
-            types.InlineKeyboardButton(text="ᶜᵸᴬᴺᴺᴱᴸ", url=f"https://t.me/{get_tg_channel(lz)}"),
-            types.InlineKeyboardButton(text="ᴬᴾᴾ⁺", switch_inline_query_current_chat=f"~")
+            types.InlineKeyboardButton(text="ᵗᶢᴿᴬᴾᴴ",  web_app=web_app_, style="primary"),
+            types.InlineKeyboardButton(text="ᶜᵸᴬᴺᴺᴱᴸ", url=f"https://t.me/{get_tg_channel(lz)}", style="primary"),
+            types.InlineKeyboardButton(text="ᴬᴾᴾ⁺", style="primary", switch_inline_query_current_chat=f"~")
         ]
     except Exception as e:
         logger.info(log_ % str(e))

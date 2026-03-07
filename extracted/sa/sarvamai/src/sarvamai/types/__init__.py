@@ -9,16 +9,22 @@ from .audio_output_data import AudioOutputData
 from .base_job_parameters import BaseJobParameters
 from .bulk_job_callback import BulkJobCallback
 from .bulk_job_init_response_v_1 import BulkJobInitResponseV1
+from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
+from .chat_completion_named_tool_choice import ChatCompletionNamedToolChoice
+from .chat_completion_named_tool_choice_function import ChatCompletionNamedToolChoiceFunction
 from .chat_completion_request_assistant_message import ChatCompletionRequestAssistantMessage
 from .chat_completion_request_message import (
     ChatCompletionRequestMessage,
     ChatCompletionRequestMessage_Assistant,
     ChatCompletionRequestMessage_System,
+    ChatCompletionRequestMessage_Tool,
     ChatCompletionRequestMessage_User,
 )
 from .chat_completion_request_system_message import ChatCompletionRequestSystemMessage
+from .chat_completion_request_tool_message import ChatCompletionRequestToolMessage
 from .chat_completion_request_user_message import ChatCompletionRequestUserMessage
 from .chat_completion_response_message import ChatCompletionResponseMessage
+from .chat_completion_tool import ChatCompletionTool
 from .choice import Choice
 from .completion_event_flag import CompletionEventFlag
 from .completion_usage import CompletionUsage
@@ -65,6 +71,8 @@ from .files_request import FilesRequest
 from .files_upload_response import FilesUploadResponse
 from .finish_reason import FinishReason
 from .flush_signal import FlushSignal
+from .function_call import FunctionCall
+from .function_definition import FunctionDefinition
 from .input_audio_codec import InputAudioCodec
 from .job_state import JobState
 from .job_status_v_1_response import JobStatusV1Response
@@ -106,6 +114,7 @@ from .text_to_speech_output_audio_codec import TextToSpeechOutputAudioCodec
 from .text_to_speech_response import TextToSpeechResponse
 from .text_to_speech_speaker import TextToSpeechSpeaker
 from .timestamps_model import TimestampsModel
+from .tool_choice_option import ToolChoiceOption
 from .transcription_metrics import TranscriptionMetrics
 from .translate_mode import TranslateMode
 from .translate_model import TranslateModel
@@ -126,14 +135,20 @@ __all__ = [
     "BaseJobParameters",
     "BulkJobCallback",
     "BulkJobInitResponseV1",
+    "ChatCompletionMessageToolCall",
+    "ChatCompletionNamedToolChoice",
+    "ChatCompletionNamedToolChoiceFunction",
     "ChatCompletionRequestAssistantMessage",
     "ChatCompletionRequestMessage",
     "ChatCompletionRequestMessage_Assistant",
     "ChatCompletionRequestMessage_System",
+    "ChatCompletionRequestMessage_Tool",
     "ChatCompletionRequestMessage_User",
     "ChatCompletionRequestSystemMessage",
+    "ChatCompletionRequestToolMessage",
     "ChatCompletionRequestUserMessage",
     "ChatCompletionResponseMessage",
+    "ChatCompletionTool",
     "Choice",
     "CompletionEventFlag",
     "CompletionUsage",
@@ -180,6 +195,8 @@ __all__ = [
     "FilesUploadResponse",
     "FinishReason",
     "FlushSignal",
+    "FunctionCall",
+    "FunctionDefinition",
     "InputAudioCodec",
     "JobState",
     "JobStatusV1Response",
@@ -221,6 +238,7 @@ __all__ = [
     "TextToSpeechResponse",
     "TextToSpeechSpeaker",
     "TimestampsModel",
+    "ToolChoiceOption",
     "TranscriptionMetrics",
     "TranslateMode",
     "TranslateModel",

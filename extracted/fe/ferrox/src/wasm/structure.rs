@@ -6,10 +6,10 @@ use serde_wasm_bindgen::from_value;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::prelude::*;
 
-use crate::element::Element;
-use crate::structure_matcher::{
+use crate::analysis::structure_matcher::{
     AnonymousClassMapping, AnonymousMatchMode, ComparatorType, StructureMatcher,
 };
+use crate::element::Element;
 use crate::wasm_types::{JsCrystal, JsRmsDistResult, WasmResult};
 
 #[wasm_bindgen]
@@ -311,9 +311,84 @@ fn parse_class_mapping_by_symbol(
 /// Count the number of Wyckoff positions in an AFLOW protostructure label.
 #[wasm_bindgen]
 pub fn count_wyckoff_positions(protostructure_label: &str) -> WasmResult<usize> {
-    crate::prototype::count_wyckoff_positions(protostructure_label)
+    crate::analysis::prototype::count_wyckoff_positions(protostructure_label)
         .map_err(|err| err.to_string())
         .into()
+}
+
+/// Create a structure from a space group and asymmetric unit.
+///
+/// Generates all symmetry-equivalent sites from the space group operations.
+///
+/// # Arguments
+/// * `sg` - Space group as ITA number string ("225") or Hermann-Mauguin symbol ("Fm-3m")
+/// * `lattice` - 3x3 lattice matrix (rows = lattice vectors)
+/// * `species` - Element symbols for each symmetrically distinct site
+/// * `coords` - Fractional coordinates of each distinct site (Nx3)
+/// * `tol` - Tolerance for deduplicating equivalent sites
+#[wasm_bindgen]
+pub fn from_spacegroup(
+    sg: &str,
+    lattice: Vec<f64>,
+    species: Vec<String>,
+    coords: Vec<f64>,
+    tol: Option<f64>,
+) -> WasmResult<JsCrystal> {
+    let result: Result<JsCrystal, String> = (|| {
+        if lattice.len() != 9 {
+            return Err(format!(
+                "lattice must have 9 elements (3x3 matrix), got {}",
+                lattice.len()
+            ));
+        }
+        let lat_matrix = nalgebra::Matrix3::new(
+            lattice[0], lattice[1], lattice[2], lattice[3], lattice[4], lattice[5], lattice[6],
+            lattice[7], lattice[8],
+        );
+        let lat = crate::lattice::Lattice::new(lat_matrix);
+
+        if coords.len() % 3 != 0 {
+            return Err(format!(
+                "coords length must be a multiple of 3, got {}",
+                coords.len()
+            ));
+        }
+
+        let site_occs = crate::species::SiteOccupancy::parse_symbols(&species)
+            .map_err(|err| err.to_string())?;
+        let frac_coords: Vec<nalgebra::Vector3<f64>> = coords
+            .chunks_exact(3)
+            .map(|c| nalgebra::Vector3::new(c[0], c[1], c[2]))
+            .collect();
+
+        let struc =
+            crate::structure::Structure::from_spacegroup(sg, lat, site_occs, frac_coords, tol)
+                .map_err(|err| err.to_string())?;
+        Ok(JsCrystal::from_structure(&struc))
+    })();
+    result.into()
+}
+
+/// Create a structure from a named prototype.
+///
+/// Supported: sc, fcc, bcc, hcp, diamond, rocksalt, perovskite,
+/// cscl, fluorite, antifluorite, zincblende, wurtzite.
+#[wasm_bindgen]
+pub fn from_prototype(
+    prototype: &str,
+    species: Vec<String>,
+    a: f64,
+    b: Option<f64>,
+    c: Option<f64>,
+) -> WasmResult<JsCrystal> {
+    let result: Result<JsCrystal, String> = (|| {
+        let site_occs = crate::species::SiteOccupancy::parse_symbols(&species)
+            .map_err(|err| err.to_string())?;
+        let struc = crate::structure::Structure::from_prototype(prototype, site_occs, a, b, c)
+            .map_err(|err| err.to_string())?;
+        Ok(JsCrystal::from_structure(&struc))
+    })();
+    result.into()
 }
 
 #[cfg(test)]

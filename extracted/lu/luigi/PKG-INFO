@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: luigi
-Version: 3.7.3
+Version: 3.8.0
 Summary: Workflow mgmgt + task scheduling + dependency resolution.
 Project-URL: Homepage, https://github.com/spotify/luigi
 Author: The Luigi Authors
@@ -212,23 +212,22 @@ Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
-Requires-Python: <3.13,>=3.8.0
+Requires-Python: <3.14,>=3.10
 Requires-Dist: python-daemon; sys_platform != 'win32'
 Requires-Dist: python-daemon<2.2.0; sys_platform == 'win32'
 Requires-Dist: python-dateutil<3,>=2.7.5
-Requires-Dist: tenacity<9,>=8
+Requires-Dist: tenacity>=9
 Requires-Dist: tornado<7,>=5.0
 Requires-Dist: typing-extensions>=4.12.2
 Provides-Extra: jsonschema
 Requires-Dist: jsonschema; extra == 'jsonschema'
 Provides-Extra: prometheus
-Requires-Dist: prometheus-client<0.15,>=0.5; extra == 'prometheus'
+Requires-Dist: prometheus-client<0.25,>=0.5; extra == 'prometheus'
 Provides-Extra: toml
 Requires-Dist: toml<2.0.0; extra == 'toml'
 Description-Content-Type: text/x-rst
@@ -257,7 +256,7 @@ Description-Content-Type: text/x-rst
     :target: https://luigi.readthedocs.io/en/stable/?badge=stable
     :alt: Documentation Status
 
-Luigi is a Python (3.8, 3.9, 3.10, 3.11, 3.12 tested) package that helps you build complex
+Luigi is a Python (3.10, 3.11, 3.12, 3.13 tested) package that helps you build complex
 pipelines of batch jobs. It handles dependency resolution, workflow management,
 visualization, handling failures, command line integration, and much more.
 

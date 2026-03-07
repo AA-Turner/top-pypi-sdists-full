@@ -12,10 +12,10 @@ use jiff::Timestamp;
 use owo_colors::OwoColorize;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use serde::Serializer;
 use toml_edit::{Array, ArrayOfTables, InlineTable, Item, Table, Value, value};
-use tracing::debug;
+use tracing::{debug, instrument};
 use url::Url;
 
 use uv_cache_key::RepositoryUrl;
@@ -31,7 +31,7 @@ use uv_distribution_types::{
     RegistrySourceDist, RemoteSource, Requirement, RequirementSource, RequiresPython, ResolvedDist,
     SimplifiedMarkerTree, StaticMetadata, ToUrlError, UrlString,
 };
-use uv_fs::{PortablePath, PortablePathBuf, relative_to};
+use uv_fs::{PortablePath, PortablePathBuf, Simplified, relative_to};
 use uv_git::{RepositoryReference, ResolvedRepositoryReference};
 use uv_git_types::{GitLfs, GitOid, GitReference, GitUrl, GitUrlParseError};
 use uv_normalize::{ExtraName, GroupName, PackageName};
@@ -1406,6 +1406,7 @@ impl Lock {
     }
 
     /// Check whether the lock matches the project structure, requirements and configuration.
+    #[instrument(skip_all)]
     pub async fn satisfies<Context: BuildContext>(
         &self,
         root: &Path,
@@ -1660,8 +1661,90 @@ impl Lock {
                 return Ok(SatisfiesResult::MissingRoot(root_name.clone()));
             };
 
-            // Add the base package.
-            queue.push_back(root);
+            if seen.insert(&root.id) {
+                queue.push_back(root);
+            }
+        }
+
+        // Add requirements attached directly to the target root (e.g., PEP 723 requirements or
+        // dependency groups in workspaces without a `[project]` table).
+        let root_requirements = requirements
+            .iter()
+            .chain(dependency_groups.values().flatten())
+            .collect::<Vec<_>>();
+
+        for requirement in &root_requirements {
+            if let RequirementSource::Registry {
+                index: Some(index), ..
+            } = &requirement.source
+            {
+                match &index.url {
+                    IndexUrl::Pypi(_) | IndexUrl::Url(_) => {
+                        if let Some(remotes) = remotes.as_mut() {
+                            remotes.insert(UrlString::from(
+                                index.url().without_credentials().as_ref(),
+                            ));
+                        }
+                    }
+                    IndexUrl::Path(url) => {
+                        if let Some(locals) = locals.as_mut() {
+                            if let Some(path) = url.to_file_path().ok().and_then(|path| {
+                                relative_to(&path, root)
+                                    .or_else(|_| std::path::absolute(path))
+                                    .ok()
+                            }) {
+                                locals.insert(path.into_boxed_path());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if !root_requirements.is_empty() {
+            let names = root_requirements
+                .iter()
+                .map(|requirement| &requirement.name)
+                .collect::<FxHashSet<_>>();
+
+            let by_name: FxHashMap<_, Vec<_>> = self.packages.iter().fold(
+                FxHashMap::with_capacity_and_hasher(self.packages.len(), FxBuildHasher),
+                |mut by_name, package| {
+                    if names.contains(&package.id.name) {
+                        by_name.entry(&package.id.name).or_default().push(package);
+                    }
+                    by_name
+                },
+            );
+
+            for requirement in root_requirements {
+                for package in by_name.get(&requirement.name).into_iter().flatten() {
+                    if !package.id.source.is_source_tree() {
+                        continue;
+                    }
+
+                    let marker = if package.fork_markers.is_empty() {
+                        requirement.marker
+                    } else {
+                        let mut combined = MarkerTree::FALSE;
+                        for fork_marker in &package.fork_markers {
+                            combined.or(fork_marker.pep508());
+                        }
+                        combined.and(requirement.marker);
+                        combined
+                    };
+                    if marker.is_false() {
+                        continue;
+                    }
+                    if !marker.evaluate(markers, &[]) {
+                        continue;
+                    }
+
+                    if seen.insert(&package.id) {
+                        queue.push_back(package);
+                    }
+                }
+            }
         }
 
         while let Some(package) = queue.pop_front() {
@@ -1796,12 +1879,12 @@ impl Lock {
                 let metadata = match fs_err::tokio::read_to_string(&path).await {
                     Ok(contents) => {
                         let pyproject_toml =
-                            PyProjectToml::from_toml(&contents).map_err(|err| {
-                                LockErrorKind::InvalidPyprojectToml {
+                            PyProjectToml::from_toml(&contents, path.user_display()).map_err(
+                                |err| LockErrorKind::InvalidPyprojectToml {
                                     path: path.clone(),
                                     err,
-                                }
-                            })?;
+                                },
+                            )?;
                         database
                             .requires_dist(&parent, &pyproject_toml)
                             .await

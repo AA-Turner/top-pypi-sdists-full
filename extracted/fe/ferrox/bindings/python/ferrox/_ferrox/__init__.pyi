@@ -2,7 +2,9 @@
 from typing import Any, final
 # ruff: noqa: F401, F811, I001
 
+from . import bonding
 from . import cell
+from . import chempot
 from . import composition
 from . import convex_hull
 from . import coordination
@@ -24,6 +26,7 @@ from . import structure
 from . import surfaces
 from . import symmetry
 from . import trajectory
+from . import vasp
 from . import xrd
 
 @final

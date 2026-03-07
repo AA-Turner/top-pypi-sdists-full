@@ -1,17 +1,16 @@
 import os
 import sys
 from logging import config as logging_config
-import grimp
-
 
 import click
+import grimp
 
+from importlinter import __version__
 from importlinter.application.sentinels import NotSupplied
 
 from . import configuration
-from .application import use_cases
-from .application import rendering
-from importlinter.ui import server
+from .application import rendering, use_cases
+from .application.output import console
 
 configuration.configure()
 
@@ -66,6 +65,7 @@ def _run_check(
 
 
 @click.command()
+@click.version_option(version=__version__, message="import-linter %(version)s")
 @check_options
 def lint_imports_command(**kwargs) -> None:
     """Check that a project adheres to a set of contracts."""
@@ -73,6 +73,7 @@ def lint_imports_command(**kwargs) -> None:
 
 
 @click.group(invoke_without_command=True)
+@click.version_option(version=__version__, message="import-linter %(version)s")
 @click.pass_context
 def import_linter(ctx: click.Context) -> None:
     if ctx.invoked_subcommand is None:
@@ -94,6 +95,15 @@ def explore(module_name: str) -> None:
 
     MODULE_NAME is the importable Python module to explore (e.g. 'django.db.models').
     """
+    try:
+        from importlinter.ui import server
+    except ImportError:
+        console.print("[red]This command requires the [bold]ui[/bold] extra to be installed.")
+        console.print(
+            "[dim]:point_right: Install it by using [cyan1]import-linter\\[ui][/cyan1] during installation,\n"
+            "e.g. [bold cyan1]pip install 'import-linter\\[ui]'[/bold cyan1]."
+        )
+        sys.exit(1)
     rendering.print_title()
     server.launch(module_name)
 

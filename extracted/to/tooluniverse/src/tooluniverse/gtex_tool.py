@@ -20,6 +20,25 @@ def _http_get(
             return {"raw": data.decode("utf-8", errors="ignore")}
 
 
+def _resolve_gene_id(gene_input: str, base_url: str, timeout: int) -> str:
+    """Resolve a gene symbol or unversioned Ensembl ID to a versioned GENCODE ID.
+
+    If already a versioned Ensembl ID (contains '.'), returns as-is.
+    Otherwise queries GTEx /reference/gene to resolve.
+    """
+    if "." in gene_input:
+        return gene_input
+    url = f"{base_url}/reference/gene?geneId={gene_input}&gencodeVersion=v26"
+    try:
+        data = _http_get(url, headers={"Accept": "application/json"}, timeout=timeout)
+        genes = data.get("data", [])
+        if isinstance(genes, list) and genes:
+            return genes[0].get("gencodeId", gene_input)
+    except Exception:
+        pass
+    return gene_input
+
+
 @register_tool(
     "GTExExpressionTool",
     config={
@@ -29,12 +48,16 @@ def _http_get(
         "parameter": {
             "type": "object",
             "properties": {
+                "gene_symbol": {
+                    "type": "string",
+                    "description": "Gene symbol (e.g., TP53, BRCA1). Auto-resolved to GENCODE ID.",
+                },
                 "ensembl_gene_id": {
                     "type": "string",
                     "description": "Ensembl gene ID, e.g., ENSG00000141510",
-                }
+                },
             },
-            "required": ["ensembl_gene_id"],
+            "required": [],
         },
         "settings": {"base_url": "https://gtexportal.org/api/v2", "timeout": 30},
     },
@@ -49,10 +72,16 @@ class GTExExpressionTool:
         )
         timeout = int(self.tool_config.get("settings", {}).get("timeout", 30))
 
+        # Resolve gene symbol or unversioned Ensembl ID to versioned GENCODE ID
+        gene_input = arguments.get("gene_symbol") or arguments.get(
+            "ensembl_gene_id", ""
+        )
+        gencode_id = _resolve_gene_id(gene_input, base, timeout)
+
         # Feature-69A-001: /expression/geneExpression with gtex_v10 returns empty.
         # Use /expression/medianGeneExpression with gtex_v8 for reliable results.
         query = {
-            "gencodeId": arguments.get("ensembl_gene_id"),
+            "gencodeId": gencode_id,
             "datasetId": "gtex_v8",
         }
         url = f"{base}/expression/medianGeneExpression?{urlencode(query)}"
@@ -98,6 +127,10 @@ class GTExExpressionTool:
         "parameter": {
             "type": "object",
             "properties": {
+                "gene_symbol": {
+                    "type": "string",
+                    "description": "Gene symbol (e.g., TP53, BRCA1). Auto-resolved to GENCODE ID.",
+                },
                 "ensembl_gene_id": {
                     "type": "string",
                     "description": "Ensembl gene ID, e.g., ENSG00000141510",
@@ -116,7 +149,7 @@ class GTExExpressionTool:
                     "description": "Page size (1–100)",
                 },
             },
-            "required": ["ensembl_gene_id"],
+            "required": [],
         },
         "settings": {"base_url": "https://gtexportal.org/api/v2", "timeout": 30},
     },
@@ -131,8 +164,14 @@ class GTExEQTLTool:
         )
         timeout = int(self.tool_config.get("settings", {}).get("timeout", 30))
 
+        # Resolve gene symbol or unversioned Ensembl ID to versioned GENCODE ID
+        gene_input = arguments.get("gene_symbol") or arguments.get(
+            "ensembl_gene_id", ""
+        )
+        gencode_id = _resolve_gene_id(gene_input, base, timeout)
+
         query: Dict[str, Any] = {
-            "gencodeId": arguments.get("ensembl_gene_id"),
+            "gencodeId": gencode_id,
             "datasetId": arguments.get("dataset_id", "gtex_v10"),
         }
         if "page" in arguments:

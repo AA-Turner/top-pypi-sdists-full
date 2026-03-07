@@ -8,7 +8,7 @@
 //!
 //! ```rust,ignore
 //! use ferrox::neighbors::{build_neighbor_list, NeighborListConfig};
-//! use ferrox::Structure;
+//! use ferrox::structure::Structure;
 //!
 //! let structure = Structure::from_json(json_str)?;
 //! let config = NeighborListConfig {
@@ -609,7 +609,7 @@ where
     F: FnMut(usize, usize, Vector3<f64>, f64),
 {
     use crate::error::FerroxError;
-    use crate::potentials::minimum_image;
+    use crate::simulation::potentials::minimum_image;
 
     // Guard: PBC requires a cell matrix
     if cell.is_none() && pbc.iter().any(|&enabled| enabled) {

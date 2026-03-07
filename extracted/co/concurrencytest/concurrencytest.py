@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Modified by: Corey Goldberg, 2013-2025
+# Modified by: Corey Goldberg, 2013-2026
 #   License: GPLv2+
 #
 # Original code from:
@@ -8,7 +8,7 @@
 #   Copyright (C) 2005-2011 Canonical Ltd
 #   License: GPLv2+
 
-"""Python testtools extension for running unittest suites concurrently.
+"""Python testtools extension for running unittest test suites concurrently.
 
 The `testtools` project provides a ConcurrentTestSuite class, but does
 not provide a `make_tests` implementation needed to use it.
@@ -18,7 +18,7 @@ of worker processes. While this can speed up CPU-bound test runs, it is
 mainly useful for IO-bound tests that spend most of their time waiting for
 data to arrive from someplace else and can benefit from cocncurrency.
 
-Unix only.
+Unix-like systems only.
 """
 
 import os
@@ -29,18 +29,18 @@ import unittest
 from itertools import cycle
 from multiprocessing import cpu_count
 
-
 from subunit import ProtocolTestCase, TestProtocolClient
 from subunit.test_results import AutoTimingTestResultDecorator
 from testtools import ConcurrentTestSuite, iterate_tests
 
+if platform.system() == "Windows":
+    raise OSError(
+        "concurrencytest is not supported on Windows. "
+        "It requires `os.fork()` which only works on Unix-like systems."
+    )
 
-system = platform.system()
-if system == "Windows":
-    raise OSError(f"concurrencytest is not supported on this platform: {system}")
 
-
-_all__ = [
+__all__ = [
     "ConcurrentTestSuite",
     "fork_for_tests",
     "partition_tests",
@@ -68,13 +68,14 @@ def fork_for_tests(concurrency_num=CPU_COUNT):
         test_blocks = partition_tests(suite, concurrency_num)
         # Clear the tests from the original suite so it doesn't keep them alive
         suite._tests[:] = []
-        for process_tests in test_blocks:
+        for worker_id, process_tests in enumerate(test_blocks):
             process_suite = unittest.TestSuite(process_tests)
             # Also clear each split list so new suite has only reference
             process_tests[:] = []
             c2pread, c2pwrite = os.pipe()
             pid = os.fork()
             if pid == 0:
+                os.environ["TEST_WORKER_ID"] = str(worker_id)
                 try:
                     stream = os.fdopen(c2pwrite, "wb")
                     os.close(c2pread)

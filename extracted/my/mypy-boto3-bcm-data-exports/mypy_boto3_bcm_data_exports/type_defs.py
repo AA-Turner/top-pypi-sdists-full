@@ -3,7 +3,7 @@ Type annotations for bcm-data-exports service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_data_exports/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -86,9 +86,9 @@ __all__ = (
 ColumnTypeDef = TypedDict(
     "ColumnTypeDef",
     {
-        "Description": NotRequired[str],
         "Name": NotRequired[str],
         "Type": NotRequired[str],
+        "Description": NotRequired[str],
     },
 )
 
@@ -121,11 +121,11 @@ class DeleteExportRequestTypeDef(TypedDict):
 
 
 class ExecutionStatusTypeDef(TypedDict):
-    CompletedAt: NotRequired[datetime]
-    CreatedAt: NotRequired[datetime]
-    LastUpdatedAt: NotRequired[datetime]
     StatusCode: NotRequired[ExecutionStatusCodeType]
     StatusReason: NotRequired[ExecutionStatusReasonType]
+    CreatedAt: NotRequired[datetime]
+    CompletedAt: NotRequired[datetime]
+    LastUpdatedAt: NotRequired[datetime]
 
 
 class RefreshCadenceTypeDef(TypedDict):
@@ -133,16 +133,16 @@ class RefreshCadenceTypeDef(TypedDict):
 
 
 class ExportStatusTypeDef(TypedDict):
-    CreatedAt: NotRequired[datetime]
-    LastRefreshedAt: NotRequired[datetime]
-    LastUpdatedAt: NotRequired[datetime]
     StatusCode: NotRequired[ExportStatusCodeType]
     StatusReason: NotRequired[ExecutionStatusReasonType]
+    CreatedAt: NotRequired[datetime]
+    LastUpdatedAt: NotRequired[datetime]
+    LastRefreshedAt: NotRequired[datetime]
 
 
 class GetExecutionRequestTypeDef(TypedDict):
-    ExecutionId: str
     ExportArn: str
+    ExecutionId: str
 
 
 class GetExportRequestTypeDef(TypedDict):
@@ -172,8 +172,8 @@ class ListExportsRequestTypeDef(TypedDict):
 
 
 class ListTablesRequestTypeDef(TypedDict):
-    MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -183,17 +183,17 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class S3OutputConfigurationsTypeDef(TypedDict):
-    Compression: CompressionOptionType
-    Format: FormatOptionType
     OutputType: Literal["CUSTOM"]
+    Format: FormatOptionType
+    Compression: CompressionOptionType
     Overwrite: OverwriteOptionType
 
 
 class TablePropertyDescriptionTypeDef(TypedDict):
-    DefaultValue: NotRequired[str]
-    Description: NotRequired[str]
     Name: NotRequired[str]
     ValidValues: NotRequired[list[str]]
+    DefaultValue: NotRequired[str]
+    Description: NotRequired[str]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -217,10 +217,10 @@ class DeleteExportResponseTypeDef(TypedDict):
 
 
 class GetTableResponseTypeDef(TypedDict):
-    Description: str
-    Schema: list[ColumnTypeDef]
     TableName: str
+    Description: str
     TableProperties: dict[str, str]
+    Schema: list[ColumnTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -261,14 +261,14 @@ class ListTablesRequestPaginateTypeDef(TypedDict):
 
 class S3DestinationTypeDef(TypedDict):
     S3Bucket: str
-    S3OutputConfigurations: S3OutputConfigurationsTypeDef
     S3Prefix: str
     S3Region: str
+    S3OutputConfigurations: S3OutputConfigurationsTypeDef
 
 
 class TableTypeDef(TypedDict):
-    Description: NotRequired[str]
     TableName: NotRequired[str]
+    Description: NotRequired[str]
     TableProperties: NotRequired[list[TablePropertyDescriptionTypeDef]]
 
 
@@ -295,27 +295,27 @@ class ListTablesResponseTypeDef(TypedDict):
 
 
 class ExportOutputTypeDef(TypedDict):
+    Name: str
     DataQuery: DataQueryOutputTypeDef
     DestinationConfigurations: DestinationConfigurationsTypeDef
-    Name: str
     RefreshCadence: RefreshCadenceTypeDef
-    Description: NotRequired[str]
     ExportArn: NotRequired[str]
+    Description: NotRequired[str]
 
 
 class ExportTypeDef(TypedDict):
+    Name: str
     DataQuery: DataQueryTypeDef
     DestinationConfigurations: DestinationConfigurationsTypeDef
-    Name: str
     RefreshCadence: RefreshCadenceTypeDef
-    Description: NotRequired[str]
     ExportArn: NotRequired[str]
+    Description: NotRequired[str]
 
 
 class GetExecutionResponseTypeDef(TypedDict):
     ExecutionId: str
-    ExecutionStatus: ExecutionStatusTypeDef
     Export: ExportOutputTypeDef
+    ExecutionStatus: ExecutionStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -334,5 +334,5 @@ class CreateExportRequestTypeDef(TypedDict):
 
 
 class UpdateExportRequestTypeDef(TypedDict):
-    Export: ExportUnionTypeDef
     ExportArn: str
+    Export: ExportUnionTypeDef

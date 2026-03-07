@@ -4,7 +4,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
-use crate::elastic;
+use crate::analysis::elastic;
 
 use super::helpers::{array_to_mat3, mat3_to_array};
 

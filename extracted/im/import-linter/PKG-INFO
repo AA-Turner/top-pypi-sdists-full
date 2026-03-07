@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: import-linter
-Version: 2.10
+Version: 2.11
 Summary: Lint your Python architecture
 Project-URL: Documentation, https://import-linter.readthedocs.io/
 Project-URL: Source-code, https://github.com/seddonym/import-linter/
@@ -23,12 +23,13 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Requires-Dist: click>=6
-Requires-Dist: fastapi
 Requires-Dist: grimp>=3.14
 Requires-Dist: rich>=14.2.0
 Requires-Dist: tomli>=1.2.1; python_version < '3.11'
 Requires-Dist: typing-extensions>=3.10.0.0
-Requires-Dist: uvicorn
+Provides-Extra: ui
+Requires-Dist: fastapi>=0.113; extra == 'ui'
+Requires-Dist: uvicorn>=0.17.1; extra == 'ui'
 Description-Content-Type: text/markdown
 
 <div align="center">

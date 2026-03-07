@@ -7,7 +7,35 @@ use pyo3::types::{PyDict, PyList};
 use crate::composition::Composition;
 use crate::defects;
 use crate::io::{parse_structure_json, structure_to_pymatgen_json};
-use crate::structure::Structure;
+use crate::structure::{ReductionAlgo, Structure};
+
+/// Accept either an int (ITA number) or string (HM symbol) as spacegroup input.
+pub struct SpacegroupInput(pub String);
+
+impl pyo3_stub_gen::PyStubType for SpacegroupInput {
+    fn type_input() -> pyo3_stub_gen::TypeInfo {
+        pyo3_stub_gen::TypeInfo::with_module("int | str", "typing".into())
+    }
+    fn type_output() -> pyo3_stub_gen::TypeInfo {
+        pyo3_stub_gen::TypeInfo::with_module("int | str", "typing".into())
+    }
+}
+
+impl<'a, 'py> pyo3::FromPyObject<'a, 'py> for SpacegroupInput {
+    type Error = PyErr;
+
+    fn extract(ob: pyo3::Borrowed<'a, 'py, pyo3::PyAny>) -> PyResult<Self> {
+        if let Ok(num) = ob.extract::<i32>() {
+            Ok(Self(num.to_string()))
+        } else if let Ok(sym) = ob.extract::<String>() {
+            Ok(Self(sym))
+        } else {
+            Err(PyValueError::new_err(
+                "sg must be an int (1-230) or string (e.g. 'Fm-3m')",
+            ))
+        }
+    }
+}
 
 /// A structure input that can be either a JSON string, dict, or pymatgen object.
 ///
@@ -61,6 +89,12 @@ impl<'a, 'py> FromPyObject<'a, 'py> for StructureJson {
             "Expected a JSON string, dict, or object with as_dict() method (e.g. pymatgen Structure/Molecule)",
         ))
     }
+}
+
+/// Parse an element symbol, returning a PyResult.
+pub fn parse_element(symbol: &str) -> PyResult<crate::element::Element> {
+    crate::element::Element::from_symbol(symbol)
+        .ok_or_else(|| PyValueError::new_err(format!("Unknown element: {symbol}")))
 }
 
 /// Parse a composition formula string, returning a PyResult.
@@ -295,10 +329,10 @@ pub fn defect_result_to_pydict(
 }
 
 /// Parse reduction algorithm from string.
-pub fn parse_reduction_algo(algo: &str) -> PyResult<crate::structure::ReductionAlgo> {
+pub fn parse_reduction_algo(algo: &str) -> PyResult<ReductionAlgo> {
     match algo.to_lowercase().as_str() {
-        "niggli" => Ok(crate::structure::ReductionAlgo::Niggli),
-        "lll" => Ok(crate::structure::ReductionAlgo::LLL),
+        "niggli" => Ok(ReductionAlgo::Niggli),
+        "lll" => Ok(ReductionAlgo::LLL),
         _ => Err(PyValueError::new_err(format!(
             "Unknown reduction algorithm: {algo}. Use 'niggli' or 'lll'."
         ))),

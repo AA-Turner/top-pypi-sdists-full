@@ -14,6 +14,8 @@ cmake_minimum_required(VERSION 2.8.12...3.27)
 #    LEXBOR_BUILD_TESTS                  default: OFF; Build tests
 #    LEXBOR_BUILD_TESTS_CPP              default: OFF; Build C++ tests.
 #                                         Used with LEXBOR_BUILD_TESTS
+#    LEXBOR_TEST_AMALGAMATION            default: OFF; Testing all modules to create a single header file.
+#                                         Used with LEXBOR_BUILD_TESTS
 #    LEXBOR_BUILD_BENCHMARKS             default: OFF; Build benchmarks.
 #    LEXBOR_BUILD_UTILS                  default: OFF; Build utils/helpers for project.
 #    LEXBOR_BUILD_WITH_ASAN              default: OFF; Build with address sanitizer if possible
@@ -51,6 +53,7 @@ option(LEXBOR_BUILD_SEPARATELY "Build modules separately" OFF)
 option(LEXBOR_BUILD_EXAMPLES "Build examples" OFF)
 option(LEXBOR_BUILD_TESTS "Build tests" OFF)
 option(LEXBOR_BUILD_TESTS_CPP "Build C++ tests" OFF)
+option(LEXBOR_TEST_AMALGAMATION "Testing all modules to create a single header file" OFF)
 option(LEXBOR_BUILD_UTILS "Build utils" OFF)
 option(LEXBOR_BUILD_BENCHMARKS "Build with benchmarks" OFF)
 option(LEXBOR_BUILD_WITH_ASAN "Build with address sanitizer" OFF)
@@ -195,13 +198,15 @@ ENDFOREACH()
 ## First, need to add target for shared and static library
 IF(LEXBOR_BUILD_SHARED)
     add_library(${LEXBOR_LIB_NAME} SHARED ${LEXBOR_SOURCES})
-    target_include_directories(${LEXBOR_LIB_NAME} PUBLIC ${LEXBOR_SOURCE})
+    target_include_directories(${LEXBOR_LIB_NAME} PUBLIC $<BUILD_INTERFACE:${LEXBOR_SOURCE}>
+                                                         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
     target_compile_definitions(${LEXBOR_LIB_NAME} PRIVATE "LEXBOR_BUILDING")
 ENDIF()
 
 IF(LEXBOR_BUILD_STATIC)
     add_library(${LEXBOR_LIB_NAME_STATIC} STATIC ${LEXBOR_SOURCES})
-    target_include_directories(${LEXBOR_LIB_NAME_STATIC} PUBLIC ${LEXBOR_SOURCE})
+    target_include_directories(${LEXBOR_LIB_NAME_STATIC} PUBLIC $<BUILD_INTERFACE:${LEXBOR_SOURCE}>
+                                                                $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
     set_target_properties(${LEXBOR_LIB_NAME_STATIC} PROPERTIES OUTPUT_NAME ${LEXBOR_LIB_NAME_STATIC})
     set_target_properties(${LEXBOR_LIB_NAME_STATIC} PROPERTIES
         COMPILE_PDB_NAME "${LEXBOR_LIB_NAME_STATIC}"
@@ -346,6 +351,31 @@ ENDIF()
 IF(LEXBOR_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
 ENDIF()
+
+################
+## CMake target export
+#########################
+include("CMakePackageConfigHelpers")
+
+install(
+    EXPORT "${PROJECT_NAME}-export"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/"
+    FILE "${PROJECT_NAME}-targets.cmake"
+    NAMESPACE "${PROJECT_NAME}::")
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}-config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/")
+
+write_basic_package_version_file(
+    "${PROJECT_NAME}-config-version.cmake"
+    COMPATIBILITY SameMajorVersion
+    VERSION "${LEXBOR_VERSION_STRING}")
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/")
 
 ################
 ## Build an RPM.

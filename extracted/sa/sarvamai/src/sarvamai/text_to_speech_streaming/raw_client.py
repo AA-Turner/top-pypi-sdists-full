@@ -41,14 +41,14 @@ class RawTextToSpeechStreamingClient:
 
         **Model-Specific Notes:**
         - **bulbul:v2:** Supports pitch, loudness, pace (0.3-3.0). Default sample rate: 22050 Hz.
-        - **bulbul:v3-beta:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter. Default sample rate: 24000 Hz. Preprocessing is always enabled.
+        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter. Default sample rate: 24000 Hz. Preprocessing is always enabled.
 
         Parameters
         ----------
         model : typing.Optional[TextToSpeechStreamingModel]
             Text to speech model to use.
             - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-            - **bulbul:v3-beta**: Advanced model with temperature control (no pitch/loudness)
+            - **bulbul:v3**: Advanced model with temperature control (no pitch/loudness)
 
         send_completion_event : typing.Optional[TextToSpeechStreamingSendCompletionEvent]
             Enable completion event notifications when TTS generation finishes. When set to true, an event message will be sent when the final audio chunk has been generated.
@@ -115,14 +115,14 @@ class AsyncRawTextToSpeechStreamingClient:
 
         **Model-Specific Notes:**
         - **bulbul:v2:** Supports pitch, loudness, pace (0.3-3.0). Default sample rate: 22050 Hz.
-        - **bulbul:v3-beta:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter. Default sample rate: 24000 Hz. Preprocessing is always enabled.
+        - **bulbul:v3:** Does NOT support pitch/loudness. Pace range: 0.5-2.0. Supports temperature parameter. Default sample rate: 24000 Hz. Preprocessing is always enabled.
 
         Parameters
         ----------
         model : typing.Optional[TextToSpeechStreamingModel]
             Text to speech model to use.
             - **bulbul:v2** (default): Standard TTS model with pitch/loudness support
-            - **bulbul:v3-beta**: Advanced model with temperature control (no pitch/loudness)
+            - **bulbul:v3**: Advanced model with temperature control (no pitch/loudness)
 
         send_completion_event : typing.Optional[TextToSpeechStreamingSendCompletionEvent]
             Enable completion event notifications when TTS generation finishes. When set to true, an event message will be sent when the final audio chunk has been generated.

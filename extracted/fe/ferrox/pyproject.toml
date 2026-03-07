@@ -34,7 +34,7 @@ keywords = [
 Repository = "https://github.com/periodiclabs/ferrox"
 
 [project.optional-dependencies]
-dev = ["numpy", "pymatgen>=2025.10.7", "pytest>=8.0"]
+test = ["ase>=3.27", "numpy>=2.4", "pymatgen>=2025.10.7", "pytest>=9"]
 
 [tool.uv]
 # Don't create uv.lock - we use maturin develop for editable installs

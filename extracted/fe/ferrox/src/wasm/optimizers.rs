@@ -2,7 +2,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::optimizers;
+use crate::simulation::optimizers;
 use crate::wasm_types::WasmResult;
 
 use super::helpers::{parse_flat_cell, parse_flat_vec3, validate_positive_f64};

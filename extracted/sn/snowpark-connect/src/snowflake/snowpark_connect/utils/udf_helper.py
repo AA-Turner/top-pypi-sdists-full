@@ -48,6 +48,7 @@ class SnowparkUDF(NamedTuple):
     original_return_type: DataType | None
     cast_to_original_return_type: bool = False
     attach_schema_json: bool = False
+    is_scala: bool = False
 
 
 def require_creating_udf_in_sproc(

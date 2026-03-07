@@ -9,6 +9,7 @@ from vet.imbue_core.nested_evolver import chill
 from vet.imbue_core.nested_evolver import evolver
 from vet.imbue_tools.repo_utils.project_context import LazyProjectContext
 from vet.repo_utils import get_code_to_check
+from vet.repo_utils import strip_submodule_diffs
 
 
 def test_get_code_to_check(simple_test_git_repo: Path) -> None:
@@ -95,3 +96,140 @@ def test_build_context(simple_test_git_repo: Path, snapshot: SnapshotAssertion) 
     )
     project_context_without_repo_path = chill(project_context_evolver)
     assert project_context_without_repo_path == snapshot
+
+
+def test_get_code_to_check_staged_only(simple_test_git_repo: Path) -> None:
+    """When `only_staged=True`, only staged changes should be returned (no unstaged/untracked),
+    and resolving a configured `relative_to` (like 'main') should not error.
+    """
+    repo_path = simple_test_git_repo
+
+    # Record current HEAD
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    # Create an untracked file
+    (repo_path / "untracked.txt").write_text("untracked content")
+
+    # Create a staged change
+    (repo_path / "file1.txt").write_text("staged content\n")
+    subprocess.run(["git", "add", "file1.txt"], cwd=repo_path, check=True)
+
+    # Create an unstaged change
+    with open((repo_path / "file1.txt"), "a+") as f:
+        f.write("\nunstaged content")
+
+    # Use a relative_to that likely doesn't exist (e.g., 'main') to ensure we don't try to resolve it
+    git_hash, diff, diff_no_binary = get_code_to_check("main", repo_path=repo_path, only_staged=True)
+
+    # In staged mode we return HEAD as the base commit
+    assert git_hash == head
+
+    # Staged change should be present
+    assert "staged content" in diff
+    assert "staged content" in diff_no_binary
+
+    # Unstaged and untracked changes should NOT be present
+    assert "unstaged content" not in diff
+    assert "untracked.txt" not in diff
+
+
+_REGULAR_FILE_DIFF = """\
+diff --git a/src/main.py b/src/main.py
+index abc1234..def5678 100644
+--- a/src/main.py
++++ b/src/main.py
+@@ -1,3 +1,4 @@
+ import os
++import sys
+ 
+ def main():
+"""
+
+_NEW_SUBMODULE_DIFF = """\
+diff --git a/libs/external b/libs/external
+new file mode 160000
+index 0000000..abc1234
+--- /dev/null
++++ b/libs/external
+@@ -0,0 +1 @@
++Subproject commit abc1234567890abcdef1234567890abcdef123456
+"""
+
+_DELETED_SUBMODULE_DIFF = """\
+diff --git a/vendor/old b/vendor/old
+deleted file mode 160000
+index abc1234..0000000
+--- a/vendor/old
++++ /dev/null
+@@ -1 +0,0 @@
+-Subproject commit abc1234567890abcdef1234567890abcdef123456
+"""
+
+_UPDATED_SUBMODULE_DIFF = """\
+diff --git a/libs/shared b/libs/shared
+index abc1234..def5678 160000
+--- a/libs/shared
++++ b/libs/shared
+@@ -1 +1 @@
+-Subproject commit abc1234567890abcdef1234567890abcdef123456
++Subproject commit def567890abcdef1234567890abcdef1234567890
+"""
+
+
+def test_strip_submodule_diffs_empty() -> None:
+    assert strip_submodule_diffs("") == ""
+
+
+def test_strip_submodule_diffs_no_submodules() -> None:
+    assert strip_submodule_diffs(_REGULAR_FILE_DIFF) == _REGULAR_FILE_DIFF
+
+
+def test_strip_submodule_diffs_removes_new_submodule() -> None:
+    combined = _REGULAR_FILE_DIFF + _NEW_SUBMODULE_DIFF
+    assert strip_submodule_diffs(combined) == _REGULAR_FILE_DIFF
+
+
+def test_strip_submodule_diffs_removes_deleted_submodule() -> None:
+    combined = _DELETED_SUBMODULE_DIFF + _REGULAR_FILE_DIFF
+    assert strip_submodule_diffs(combined) == _REGULAR_FILE_DIFF
+
+
+def test_strip_submodule_diffs_removes_updated_submodule() -> None:
+    combined = _REGULAR_FILE_DIFF + _UPDATED_SUBMODULE_DIFF
+    assert strip_submodule_diffs(combined) == _REGULAR_FILE_DIFF
+
+
+def test_strip_submodule_diffs_only_submodules() -> None:
+    combined = _NEW_SUBMODULE_DIFF + _DELETED_SUBMODULE_DIFF + _UPDATED_SUBMODULE_DIFF
+    assert strip_submodule_diffs(combined) == ""
+
+
+def test_strip_submodule_diffs_preserves_files_in_submodule_path() -> None:
+    file_in_submodule_dir = """\
+diff --git a/libs/external/.gitignore b/libs/external/.gitignore
+deleted file mode 100644
+index abc1234..0000000
+--- a/libs/external/.gitignore
++++ /dev/null
+@@ -1,2 +0,0 @@
+-target/
+-.cache/
+"""
+    combined = _NEW_SUBMODULE_DIFF + file_in_submodule_dir + _REGULAR_FILE_DIFF
+    result = strip_submodule_diffs(combined)
+    assert file_in_submodule_dir in result
+    assert _REGULAR_FILE_DIFF in result
+    assert _NEW_SUBMODULE_DIFF not in result
+
+
+def test_strip_submodule_diffs_preserves_preamble() -> None:
+    preamble = "some preamble text\n"
+    combined = preamble + _NEW_SUBMODULE_DIFF + _REGULAR_FILE_DIFF
+    result = strip_submodule_diffs(combined)
+    assert result == preamble + _REGULAR_FILE_DIFF

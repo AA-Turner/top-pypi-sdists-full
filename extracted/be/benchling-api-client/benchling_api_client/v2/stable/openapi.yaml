@@ -33402,6 +33402,7 @@ components:
       - container
       - location
       - plate
+      - worklist
       type: string
     SearchInputUiBlockUpdate:
       allOf:

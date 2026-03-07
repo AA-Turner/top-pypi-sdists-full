@@ -70,12 +70,13 @@ class HTTPClientInterceptor(BaseInterceptor):
         res = mock._response
 
         mockres = HTTPResponse(SocketMock(), method=method, url=url)
-        mockres.version = (1, 1)
+        mockres.version = 11
         mockres.status = res._status
         # urllib requires `code` to be set, rather than `status`
         mockres.code = res._status
         mockres.reason = http_reasons.get(res._status)
         mockres.headers = HTTPMessage()
+        mockres.length = len(res._body or b"")
 
         for hkey, hval in res._headers.itermerged():
             mockres.headers.add_header(hkey, hval)

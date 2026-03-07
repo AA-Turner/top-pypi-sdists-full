@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 use super::helpers::{validate_cutoff, validate_nonneg_f64};
-use crate::order_params;
+use crate::analysis::order_params;
 use crate::wasm_types::{JsCrystal, WasmResult};
 
 #[wasm_bindgen]

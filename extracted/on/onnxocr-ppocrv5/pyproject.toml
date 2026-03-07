@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onnxocr-ppocrv5"
-version = "0.0.7"
+version = "0.0.9"
 authors = [
     { name = "Your Name", email = "your.email@example.com" },
 ]
-description = "ONNX-based OCR (PP-OCRv5) inference pipeline with DirectML support."
+description = "ONNX-based OCR (PP-OCRv5) inference pipeline."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
-keywords = ["ocr", "onnx", "directml", "ppocr", "text detection", "text recognition"]
+keywords = ["ocr", "onnx", "ppocr", "text detection", "text recognition"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

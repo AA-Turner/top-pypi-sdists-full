@@ -3,8 +3,8 @@
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
+use crate::analysis::rdf::{self, RdfOptions};
 use crate::element::Element;
-use crate::rdf::{self, RdfOptions};
 use crate::wasm_types::{JsCrystal, WasmResult};
 
 /// RDF result containing bins and g(r) values.

@@ -2,6 +2,8 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, final
 
+from ferrox._ferrox import composition, lattice
+
 @final
 class Structure:
     r"""
@@ -10,6 +12,46 @@ class Structure:
     Parses the structure JSON once on construction, and caches the MoyoDataset
     (keyed by symprec) so that repeated symmetry queries are fast.
     """
+    @property
+    def formula(self) -> str:
+        r"""
+        Unit cell formula (e.g. "Na4 Cl4").
+        """
+    @property
+    def frac_coords(self) -> list[list[float]]:
+        r"""
+        Fractional coordinates of all sites as list of [a, b, c].
+        """
+    @property
+    def a(self) -> float:
+        r"""
+        Lattice parameter a in Angstrom.
+        """
+    @property
+    def b(self) -> float:
+        r"""
+        Lattice parameter b in Angstrom.
+        """
+    @property
+    def c(self) -> float:
+        r"""
+        Lattice parameter c in Angstrom.
+        """
+    @property
+    def alpha(self) -> float:
+        r"""
+        Lattice angle alpha in degrees.
+        """
+    @property
+    def beta(self) -> float:
+        r"""
+        Lattice angle beta in degrees.
+        """
+    @property
+    def gamma(self) -> float:
+        r"""
+        Lattice angle gamma in degrees.
+        """
     @property
     def num_sites(self) -> int:
         r"""
@@ -117,23 +159,123 @@ class Structure:
         Volume per atomic site in ų.
         """
     @property
-    def lattice_params(self) -> list[float]:
+    def cart_coords(self) -> list[list[float]]:
         r"""
-        Lattice parameters [a, b, c] in Å.
+        Cartesian coordinates of all sites as list of [x, y, z].
         """
     @property
-    def lattice_angles(self) -> list[float]:
+    def species_strings(self) -> list[str]:
         r"""
-        Lattice angles [alpha, beta, gamma] in degrees.
+        Species string for each site (e.g. ["Na", "Cl"]).
         """
     @property
-    def lattice_matrix(self) -> list[list[float]]:
+    def distance_matrix(self) -> list[list[float]]:
         r"""
-        3x3 lattice matrix.
+        N×N distance matrix (minimum image convention).
+        """
+    @property
+    def atomic_numbers(self) -> list[int]:
+        r"""
+        Atomic numbers for each site.
+        """
+    @property
+    def pbc(self) -> list[bool]:
+        r"""
+        Periodic boundary conditions [x, y, z].
+        """
+    @property
+    def site_properties(self) -> list[Any]:
+        r"""
+        All site properties as list of dicts (one per site).
+        """
+    @property
+    def lattice(self) -> lattice.Lattice:
+        r"""
+        Get the lattice as a Lattice object.
+        """
+    @property
+    def composition(self) -> composition.Composition:
+        r"""
+        Composition object for this structure.
+        """
+    @property
+    def total_mass(self) -> float:
+        r"""
+        Total mass in atomic mass units (amu).
+        """
+    @property
+    def site_labels(self) -> list[str]:
+        r"""
+        Labels for all sites.
         """
     def __new__(cls, structure: str | dict[str, Any]) -> Structure:
         r"""
         Create a new Structure from a JSON string or dict.
+        """
+    def as_dict(self) -> dict[str, Any]:
+        r"""
+        Convert to a pymatgen-compatible dict.
+        """
+    def to_json(self) -> str:
+        r"""
+        Convert to a JSON string.
+        """
+    @staticmethod
+    def from_dict(structure: str | dict[str, Any]) -> Structure:
+        r"""
+        Construct from a pymatgen-compatible dict (alias for `Structure(dict[str, Any])`).
+        """
+    def copy(self) -> Structure:
+        r"""
+        Create a copy of this structure.
+        """
+    def __len__(self) -> int: ...
+    def __eq__(self, other: object) -> bool:
+        r"""
+        Structural equality using the built-in structure matcher.
+        """
+    def __getitem__(self, idx: int) -> dict[str, Any]:
+        r"""
+        Access a site by index. Returns a dict with species, abc, and xyz.
+        """
+    @staticmethod
+    def from_prototype(
+        prototype: str,
+        species: Sequence[str],
+        a: float,
+        b: float | None = None,
+        c: float | None = None,
+    ) -> Structure:
+        r"""
+        Create a structure from a named prototype (e.g. "fcc", "rocksalt", "perovskite").
+
+        Supported prototypes: sc, fcc, bcc, hcp, diamond, rocksalt, perovskite,
+        cscl, fluorite, antifluorite, zincblende, wurtzite.
+
+        Args:
+            prototype: Name of the prototype structure
+            species: Element symbols for each symmetrically distinct site
+            a: Lattice parameter a (required for all prototypes)
+            b: Lattice parameter b (optional)
+            c: Lattice parameter c (required for hcp, wurtzite)
+        """
+    @staticmethod
+    def from_spacegroup(
+        sg: int | str,
+        lattice: Sequence[Sequence[float]],
+        species: Sequence[str],
+        coords: Sequence[Sequence[float]],
+        tol: float | None = None,
+    ) -> Structure:
+        r"""
+        Create a structure from a space group, lattice, and asymmetric unit.
+
+        Args:
+            sg: Space group as ITA number (1-230) or Hermann-Mauguin symbol (e.g. "Fm-3m")
+            lattice: 3x3 lattice matrix or [[a, b, c, alpha, beta, gamma]]
+            species: Element symbols for each symmetrically distinct site
+            coords: Fractional coordinates of each distinct site (Nx3 list)
+            tol: Tolerance for deduplicating equivalent sites (default: 1e-5)
         """
     def has_vacancy_disorder(self, tol: float = 0.001) -> bool:
         r"""
@@ -142,18 +284,6 @@ class Structure:
     def num_disordered_sites(self, tol: float = 0.001) -> int:
         r"""
         Number of disordered sites (multiple species or partial occupancy).
-        """
-    def get_atomic_fractions(self) -> dict[str, Any]:
-        r"""
-        Atomic fractions as {element: fraction}.
-        """
-    def get_composition_unit_cell(self) -> dict[str, Any]:
-        r"""
-        Unit cell composition as {element: amount}.
-        """
-    def get_composition_reduced(self) -> dict[str, Any] | None:
-        r"""
-        Reduced composition as {element: integer_amount}. None if non-integer reduction.
         """
     def get_niggli_g6(self, tol: float = 1e-05) -> list[float]:
         r"""
@@ -259,6 +389,214 @@ class Structure:
         r"""
         Get AFLOW-style protostructure label.
         """
+    def get_point_group(self, symprec: float = 0.01) -> str:
+        r"""
+        Point group symbol (e.g. "m-3m", "4/mmm").
+        """
+    def make_supercell(
+        self, scaling: Sequence[int] | Sequence[Sequence[int]]
+    ) -> Structure:
+        r"""
+        Create a supercell.
+
+        Args:
+            scaling: Either [a, b, c] diagonal factors or a 3x3 transformation matrix.
+        """
+    def get_distance(
+        self, site_idx_a: int, site_idx_b: int, image: Sequence[int] | None = None
+    ) -> float:
+        r"""
+        Distance between two sites.
+
+        Uses minimum image convention by default. Pass `image` to specify
+        a particular periodic image offset.
+        """
+    def distort_bonds(
+        self,
+        center_site_idx: int,
+        distortion_factors: Sequence[float],
+        num_neighbors: int | None = None,
+        cutoff: float = 5.0,
+    ) -> list[Structure]:
+        r"""
+        Distort bonds around a center site by specified factors.
+        Returns one Structure per factor.
+        """
+    def create_dimer(
+        self, site_a_idx: int, site_b_idx: int, target_distance: float
+    ) -> Structure:
+        r"""
+        Create a dimer by moving two atoms closer together.
+        """
+    def rattle(
+        self,
+        stdev: float,
+        seed: int,
+        min_distance: float = 0.5,
+        max_attempts: int = 100,
+    ) -> Structure:
+        r"""
+        Apply Monte Carlo rattling to all atoms.
+        """
+    def local_rattle(
+        self, center_site_idx: int, max_amplitude: float, decay_radius: float, seed: int
+    ) -> Structure:
+        r"""
+        Apply local rattling with distance-dependent amplitude decay.
+        """
+    def get_reduced_structure(
+        self,
+        algorithm: str = "niggli",
+        niggli_tol: float = 1e-05,
+        lll_delta: float = 0.75,
+    ) -> Structure:
+        r"""
+        Get a reduced cell structure.
+
+        Args:
+            algorithm: "niggli" or "lll"
+            niggli_tol: Tolerance for Niggli reduction (default 1e-5)
+            lll_delta: Delta parameter for LLL reduction (default 0.75)
+        """
+    def wrap_to_unit_cell(self) -> Structure:
+        r"""
+        Wrap all sites into the unit cell [0, 1).
+        """
+    def interpolate(
+        self,
+        other: Structure,
+        n_images: int,
+        interpolate_lattices: bool = False,
+        use_pbc: bool = True,
+    ) -> list[Structure]:
+        r"""
+        Interpolate between this structure and another.
+        """
+    def sort(self, by: str = "species", reverse: bool = False) -> Structure:
+        r"""
+        Get structure with sites sorted.
+
+        Args:
+            by: Sort key — "species" (default) or "electronegativity"
+            reverse: Reverse sort order (default False)
+        """
+    def substitute_species(self, old_species: str, new_species: str) -> Structure:
+        r"""
+        Substitute one species with another.
+        """
+    def remove_species(self, species_list: Sequence[str]) -> Structure:
+        r"""
+        Remove all sites of specified species.
+        """
+    def remove_sites(self, indices: Sequence[int]) -> Structure:
+        r"""
+        Remove sites at specified indices.
+        """
+    def deform(self, gradient: Sequence[Sequence[float]]) -> Structure:
+        r"""
+        Apply a deformation gradient to the structure.
+        """
+    def ewald_energy(
+        self,
+        eta: float | None = None,
+        real_cutoff: float | None = None,
+        accuracy: float | None = None,
+    ) -> float:
+        r"""
+        Compute Ewald energy for a structure with oxidation states.
+        """
+    def order_disordered(self, max_structures: int = 100) -> list[Structure]:
+        r"""
+        Generate ordered structures from a disordered structure.
+        """
+    def enumerate_derivatives(
+        self, min_size: int = 1, max_size: int = 4
+    ) -> list[Structure]:
+        r"""
+        Enumerate derivative structures within a size range.
+        """
+    def translate_sites(
+        self, indices: Sequence[int], vector: Sequence[float], fractional: bool = True
+    ) -> Structure:
+        r"""
+        Translate selected sites by a vector.
+        """
+    def perturb(
+        self,
+        distance: float,
+        min_distance: float | None = None,
+        seed: int | None = None,
+    ) -> Structure:
+        r"""
+        Perturb all sites by random vectors.
+        """
+    def set_site_property(self, idx: int, key: str, value: Any) -> Structure:
+        r"""
+        Set a site property.
+        """
+    def matches(self, other: Structure, anonymous: bool = False) -> bool:
+        r"""
+        Whether this structure matches another using StructureMatcher.
+        """
+    def get_symmetry_operations(self, symprec: float = 0.01) -> list[dict[str, Any]]:
+        r"""
+        Get symmetry operations as list of {rotation, translation} dicts.
+        """
+    def get_equivalent_sites(self, symprec: float = 0.01) -> list[int]:
+        r"""
+        Get equivalent site indices (orbit mapping).
+        """
+    def get_primitive(self, symprec: float = 0.01) -> Structure:
+        r"""
+        Get the primitive cell.
+        """
+    def get_conventional(self, symprec: float = 0.01) -> Structure:
+        r"""
+        Get the conventional cell.
+        """
+    def get_standardized(
+        self, symprec: float = 0.01, primitive: bool = False
+    ) -> dict[str, Any]:
+        r"""
+        Get the ITA-standardized structure. Returns (structure, transformation_matrix).
+        """
+    def get_symmetrized(self, symprec: float = 0.01) -> Structure:
+        r"""
+        Symmetrize by averaging equivalent atomic positions.
+        """
+    def get_symmetry_equivalent_sites(
+        self, site_idx: int, symprec: float = 0.01
+    ) -> list[int]:
+        r"""
+        Get all site indices symmetry-equivalent to the given site.
+        """
+    def get_symmetry_dataset(self, symprec: float = 0.01) -> dict[str, Any]:
+        r"""
+        Get the full symmetry dataset as a dict.
+        """
+    def get_laue_group(self, symprec: float = 0.01) -> str:
+        r"""
+        Laue group symbol (e.g. "m-3m").
+        """
+    def apply_operation(
+        self,
+        rotation: Sequence[Sequence[float]],
+        translation: Sequence[float],
+        fractional: bool = True,
+    ) -> Structure:
+        r"""
+        Apply a symmetry operation (rotation + translation) to the structure.
+        """
+    def apply_inversion(self, fractional: bool = True) -> Structure:
+        r"""
+        Apply inversion through the origin.
+        """
+    def apply_translation(
+        self, translation: Sequence[float], fractional: bool = True
+    ) -> Structure:
+        r"""
+        Apply a translation to all sites.
+        """
 
 @final
 class StructureMatcher:
@@ -358,6 +696,47 @@ def ewald_energy(
 ) -> float:
     r"""
     Compute Ewald energy for a structure with oxidation states.
+    """
+
+def from_prototype(
+    prototype: str,
+    species: Sequence[str],
+    a: float,
+    b: float | None = None,
+    c: float | None = None,
+) -> dict[str, Any]:
+    r"""
+    Create a structure from a named prototype (e.g. "fcc", "rocksalt", "perovskite").
+
+    Supported prototypes: sc, fcc, bcc, hcp, diamond, rocksalt, perovskite,
+    cscl, fluorite, antifluorite, zincblende, wurtzite.
+
+    Args:
+        prototype: Name of the prototype structure
+        species: Element symbols for each symmetrically distinct site
+        a: Lattice parameter a (required for all prototypes)
+        b: Lattice parameter b (optional)
+        c: Lattice parameter c (required for hcp, wurtzite)
+    """
+
+def from_spacegroup(
+    sg: int | str,
+    lattice: Sequence[Sequence[float]],
+    species: Sequence[str],
+    coords: Sequence[Sequence[float]],
+    tol: float | None = None,
+) -> dict[str, Any]:
+    r"""
+    Create a structure from a space group, lattice, and asymmetric unit.
+
+    Generates all symmetry-equivalent sites from the space group operations.
+
+    Args:
+        sg: Space group as ITA number (1-230) or Hermann-Mauguin symbol (e.g. "Fm-3m")
+        lattice: 3x3 lattice matrix (rows = lattice vectors) or [[a, b, c, alpha, beta, gamma]]
+        species: Element symbols for each symmetrically distinct site (e.g. ["Na", "Cl"])
+        coords: Fractional coordinates of each distinct site (Nx3 list)
+        tol: Tolerance for deduplicating equivalent sites (default: 1e-5)
     """
 
 def get_all_site_properties(structure: str | dict[str, Any]) -> list[Any]:

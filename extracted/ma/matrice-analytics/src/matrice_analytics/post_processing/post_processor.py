@@ -122,6 +122,7 @@ from .usecases import (
     OvercrowdingDetectionUseCase,
     AnimalDetectionUseCase,
     BurglaryDetectionUseCase,
+    LandslideDetectionUseCase,
     # Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
     SkinCancerClassificationUseCase,
@@ -660,6 +661,9 @@ class PostProcessor:
         )
         registry.register_use_case(
             "security", "burglary_detection", BurglaryDetectionUseCase
+        )
+        registry.register_use_case(
+            "environmental", "landslide_detection", LandslideDetectionUseCase
         )
 
         # Put all IMAGE based usecases here

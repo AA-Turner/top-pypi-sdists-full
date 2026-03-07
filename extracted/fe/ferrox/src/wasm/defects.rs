@@ -233,8 +233,8 @@ pub fn defect_guess_charge_states(
     max_charge: i32,
 ) -> WasmResult<String> {
     let result: Result<String, String> = (|| {
+        use crate::analysis::oxidation::guess_defect_charge_states;
         use crate::defects::DefectType;
-        use crate::oxidation::guess_defect_charge_states;
 
         let dtype = match defect_type.to_lowercase().as_str() {
             "vacancy" => DefectType::Vacancy,

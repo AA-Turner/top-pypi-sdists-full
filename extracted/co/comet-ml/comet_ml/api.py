@@ -1481,9 +1481,20 @@ class APIExperiment(CommonExperiment):
         if results:
             return results["tags"]
 
-    def get_views(self):
+    def get_views(
+        self,
+        include_workspace_views=False,
+        include_workspace_project_views=False,
+    ):
         """
         Get all views scoped to this experiment.
+
+        Args:
+            include_workspace_views (bool): If True, also include views from
+                other projects in the same workspace. Default is False.
+            include_workspace_project_views (bool): If True, also include
+                per-project views saved via the UI from other projects in the
+                same workspace. Default is False.
 
         Returns:
             list: A list of View objects for this experiment.
@@ -1501,8 +1512,17 @@ class APIExperiment(CommonExperiment):
                 print(view.name)
             ```
         """
-        raw_views = self._api._client.get_views(self.project_id, experiment_key=self.id)
-        return [View.from_payload_dict(v) for v in raw_views]
+        raw = self._api._client.get_views(
+            self.project_id,
+            experiment_key=self.id,
+            include_workspace_views=include_workspace_views,
+        )
+        raw_ct = self._api._client.get_chart_template_views(
+            self.project_id,
+            experiment_key=self.id,
+            include_workspace_views=include_workspace_project_views,
+        )
+        return [View.from_payload_dict(v) for v in raw + raw_ct]
 
     def create_view(self, view):
         """
@@ -5609,13 +5629,24 @@ class API(object):
         )
         return results
 
-    def get_views(self, workspace, project_name):
+    def get_views(
+        self,
+        workspace,
+        project_name,
+        include_workspace_views=False,
+        include_workspace_project_views=False,
+    ):
         """
         Get all views for a project.
 
         Args:
             workspace (str): The name of the workspace.
             project_name (str): The name of the project.
+            include_workspace_views (bool): If True, also include views from
+                other projects in the same workspace. Default is False.
+            include_workspace_project_views (bool): If True, also include
+                per-project views saved via the UI from other projects in the
+                same workspace. Default is False.
 
         Returns:
             list: A list of View objects.
@@ -5634,8 +5665,14 @@ class API(object):
         project_json = self.get_project(workspace, project_name)
         if project_json:
             project_id = project_json["projectId"]
-            raw_views = self._client.get_views(project_id)
-            return [View.from_payload_dict(v) for v in raw_views]
+            raw = self._client.get_views(
+                project_id, include_workspace_views=include_workspace_views
+            )
+            raw_ct = self._client.get_chart_template_views(
+                project_id,
+                include_workspace_views=include_workspace_project_views,
+            )
+            return [View.from_payload_dict(v) for v in raw + raw_ct]
         else:
             raise ValueError(
                 "unknown project %r in workspace %r" % (project_name, workspace)

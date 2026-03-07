@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tsify_next::Tsify;
 use wasm_bindgen::prelude::*;
 
-use crate::cif::parse_cif_str;
+use crate::io::cif::parse_cif_str;
 use crate::io::parse_poscar_str;
 use crate::wasm_types::{JsAseAtoms, JsCrystal, WasmResult};
 
@@ -27,6 +27,35 @@ pub fn parse_poscar(content: &str) -> WasmResult<JsCrystal> {
 }
 
 #[wasm_bindgen]
+pub fn parse_lammps_dump(content: &str) -> WasmResult<JsCrystal> {
+    let result = crate::io::parse_lammps_dump_str(content)
+        .map_err(|err| err.to_string())
+        .map(|structure| JsCrystal::from_structure(&structure));
+    result.into()
+}
+
+#[wasm_bindgen]
+pub fn parse_xdatcar(content: &str) -> WasmResult<JsCrystal> {
+    let result = crate::io::parse_xdatcar_str(content)
+        .map_err(|err| err.to_string())
+        .map(|structure| JsCrystal::from_structure(&structure));
+    result.into()
+}
+
+#[wasm_bindgen]
+pub fn parse_optimade(content: &str) -> WasmResult<JsCrystal> {
+    let result = crate::io::parse_optimade_json(content)
+        .map_err(|err| err.to_string())
+        .map(|structure| JsCrystal::from_structure(&structure));
+    result.into()
+}
+
+#[wasm_bindgen]
+pub fn is_optimade_json(content: &str) -> bool {
+    crate::io::is_optimade_json(content)
+}
+
+#[wasm_bindgen]
 pub fn structure_to_json(structure: JsCrystal) -> WasmResult<String> {
     structure
         .to_structure()
@@ -38,7 +67,7 @@ pub fn structure_to_json(structure: JsCrystal) -> WasmResult<String> {
 pub fn structure_to_cif(structure: JsCrystal) -> WasmResult<String> {
     structure
         .to_structure()
-        .map(|struc| crate::cif::structure_to_cif(&struc, None))
+        .map(|struc| crate::io::cif::structure_to_cif(&struc, None))
         .into()
 }
 

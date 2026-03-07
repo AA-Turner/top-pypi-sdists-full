@@ -1,4 +1,5 @@
 import typing as t
+from unittest.mock import patch
 
 import pytest
 
@@ -38,6 +39,28 @@ def test_cdf_dict_rows(standalone_session: StandaloneSession, compare_sql: t.Cal
         [{"cola": 1, "colb": "test"}, {"cola": 2, "colb": "test2"}]
     )
     expected = "SELECT CAST(`a1`.`cola` AS BIGINT) AS `cola`, CAST(`a1`.`colb` AS STRING) AS `colb` FROM VALUES (1, 'test'), (2, 'test2') AS `a1`(`cola`, `colb`)"
+    compare_sql(df, expected)
+
+
+def test_cdf_dict_rows_missing_columns(
+    standalone_session: StandaloneSession, compare_sql: t.Callable
+):
+    df = standalone_session.createDataFrame(
+        [{"name": "xxx"}, {"name": "yyy"}],
+        schema={"_id": "string", "name": "string"},
+    )
+    expected = "SELECT CAST(`a1`.`_id` AS STRING) AS `_id`, CAST(`a1`.`name` AS STRING) AS `name` FROM VALUES (NULL, 'xxx'), (NULL, 'yyy') AS `a1`(`_id`, `name`)"
+    compare_sql(df, expected)
+
+
+def test_cdf_dict_rows_reordered_keys(
+    standalone_session: StandaloneSession, compare_sql: t.Callable
+):
+    df = standalone_session.createDataFrame(
+        [{"colb": "test", "cola": 1}],
+        schema={"cola": "bigint", "colb": "string"},
+    )
+    expected = "SELECT CAST(`a1`.`cola` AS BIGINT) AS `cola`, CAST(`a1`.`colb` AS STRING) AS `colb` FROM VALUES (1, 'test') AS `a1`(`cola`, `colb`)"
     compare_sql(df, expected)
 
 
@@ -95,6 +118,31 @@ def test_nested_struct(standalone_session: StandaloneSession, compare_sql: t.Cal
     compare_sql(df, expected)
 
 
+def test_dict_as_map(standalone_session: StandaloneSession, compare_sql: t.Callable):
+    df = standalone_session.createDataFrame([[{"key": "value"}]])
+    expected = "SELECT CAST(`a1`.`_1` AS MAP<STRING, STRING>) AS `_1` FROM VALUES (MAP('key', 'value')) AS `a1`(`_1`)"
+    compare_sql(df, expected)
+
+
+def test_dict_as_struct(standalone_session: StandaloneSession, compare_sql: t.Callable):
+    with patch.object(type(standalone_session), "DICT_AS_MAP", False):
+        df = standalone_session.createDataFrame(
+            t.cast(
+                t.Sequence[t.Dict[str, t.Any]],
+                [{"country": "DE", "title": {"headline": "haferflocki"}}],
+            )
+        )
+        expected = "SELECT CAST(`a1`.`country` AS STRING) AS `country`, CAST(`a1`.`title` AS STRUCT<`headline`: STRING>) AS `title` FROM VALUES ('DE', STRUCT('haferflocki' AS `headline`)) AS `a1`(`country`, `title`)"
+        compare_sql(df, expected)
+
+
+def test_nested_dict_as_struct(standalone_session: StandaloneSession, compare_sql: t.Callable):
+    with patch.object(type(standalone_session), "DICT_AS_MAP", False):
+        df = standalone_session.createDataFrame(t.cast(t.Any, [[{"a": {"b": 1}}]]))
+        expected = "SELECT CAST(`a1`.`_1` AS STRUCT<`a`: STRUCT<`b`: BIGINT>>) AS `_1` FROM VALUES (STRUCT(STRUCT(1 AS `b`) AS `a`)) AS `a1`(`_1`)"
+        compare_sql(df, expected)
+
+
 def test_sql_select_only(standalone_session: StandaloneSession, compare_sql: t.Callable):
     query = "SELECT cola, colb FROM table"
     standalone_session.catalog.add_table("table", {"cola": "string", "colb": "string"})
@@ -136,3 +184,21 @@ def test_sql_insert(standalone_session: StandaloneSession, compare_sql: t.Callab
 
 def test_session_create_builder_patterns():
     assert StandaloneSession.builder.appName("abc").getOrCreate() == StandaloneSession()
+
+
+def test_builder_getattr_does_not_swallow_property_errors():
+    """Test that AttributeError raised inside a session property is not silently
+    swallowed by Builder.__getattr__, which would cause getOrCreate() to return
+    the Builder instead of raising. See: https://github.com/eakmanrq/sqlframe/issues/558"""
+    from sqlframe.base.session import _BaseSession
+
+    class FailingBuilder(_BaseSession.Builder):
+        @property
+        def session(self):
+            hostname = None
+            # Simulates the error from databricks-sql-connector when params are missing
+            hostname.startswith("https://")  # type: ignore[union-attr]
+
+    builder = FailingBuilder()
+    with pytest.raises(RuntimeError):
+        builder.getOrCreate()

@@ -5,6 +5,7 @@
 import os
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
+from pyspark.errors.exceptions.base import IllegalArgumentException
 
 from snowflake import snowpark
 from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
@@ -69,6 +70,9 @@ def map_read_xml(
     Notes:
         We leverage the stage that is already created in the map_read function that calls this.
     """
+
+    # [SPARK PARITY] Validate XML options eagerly, matching Spark's behavior
+    _validate_xml_options(options)
 
     if rel.read.is_streaming:
         # TODO: Structured streaming implementation.
@@ -162,6 +166,63 @@ def map_read_xml(
 # SPARK PARITY HELPERS
 # These functions modify Snowpark behavior to match Spark exactly.
 # =============================================================================
+
+
+def _validate_xml_options(options: XmlReaderConfig) -> None:
+    """
+    [SPARK PARITY] Validate XML options eagerly, matching Spark's client-side validation.
+
+    See: org.apache.spark.sql.catalyst.xml.XmlOptions (Spark 4.0)
+         com.databricks.spark.xml.XmlOptions (spark-xml package)
+    """
+    row_tag = options.get("rowtag")
+    value_tag = options.get("valuetag")
+    attribute_prefix = options.get("attributeprefix")
+    root_tag = options.get("roottag")
+
+    # 1. rowTag must not be empty
+    if row_tag is not None and row_tag == "":
+        exception = IllegalArgumentException(
+            "requirement failed: 'rowTag' option should not be empty string."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
+
+    # 2. valueTag must not be empty
+    if value_tag is not None and value_tag == "":
+        exception = IllegalArgumentException(
+            "requirement failed: 'valueTag' option should not be empty string."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
+
+    # 3. rowTag must not contain angle brackets
+    if row_tag is not None and ("<" in row_tag or ">" in row_tag):
+        exception = IllegalArgumentException(
+            "requirement failed: 'rowTag' should not include angle brackets"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
+
+    # 4. rootTag must not contain angle brackets
+    if root_tag is not None and ("<" in root_tag or ">" in root_tag):
+        exception = IllegalArgumentException(
+            "requirement failed: 'rootTag' should not include angle brackets"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
+
+    # 5. valueTag and attributePrefix must not be the same
+    if (
+        value_tag is not None
+        and attribute_prefix is not None
+        and value_tag == attribute_prefix
+    ):
+        exception = IllegalArgumentException(
+            "requirement failed: 'valueTag' and 'attributePrefix' options should not be the same."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
 
 
 def _apply_user_schema(

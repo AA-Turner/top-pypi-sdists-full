@@ -5,7 +5,10 @@ use itertools::Itertools;
 use tombi_x_keyword::{StringFormat, TableKeysOrder, X_TOMBI_TABLE_KEYS_ORDER};
 
 use super::{ReferableValueSchemas, ValueSchema};
-use crate::{Referable, schema::not_schema::NotSchema};
+use crate::{
+    Referable,
+    schema::{if_then_else_schema::IfThenElseSchema, not_schema::NotSchema},
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct AllOfSchema {
@@ -18,10 +21,15 @@ pub struct AllOfSchema {
     pub deprecated: Option<bool>,
     pub keys_order: Option<TableKeysOrder>,
     pub not: Option<NotSchema>,
+    pub if_then_else: Option<Box<IfThenElseSchema>>,
 }
 
 impl AllOfSchema {
-    pub fn new(object: &tombi_json::ObjectNode, string_formats: Option<&[StringFormat]>) -> Self {
+    pub fn new(
+        object: &tombi_json::ObjectNode,
+        string_formats: Option<&[StringFormat]>,
+        dialect: Option<crate::JsonSchemaDialect>,
+    ) -> Self {
         let title = object
             .get("title")
             .and_then(|v| v.as_str())
@@ -38,7 +46,7 @@ impl AllOfSchema {
                     .items
                     .iter()
                     .filter_map(|value| value.as_object())
-                    .filter_map(|obj| Referable::<ValueSchema>::new(obj, string_formats))
+                    .filter_map(|obj| Referable::<ValueSchema>::new(obj, string_formats, dialect))
                     .collect_vec()
             })
             .unwrap_or_default();
@@ -57,7 +65,8 @@ impl AllOfSchema {
             keys_order: object
                 .get(X_TOMBI_TABLE_KEYS_ORDER)
                 .and_then(|v| v.as_str().and_then(|s| TableKeysOrder::try_from(s).ok())),
-            not: NotSchema::new(object, string_formats),
+            not: NotSchema::new(object, string_formats, dialect),
+            if_then_else: IfThenElseSchema::new(object, string_formats, dialect).map(Box::new),
         }
     }
 

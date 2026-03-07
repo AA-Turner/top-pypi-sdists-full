@@ -3,7 +3,7 @@
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
-use crate::order_params::{self, LocalStructure};
+use crate::analysis::order_params::{self, LocalStructure};
 
 use super::helpers::{StructureJson, parse_struct};
 

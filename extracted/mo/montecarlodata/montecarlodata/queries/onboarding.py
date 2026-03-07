@@ -993,6 +993,7 @@ mutation testSelfHostedCredentialsV2(
     $akvVaultName: String
     $bqProjectId: String
     $filePath: String
+    $databricksWarehouseId: String
 ) {
     testSelfHostedCredentialsV2(
         connectionDetails: {
@@ -1010,6 +1011,7 @@ mutation testSelfHostedCredentialsV2(
             akvVaultName: $akvVaultName
             bqProjectId: $bqProjectId
             filePath: $filePath
+            databricksWarehouseId: $databricksWarehouseId
         }
         validationName: $validationName
         connectionOptions: $connectionOptions

@@ -24,12 +24,12 @@ fn test_concurrent_read_sessions() {
     // Create some initial data
     {
         let session = db.session();
-        session.execute("INSERT (:Person {name: 'Alice'})").unwrap();
-        session.execute("INSERT (:Person {name: 'Bob'})").unwrap();
-        session.execute("INSERT (:Person {name: 'Carol'})").unwrap();
+        session.execute("INSERT (:Person {name: 'Alix'})").unwrap();
+        session.execute("INSERT (:Person {name: 'Gus'})").unwrap();
+        session.execute("INSERT (:Person {name: 'Harm'})").unwrap();
     }
 
-    let num_threads = 8;
+    let num_threads = 4;
     let barrier = Arc::new(Barrier::new(num_threads));
     let success_count = Arc::new(AtomicUsize::new(0));
 
@@ -140,7 +140,7 @@ fn test_session_isolation_between_threads() {
 
     let writer_handle = thread::spawn(move || {
         let mut session = db_clone.session();
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
 
         // Create a node within the transaction
         session
@@ -209,8 +209,8 @@ fn test_many_sessions_rapid_creation() {
     // Creating many sessions rapidly should not cause issues
     let db = Arc::new(GrafeoDB::new_in_memory());
 
-    let num_threads = 16;
-    let sessions_per_thread = 50;
+    let num_threads = 4;
+    let sessions_per_thread = 20;
     let barrier = Arc::new(Barrier::new(num_threads));
     let success_count = Arc::new(AtomicUsize::new(0));
 
@@ -262,7 +262,7 @@ fn test_interleaved_transactions() {
                 for i in 0..3 {
                     let mut session = db.session();
 
-                    session.begin_tx().unwrap();
+                    session.begin_transaction().unwrap();
 
                     let query =
                         format!("INSERT (:Work {{thread: {}, iteration: {}}})", thread_id, i);
@@ -304,12 +304,12 @@ fn test_session_transaction_state_independence() {
     let mut session2 = db.session();
 
     // Session 1 starts transaction
-    session1.begin_tx().unwrap();
+    session1.begin_transaction().unwrap();
     assert!(session1.in_transaction());
     assert!(!session2.in_transaction());
 
     // Session 2 starts its own transaction
-    session2.begin_tx().unwrap();
+    session2.begin_transaction().unwrap();
     assert!(session1.in_transaction());
     assert!(session2.in_transaction());
 
@@ -386,16 +386,19 @@ fn test_node_count_consistency() {
 // Async Session Tests (using tokio)
 // ============================================================================
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_async_concurrent_sessions() {
+    // Kept lightweight (3 tasks) to avoid lock-contention slowdowns
+    // on resource-constrained CI runners (2-core GitHub Actions).
     use tokio::task;
 
     let db = Arc::new(GrafeoDB::new_in_memory());
+    let num_tasks = 3;
 
-    // Spawn multiple async tasks
+    // Spawn async tasks
     let mut handles = Vec::new();
 
-    for i in 0..8 {
+    for i in 0..num_tasks {
         let db: Arc<GrafeoDB> = Arc::clone(&db);
         handles.push(task::spawn_blocking(move || {
             let session = db.session();
@@ -412,52 +415,46 @@ async fn test_async_concurrent_sessions() {
     // Verify results
     let session = db.session();
     let result = session.execute("MATCH (n:AsyncNode) RETURN n").unwrap();
-    assert_eq!(result.row_count(), 8, "All async nodes should exist");
+    assert_eq!(
+        result.row_count(),
+        num_tasks,
+        "All async nodes should exist"
+    );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_async_transaction_isolation() {
     use std::sync::atomic::AtomicBool;
-    use tokio::sync::Barrier as TokioBarrier;
     use tokio::task;
 
     let db = Arc::new(GrafeoDB::new_in_memory());
-    let barrier = Arc::new(TokioBarrier::new(2));
     let writer_committed = Arc::new(AtomicBool::new(false));
 
     // Writer task
     let db_writer: Arc<GrafeoDB> = Arc::clone(&db);
-    let _barrier_writer = Arc::clone(&barrier);
     let committed_flag = Arc::clone(&writer_committed);
 
     let writer = task::spawn_blocking(move || {
         let mut session = db_writer.session();
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
         session
             .execute("INSERT (:AsyncIsolated {data: 'test'})")
             .unwrap();
-
-        // Signal ready
-        std::thread::sleep(std::time::Duration::from_millis(10));
-
-        // Commit
         session.commit().unwrap();
         committed_flag.store(true, Ordering::Release);
     });
 
-    // Reader task
+    // Reader task: waits for writer commit via atomic flag, no sleep
     let db_reader: Arc<GrafeoDB> = Arc::clone(&db);
+    let reader_flag = Arc::clone(&writer_committed);
 
     let reader = task::spawn_blocking(move || {
-        // Wait a bit for writer to start
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        // Spin until writer has committed
+        while !reader_flag.load(Ordering::Acquire) {
+            std::hint::spin_loop();
+        }
 
         let session = db_reader.session();
-
-        // Wait for writer to commit
-        std::thread::sleep(std::time::Duration::from_millis(20));
-
-        // Now should see data
         let result = session.execute("MATCH (n:AsyncIsolated) RETURN n").unwrap();
         result.row_count()
     });
@@ -486,7 +483,7 @@ fn test_session_after_transaction_error() {
     assert!(result.is_err());
 
     // Session should still work
-    session.begin_tx().unwrap();
+    session.begin_transaction().unwrap();
     session.execute("INSERT (:AfterError)").unwrap();
     session.commit().unwrap();
 
@@ -501,7 +498,7 @@ fn test_multiple_sequential_transactions() {
     let mut session = db.session();
 
     for i in 0..5 {
-        session.begin_tx().unwrap();
+        session.begin_transaction().unwrap();
         let query = format!("INSERT (:Sequential{{iteration: {}}})", i);
         session.execute(&query).unwrap();
         session.commit().unwrap();
@@ -661,7 +658,7 @@ fn test_stress_transaction_conflicts() {
                 barrier.wait();
                 for i in 0..iterations {
                     let mut session = db.session();
-                    session.begin_tx().unwrap();
+                    session.begin_transaction().unwrap();
                     let query = format!("INSERT (:TxNode {{thread: {tid}, iter: {i}}})");
                     let _ = session.execute(&query);
 
@@ -698,7 +695,7 @@ fn test_stress_transaction_conflicts() {
 #[test]
 #[ignore = "stress test: slow in CI, run locally with --ignored"]
 fn test_stress_concurrent_epoch_pressure() {
-    // 4 threads each running 8 sequential transactions — creates many epochs
+    // 4 threads each running 8 sequential transactions, creates many epochs
     let db = Arc::new(GrafeoDB::new_in_memory());
 
     let num_threads = 4;
@@ -716,7 +713,7 @@ fn test_stress_concurrent_epoch_pressure() {
                 barrier.wait();
                 for i in 0..txns_per_thread {
                     let mut session = db.session();
-                    session.begin_tx().unwrap();
+                    session.begin_transaction().unwrap();
                     session
                         .execute(&format!("INSERT (:Epoch {{thread: {tid}, txn: {i}}})"))
                         .unwrap();

@@ -28,6 +28,7 @@ else:  # pragma: NO COVER
     # this code path once we drop support for Python 3.7
     import importlib_metadata as metadata
 
+
 from .services.data_object_search_service import (
     DataObjectSearchServiceAsyncClient,
     DataObjectSearchServiceClient,
@@ -61,7 +62,6 @@ from .types.data_object_search_service import (
     SemanticSearch,
     TextSearch,
     VectorSearch,
-    VertexRanker,
 )
 from .types.data_object_service import (
     BatchCreateDataObjectsRequest,
@@ -257,5 +257,4 @@ __all__ = (
     "VectorSearch",
     "VectorSearchServiceClient",
     "VertexEmbeddingConfig",
-    "VertexRanker",
 )

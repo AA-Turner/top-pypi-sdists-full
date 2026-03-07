@@ -4,6 +4,9 @@
 //! e.g., Fe2+ or O2-.
 
 use crate::element::Element;
+
+/// Tolerance for occupancy comparisons (is_ordered, vacancy detection, etc.).
+pub const OCCUPANCY_TOL: f64 = 1e-6;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -303,14 +306,38 @@ impl SiteOccupancy {
         }
     }
 
-    /// Check if this is an ordered site (single species).
+    /// Parse species symbols (e.g. ["Na", "Cl", "Fe2+"]) into ordered site occupancies.
     ///
-    /// Returns `true` if there is exactly one species, even if it has partial
-    /// occupancy (vacancy). A site with Fe at 0.8 occupancy is still "ordered"
-    /// in the crystallographic sense - the disorder refers to mixed species,
-    /// not vacancies.
+    /// Tries each string as an element symbol first, then as a species string with
+    /// oxidation state. Returns an error for unrecognized strings.
+    pub fn parse_symbols(symbols: &[String]) -> crate::error::Result<Vec<Self>> {
+        symbols
+            .iter()
+            .map(|sym| {
+                if let Some(elem) = crate::element::Element::from_symbol(sym) {
+                    Ok(Self::ordered(Species::neutral(elem)))
+                } else if let Some(sp) = Species::from_string(sym) {
+                    Ok(Self::ordered(sp))
+                } else {
+                    Err(crate::error::FerroxError::InvalidArgument {
+                        reason: format!(
+                            "Unknown species: '{sym}'. Use element symbols (e.g. 'Na') or \
+                             species strings (e.g. 'Fe2+')"
+                        ),
+                    })
+                }
+            })
+            .collect()
+    }
+
+    /// Check if this is an ordered site (single species at full occupancy).
+    ///
+    /// Returns `true` only if there is exactly one species AND total occupancy
+    /// is ~1.0. A site with Fe at 0.8 occupancy (vacancy disorder) is considered
+    /// disordered, matching pymatgen's convention where `Site.is_ordered` returns
+    /// `False` for any partial occupancy.
     pub fn is_ordered(&self) -> bool {
-        self.species.len() == 1
+        self.species.len() == 1 && (self.total_occupancy() - 1.0).abs() < OCCUPANCY_TOL
     }
 
     /// Get the dominant species (highest occupancy).
@@ -723,8 +750,19 @@ mod tests {
     fn test_site_occupancy_partial_vacancy() {
         // Site with partial vacancy (total occupancy < 1.0)
         let so = SiteOccupancy::new(vec![(Species::neutral(Element::Fe), 0.8)]);
-        assert!(so.is_ordered()); // Only one species, so "ordered"
+        assert!(!so.is_ordered()); // Partial occupancy = vacancy disorder
         assert!((so.total_occupancy() - 0.8).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_is_ordered_tolerance_boundary() {
+        let fe = Species::neutral(Element::Fe);
+        // Just inside tolerance: treated as fully occupied
+        let near_full = SiteOccupancy::new(vec![(fe, 1.0 - 1e-7)]);
+        assert!(near_full.is_ordered());
+        // Just outside tolerance: treated as vacancy-disordered
+        let slightly_vacant = SiteOccupancy::new(vec![(fe, 1.0 - 1e-5)]);
+        assert!(!slightly_vacant.is_ordered());
     }
 
     #[test]
@@ -754,10 +792,10 @@ mod tests {
             assert_eq!(SiteOccupancy::ordered(sp).species_string(), expected);
         }
 
-        // Partial occupancy is still "ordered"
+        // Partial occupancy = vacancy disorder (not ordered)
         let partial = SiteOccupancy::new(vec![(Species::neutral(Element::Fe), 0.8)]);
-        assert!(partial.is_ordered());
-        assert_eq!(partial.species_string(), "Fe");
+        assert!(!partial.is_ordered());
+        assert_eq!(partial.species_string(), "Fe:0.8");
 
         // Disordered: sorted by electronegativity, then symbol, then oxidation state
         // Format matches pymatgen exactly

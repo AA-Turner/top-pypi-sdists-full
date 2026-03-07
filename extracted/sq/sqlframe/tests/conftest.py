@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import sys
 import time
 
 import pytest
 
 
-def pytest_collection_modifyitems(items, *args, **kwargs):
+def pytest_collection_modifyitems(config, items, *args, **kwargs):
     for item in items:
         if not [x for x in item.iter_markers() if x.name != "parametrize"]:
             item.add_marker("fast")
@@ -27,4 +26,7 @@ def rescope_sparksession_singleton():
     from sqlframe.base.session import _BaseSession
 
     _BaseSession._instance = None
+    for cls in _BaseSession.__subclasses__():
+        if hasattr(cls, "Builder"):
+            cls.builder = cls.Builder()
     yield

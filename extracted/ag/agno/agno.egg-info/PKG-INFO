@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.5.7
+Version: 2.5.8
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -357,6 +357,9 @@ Provides-Extra: crawl4ai
 Requires-Dist: crawl4ai>=0.6.3; extra == "crawl4ai"
 Provides-Extra: github
 Requires-Dist: PyGithub; extra == "github"
+Provides-Extra: gitlab
+Requires-Dist: python-gitlab; extra == "gitlab"
+Requires-Dist: httpx; extra == "gitlab"
 Provides-Extra: gmail
 Requires-Dist: google-api-python-client; extra == "gmail"
 Requires-Dist: google-auth-httplib2; extra == "gmail"
@@ -535,6 +538,7 @@ Requires-Dist: agno[firecrawl]; extra == "tools"
 Requires-Dist: agno[tavily]; extra == "tools"
 Requires-Dist: agno[crawl4ai]; extra == "tools"
 Requires-Dist: agno[github]; extra == "tools"
+Requires-Dist: agno[gitlab]; extra == "tools"
 Requires-Dist: agno[gmail]; extra == "tools"
 Requires-Dist: agno[googlemaps]; extra == "tools"
 Requires-Dist: agno[todoist]; extra == "tools"

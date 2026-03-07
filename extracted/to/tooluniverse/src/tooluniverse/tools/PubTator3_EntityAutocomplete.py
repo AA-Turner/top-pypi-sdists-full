@@ -10,8 +10,8 @@ from ._shared_client import get_shared_client
 
 def PubTator3_EntityAutocomplete(
     text: str,
-    entity_type: str,
-    max_results: int,
+    entity_type: Optional[str] = None,
+    max_results: Optional[int] = None,
     *,
     stream_callback: Optional[Callable[[str], None]] = None,
     use_cache: bool = False,

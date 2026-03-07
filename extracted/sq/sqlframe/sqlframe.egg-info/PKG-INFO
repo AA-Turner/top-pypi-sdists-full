@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlframe
-Version: 3.47.0
+Version: 3.48.0
 Summary: Turning PySpark Into a Universal DataFrame API
 Author-email: Ryan Eakman <eakmanrq@gmail.com>
 License: MIT
