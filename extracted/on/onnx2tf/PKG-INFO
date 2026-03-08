@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx2tf
-Version: 2.3.0
+Version: 2.3.2
 Summary: Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC). The purpose of this tool is to solve the massive Transpose extrapolation problem in onnx-tensorflow (onnx-tf).
 Keywords: onnx,tensorflow,tflite,keras,deep-learning,machine-learning
 Author: Katsuya Hyodo
@@ -18,7 +18,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Dist: requests==2.32.5
 Requires-Dist: numpy==1.26.4
 Requires-Dist: onnx==1.20.1
-Requires-Dist: onnxruntime==1.24.1
+Requires-Dist: onnxruntime==1.24.3
 Requires-Dist: opencv-python==4.11.0.86
 Requires-Dist: onnxsim-prebuilt==0.4.39.post2
 Requires-Dist: onnxoptimizer==0.4.2
@@ -33,6 +33,7 @@ Requires-Dist: h5py==3.12.1
 Requires-Dist: ml-dtypes==0.5.1
 Requires-Dist: flatbuffers==25.12.19
 Requires-Dist: tqdm==4.67.1
+Requires-Dist: pytest==9.0.2
 Requires-Dist: onnx-graphsurgeon==0.5.8 ; extra == 'dev'
 Requires-Python: >=3.12
 Project-URL: Homepage, https://github.com/PINTO0309/onnx2tf
@@ -281,9 +282,9 @@ Currently, the `flatbuffer_direct` backend is faster and has a higher success ra
 
 **Starting with onnx2tf v2.4.0, `tf_converter` will be deprecated and the default backend will be switched to `flatbuffer_direct`.**
 
-<img width="1236" height="528" alt="image" src="https://github.com/user-attachments/assets/15570a42-dfad-42cb-ba67-74de1e5f732e" />
+<img width="1869" height="770" alt="image" src="https://github.com/user-attachments/assets/8becf72d-c3dd-4a1c-ae75-e9e67b22817d" />
 
-When `--tflite_backend flatbuffer_direct` is selected, onnx2tf now prefers a direct fast path:
+When `--tflite_backend flatbuffer_direct` is selected, onnx2tf now uses a direct fast path for both ONNX input and `-it/--input_tflite_file_path` input:
 
 1. ONNX graph preprocessing (`tflite_builder.preprocess`) and direct lowering (`lower_onnx_to_ir`)
 2. Direct FlatBuffer export (`*_float32.tflite`, `*_float16.tflite`, and optional quantized variants)
@@ -304,15 +305,36 @@ Measured example (same model, float32 TFLite write stage):
 
 Actual speedup depends on model structure, enabled options, and runtime environment.
 
-Fast path is intentionally disabled (falls back to the legacy TF-graph path) when TF-model dependent options are enabled:
+Direct export can also generate TF-side artifacts without falling back to `tf_converter`:
 
-- `--enable_auto_split_model`
 - `--output_h5`
 - `--output_keras_v3`
 - `--output_tfv1_pb`
-- `--disable_model_save`
 
+These artifacts are generated from an internal SavedModel bridge built from float32 ModelIR.
 If direct export fails, conversion stops with an explicit error.
+
+`-inimc` / `-onimc` also stay on the direct path in `flatbuffer_direct`.
+For ONNX input and `-it` input, these options crop the imported/lowered ModelIR
+at the specified boundary tensor names instead of splitting the ONNX graph.
+
+`-dgc`, `-ebu`, and `-eru` also stay on the direct path in `flatbuffer_direct`.
+For ONNX input they are applied during lowering or as post-lowering ModelIR rewrites.
+For `-it` input they are applied to imported ModelIR before SavedModel bridge,
+split planning, or rewritten TFLite export.
+If the requested rewrite cannot be applied safely, conversion stops with an explicit error.
+
+`-me` also stays on the direct path in `flatbuffer_direct`.
+For ONNX `MeanVarianceNormalization`, direct lowering uses primitive builtin ops
+and applies `mvn_epsilon` to the internal `variance + epsilon` term without
+falling back to `tf_converter`.
+
+`--disable_model_save` also stays on the direct path. In `flatbuffer_direct`, it means the conversion can still run internal validation and temporary staging, but no final artifacts are left in the requested output directory.
+
+Invalid combinations are rejected explicitly:
+
+- `--disable_model_save` with `--output_h5`, `--output_keras_v3`, or `--output_tfv1_pb`
+- `--enable_auto_split_model` with `--output_h5`, `--output_keras_v3`, or `--output_tfv1_pb`
 
 SavedModel direct export from `flatbuffer_direct` ModelIR is available with
 `--flatbuffer_direct_output_saved_model`.
@@ -344,6 +366,13 @@ This option has strict constraints:
   onnx2tf \
   -it iat_llie_180x320_float32.tflite \
   -tb flatbuffer_direct
+  ```
+- e.g. Generate `.h5` directly from an existing LiteRT (`.tflite`) file without `tf_converter` fallback
+  ```bash
+  onnx2tf \
+  -it iat_llie_180x320_float32.tflite \
+  -tb flatbuffer_direct \
+  -oh5
   ```
   <img width="1249" height="315" alt="image" src="https://github.com/user-attachments/assets/baf38dd4-cd3b-4116-af07-6d3282b66b30" />
 
@@ -431,6 +460,7 @@ Notes:
 |Identity|RESHAPE|-|
 |If|CONCATENATION + REDUCE_MAX + CAST + ADD + MUL + RESHAPE + NON_MAX_SUPPRESSION_V4/V5 + SLICE + GATHER + SHAPE + SUB + SELECT/SELECT_V2|Built-in lowering supports constrained patterns: NMS-guard pattern (empty then-branch + NMS else-branch), axis0 Add-branch pattern (single `Add` per branch, same trailing dims, different static first dim), SequenceConstruct Add-branch pattern (branch-local `Constant`/`Add` with terminal `SequenceConstruct`), and nested ReduceMin/Add pattern (else-branch `ReduceMin/Greater` with nested Add/Add `If`). In control-flow branch lowering, dynamic-condition `If` is additionally supported when both branches are single-output initializer-only constants (lowered via `Where`)|
 |InstanceNormalization|MEAN + SUB + MUL + MEAN + ADD + SQRT + DIV + MUL + ADD|Input/output dtype must be `FLOAT16` or `FLOAT32`; input rank must be `>=3`; `scale` and `bias` inputs must be constant|
+|MeanVarianceNormalization|MEAN + SUB + MUL + MEAN + ADD + SQRT + DIV|Input/output dtype must be `FLOAT16` or `FLOAT32`; `mvn_epsilon` is applied directly in builtin lowering; default axes follow ONNX channel-first semantics and rank `<3` reduces over axis `0`|
 |Inverse|SLICE + MUL + SUB + ADD + NEG + CONCATENATION + DIV (+ optional CAST in/out)|Input/output dtype must be `FLOAT16` or `FLOAT32`; input rank must be `>=2`; matrix last dimensions must resolve to square `2x2` or `3x3`|
 |Less|LESS|-|
 |LessOrEqual|LESS_EQUAL|-|
@@ -663,7 +693,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
 ## Environment
 - Linux / Windows
 - onnx==1.20.1
-- onnxruntime==1.24.1
+- onnxruntime==1.24.3
 - onnxsim-prebuilt==0.4.39.post2
 - onnxoptimizer==0.4.2
 - sne4onnx>=2.0.1
@@ -703,7 +733,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  ghcr.io/pinto0309/onnx2tf:2.3.0
+  ghcr.io/pinto0309/onnx2tf:2.3.2
 
   or
 
@@ -712,7 +742,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  docker.io/pinto0309/onnx2tf:2.3.0
+  docker.io/pinto0309/onnx2tf:2.3.2
 
   or
 
@@ -722,7 +752,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm \
   --user $(id -u):$(id -g) \
   -v $(pwd):/work \
-  docker.io/pinto0309/onnx2tf:2.3.0 \
+  docker.io/pinto0309/onnx2tf:2.3.2 \
   onnx2tf -i /work/densenet-12.onnx -o /work/saved_model
 
   or
@@ -1998,7 +2028,7 @@ optional arguments:
     Input onnx file path.
 
   -it INPUT_TFLITE_FILE_PATH, --input_tflite_file_path INPUT_TFLITE_FILE_PATH
-    Input tflite file path for direct SavedModel export.
+    Input tflite file path for direct import mode.
 
   -V, --version
     Show version and exit.
@@ -2044,73 +2074,17 @@ optional arguments:
     --tflite_backend {tf_converter,flatbuffer_direct}
     TFLite generation backend.
     "tf_converter"(default): Use TensorFlow Lite Converter.
-    "flatbuffer_direct": Experimental direct FlatBuffer builder path (limited OP/quantization support).
-
-    flatbuffer_direct notes:
-    1. `flatbuffer_direct` is experimental; always validate model-by-model before production rollout.
-    2. onnx2tf first tries a direct fast path that skips TensorFlow per-node conversion (`op.make_node`) and directly exports from ONNX to TFLite FlatBuffer.
-    3. Fast path is bypassed when TF-model dependent options are enabled:
-       `--enable_auto_split_model`, `--output_h5`, `--output_keras_v3`, `--output_tfv1_pb`, `--disable_model_save`.
-       In that case, conversion uses the legacy TF-graph path.
-    4. Direct export supports FP32/FP16 `.tflite` generation.
-    5. Dynamic range quantization (`-odrqt`) is supported in a limited form:
-       weight-only INT8 quantization for `CONV_2D`, `DEPTHWISE_CONV_2D`, `FULLY_CONNECTED`,
-       and constant tensor quantization + `DEQUANTIZE` insertion for `ADD`, `SUB`, `MUL`, `DIV`, `CONCATENATION`.
-       For kernel weights, `--quant_type per-channel` and `--quant_type per-tensor` are both supported in `flatbuffer_direct`.
-    6. Integer quantization (`-oiqt`) is supported in a limited form:
-       `*_integer_quant.tflite`, `*_full_integer_quant.tflite`,
-       `*_integer_quant_with_int16_act.tflite`, `*_full_integer_quant_with_int16_act.tflite` are generated.
-    7. Supported builtin OP set includes:
-       `ADD`, `SUB`, `MUL`, `DIV`, `FLOOR_MOD`, `MAXIMUM`, `MINIMUM`, `POW`,
-       `MEAN`, `SUM`, `REDUCE_MAX`, `RESHAPE`, `TRANSPOSE`, `SQUEEZE`, `SLICE`, `STRIDED_SLICE`,
-       `CONCATENATION`, `GATHER`, `GATHER_ND`, `ONE_HOT`,
-       `ARG_MAX`, `CAST`, `SHAPE`, `FILL`,
-       `PAD`, `MIRROR_PAD`,
-       `LOGISTIC`, `RELU`, `RELU6`, `TANH`, `EXP`, `SQRT`, `NEG`, `LOG`,
-       `SOFTMAX`, `L2_NORMALIZATION`, `LOCAL_RESPONSE_NORMALIZATION`,
-       `CONV_2D`, `DEPTHWISE_CONV_2D`, `CONV_3D`, `TRANSPOSE_CONV`, `CONV_3D_TRANSPOSE`, `AVERAGE_POOL_2D`, `MAX_POOL_2D`, `FULLY_CONNECTED`, `BATCH_MATMUL`,
-       `RESIZE_NEAREST_NEIGHBOR`, `RESIZE_BILINEAR`,
-       `BIDIRECTIONAL_SEQUENCE_LSTM`, `SPLIT`, `EXPAND_DIMS`, `WHILE`,
-       `DEQUANTIZE`, `QUANTIZE`.
-    8. Unsupported OPs fail explicitly with `NotImplementedError`.
-    9. Custom OP policy (opt-in):
-       `--flatbuffer_direct_allow_custom_ops` enables lowering selected hard ops as TFLite `CUSTOM`.
-       `--flatbuffer_direct_custom_op_allowlist` (comma-separated ONNX OP names) restricts allowed custom lowering targets.
-       If a custom-op candidate appears while disabled, conversion fails with `reason_code=custom_op_candidate_disabled`.
-       If enabled but not in allowlist, conversion fails with `reason_code=custom_op_not_in_allowlist`.
-    10. Bundled schema artifacts (`onnx2tf/tflite_builder/schema/schema.fbs` and `schema_generated.py`) are used.
-        No external `flatc` invocation is required in normal flows.
-    11. flatbuffer_direct quantization precision controls are configurable via environment variables:
-       `ONNX2TF_FLATBUFFER_DIRECT_CALIBRATION_METHOD` (`max` or `percentile`),
-       `ONNX2TF_FLATBUFFER_DIRECT_CALIBRATION_PERCENTILE` (e.g. `99.99`),
-       `ONNX2TF_FLATBUFFER_DIRECT_QUANT_MIN_NUMEL`,
-       `ONNX2TF_FLATBUFFER_DIRECT_QUANT_MIN_ABS_MAX`,
-       `ONNX2TF_FLATBUFFER_DIRECT_QUANT_SCALE_FLOOR`.
-    12. Migration guide:
-       See `FLATBUFFER_DIRECT_MIGRATION_GUIDE.md` for staged rollout and CI operation patterns.
-    13. SavedModel direct export from ModelIR:
-       `--flatbuffer_direct_output_saved_model` exports `saved_model.pb`/`variables`/`assets`
-       from float32 ModelIR in the direct path.
-       This option requires `--tflite_backend flatbuffer_direct`, cannot be combined with
-       `--disable_model_save`,
-       and fails explicitly if `CUSTOM` ops are present.
+    "flatbuffer_direct": Use direct FlatBuffer builder path (limited
+    OP/quantization support).
 
   -fdosm, --flatbuffer_direct_output_saved_model
     Output SavedModel directly from flatbuffer_direct ModelIR (float32).
     Available only with --tflite_backend flatbuffer_direct.
     Cannot be used with --disable_model_save.
     Fails explicitly if CUSTOM ops are present.
+    With split output, partition SavedModels are emitted instead of a single root SavedModel.
     When used with -cotof, also outputs `<model_name>_saved_model_validation_report.json`
     in the output directory (inference status + SavedModel/TFLite comparison metrics).
-
-Bulk runner utility (for `tflite2sm-plan.md`):
-
-```bash
-onnx2tf-tflite2sm-bulk -l tflite2sm-plan.md -o tflite2sm_bulk_report
-```
-
-This utility executes models in listed order (including duplicates), records `missing_model`,
-supports `--resume`, and generates `bulk_status.json` / `bulk_summary.json` / `bulk_summary.md`.
 
   -qt {per-channel,per-tensor}, --quant_type {per-channel,per-tensor}
     Selects whether "per-channel" or "per-tensor" quantization is used.
@@ -2308,6 +2282,8 @@ supports `--resume`, and generates `bulk_status.json` / `bulk_summary.json` / `b
     Input names of ONNX that interrupt model conversion.
     Interrupts model transformation at the specified input name and inputs the
     model partitioned into subgraphs.
+    With `--tflite_backend flatbuffer_direct`, this crops ModelIR and treats
+    the specified tensors as runtime inputs.
     e.g. --input_names_to_interrupt_model_conversion "input0" "input1" "input2"
 
   -onimc OUTPUT_NAMES [OUTPUT_NAMES ...], \
@@ -2315,23 +2291,39 @@ supports `--resume`, and generates `bulk_status.json` / `bulk_summary.json` / `b
     Output names of ONNX that interrupt model conversion.
     Interrupts model transformation at the specified output name and outputs the
     model partitioned into subgraphs.
+    With `--tflite_backend flatbuffer_direct`, this crops ModelIR and treats
+    the specified tensors as runtime outputs.
     e.g. --output_names_to_interrupt_model_conversion "output0" "output1" "output2"
 
   -easm, --enable_auto_split_model
     Force auto split regardless of the ONNX file size.
     Uses --auto_split_max_size as the target partition size.
+    In `flatbuffer_direct`, this forces the shared ModelIR split planner to run and
+    emit split manifest outputs even if the size estimate would otherwise fit in one partition.
 
   -asms AUTO_SPLIT_MAX_SIZE, --auto_split_max_size AUTO_SPLIT_MAX_SIZE
     Target maximum size per partition when auto-split is triggered or forced.
     Supported units: KB, MB, GB (e.g. 900MB, 1GB, 1536KB).
     Bare numbers are treated as MB.
-    When specified, this value is also used as the target size for --auto_split_tflite_by_size.
+    When specified, this value is also used as the target size for --enable_auto_split_model.
     Default: 1GB
+
+  -esm {unsplit_tflite,onnx}, --eval_split_models {unsplit_tflite,onnx}
+    Evaluate split partitions sequentially using split manifest output.
+    Specify `unsplit_tflite` to compare against the unsplit/base TFLite model,
+    or `onnx` to compare against ONNX Runtime output.
+    Available only with `--tflite_backend flatbuffer_direct`
+    and requires `--enable_auto_split_model`.
+    Writes `*_split_accuracy_report.json`.
+    `*_accuracy_report.json` remains the unsplit base float32 TFLite vs ONNX report.
 
   -dgc, --disable_group_convolution
     Disable GroupConvolution and replace it with SeparableConvolution for
     conversion outputs.
     This option is applied in both tf_converter and flatbuffer_direct paths.
+    In `flatbuffer_direct`, ONNX input keeps using direct grouped-conv lowering
+    control, and `-it/--input_tflite_file_path` rewrites imported grouped
+    `CONV_2D` to `SPLIT` + per-group `CONV_2D` + `CONCATENATION`.
 
   -eatfp16, --enable_accumulation_type_float16 ENABLE_ACCUMULATION_TYPE_FLOAT16
     Hint for XNNPACK fp16 inference on float16 tflite model.
@@ -2342,11 +2334,18 @@ supports `--resume`, and generates `bulk_status.json` / `bulk_summary.json` / `b
 
   -ebu, --enable_batchmatmul_unfold
     BatchMatMul is separated batch by batch to generate a primitive MatMul.
+    In `flatbuffer_direct`, this rewrites ModelIR `BATCH_MATMUL` ops with
+    static batch prefixes into per-batch slices plus rank-lowered matmul ops.
+    This is available for both ONNX input and `-it/--input_tflite_file_path`.
 
   -eru, --enable_rnn_unroll
     Instead of increasing inference speed by expanding all symbolic loops of
     the RNN (LSTM, GRU, RNN), RAM consumption will increase because all tensors
     are expanded and embedded in the model.
+    In `flatbuffer_direct`, this rewrites supported sequence RNN/LSTM ModelIR
+    ops into step-unrolled primitive ops for both ONNX input and
+    `-it/--input_tflite_file_path`. `GRU` already uses step-style lowering in
+    the direct path.
     https://keras.io/api/layers/recurrent_layers/
 
   -dsft, --disable_suppression_flextranspose
@@ -2427,6 +2426,7 @@ supports `--resume`, and generates `bulk_status.json` / `bulk_summary.json` / `b
     The number to be added to the variance to avoid division by zero
     when normalizing the value.
     (input_tensor - mean) / tf.sqrt(variance + mvn_epsilon)
+    Effective in both `tf_converter` and `flatbuffer_direct` for ONNX input.
     Default: 0.0000000001
 
   -prf PARAM_REPLACEMENT_FILE, --param_replacement_file PARAM_REPLACEMENT_FILE
@@ -2517,6 +2517,8 @@ supports `--resume`, and generates `bulk_status.json` / `bulk_summary.json` / `b
     When --input_tflite_file_path is specified, this runs SavedModel inference
     plus SavedModel vs input TFLite output comparison and emits
     `<model_name>_saved_model_validation_report.json`.
+    If split SavedModels are emitted, they are executed sequentially in
+    split-manifest order before comparison.
 
   -coton, --check_onnx_tf_outputs_sample_data_normalization
     norm: Validate using random data normalized to the range 0.0 to 1.0
@@ -2649,6 +2651,7 @@ convert(
   check_onnx_tf_outputs_sample_data_normalization: Optional[str] = 'norm',
   check_onnx_tf_outputs_elementwise_close_rtol: Optional[float] = 0.0,
   check_onnx_tf_outputs_elementwise_close_atol: Optional[float] = 1e-4,
+  eval_split_models: Optional[str] = None,
   test_data_nhwc_path: Union[str, NoneType] = None,
   disable_model_save: Union[bool, NoneType] = False,
   non_verbose: Union[bool, NoneType] = False,
@@ -2665,10 +2668,32 @@ convert(
 
     input_tflite_file_path: Optional[str]
       Input tflite file path.
-      If specified, runs tflite-direct SavedModel export mode.
-      In this mode, ONNX-dependent conversion options are rejected and
-      `check_onnx_tf_outputs_elementwise_close_full=True` runs
-      SavedModel vs input TFLite comparison.
+      If specified, runs tflite-direct import mode.
+      In this mode, ONNX-dependent conversion options are rejected except for
+      direct ModelIR rewrites such as
+      `input_names_to_interrupt_model_conversion`,
+      `output_names_to_interrupt_model_conversion`,
+      `disable_group_convolution=True`,
+      `enable_batchmatmul_unfold=True`, and
+      `enable_rnn_unroll=True`.
+      By default it exports SavedModel from imported ModelIR, and
+      `input_names_to_interrupt_model_conversion` and
+      `output_names_to_interrupt_model_conversion` are resolved against
+      imported ModelIR tensor names,
+      `output_h5=True`, `output_keras_v3=True`, and `output_tfv1_pb=True`
+      are also supported through an internal SavedModel bridge without
+      `tf_converter` fallback.
+      `disable_group_convolution=True`, `enable_batchmatmul_unfold=True`, and
+      `enable_rnn_unroll=True` are applied to imported ModelIR before
+      SavedModel export or split planning, and fail explicitly if the requested
+      rewrite is not applicable.
+      `disable_model_save=True` is supported and leaves no final artifacts in
+      `output_folder_path`.
+      enable_auto_split_model=True can also emit split TFLite artifacts.
+      `enable_auto_split_model=True` cannot be combined with
+      `output_h5=True`, `output_keras_v3=True`, or `output_tfv1_pb=True`.
+      When used with flatbuffer_direct_output_saved_model=True and split,
+      partition SavedModels are emitted instead of a single root SavedModel.
 
     onnx_graph: Optional[onnx.ModelProto]
       onnx.ModelProto.
@@ -2686,12 +2711,24 @@ convert(
 
     output_h5: Optional[bool]
       Output model in Keras H5 format.
+      With `tflite_backend="flatbuffer_direct"`, this is generated from an
+      internal SavedModel bridge without falling back to `tf_converter`.
+      Cannot be combined with `disable_model_save=True` or
+      `enable_auto_split_model=True` in `flatbuffer_direct`.
 
     output_keras_v3: Optional[bool]
       Output model in Keras (keras_v3) format.
+      With `tflite_backend="flatbuffer_direct"`, this is generated from an
+      internal SavedModel bridge without falling back to `tf_converter`.
+      Cannot be combined with `disable_model_save=True` or
+      `enable_auto_split_model=True` in `flatbuffer_direct`.
 
     output_tfv1_pb: Optional[bool]
       Output model in TF v1 (.pb) format.
+      With `tflite_backend="flatbuffer_direct"`, this is generated from an
+      internal SavedModel bridge without falling back to `tf_converter`.
+      Cannot be combined with `disable_model_save=True` or
+      `enable_auto_split_model=True` in `flatbuffer_direct`.
 
     output_weights: Optional[bool]
       Output weights in hdf5 format.
@@ -2725,6 +2762,8 @@ convert(
       Requires `tflite_backend="flatbuffer_direct"`.
       Cannot be combined with `disable_model_save=True`.
       Fails explicitly if `CUSTOM` ops are present.
+      When used together with split output, partition SavedModels are emitted
+      instead of a single root SavedModel.
       When used with `check_onnx_tf_outputs_elementwise_close_full=True`,
       `<model_name>_saved_model_validation_report.json` is generated.
 
@@ -2919,6 +2958,8 @@ convert(
       Input names of ONNX that interrupt model conversion.
       Interrupts model transformation at the specified input name
       and inputs the model partitioned into subgraphs.
+      With `tflite_backend="flatbuffer_direct"`, this crops ModelIR and
+      treats the specified tensors as runtime inputs.
       e.g.
       input_names_to_interrupt_model_conversion=['input0','input1','input2']
 
@@ -2926,12 +2967,17 @@ convert(
       Output names of ONNX that interrupt model conversion.
       Interrupts model transformation at the specified output name
       and outputs the model partitioned into subgraphs.
+      With `tflite_backend="flatbuffer_direct"`, this crops ModelIR and
+      treats the specified tensors as runtime outputs.
       e.g.
       output_names_to_interrupt_model_conversion=['output0','output1','output2']
 
     enable_auto_split_model: Optional[bool]
       Force auto split regardless of the ONNX file size.
       Uses auto_split_max_size as the target partition size.
+      In `flatbuffer_direct`, this runs the ModelIR split planner and forces
+      split manifest generation.
+      A small model may still result in a single-partition manifest.
       Short option: -easm
       Default: False
 
@@ -2940,8 +2986,18 @@ convert(
       Supports values such as "512KB", "900MB", and "1.5GB".
       Bare numeric values are treated as MB.
       Used when auto-split is triggered or forced.
-      When specified, also used as the split target when auto_split_tflite_by_size=True.
-      Default: "1GB"
+      When specified, also used as the split target when enable_auto_split_model=True.
+
+    eval_split_models: Optional[str]
+      Evaluate split partitions sequentially using split manifest output.
+      Specify "unsplit_tflite" to compare against the unsplit/base TFLite model,
+      or "onnx" to compare against ONNX Runtime output.
+      Available only with tflite_backend="flatbuffer_direct" and
+      requires enable_auto_split_model=True.
+      Short option: -esm
+      Writes `*_split_accuracy_report.json`.
+      `*_accuracy_report.json` remains the unsplit base float32 TFLite vs ONNX report.
+      Default: None
 
     auto_split_max_size_mb: Optional[int]
       [Deprecated] Legacy alias of auto_split_max_size in MB.
@@ -2950,6 +3006,9 @@ convert(
       Disable GroupConvolution and replace it with SeparableConvolution for
       conversion outputs.
       This option is applied in both tf_converter and flatbuffer_direct paths.
+      With `input_tflite_file_path` and `tflite_backend="flatbuffer_direct"`,
+      this rewrites imported grouped `CONV_2D` into split-per-group direct ops
+      and fails explicitly when the grouping cannot be inferred safely.
 
     enable_accumulation_type_float16: Optional[bool]
       Hint for XNNPack fp16 inference on float16 tflite model.
@@ -2960,11 +3019,17 @@ convert(
 
     enable_batchmatmul_unfold: Optional[bool]
       BatchMatMul is separated batch by batch to generate a primitive MatMul.
+      With `tflite_backend="flatbuffer_direct"`, this runs as a ModelIR rewrite
+      for both ONNX input and `input_tflite_file_path`.
+      Imported/direct ModelIR must have fully static batch prefixes.
 
     enable_rnn_unroll: Optional[bool]
       Instead of increasing inference speed by expanding all symbolic loops of
       the RNN (LSTM, GRU, RNN), RAM consumption will increase because all tensors
       are expanded and embedded in the model.
+      With `tflite_backend="flatbuffer_direct"`, this rewrites supported
+      sequence RNN/LSTM ModelIR ops into step-unrolled primitive ops for both
+      ONNX input and `input_tflite_file_path`.
       https://keras.io/api/layers/recurrent_layers/
 
     disable_suppression_flextranspose: Optional[bool]
@@ -3049,6 +3114,7 @@ convert(
       The number to be added to the variance to avoid division by zero
       when normalizing the value.
       (input_tensor - mean) / tf.sqrt(variance + mvn_epsilon)
+      Effective in both `tf_converter` and `flatbuffer_direct` for ONNX input.
       Default: 0.0000000001
 
     param_replacement_file: Optional[str]
@@ -3178,6 +3244,9 @@ convert(
 
     disable_model_save: Optional[bool]
       Does not save the converted model. For CIs RAM savings.
+      With `tflite_backend="flatbuffer_direct"`, conversion may still use
+      temporary staging and validation internally, but no final artifacts are
+      left in `output_folder_path`.
       Default: False
 
     non_verbose: Optional[bool]
@@ -3362,122 +3431,18 @@ Do not submit an issue that only contains an amount of information that cannot b
 
   </div></details>
 
-## Validated models (without replacement.json)
-ONNX file for testing. https://github.com/PINTO0309/onnx2tf/releases/tag/1.1.28
-
-<details><summary>See a list of verified models</summary><div>
-
-|No.|Model|Pass|
-|:-:|:-|:-:|
-|1|age_googlenet.onnx|:heavy_check_mark:|
-|2|alike_t_opset11_192x320.onnx|:heavy_check_mark:|
-|3|arcfaceresnet100-8.onnx|:heavy_check_mark:|
-|4|baseline_simplified.onnx|:heavy_check_mark:|
-|5|big_slice_11.onnx|:heavy_check_mark:|
-|6|bvlcalexnet-12.onnx|:heavy_check_mark:|
-|7|caffenet-12.onnx|:heavy_check_mark:|
-|8|convtranspose_3_1_5_2.onnx|:heavy_check_mark:|
-|9|convtranspose_4_5_2_2.onnx|:heavy_check_mark:|
-|10|convtranspose_5_5_6_1.onnx|:heavy_check_mark:|
-|11|convtranspose_6_5_5_8.onnx|:heavy_check_mark:|
-|12|convtranspose_7_1_3_4.onnx|:heavy_check_mark:|
-|13|damoyolo_tinynasL20_T_192x192_post.onnx|:heavy_check_mark:|
-|14|deeplabv3_mobilenet_v3_large.onnx|:heavy_check_mark:|
-|15|densenet-12.onnx|:heavy_check_mark:|
-|16|depth_to_spase_17.onnx|:heavy_check_mark:|
-|17|double_gru.onnx|:heavy_check_mark:|
-|18|digits.onnx|:heavy_check_mark:|
-|19|detr_demo.onnx|:heavy_check_mark:|
-|20|efficientformer_l1.onnx|:heavy_check_mark:|
-|21|efficientdet_lite2_detection_1.onnx|:heavy_check_mark:|
-|22|efficientnet-lite4-11_nchw.onnx|:heavy_check_mark:|
-|23|effnet_opset11_dynamic_axis.onnx|:heavy_check_mark:|
-|24|emotion-ferplus-8_rename.onnx|:heavy_check_mark:|
-|25|face_detection_yunet_2022mar.onnx|:heavy_check_mark:|
-|26|face_recognition_sface_2021dec-act_int8-wt_int8-quantized.onnx|:heavy_check_mark:|
-|27|face_recognition_sface_2021dec.onnx|:heavy_check_mark:|
-|28|faster_rcnn-10.onnx|:heavy_check_mark:|
-|29|fastestdet.onnx|:heavy_check_mark:|
-|30|fused_conv_clip.onnx|:heavy_check_mark:|
-|31|fused_conv_hardsigmoid.onnx|:heavy_check_mark:|
-|32|fused_conv_leakyrelu.onnx|:heavy_check_mark:|
-|33|fused_conv_relu.onnx|:heavy_check_mark:|
-|34|fused_conv_sigmoid.onnx|:heavy_check_mark:|
-|35|fused_conv_tanh.onnx|:heavy_check_mark:|
-|36|gender_googlenet.onnx|:heavy_check_mark:|
-|37|gmflow-scale1-mixdata-train320x576-4c3a6e9a_1x3x480x640_bidir_flow_sim.onnx|:heavy_check_mark:|
-|38|handpose_estimation_mediapipe_2022may.onnx|:heavy_check_mark:|
-|39|htnet_1x17x2_without_norm.onnx|:heavy_check_mark:|
-|40|iat_llie_180x320.onnx|:heavy_check_mark:|
-|41|if_p1_11.onnx|:heavy_check_mark:|
-|42|if_p2_11.onnx|:heavy_check_mark:|
-|43|if_p3_11.onnx|:heavy_check_mark:|
-|44|imageclassifier.onnx|:heavy_check_mark:|
-|45|inception-v2-9.onnx|:heavy_check_mark:|
-|46|inverse11.onnx|:heavy_check_mark:|
-|47|mhformer_NxFxKxXY_1x27x17x2.onnx|:heavy_check_mark:|
-|48|mnist.onnx|:heavy_check_mark:|
-|49|mnist-12.onnx|:heavy_check_mark:|
-|50|mobilenetv2-12.onnx|:heavy_check_mark:|
-|51|mosaic_11.onnx|:heavy_check_mark:|
-|52|mosaic-9.onnx|:heavy_check_mark:|
-|53|movenet_multipose_lightning_192x256_p6.onnx|:heavy_check_mark:|
-|54|nanodet-plus-m_416.onnx|:heavy_check_mark:|
-|55|object_tracking_dasiamrpn_kernel_cls1_2021nov.onnx|:heavy_check_mark:|
-|56|object_tracking_dasiamrpn_kernel_r1_2021nov.onnx|:heavy_check_mark:|
-|57|object_tracking_dasiamrpn_model_2021nov.onnx|:heavy_check_mark:|
-|58|pidnet_S_cityscapes_192x320.onnx|:heavy_check_mark:|
-|59|ppmattingv2_stdc1_human_480x640.onnx|:heavy_check_mark:|
-|60|qlinear_conv_tensor_test.onnx|:heavy_check_mark:|
-|61|rcnn-ilsvrc13-9.onnx|:heavy_check_mark:|
-|62|regnet_x_400mf.onnx|:heavy_check_mark:|
-|63|ResNet101-DUC-12.onnx|:heavy_check_mark:|
-|64|resnet18-v1-7.onnx|:heavy_check_mark:|
-|65|resnet50-v1-12.onnx|:heavy_check_mark:|
-|66|resnet50-v2-7.onnx|:heavy_check_mark:|
-|67|retinanet-9.onnx|:heavy_check_mark:|
-|68|sinet_320_op.onnx|:heavy_check_mark:|
-|69|squeezenet1.0-12.onnx|:heavy_check_mark:|
-|70|super-resolution-10.onnx|:heavy_check_mark:|
-|71|swinir-m_64x64_12.onnx|:heavy_check_mark:|
-|72|text_recognition_CRNN_EN_2021sep.onnx|:heavy_check_mark:|
-|73|tinyyolov2-8.onnx|:heavy_check_mark:|
-|74|version-RFB-640.onnx|:heavy_check_mark:|
-|75|vit-b-32_textual.onnx|:heavy_check_mark:|
-|76|vit-b-32_visual.onnx|:heavy_check_mark:|
-|77|yolact_edge_mobilenetv2_550x550.onnx|:heavy_check_mark:|
-|78|yolact_regnetx_600mf_d2s_31classes_512x512.onnx|:heavy_check_mark:|
-|79|yolact_regnetx_800mf_20classes_512x512.onnx|:heavy_check_mark:|
-|80|yolo_free_nano_crowdhuman_192x320_post.onnx|:heavy_check_mark:|
-|81|yolov7_tiny_head_0.768_post_480x640.onnx|:heavy_check_mark:|
-|82|yolox_nano_192x192.onnx|:heavy_check_mark:|
-|83|yolox_nano_416x416.onnx|:heavy_check_mark:|
-|84|yolox_s.onnx|:heavy_check_mark:|
-|85|yolox_x_crowdhuman_mot17_bytetrack.onnx|:heavy_check_mark:|
-|86|zero_dce_640_dele.onnx|:heavy_check_mark:|
-|87|zfnet512-12.onnx|:heavy_check_mark:|
-
-</div></details>
-
 ## Related tools
-1. [tflite2tensorflow](https://github.com/PINTO0309/tflite2tensorflow)
-2. [openvino2tensorflow](https://github.com/PINTO0309/openvino2tensorflow)
-3. [tflite2json2tflite](https://github.com/PINTO0309/tflite2json2tflite)
-4. [tensorflowjs_converter](https://github.com/tensorflow/tfjs)
-5. [coremltools](https://github.com/apple/coremltools)
-6. [simple-onnx-processing-tools](https://github.com/PINTO0309/simple-onnx-processing-tools)
-7. [tflite-input-output-rewriter](https://github.com/PINTO0309/tflite-input-output-rewriter)
-8. [onnx-simplifier](https://github.com/daquexian/onnx-simplifier)
-9. [onnx_graphsurgeon](https://github.com/NVIDIA/TensorRT/tree/master/tools/onnx-graphsurgeon)
-10. [onnx](https://github.com/onnx/onnx)
-11. [onnx-tensorflow](https://github.com/onnx/onnx-tensorflow)
-12. [onnx2keras](https://github.com/gmalivenko/onnx2keras)
-13. [TinyNeuralNetwork](https://github.com/alibaba/TinyNeuralNetwork)
-14. [nobuco](https://github.com/AlexanderLutsenko/nobuco)
-15. [onnx2torch](https://github.com/ENOT-AutoDL/onnx2torch)
-16. [ai-edge-torch](https://github.com/google-ai-edge/ai-edge-torch)
-17. [LiteRT.js](https://ai.google.dev/edge/litert/web)
-18. [eiq-onnx2tflite](https://github.com/NXP/eiq-onnx2tflite)
+1. [tflite2json2tflite](https://github.com/PINTO0309/tflite2json2tflite)
+2. [tensorflowjs_converter](https://github.com/tensorflow/tfjs)
+3. [coremltools](https://github.com/apple/coremltools)
+4. [simple-onnx-processing-tools](https://github.com/PINTO0309/simple-onnx-processing-tools)
+5. [onnxsim](https://github.com/onnxsim/onnxsim)
+6. [onnx](https://github.com/onnx/onnx)
+7. [TinyNeuralNetwork](https://github.com/alibaba/TinyNeuralNetwork)
+8. [onnx2torch](https://github.com/ENOT-AutoDL/onnx2torch)
+9. [litert-torch](https://github.com/google-ai-edge/litert-torch)
+10. [ai-edge-quantizer](https://github.com/google-ai-edge/ai-edge-quantizer)
+11. [LiteRT.js](https://ai.google.dev/edge/litert/web)
 
 ## Acknowledgement
 1. https://github.com/onnx/models

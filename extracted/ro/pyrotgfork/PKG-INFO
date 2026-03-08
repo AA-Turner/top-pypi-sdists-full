@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrotgfork
-Version: 2.2.20
+Version: 2.2.21
 Summary: Fork of Pyrogram. Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
 Project-URL: Homepage, https://telegramplayground.github.io/pyrogram/
 Project-URL: Tracker, https://github.com/TelegramPlayGround/Pyrogram/issues

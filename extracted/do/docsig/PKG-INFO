@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docsig
-Version: 0.79.0
+Version: 0.80.0
 Summary: Check signature params for proper documentation
 License: MIT
 License-File: LICENSE
@@ -115,8 +115,8 @@ Commandline
                   [--check-dunders] [--check-nested] [--check-overridden]
                   [--check-property-returns] [--check-protected]
                   [--check-protected-class-methods] [--ignore-args] [--ignore-kwargs]
-                  [--ignore-no-params] [--ignore-typechecker] [-d LIST] [-t LIST] [-e PATTERN]
-                  [-E PATH [PATH ...]] [-I] [-s STR]
+                  [--ignore-no-params] [-d LIST] [-t LIST] [-e PATTERN] [-E PATH [PATH ...]]
+                  [-i] [-s STR]
                   [path [path ...]]
 
     Check signature params for proper documentation
@@ -144,7 +144,6 @@ Commandline
       --ignore-args         ignore args prefixed with an asterisk
       --ignore-kwargs       ignore kwargs prefixed with two asterisks
       --ignore-no-params    ignore docstrings where parameters are not documented
-      --ignore-typechecker  ignore checking return values
       -d LIST, --disable LIST
                             comma separated list of rules to disable
       -t LIST, --target LIST
@@ -153,7 +152,7 @@ Commandline
                             regular expression of files or dirs to exclude from checks
       -E PATH [PATH ...], --excludes PATH [PATH ...]
                             path glob patterns to exclude from checks
-      -I, --include-ignored
+      -i, --include-ignored
                             check files even if they match a gitignore pattern
       -s STR, --string STR  string to parse instead of files
 
@@ -185,7 +184,7 @@ ensure your installation has registered `docsig`
 .. code-block:: console
 
     $ flake8 --version
-    7.3.0 (docsig: 0.79.0, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
+    7.3.0 (docsig: 0.80.0, mccabe: 0.7.0, pycodestyle: 2.14.0, pyflakes: 3.4.0) CPython 3.10.19 on Darwin
 
 And now use `flake8` to lint your files
 
@@ -271,7 +270,7 @@ Standalone
 
     repos:
       - repo: https://github.com/jshwi/docsig
-        rev: v0.79.0
+        rev: v0.80.0
         hooks:
           - id: docsig
             args:
@@ -290,7 +289,7 @@ or integrated with ``flake8``
         hooks:
           - id: flake8
             additional_dependencies:
-              - docsig==0.79.0
+              - docsig==0.80.0
             args:
               - "--sig-check-class"
               - "--sig-check-dunders"

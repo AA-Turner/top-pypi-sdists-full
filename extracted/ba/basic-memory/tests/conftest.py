@@ -78,7 +78,8 @@ def postgres_container(db_backend):
         yield None
         return
 
-    with PostgresContainer("postgres:16-alpine") as postgres:
+    # Use pgvector image so CREATE EXTENSION vector succeeds in search repository
+    with PostgresContainer("pgvector/pgvector:pg16") as postgres:
         yield postgres
 
 
@@ -187,7 +188,12 @@ async def engine_factory(
 
     Uses parameterized db_backend fixture to run tests against both backends.
     """
-    from basic_memory.models.search import CREATE_SEARCH_INDEX
+    from basic_memory.models.search import (
+        CREATE_SEARCH_INDEX,
+        CREATE_SQLITE_SEARCH_VECTOR_CHUNKS,
+        CREATE_SQLITE_SEARCH_VECTOR_CHUNKS_PROJECT_ENTITY,
+        CREATE_SQLITE_SEARCH_VECTOR_CHUNKS_UNIQUE,
+    )
 
     if db_backend == "postgres":
         # Postgres mode using testcontainers
@@ -220,6 +226,8 @@ async def engine_factory(
             CREATE_POSTGRES_SEARCH_INDEX_FTS,
             CREATE_POSTGRES_SEARCH_INDEX_METADATA,
             CREATE_POSTGRES_SEARCH_INDEX_PERMALINK,
+            CREATE_POSTGRES_SEARCH_VECTOR_CHUNKS_TABLE,
+            CREATE_POSTGRES_SEARCH_VECTOR_CHUNKS_INDEX,
         )
 
         # Drop and recreate all tables for test isolation
@@ -234,6 +242,8 @@ async def engine_factory(
             await conn.execute(CREATE_POSTGRES_SEARCH_INDEX_FTS)
             await conn.execute(CREATE_POSTGRES_SEARCH_INDEX_METADATA)
             await conn.execute(CREATE_POSTGRES_SEARCH_INDEX_PERMALINK)
+            await conn.execute(CREATE_POSTGRES_SEARCH_VECTOR_CHUNKS_TABLE)
+            await conn.execute(CREATE_POSTGRES_SEARCH_VECTOR_CHUNKS_INDEX)
 
             # Mark migrations as already applied for this test-created schema.
             #
@@ -268,6 +278,9 @@ async def engine_factory(
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
                 await conn.execute(CREATE_SEARCH_INDEX)
+                await conn.execute(CREATE_SQLITE_SEARCH_VECTOR_CHUNKS)
+                await conn.execute(CREATE_SQLITE_SEARCH_VECTOR_CHUNKS_PROJECT_ENTITY)
+                await conn.execute(CREATE_SQLITE_SEARCH_VECTOR_CHUNKS_UNIQUE)
 
             # Yield after setup is complete
             yield engine, session_maker
@@ -421,9 +434,17 @@ async def search_repository(session_maker, test_project: Project, app_config: Ba
     from basic_memory.repository.postgres_search_repository import PostgresSearchRepository
 
     if app_config.database_backend == DatabaseBackend.POSTGRES:
-        return PostgresSearchRepository(session_maker, project_id=test_project.id)
+        return PostgresSearchRepository(
+            session_maker,
+            project_id=test_project.id,
+            app_config=app_config,
+        )
     else:
-        return SQLiteSearchRepository(session_maker, project_id=test_project.id)
+        return SQLiteSearchRepository(
+            session_maker,
+            project_id=test_project.id,
+            app_config=app_config,
+        )
 
 
 @pytest_asyncio.fixture
@@ -444,7 +465,7 @@ async def sample_entity(entity_repository: EntityRepository) -> Entity:
     entity_data = {
         "project_id": entity_repository.project_id,
         "title": "Test Entity",
-        "entity_type": "test",
+        "note_type": "test",
         "permalink": "test/test-entity",
         "file_path": "test/test_entity.md",
         "content_type": "text/markdown",
@@ -457,9 +478,10 @@ async def sample_entity(entity_repository: EntityRepository) -> Entity:
 @pytest_asyncio.fixture
 async def project_service(
     project_repository: ProjectRepository,
+    file_service: FileService,
 ) -> ProjectService:
-    """Create ProjectService with repository."""
-    return ProjectService(repository=project_repository)
+    """Create ProjectService with repository and file service for directory operations."""
+    return ProjectService(repository=project_repository, file_service=file_service)
 
 
 @pytest_asyncio.fixture
@@ -471,7 +493,7 @@ async def full_entity(sample_entity, entity_repository, file_service, entity_ser
         EntitySchema(
             title="Search_Entity",
             directory="test",
-            entity_type="test",
+            note_type="test",
             content=dedent("""
                 ## Observations
                 - [tech] Tech note
@@ -501,7 +523,7 @@ async def test_graph(
     deeper, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Deeper Entity",
-            entity_type="deeper",
+            note_type="deeper",
             directory="test",
             content=dedent("""
                 # Deeper Entity
@@ -512,7 +534,7 @@ async def test_graph(
     deep, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Deep Entity",
-            entity_type="deep",
+            note_type="deep",
             directory="test",
             content=dedent("""
                 # Deep Entity
@@ -524,7 +546,7 @@ async def test_graph(
     connected_2, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Connected Entity 2",
-            entity_type="test",
+            note_type="test",
             directory="test",
             content=dedent("""
                 # Connected Entity 2
@@ -536,7 +558,7 @@ async def test_graph(
     connected_1, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Connected Entity 1",
-            entity_type="test",
+            note_type="test",
             directory="test",
             content=dedent("""
                 # Connected Entity 1
@@ -549,7 +571,7 @@ async def test_graph(
     root, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Root",
-            entity_type="test",
+            note_type="test",
             directory="test",
             content=dedent("""
                 # Root Entity

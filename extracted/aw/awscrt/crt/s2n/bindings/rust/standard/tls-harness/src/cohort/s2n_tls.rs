@@ -30,8 +30,16 @@ pub const LOCALHOST_VERIFY_CALLBACK: HostNameHandler = HostNameHandler {
 /// Custom callback for verifying hostnames. Rustls requires checking hostnames,
 /// so this is to make a fair comparison
 pub struct HostNameHandler {
-    pub expected_server_name: &'static str,
+    expected_server_name: &'static str,
 }
+impl HostNameHandler {
+    pub fn new(expected_server_name: &'static str) -> Self {
+        Self {
+            expected_server_name,
+        }
+    }
+}
+
 impl VerifyHostNameCallback for HostNameHandler {
     fn verify_host_name(&self, hostname: &str) -> bool {
         self.expected_server_name == hostname
@@ -78,6 +86,13 @@ pub unsafe extern "C" fn generic_recv_cb<T: std::io::Read>(
 
 #[derive(Clone, Debug, Default)]
 pub struct SessionTicketStorage(Arc<Mutex<Option<Vec<u8>>>>);
+
+impl SessionTicketStorage {
+    /// panics if a ticket is not available
+    pub fn get_ticket(self) -> Vec<u8> {
+        self.0.lock().unwrap().borrow_mut().take().unwrap()
+    }
+}
 
 impl SessionTicketCallback for SessionTicketStorage {
     fn on_session_ticket(

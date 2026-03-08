@@ -29,25 +29,6 @@ from ._utils import print_checks as _print_checks
 from .messages import TEMPLATE as _TEMPLATE
 from .messages import Messages as _Messages
 
-_DEFAULT_EXCLUDES = """\
-(?x)^(
-    |\\.?venv[\\\\/].*
-    |\\.git[\\\\/].*
-    |\\.hg[\\\\/].*
-    |\\.idea[\\\\/].*
-    |\\.mypy_cache[\\\\/].*
-    |\\.nox[\\\\/].*
-    |\\.pytest_cache[\\\\/].*
-    |\\.svn[\\\\/].*
-    |\\.tox[\\\\/].*
-    |\\.vscode[\\\\/].*
-    |_?build[\\\\/].*
-    |.*[\\\\/]__pycache__[\\\\/].*
-    |dist[\\\\/].*
-    |node_modules[\\\\/].*
-)$
-"""
-
 
 def setup_logger(verbose: bool) -> None:
     """Setup docsig logger.
@@ -105,7 +86,6 @@ def _run_check(
             child,
             config.target,
             config.check.property_returns,
-            config.ignore.typechecker,
         )
         if failure:
             failures.append(failure)
@@ -116,10 +96,17 @@ def _run_check(
             _run_check(func, child, config, failures)
 
 
+def _derive_module_name(file_path: str | _Path) -> str:
+    converted = _os.path.splitext(str(file_path))[0]
+    converted = converted.replace(_os.sep, ".")
+    converted = converted.replace("-", "_")
+    return converted
+
+
 def _from_file(path: _Path, config: _Config) -> _Parent:
     try:
         code = path.read_text(encoding="utf-8")
-        parent = _from_str(
+        parent = _parse_from_string(
             context={
                 "code": code,
                 "module_name": _derive_module_name(path),
@@ -139,7 +126,7 @@ def _from_file(path: _Path, config: _Config) -> _Parent:
     return parent
 
 
-def _from_str(
+def _parse_from_string(
     context: dict[str, _t.Any],
     config: _Config,
     path: _Path | None = None,
@@ -163,8 +150,8 @@ def _from_str(
     return parent
 
 
-def _get_failures(module: _Parent, config: _Config) -> _Failures:
-    failures = _Failures()
+def _run_checks(module: _Parent, config: _Config) -> _Failures:
+    failures: _Failures = []
     for top_level in module.children:
         if (
             not top_level.isprotected
@@ -205,34 +192,6 @@ def _report(
     return max(retcodes)
 
 
-def _run_docsig(
-    *path: str | _Path,
-    string: str | None = None,
-    config: _Config,
-) -> int:
-    setup_logger(config.verbose)
-    if config.list_checks:
-        return int(bool(_print_checks()))  # type: ignore
-
-    if string is None:
-        retcodes = [0]
-        paths = _Paths(
-            *path,
-            patterns=config.exclude,
-            excludes=config.excludes,
-            include_ignored=config.include_ignored,
-        )
-        for path_ in paths:
-            failures = runner(path_, config)
-            retcodes.append(_report(failures, config, str(path_)))
-
-        return max(retcodes)
-
-    module = _from_str({"code": string}, config)
-    failures = _get_failures(module, config)
-    return _report(failures, config)
-
-
 def runner(path: _Path, config: _Config) -> _Failures:
     """Per path runner.
 
@@ -241,7 +200,7 @@ def runner(path: _Path, config: _Config) -> _Failures:
     :return: Exit status for whether the test failed or not.
     """
     module = _from_file(path, config)
-    return _get_failures(module, config)
+    return _run_checks(module, config)
 
 
 @_decorators.parse_msgs
@@ -262,7 +221,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     ignore_no_params: bool = False,
     ignore_args: bool = False,
     ignore_kwargs: bool = False,
-    ignore_typechecker: bool = False,
     no_ansi: bool = False,
     verbose: bool = False,
     target: _Messages | None = None,
@@ -298,7 +256,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         documented
     :param ignore_args: Ignore args prefixed with an asterisk.
     :param ignore_kwargs: Ignore kwargs prefixed with two asterisks.
-    :param ignore_typechecker: Ignore checking return values.
     :param no_ansi: Disable ANSI output.
     :param verbose: Increase output verbosity.
     :param target: List of errors to target.
@@ -308,10 +265,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
     :param excludes: Files or dirs to exclude from checks.
     :return: Exit status for whether a test failed or not.
     """
-    exclude_ = [_DEFAULT_EXCLUDES]
-    if exclude is not None:
-        exclude_.append(exclude)
-
     check = _Check(
         class_=check_class,
         class_constructor=check_class_constructor,
@@ -326,7 +279,6 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         no_params=ignore_no_params,
         args=ignore_args,
         kwargs=ignore_kwargs,
-        typechecker=ignore_typechecker,
     )
     config = _Config(
         list_checks=list_checks,
@@ -335,16 +287,30 @@ def docsig(  # pylint: disable=too-many-locals,too-many-arguments
         ignore=ignore,
         no_ansi=no_ansi,
         verbose=verbose,
-        target=target or _Messages(),
-        disable=disable or _Messages(),
-        exclude=exclude_,
+        target=target or [],
+        disable=disable or [],
+        exclude=exclude,
         excludes=excludes,
     )
-    return _run_docsig(*path, string=string, config=config)
+    setup_logger(config.verbose)
+    if config.list_checks:
+        return int(bool(_print_checks()))  # type: ignore
 
+    if string:
+        module = _parse_from_string({"code": string}, config)
+        failures = _run_checks(module, config)
+        return _report(failures, config)
 
-def _derive_module_name(file_path: str | _Path) -> str:
-    converted = _os.path.splitext(str(file_path))[0]
-    converted = converted.replace(_os.sep, ".")
-    converted = converted.replace("-", "_")
-    return converted
+    retcodes = [0]
+    paths = _Paths(
+        *path,
+        patterns=config.exclude,
+        excludes=config.excludes,
+        include_ignored=config.include_ignored,
+    )
+    for path_ in paths:
+        failures = runner(path_, config)
+        retcode = _report(failures, config, str(path_))
+        retcodes.append(retcode)
+
+    return max(retcodes)

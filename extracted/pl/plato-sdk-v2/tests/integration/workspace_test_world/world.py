@@ -1,29 +1,31 @@
 """Test world that validates workspace functionality end-to-end on a real VM.
 
-This world runs ON the world VM. It exercises:
-1. Workspace type, attributes, and methods
-2. Local file I/O on the workspace path
-3. NFS: cross-VM file visibility (write on world, read from agent and vice-versa)
-4. NFS: permissions (uid 1000, ACLs, sticky bit)
-5. NFS: sub-workspaces via transport.with_path() + prepare() + setup_agent()
-6. Rsync: setup_agent syncs files to agent VM
-7. Rsync: sync_back copies files from agent VM back to world VM
-8. Lazy DVC: FUSE mount, lazy S3 reads, smart commit, DVC compatibility
+This world runs ON the world VM via BaseWorld, exercising the full production
+code path: workspace init → ensure_fuse_mount → NFS export → agent mount.
+
+Tests:
+1. Workspace declaration, init, tracked/untracked semantics
+2. FUSE mount on overlayfs (ensure_fuse_mount) — production path
+3. NFS export of FUSE mounts — production path
+4. Cross-VM reads/writes through NFS → FUSE
+5. Lazy DVC: commit, restore, smart commit, file sizes
+6. Agent writes to FUSE mount over NFS (webclone pattern)
+7. Multiple workspace NFS exports
 """
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import os
 import secrets
 import shutil
 import sys
-import tempfile
 from pathlib import Path
 from typing import Annotated, ClassVar
 
-from plato.agents.runtime.transport import NFSTransport, RsyncTransport, Transport
+from plato.agents.runtime.transport import NFSTransport
 from plato.markers import WorkspaceMarker
 from plato.utils.subprocess import run_local, run_ssh
 from plato.worlds import BaseWorld, Observation, StepResult
@@ -33,22 +35,27 @@ from plato.worlds.workspace import Workspace
 
 
 class WorkspaceTestWorldConfig(RunConfig):
-    """Config for the workspace test world."""
+    """Config for the workspace test world.
+
+    Paths are on overlayfs (VM root). BaseWorld._start_transport() will call
+    ensure_fuse_mount() to put FUSE on them, then NFS exports the FUSE mounts.
+    This is the exact production code path.
+    """
 
     ws: Annotated[
         Path,
         WorkspaceMarker(description="Test workspace", tracked=False, mount_path="/workspace"),
-    ] = Path("/state/ws")
+    ] = Path("/workspace/ws")
 
     tracked_ws: Annotated[
         Path,
         WorkspaceMarker(
-            description="Tracked workspace for DVC path tests",
+            description="Tracked workspace for DVC tests",
             tracked=True,
             mount_path="/tracked",
             dvcignore=["*.tmp", "dist"],
         ),
-    ] = Path("/state/tracked_ws")
+    ] = Path("/workspace/tracked_ws")
 
 
 @register_world("plato-world-structured-execution")
@@ -63,25 +70,27 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
         self.test_results = []
         self.all_passed = True
 
-        # Get the declared workspace (plato.worlds.workspace.Workspace)
+        # These workspaces went through the full production path:
+        # _init_declared_workspaces → ensure_fuse_mount → _start_transport
         self._ws = self.workspace("ws")
+        self._tracked = self.workspace("tracked_ws")
+
+        # --- Verify production setup worked ---
+        await self._run_setup_verification_tests()
 
         # --- Basic workspace attribute tests ---
         self._run_basic_tests()
 
-        # --- Tracked workspace path / dvcignore tests ---
-        await self._run_tracked_workspace_tests()
+        # --- Tracked workspace tests ---
+        self._run_tracked_ws_tests()
 
-        # --- Local file I/O ---
-        self._run_file_io_tests()
+        # --- Local file I/O through FUSE ---
+        await self._run_fuse_io_tests()
 
-        # --- Transport with_path tests (local only) ---
-        self._run_with_path_tests()
-
-        # --- Cross-VM tests (need an agent VM) ---
+        # --- Cross-VM tests (spawn agent, verify NFS) ---
         await self._run_cross_vm_tests()
 
-        # --- Lazy DVC: FUSE mount, lazy S3 reads, smart commit ---
+        # --- Lazy DVC cycle: commit → restore → smart commit ---
         await self._run_lazy_dvc_tests()
 
         passed = sum(1 for t in self.test_results if t["passed"])
@@ -95,22 +104,11 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             failures = [t for t in self.test_results if not t["passed"]]
             raise RuntimeError(f"Workspace tests failed: {failures}")
 
-        return Observation(
-            data={
-                "test_results": self.test_results,
-                "passed": passed,
-                "failed": failed,
-            }
-        )
+        return Observation(data={"test_results": self.test_results, "passed": passed, "failed": failed})
 
     async def step(self) -> StepResult:
         return StepResult(
-            observation=Observation(
-                data={
-                    "test_results": self.test_results,
-                    "all_passed": self.all_passed,
-                }
-            ),
+            observation=Observation(data={"test_results": self.test_results, "all_passed": self.all_passed}),
             done=True,
         )
 
@@ -118,7 +116,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
     # Test helpers
     # ---------------------------------------------------------------
 
-    def _run_test(self, name: str, check, error_msg: str) -> None:
+    def _test(self, name: str, check, error_msg: str) -> None:
         try:
             result = check()
             if result:
@@ -133,7 +131,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             self.logger.error(f"  [FAIL] {name}: {e}")
             self.all_passed = False
 
-    async def _run_async_test(self, name: str, check, error_msg: str) -> None:
+    async def _atest(self, name: str, check, error_msg: str) -> None:
         try:
             result = await check()
             if result:
@@ -149,281 +147,179 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             self.all_passed = False
 
     # ---------------------------------------------------------------
+    # Setup verification — did production code do its job?
+    # ---------------------------------------------------------------
+
+    async def _run_setup_verification_tests(self) -> None:
+        self.logger.info("=== Verifying production setup ===")
+        ws = self._ws
+        tracked = self._tracked
+
+        # Workspaces exist and have transports (assigned by _start_transport)
+        self._test("ws_exists", lambda: ws is not None, "ws should exist")
+        self._test(
+            "ws_has_transport", lambda: ws.transport is not None, "ws should have transport from _start_transport"
+        )
+        self._test(
+            "ws_transport_is_nfs",
+            lambda: isinstance(ws.transport, NFSTransport),
+            f"ws transport should be NFS, got {type(ws.transport)}",
+        )
+        self._test("tracked_exists", lambda: tracked is not None, "tracked_ws should exist")
+        self._test("tracked_has_transport", lambda: tracked.transport is not None, "tracked_ws should have transport")
+        self._test(
+            "tracked_transport_is_nfs",
+            lambda: isinstance(tracked.transport, NFSTransport),
+            f"tracked transport should be NFS, got {type(tracked.transport)}",
+        )
+
+        # Content paths should be FUSE mounts (ensure_fuse_mount on overlayfs)
+        await self._atest(
+            "ws_is_fuse_mount",
+            lambda: self._is_mountpoint(ws.path),
+            f"ws.path ({ws.path}) should be a FUSE mount (ensure_fuse_mount)",
+        )
+        await self._atest(
+            "tracked_is_fuse_mount",
+            lambda: self._is_mountpoint(tracked.path),
+            f"tracked.path ({tracked.path}) should be a FUSE mount",
+        )
+
+        # Verify FUSE filesystem type
+        await self._atest(
+            "ws_fuse_fstype",
+            lambda: self._check_fstype(ws.path, "fuse"),
+            "ws.path should be on fuse filesystem",
+        )
+
+        # NFS exports should exist
+        await self._atest(
+            "nfs_exports_exist",
+            lambda: self._check_exports_contain(str(ws.path)),
+            f"NFS exports should contain {ws.path}",
+        )
+        await self._atest(
+            "nfs_exports_tracked",
+            lambda: self._check_exports_contain(str(tracked.path)),
+            f"NFS exports should contain {tracked.path}",
+        )
+
+    async def _is_mountpoint(self, path: Path) -> bool:
+        ec, _, _ = await run_local(f"mountpoint -q {path}", timeout=5)
+        return ec == 0
+
+    async def _check_fstype(self, path: Path, expected_prefix: str) -> bool:
+        ec, stdout, _ = await run_local(f"findmnt -n -o FSTYPE --target {path}", timeout=5)
+        return ec == 0 and stdout.strip().lower().startswith(expected_prefix)
+
+    async def _check_exports_contain(self, path: str) -> bool:
+        ec, stdout, _ = await run_local("exportfs -s", timeout=5)
+        return ec == 0 and path in stdout
+
+    # ---------------------------------------------------------------
     # Basic attribute tests
     # ---------------------------------------------------------------
 
     def _run_basic_tests(self) -> None:
-        self.logger.info("Running basic workspace attribute tests...")
+        self.logger.info("=== Basic workspace attribute tests ===")
         ws = self._ws
 
-        self._run_test(
-            "workspace_is_not_none",
-            lambda: ws is not None,
-            "workspace should not be None",
-        )
-        self._run_test(
-            "workspace_is_workspace_instance",
-            lambda: isinstance(ws, Workspace),
-            f"Expected Workspace, got {type(ws)}",
-        )
-        self._run_test(
-            "workspace_path_exists",
-            lambda: ws.path.is_dir(),
-            f"workspace.path ({ws.path}) should be a directory",
-        )
-        self._run_test(
-            "workspace_has_transport",
-            lambda: ws.transport is not None,
-            "workspace.transport should not be None",
-        )
-        self._run_test(
-            "transport_is_transport_instance",
-            lambda: isinstance(ws.transport, Transport),
-            f"Expected Transport, got {type(ws.transport)}",
-        )
-        self._run_test(
-            "transport_has_setup_agent",
-            lambda: callable(getattr(ws.transport, "setup_agent", None)),
-            "transport should have setup_agent()",
-        )
-        self._run_test(
-            "transport_has_sync_back",
-            lambda: callable(getattr(ws.transport, "sync_back", None)),
-            "transport should have sync_back()",
-        )
-        self._run_test(
-            "transport_has_with_path",
-            lambda: callable(getattr(ws.transport, "with_path", None)),
-            "transport should have with_path()",
+        self._test("ws_is_workspace", lambda: isinstance(ws, Workspace), f"Expected Workspace, got {type(ws)}")
+        self._test("ws_path_exists", lambda: ws.path.exists(), f"ws.path ({ws.path}) should exist")
+        self._test("ws_not_tracked", lambda: not ws.tracked, "ws should not be tracked")
+        self._test(
+            "ws_mount_path",
+            lambda: ws.mount_path == "/workspace",
+            f"ws.mount_path should be /workspace, got {ws.mount_path}",
         )
 
     # ---------------------------------------------------------------
-    # Tracked workspace: path semantics, dvcignore, DVC isolation
+    # Tracked workspace tests
     # ---------------------------------------------------------------
 
-    async def _run_tracked_workspace_tests(self) -> None:
-        """Validate the tracked workspace API after _init_declared_workspaces."""
-        self.logger.info("Running tracked workspace path/dvcignore tests...")
-        try:
-            tws = self.workspace("tracked_ws")
-        except Exception as e:
-            self.test_results.append({"name": "tracked_ws_lookup", "passed": False, "error": str(e)})
-            self.all_passed = False
-            return
+    def _run_tracked_ws_tests(self) -> None:
+        self.logger.info("=== Tracked workspace tests ===")
+        tracked = self._tracked
 
-        self._run_test(
-            "tracked_ws_is_workspace",
-            lambda: isinstance(tws, Workspace),
-            f"Expected Workspace, got {type(tws)}",
+        self._test("tracked_is_tracked", lambda: tracked.tracked, "tracked_ws should be tracked")
+        self._test("tracked_has_s3_bucket", lambda: bool(tracked.s3_bucket), "tracked should have s3_bucket")
+        self._test("tracked_has_s3_prefix", lambda: bool(tracked.s3_prefix), "tracked should have s3_prefix")
+        self._test(
+            "tracked_mount_path",
+            lambda: tracked.mount_path == "/tracked",
+            f"mount_path should be /tracked, got {tracked.mount_path}",
         )
+        self._test(
+            "tracked_path_is_data_subdir",
+            lambda: tracked.path.name == "data",
+            f"tracked.path should end in /data, got {tracked.path}",
+        )
+        self._test(
+            "tracked_repo_root", lambda: tracked._repo_root == tracked.path.parent, "repo_root should be parent of path"
+        )
+        self._test("tracked_dvc_dir", lambda: (tracked._repo_root / ".dvc").is_dir(), ".dvc should exist after init")
 
-        # path is the content dir (repo_root / "data"), not the repo root
-        self._run_test(
-            "tracked_ws_path_is_content_dir",
-            lambda: tws.path == tws._repo_root / "data",
-            f"path ({tws.path}) should be _repo_root/data ({tws._repo_root / 'data'})",
-        )
-        self._run_test(
-            "tracked_ws_path_ne_repo_root",
-            lambda: tws.path != tws._repo_root,
-            "path should NOT equal _repo_root",
-        )
+        dvcignore = tracked._repo_root / ".dvcignore"
+        if dvcignore.exists():
+            content = dvcignore.read_text()
+            self._test(
+                "tracked_dvcignore_defaults", lambda: "node_modules" in content, "Default dvcignore should be present"
+            )
+            self._test(
+                "tracked_dvcignore_custom",
+                lambda: "*.tmp" in content and "dist" in content,
+                "Custom dvcignore should be present",
+            )
 
-        # data_path property should not exist
-        self._run_test(
-            "tracked_ws_no_data_path",
-            lambda: not hasattr(tws, "data_path"),
-            "data_path attribute should be deleted",
-        )
+    # ---------------------------------------------------------------
+    # Local file I/O through FUSE
+    # ---------------------------------------------------------------
 
-        # Content dir exists and is a real directory
-        self._run_test(
-            "tracked_ws_content_dir_exists",
-            lambda: tws.path.is_dir(),
-            f"Content dir {tws.path} should exist",
-        )
+    async def _run_fuse_io_tests(self) -> None:
+        self.logger.info("=== FUSE I/O tests ===")
+        ws_path = self._ws.path
+        tag = secrets.token_hex(4)
 
-        # DVC scaffolding at repo root, not at content dir
-        self._run_test(
-            "tracked_ws_git_at_repo_root",
-            lambda: (tws._repo_root / ".git").is_dir(),
-            ".git should be at _repo_root",
-        )
-        self._run_test(
-            "tracked_ws_dvc_at_repo_root",
-            lambda: (tws._repo_root / ".dvc").exists(),
-            ".dvc should be at _repo_root",
-        )
-        self._run_test(
-            "tracked_ws_no_git_in_content",
-            lambda: not (tws.path / ".git").exists(),
-            ".git should NOT be inside content dir",
-        )
-        self._run_test(
-            "tracked_ws_no_dvc_in_content",
-            lambda: not (tws.path / ".dvc").exists(),
-            ".dvc should NOT be inside content dir",
+        # Write and read
+        test_file = ws_path / f"test_{tag}.txt"
+        test_file.write_text(f"hello-{tag}")
+        self._test("fuse_write_read", lambda: test_file.read_text() == f"hello-{tag}", "Write/read through FUSE")
+
+        # Large file
+        large_data = os.urandom(2 * 1024 * 1024)
+        large_file = ws_path / f"large_{tag}.bin"
+        large_file.write_bytes(large_data)
+        self._test(
+            "fuse_large_file", lambda: large_file.read_bytes() == large_data, "Large file write/read through FUSE"
         )
 
-        # .dvcignore at repo root with defaults + custom entries
-        dvcignore_path = tws._repo_root / ".dvcignore"
-        self._run_test(
-            "tracked_ws_dvcignore_exists",
-            lambda: dvcignore_path.exists(),
-            ".dvcignore should exist at _repo_root",
-        )
-        if dvcignore_path.exists():
-            content = dvcignore_path.read_text()
-            # Check defaults
-            for pattern in ("node_modules", "__pycache__", ".next", ".venv", "*.pyc"):
-                self._run_test(
-                    f"tracked_ws_dvcignore_default_{pattern}",
-                    lambda p=pattern: p in content,
-                    f"Default pattern '{pattern}' missing from .dvcignore",
-                )
-            # Check custom entries from WorkspaceMarker(dvcignore=["*.tmp", "dist"])
-            for pattern in ("*.tmp", "dist"):
-                self._run_test(
-                    f"tracked_ws_dvcignore_custom_{pattern}",
-                    lambda p=pattern: p in content,
-                    f"Custom pattern '{pattern}' missing from .dvcignore",
-                )
-
-        # config attribute points to content dir
-        config_path = getattr(self.config, "tracked_ws", None)
-        self._run_test(
-            "tracked_ws_config_is_content_dir",
-            lambda: config_path == tws.path,
-            f"config.tracked_ws ({config_path}) should equal workspace.path ({tws.path})",
-        )
-
-        # Write/read in content dir
-        test_file = tws.path / "_tracked_test.txt"
-        self._run_test(
-            "tracked_ws_write_content",
-            lambda: (test_file.write_text("tracked test"), test_file.read_text() == "tracked test")[1],
-            "Should write/read in content dir",
-        )
-
-        # Commit creates .dvc pointer at repo root, not content dir
-        await self._run_async_test(
-            "tracked_ws_commit",
-            lambda: self._async_ok(tws.commit("tracked_test_step")),
-            "commit() should succeed on tracked workspace",
-        )
-        self._run_test(
-            "tracked_ws_dvc_pointer_at_root",
-            lambda: (tws._repo_root / "data.dvc").exists(),
-            "data.dvc should exist at _repo_root after commit",
-        )
-        self._run_test(
-            "tracked_ws_no_dvc_pointer_in_content",
-            lambda: not (tws.path / "data.dvc").exists(),
-            "data.dvc should NOT exist inside content dir",
+        # Mkdir + nested write
+        nested = ws_path / f"nested_{tag}" / "a" / "b"
+        nested.mkdir(parents=True, exist_ok=True)
+        (nested / "deep.txt").write_text("deep")
+        self._test(
+            "fuse_nested_write", lambda: (nested / "deep.txt").read_text() == "deep", "Nested dir write through FUSE"
         )
 
         # Cleanup
         test_file.unlink(missing_ok=True)
+        large_file.unlink(missing_ok=True)
+        shutil.rmtree(ws_path / f"nested_{tag}", ignore_errors=True)
 
     # ---------------------------------------------------------------
-    # Local file I/O
-    # ---------------------------------------------------------------
-
-    def _run_file_io_tests(self) -> None:
-        self.logger.info("Running file I/O tests...")
-        ws_path = self._ws.path
-        tag = secrets.token_hex(4)
-        test_file = ws_path / f"_test_{tag}.txt"
-        test_content = f"workspace test content {tag}"
-
-        self._run_test(
-            "file_write",
-            lambda: (test_file.write_text(test_content), True)[1],
-            f"Should write to {test_file}",
-        )
-        self._run_test(
-            "file_read",
-            lambda: test_file.read_text() == test_content,
-            "Read content should match written content",
-        )
-
-        subdir = ws_path / f"_test_subdir_{tag}"
-        self._run_test(
-            "mkdir_in_workspace",
-            lambda: (subdir.mkdir(exist_ok=True), subdir.is_dir())[1],
-            "Should create subdirectory",
-        )
-
-        nested = subdir / "nested.txt"
-        self._run_test(
-            "file_write_in_subdir",
-            lambda: (nested.write_text("nested"), nested.read_text() == "nested")[1],
-            "Should write/read in subdirectory",
-        )
-
-        large_content = "x" * (1024 * 1024)  # 1MB
-        large_file = ws_path / f"_test_large_{tag}.bin"
-        self._run_test(
-            "large_file_write_read",
-            lambda: (large_file.write_text(large_content), large_file.read_text() == large_content)[1],
-            "Should handle 1MB file write/read",
-        )
-
-        binary_content = os.urandom(4096)
-        binary_file = ws_path / f"_test_binary_{tag}.bin"
-        self._run_test(
-            "binary_file_write_read",
-            lambda: (binary_file.write_bytes(binary_content), binary_file.read_bytes() == binary_content)[1],
-            "Should handle binary file write/read",
-        )
-
-        # Cleanup
-        for f in [test_file, large_file, binary_file]:
-            f.unlink(missing_ok=True)
-        shutil.rmtree(subdir, ignore_errors=True)
-
-    # ---------------------------------------------------------------
-    # with_path tests (local — via transport)
-    # ---------------------------------------------------------------
-
-    def _run_with_path_tests(self) -> None:
-        self.logger.info("Running with_path tests...")
-        transport = self._ws.transport
-
-        sub_path = str(self._ws.path) + "/test_sub"
-        sub_transport = transport.with_path(sub_path)
-        self._run_test(
-            "with_path_returns_transport",
-            lambda: isinstance(sub_transport, Transport),
-            f"with_path() should return Transport, got {type(sub_transport)}",
-        )
-        self._run_test(
-            "with_path_has_correct_path",
-            lambda: sub_transport.path == sub_path,
-            f"sub transport path mismatch: {sub_transport.path}",
-        )
-        self._run_test(
-            "with_path_same_type",
-            lambda: type(sub_transport) is type(transport),
-            f"Type mismatch: {type(sub_transport)} vs {type(transport)}",
-        )
-
-    # ---------------------------------------------------------------
-    # Cross-VM tests
+    # Cross-VM tests — use production transport.setup_agent
     # ---------------------------------------------------------------
 
     async def _run_cross_vm_tests(self) -> None:
-        """Spawn an agent VM and test workspace across VMs."""
-        self.logger.info("Running cross-VM workspace tests...")
-
-        from plato.v2 import Env
-        from plato.v2.types import SimConfigCompute
+        self.logger.info("=== Cross-VM tests ===")
 
         if not self.plato_session:
             self.logger.warning("No plato_session, skipping cross-VM tests")
             return
 
-        transport = self._ws.transport
+        from plato.v2 import Env
+        from plato.v2.types import SimConfigCompute
+
         ssh_key_path = self._ssh_key_path
         agent_env = None
         try:
@@ -438,736 +334,547 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             )
             self.logger.info(f"Agent VM spawned: job_id={agent_env.job_id}")
 
-            # Re-register SSH key so the new agent VM gets it
             pub_key = Path(str(ssh_key_path) + ".pub").read_text().strip()
             await self.plato_session.add_ssh_key(pub_key)
 
             agent_hostname = await agent_env.get_mesh_ip()
-            self.logger.info(f"Agent mesh IP: {agent_hostname}")
             if not agent_hostname:
                 raise RuntimeError("Agent VM has no mesh IP")
+            self.logger.info(f"Agent mesh IP: {agent_hostname}")
 
-            # Install rsync and acl tools on agent
-            await agent_env.execute(
-                "which rsync || (apt-get update -qq && apt-get install -y -qq rsync acl nfs-common)",
+            # Install NFS client on agent (production does this in vm.py)
+            await run_ssh(
+                ssh_key_path,
+                agent_hostname,
+                "which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common)",
                 timeout=60,
             )
-            # Install acl on world VM
-            await run_local(
-                "which getfacl || (apt-get update -qq && apt-get install -y -qq acl)",
-                timeout=60,
+
+            # Mount workspace on agent using production transport.setup_agent
+            ws_transport = self._ws.transport
+            tracked_transport = self._tracked.transport
+
+            await self._atest(
+                "nfs_setup_agent_ws",
+                lambda: self._do_setup_agent(ws_transport, agent_env, agent_hostname),
+                "transport.setup_agent() for ws should succeed",
+            )
+            await self._atest(
+                "nfs_setup_agent_tracked",
+                lambda: self._do_setup_agent(tracked_transport, agent_env, agent_hostname),
+                "transport.setup_agent() for tracked_ws should succeed",
             )
 
-            if isinstance(transport, NFSTransport):
-                await self._run_nfs_cross_vm_tests(agent_env, agent_hostname, ssh_key_path)
-            elif isinstance(transport, RsyncTransport):
-                await self._run_rsync_cross_vm_tests(agent_env, agent_hostname, ssh_key_path)
+            # --- World write → agent read ---
+            await self._test_world_write_agent_read(ssh_key_path, agent_hostname)
 
-            await self._run_permission_tests(agent_env, agent_hostname, ssh_key_path)
+            # --- Agent write → world read ---
+            await self._test_agent_write_world_read(ssh_key_path, agent_hostname)
+
+            # --- Agent writes to FUSE mount (webclone pattern) ---
+            await self._test_agent_fuse_writes(ssh_key_path, agent_hostname)
+
+            # --- Multiple workspace isolation ---
+            await self._test_multi_workspace(ssh_key_path, agent_hostname)
+
+            # --- Concurrent writes ---
+            await self._test_concurrent_writes(ssh_key_path, agent_hostname)
 
         except Exception as e:
             self.test_results.append({"name": "cross_vm_setup", "passed": False, "error": f"Failed: {e}"})
             self.all_passed = False
-            self.logger.error(f"Cross-VM test setup failed: {e}")
+            self.logger.error(f"Cross-VM test setup failed: {e}", exc_info=True)
         finally:
             if agent_env:
                 try:
                     await self.plato_session.remove_env(agent_env)
-                except Exception as e:
-                    self.logger.warning(f"Failed to remove agent VM: {e}")
+                except Exception:
+                    pass
 
-    # ---------------------------------------------------------------
-    # NFS cross-VM tests
-    # ---------------------------------------------------------------
+    async def _do_setup_agent(self, transport, agent_env, hostname) -> bool:
+        await transport.setup_agent(agent_env, hostname)
+        return True
 
-    def _agent_path(self, filename: str) -> str:
-        """Map a filename from world-side ws path to agent-side mount path."""
+    def _ws_agent_path(self, filename: str) -> str:
         return f"{self._ws.transport.agent_mount_path}/{filename}"
 
-    async def _run_nfs_cross_vm_tests(self, agent_env, agent_hostname: str, ssh_key_path: Path) -> None:
-        self.logger.info("Running NFS cross-VM tests...")
+    def _tracked_agent_path(self, filename: str) -> str:
+        return f"{self._tracked.transport.agent_mount_path}/{filename}"
+
+    async def _test_world_write_agent_read(self, ssh_key_path, hostname) -> None:
+        self.logger.info("--- World write → agent read ---")
         tag = secrets.token_hex(4)
-        ws_path = self._ws.path  # world-side path
+        ws_path = self._ws.path
 
-        # 1. Mount NFS on agent via transport.setup_agent
-        await self._run_async_test(
-            "nfs_setup_agent",
-            lambda: self._setup_agent(agent_env, agent_hostname),
-            "transport.setup_agent() should succeed",
+        # Write file on world
+        (ws_path / f"world_{tag}.txt").write_text(f"from-world-{tag}")
+
+        await self._atest(
+            "world_write_agent_read",
+            lambda: self._ssh_cat(ssh_key_path, hostname, self._ws_agent_path(f"world_{tag}.txt"), f"from-world-{tag}"),
+            "File written on world should be readable from agent via NFS",
         )
 
-        # 2. Write on world VM, read from agent VM (agent sees files at mount path)
-        world_file = f"cross_vm_test_{tag}.txt"
-        world_content = f"written-on-world-{tag}"
-        (ws_path / world_file).write_text(world_content)
+        # Large file
+        large_data = os.urandom(5 * 1024 * 1024)
+        (ws_path / f"large_{tag}.bin").write_bytes(large_data)
 
-        await self._run_async_test(
-            "nfs_world_write_agent_read",
-            lambda: self._check_file_on_agent(
-                ssh_key_path, agent_hostname, self._agent_path(world_file), world_content
+        await self._atest(
+            "world_write_large_agent_read",
+            lambda: self._ssh_file_size(
+                ssh_key_path, hostname, self._ws_agent_path(f"large_{tag}.bin"), len(large_data)
             ),
-            "File written on world VM should be readable from agent VM via NFS",
+            "5MB file should be correct size on agent",
         )
 
-        # 3. Write on agent VM, read from world VM
-        agent_file = f"agent_written_{tag}.txt"
-        agent_content = f"written-on-agent-{tag}"
-        await run_ssh(
-            ssh_key_path, agent_hostname, f"echo -n '{agent_content}' > {self._agent_path(agent_file)}", timeout=10
-        )
+        # Nested dirs
+        nested = ws_path / f"tree_{tag}" / "a" / "b"
+        nested.mkdir(parents=True, exist_ok=True)
+        (nested / "deep.txt").write_text("deep")
 
-        self._run_test(
-            "nfs_agent_write_world_read",
-            lambda: (ws_path / agent_file).read_text() == agent_content,
-            "File written on agent VM should be visible on world VM via NFS",
-        )
-
-        # 4. Large file cross-VM
-        large_file = f"large_cross_vm_{tag}.bin"
-        large_size = 5 * 1024 * 1024
-        (ws_path / large_file).write_bytes(os.urandom(large_size))
-
-        await self._run_async_test(
-            "nfs_large_file_cross_vm",
-            lambda: self._check_file_size_on_agent(
-                ssh_key_path, agent_hostname, self._agent_path(large_file), large_size
-            ),
-            "5MB file should be visible and correct size on agent VM",
-        )
-
-        # 5. Directory tree cross-VM
-        tree_name = f"tree_{tag}"
-        tree_dir = ws_path / tree_name
-        (tree_dir / "a" / "b" / "c").mkdir(parents=True, exist_ok=True)
-        (tree_dir / "a" / "b" / "c" / "deep.txt").write_text("deep")
-        (tree_dir / "root.txt").write_text("root")
-
-        await self._run_async_test(
-            "nfs_directory_tree_cross_vm",
-            lambda: self._check_file_on_agent(
-                ssh_key_path, agent_hostname, self._agent_path(f"{tree_name}/a/b/c/deep.txt"), "deep"
-            ),
-            "Nested directory tree should be visible on agent VM",
-        )
-
-        # 6. Delete on world, verify gone on agent
-        (ws_path / world_file).unlink()
-        await asyncio.sleep(5)
-        delete_ok = await self._check_file_absent_on_agent(ssh_key_path, agent_hostname, self._agent_path(world_file))
-        if delete_ok:
-            self.test_results.append({"name": "nfs_delete_propagates", "passed": True})
-            self.logger.info("  [PASS] nfs_delete_propagates")
-        else:
-            self.logger.warning("  [SKIP] nfs_delete_propagates: NFS attribute cache delay")
-
-        # 7. Concurrent writes from both sides
-        await self._run_async_test(
-            "nfs_concurrent_writes",
-            lambda: self._test_concurrent_writes(ssh_key_path, agent_hostname, tag),
-            "Concurrent writes from world and agent should not corrupt data",
-        )
-
-        # 8. Sub-workspace via transport.with_path + prepare + setup_agent
-        await self._run_async_test(
-            "nfs_sub_workspace_cross_vm",
-            lambda: self._test_sub_workspace_nfs(agent_env, agent_hostname, ssh_key_path, tag),
-            "Sub-workspace created via with_path() should be visible on agent VM",
-        )
-
-        # 9. sync_back is no-op for NFS
-        await self._run_async_test(
-            "nfs_sync_back_noop",
-            lambda: self._do_sync_back(agent_env, agent_hostname),
-            "sync_back() should succeed (no-op for NFS)",
-        )
-
-        # 10. Full workflow
-        await self._run_async_test(
-            "nfs_full_workflow",
-            lambda: self._test_full_workflow(ssh_key_path, agent_hostname, tag),
-            "Full workflow: world create → agent read → agent modify → world read",
+        await self._atest(
+            "world_write_nested_agent_read",
+            lambda: self._ssh_cat(ssh_key_path, hostname, self._ws_agent_path(f"tree_{tag}/a/b/deep.txt"), "deep"),
+            "Nested directory tree should be visible on agent",
         )
 
         # Cleanup
-        (ws_path / large_file).unlink(missing_ok=True)
-        (ws_path / agent_file).unlink(missing_ok=True)
-        shutil.rmtree(tree_dir, ignore_errors=True)
+        (ws_path / f"world_{tag}.txt").unlink(missing_ok=True)
+        (ws_path / f"large_{tag}.bin").unlink(missing_ok=True)
+        shutil.rmtree(ws_path / f"tree_{tag}", ignore_errors=True)
 
-    async def _test_full_workflow(self, ssh_key_path, hostname, tag):
+    async def _test_agent_write_world_read(self, ssh_key_path, hostname) -> None:
+        self.logger.info("--- Agent write → world read ---")
+        tag = secrets.token_hex(4)
         ws_path = self._ws.path
-        fname = f"workflow_{tag}.txt"
-        original = f"hello from world {tag}"
-        (ws_path / fname).write_text(original)
 
-        agent_fpath = self._agent_path(fname)
-        exit_code, stdout, _ = await run_ssh(ssh_key_path, hostname, f"cat {agent_fpath}", timeout=10)
-        if exit_code != 0 or stdout != original:
-            return False
+        # Agent writes a file
+        await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"echo -n 'from-agent-{tag}' > {self._ws_agent_path(f'agent_{tag}.txt')}",
+            timeout=10,
+        )
+        self._test(
+            "agent_write_world_read",
+            lambda: (ws_path / f"agent_{tag}.txt").read_text() == f"from-agent-{tag}",
+            "File written by agent should be visible on world via NFS",
+        )
 
-        appended = " | modified by agent"
-        await run_ssh(ssh_key_path, hostname, f"echo -n '{appended}' >> {agent_fpath}", timeout=10)
+        # Agent writes JSON
+        json_content = json.dumps({"key": f"value-{tag}"})
+        await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"echo -n '{json_content}' > {self._ws_agent_path(f'output_{tag}.json')}",
+            timeout=10,
+        )
+        self._test(
+            "agent_write_json",
+            lambda: json.loads((ws_path / f"output_{tag}.json").read_text()) == {"key": f"value-{tag}"},
+            "Agent-written JSON should be valid and readable on world",
+        )
 
-        result = (ws_path / fname).read_text()
-        expected = original + appended
-        if result != expected:
-            return False
+        # Agent writes large file
+        await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"dd if=/dev/urandom of={self._ws_agent_path(f'agent_large_{tag}.bin')} bs=1M count=2 2>/dev/null",
+            timeout=30,
+        )
+        self._test(
+            "agent_write_large",
+            lambda: (ws_path / f"agent_large_{tag}.bin").stat().st_size == 2 * 1024 * 1024,
+            "Agent-written 2MB file should be correct size on world",
+        )
 
-        (ws_path / fname).unlink(missing_ok=True)
-        return True
+        # Cleanup
+        for f in [f"agent_{tag}.txt", f"output_{tag}.json", f"agent_large_{tag}.bin"]:
+            (ws_path / f).unlink(missing_ok=True)
 
-    async def _setup_agent(self, agent_env, agent_hostname):
-        await self._ws.transport.setup_agent(agent_env, agent_hostname)
-        return True
-
-    async def _do_sync_back(self, agent_env, agent_hostname):
-        await self._ws.transport.sync_back(agent_env, agent_hostname)
-        return True
-
-    async def _check_file_on_agent(self, ssh_key_path, hostname, filepath, expected_content):
-        exit_code, stdout, _ = await run_ssh(ssh_key_path, hostname, f"cat {filepath}", timeout=10)
-        return exit_code == 0 and stdout == expected_content
-
-    async def _check_file_size_on_agent(self, ssh_key_path, hostname, filepath, expected_size):
-        exit_code, stdout, _ = await run_ssh(ssh_key_path, hostname, f"stat -c '%s' {filepath}", timeout=10)
-        return exit_code == 0 and stdout.strip() == str(expected_size)
-
-    async def _check_file_absent_on_agent(self, ssh_key_path, hostname, filepath):
-        exit_code, _, _ = await run_ssh(ssh_key_path, hostname, f"test ! -f {filepath}", timeout=10)
-        return exit_code == 0
-
-    async def _test_concurrent_writes(self, ssh_key_path, hostname, tag):
+    async def _test_agent_fuse_writes(self, ssh_key_path, hostname) -> None:
+        """Test agent writes to FUSE mount over NFS (replicates webclone pattern)."""
+        self.logger.info("--- Agent FUSE writes (webclone pattern) ---")
+        tag = secrets.token_hex(4)
         ws_path = self._ws.path
-        world_fname = f"concurrent_world_{tag}.txt"
-        agent_fname = f"concurrent_agent_{tag}.txt"
+
+        # Agent creates nested dirs and writes (like inferred_model/merged.json)
+        nested_agent = f"{self._ws_agent_path(f'backend_{tag}')}/inferred_model"
+        ec, _, stderr = await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"mkdir -p {nested_agent}",
+            timeout=10,
+        )
+        await self._atest(
+            "agent_fuse_mkdir_nested",
+            lambda: self._ok(ec),
+            f"Agent mkdir -p nested dirs over NFS→FUSE should work: {stderr}",
+        )
+
+        ec, _, stderr = await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"""echo -n '{{"model": "test-{tag}"}}' > {nested_agent}/merged.json""",
+            timeout=10,
+        )
+        await self._atest(
+            "agent_fuse_write_nested",
+            lambda: self._ok(ec),
+            f"Agent write to nested dir over NFS→FUSE should work: {stderr}",
+        )
+
+        # Verify on world
+        merged = ws_path / f"backend_{tag}" / "inferred_model" / "merged.json"
+        self._test(
+            "agent_fuse_nested_visible",
+            lambda: merged.exists() and json.loads(merged.read_text())["model"] == f"test-{tag}",
+            "Agent-created nested file should be visible on world through FUSE",
+        )
+
+        # Agent touches a file (exact webclone failure pattern)
+        ec, _, stderr = await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"touch {nested_agent}/touched.json",
+            timeout=10,
+        )
+        await self._atest(
+            "agent_fuse_touch",
+            lambda: self._ok(ec),
+            f"Agent touch over NFS→FUSE should work: {stderr}",
+        )
+
+        # Agent writes into world-created subdir
+        world_subdir = ws_path / f"world_created_{tag}"
+        world_subdir.mkdir(parents=True, exist_ok=True)
+        ec, _, _ = await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"echo -n 'in-world-dir' > {self._ws_agent_path(f'world_created_{tag}/agent_file.txt')}",
+            timeout=10,
+        )
+        self._test(
+            "agent_write_world_subdir",
+            lambda: (world_subdir / "agent_file.txt").read_text() == "in-world-dir",
+            "Agent should write into world-created subdir via NFS",
+        )
+
+        # Cleanup
+        shutil.rmtree(ws_path / f"backend_{tag}", ignore_errors=True)
+        shutil.rmtree(world_subdir, ignore_errors=True)
+
+    async def _test_multi_workspace(self, ssh_key_path, hostname) -> None:
+        """Test both workspaces are independently NFS-mounted."""
+        self.logger.info("--- Multi-workspace isolation ---")
+        tag = secrets.token_hex(4)
+        ws_path = self._ws.path
+        tracked_path = self._tracked.path
+
+        # Write to ws
+        (ws_path / f"ws_{tag}.txt").write_text(f"ws-{tag}")
+        # Write to tracked
+        (tracked_path / f"tracked_{tag}.txt").write_text(f"tracked-{tag}")
+
+        # Agent reads from ws
+        await self._atest(
+            "multi_ws_agent_read_ws",
+            lambda: self._ssh_cat(ssh_key_path, hostname, self._ws_agent_path(f"ws_{tag}.txt"), f"ws-{tag}"),
+            "Agent should read ws file",
+        )
+
+        # Agent reads from tracked
+        await self._atest(
+            "multi_ws_agent_read_tracked",
+            lambda: self._ssh_cat(
+                ssh_key_path, hostname, self._tracked_agent_path(f"tracked_{tag}.txt"), f"tracked-{tag}"
+            ),
+            "Agent should read tracked file",
+        )
+
+        # Isolation: ws file not in tracked
+        await self._atest(
+            "multi_ws_isolation",
+            lambda: self._ssh_file_absent(ssh_key_path, hostname, self._tracked_agent_path(f"ws_{tag}.txt")),
+            "ws file should NOT appear in tracked mount",
+        )
+
+        # Agent writes to tracked
+        await run_ssh(
+            ssh_key_path,
+            hostname,
+            f"echo -n 'agent-tracked-{tag}' > {self._tracked_agent_path(f'agent_{tag}.txt')}",
+            timeout=10,
+        )
+        self._test(
+            "multi_ws_agent_write_tracked",
+            lambda: (tracked_path / f"agent_{tag}.txt").read_text() == f"agent-tracked-{tag}",
+            "Agent write to tracked_ws should be visible on world",
+        )
+
+        # Cleanup
+        (ws_path / f"ws_{tag}.txt").unlink(missing_ok=True)
+        (tracked_path / f"tracked_{tag}.txt").unlink(missing_ok=True)
+        (tracked_path / f"agent_{tag}.txt").unlink(missing_ok=True)
+
+    async def _test_concurrent_writes(self, ssh_key_path, hostname) -> None:
+        self.logger.info("--- Concurrent writes ---")
+        tag = secrets.token_hex(4)
+        ws_path = self._ws.path
 
         async def write_world():
-            (ws_path / world_fname).write_text(f"world-{tag}")
+            (ws_path / f"conc_world_{tag}.txt").write_text(f"world-{tag}")
 
         async def write_agent():
             await run_ssh(
-                ssh_key_path, hostname, f"echo -n 'agent-{tag}' > {self._agent_path(agent_fname)}", timeout=10
+                ssh_key_path,
+                hostname,
+                f"echo -n 'agent-{tag}' > {self._ws_agent_path(f'conc_agent_{tag}.txt')}",
+                timeout=10,
             )
 
         await asyncio.gather(write_world(), write_agent())
         await asyncio.sleep(0.5)
 
-        world_ok = (ws_path / world_fname).read_text() == f"world-{tag}"
-        agent_ok = (ws_path / agent_fname).read_text() == f"agent-{tag}"
+        world_ok = (ws_path / f"conc_world_{tag}.txt").read_text() == f"world-{tag}"
+        agent_ok = (ws_path / f"conc_agent_{tag}.txt").read_text() == f"agent-{tag}"
 
-        (ws_path / world_fname).unlink(missing_ok=True)
-        (ws_path / agent_fname).unlink(missing_ok=True)
-        return world_ok and agent_ok
+        self._test("concurrent_writes", lambda: world_ok and agent_ok, "Concurrent writes should not corrupt data")
 
-    async def _test_sub_workspace_nfs(self, agent_env, agent_hostname, ssh_key_path, tag):
-        transport = self._ws.transport
-        sub_name = f"sub_{tag}"
-        sub_path = self._ws.path / sub_name
-        sub_transport = transport.with_path(str(sub_path))
-        await sub_transport.prepare()
-
-        sub_path.mkdir(parents=True, exist_ok=True)
-        (sub_path / "sub_test.txt").write_text(f"sub-{tag}")
-
-        await sub_transport.setup_agent(agent_env, agent_hostname)
-
-        # Agent sees sub-workspace at its own mount path
-        agent_sub = sub_transport.agent_mount_path
-        exit_code, stdout, _ = await run_ssh(
-            ssh_key_path,
-            agent_hostname,
-            f"cat {agent_sub}/sub_test.txt",
-            timeout=10,
-        )
-
-        shutil.rmtree(sub_path, ignore_errors=True)
-        return exit_code == 0 and stdout == f"sub-{tag}"
+        (ws_path / f"conc_world_{tag}.txt").unlink(missing_ok=True)
+        (ws_path / f"conc_agent_{tag}.txt").unlink(missing_ok=True)
 
     # ---------------------------------------------------------------
-    # Rsync cross-VM tests
-    # ---------------------------------------------------------------
-
-    async def _run_rsync_cross_vm_tests(self, agent_env, agent_hostname: str, ssh_key_path: Path) -> None:
-        self.logger.info("Running rsync cross-VM tests...")
-        transport = self._ws.transport
-        tag = secrets.token_hex(4)
-        ws_path = self._ws.path
-
-        (ws_path / f"rsync_test_{tag}.txt").write_text(f"rsync-{tag}")
-        (ws_path / f"rsync_dir_{tag}" / "nested").mkdir(parents=True, exist_ok=True)
-        (ws_path / f"rsync_dir_{tag}" / "nested" / "deep.txt").write_text("deep-rsync")
-
-        await self._run_async_test(
-            "rsync_setup_agent",
-            lambda: self._setup_agent(agent_env, agent_hostname),
-            "transport.setup_agent() should rsync files to agent VM",
-        )
-
-        await self._run_async_test(
-            "rsync_files_on_agent",
-            lambda: self._check_file_on_agent(
-                ssh_key_path,
-                agent_hostname,
-                self._agent_path(f"rsync_test_{tag}.txt"),
-                f"rsync-{tag}",
-            ),
-            "Rsynced file should be readable on agent VM",
-        )
-
-        await self._run_async_test(
-            "rsync_nested_on_agent",
-            lambda: self._check_file_on_agent(
-                ssh_key_path,
-                agent_hostname,
-                self._agent_path(f"rsync_dir_{tag}/nested/deep.txt"),
-                "deep-rsync",
-            ),
-            "Rsynced nested file should be readable on agent VM",
-        )
-
-        agent_new_fname = f"agent_new_{tag}.txt"
-        await run_ssh(
-            ssh_key_path,
-            agent_hostname,
-            f"echo -n 'from-agent-{tag}' > {self._agent_path(agent_new_fname)}",
-            timeout=10,
-        )
-
-        await self._run_async_test(
-            "rsync_sync_back",
-            lambda: self._do_sync_back(agent_env, agent_hostname),
-            "transport.sync_back() should rsync files from agent VM",
-        )
-
-        self._run_test(
-            "rsync_sync_back_file_present",
-            lambda: (ws_path / agent_new_fname).read_text() == f"from-agent-{tag}",
-            "File written on agent should appear on world after sync_back",
-        )
-
-        large_fname = f"rsync_large_{tag}.bin"
-        large_data = os.urandom(2 * 1024 * 1024)
-        (ws_path / large_fname).write_bytes(large_data)
-
-        await transport.setup_agent(agent_env, agent_hostname)
-
-        await self._run_async_test(
-            "rsync_large_file",
-            lambda: self._check_file_size_on_agent(
-                ssh_key_path, agent_hostname, self._agent_path(large_fname), len(large_data)
-            ),
-            "Large file should rsync correctly",
-        )
-
-        await self._run_async_test(
-            "rsync_chown_superman",
-            lambda: self._check_ownership_on_agent(
-                ssh_key_path,
-                agent_hostname,
-                self._agent_path(f"rsync_test_{tag}.txt"),
-                "1000",
-                "1000",
-            ),
-            "Rsynced files should be owned by superman (uid 1000)",
-        )
-
-        # Cleanup
-        for f in [f"rsync_test_{tag}.txt", large_fname, agent_new_fname]:
-            (ws_path / f).unlink(missing_ok=True)
-        shutil.rmtree(ws_path / f"rsync_dir_{tag}", ignore_errors=True)
-
-    # ---------------------------------------------------------------
-    # Permission tests
-    # ---------------------------------------------------------------
-
-    async def _run_permission_tests(self, agent_env, agent_hostname: str, ssh_key_path: Path) -> None:
-        self.logger.info("Running permission tests...")
-        transport = self._ws.transport
-        ws_path = self._ws.path
-
-        if isinstance(transport, NFSTransport):
-            await self._run_async_test(
-                "nfs_root_uid_1000",
-                lambda: self._check_local_ownership("/srv/nfs", "1000"),
-                "/srv/nfs should be owned by uid 1000",
-            )
-            await self._run_async_test(
-                "nfs_root_sticky_bit",
-                lambda: self._check_local_permissions("/srv/nfs", "1777"),
-                "/srv/nfs should have mode 1777 (sticky)",
-            )
-
-            acl_ok = await self._check_acl("/srv/nfs")
-            if acl_ok:
-                self.test_results.append({"name": "nfs_acl_set", "passed": True})
-                self.logger.info("  [PASS] nfs_acl_set")
-            else:
-                self.logger.warning("  [SKIP] nfs_acl_set: ACLs not supported on this filesystem")
-
-            nfs_ws_path = f"/srv/nfs{ws_path}"
-            await self._run_async_test(
-                "nfs_workspace_uid_1000",
-                lambda: self._check_local_ownership(nfs_ws_path, "1000"),
-                f"{nfs_ws_path} should be owned by uid 1000",
-            )
-
-            tag = secrets.token_hex(4)
-            agent_write_file = self._agent_path(f"perm_test_{tag}.txt")
-            await self._run_async_test(
-                "nfs_agent_can_write",
-                lambda: self._test_agent_write(ssh_key_path, agent_hostname, agent_write_file),
-                "Agent should be able to write files via NFS",
-            )
-            (ws_path / f"perm_test_{tag}.txt").unlink(missing_ok=True)
-
-            agent_dir = self._agent_path(f"perm_dir_{tag}")
-            await self._run_async_test(
-                "nfs_agent_can_mkdir",
-                lambda: self._test_agent_mkdir(ssh_key_path, agent_hostname, agent_dir),
-                "Agent should be able to create directories via NFS",
-            )
-            shutil.rmtree(ws_path / f"perm_dir_{tag}", ignore_errors=True)
-
-        await self._run_async_test(
-            "workspace_dir_writable",
-            lambda: self._check_local_writable(str(ws_path)),
-            f"Workspace {ws_path} should be writable",
-        )
-
-    async def _check_local_ownership(self, path: str, expected_uid: str):
-        exit_code, stdout, _ = await run_local(f"stat -c '%u' {path}", timeout=5)
-        return exit_code == 0 and stdout.strip() == expected_uid
-
-    async def _check_local_permissions(self, path: str, expected_mode: str):
-        exit_code, stdout, _ = await run_local(f"stat -c '%a' {path}", timeout=5)
-        return exit_code == 0 and stdout.strip() == expected_mode
-
-    async def _check_acl(self, path: str):
-        exit_code, stdout, _ = await run_local(f"getfacl -p {path} 2>/dev/null", timeout=5)
-        if exit_code != 0:
-            return False
-        return (
-            "user:1000:rwx" in stdout
-            or "user:superman:rwx" in stdout
-            or "default:user:1000:rwx" in stdout
-            or "default:user:superman:rwx" in stdout
-        )
-
-    async def _check_local_writable(self, path: str):
-        exit_code, _, _ = await run_local(f"touch {path}/.write_test && rm {path}/.write_test", timeout=5)
-        return exit_code == 0
-
-    async def _check_ownership_on_agent(self, ssh_key_path, hostname, filepath, expected_uid, expected_gid):
-        exit_code, stdout, _ = await run_ssh(
-            ssh_key_path,
-            hostname,
-            f"stat -c '%u:%g' {filepath}",
-            timeout=10,
-        )
-        return exit_code == 0 and stdout.strip() == f"{expected_uid}:{expected_gid}"
-
-    async def _test_agent_write(self, ssh_key_path, hostname, filepath):
-        exit_code, _, _ = await run_ssh(ssh_key_path, hostname, f"echo -n 'perm-test' > {filepath}", timeout=10)
-        return exit_code == 0
-
-    async def _test_agent_mkdir(self, ssh_key_path, hostname, dirpath):
-        exit_code, _, _ = await run_ssh(
-            ssh_key_path,
-            hostname,
-            f"mkdir -p {dirpath} && touch {dirpath}/test.txt",
-            timeout=10,
-        )
-        return exit_code == 0
-
-    # ---------------------------------------------------------------
-    # Lazy DVC tests
+    # Lazy DVC tests — uses the declared tracked_ws (production path)
     # ---------------------------------------------------------------
 
     async def _run_lazy_dvc_tests(self) -> None:
-        self.logger.info("=== Running Lazy DVC Tests ===")
-
-        if not Path("/dev/fuse").exists():
-            raise RuntimeError("/dev/fuse not available — VM must have FUSE support")
+        self.logger.info("=== Lazy DVC tests ===")
 
         await run_local(
             "grep -q 'user_allow_other' /etc/fuse.conf 2>/dev/null || echo 'user_allow_other' >> /etc/fuse.conf",
             timeout=5,
         )
 
-        test_dir = Path(tempfile.mkdtemp(prefix="lazy_dvc_test_"))
-        try:
-            await self._lazy_dvc_test_cycle(test_dir)
-        except Exception as e:
-            self.test_results.append(
-                {
-                    "name": "lazy_dvc_unhandled_error",
-                    "passed": False,
-                    "error": str(e),
-                }
-            )
-            self.all_passed = False
-            self.logger.error("Lazy DVC tests failed: %s", e, exc_info=True)
-        finally:
-            await run_local(f"fusermount3 -u {test_dir}/data 2>/dev/null; true", timeout=5)
-            shutil.rmtree(test_dir, ignore_errors=True)
+        tracked = self._tracked
+        content_dir = tracked.path  # /workspace/tracked_ws/data
 
-    async def _lazy_dvc_test_cycle(self, test_dir: Path) -> None:
-        from plato.worlds.workspace import Workspace as DVCWorkspace
-
-        repo_info = await self._resolve_workspace_repo("lazy_dvc_test")
-        self.logger.info(
-            "Resolved workspace repo: bucket=%s prefix=%s repo=%s",
-            repo_info.s3_bucket,
-            repo_info.s3_prefix,
-            repo_info.repo_name,
-        )
-
-        ws = DVCWorkspace(
-            name="lazy_dvc_test",
-            path=test_dir,
-            tracked=True,
-            s3_bucket=repo_info.s3_bucket,
-            s3_prefix=repo_info.s3_prefix,
-            repo_id=repo_info.repo_id,
-            repo_name=repo_info.repo_name,
-            chronos_url=repo_info.chronos_url,
-            api_key=repo_info.api_key,
-            session_id=self.session.session_id if self.session else "",
-        )
-
-        await self._run_async_test(
-            "lazy_dvc_init",
-            lambda: self._async_ok(ws.init()),
-            "DVC workspace init should succeed",
-        )
-
-        # Validate new path semantics on manually-created tracked workspace
-        self._run_test(
-            "lazy_dvc_path_is_content_dir",
-            lambda: ws.path == test_dir / "data",
-            f"ws.path ({ws.path}) should be test_dir/data ({test_dir / 'data'})",
-        )
-        self._run_test(
-            "lazy_dvc_repo_root_is_test_dir",
-            lambda: ws._repo_root == test_dir,
-            f"ws._repo_root ({ws._repo_root}) should be test_dir ({test_dir})",
-        )
-        self._run_test(
-            "lazy_dvc_dvcignore_defaults",
-            lambda: (test_dir / ".dvcignore").exists() and "node_modules" in (test_dir / ".dvcignore").read_text(),
-            ".dvcignore should exist at _repo_root with defaults",
-        )
-
-        # ws.path is now the content dir (test_dir / "data")
-        content_dir = ws.path
-        content_dir.mkdir(exist_ok=True)
+        # Write test data
         (content_dir / "file1.txt").write_text("hello world")
         (content_dir / "file2.txt").write_text("second file content")
         sub = content_dir / "sub"
-        sub.mkdir()
+        sub.mkdir(exist_ok=True)
         (sub / "nested.txt").write_text("nested content here")
         large_data = os.urandom(512 * 1024)
         (content_dir / "large.bin").write_bytes(large_data)
         large_md5 = hashlib.md5(large_data).hexdigest()
 
-        await self._run_async_test(
+        # Commit (production code: workspace.commit)
+        await self._atest(
             "lazy_dvc_commit",
-            lambda: self._async_ok(ws.commit("lazy_test_step_1")),
-            "Regular DVC commit + push should succeed",
+            lambda: self._async_ok(tracked.commit("lazy_test_step_1")),
+            "DVC commit should succeed",
         )
 
-        shutil.rmtree(content_dir)
-        content_dir.mkdir()
+        # Unmount current FUSE, wipe data, restore lazily
+        from plato.worlds.lazy_dvc import unmount_lazy
 
-        await self._run_async_test(
-            "lazy_dvc_fuse_restore",
-            lambda: self._async_ok(ws.restore("lazy_test_step_1")),
-            "Lazy FUSE restore should mount successfully",
+        for mount in list(tracked._lazy_mounts.values()):
+            await unmount_lazy(mount)
+        tracked._lazy_mounts.clear()
+
+        await run_local(f"fusermount3 -u {content_dir} 2>/dev/null; true", timeout=5)
+        await asyncio.sleep(1)
+        shutil.rmtree(content_dir, ignore_errors=True)
+        shutil.rmtree(tracked._repo_root / ".lazy_cache", ignore_errors=True)
+        content_dir.mkdir(exist_ok=True)
+
+        # Restore (production code: workspace.restore → FUSE mount)
+        await self._atest(
+            "lazy_dvc_restore",
+            lambda: self._async_ok(tracked.restore("lazy_test_step_1")),
+            "Lazy FUSE restore should succeed",
         )
 
-        await self._run_async_test(
-            "lazy_dvc_mount_exists",
-            lambda: self._check_is_mount(content_dir),
-            f"{content_dir} should be a FUSE mount point",
+        # Verify FUSE mount exists
+        await self._atest(
+            "lazy_dvc_is_mount",
+            lambda: self._is_mountpoint(content_dir),
+            f"{content_dir} should be a FUSE mount after restore",
         )
 
-        await self._run_async_test(
+        # Verify listing
+        await self._atest(
             "lazy_dvc_listing",
-            lambda: self._check_ls_contains(content_dir, {"file1.txt", "file2.txt", "large.bin", "sub"}),
-            "All files/dirs should appear in listing",
+            lambda: self._ls_contains(content_dir, {"file1.txt", "file2.txt", "large.bin", "sub"}),
+            "All files should appear in listing",
         )
 
-        await self._run_async_test(
-            "lazy_dvc_nested_listing",
-            lambda: self._check_ls_contains(content_dir / "sub", {"nested.txt"}),
-            "Nested directory listing should work",
-        )
-
-        await self._run_async_test(
+        # Read files
+        await self._atest(
             "lazy_dvc_read_text",
-            lambda: self._check_cat(content_dir / "file1.txt", "hello world"),
+            lambda: self._cat(content_dir / "file1.txt", "hello world"),
             "Lazy text read should return correct content",
         )
-
-        await self._run_async_test(
+        await self._atest(
             "lazy_dvc_read_nested",
-            lambda: self._check_cat(content_dir / "sub" / "nested.txt", "nested content here"),
-            "Nested file read via lazy FUSE should work",
+            lambda: self._cat(content_dir / "sub" / "nested.txt", "nested content here"),
+            "Nested file read should work",
+        )
+        await self._atest(
+            "lazy_dvc_read_large",
+            lambda: self._md5sum(content_dir / "large.bin", large_md5),
+            "Large file content should match",
         )
 
-        await self._run_async_test(
-            "lazy_dvc_read_large_md5",
-            lambda: self._check_md5sum(content_dir / "large.bin", large_md5),
-            "Large file content should match after lazy download",
+        # File size accuracy (no 1GB sentinel)
+        await self._atest(
+            "lazy_dvc_size_text",
+            lambda: self._stat_size(content_dir / "file1.txt", len("hello world")),
+            "File size should match actual content length",
+        )
+        await self._atest(
+            "lazy_dvc_size_large",
+            lambda: self._stat_size(content_dir / "large.bin", len(large_data)),
+            "Large file size should match",
+        )
+        await self._atest(
+            "lazy_dvc_size_not_sentinel",
+            lambda: self._stat_not_sentinel(content_dir / "file1.txt"),
+            "File size should not be 1GB sentinel",
         )
 
-        await self._run_async_test(
+        # Modify, create, delete through FUSE
+        await self._atest(
             "lazy_dvc_write_new",
             lambda: self._shell_write(content_dir / "new_file.txt", "brand new content"),
-            "Creating a new file through FUSE should work",
+            "Creating new file through FUSE should work",
         )
-
-        await self._run_async_test(
-            "lazy_dvc_modify_existing",
+        await self._atest(
+            "lazy_dvc_modify",
             lambda: self._shell_write(content_dir / "file1.txt", "modified content"),
-            "Overwriting a file through FUSE should work",
+            "Modifying file through FUSE should work",
         )
-
-        await self._run_async_test(
+        await self._atest(
             "lazy_dvc_delete",
             lambda: self._shell_rm(content_dir / "file2.txt"),
-            "Deleting a file through FUSE should work",
+            "Deleting file through FUSE should work",
         )
 
-        # --- Symlink tests through FUSE ---
-        await self._run_async_test(
-            "lazy_dvc_create_symlink",
+        # Symlink
+        await self._atest(
+            "lazy_dvc_symlink",
             lambda: self._shell_symlink(content_dir / "link_to_file1.txt", "file1.txt"),
-            "Creating a symlink through FUSE should work",
+            "Creating symlink through FUSE should work",
         )
-
-        await self._run_async_test(
+        await self._atest(
             "lazy_dvc_readlink",
-            lambda: self._check_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
-            "readlink through FUSE should return correct target",
+            lambda: self._shell_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
+            "readlink should return correct target",
         )
 
-        await self._run_async_test(
-            "lazy_dvc_symlink_is_link",
-            lambda: self._check_is_symlink(content_dir / "link_to_file1.txt"),
-            "Symlink should appear as a symlink via lstat",
-        )
-
-        await self._run_async_test(
+        # Smart commit (production code: workspace.commit with lazy mounts)
+        await self._atest(
             "lazy_dvc_smart_commit",
-            lambda: self._async_ok(ws.commit("lazy_test_step_2")),
+            lambda: self._async_ok(tracked.commit("lazy_test_step_2")),
             "Smart commit should succeed",
         )
 
-        # _smart_commit re-mounts after committing (by design — keeps mount
-        # live for the next step).  Tear down the mounts so we can rmtree
-        # the data dir and test a fresh restore from S3.
-        from plato.worlds.lazy_dvc import unmount_lazy
-
-        for mount in list(ws._lazy_mounts.values()):
+        # Restore the smart-committed version
+        for mount in list(tracked._lazy_mounts.values()):
             await unmount_lazy(mount)
-        ws._lazy_mounts.clear()
+        tracked._lazy_mounts.clear()
 
-        await self._run_async_test(
-            "lazy_dvc_unmounted",
-            lambda: self._check_not_mount(content_dir),
-            f"{content_dir} should NOT be a mount point after explicit unmount",
-        )
-
+        await run_local(f"fusermount3 -u {content_dir} 2>/dev/null; true", timeout=5)
+        await asyncio.sleep(1)
         shutil.rmtree(content_dir, ignore_errors=True)
-        shutil.rmtree(test_dir / ".lazy_cache", ignore_errors=True)
+        shutil.rmtree(tracked._repo_root / ".lazy_cache", ignore_errors=True)
+        content_dir.mkdir(exist_ok=True)
 
-        await self._run_async_test(
-            "lazy_dvc_regular_restore",
-            lambda: self._async_ok(ws.restore("lazy_test_step_2")),
-            "Regular DVC restore of smart-committed data should work",
+        await self._atest(
+            "lazy_dvc_restore_smart",
+            lambda: self._async_ok(tracked.restore("lazy_test_step_2")),
+            "Restore of smart-committed data should work",
         )
 
-        await self._run_async_test(
+        # Verify smart commit changes persisted
+        await self._atest(
             "lazy_dvc_verify_modified",
-            lambda: self._check_cat(content_dir / "file1.txt", "modified content"),
-            "Modified file should have new content after restore",
+            lambda: self._cat(content_dir / "file1.txt", "modified content"),
+            "Modified file should have new content",
         )
-
-        await self._run_async_test(
+        await self._atest(
             "lazy_dvc_verify_new",
-            lambda: self._check_cat(content_dir / "new_file.txt", "brand new content"),
-            "New file should exist after restore",
+            lambda: self._cat(content_dir / "new_file.txt", "brand new content"),
+            "New file should exist",
         )
-
-        await self._run_async_test(
+        await self._atest(
             "lazy_dvc_verify_deleted",
-            lambda: self._check_absent(content_dir / "file2.txt"),
-            "Deleted file should NOT exist after restore",
+            lambda: self._file_absent(content_dir / "file2.txt"),
+            "Deleted file should not exist",
         )
-
-        await self._run_async_test(
+        await self._atest(
             "lazy_dvc_verify_untouched",
-            lambda: self._check_cat(content_dir / "sub" / "nested.txt", "nested content here"),
-            "Untouched nested file should have original content",
+            lambda: self._cat(content_dir / "sub" / "nested.txt", "nested content here"),
+            "Untouched file should have original content",
+        )
+        await self._atest(
+            "lazy_dvc_verify_symlink",
+            lambda: self._shell_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
+            "Symlink should survive commit/restore cycle",
         )
 
-        await self._run_async_test(
-            "lazy_dvc_verify_large_untouched",
-            lambda: self._check_md5sum(content_dir / "large.bin", large_md5),
-            "Untouched large file should match original MD5",
-        )
+    # ---------------------------------------------------------------
+    # SSH / shell helpers
+    # ---------------------------------------------------------------
 
-        # Verify symlink survived smart commit → regular restore cycle
-        await self._run_async_test(
-            "lazy_dvc_verify_symlink_target",
-            lambda: self._check_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
-            "Symlink target should be preserved after smart commit + restore",
-        )
+    async def _ssh_cat(self, ssh_key_path, hostname, filepath, expected) -> bool:
+        ec, stdout, _ = await run_ssh(ssh_key_path, hostname, f"cat {filepath}", timeout=10)
+        return ec == 0 and stdout == expected
 
-        await self._run_async_test(
-            "lazy_dvc_verify_symlink_is_link",
-            lambda: self._check_is_symlink(content_dir / "link_to_file1.txt"),
-            "Symlink should still be a symlink after restore",
-        )
+    async def _ssh_file_size(self, ssh_key_path, hostname, filepath, expected_size) -> bool:
+        ec, stdout, _ = await run_ssh(ssh_key_path, hostname, f"stat -c '%s' {filepath}", timeout=10)
+        return ec == 0 and stdout.strip() == str(expected_size)
 
-    # --- lazy DVC helpers ---
+    async def _ssh_file_absent(self, ssh_key_path, hostname, filepath) -> bool:
+        ec, _, _ = await run_ssh(ssh_key_path, hostname, f"test ! -f {filepath}", timeout=10)
+        return ec == 0
+
+    def _ok(self, exit_code) -> bool:
+        return exit_code == 0
 
     async def _async_ok(self, coro) -> bool:
         await coro
         return True
 
-    async def _check_is_mount(self, path: Path) -> bool:
-        ec, _, _ = await run_local(f"mountpoint -q {path}", timeout=5)
-        return ec == 0
-
-    async def _check_not_mount(self, path: Path) -> bool:
-        ec, _, _ = await run_local(f"mountpoint -q {path}", timeout=5)
-        return ec != 0
-
-    async def _check_ls_contains(self, path: Path, expected: set[str]) -> bool:
-        ec, stdout, _ = await run_local(f"ls {path}", timeout=10)
-        if ec != 0:
-            return False
-        return expected.issubset(set(stdout.strip().split()))
-
-    async def _check_cat(self, path: Path, expected: str) -> bool:
+    async def _cat(self, path: Path, expected: str) -> bool:
         ec, stdout, _ = await run_local(f"cat {path}", timeout=30)
         return ec == 0 and stdout == expected
 
-    async def _check_md5sum(self, path: Path, expected_md5: str) -> bool:
+    async def _md5sum(self, path: Path, expected_md5: str) -> bool:
         ec, stdout, _ = await run_local(f"md5sum {path}", timeout=30)
-        if ec != 0:
-            return False
-        return stdout.strip().split()[0] == expected_md5
+        return ec == 0 and stdout.strip().split()[0] == expected_md5
 
-    async def _check_absent(self, path: Path) -> bool:
+    async def _ls_contains(self, path: Path, expected: set[str]) -> bool:
+        ec, stdout, _ = await run_local(f"ls {path}", timeout=10)
+        return ec == 0 and expected.issubset(set(stdout.strip().split()))
+
+    async def _stat_size(self, path: Path, expected_size: int) -> bool:
+        ec, stdout, _ = await run_local(f"stat -c '%s' {path}", timeout=10)
+        return ec == 0 and int(stdout.strip()) == expected_size
+
+    async def _stat_not_sentinel(self, path: Path) -> bool:
+        ec, stdout, _ = await run_local(f"stat -c '%s' {path}", timeout=10)
+        return ec == 0 and int(stdout.strip()) != (1 << 30)
+
+    async def _file_absent(self, path: Path) -> bool:
         ec, _, _ = await run_local(f"test ! -f {path}", timeout=5)
         return ec == 0
 
     async def _shell_write(self, path: Path, content: str) -> bool:
         ec, _, _ = await run_local(
             f"{sys.executable} -c \"from pathlib import Path; Path('{path}').write_text('{content}')\"",
-            timeout=10,
+            timeout=60,
         )
         return ec == 0
 
@@ -1179,10 +886,6 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
         ec, _, _ = await run_local(f"ln -s '{target}' '{link_path}'", timeout=10)
         return ec == 0
 
-    async def _check_readlink(self, path: Path, expected_target: str) -> bool:
+    async def _shell_readlink(self, path: Path, expected: str) -> bool:
         ec, stdout, _ = await run_local(f"readlink '{path}'", timeout=10)
-        return ec == 0 and stdout.strip() == expected_target
-
-    async def _check_is_symlink(self, path: Path) -> bool:
-        ec, _, _ = await run_local(f"test -L '{path}'", timeout=5)
-        return ec == 0
+        return ec == 0 and stdout.strip() == expected

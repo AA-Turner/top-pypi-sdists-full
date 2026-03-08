@@ -30,6 +30,7 @@ dependencies = [
     "pyloudnorm>=0.2.0",
     "numba>=0.60.0", # Required by librosa
     "librosa==0.11.0",
+    "protobuf>=6.33.5",
 ]
 
 [project.optional-dependencies]
@@ -93,6 +94,9 @@ all = [
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=1.0.0",
+    "black>=24.2.0",
+    "isort>=5.13.2",
+    "pre-commit>=3.7.0",
 ]
 
 [project.scripts]
@@ -126,3 +130,10 @@ mlx_audio = [
     "tts/**/*.json",
     "tts/static/**/*",
 ]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"

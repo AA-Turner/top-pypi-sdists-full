@@ -145,18 +145,18 @@ class LockExtensionError(LockError):
     """Errors extending a lock"""
 
 
-class RedisClusterException(Exception):
+class RedisClusterError(RedisError):
     """Base exception for the RedisCluster client"""
 
 
-class ClusterError(RedisError):
+class ClusterError(RedisClusterError):
     """
     Cluster errors occurred multiple times, resulting in an exhaustion of the
     command execution ``TTL``
     """
 
 
-class ClusterCrossSlotError(ResponseError):
+class ClusterCrossSlotError(RedisClusterError, ResponseError):
     """Raised when keys in request don't hash to the same slot"""
 
     def __init__(
@@ -165,16 +165,22 @@ class ClusterCrossSlotError(ResponseError):
         command: bytes | None = None,
         keys: tuple[RedisValueT, ...] | None = None,
     ) -> None:
-        super().__init__(message or "Keys in request don't hash to the same slot")
+        if not message:
+            message = (
+                f"Keys {keys} for '{command.decode('utf-8')}' don't hash to the same slot"
+                if command
+                else "Keys in request don't hash to the same slot"
+            )
+        super().__init__(message)
         self.command = command
         self.keys = keys
 
 
-class ClusterRoutingError(RedisClusterException):
+class ClusterRoutingError(RedisClusterError):
     """Raised when keys in request can't be routed to destination nodes"""
 
 
-class ClusterDownError(ClusterError, ResponseError):
+class ClusterDownError(RedisClusterError, ResponseError):
     """
     Error indicated ``CLUSTERDOWN`` error received from cluster.
 
@@ -191,19 +197,19 @@ class ClusterDownError(ClusterError, ResponseError):
         self.message = resp
 
 
-class ClusterTransactionError(ClusterError):
+class ClusterTransactionError(RedisClusterError):
     def __init__(self, msg: str) -> None:
         self.msg = msg
 
 
-class ClusterResponseError(ClusterError):
+class ClusterResponseError(RedisClusterError):
     """
     Raised when application logic to combine multi node
     cluster responses has errors.
     """
 
 
-class AskError(ResponseError):
+class AskError(RedisClusterError, ResponseError):
     """
     Error indicated ``ASK`` error received from cluster.
 
@@ -229,7 +235,7 @@ class AskError(ResponseError):
         self.node_addr = self.host, self.port = host, int(port)
 
 
-class TryAgainError(ResponseError):
+class TryAgainError(RedisClusterError, ResponseError):
     """
     Error indicated ``TRYAGAIN`` error received from cluster.
     Operations on keys that don't exist or are - during resharding - split
@@ -288,6 +294,13 @@ class PrimaryNotFoundError(SentinelError):
     """
 
 
+class StalePrimaryError(SentinelError):
+    """
+    Raised when a primary discovered through a sentinel
+    is not a primary as it has been demoted to a replica
+    """
+
+
 class ReplicaNotFoundError(SentinelError):
     """
     Raised when a replica cannot be located in a
@@ -338,5 +351,8 @@ class StreamConsumerInitializationError(StreamConsumerError):
     based on the configuration provided
     """
 
+
+#: Alias for backward compatibility
+RedisClusterException = RedisClusterError
 
 __all__ = ["RedisError"]

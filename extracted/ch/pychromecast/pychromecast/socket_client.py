@@ -33,6 +33,7 @@ from .controllers.receiver import CastStatus, CastStatusListener, ReceiverContro
 from .dial import get_host_from_service
 from .error import (
     ChromecastConnectionError,
+    ChromecastConnectionClosed,
     ControllerNotRegistered,
     NotConnected,
     PyChromecastStopped,
@@ -267,9 +268,7 @@ class SocketClient(threading.Thread, CastStatusListener):
             retry["delay"] = min(retry["delay"] * 2, 300)
             retries[service] = retry
 
-        while not self.stop.is_set() and (
-            tries is None or tries > 0
-        ):  # pylint:disable=too-many-nested-blocks
+        while not self.stop.is_set() and (tries is None or tries > 0):
             # Prune retries dict
             retries = {
                 key: retries[key]
@@ -619,6 +618,15 @@ class SocketClient(threading.Thread, CastStatusListener):
                     if self.stop.is_set():
                         return 1
                 raise
+            except ChromecastConnectionClosed as exc:
+                self._force_recon = True
+                self.logger.debug(
+                    "[%s(%s):%s] %s",
+                    self.fn or "",
+                    self.host,
+                    self.port,
+                    exc,
+                )
             except socket.error as exc:
                 self._force_recon = True
                 self.logger.error(
@@ -817,7 +825,7 @@ class SocketClient(threading.Thread, CastStatusListener):
             try:
                 chunk = self.socket.recv(min(msglen - bytes_recd, 2048))
                 if chunk == b"":
-                    raise socket.error("socket connection broken")
+                    raise ChromecastConnectionClosed("Connection was closed by remote")
                 chunks.append(chunk)
                 bytes_recd += len(chunk)
             except TimeoutError:

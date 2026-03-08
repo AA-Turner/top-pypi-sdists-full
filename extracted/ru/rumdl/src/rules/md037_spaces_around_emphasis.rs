@@ -10,8 +10,8 @@ use crate::utils::emphasis_utils::{
 use crate::utils::kramdown_utils::has_span_ial;
 use crate::utils::regex_cache::UNORDERED_LIST_MARKER_REGEX;
 use crate::utils::skip_context::{
-    is_in_html_comment, is_in_jsx_expression, is_in_math_context, is_in_mdx_comment, is_in_mkdocs_markup,
-    is_in_table_cell,
+    is_in_html_comment, is_in_inline_html_code, is_in_jsx_expression, is_in_math_context, is_in_mdx_comment,
+    is_in_mkdocs_markup, is_in_table_cell,
 };
 
 /// Check if an emphasis span has spacing issues that should be flagged
@@ -101,6 +101,9 @@ impl Rule for MD037NoSpaceInEmphasis {
             .skip_front_matter()
             .skip_code_blocks()
             .skip_math_blocks()
+            .skip_html_blocks()
+            .skip_jsx_expressions()
+            .skip_mdx_comments()
             .skip_obsidian_comments()
         {
             // Skip if the line doesn't contain any emphasis markers
@@ -135,6 +138,7 @@ impl Rule for MD037NoSpaceInEmphasis {
                         && !is_in_math_context(ctx, byte_pos)
                         && !is_in_table_cell(ctx, line_num, warning.column)
                         && !ctx.is_in_code_span(line_num, warning.column)
+                        && !is_in_inline_html_code(line, line_pos)
                         && !is_in_jsx_expression(ctx, byte_pos)
                         && !is_in_mdx_comment(ctx, byte_pos)
                         && !is_in_mkdocs_markup(line, line_pos, ctx.flavor)
@@ -167,6 +171,8 @@ impl Rule for MD037NoSpaceInEmphasis {
 
         // First check for issues and get all warnings with fixes
         let warnings = self.check(ctx)?;
+        let warnings =
+            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
 
         // If no warnings, return original content
         if warnings.is_empty() {
@@ -603,6 +609,44 @@ This has * real spaced emphasis * that should be flagged."#;
     }
 
     #[test]
+    fn test_html_block_asterisks_not_flagged() {
+        let rule = MD037NoSpaceInEmphasis;
+
+        // Asterisks used as multiplication inside HTML <code> tags within an HTML table
+        let content = r#"<table>
+<tr><td>Format</td><td>Size</td></tr>
+<tr><td>BC1</td><td><code>floor((width + 3) / 4) * floor((height + 3) / 4) * 8</code></td></tr>
+<tr><td>BC2</td><td><code>floor((width + 3) / 4) * floor((height + 3) / 4) * 16</code></td></tr>
+</table>"#;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Should not flag asterisks inside HTML blocks. Got: {result:?}"
+        );
+
+        // Standalone HTML block with emphasis-like patterns
+        let content2 = "<div>\n<p>Value is * something * here</p>\n</div>";
+        let ctx2 = LintContext::new(content2, crate::config::MarkdownFlavor::Standard, None);
+        let result2 = rule.check(&ctx2).unwrap();
+        assert!(
+            result2.is_empty(),
+            "Should not flag emphasis-like patterns inside HTML div blocks. Got: {result2:?}"
+        );
+
+        // Regular markdown with spaced emphasis should still be flagged
+        let content3 = "Regular * spaced emphasis * text\n\n<div>* not emphasis *</div>";
+        let ctx3 = LintContext::new(content3, crate::config::MarkdownFlavor::Standard, None);
+        let result3 = rule.check(&ctx3).unwrap();
+        assert_eq!(
+            result3.len(),
+            1,
+            "Should flag spaced emphasis in regular markdown but not inside HTML blocks. Got: {result3:?}"
+        );
+        assert_eq!(result3[0].line, 1, "Warning should be on line 1 (regular markdown)");
+    }
+
+    #[test]
     fn test_mkdocs_icon_shortcode_not_flagged() {
         // Test that MkDocs icon shortcodes with asterisks inside are not flagged
         let rule = MD037NoSpaceInEmphasis;
@@ -943,5 +987,48 @@ This has * real spaced emphasis * that should be flagged."#;
             result.is_empty(),
             "Should ignore emphasis inside Obsidian comments. Got: {result:?}"
         );
+    }
+
+    #[test]
+    fn test_inline_html_code_not_flagged() {
+        let rule = MD037NoSpaceInEmphasis;
+
+        // Asterisks used as multiplication inside inline <code> tags
+        let content = "The formula is <code>a * b * c</code> in math.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Should not flag asterisks inside inline <code> tags. Got: {result:?}"
+        );
+
+        // Multiple inline code-like tags on the same line
+        let content2 = "Use <kbd>Ctrl * A</kbd> and <samp>x * y</samp> here.";
+        let ctx2 = LintContext::new(content2, crate::config::MarkdownFlavor::Standard, None);
+        let result2 = rule.check(&ctx2).unwrap();
+        assert!(
+            result2.is_empty(),
+            "Should not flag asterisks inside inline <kbd> and <samp> tags. Got: {result2:?}"
+        );
+
+        // Code tag with attributes
+        let content3 = r#"Result: <code class="math">a * b</code> done."#;
+        let ctx3 = LintContext::new(content3, crate::config::MarkdownFlavor::Standard, None);
+        let result3 = rule.check(&ctx3).unwrap();
+        assert!(
+            result3.is_empty(),
+            "Should not flag asterisks inside <code> with attributes. Got: {result3:?}"
+        );
+
+        // Real emphasis on the same line as inline code should still be flagged
+        let content4 = "Text * spaced * and <code>a * b</code>.";
+        let ctx4 = LintContext::new(content4, crate::config::MarkdownFlavor::Standard, None);
+        let result4 = rule.check(&ctx4).unwrap();
+        assert_eq!(
+            result4.len(),
+            1,
+            "Should flag real spaced emphasis but not code content. Got: {result4:?}"
+        );
+        assert_eq!(result4[0].column, 6);
     }
 }

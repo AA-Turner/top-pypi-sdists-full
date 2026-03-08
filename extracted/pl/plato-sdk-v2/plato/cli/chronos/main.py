@@ -76,10 +76,21 @@ def launch(
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
+    # Load .env file next to the config (if any) so ${VAR} substitution works
+    from dotenv import load_dotenv
+
+    from plato.cli.chronos.config import _expand_vars_recursive
+
+    config_path = Path(config).expanduser().resolve()
+    env_path = config_path.parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path, override=True)
+
     # Load config file (expand ${VAR} references from environment, same as dev mode)
     try:
-        with open(config) as f:
-            raw = json.loads(os.path.expandvars(f.read()))
+        with open(config_path) as f:
+            raw = json.load(f)
+        _expand_vars_recursive(raw)
     except Exception as e:
         console.print(f"[red]Invalid config file: {e}[/red]")
         raise typer.Exit(1)

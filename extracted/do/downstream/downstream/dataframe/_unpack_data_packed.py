@@ -1,10 +1,14 @@
+import io
 import logging
+import pathlib
 import typing
+import uuid
 import warnings
 
 import numpy as np
 import polars as pl
 
+from .._auxlib._unpack_hex_bits import unpack_hex_bits
 from ._impl._check_expected_columns import check_expected_columns
 
 
@@ -91,6 +95,112 @@ def _calculate_offsets(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def _deserialize_h_matrix(h_matrix_str: str) -> np.ndarray:
+    """Deserialize a parity-check (H) matrix string to a numpy array.
+
+    The H matrix is a boolean matrix where rows are parity constraints
+    and columns correspond to bit positions in the data. The input
+    string should have space-separated 0/1 digits with rows delimited
+    by newlines, suitable for direct parsing by ``np.loadtxt``.
+    """
+    try:
+        h_matrix = np.loadtxt(
+            io.StringIO(h_matrix_str),
+            dtype=np.uint8,
+            ndmin=2,
+        )
+    except Exception:
+        logging.error(f"failed to parse H matrix: {h_matrix_str!r}")
+        raise
+
+    if (h_matrix > 1).any():
+        raise ValueError(
+            f"H matrix contains values other than 0 and 1: "
+            f"{np.unique(h_matrix).tolist()}",
+        )
+
+    return h_matrix
+
+
+
+def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
+    """Apply downstream_data_parity0_rule to compute parity syndrome.
+
+    If 'downstream_data_parity0_rule' column is present, computes the
+    parity check result for each row's data_hex against its H matrix
+    and stores the result in 'downstream_data_parity0_result'.
+
+    Groups by unique H matrix strings to deserialize each only once,
+    then performs vectorized bulk computation across all rows sharing
+    the same H matrix.
+    """
+    parity_result = np.zeros(len(df), dtype=int)
+
+    logging.info(" - filtering non-empty parity rules...")
+    indexed = df.with_row_index(
+        "_downstream_parity_idx",
+    ).filter(
+        pl.col("downstream_data_parity0_rule").is_not_null()
+        & (pl.col("downstream_data_parity0_rule").cast(pl.String).str.len_bytes() > 0),
+    )
+    logging.info(
+        f" - {len(indexed)} of {len(df)} row(s) have parity rules...",
+    )
+    for (h_matrix_str,), group in indexed.group_by(
+        "downstream_data_parity0_rule",
+    ):
+        indices = group["_downstream_parity_idx"].to_numpy()
+
+        logging.info(f" - deserializing H matrix for {len(group)} row(s)...")
+        h_matrix = _deserialize_h_matrix(str(h_matrix_str))
+        logging.info(f" - H matrix has {h_matrix.shape[0]} parity rule(s)...")
+
+        logging.info(f" - concatenating data_hex for {len(group)} row(s)...")
+        concat_hex = (
+            group.lazy()
+            .select(pl.col("data_hex").str.join(""))
+            .collect()
+            .item()
+        )
+        hex_len = (
+            group.lazy()
+            .select(pl.col("data_hex").str.len_bytes().first())
+            .collect()
+            .item()
+        )
+        logging.info(" - converting hex to bits...")
+        all_bits = unpack_hex_bits(concat_hex)
+
+        num_rows = len(group)
+        bits_per_row = hex_len * 4
+        data_matrix = all_bits.reshape(num_rows, bits_per_row)
+
+        if h_matrix.shape[1] != bits_per_row:
+            raise ValueError(
+                f"H matrix column count {h_matrix.shape[1]} does not "
+                f"match data_hex bit length {bits_per_row}, "
+                f"H matrix: {h_matrix_str!r}",
+            )
+
+        logging.info(f" - computing syndromes for {num_rows} row(s)...")
+        syndromes = (data_matrix @ h_matrix.T) % 2
+        row_violations = np.sum(syndromes, axis=1)
+        total_violations = int(np.sum(row_violations))
+        logging.info(
+            f" - data parity0: {total_violations} rule violation(s) "
+            f"across {h_matrix.shape[0]} rule(s) occurring in "
+            f"{int(np.count_nonzero(row_violations))} "
+            f"row(s)",
+        )
+        parity_result[indices] = row_violations
+
+    return df.with_columns(
+        downstream_data_parity0_result=pl.Series(
+            parity_result, dtype=pl.UInt32,
+        ),
+    ).drop("downstream_data_parity0_rule")
+
+
 def _extract_from_data_hex(df: pl.DataFrame) -> pl.DataFrame:
     return (
         df.lazy()
@@ -123,25 +233,79 @@ def _extract_from_data_hex(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _perform_validations(df: pl.DataFrame) -> pl.DataFrame:
-    validation_groups = df.with_columns(
-        pl.col("downstream_validate_unpacked").set_sorted(),
-    ).group_by("downstream_validate_unpacked")
-    num_validators = 0
-    for (validator,), group in validation_groups:
-        num_validators += bool(validator)
-        validation_expr = eval(validator or "pl.lit(True)", {"pl": pl})
+def _perform_validations(
+    df: pl.DataFrame,
+    col_name: str,
+) -> pl.DataFrame:
+    validator_strs = (
+        df.select(pl.col(col_name))
+        .to_series()
+        .unique()
+        .drop_nulls()
+        .replace("", None)
+        .drop_nulls()
+        .to_list()
+    )
+    for validator in validator_strs:
+        validation_expr = eval(validator, {"pl": pl})
+        group = df.filter(pl.col(col_name) == validator)
         validation_result = group.select(validation_expr).to_series()
         if not validation_result.all():
-            err_msg = f"downstream_validate_exploded `{validator}` failed"
+            err_msg = f"{col_name} `{validator}` failed"
             logging.error(err_msg)
-            logging.error(
-                group.filter(~validation_result).glimpse(return_as_string=True)
-            )
+            failed_rows = group.filter(~validation_result)
+            logging.error(failed_rows.glimpse(return_type="str"))
+            for dump_path in (
+                pathlib.Path.home()
+                / f"downstream_validation_fail_{uuid.uuid4()}.pqt",
+                f"/tmp/downstream_validation_fail_{uuid.uuid4()}.pqt",  # nosec B108
+            ):
+                try:
+                    failed_rows.write_parquet(dump_path)
+                    logging.error(f"failing rows dumped to {dump_path}")
+                    break
+                except Exception as e:
+                    logging.error(
+                        f"failed to dump rows to {dump_path}: {e}",
+                    )
             raise ValueError(err_msg)
 
-    df = df.drop("downstream_validate_unpacked")
-    logging.info(f" - {num_validators} validation(s) passed!")
+    df = df.drop(col_name)
+    logging.info(f" - {len(validator_strs)} validation(s) passed!")
+
+    return df
+
+
+def _apply_filters(
+    df: pl.DataFrame,
+    col_name: str,
+) -> pl.DataFrame:
+    num_before = len(df)
+    filter_strs = (
+        df.select(pl.col(col_name))
+        .to_series()
+        .unique()
+        .drop_nulls()
+        .replace("", None)
+        .drop_nulls()
+        .to_list()
+    )
+    combined_expr = pl.lit(True)
+    for filter_expr_str in filter_strs:
+        combined_expr = (
+            pl.when(pl.col(col_name) == filter_expr_str)
+            .then(eval(filter_expr_str, {"pl": pl}))
+            .otherwise(combined_expr)
+        )
+
+    df = df.lazy().filter(combined_expr).collect().drop(col_name)
+    num_after = len(df)
+    num_filtered = num_before - num_after
+    logging.info(
+        f" - {len(filter_strs)} filter(s) applied, "
+        f"{num_filtered} dropped and {num_after} kept "
+        f"from {num_before} rows",
+    )
 
     return df
 
@@ -231,16 +395,44 @@ def unpack_data_packed(
 
         Optional schema:
 
+        - 'downstream_data_parity0_rule' : pl.String or pl.Categorical
+            - Boolean parity-check matrix (H) for validating the binary
+              representation of 'data_hex', serialized as a string.
+            - Rows of H correspond to independent parity constraints;
+              columns correspond to bit positions in 'data_hex'.
+            - The string uses space-separated 0/1 digits with rows
+              delimited by newlines, parsed directly by ``np.loadtxt``
+              into a uint8 matrix.
+            - Example: for 4-bit data_hex, ``"1 1 1 1\n1 0 1 0"``
+              defines a 2x4 H matrix ``[[1,1,1,1],[1,0,1,0]]``.
+            - If present, 'downstream_data_parity0_result' will be
+              computed as the syndrome H @ data (mod 2).
+            - Parity is computed before packed filters and validations,
+              so ``"pl.col('downstream_data_parity0_result') == 0"``
+              can be used as a 'downstream_filter_packed' to drop rows
+              failing the parity check, or as a
+              'downstream_validate_packed' to assert all rows pass.
         - 'downstream_exclude_exploded' : pl.Boolean
             - Should row be dropped after exploding unpacked data?
         - 'downstream_exclude_unpacked' : pl.Boolean
             - Should row be dropped after unpacking packed data?
+        - 'downstream_filter_exploded' : pl.String, polars expression
+            - Polars expression to filter exploded data; non-matching rows
+            are dropped. Applied after validation.
+        - 'downstream_filter_packed' : pl.String, polars expression
+            - Polars expression to filter packed data; non-matching rows
+            are dropped. Applied after validation.
+        - 'downstream_filter_unpacked' : pl.String, polars expression
+            - Polars expression to filter unpacked data; non-matching rows
+            are dropped. Applied after validation.
         - 'dstream_T_dilation' : pl.UInt32
             - Dilation factor applied to T counter, if any; supports scenario
             where data items are ingested every `dstream_T_dilation`th counter
             step (default 1).
         - 'downstream_validate_exploded' : pl.String, polars expression
             - Polars expression to validate exploded data.
+        - 'downstream_validate_packed' : pl.String, polars expression
+            - Polars expression to validate packed data.
         - 'downstream_validate_unpacked' : pl.String, polars expression
             - Polars expression to validate unpacked data.
         - 'downstream_version' : pl.Categorical
@@ -276,6 +468,12 @@ def unpack_data_packed(
             - 'dstream_storage_hex' : pl.String
                 - Raw dstream buffer binary data, containing packed data items.
                 - Represented as a hexadecimal string.
+
+        If 'downstream_data_parity0_rule' was provided:
+
+            - 'downstream_data_parity0_result' : pl.UInt32
+                - Number of parity rule rows violated.
+                - Zero indicates data passes the parity check.
 
         User-defined columns and 'downstream_version' will be forwarded from
         the input DataFrame.
@@ -313,6 +511,18 @@ def unpack_data_packed(
         logging.info(" - defaulting dstream_T_dilation...")
         df = df.with_columns(dstream_T_dilation=pl.lit(1).cast(pl.UInt32))
 
+    if "downstream_data_parity0_rule" in schema_names:
+        logging.info(" - computing downstream_data_parity0_result...")
+        df = _apply_data_parity0(df)
+
+    if "downstream_validate_packed" in df:
+        logging.info(" - evaluating `downstream_validate_packed` exprs...")
+        df = _perform_validations(df, "downstream_validate_packed")
+
+    if "downstream_filter_packed" in df:
+        logging.info(" - applying `downstream_filter_packed` exprs...")
+        df = _apply_filters(df, "downstream_filter_packed")
+
     logging.info(" - calculating offsets...")
     df = _calculate_offsets(df)
 
@@ -331,7 +541,11 @@ def unpack_data_packed(
 
     if "downstream_validate_unpacked" in df:
         logging.info(" - evaluating `downstream_validate_unpacked` exprs...")
-        df = _perform_validations(df)
+        df = _perform_validations(df, "downstream_validate_unpacked")
+
+    if "downstream_filter_unpacked" in df:
+        logging.info(" - applying `downstream_filter_unpacked` exprs...")
+        df = _apply_filters(df, "downstream_filter_unpacked")
 
     if "downstream_exclude_unpacked" in df:
         logging.info(" - dropping excluded rows...")

@@ -15,7 +15,7 @@ static HTML_ANCHOR_PATTERN: LazyLock<Regex> =
 // Matches {#id} or { #id } with optional spaces, supports multiple anchors
 // Also supports classes and attributes: { #id .class key=value }
 static ATTR_ANCHOR_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"\{\s*#([a-zA-Z][a-zA-Z0-9_-]*)[^}]*\}"#).unwrap());
+    LazyLock::new(|| Regex::new(r#"\{\s*#([a-zA-Z0-9_][a-zA-Z0-9_-]*)[^}]*\}"#).unwrap());
 
 // Material for MkDocs setting anchor pattern: <!-- md:setting NAME -->
 // Used in headings to generate anchors for configuration option references
@@ -170,6 +170,7 @@ impl MD051LinkFragments {
                 auto_anchor: format!("_{count}"),
                 custom_anchor,
                 line,
+                is_setext: false,
             });
             return;
         }
@@ -188,6 +189,7 @@ impl MD051LinkFragments {
                 auto_anchor: primary,
                 custom_anchor,
                 line,
+                is_setext: false,
             });
             if let Some(alias_anchor) = alias {
                 let heading_idx = file_index.headings.len() - 1;
@@ -200,6 +202,7 @@ impl MD051LinkFragments {
                 auto_anchor: fragment.to_string(),
                 custom_anchor,
                 line,
+                is_setext: false,
             });
         }
     }
@@ -994,6 +997,7 @@ See [link](#nonexistent) for details."#;
             auto_anchor: "installation-guide".to_string(),
             custom_anchor: None,
             line: 1,
+            is_setext: false,
         });
         workspace_index.insert_file(PathBuf::from("docs/install.md"), target_file_index);
 
@@ -1028,6 +1032,7 @@ See [link](#nonexistent) for details."#;
             auto_anchor: "installation-guide".to_string(),
             custom_anchor: None,
             line: 1,
+            is_setext: false,
         });
         workspace_index.insert_file(PathBuf::from("docs/install.md"), target_file_index);
 
@@ -1064,6 +1069,7 @@ See [link](#nonexistent) for details."#;
             auto_anchor: "installation-guide".to_string(),
             custom_anchor: Some("install".to_string()),
             line: 1,
+            is_setext: false,
         });
         workspace_index.insert_file(PathBuf::from("docs/install.md"), target_file_index);
 

@@ -626,7 +626,7 @@ def durable(
                 else:
                     cached_model = _check_typed_cache(return_type, bp)
                     if cached_model is not None:
-                        logger.info("Cache hit for %s, loading typed outputs", fn.__name__)
+                        logger.debug("Cache hit for %s, loading typed outputs", fn.__name__)
                         return cached_model
 
                 # Cache miss — resolve dependencies and call function
@@ -664,7 +664,7 @@ def durable(
                 else:
                     cached_model = _check_typed_cache(return_type, bp)
                     if cached_model is not None:
-                        logger.info("Cache hit for %s, loading typed outputs", fn.__name__)
+                        logger.debug("Cache hit for %s, loading typed outputs", fn.__name__)
                         return cached_model
 
                 # Cache miss — resolve dependencies and call function

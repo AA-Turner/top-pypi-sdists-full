@@ -2,7 +2,7 @@ import os
 
 from setuptools import find_packages, setup
 
-VERSION = (0, 5, 1)
+VERSION = (0, 5, 2)
 __version__ = ".".join(map(str, VERSION))
 
 
@@ -21,6 +21,7 @@ setup(
     author_email="mapwidgets@erdemozkol.com",
     url="https://github.com/erdem/django-map-widgets",
     license="MIT",
+    python_requires=">=3.10",
     packages=find_packages(exclude=("demo", "tests", "docs")),
     include_package_data=True,
     classifiers=[

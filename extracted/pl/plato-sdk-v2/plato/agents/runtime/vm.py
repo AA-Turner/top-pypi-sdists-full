@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import time as _time
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import tenacity
 from opentelemetry import trace
 from pydantic import BaseModel
 
 from plato.agents.runtime.base import AgentContext, OTelContext, PreparedAgent, Runtime
-from plato.agents.runtime.dev import install_production_agent, sync_dev_code
+from plato.agents.runtime.dev import _find_agent_code, install_production_agent, sync_dev_code
 from plato.agents.runtime.transport import Transport
 from plato.utils.subprocess import run_ssh, run_ssh_streaming
 from plato.v2 import Env
@@ -68,6 +72,7 @@ class PlatoVMRuntime(Runtime):
         self.workspace = workspace  # backward compat — single workspace
         self.workspaces: list[Transport] = workspaces or []
         self._agent_envs: dict[str, Environment] = {}
+        self._prepare_lock = asyncio.Lock()
 
     def _all_workspaces(self) -> list[Transport]:
         """Return all workspaces (single + list) for setup/sync."""
@@ -97,17 +102,32 @@ class PlatoVMRuntime(Runtime):
         """Start agent VM with desktop/Chrome but without running the task."""
         agent_alias = f"agent-{uuid.uuid4().hex[:8]}"
 
-        agent_env = await self._create_vm(ctx.image, agent_alias)
-        self._agent_envs[agent_alias] = agent_env
-
         try:
-            await self._setup_network()
+            async with self._prepare_lock:
+                agent_env = await self._create_vm(ctx.image, agent_alias)
+                self._agent_envs[agent_alias] = agent_env
 
-            mesh_ip = await agent_env.get_mesh_ip()
-            if not mesh_ip:
-                raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
+                logger.info(f"Setting up network for {agent_alias}")
+                await self._setup_network()
 
+                logger.info(f"Getting mesh IP for {agent_alias}")
+                mesh_ip = await agent_env.get_mesh_ip()
+                if not mesh_ip:
+                    raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
+                logger.info(f"Mesh IP for {agent_alias}: {mesh_ip}")
+
+            logger.info(f"Syncing code to {agent_alias}")
             await self._sync_code(ctx, agent_env, mesh_ip)
+            logger.info(f"Code synced to {agent_alias}")
+
+            # Inject PLATO_API_KEY into the VM so it's available during
+            # on_prepare hooks and agent execution.
+            plato_api_key = os.environ.get("PLATO_API_KEY", "")
+            if plato_api_key:
+                await self._run_ssh_streaming(
+                    mesh_ip,
+                    f'echo "PLATO_API_KEY={plato_api_key}" >> /etc/environment',
+                )
         except Exception:
             await self.cleanup(agent_alias, error=True)
             raise
@@ -149,37 +169,48 @@ class PlatoVMRuntime(Runtime):
             except Exception as e:
                 logger.warning(f"Failed to clean up agent VM: {e}")
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(3),
+        wait=tenacity.wait_exponential(multiplier=10, min=10, max=60),
+        before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     async def _create_vm(self, image: str, alias: str) -> Environment:
-        """Create an agent VM."""
+        """Create an agent VM with retry and exponential backoff."""
         logger.info(
-            f"Creating agent VM: {alias} (image: {image}, cpus={self.vm_config.cpus}, mem={self.vm_config.memory}MB)"
+            "Creating agent VM: %s (image: %s, cpus=%d, mem=%dMB)",
+            alias,
+            image,
+            self.vm_config.cpus,
+            self.vm_config.memory,
         )
-
-        try:
-            agent_env = await self.session.add_env(
-                Env.resource(
-                    simulator=alias,
-                    sim_config=SimConfigCompute(
-                        cpus=self.vm_config.cpus,
-                        memory=self.vm_config.memory,
-                        disk=self.vm_config.disk,
-                    ),
-                    alias=alias,
-                    docker_image_url=image,
-                    upload_rootfs=False,
-                    rootfs_storage_backend="snapshot-store",
+        t0 = _time.monotonic()
+        agent_env = await self.session.add_env(
+            Env.resource(
+                simulator=alias,
+                sim_config=SimConfigCompute(
+                    cpus=self.vm_config.cpus,
+                    memory=self.vm_config.memory,
+                    disk=self.vm_config.disk,
                 ),
-                timeout=self.vm_config.timeout,
-            )
-        except Exception:
-            logger.exception("Failed to create agent VM %s (image=%s)", alias, image)
-            raise
-
-        logger.info(f"Agent VM ready: {agent_env.job_id}")
+                alias=alias,
+                docker_image_url=image,
+                upload_rootfs=False,
+                rootfs_storage_backend="snapshot-store",
+            ),
+            timeout=self.vm_config.timeout,
+        )
+        logger.info("Agent VM ready: %s (took %.1fs)", agent_env.job_id, _time.monotonic() - t0)
         return agent_env
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(3),
+        wait=tenacity.wait_exponential(multiplier=10, min=10, max=60),
+        before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     async def _setup_network(self) -> None:
-        """Setup network connectivity to agent VM."""
+        """Setup network connectivity to agent VM with retry."""
         await self.session.connect_network()
 
         if not self.ssh_key_path:
@@ -211,11 +242,10 @@ class PlatoVMRuntime(Runtime):
             raise RuntimeError("ssh_key_path required for code sync")
 
         t1 = time.monotonic()
-        if Path("/sdk").exists():
-            package_name, _ = self._parse_image_url(ctx.image)
+        package_name, version = self._parse_image_url(ctx.image)
+        if Path("/sdk").exists() and _find_agent_code(ctx.agent_code_path, package_name) is not None:
             synced_agent_code = await sync_dev_code(self.ssh_key_path, hostname, ctx.agent_code_path, package_name)
             if not synced_agent_code:
-                _, version = self._parse_image_url(ctx.image)
                 logger.info(
                     "Falling back to production agent install for %s==%s (no synced dev agent code found).",
                     package_name,
@@ -223,7 +253,6 @@ class PlatoVMRuntime(Runtime):
                 )
                 await install_production_agent(self.ssh_key_path, hostname, package_name, version)
         else:
-            package_name, version = self._parse_image_url(ctx.image)
             await install_production_agent(self.ssh_key_path, hostname, package_name, version)
         logger.info("Agent code sync/install took %.1fs", time.monotonic() - t1)
 
@@ -279,6 +308,9 @@ class PlatoVMRuntime(Runtime):
         ]
         if ctx.runtime_b64:
             env_vars.append(f"AGENT_RUNTIME_B64={ctx.runtime_b64}")
+        plato_api_key = os.environ.get("PLATO_API_KEY", "")
+        if plato_api_key:
+            env_vars.append(f"PLATO_API_KEY={plato_api_key}")
 
         logger.info(f"Agent config keys: {list(ctx.config.keys())}")
         logger.info("Executing agent command on VM via SSH as root...")

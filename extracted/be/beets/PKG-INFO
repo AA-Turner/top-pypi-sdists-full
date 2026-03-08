@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: beets
-Version: 2.6.2
+Version: 2.7.0
 Summary: music tagger and library organizer
 Home-page: https://beets.io/
 License: MIT
@@ -101,7 +101,7 @@ Description-Content-Type: text/x-rst
     :target: https://pypi.python.org/pypi/beets
 
 .. image:: https://img.shields.io/codecov/c/github/beetbox/beets.svg
-    :target: https://codecov.io/github/beetbox/beets
+    :target: https://app.codecov.io/github/beetbox/beets
 
 .. image:: https://img.shields.io/github/actions/workflow/status/beetbox/beets/ci.yaml
     :target: https://github.com/beetbox/beets/actions

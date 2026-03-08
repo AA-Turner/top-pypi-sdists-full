@@ -45,11 +45,37 @@ from coredis.typing import (
     RedisError,
     RedisValueT,
     ResponseType,
+    Self,
     TypedDict,
     TypeVar,
 )
 
 from ._request import Request
+from ._statistics import ConnectionStatistics
+
+CERT_REQS = {
+    "none": ssl.CERT_NONE,
+    "optional": ssl.CERT_OPTIONAL,
+    "required": ssl.CERT_REQUIRED,
+}
+
+ConnectionT = TypeVar("ConnectionT", bound="BaseConnection")
+
+
+@dataclasses.dataclass(unsafe_hash=True)
+class Location(ABC):
+    """
+    Abstract location
+    """
+
+    ...
+
+    @abstractmethod
+    async def check(self) -> bool:
+        """
+        Returns whether the location can be connected to
+        """
+        ...
 
 
 class BaseConnectionParams(TypedDict):
@@ -94,9 +120,6 @@ class BaseConnectionParams(TypedDict):
     ssl_context: NotRequired[ssl.SSLContext | None]
 
 
-ConnectionT = TypeVar("ConnectionT", bound="BaseConnection")
-
-
 class RedisSSLContext:
     context: ssl.SSLContext | None
 
@@ -134,11 +157,12 @@ class RedisSSLContext:
         return self.context
 
 
-CERT_REQS = {
-    "none": ssl.CERT_NONE,
-    "optional": ssl.CERT_OPTIONAL,
-    "required": ssl.CERT_REQUIRED,
-}
+@dataclasses.dataclass
+class CommandInvocation:
+    command: bytes
+    args: tuple[RedisValueT, ...]
+    decode: bool | None
+    encoding: str | None
 
 
 class BaseConnection(ABC):
@@ -177,6 +201,7 @@ class BaseConnection(ABC):
 
     def __init__(
         self,
+        location: Location,
         *,
         stream_timeout: float | None = None,
         connect_timeout: float | None = None,
@@ -195,6 +220,7 @@ class BaseConnection(ABC):
         processing_budget: CapacityLimiter | None = None,
     ):
         """
+        :param location: The location of the server this connection is connecting to
         :param stream_timeout: Maximum time to wait for receiving a response
          for requests created through this connection.
         :param connect_timeout: Maximum time to wait for establishing a connection
@@ -215,6 +241,9 @@ class BaseConnection(ABC):
          the TLS handshake.
         :param processing_budget: limiter to throttle CPU-bound processing.
         """
+        self.location = location
+        self.statistics = ConnectionStatistics()
+
         self._stream_timeout = stream_timeout
         self._connect_timeout = connect_timeout
         # maximum time to wait for data from the server before
@@ -231,7 +260,7 @@ class BaseConnection(ABC):
         self._decode_responses = decode_responses
 
         self._connect_callbacks: list[
-            (Callable[[BaseConnection], Awaitable[None]] | Callable[[BaseConnection], None])
+            (Callable[[Self], Awaitable[None]] | Callable[[Self], None])
         ] = list()
 
         # server version as reported by the server
@@ -289,10 +318,6 @@ class BaseConnection(ABC):
     def describe(self) -> str: ...
 
     @property
-    @abstractmethod
-    def location(self) -> str: ...
-
-    @property
     def transport_healthy(self) -> bool:
         """
         Whether the underlying transport stream is healthy
@@ -307,14 +332,43 @@ class BaseConnection(ABC):
         """
         return self.transport_healthy and self._ready
 
+    @property
+    def reusable(self) -> bool:
+        """
+        Whether the connection can be reused
+
+        This property should be tested before returning a connection
+        from the connection pool for reuse. In scenarios such as after using a connection
+        for receiving push messages there might still be unconsumed messages in the
+        internal buffer.
+
+        If the connection is not reusable, invalidate it with a call to :meth:`invalidate`
+        and discard it
+        """
+        return self.usable and (
+            self._push_message_buffer_in.statistics().current_buffer_used == 0
+            and self._streamed_message_buffer_in.statistics().current_buffer_used == 0
+        )
+
     def register_connect_callback(
         self,
-        callback: (Callable[[BaseConnection], None] | Callable[[BaseConnection], Awaitable[None]]),
+        callback: (Callable[[Self], None] | Callable[[Self], Awaitable[None]]),
     ) -> None:
+        """
+        Registers a callback that will be executed after the initial handshake
+        is performed and before the connection is marked usable for regular
+        commands.
+
+        .. caution:: Any exception raised by a connect callback will not be
+           handled and will result in an unusable connection.
+        """
         self._connect_callbacks.append(callback)
 
-    def clear_connect_callbacks(self) -> None:
-        self._connect_callbacks = list()
+    async def _trigger_connect_callbacks(self: Self) -> None:
+        for callback in self._connect_callbacks:
+            task = callback(self)
+            if inspect.isawaitable(task):
+                await task
 
     @abstractmethod
     async def _connect(self) -> ByteStream:
@@ -343,6 +397,7 @@ class BaseConnection(ABC):
 
         try:
             self.stream = await self._connect()
+            self.statistics.connected()
             try:
                 with catch({Exception: handle_errors}):
                     async with (
@@ -358,11 +413,11 @@ class BaseConnection(ABC):
                         self._task_group.start_soon(self._reader_task)
                         self._task_group.start_soon(self._writer_task)
                         # setup connection
-                        await self.perform_handshake()
-                        for callback in self._connect_callbacks:
-                            task = callback(self)
-                            if inspect.isawaitable(task):
-                                await task
+                        await self.__perform_handshake()
+                        # *CAUTION* (and also maybe *FIXME*).
+                        # There should be no code executed that could raise an
+                        # exception after this line and before the task is marked
+                        # as started.
                         task_status.started()
             finally:
                 disconnect_exc = self._last_error or ConnectionError("Connection lost!")
@@ -387,7 +442,7 @@ class BaseConnection(ABC):
                     else:
                         logger.exception("Connection attempt failed unexpectedly!")
                         raise ConnectionError(
-                            "Unable to establish a connection"
+                            f"Unable to establish a connection to {self.location}"
                         ) from self._last_error
         except Exception as connection_error:
             self._last_error = connection_error
@@ -396,15 +451,20 @@ class BaseConnection(ABC):
             else:
                 # Wrap any other errors with a ConnectionError so that upstreams (pools) can
                 # handle them explicitly as being part of connection creation if they want.
-                raise ConnectionError("Unable to establish a connection") from connection_error
+                raise ConnectionError(
+                    f"Unable to establish a connection to {self.location}"
+                ) from connection_error
 
-    def terminate(self, reason: str | None = None) -> None:
+    def invalidate(self, reason: str | None = None) -> None:
         """
-        Terminates the connection prematurely due to internal
-        reasons (basically a request pending on the connection has been
-        cancelled or timed out leaving the connection unusable)
+        Forcefully mark the connection as unusable and release any associated resources.
 
-        :meta private:
+        Call this when the connection state can no longer be trusted — for example,
+        after a cancelled or timed-out request, or when unconsumed messages remain
+        in the buffer. An invalidated connection should never be returned to the pool.
+
+        .. note:: Calling this method on an already disconnected connection is safe
+           and has no side effects
         """
         self._terminated = True
         if self._task_group:
@@ -419,6 +479,7 @@ class BaseConnection(ABC):
             with fail_after(self._max_idle_time):
                 try:
                     data = await self.stream.receive()
+                    self.statistics.data_received(len(data))
                 except (EndOfStream, ClosedResourceError, BrokenResourceError) as err:
                     self._transport_failed = True
                     raise ConnectionError("Connection lost while receiving response") from err
@@ -476,6 +537,7 @@ class BaseConnection(ABC):
             )
             try:
                 await self.stream.send(data)
+                self.statistics.data_sent(len(data))
             except (ClosedResourceError, BrokenResourceError) as err:
                 self._transport_failed = True
                 raise ConnectionError("Connection lost while sending request") from err
@@ -502,7 +564,7 @@ class BaseConnection(ABC):
         except Exception:  # noqa
             return False
 
-    async def perform_handshake(self) -> None:
+    async def __perform_handshake(self) -> None:
         try:
             hello_command_args: list[int | str | bytes] = [3]
             if creds := (
@@ -561,6 +623,7 @@ class BaseConnection(ABC):
             if self._noreply:
                 await self.create_request(b"CLIENT REPLY", b"OFF", noreply=True)
                 self._noreply_set = True
+            await self._trigger_connect_callbacks()
             self._ready = True
         finally:
             self._handshake_attempted = True
@@ -697,11 +760,3 @@ class BaseConnection(ABC):
         self._write_buffer_in.send_nowait(requests)
         self._requests.extend(requests)
         return requests
-
-
-@dataclasses.dataclass
-class CommandInvocation:
-    command: bytes
-    args: tuple[RedisValueT, ...]
-    decode: bool | None
-    encoding: str | None

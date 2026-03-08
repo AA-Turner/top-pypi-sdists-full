@@ -95,13 +95,9 @@ class Config(BaseModel):
         # Load .env file next to the config (if any) so ${VAR} substitution works
         from dotenv import load_dotenv
 
-        stem = path.stem  # e.g. "dev-config-pranav"
-        # Try specific .env first, then generic
-        for env_name in [f".env.{stem.removeprefix('dev-config-')}", ".env"]:
-            env_path = path.parent / env_name
-            if env_path.exists():
-                load_dotenv(env_path, override=True)
-                break
+        env_path = path.parent / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=True)
 
         with open(path) as f:
             raw = f.read()

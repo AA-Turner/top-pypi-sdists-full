@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-map-widgets
-Version: 0.5.1
+Version: 0.5.2
 Summary: Configurable and user-friendly map widgets for GeoDjango fields
 Home-page: https://github.com/erdem/django-map-widgets
 Author: Erdem Ozkol
@@ -18,6 +18,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 

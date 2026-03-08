@@ -154,7 +154,7 @@ async def test_create_entity(client: AsyncClient, file_service, v2_project_url):
     data = {
         "title": "TestV2Entity",
         "directory": "test",
-        "entity_type": "test",
+        "note_type": "test",
         "content_type": "text/markdown",
         "content": "TestContent for V2",
     }
@@ -171,9 +171,9 @@ async def test_create_entity(client: AsyncClient, file_service, v2_project_url):
     assert isinstance(entity.id, int)
     assert entity.api_version == "v2"
 
-    assert entity.permalink == "test/test-v2-entity"
+    assert entity.permalink == "test-project/test/test-v2-entity"
     assert entity.file_path == "test/TestV2Entity.md"
-    assert entity.entity_type == data["entity_type"]
+    assert entity.note_type == data["note_type"]
 
     # Verify file was created
     file_path = file_service.get_entity_path(entity)
@@ -187,7 +187,7 @@ async def test_create_entity_conflict_returns_409(client: AsyncClient, v2_projec
     data = {
         "title": "TestV2EntityConflict",
         "directory": "conflict",
-        "entity_type": "note",
+        "note_type": "note",
         "content_type": "text/markdown",
         "content": "Original content for conflict",
     }
@@ -215,7 +215,7 @@ async def test_create_entity_returns_content(client: AsyncClient, file_service, 
     data = {
         "title": "TestContentReturn",
         "directory": "test",
-        "entity_type": "note",
+        "note_type": "note",
         "content_type": "text/markdown",
         "content": "Body content for return test",
     }
@@ -404,6 +404,53 @@ async def test_fast_create_schedules_reindex_task(
     scheduled = task_scheduler_spy[-1]
     assert scheduled["task_name"] == "reindex_entity"
     assert scheduled["payload"]["entity_id"] == created_entity.id
+
+
+@pytest.mark.asyncio
+async def test_non_fast_create_schedules_vector_sync_when_semantic_enabled(
+    client: AsyncClient, v2_project_url, task_scheduler_spy, app_config
+):
+    """Non-fast create should schedule vector sync when semantic mode is enabled."""
+    app_config.semantic_search_enabled = True
+    start_count = len(task_scheduler_spy)
+
+    response = await client.post(
+        f"{v2_project_url}/knowledge/entities",
+        json={
+            "title": "NonFastSemanticEntity",
+            "directory": "test",
+            "content": "Content for non-fast semantic scheduling",
+        },
+        params={"fast": False},
+    )
+    assert response.status_code == 200
+    created_entity = EntityResponseV2.model_validate(response.json())
+
+    assert len(task_scheduler_spy) == start_count + 1
+    scheduled = task_scheduler_spy[-1]
+    assert scheduled["task_name"] == "sync_entity_vectors"
+    assert scheduled["payload"]["entity_id"] == created_entity.id
+
+
+@pytest.mark.asyncio
+async def test_non_fast_create_skips_vector_sync_when_semantic_disabled(
+    client: AsyncClient, v2_project_url, task_scheduler_spy, app_config
+):
+    """Non-fast create should not schedule vector sync when semantic mode is disabled."""
+    app_config.semantic_search_enabled = False
+    start_count = len(task_scheduler_spy)
+
+    response = await client.post(
+        f"{v2_project_url}/knowledge/entities",
+        json={
+            "title": "NonFastNoSemanticEntity",
+            "directory": "test",
+            "content": "Content for non-fast without semantic scheduling",
+        },
+        params={"fast": False},
+    )
+    assert response.status_code == 200
+    assert len(task_scheduler_spy) == start_count
 
 
 @pytest.mark.asyncio
@@ -786,3 +833,22 @@ async def test_delete_directory_v2_nested_structure(client: AsyncClient, v2_proj
     assert result.total_files == 2
     assert result.successful_deletes == 2
     assert result.failed_deletes == 0
+
+
+@pytest.mark.asyncio
+async def test_entity_response_includes_user_tracking_fields(client: AsyncClient, v2_project_url):
+    """EntityResponseV2 includes created_by and last_updated_by fields (null for local)."""
+    entity_data = {
+        "title": "UserTrackingTest",
+        "directory": "test",
+        "content": "Test content",
+    }
+    response = await client.post(f"{v2_project_url}/knowledge/entities", json=entity_data)
+    assert response.status_code == 200
+
+    body = response.json()
+    # Fields should be present in the response (null for local/CLI usage)
+    assert "created_by" in body
+    assert "last_updated_by" in body
+    assert body["created_by"] is None
+    assert body["last_updated_by"] is None

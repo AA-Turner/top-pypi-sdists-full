@@ -100,7 +100,13 @@ impl Rule for MD011NoReversedLinks {
         let line_index = &ctx.line_index;
 
         // Use filtered_lines() to automatically skip front-matter and Obsidian comments
-        for filtered_line in ctx.filtered_lines().skip_front_matter().skip_obsidian_comments() {
+        for filtered_line in ctx
+            .filtered_lines()
+            .skip_front_matter()
+            .skip_jsx_expressions()
+            .skip_mdx_comments()
+            .skip_obsidian_comments()
+        {
             let line_num = filtered_line.line_num;
             let line = filtered_line.content;
 
@@ -211,6 +217,8 @@ impl Rule for MD011NoReversedLinks {
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
         let warnings = self.check(ctx)?;
+        let warnings =
+            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
         if warnings.is_empty() {
             return Ok(ctx.content.to_string());
         }

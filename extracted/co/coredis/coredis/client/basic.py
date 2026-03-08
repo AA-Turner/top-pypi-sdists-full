@@ -26,9 +26,11 @@ from coredis.commands.sentinel import SentinelCommands
 from coredis.config import Config
 from coredis.connection._base import (
     BaseConnection,
+    Location,
     RedisSSLContext,
 )
-from coredis.connection._uds import UnixDomainSocketConnection
+from coredis.connection._tcp import TCPConnection, TCPLocation
+from coredis.connection._uds import UnixDomainSocketConnection, UnixDomainSocketLocation
 from coredis.credentials import AbstractCredentialProvider
 from coredis.exceptions import (
     ConnectionError,
@@ -40,7 +42,8 @@ from coredis.globals import CACHEABLE_COMMANDS, COMMAND_FLAGS, READONLY_COMMANDS
 from coredis.modules import ModuleMixin
 from coredis.patterns.cache import AbstractCache
 from coredis.patterns.pubsub import PubSub, SubscriptionCallback
-from coredis.pool import ConnectionPool
+from coredis.pool._base import BaseConnectionPool
+from coredis.pool._basic import ConnectionPool, ConnectionPoolParams
 from coredis.response._callbacks import (
     NoopCallback,
 )
@@ -96,7 +99,7 @@ class Client(
     ModuleMixin[AnyStr],
     SentinelCommands[AnyStr],
 ):
-    connection_pool: ConnectionPool
+    connection_pool: BaseConnectionPool[Any]
     decode_responses: bool
     encoding: str
     server_version: Version | None
@@ -104,81 +107,12 @@ class Client(
 
     def __init__(
         self,
-        host: str | None = "localhost",
-        port: int | None = 6379,
-        db: int = 0,
-        username: str | None = None,
-        password: str | None = None,
-        credential_provider: AbstractCredentialProvider | None = None,
-        stream_timeout: float | None = None,
-        connect_timeout: float | None = None,
-        pool_timeout: float | None = None,
-        connection_pool: ConnectionPool | None = None,
-        connection_pool_cls: type[ConnectionPool] = ConnectionPool,
-        unix_socket_path: str | None = None,
-        encoding: str = "utf-8",
-        decode_responses: bool = False,
-        ssl: bool = False,
-        ssl_context: SSLContext | None = None,
-        ssl_keyfile: str | None = None,
-        ssl_certfile: str | None = None,
-        ssl_cert_reqs: Literal["optional", "required", "none"] | None = None,
-        ssl_check_hostname: bool | None = None,
-        ssl_ca_certs: str | None = None,
-        max_connections: int | None = None,
-        max_idle_time: int | None = None,
-        client_name: str | None = None,
+        connection_pool: BaseConnectionPool[Any],
         verify_version: bool = True,
         noreply: bool = False,
         retry_policy: RetryPolicy = NoRetryPolicy(),
-        noevict: bool = False,
-        notouch: bool = False,
         type_adapter: TypeAdapter | None = None,
-        cache: AbstractCache | None = None,
     ):
-        if not connection_pool:
-            kwargs: ConnectionPool.PoolParams = {
-                "db": db,
-                "username": username,
-                "password": password,
-                "credential_provider": credential_provider,
-                "encoding": encoding,
-                "stream_timeout": stream_timeout,
-                "connect_timeout": connect_timeout,
-                "timeout": pool_timeout,
-                "max_connections": max_connections,
-                "decode_responses": decode_responses,
-                "max_idle_time": max_idle_time,
-                "client_name": client_name,
-                "noreply": noreply,
-                "noevict": noevict,
-                "notouch": notouch,
-                "_cache": cache,
-            }
-
-            if unix_socket_path is not None:
-                kwargs.update(
-                    {
-                        "path": unix_socket_path,  # type: ignore
-                        "connection_class": UnixDomainSocketConnection,
-                    }
-                )
-            else:
-                # TCP specific options
-                kwargs.update({"host": host, "port": port})  # type: ignore
-
-                if ssl_context is not None:
-                    kwargs["ssl_context"] = ssl_context
-                elif ssl:
-                    ssl_context = RedisSSLContext(
-                        ssl_keyfile,
-                        ssl_certfile,
-                        ssl_cert_reqs,
-                        ssl_ca_certs,
-                        ssl_check_hostname,
-                    ).get()
-                    kwargs["ssl_context"] = ssl_context
-            connection_pool = connection_pool_cls(**kwargs)
 
         self.connection_pool = connection_pool
         self.encoding = connection_pool.encoding
@@ -429,11 +363,11 @@ class Client(
                 assert None == await client.set("fubar", 1), "noreply"
             assert True == await client.set("fubar", 1), "reply"
         """
-        self._noreplycontext.set(True)
+        noreply_reset_token = self._noreplycontext.set(True)
         try:
             yield self
         finally:
-            self._noreplycontext.set(None)
+            self._noreplycontext.reset(noreply_reset_token)
 
     @contextlib.contextmanager
     def ensure_replication(
@@ -456,11 +390,11 @@ class Client(
                 await client.set("fubar", 1)
 
         """
-        self._waitcontext.set((replicas, timeout_ms))
+        replication_reset_token = self._waitcontext.set((replicas, timeout_ms))
         try:
             yield self
         finally:
-            self._waitcontext.set(None)
+            self._waitcontext.reset(replication_reset_token)
 
     @versionadded(version="4.12.0")
     @contextlib.contextmanager
@@ -493,18 +427,18 @@ class Client(
                 await client.set("fubar", 1)
 
         """
-        self._waitaof_context.set((local, replicas, timeout_ms))
+        persistence_reset_token = self._waitaof_context.set((local, replicas, timeout_ms))
         try:
             yield self
         finally:
-            self._waitaof_context.set(None)
+            self._waitaof_context.reset(persistence_reset_token)
 
     def should_quick_release(self, command: RedisCommandP) -> bool:
         return CommandFlag.BLOCKING not in COMMAND_FLAGS[command.name]
 
 
 class Redis(Client[AnyStr]):
-    connection_pool: ConnectionPool
+    connection_pool: ConnectionPool[Any]
 
     @overload
     def __init__(
@@ -519,8 +453,8 @@ class Redis(Client[AnyStr]):
         stream_timeout: float | None = ...,
         connect_timeout: float | None = ...,
         pool_timeout: float | None = ...,
-        connection_pool: ConnectionPool | None = ...,
-        connection_pool_cls: type[ConnectionPool] = ...,
+        connection_pool: ConnectionPool[Any] | None = ...,
+        connection_pool_cls: type[ConnectionPool[Any]] = ...,
         unix_socket_path: str | None = ...,
         encoding: str = ...,
         decode_responses: Literal[False] = ...,
@@ -556,11 +490,47 @@ class Redis(Client[AnyStr]):
         stream_timeout: float | None = ...,
         connect_timeout: float | None = ...,
         pool_timeout: float | None = ...,
-        connection_pool: ConnectionPool | None = ...,
-        connection_pool_cls: type[ConnectionPool] = ...,
+        connection_pool: ConnectionPool[Any] | None = ...,
+        connection_pool_cls: type[ConnectionPool[Any]] = ...,
         unix_socket_path: str | None = ...,
         encoding: str = ...,
         decode_responses: Literal[True] = ...,
+        ssl: bool = ...,
+        ssl_context: SSLContext | None = ...,
+        ssl_keyfile: str | None = ...,
+        ssl_certfile: str | None = ...,
+        ssl_cert_reqs: Literal["optional", "required", "none"] | None = ...,
+        ssl_check_hostname: bool | None = ...,
+        ssl_ca_certs: str | None = ...,
+        max_connections: int | None = ...,
+        max_idle_time: int | None = ...,
+        client_name: str | None = ...,
+        verify_version: bool = ...,
+        cache: AbstractCache | None = ...,
+        noreply: bool = ...,
+        noevict: bool = ...,
+        notouch: bool = ...,
+        retry_policy: RetryPolicy = ...,
+        type_adapter: TypeAdapter | None = ...,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self: Self,
+        host: str | None = ...,
+        port: int | None = ...,
+        db: int = ...,
+        *,
+        username: str | None = ...,
+        password: str | None = ...,
+        credential_provider: AbstractCredentialProvider | None = ...,
+        stream_timeout: float | None = ...,
+        connect_timeout: float | None = ...,
+        pool_timeout: float | None = ...,
+        connection_pool: ConnectionPool[Any] | None = ...,
+        connection_pool_cls: type[ConnectionPool[Any]] = ...,
+        unix_socket_path: str | None = ...,
+        encoding: str = ...,
+        decode_responses: bool = ...,
         ssl: bool = ...,
         ssl_context: SSLContext | None = ...,
         ssl_keyfile: str | None = ...,
@@ -592,8 +562,8 @@ class Redis(Client[AnyStr]):
         stream_timeout: float | None = None,
         connect_timeout: float | None = None,
         pool_timeout: float | None = None,
-        connection_pool: ConnectionPool | None = None,
-        connection_pool_cls: type[ConnectionPool] = ConnectionPool,
+        connection_pool: ConnectionPool[Any] | None = None,
+        connection_pool_cls: type[ConnectionPool[Any]] = ConnectionPool,
         unix_socket_path: str | None = None,
         encoding: str = "utf-8",
         decode_responses: bool = False,
@@ -746,38 +716,53 @@ class Redis(Client[AnyStr]):
         """
         if connection_pool and cache:
             raise RuntimeError("Parameters 'cache' and 'connection_pool' are mutually exclusive!")
+        if not connection_pool:
+            kwargs: ConnectionPoolParams[BaseConnection] = {
+                "db": db,
+                "username": username,
+                "password": password,
+                "credential_provider": credential_provider,
+                "encoding": encoding,
+                "stream_timeout": stream_timeout,
+                "connect_timeout": connect_timeout,
+                "timeout": pool_timeout,
+                "max_connections": max_connections,
+                "decode_responses": decode_responses,
+                "max_idle_time": max_idle_time,
+                "client_name": client_name,
+                "noreply": noreply,
+                "noevict": noevict,
+                "notouch": notouch,
+                "_cache": cache,
+            }
+
+            location: Location | None = None
+            if unix_socket_path is not None:
+                location = UnixDomainSocketLocation(unix_socket_path)
+                kwargs["connection_class"] = UnixDomainSocketConnection
+            else:
+                if host is not None and port is not None:
+                    location = TCPLocation(host, port)
+                kwargs["connection_class"] = TCPConnection
+
+                if ssl_context is not None:
+                    kwargs["ssl_context"] = ssl_context
+                elif ssl:
+                    ssl_context = RedisSSLContext(
+                        ssl_keyfile,
+                        ssl_certfile,
+                        ssl_cert_reqs,
+                        ssl_ca_certs,
+                        ssl_check_hostname,
+                    ).get()
+                    kwargs["ssl_context"] = ssl_context
+            connection_pool = connection_pool_cls(location=location, **kwargs)
         super().__init__(
-            host=host,
-            port=port,
-            db=db,
-            username=username,
-            password=password,
-            credential_provider=credential_provider,
-            stream_timeout=stream_timeout,
-            connect_timeout=connect_timeout,
-            pool_timeout=pool_timeout,
             connection_pool=connection_pool,
-            connection_pool_cls=connection_pool_cls,
-            unix_socket_path=unix_socket_path,
-            encoding=encoding,
-            decode_responses=decode_responses,
-            ssl=ssl,
-            ssl_context=ssl_context,
-            ssl_keyfile=ssl_keyfile,
-            ssl_certfile=ssl_certfile,
-            ssl_cert_reqs=ssl_cert_reqs,
-            ssl_check_hostname=ssl_check_hostname,
-            ssl_ca_certs=ssl_ca_certs,
-            max_connections=max_connections,
-            max_idle_time=max_idle_time,
-            client_name=client_name,
             verify_version=verify_version,
             noreply=noreply,
-            noevict=noevict,
-            notouch=notouch,
             retry_policy=retry_policy,
             type_adapter=type_adapter,
-            cache=cache,
         )
         self._decodecontext: contextvars.ContextVar[bool | None,] = contextvars.ContextVar(
             "decode", default=None
@@ -851,7 +836,7 @@ class Redis(Client[AnyStr]):
         - ``unix://[:password]@/path/to/socket.sock?db=0``
 
         :paramref:`url` and :paramref:`kwargs` are passed as is to
-        the :func:`coredis.ConnectionPool.from_url`.
+        the :func:`coredis.pool.ConnectionPool.from_url`.
         """
         if decode_responses:
             return cls(
@@ -918,7 +903,7 @@ class Redis(Client[AnyStr]):
         pool = self.connection_pool
         quick_release = self.should_quick_release(command)
         should_block = not quick_release or self.requires_wait or self.requires_waitaof
-        keys = KeySpec.extract_keys(command.name, *command.arguments)
+        keys = KeySpec.extract_keys(command.name, *command.arguments)[0]
         cacheable = (
             command.name in CACHEABLE_COMMANDS
             and len(keys) == 1
@@ -1026,15 +1011,13 @@ class Redis(Client[AnyStr]):
                     assert await client.get("fubar") == "baz"
 
         """
-        prev_decode = self._decodecontext.get()
-        prev_encoding = self._encodingcontext.get()
-        self._decodecontext.set(mode)
-        self._encodingcontext.set(encoding)
+        decode_token = self._decodecontext.set(mode)
+        encode_token = self._encodingcontext.set(encoding)
         try:
             yield self
         finally:
-            self._decodecontext.set(prev_decode)
-            self._encodingcontext.set(prev_encoding)
+            self._decodecontext.reset(decode_token)
+            self._encodingcontext.reset(encode_token)
 
     def pubsub(
         self,

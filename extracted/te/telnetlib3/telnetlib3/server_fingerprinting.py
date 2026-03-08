@@ -87,6 +87,9 @@ _YN_RE = re.compile(
 # Match "color?" prompts -- many MUDs ask if the user wants color.
 _COLOR_RE = re.compile(rb"(?i)color\s*\?")
 
+# Match "ANSI color standard" prompts, e.g. "Do you support the ANSI color standard (Yn)?"
+_ANSI_COLOR_STANDARD_RE = re.compile(rb"(?i)ANSI\s+color\s+standard")
+
 # Match numbered menu items offering UTF-8, e.g. "5) UTF-8", "[3] UTF-8",
 # "2. UTF-8", or "1 ... UTF-8".  Many BBS/MUD systems present a charset
 # selection menu at connect time.  The optional \S+/ prefix handles
@@ -108,14 +111,15 @@ _GB_BIG5_RE = re.compile(rb"(?i)(?:^|[^a-zA-Z0-9])gb\s*/\s*big\s*5(?:[^a-zA-Z0-9
 _ANSI_STRIP_RE = re.compile(_ZERO_WIDTH_STR_PATTERN.pattern.encode("ascii"))
 
 # Match "Press [.ESC.] twice" botcheck prompts (e.g. Mystic BBS).
-_ESC_TWICE_RE = re.compile(rb"(?i)press\s+[\[<]?\.?esc\.?[\]>]?\s+twice")
+_ESC_TWICE_RE = re.compile(rb"(?i)press\s+[\[<(]?\.?esc\.?[\]>)]?\s+twice")
 
 # Match single "Press [ESC]" prompts without "twice" (e.g. Herbie's BBS).
-_ESC_ONCE_RE = re.compile(rb"(?i)press\s+[\[<]?\.?esc\.?[\]>]?(?!\s+twice)")
+_ESC_ONCE_RE = re.compile(rb"(?i)press\s+[\[<(]?\.?esc\.?[\]>)]?(?!\s+twice)")
 
-# Match "HIT RETURN", "PRESS RETURN", "PRESS ENTER", "HIT ENTER", etc.
-# Common on Worldgroup/MajorBBS and other vintage BBS systems.
-_RETURN_PROMPT_RE = re.compile(rb"(?i)(?:hit|press)\s+(?:return|enter)\s*[:\.]?")
+# Match "HIT RETURN", "PRESS RETURN", "PRESS ENTER", "HIT ENTER", etc., including
+# variants with angle brackets or other punctuation around the key name, e.g.
+# "press <return>".  Common on Worldgroup/MajorBBS and other vintage BBS systems.
+_RETURN_PROMPT_RE = re.compile(rb"(?i)(?:hit|press)\s+[\[<(]?(?:return|enter)[\]>)]?\s*[:\.]?")
 
 # Match "Press the BACKSPACE key" prompts -- standard telnet terminal
 # detection (e.g. TelnetBible.com).  Respond with ASCII BS (0x08).
@@ -362,6 +366,8 @@ def _detect_yn_prompt(banner: bytes) -> _PromptResult:
             return _PromptResult(b"yes\r\n")
         return _PromptResult(b"y\r\n")
     if _COLOR_RE.search(stripped):
+        return _PromptResult(b"y\r\n")
+    if _ANSI_COLOR_STANDARD_RE.search(stripped):
         return _PromptResult(b"y\r\n")
     menu_match = _MENU_UTF8_RE.search(stripped)
     if menu_match:
@@ -990,7 +996,7 @@ async def _read_banner_until_quiet(
     stripped_accum = bytearray()
     esc_responded = False
     menu_responded = False
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     deadline = loop.time() + max_wait
     while loop.time() < deadline:
         remaining = min(quiet_time, deadline - loop.time())

@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import functools
-from concurrent.futures import CancelledError
 from contextlib import asynccontextmanager
 from typing import Any, cast
 
 from anyio import AsyncContextManagerMixin
 from deprecated.sphinx import versionchanged
 
-from coredis._utils import b, hash_slot, nativestr
+from coredis._utils import nativestr
 from coredis.client import Client, RedisCluster
+from coredis.cluster._node import ClusterNodeLocation
 from coredis.commands import CommandRequest, CommandResponseT
 from coredis.commands._key_spec import KeySpec
 from coredis.commands.constants import CommandName
-from coredis.commands.request import TransformedResponse, is_type_like
 from coredis.commands.script import Script
 from coredis.connection._base import BaseConnection, CommandInvocation
 from coredis.connection._request import Request
@@ -25,7 +23,7 @@ from coredis.exceptions import (
     ConnectionError,
     ExecAbortError,
     MovedError,
-    RedisClusterException,
+    RedisClusterError,
     RedisError,
     ResponseError,
     TryAgainError,
@@ -47,7 +45,6 @@ from coredis.typing import (
     Generator,
     Iterable,
     KeyT,
-    ManagedNode,
     ParamSpec,
     RedisCommand,
     RedisCommandP,
@@ -95,75 +92,36 @@ class PipelineResult(Awaitable[T]):
 
 class PipelineCommandRequest(CommandRequest[CommandResponseT]):
     """
-    Command request used within a pipeline. Handles immediate execution for WATCH or
-    watched commands outside explicit transactions, otherwise queues the command.
+    Command request returned by a pipeline command
     """
 
-    client: Pipeline[Any] | ClusterPipeline[Any]
+    client: Pipeline[Any]
 
     def __init__(
         self,
-        client: Pipeline[Any] | ClusterPipeline[Any],
+        client: Pipeline[Any],
         name: bytes,
         *arguments: ValueT,
         callback: Callable[..., CommandResponseT],
         execution_parameters: ExecutionParameters | None = None,
-        parent: CommandRequest[Any] | None = None,
     ) -> None:
         super().__init__(
-            client,
-            name,
-            *arguments,
-            callback=callback,
-            execution_parameters=execution_parameters,
+            client, name, *arguments, callback=callback, execution_parameters=execution_parameters
         )
-        if not parent:
-            client._pipeline_execute_command(self)  # type: ignore[arg-type]
-        self.parent = parent
-
-    def transform(
-        self,
-        transformer: type[TransformedResponse] | Callable[[CommandResponseT], TransformedResponse],
-    ) -> CommandRequest[TransformedResponse]:
-        transform_func = cast(
-            Callable[..., TransformedResponse],
-            (
-                functools.partial(
-                    self.type_adapter.deserialize,
-                    return_type=transformer,
-                )
-                if is_type_like(transformer)
-                else transformer
-            ),
-        )
-        return cast(type[PipelineCommandRequest[TransformedResponse]], self.__class__)(
-            self.client,
-            self.name,
-            *self.arguments,
-            callback=lambda resp, **k: transform_func(resp),
-            execution_parameters=self.execution_parameters,
-            parent=self,
-        )
+        client._pipeline_execute_command(self)
 
     def __await__(self) -> Generator[None, None, CommandResponseT]:
         if hasattr(self, "_response"):
             return self._response.__await__()
-        elif self.parent:
-
-            async def _transformed() -> CommandResponseT:
-                if (r := await self.parent) == self.client:  # type: ignore
-                    return r  # type: ignore
-                else:
-                    return self.callback(r)
-
-            return _transformed().__await__()
         raise RuntimeError("You can't await a pipeline command before it completes executing")
 
 
-class ClusterPipelineCommandRequest(PipelineCommandRequest[CommandResponseT]):
+class ClusterPipelineCommandRequest(CommandRequest[CommandResponseT]):
     """
     Command request for cluster pipelines, tracks position and result for cluster routing.
     """
+
+    client: ClusterPipeline[Any]
 
     def __init__(
         self,
@@ -172,19 +130,19 @@ class ClusterPipelineCommandRequest(PipelineCommandRequest[CommandResponseT]):
         *arguments: ValueT,
         callback: Callable[..., CommandResponseT],
         execution_parameters: ExecutionParameters | None = None,
-        parent: CommandRequest[Any] | None = None,
     ) -> None:
+        super().__init__(
+            client, name, *arguments, callback=callback, execution_parameters=execution_parameters
+        )
         self.position: int = 0
         self.result: Any = None
         self.asking: bool = False
-        super().__init__(
-            client,
-            name,
-            *arguments,
-            callback=callback,
-            execution_parameters=execution_parameters,
-            parent=parent,
-        )
+        client._pipeline_execute_command(self)
+
+    def __await__(self) -> Generator[None, None, CommandResponseT]:
+        if hasattr(self, "_response"):
+            return self._response.__await__()
+        raise RuntimeError("You can't await a pipeline command before it completes executing")
 
 
 class NodeCommands(AsyncContextManagerMixin):
@@ -197,7 +155,7 @@ class NodeCommands(AsyncContextManagerMixin):
     def __init__(
         self,
         client: RedisCluster[AnyStr],
-        node: ManagedNode,
+        node: ClusterNodeLocation,
         connection: BaseConnection | None = None,
         in_transaction: bool = False,
         timeout: float | None = None,
@@ -314,7 +272,7 @@ class Pipeline(Client[AnyStr]):
     calls when :paramref:`transaction` is ``True``.
 
     Any command raising an exception does **not** halt the execution of
-    subsequent commands in the pipeline, however the firest exception encountered
+    subsequent commands in the pipeline, however the first exception encountered
     will be raised when exiting the pipeline if :paramref:`raise_on_error` is ``True``.
     If not the exception is caught and will be returned when awaiting the command that failed.
     """
@@ -517,7 +475,8 @@ class Pipeline(Client[AnyStr]):
         # We have to run response callbacks manually
         data: list[Any] = []
         for r, cmd in zip(response, commands):
-            r = cmd.callback(r, **cmd.execution_parameters)
+            if not isinstance(r, Exception):
+                r = cmd.callback(r, **cmd.execution_parameters)
             cmd._response = PipelineResult(r)
             data.append(r)
 
@@ -622,15 +581,10 @@ class Pipeline(Client[AnyStr]):
 
         try:
             return await exec(self._connection, self.command_stack)
-        except (ConnectionError, TimeoutError, CancelledError) as e:
-            # if we were watching a variable, the watch is no longer valid
-            # since this connection has died. raise a WatchError, which
-            # indicates the user should retry his transaction. If this is more
-            # than a temporary failure, the WATCH that the user next issues
-            # will fail, propegating the real ConnectionError
+        except (ConnectionError, TimeoutError) as e:
             if self.watches:
                 raise WatchError(
-                    "A connection error occured while watching one or more keys"
+                    "A connection error occurred while watching one or more keys"
                 ) from e
             raise
         finally:
@@ -648,7 +602,7 @@ class ClusterPipeline(Client[AnyStr]):
     :paramref:`transactions` is set to ``False`` by default due to the limited scope.
 
     Any command raising an exception does **not** halt the execution of
-    subsequent commands in the pipeline, however the firest exception encountered
+    subsequent commands in the pipeline, however the first exception encountered
     will be raised when exiting the pipeline if :paramref:`raise_on_error` is ``True``.
     If not the exception is caught and will be returned when awaiting the command that failed.
     """
@@ -671,13 +625,11 @@ class ClusterPipeline(Client[AnyStr]):
         :param timeout: Time in seconds to wait for the pipeline results to return
         """
         self.command_stack = []
-        self.refresh_table_asap = False
         self.client = client
         self.connection_pool = client.connection_pool
-        self.result_callbacks = client.result_callbacks
         self._raise_on_error = raise_on_error
         self._transaction = transaction
-        self._watched_node: ManagedNode | None = None
+        self._watched_node: ClusterNodeLocation | None = None
         self._watched_connection: BaseConnection | None = None
         self.watches: list[KeyT] = []
         self.explicit_transaction = False
@@ -715,10 +667,7 @@ class ClusterPipeline(Client[AnyStr]):
         """
         if self.command_stack:
             raise WatchError("Unable to add a watch after pipeline commands have been added")
-        try:
-            self._watched_node = self.connection_pool.get_node_by_keys(list(keys))
-        except RedisClusterException:
-            raise ClusterTransactionError("Keys for watch don't hash to the same node")
+        self._watched_node = self.connection_pool.cluster_layout.node_for_request(b"WATCH", keys)
         self.watches.extend(keys)
         async with self.connection_pool.acquire(
             node=self._watched_node
@@ -809,17 +758,14 @@ class ClusterPipeline(Client[AnyStr]):
         attempt = sorted(self.command_stack, key=lambda x: x.position)
         slots: set[int] = set()
         for c in attempt:
-            slot = self._determine_slot(c.name, *c.arguments, **c.execution_parameters)
-            if slot:
-                slots.add(slot)
-
+            slots.add(self._determine_slot(c.name, *c.arguments, **c.execution_parameters))
             if len(slots) > 1:
                 raise ClusterTransactionError("Multiple slots involved in transaction")
         if not slots:
             raise ClusterTransactionError("No slots found for transaction")
-        node = self.connection_pool.get_node_by_slot(slots.pop())
+        node = self.connection_pool.cluster_layout.node_for_slot(slots.pop())
         if self._watched_node and node != self._watched_node:
-            raise ClusterTransactionError("Watched keys are bogus")
+            raise ClusterTransactionError("Multiple slots involved in transaction")
 
         node_commands = NodeCommands(
             self.client,
@@ -830,18 +776,18 @@ class ClusterPipeline(Client[AnyStr]):
             raise_on_error=self._raise_on_error,
         )
         node_commands.extend(attempt)
-        self.explicit_transaction = True
         async with node_commands:
             node_commands.write()
             try:
                 await node_commands.read()
             except ExecAbortError:
-                if self.explicit_transaction:
-                    await node_commands.connection.create_request(CommandName.DISCARD)
-            # If at least one watched key is modified before EXEC, the transaction aborts and EXEC returns null.
+                await node_commands.connection.create_request(CommandName.DISCARD)
 
-            if node_commands.exec_cmd and await node_commands.exec_cmd is None:
-                raise WatchError
+            # If at least one watched key is modified before EXEC, the transaction aborts and EXEC returns null.
+            if node_commands.exec_cmd:
+                exec_result = await node_commands.exec_cmd
+                if exec_result is None:
+                    raise WatchError("Watched variable changed.")
 
             self._results = tuple(
                 n.result
@@ -862,13 +808,12 @@ class ClusterPipeline(Client[AnyStr]):
         :meta private:
         """
         # On first send, queue all commands. On retry, only failed ones.
-        attempt = sorted(self.command_stack, key=lambda x: x.position)
-
+        attempt: dict[ClusterPipelineCommandRequest[Any], ClusterNodeLocation] = {}
         # Group commands by node for efficient network usage.
         nodes: dict[str, NodeCommands] = {}
-        for c in attempt:
-            slot = self._determine_slot(c.name, *c.arguments)
-            node = self.connection_pool.get_node_by_slot(slot)
+        for c in sorted(self.command_stack, key=lambda x: x.position):
+            node = self.connection_pool.cluster_layout.node_for_request(c.name, c.arguments)
+
             if node.name not in nodes:
                 nodes[node.name] = NodeCommands(
                     self.client,
@@ -877,6 +822,7 @@ class ClusterPipeline(Client[AnyStr]):
                     raise_on_error=self._raise_on_error,
                 )
             nodes[node.name].append(c)
+            attempt[c] = node
 
         # Write to all nodes, then read from all nodes in sequence.
         for n in nodes.values():
@@ -885,13 +831,16 @@ class ClusterPipeline(Client[AnyStr]):
                 await n.read()
 
         # Retry MOVED/ASK/connection errors one by one if allowed.
-        attempt = sorted(
-            (c for c in attempt if isinstance(c.result, ERRORS_ALLOW_RETRY)),
-            key=lambda x: x.position,
+        attempt = dict(
+            sorted(
+                (c for c in attempt.items() if isinstance(c[0].result, ERRORS_ALLOW_RETRY)),
+                key=lambda x: x[0].position,
+            )
         )
+
         if attempt and allow_redirections:
-            await self.connection_pool.nodes.increment_reinitialize_counter(len(attempt))
-            for c in attempt:
+            for c, node in attempt.items():
+                self.connection_pool.cluster_layout.report_errors(node, c.result)
                 try:
                     c.result = await self.client.execute_command(
                         RedisCommand(c.name, c.arguments), **c.execution_parameters
@@ -912,20 +861,21 @@ class ClusterPipeline(Client[AnyStr]):
             self._raise_first_error()
 
     def _determine_slot(
-        self, command: bytes, *args: ValueT, **options: Unpack[ExecutionParameters]
+        self, command: bytes, *args: RedisValueT, **options: Unpack[ExecutionParameters]
     ) -> int:
         """
         Determine the hash slot for the given command and arguments.
         """
-        keys: tuple[RedisValueT, ...] = cast(
-            tuple[RedisValueT, ...], options.get("keys")
-        ) or KeySpec.extract_keys(command, *args)  # type: ignore
+        keys: tuple[RedisValueT, ...] = (
+            cast(tuple[RedisValueT, ...], options.get("keys"))
+            or KeySpec.extract_keys(command, *args)[0]
+        )
 
         if not keys:
-            raise RedisClusterException(
+            raise RedisClusterError(
                 f"No way to dispatch {nativestr(command)} to Redis Cluster. Missing key"
             )
-        slots = {hash_slot(b(key)) for key in keys}
+        slots = KeySpec.affected_slots(command, *args)
 
         if len(slots) != 1:
             raise ClusterCrossSlotError(command=command, keys=keys)

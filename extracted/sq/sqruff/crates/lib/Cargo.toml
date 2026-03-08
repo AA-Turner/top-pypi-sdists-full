@@ -60,14 +60,14 @@ lazy-regex = "3.2.0"
 rayon = "1.10.0"
 smol_str = "0.3.1"
 nohash-hasher = "0.2.0"
-strum_macros = "0.27.2"
-strum = "0.27.2"
+strum_macros = "0.28.0"
+strum = "0.28.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = { version = "0.9.34", optional = true }
 serde_json = "1"
 
 # Only activated on python
-pyo3 = { version = "0.28.0", optional = true }
+pyo3 = { version = "0.28.2", optional = true }
 
 [target.'cfg(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -84,4 +84,4 @@ serde_with = { version = "3.13", default-features = false, features = [
     "macros",
 ] }
 sqruff-lib-core = { path = "../lib-core", features = ["serde"] }
-pyo3 = { version = "0.28.0", features = ["auto-initialize"] }
+pyo3 = { version = "0.28.2", features = ["auto-initialize"] }

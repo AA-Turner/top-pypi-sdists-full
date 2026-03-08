@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-core
-Version: 2.67.1
+Version: 2.68.0
 Summary: A python library to define and validate data types in Docling.
 Author-email: Cesar Berrospi Ramis <ceb@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 Maintainer-email: Panos Vagenas <pva@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>, Cesar Berrospi Ramis <ceb@zurich.ibm.com>
@@ -32,7 +32,7 @@ Requires-Dist: jsonschema<5.0.0,>=4.16.0
 Requires-Dist: pydantic!=2.10.0,!=2.10.1,!=2.10.2,<3.0.0,>=2.6.0
 Requires-Dist: jsonref<2.0.0,>=1.1.0
 Requires-Dist: tabulate<0.10.0,>=0.9.0
-Requires-Dist: pandas<3.0.0,>=2.1.4
+Requires-Dist: pandas<4.0.0,>=2.1.4
 Requires-Dist: pillow<13.0.0,>=10.0.0
 Requires-Dist: pyyaml<7.0.0,>=5.1
 Requires-Dist: typing-extensions<5.0.0,>=4.12.2
@@ -59,7 +59,6 @@ Provides-Extra: examples
 Requires-Dist: datasets>=4.0.0; extra == "examples"
 Requires-Dist: matplotlib>=3.7.0; extra == "examples"
 Requires-Dist: openpyxl>=3.1.5; extra == "examples"
-Requires-Dist: pandas>=2.3.3; extra == "examples"
 Dynamic: license-file
 
 # Docling Core

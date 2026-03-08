@@ -16,6 +16,24 @@ from pathspec.patterns import GitWildMatchPattern as _GitWildMatchPattern
 from wcmatch.pathlib import Path as _WcPath
 
 FILE_INFO = "%s: %s"
+_DEFAULT_EXCLUDES = """\
+(?x)^(
+    |\\.?venv[\\\\/].*
+    |\\.git[\\\\/].*
+    |\\.hg[\\\\/].*
+    |\\.idea[\\\\/].*
+    |\\.mypy_cache[\\\\/].*
+    |\\.nox[\\\\/].*
+    |\\.pytest_cache[\\\\/].*
+    |\\.svn[\\\\/].*
+    |\\.tox[\\\\/].*
+    |\\.vscode[\\\\/].*
+    |_?build[\\\\/].*
+    |.*[\\\\/]__pycache__[\\\\/].*
+    |dist[\\\\/].*
+    |node_modules[\\\\/].*
+)$
+"""
 
 
 class _Gitignore(_PathSpec):
@@ -63,7 +81,7 @@ class _Gitignore(_PathSpec):
 
 
 def _glob(path: _Path, pattern: str) -> bool:
-    # pylint: disable=no-member
+    # pylint: disable-next=no-member
     return _WcPath(str(path)).globmatch(pattern)  # type: ignore
 
 
@@ -81,13 +99,15 @@ class Paths(_t.List[_Path]):
     def __init__(
         self,
         *paths: _Path | str,
-        patterns: list[str],
+        patterns: str | None = None,
         excludes: list[str] | None = None,
         include_ignored: bool = False,
     ) -> None:
         super().__init__()
-        self._patterns = patterns
-        self._excludes = excludes or []
+        exclude = [_DEFAULT_EXCLUDES]
+        if patterns is not None:
+            exclude.append(patterns)
+
         self._include_ignored = include_ignored
         self._gitignore = _Gitignore()
         self._logger = _logging.getLogger(__package__)
@@ -96,8 +116,8 @@ class Paths(_t.List[_Path]):
 
         for path in list(self):
             if str(path) != "." and (
-                any(_re.match(i, str(path)) for i in self._patterns)
-                or any(_glob(path, i) for i in self._excludes)
+                any(_re.match(i, str(path)) for i in exclude)
+                or any(_glob(path, i) for i in excludes or [])
             ):
                 self._logger.debug(
                     FILE_INFO,

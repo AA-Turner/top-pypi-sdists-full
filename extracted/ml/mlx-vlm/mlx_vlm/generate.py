@@ -17,7 +17,13 @@ from transformers import PreTrainedTokenizer
 
 from .models import cache
 from .prompt_utils import apply_chat_template
-from .utils import StoppingCriteria, group_images_by_shape, load, prepare_inputs
+from .utils import (
+    StoppingCriteria,
+    ThinkingBudgetCriteria,
+    group_images_by_shape,
+    load,
+    prepare_inputs,
+)
 
 DEFAULT_MODEL_PATH = "mlx-community/nanoLLaVA-1.5-8bit"
 DEFAULT_IMAGE = None
@@ -28,6 +34,7 @@ DEFAULT_TEMPERATURE = 0.5
 DEFAULT_TOP_P = 1.0
 DEFAULT_SEED = 0
 DEFAULT_QUANTIZED_KV_START = 5000
+DEFAULT_PREFILL_STEP_SIZE = 2048
 
 
 def parse_arguments():
@@ -163,10 +170,34 @@ def parse_arguments():
     parser.add_argument(
         "--prefill-step-size",
         type=int,
-        default=None,
+        default=DEFAULT_PREFILL_STEP_SIZE,
         help="Number of tokens to process per prefill step. "
         "Lower values reduce peak memory usage but may be slower. "
         "Try 512 or 256 if you hit GPU memory errors during prefill.",
+    )
+    parser.add_argument(
+        "--enable-thinking",
+        action="store_true",
+        help="Enable thinking mode in the chat template (e.g. for Qwen3.5).",
+    )
+    parser.add_argument(
+        "--thinking-budget",
+        type=int,
+        default=None,
+        help="Maximum number of thinking tokens before forcing the end-of-thinking token.",
+    )
+    parser.add_argument(
+        "--thinking-start-token",
+        type=str,
+        default=None,
+        help="Token that marks the start of a thinking block (e.g. '<think>'). "
+        "If not set, thinking is assumed to start immediately.",
+    )
+    parser.add_argument(
+        "--thinking-end-token",
+        type=str,
+        default="</think>",
+        help="Token that marks the end of a thinking block (default: '</think>').",
     )
 
     return parser.parse_args()
@@ -246,7 +277,7 @@ def generate_step(
     quantized_kv_start: int = 0,
     sampler: Optional[Callable[[mx.array], mx.array]] = None,
     logits_processors: Optional[List[Callable[[mx.array, mx.array], mx.array]]] = None,
-    prefill_step_size: Optional[int] = 2048,
+    prefill_step_size: Optional[int] = DEFAULT_PREFILL_STEP_SIZE,
     **kwargs,
 ) -> Generator[Tuple[mx.array, mx.array], None, None]:
     """
@@ -304,6 +335,8 @@ def generate_step(
 
     y = input_ids
     tokens = mx.array([], dtype=input_ids.dtype)
+
+    thinking_budget_criteria = kwargs.pop("thinking_budget_criteria", None)
 
     # Create the KV cache for generation
     if prompt_cache is None:
@@ -377,6 +410,7 @@ def generate_step(
                         inputs=input_ids[:, :n_to_process],
                         inputs_embeds=inputs_embeds[:, :n_to_process],
                         cache=prompt_cache,
+                        n_to_process=n_to_process,
                         **kwargs,
                     )
                     quantize_cache_fn(prompt_cache)
@@ -405,6 +439,9 @@ def generate_step(
         yield y.item(), logprobs
         if n % 256 == 0:
             mx.clear_cache()
+
+        if thinking_budget_criteria is not None:
+            next_y = thinking_budget_criteria.apply_forced_token(next_y)
         y, logprobs = next_y, next_logprobs
         n += 1
 
@@ -437,6 +474,12 @@ def stream_generate(
           containing the generated text, tokens, and statistics.
     """
     tokenizer = processor.tokenizer if hasattr(processor, "tokenizer") else processor
+
+    # Set up thinking budget criteria if requested
+    thinking_budget = kwargs.pop("thinking_budget", None)
+    thinking_end_token = kwargs.pop("thinking_end_token", "</think>")
+    thinking_start_token = kwargs.pop("thinking_start_token", None)
+    enable_thinking = kwargs.pop("enable_thinking", False)
 
     # Skip special tokens
     skip_special_tokens = kwargs.pop("skip_special_tokens", False)
@@ -480,17 +523,40 @@ def stream_generate(
         }
         kwargs.update(data_kwargs)
 
+    if thinking_budget is not None:
+        thinking_start_token_id = tokenizer.encode(
+            thinking_start_token, add_special_tokens=False
+        )[-1]
+        enable_thinking = enable_thinking and (
+            thinking_start_token_id in input_ids.flatten().tolist()
+        )
+        tokenizer.thinking_budget_criteria = ThinkingBudgetCriteria(
+            tokenizer=tokenizer,
+            thinking_budget=thinking_budget,
+            thinking_end_token=thinking_end_token,
+            thinking_start_token=thinking_start_token,
+            enable_thinking=enable_thinking,
+        )
+        kwargs["thinking_budget_criteria"] = tokenizer.thinking_budget_criteria
+    else:
+        tokenizer.thinking_budget_criteria = None
+
     with wired_limit(model, [generation_stream]):
         detokenizer = processor.detokenizer
         detokenizer.reset()
+        thinking_criteria = getattr(tokenizer, "thinking_budget_criteria", None)
+        gen = generate_step(input_ids, model, pixel_values, mask, **kwargs)
         tic = time.perf_counter()
-        for n, (token, logprobs) in enumerate(
-            generate_step(input_ids, model, pixel_values, mask, **kwargs)
-        ):
+
+        for n, (token, logprobs) in enumerate(gen):
             if n == 0:
                 prompt_time = time.perf_counter() - tic
                 prompt_tps = input_ids.size / prompt_time
                 tic = time.perf_counter()
+
+            # Check thinking budget and force token if needed
+            if thinking_criteria is not None:
+                thinking_criteria(token)
 
             # Stop generation if the token is in the eos_token_ids
             if tokenizer.stopping_criteria(token):
@@ -795,7 +861,7 @@ class BatchGenerator:
         sampler: Optional[Callable[[mx.array], mx.array]] = None,
         completion_batch_size: int = 32,
         prefill_batch_size: int = 8,
-        prefill_step_size: int = 2048,
+        prefill_step_size: Optional[int] = 2048,
         prompt_cache=None,
     ):
         self.model = model
@@ -855,9 +921,14 @@ class BatchGenerator:
                 kwargs[key] = value[:batch_size]
 
         inputs_embeds = kwargs.pop("inputs_embeds", None)
+        if inputs_embeds is None:
+            raise ValueError("inputs_embeds is required")
 
-        if inputs_embeds is not None:
-            # Multimodal prefill
+        if (
+            self.prefill_step_size is not None
+            and inputs_embeds.shape[1] > self.prefill_step_size
+        ):
+            # Chunked prefill with embeddings
             while inputs_embeds.shape[1] > 1:
                 n_to_process = min(self.prefill_step_size, inputs_embeds.shape[1] - 1)
                 self.model(
@@ -872,18 +943,10 @@ class BatchGenerator:
                 inputs = inputs[:, n_to_process:]
                 mx.clear_cache()
 
-            kwargs = {"inputs_embeds": inputs_embeds}
+        y, logprobs = self._step(
+            inputs, prompt_cache, inputs_embeds=inputs_embeds, **kwargs
+        )
 
-        else:
-            # Text-only prefill
-            while inputs.shape[1] > 1 and inputs_embeds is None:
-                n_to_process = min(self.prefill_step_size, inputs.shape[1] - 1)
-                self.model(inputs[:, :n_to_process], cache=prompt_cache)
-                mx.eval([c.state for c in prompt_cache])
-                inputs = inputs[:, n_to_process:]
-                mx.clear_cache()
-
-        y, logprobs = self._step(inputs, prompt_cache, **kwargs)
         mx.async_eval(y, logprobs)
         mx.clear_cache()
         return Batch(
@@ -1208,6 +1271,7 @@ def _generate_batch(
     )
     input_ids = inputs.get("input_ids", None)
     pixel_values = inputs.get("pixel_values", None)
+    mask = inputs.get("attention_mask", None)
 
     data_kwargs = {
         k: v
@@ -1225,31 +1289,12 @@ def _generate_batch(
     )
 
     with wired_limit(model, [generation_stream]):
-        if pixel_values is not None:
-            embedding_output = model.get_input_embeddings(
-                input_ids, pixel_values, **data_kwargs
-            )
 
-            # Normalize embedding output to a kwargs dict expected by BatchGenerator
-            if isinstance(embedding_output, dict):
-                embed_kwargs = embedding_output
-            elif hasattr(embedding_output, "to_dict"):
-                # Convert to dict and keep non-None fields
-                embed_kwargs = {
-                    k: v for k, v in embedding_output.to_dict().items() if v is not None
-                }
-            else:
-                # Assume it's directly an inputs_embeds array
-                embed_kwargs = {"inputs_embeds": embedding_output}
+        embedding_output = model.get_input_embeddings(
+            input_ids, pixel_values, mask=mask, **data_kwargs
+        )
 
-            gen_kwargs = {
-                "pixel_values": pixel_values,
-                **data_kwargs,
-                **embed_kwargs,
-            }
-        else:
-            input_ids = mx.squeeze(input_ids, axis=0)
-            gen_kwargs = {}
+        gen_kwargs = {**data_kwargs, **embedding_output.to_dict()}
 
         uids = gen.insert(input_ids.tolist(), max_tokens)
         results = {uid: [] for uid in uids}
@@ -1282,8 +1327,17 @@ def main():
     num_audios = (
         1 if args.audio is not None else 0
     )  # TODO: Support multiple audio files
+    chat_template_kwargs = {}
+    if args.enable_thinking:
+        chat_template_kwargs["enable_thinking"] = True
+
     prompt = apply_chat_template(
-        processor, config, prompt, num_images=num_images, num_audios=num_audios
+        processor,
+        config,
+        prompt,
+        num_images=num_images,
+        num_audios=num_audios,
+        **chat_template_kwargs,
     )
 
     kwargs = {}
@@ -1314,13 +1368,24 @@ def main():
     if args.processor_kwargs:
         kwargs.update(args.processor_kwargs)
 
+    # Add thinking kwargs
+    if args.enable_thinking:
+        kwargs["enable_thinking"] = True
+    if args.thinking_budget is not None:
+        kwargs["thinking_budget"] = args.thinking_budget
+        kwargs["thinking_end_token"] = args.thinking_end_token
+        if args.thinking_start_token is not None:
+            kwargs["thinking_start_token"] = args.thinking_start_token
+
     if args.chat:
         chat = []
         if args.system:
             chat.append({"role": "system", "content": args.system})
         while user := input("User:"):
             chat.append({"role": "user", "content": user})
-            prompt = apply_chat_template(processor, config, chat, num_images=num_images)
+            prompt = apply_chat_template(
+                processor, config, chat, num_images=num_images, **chat_template_kwargs
+            )
             response = ""
             print("Assistant:", end="")
             stream_kwargs = {

@@ -1,97 +1,96 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pathy
-Version: 0.11.0
+Version: 0.13.0
 Summary: pathlib.Path subclasses for local and cloud bucket storage
-Home-page: https://github.com/justindujardin/pathy
-Author: Justin DuJardin
-Author-email: justin@dujardinconsulting.com
-License: Apache 2.0
+Project-URL: Homepage, https://github.com/justindujardin/pathy
+Author-email: Justin DuJardin <justin@dujardinconsulting.com>, Kai <kai@dujardinconsulting.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >= 3.8
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: smart-open<7.0.0,>=5.2.1
-Requires-Dist: typer<1.0.0,>=0.3.0
-Requires-Dist: dataclasses<1.0,>=0.6; python_version < "3.7"
-Requires-Dist: pathlib_abc==0.1.1
-Provides-Extra: gcs
-Requires-Dist: google-cloud-storage<2.0.0,>=1.26.0; extra == "gcs"
-Provides-Extra: s3
-Requires-Dist: boto3; extra == "s3"
-Provides-Extra: azure
-Requires-Dist: azure-storage-blob; extra == "azure"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-coverage; extra == "test"
-Requires-Dist: mock; extra == "test"
-Requires-Dist: typer-cli; extra == "test"
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
+Requires-Dist: pathlib-abc<0.6,>=0.5.2
+Requires-Dist: smart-open>=5.2.1
+Requires-Dist: typer>=0.3.0
 Provides-Extra: all
-Requires-Dist: google-cloud-storage<2.0.0,>=1.26.0; extra == "all"
-Requires-Dist: boto3; extra == "all"
-Requires-Dist: azure-storage-blob; extra == "all"
-Requires-Dist: pytest; extra == "all"
-Requires-Dist: pytest-coverage; extra == "all"
-Requires-Dist: mock; extra == "all"
-Requires-Dist: typer-cli; extra == "all"
+Requires-Dist: azure-storage-blob; extra == 'all'
+Requires-Dist: boto3; extra == 'all'
+Requires-Dist: google-cloud-storage>=2.0.0; extra == 'all'
+Requires-Dist: pytest; extra == 'all'
+Requires-Dist: pytest-cov; extra == 'all'
+Provides-Extra: azure
+Requires-Dist: azure-storage-blob; extra == 'azure'
+Provides-Extra: gcs
+Requires-Dist: google-cloud-storage>=2.0.0; extra == 'gcs'
+Provides-Extra: s3
+Requires-Dist: boto3; extra == 's3'
+Provides-Extra: test
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Description-Content-Type: text/markdown
 
-# Pathy: a Path interface for local and cloud bucket storage
+# Pathy
 
 [![Build](https://github.com/justindujardin/pathy/actions/workflows/python-package.yml/badge.svg)](https://github.com/justindujardin/pathy/actions/workflows/python-package.yml)
-[![codecov](https://codecov.io/gh/justindujardin/pathy/branch/master/graph/badge.svg)](https://codecov.io/gh/justindujardin/pathy)
+[![codecov](https://codecov.io/gh/justindujardin/pathy/graph/badge.svg?token=KEXGFKEJBL)](https://codecov.io/gh/justindujardin/pathy)
 [![Pypi version](https://badgen.net/pypi/v/pathy)](https://pypi.org/project/pathy/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
-Pathy is a python package (_with type annotations_) for working with Cloud Bucket storage providers using a pathlib interface. It provides an easy-to-use API bundled with a CLI app for basic file operations between local files and remote buckets. It enables a smooth developer experience by letting developers work against the local file system during development and only switch over to live APIs for deployment. It also makes converting bucket blobs into local files a snap with optional local file caching.
+Pathy is a practical Python package with type annotations tailored for managing Cloud Bucket storage through a Path-like interface. It has an intuitive API and supports your [favorite](#google-cloud-storage) [cloud](#azure) [providers](#amazon-s3), facilitating file transfers between local systems and remote buckets. Ideal for seasoned developers, Pathy enables smooth [local file system work](#use_fs) during development, transitioning effortlessly to live APIs for deployment. It also simplifies converting bucket [blobs into local files](#to_local), offering an option for local file caching, and has a familiar CLI interface `pathy`.
 
-## 🚀 Quickstart
+## 💾 Installation
 
 You can install `pathy` from pip:
 
-```bash
-pip install pathy
-```
+| Features             |      Install Command       |
+| :------------------- | :------------------------: |
+| Google Cloud Storage |  `pip install pathy[gcs]`  |
+| Amazon S3            |  `pip install pathy[s3]`   |
+| Azure                | `pip install pathy[azure]` |
 
-The package exports the `Pathy` class and utilities for configuring the bucket storage provider to use.
+## 🚀 Quickstart
+
+Here's a quick run-down of how to get started offline if you intend to use Google Cloud Storage buckets when you ship.
 
 ```python
 from pathy import Pathy, use_fs
+
 # Use the local file-system for quicker development
 use_fs()
+
 # Create a bucket
 Pathy("gs://my_bucket").mkdir(exist_ok=True)
+
 # An excellent blob
 greeting = Pathy(f"gs://my_bucket/greeting.txt")
+
 # But it doesn't exist yet
 assert not greeting.exists()
+
 # Create it by writing some text
 greeting.write_text("Hello World!")
+
 # Now it exists
 assert greeting.exists()
+
 # Delete it
 greeting.unlink()
+
 # Now it doesn't
 assert not greeting.exists()
 ```
 
-## Supported Clouds
+## 🔐 Setup Credentials
 
-The table below details the supported cloud provider APIs.
-
-| Cloud Service        | Support |       Install Extras       |
-| :------------------- | :-----: | :------------------------: |
-| Google Cloud Storage |   ✅    |  `pip install pathy[gcs]`  |
-| Amazon S3            |   ✅    |  `pip install pathy[s3]`   |
-| Azure                |   ✅    | `pip install pathy[azure]` |
+For most cloud operations, you'll need credentials. Here's how to configure your credentials based on the supported cloud providers.
 
 ### Google Cloud Storage
 
@@ -137,7 +136,36 @@ service: BlobServiceClient = BlobServiceClient.from_connection_string(
 set_client_params("azure", service=service)
 ```
 
-## Semantic Versioning
+## 🧪 Development
+
+Pathy uses [uv](https://docs.astral.sh/uv/) for dependency management.
+
+```bash
+# Install dependencies
+uv sync
+
+# Run local tests (no cloud credentials needed)
+uv run pytest
+
+# Run a single test
+uv run pytest pathy/_tests/test_pathy.py::test_name -x
+
+# Run with cloud provider tests (requires env vars)
+uv run pytest --run-gcs     # GCS_CREDENTIALS
+uv run pytest --run-s3      # PATHY_S3_ACCESS_ID + PATHY_S3_ACCESS_SECRET
+uv run pytest --run-azure   # PATHY_AZURE_CONNECTION_STRING
+
+# Lint
+uv run mypy pathy
+uv run flake8 pathy
+uv run black pathy --check
+
+# Auto-format
+uv run black pathy
+uv run isort pathy
+```
+
+## ♻️ Semantic Versioning
 
 Before Pathy reaches v1.0 the project is not guaranteed to have a consistent API, which means that types and classes may move around or be removed. That said, we try to be predictable when it comes to breaking changes, so the project uses semantic versioning to help users avoid breakage.
 
@@ -152,39 +180,38 @@ Consider a few examples:
 |    0.3.1     |   0.3.17   |          No          |
 |    0.2.2     |   0.3.0    |         Yes          |
 
-If you are concerned about breaking changes, you can pin the version in your requirements so that it does not go beyond the current semver `minor` component, for example if the current version was `0.1.37`:
+If you are concerned about breaking changes, you can pin the version in your requirements so that it does not go beyond the current semver `minor` component, for example if the current version was `0.11.0`:
 
 ```
-pathy>=0.1.37,<0.2.0
+pathy>=0.11.0,<0.12.0
 ```
 
-## 🎛 API
+## 📖 API 
 
-<!-- NOTE: The below code is auto-generated. Update source files to change API documentation. -->
 <!-- AUTO_DOCZ_START -->
 
-# Pathy <kbd>class</kbd>
+# Pathy
 
-```python (doc)
-Pathy(self, args, kwargs)
+```python
+Pathy(self, paths)
 ```
 
-Subclass of `pathlib.Path` that works with bucket APIs.
+Subclass of `PathBase` that works with bucket APIs.
 
-## exists <kbd>method</kbd>
+## exists
 
-```python (doc)
-Pathy.exists(self) -> bool
+```python
+Pathy.exists(self: 'Pathy') -> bool
 ```
 
 Returns True if the path points to an existing bucket, blob, or prefix.
 
-## fluid <kbd>classmethod</kbd>
+## fluid
 
-```python (doc)
+```python
 Pathy.fluid(
-    path_candidate: Union[str, Pathy, BasePath],
-) -> Union[Pathy, BasePath]
+    path_candidate: Union[str, Pathy, PathlibPathEx],
+) -> Union[Pathy, PathlibPathEx]
 ```
 
 Infer either a Pathy or pathlib.Path from an input path or string.
@@ -197,6 +224,7 @@ If you need to use specific implementation details of a type, "narrow" the
 return of this function to the desired type, e.g.
 
 ```python
+from pathlib import Path
 from pathy import FluidPath, Pathy
 
 fluid_path: FluidPath = Pathy.fluid("gs://my_bucket/foo.txt")
@@ -204,11 +232,15 @@ fluid_path: FluidPath = Pathy.fluid("gs://my_bucket/foo.txt")
 assert isinstance(fluid_path, Pathy), "must be Pathy"
 # Use a member specific to that class
 assert fluid_path.prefix == "foo.txt/"
+
+# Or use a file-system path
+posix_path: FluidPath = Pathy.fluid("/tmp/foo.txt")
+assert isinstance(posix_path, Path), "must be pathlib.Path"
 ```
 
-## from_bucket <kbd>classmethod</kbd>
+## from_bucket
 
-```python (doc)
+```python
 Pathy.from_bucket(bucket_name: str, scheme: str = 'gs') -> 'Pathy'
 ```
 
@@ -222,22 +254,24 @@ assert str(Pathy.from_bucket("one")) == "gs://one/"
 assert str(Pathy.from_bucket("two")) == "gs://two/"
 ```
 
-## glob <kbd>method</kbd>
+## glob
 
-```python (doc)
+```python
 Pathy.glob(
     self: 'Pathy',
     pattern: str,
+    case_sensitive: Optional[bool] = None,
+    follow_symlinks: Optional[bool] = None,
 ) -> Generator[Pathy, NoneType, NoneType]
 ```
 
 Perform a glob match relative to this Pathy instance, yielding all matched
 blobs.
 
-## is_dir <kbd>method</kbd>
+## is_dir
 
-```python (doc)
-Pathy.is_dir(self: 'Pathy') -> bool
+```python
+Pathy.is_dir(self: 'Pathy', follow_symlinks: bool = True) -> bool
 ```
 
 Determine if the path points to a bucket or a prefix of a given blob
@@ -246,10 +280,10 @@ in the bucket.
 Returns True if the path points to a bucket or a blob prefix.
 Returns False if it points to a blob or the path doesn't exist.
 
-## is_file <kbd>method</kbd>
+## is_file
 
-```python (doc)
-Pathy.is_file(self: 'Pathy') -> bool
+```python
+Pathy.is_file(self: 'Pathy', follow_symlinks: bool = True) -> bool
 ```
 
 Determine if the path points to a blob in the bucket.
@@ -258,19 +292,9 @@ Returns True if the path points to a blob.
 Returns False if it points to a bucket or blob prefix, or if the path doesn’t
 exist.
 
-## iterdir <kbd>method</kbd>
+## ls
 
-```python (doc)
-Pathy.iterdir(
-    self: 'Pathy',
-) -> Generator[Pathy, NoneType, NoneType]
-```
-
-Iterate over the blobs found in the given bucket or blob prefix path.
-
-## ls <kbd>method</kbd>
-
-```python (doc)
+```python
 Pathy.ls(self: 'Pathy') -> Generator[BlobStat, NoneType, NoneType]
 ```
 
@@ -281,9 +305,9 @@ the stat information for the enumerated blobs.
 
 Yields BlobStat objects for each found blob.
 
-## mkdir <kbd>method</kbd>
+## mkdir
 
-```python (doc)
+```python
 Pathy.mkdir(
     self,
     mode: int = 511,
@@ -304,9 +328,9 @@ The mode param is ignored.
 
 Raises FileExistsError if exist_ok is false and the bucket already exists.
 
-## open <kbd>method</kbd>
+## open
 
-```python (doc)
+```python
 Pathy.open(
     self: 'Pathy',
     mode: str = 'r',
@@ -321,9 +345,9 @@ Open the given blob for streaming. This delegates to the `smart_open`
 library that handles large file streaming for a number of bucket API
 providers.
 
-## owner <kbd>method</kbd>
+## owner
 
-```python (doc)
+```python
 Pathy.owner(self: 'Pathy') -> Optional[str]
 ```
 
@@ -331,10 +355,13 @@ Returns the name of the user that owns the bucket or blob
 this path points to. Returns None if the owner is unknown or
 not supported by the bucket API provider.
 
-## rename <kbd>method</kbd>
+## rename
 
-```python (doc)
-Pathy.rename(self: 'Pathy', target: Union[str, pathlib.PurePath]) -> 'Pathy'
+```python
+Pathy.rename(
+    self: 'Pathy',
+    target: Union[str, pathlib_abc.PurePathBase],
+) -> 'Pathy'
 ```
 
 Rename this path to the given target.
@@ -345,19 +372,22 @@ has permission.
 If path is a blob prefix, it will replace all the blobs with the same prefix
 to match the target prefix.
 
-## replace <kbd>method</kbd>
+## replace
 
-```python (doc)
-Pathy.replace(self: 'Pathy', target: Union[str, pathlib.PurePath]) -> 'Pathy'
+```python
+Pathy.replace(
+    self: 'Pathy',
+    target: Union[str, pathlib_abc.PurePathBase],
+) -> 'Pathy'
 ```
 
 Renames this path to the given target.
 
 If target points to an existing path, it will be replaced.
 
-## resolve <kbd>method</kbd>
+## resolve
 
-```python (doc)
+```python
 Pathy.resolve(self, strict: bool = False) -> 'Pathy'
 ```
 
@@ -370,48 +400,36 @@ path = Pathy("gs://my_bucket/folder/../blob")
 assert path.resolve() == Pathy("gs://my_bucket/blob")
 ```
 
-## rglob <kbd>method</kbd>
+## rmdir
 
-```python (doc)
-Pathy.rglob(
-    self: 'Pathy',
-    pattern: str,
-) -> Generator[Pathy, NoneType, NoneType]
-```
-
-Perform a recursive glob match relative to this Pathy instance, yielding
-all matched blobs. Imagine adding "\*\*/" before a call to glob.
-
-## rmdir <kbd>method</kbd>
-
-```python (doc)
+```python
 Pathy.rmdir(self: 'Pathy') -> None
 ```
 
 Removes this bucket or blob prefix. It must be empty.
 
-## samefile <kbd>method</kbd>
+## samefile
 
-```python (doc)
+```python
 Pathy.samefile(
     self: 'Pathy',
-    other_path: Union[str, bytes, int, pathlib.Path],
+    other_path: Union[str, bytes, int, pathlib_abc.PathBase],
 ) -> bool
 ```
 
 Determine if this path points to the same location as other_path.
 
-## stat <kbd>method</kbd>
+## stat
 
-```python (doc)
-Pathy.stat(self: 'Pathy') -> pathy.BlobStat
+```python
+Pathy.stat(self: 'Pathy', follow_symlinks: bool = True) -> pathy.BlobStat
 ```
 
 Returns information about this bucket path.
 
-## to_local <kbd>classmethod</kbd>
+## to_local
 
-```python (doc)
+```python
 Pathy.to_local(
     blob_path: Union[Pathy, str],
     recurse: bool = True,
@@ -423,9 +441,9 @@ Download and cache either a blob or a set of blobs matching a prefix.
 The cache is sensitive to the file updated time, and downloads new blobs
 as their updated timestamps change.
 
-## touch <kbd>method</kbd>
+## touch
 
-```python (doc)
+```python
 Pathy.touch(self: 'Pathy', mode: int = 438, exist_ok: bool = True) -> None
 ```
 
@@ -435,9 +453,17 @@ If the blob already exists, the function succeeds if exist_ok is true
 (and its modification time is updated to the current time), otherwise
 FileExistsError is raised.
 
-# BlobStat <kbd>dataclass</kbd>
+## unlink
 
-```python (doc)
+```python
+Pathy.unlink(self: 'Pathy') -> None
+```
+
+Delete a link to a blob in a bucket.
+
+# BlobStat
+
+```python
 BlobStat(
     self,
     name: str,
@@ -448,11 +474,11 @@ BlobStat(
 
 Stat for a bucket item
 
-# use_fs <kbd>function</kbd>
+# use_fs
 
-```python (doc)
+```python
 use_fs(
-    root: Optional[str, pathlib.Path, bool] = None,
+    root: Optional[str, pathlib_abc.PathBase, pathy.PathlibPathEx, bool] = None,
 ) -> Optional[pathy.BucketClientFS]
 ```
 
@@ -461,20 +487,20 @@ Use a path in the local file-system to store blobs and buckets.
 This is useful for development and testing situations, and for embedded
 applications.
 
-# get_fs_client <kbd>function</kbd>
+# get_fs_client
 
-```python (doc)
+```python
 get_fs_client() -> Optional[pathy.BucketClientFS]
 ```
 
 Get the file-system client (or None)
 
-# use_fs_cache <kbd>function</kbd>
+# use_fs_cache
 
-```python (doc)
+```python
 use_fs_cache(
-    root: Optional[str, pathlib.Path, bool] = None,
-) -> Optional[pathlib.Path]
+    root: Optional[str, pathlib_abc.PathBase, pathy.PathlibPathEx, bool] = None,
+) -> Optional[pathy.PathlibPathEx]
 ```
 
 Use a path in the local file-system to cache blobs and buckets.
@@ -482,17 +508,17 @@ Use a path in the local file-system to cache blobs and buckets.
 This is useful for when you want to avoid fetching large blobs multiple
 times, or need to pass a local file path to a third-party library.
 
-# get_fs_cache <kbd>function</kbd>
+# get_fs_cache
 
-```python (doc)
-get_fs_cache() -> Optional[pathlib.Path]
+```python
+get_fs_cache() -> Optional[pathy.PathlibPathEx]
 ```
 
 Get the folder that holds file-system cached blobs and timestamps.
 
-# set_client_params <kbd>function</kbd>
+# set_client_params
 
-```python (doc)
+```python
 set_client_params(scheme: str, kwargs: Any) -> None
 ```
 
@@ -500,9 +526,9 @@ Specify args to pass when instantiating a service-specific Client
 object. This allows for passing credentials in whatever way your underlying
 client library prefers.
 
-# CLI
+# 💻 CLI
 
-Pathy command line interface. (v0.5.2)
+Pathy command line interface. (v0.11.0)
 
 **Usage**:
 
@@ -520,8 +546,8 @@ $ [OPTIONS] COMMAND [ARGS]...
 
 - `cp`: Copy a blob or folder of blobs from one...
 - `ls`: List the blobs that exist at a given...
-- `mv`: Move a blob or folder of blobs from one path...
-- `rm`: Remove a blob or folder of blobs from a given...
+- `mv`: Move a blob or folder of blobs from one...
+- `rm`: Remove a blob or folder of blobs from a...
 
 ## `cp`
 
@@ -558,7 +584,7 @@ $ ls [OPTIONS] LOCATION
 
 **Options**:
 
-- `-l, --long`: Print long style entries with updated time and size shown. [default: False]
+- `-l, --long`: Print long style entries with updated time and size shown.
 - `--help`: Show this message and exit.
 
 ## `mv`
@@ -596,8 +622,8 @@ $ rm [OPTIONS] LOCATION
 
 **Options**:
 
-- `-r, --recursive`: Recursively remove files and folders. [default: False]
-- `-v, --verbose`: Print removed files and folders. [default: False]
+- `-r, --recursive`: Recursively remove files and folders.
+- `-v, --verbose`: Print removed files and folders.
 - `--help`: Show this message and exit.
 
 <!-- AUTO_DOCZ_END -->

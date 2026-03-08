@@ -57,7 +57,10 @@ impl OutputFormatter for JsonFormatter {
     }
 }
 
-/// Helper to format all warnings from multiple files as a single JSON document
+/// Format all warnings from multiple files as a single JSON array.
+///
+/// In fix mode, only remaining (unfixed) warnings are passed in,
+/// matching ESLint/Ruff convention of reporting only what's left.
 pub fn format_all_warnings_as_json(all_warnings: &[(String, Vec<LintWarning>)]) -> String {
     let mut json_warnings = Vec::new();
 
@@ -266,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_format_all_warnings_as_json_empty() {
-        let all_warnings = vec![];
+        let all_warnings: Vec<(String, Vec<LintWarning>)> = vec![];
         let output = format_all_warnings_as_json(&all_warnings);
         assert_eq!(output, "[]");
     }

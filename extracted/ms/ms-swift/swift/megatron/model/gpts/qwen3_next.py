@@ -519,7 +519,6 @@ class Qwen3NextLoader(MegatronModelLoader):
             moe_grouped_gemm=config.moe_grouped_gemm,
             qk_layernorm=config.qk_layernorm,
             multi_latent_attention=config.multi_latent_attention,
-            moe_use_legacy_grouped_gemm=config.moe_use_legacy_grouped_gemm,
             **kwargs,
         )
         layer_specs = []
@@ -552,10 +551,11 @@ class Qwen3NextLoader(MegatronModelLoader):
     def get_mtp_block_spec(self, *args, **kwargs):
         # TODO: layernorm_zero_centered_gamma
         mtp_block_spec = super().get_mtp_block_spec(*args, **kwargs)
-        for layer_spec in mtp_block_spec.layer_specs:
-            layer_spec.submodules.enorm = Qwen3NextRMSNorm
-            layer_spec.submodules.hnorm = Qwen3NextRMSNorm
-            layer_spec.submodules.layer_norm = Qwen3NextRMSNorm
+        if mtp_block_spec is not None:
+            for layer_spec in mtp_block_spec.layer_specs:
+                layer_spec.submodules.enorm = Qwen3NextRMSNorm
+                layer_spec.submodules.hnorm = Qwen3NextRMSNorm
+                layer_spec.submodules.layer_norm = Qwen3NextRMSNorm
         return mtp_block_spec
 
 

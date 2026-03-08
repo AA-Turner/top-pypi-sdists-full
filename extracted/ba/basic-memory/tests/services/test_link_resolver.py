@@ -1,14 +1,16 @@
 """Tests for link resolution service."""
 
+import uuid
 from datetime import datetime, timezone
 
 import pytest
 
 import pytest_asyncio
 
+from basic_memory.models.knowledge import Entity as EntityModel
+from basic_memory.repository import EntityRepository
 from basic_memory.schemas.base import Entity as EntitySchema
 from basic_memory.services.link_resolver import LinkResolver
-from basic_memory.models.knowledge import Entity as EntityModel
 
 
 @pytest_asyncio.fixture
@@ -28,7 +30,7 @@ async def test_entities(entity_service, file_service):
     e1, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Core Service",
-            entity_type="component",
+            note_type="component",
             directory="components",
             project=entity_service.repository.project_id,
         )
@@ -36,7 +38,7 @@ async def test_entities(entity_service, file_service):
     e2, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Service Config",
-            entity_type="config",
+            note_type="config",
             directory="config",
             project=entity_service.repository.project_id,
         )
@@ -44,7 +46,7 @@ async def test_entities(entity_service, file_service):
     e3, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Auth Service",
-            entity_type="component",
+            note_type="component",
             directory="components",
             project=entity_service.repository.project_id,
         )
@@ -52,7 +54,7 @@ async def test_entities(entity_service, file_service):
     e4, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Core Features",
-            entity_type="specs",
+            note_type="specs",
             directory="specs",
             project=entity_service.repository.project_id,
         )
@@ -60,7 +62,7 @@ async def test_entities(entity_service, file_service):
     e5, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Sub Features 1",
-            entity_type="specs",
+            note_type="specs",
             directory="specs/subspec",
             project=entity_service.repository.project_id,
         )
@@ -68,7 +70,7 @@ async def test_entities(entity_service, file_service):
     e6, _ = await entity_service.create_or_update_entity(
         EntitySchema(
             title="Sub Features 2",
-            entity_type="specs",
+            note_type="specs",
             directory="specs/subspec",
             project=entity_service.repository.project_id,
         )
@@ -78,7 +80,7 @@ async def test_entities(entity_service, file_service):
     e7 = await entity_service.repository.add(
         EntityModel(
             title="Image.png",
-            entity_type="file",
+            note_type="file",
             content_type="image/png",
             file_path="Image.png",
             permalink="image",  # Required for Postgres NOT NULL constraint
@@ -91,7 +93,7 @@ async def test_entities(entity_service, file_service):
     e8 = await entity_service.create_entity(  # duplicate title
         EntitySchema(
             title="Core Service",
-            entity_type="component",
+            note_type="component",
             directory="components2",
             project=entity_service.repository.project_id,
         )
@@ -110,40 +112,46 @@ async def link_resolver(entity_repository, search_service, test_entities):
     return LinkResolver(entity_repository, search_service)
 
 
+@pytest.fixture
+def project_prefix(test_entities) -> str:
+    """Project permalink prefix for expected permalinks."""
+    return test_entities[0].permalink.split("/", 1)[0]
+
+
 @pytest.mark.asyncio
-async def test_exact_permalink_match(link_resolver, test_entities):
+async def test_exact_permalink_match(link_resolver, test_entities, project_prefix):
     """Test resolving a link that exactly matches a permalink."""
     entity = await link_resolver.resolve_link("components/core-service")
-    assert entity.permalink == "components/core-service"
+    assert entity.permalink == f"{project_prefix}/components/core-service"
 
 
 @pytest.mark.asyncio
-async def test_exact_title_match(link_resolver, test_entities):
+async def test_exact_title_match(link_resolver, test_entities, project_prefix):
     """Test resolving a link that matches an entity title."""
     entity = await link_resolver.resolve_link("Core Service")
-    assert entity.permalink == "components/core-service"
+    assert entity.permalink == f"{project_prefix}/components/core-service"
 
 
 @pytest.mark.asyncio
-async def test_duplicate_title_match(link_resolver, test_entities):
+async def test_duplicate_title_match(link_resolver, test_entities, project_prefix):
     """Test resolving a link that matches an entity title."""
     entity = await link_resolver.resolve_link("Core Service")
-    assert entity.permalink == "components/core-service"
+    assert entity.permalink == f"{project_prefix}/components/core-service"
 
 
 @pytest.mark.asyncio
-async def test_fuzzy_title_partial_match(link_resolver):
+async def test_fuzzy_title_partial_match(link_resolver, project_prefix):
     # Test partial match
     result = await link_resolver.resolve_link("Auth Serv")
     assert result is not None, "Did not find partial match"
-    assert result.permalink == "components/auth-service"
+    assert result.permalink == f"{project_prefix}/components/auth-service"
 
 
 @pytest.mark.asyncio
-async def test_fuzzy_title_exact_match(link_resolver):
+async def test_fuzzy_title_exact_match(link_resolver, project_prefix):
     # Test partial match
     result = await link_resolver.resolve_link("auth-service")
-    assert result.permalink == "components/auth-service"
+    assert result.permalink == f"{project_prefix}/components/auth-service"
 
 
 @pytest.mark.asyncio
@@ -178,12 +186,12 @@ async def test_resolve_file(link_resolver):
     # Basic new entity
     resolved = await link_resolver.resolve_link("Image.png")
     assert resolved is not None
-    assert resolved.entity_type == "file"
+    assert resolved.note_type == "file"
     assert resolved.title == "Image.png"
 
 
 @pytest.mark.asyncio
-async def test_folder_title_pattern_with_md_extension(link_resolver, test_entities):
+async def test_folder_title_pattern_with_md_extension(link_resolver, test_entities, project_prefix):
     """Test resolving folder/title patterns that need .md extension added.
 
     This tests the new logic added in step 4 of resolve_link that handles
@@ -193,25 +201,25 @@ async def test_folder_title_pattern_with_md_extension(link_resolver, test_entiti
     # "components/Core Service" should resolve to file path "components/Core Service.md"
     entity = await link_resolver.resolve_link("components/Core Service")
     assert entity is not None
-    assert entity.permalink == "components/core-service"
+    assert entity.permalink == f"{project_prefix}/components/core-service"
     assert entity.file_path == "components/Core Service.md"
 
     # Test with different entity
     entity = await link_resolver.resolve_link("config/Service Config")
     assert entity is not None
-    assert entity.permalink == "config/service-config"
+    assert entity.permalink == f"{project_prefix}/config/service-config"
     assert entity.file_path == "config/Service Config.md"
 
     # Test with nested folder structure
     entity = await link_resolver.resolve_link("specs/subspec/Sub Features 1")
     assert entity is not None
-    assert entity.permalink == "specs/subspec/sub-features-1"
+    assert entity.permalink == f"{project_prefix}/specs/subspec/sub-features-1"
     assert entity.file_path == "specs/subspec/Sub Features 1.md"
 
     # Test that it doesn't try to add .md to things that already have it
     entity = await link_resolver.resolve_link("components/Core Service.md")
     assert entity is not None
-    assert entity.permalink == "components/core-service"
+    assert entity.permalink == f"{project_prefix}/components/core-service"
 
     # Test that it doesn't try to add .md to single words (no slash)
     entity = await link_resolver.resolve_link("NonExistent")
@@ -220,12 +228,12 @@ async def test_folder_title_pattern_with_md_extension(link_resolver, test_entiti
     # Test that it doesn't interfere with exact permalink matches
     entity = await link_resolver.resolve_link("components/core-service")
     assert entity is not None
-    assert entity.permalink == "components/core-service"
+    assert entity.permalink == f"{project_prefix}/components/core-service"
 
 
 # Tests for strict mode parameter combinations
 @pytest.mark.asyncio
-async def test_strict_mode_parameter_combinations(link_resolver, test_entities):
+async def test_strict_mode_parameter_combinations(link_resolver, test_entities, project_prefix):
     """Test all combinations of use_search and strict parameters."""
 
     # Test queries
@@ -236,11 +244,11 @@ async def test_strict_mode_parameter_combinations(link_resolver, test_entities):
     # Case 1: use_search=True, strict=False (default behavior - fuzzy matching allowed)
     result = await link_resolver.resolve_link(exact_match, use_search=True, strict=False)
     assert result is not None
-    assert result.permalink == "components/auth-service"
+    assert result.permalink == f"{project_prefix}/components/auth-service"
 
     result = await link_resolver.resolve_link(fuzzy_match, use_search=True, strict=False)
     assert result is not None  # Should find "Auth Service" via fuzzy matching
-    assert result.permalink == "components/auth-service"
+    assert result.permalink == f"{project_prefix}/components/auth-service"
 
     result = await link_resolver.resolve_link(non_existent, use_search=True, strict=False)
     assert result is None
@@ -248,7 +256,7 @@ async def test_strict_mode_parameter_combinations(link_resolver, test_entities):
     # Case 2: use_search=True, strict=True (exact matches only, even with search enabled)
     result = await link_resolver.resolve_link(exact_match, use_search=True, strict=True)
     assert result is not None
-    assert result.permalink == "components/auth-service"
+    assert result.permalink == f"{project_prefix}/components/auth-service"
 
     result = await link_resolver.resolve_link(fuzzy_match, use_search=True, strict=True)
     assert result is None  # Should NOT find via fuzzy matching in strict mode
@@ -259,7 +267,7 @@ async def test_strict_mode_parameter_combinations(link_resolver, test_entities):
     # Case 3: use_search=False, strict=False (no search, exact repository matches only)
     result = await link_resolver.resolve_link(exact_match, use_search=False, strict=False)
     assert result is not None
-    assert result.permalink == "components/auth-service"
+    assert result.permalink == f"{project_prefix}/components/auth-service"
 
     result = await link_resolver.resolve_link(fuzzy_match, use_search=False, strict=False)
     assert result is None  # No search means no fuzzy matching
@@ -270,7 +278,7 @@ async def test_strict_mode_parameter_combinations(link_resolver, test_entities):
     # Case 4: use_search=False, strict=True (redundant but should work same as case 3)
     result = await link_resolver.resolve_link(exact_match, use_search=False, strict=True)
     assert result is not None
-    assert result.permalink == "components/auth-service"
+    assert result.permalink == f"{project_prefix}/components/auth-service"
 
     result = await link_resolver.resolve_link(fuzzy_match, use_search=False, strict=True)
     assert result is None  # No search means no fuzzy matching
@@ -280,28 +288,28 @@ async def test_strict_mode_parameter_combinations(link_resolver, test_entities):
 
 
 @pytest.mark.asyncio
-async def test_exact_match_types_in_strict_mode(link_resolver, test_entities):
+async def test_exact_match_types_in_strict_mode(link_resolver, test_entities, project_prefix):
     """Test that all types of exact matches work in strict mode."""
 
     # 1. Exact permalink match
     result = await link_resolver.resolve_link("components/core-service", strict=True)
     assert result is not None
-    assert result.permalink == "components/core-service"
+    assert result.permalink == f"{project_prefix}/components/core-service"
 
     # 2. Exact title match
     result = await link_resolver.resolve_link("Core Service", strict=True)
     assert result is not None
-    assert result.permalink == "components/core-service"
+    assert result.permalink == f"{project_prefix}/components/core-service"
 
     # 3. Exact file path match
     result = await link_resolver.resolve_link("components/Core Service.md", strict=True)
     assert result is not None
-    assert result.permalink == "components/core-service"
+    assert result.permalink == f"{project_prefix}/components/core-service"
 
     # 4. Folder/title pattern with .md extension added
     result = await link_resolver.resolve_link("components/Core Service", strict=True)
     assert result is not None
-    assert result.permalink == "components/core-service"
+    assert result.permalink == f"{project_prefix}/components/core-service"
 
     # 5. Non-markdown file (Image.png)
     result = await link_resolver.resolve_link("Image.png", strict=True)
@@ -329,14 +337,14 @@ async def test_fuzzy_matching_blocked_in_strict_mode(link_resolver, test_entitie
 
 
 @pytest.mark.asyncio
-async def test_link_normalization_with_strict_mode(link_resolver, test_entities):
+async def test_link_normalization_with_strict_mode(link_resolver, test_entities, project_prefix):
     """Test that link normalization still works in strict mode."""
 
     # Test bracket removal and alias handling in strict mode
     queries_and_expected = [
-        ("[[Core Service]]", "components/core-service"),
-        ("[[Core Service|Main]]", "components/core-service"),  # Alias should be ignored
-        ("  [[  Core Service  ]]  ", "components/core-service"),  # Extra whitespace
+        ("[[Core Service]]", f"{project_prefix}/components/core-service"),
+        ("[[Core Service|Main]]", f"{project_prefix}/components/core-service"),
+        ("  [[  Core Service  ]]  ", f"{project_prefix}/components/core-service"),
     ]
 
     for query, expected_permalink in queries_and_expected:
@@ -346,7 +354,9 @@ async def test_link_normalization_with_strict_mode(link_resolver, test_entities)
 
 
 @pytest.mark.asyncio
-async def test_duplicate_title_handling_in_strict_mode(link_resolver, test_entities):
+async def test_duplicate_title_handling_in_strict_mode(
+    link_resolver, test_entities, project_prefix
+):
     """Test how duplicate titles are handled in strict mode."""
 
     # "Core Service" appears twice in test data (components/core-service and components2/core-service)
@@ -356,7 +366,48 @@ async def test_duplicate_title_handling_in_strict_mode(link_resolver, test_entit
     result = await link_resolver.resolve_link("Core Service", strict=True)
     assert result is not None
     # Should return the first match (components/core-service based on test fixture order)
-    assert result.permalink == "components/core-service"
+    assert result.permalink == f"{project_prefix}/components/core-service"
+
+
+@pytest.mark.asyncio
+async def test_cross_project_link_resolution(
+    session_maker, entity_repository, search_service, tmp_path
+):
+    """Test resolving explicit cross-project links."""
+    from basic_memory.repository.project_repository import ProjectRepository
+
+    project_repo = ProjectRepository(session_maker)
+    other_project = await project_repo.create(
+        {
+            "name": "other-project",
+            "description": "Secondary project",
+            "path": str(tmp_path / "other-project"),
+            "is_active": True,
+            "is_default": False,
+        }
+    )
+
+    now = datetime.now(timezone.utc)
+    other_entity_repo = EntityRepository(session_maker, project_id=other_project.id)
+    target = await other_entity_repo.add(
+        EntityModel(
+            title="Cross Project Note",
+            note_type="note",
+            content_type="text/markdown",
+            file_path="docs/Cross Project Note.md",
+            permalink=f"{other_project.permalink}/docs/cross-project-note",
+            created_at=now,
+            updated_at=now,
+            project_id=other_project.id,
+        )
+    )
+
+    resolver = LinkResolver(entity_repository, search_service)
+    resolved = await resolver.resolve_link("other-project::Cross Project Note", strict=True)
+
+    assert resolved is not None
+    assert resolved.id == target.id
+    assert resolved.project_id == other_project.id
 
 
 # ============================================================================
@@ -389,7 +440,7 @@ async def context_aware_entities(entity_repository):
     e1 = await entity_repository.add(
         EntityModel(
             title="testing",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="testing.md",
             permalink="testing",
@@ -404,7 +455,7 @@ async def context_aware_entities(entity_repository):
     e2 = await entity_repository.add(
         EntityModel(
             title="testing",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="main/testing/testing.md",
             permalink="main/testing/testing",
@@ -419,7 +470,7 @@ async def context_aware_entities(entity_repository):
     e3 = await entity_repository.add(
         EntityModel(
             title="another-test",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="main/testing/another-test.md",
             permalink="main/testing/another-test",
@@ -434,7 +485,7 @@ async def context_aware_entities(entity_repository):
     e4 = await entity_repository.add(
         EntityModel(
             title="testing",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="other/testing.md",
             permalink="other/testing",
@@ -449,7 +500,7 @@ async def context_aware_entities(entity_repository):
     e5 = await entity_repository.add(
         EntityModel(
             title="note",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="deep/nested/folder/note.md",
             permalink="deep/nested/folder/note",
@@ -464,7 +515,7 @@ async def context_aware_entities(entity_repository):
     e6 = await entity_repository.add(
         EntityModel(
             title="note",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="deep/note.md",
             permalink="deep/note",
@@ -479,7 +530,7 @@ async def context_aware_entities(entity_repository):
     e7 = await entity_repository.add(
         EntityModel(
             title="note",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="note.md",
             permalink="note",
@@ -688,7 +739,7 @@ async def relative_path_entities(entity_repository):
     e1 = await entity_repository.add(
         EntityModel(
             title="link-test",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="testing/link-test.md",
             permalink="testing/link-test",
@@ -703,7 +754,7 @@ async def relative_path_entities(entity_repository):
     e2 = await entity_repository.add(
         EntityModel(
             title="deep-note",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="testing/nested/deep-note.md",
             permalink="testing/nested/deep-note",
@@ -718,7 +769,7 @@ async def relative_path_entities(entity_repository):
     e3 = await entity_repository.add(
         EntityModel(
             title="deep-note",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="nested/deep-note.md",
             permalink="nested/deep-note",
@@ -733,7 +784,7 @@ async def relative_path_entities(entity_repository):
     e4 = await entity_repository.add(
         EntityModel(
             title="file",
-            entity_type="note",
+            note_type="note",
             content_type="text/markdown",
             file_path="other/file.md",
             permalink="other/file",
@@ -809,3 +860,62 @@ async def test_simple_link_no_slash_skips_relative_resolution(relative_path_reso
     # testing/nested/ is not the same folder as testing/, but it's closer than nested/
     # The context-aware resolution will pick the closest match
     assert result.file_path == "testing/nested/deep-note.md"
+
+
+# ============================================================================
+# External ID (UUID) resolution tests
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_resolve_link_by_external_id(link_resolver, test_entities):
+    """Test resolving a link using a valid external_id (UUID)."""
+    entity = test_entities[0]
+    result = await link_resolver.resolve_link(entity.external_id)
+    assert result is not None
+    assert result.id == entity.id
+    assert result.external_id == entity.external_id
+
+
+@pytest.mark.asyncio
+async def test_resolve_link_by_external_id_uppercase(link_resolver, test_entities):
+    """Test that uppercase UUID is canonicalized and resolves correctly."""
+    entity = test_entities[0]
+    upper_id = entity.external_id.upper()
+    result = await link_resolver.resolve_link(upper_id)
+    assert result is not None
+    assert result.id == entity.id
+
+
+@pytest.mark.asyncio
+async def test_resolve_link_by_external_id_nonexistent(link_resolver):
+    """Test that a valid UUID format that doesn't match any entity returns None."""
+    fake_id = str(uuid.uuid4())
+    result = await link_resolver.resolve_link(fake_id)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_link_non_uuid_falls_through(link_resolver, test_entities, project_prefix):
+    """Test that non-UUID strings skip UUID resolution and use normal lookup."""
+    result = await link_resolver.resolve_link("Core Service")
+    assert result is not None
+    assert result.permalink == f"{project_prefix}/components/core-service"
+
+
+# ============================================================================
+# Fuzzy search best-match selection tests (#640)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_fuzzy_search_selects_first_result(link_resolver, project_prefix):
+    """Test that fuzzy search uses results[0] (best-ranked by the DB) regardless of score sign.
+
+    Both SQLite (BM25, negative scores, ASC) and Postgres (ts_rank, positive scores, DESC)
+    return the best match first. Using results[0] is backend-agnostic and correct.
+    """
+    result = await link_resolver.resolve_link("Auth Serv")
+    assert result is not None
+    # The best match for "Auth Serv" should be Auth Service
+    assert result.permalink == f"{project_prefix}/components/auth-service"

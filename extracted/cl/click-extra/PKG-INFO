@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click-extra
-Version: 7.6.5
+Version: 7.7.0
 Summary: 🌈 Drop-in replacement for Click to make user-friendly and colorful CLI
 Keywords: ansi-colors,cli,cloup,colorization,configuration,console,hjson,ini,json,json5,jsonc,logging,multiplatform,pygments,pytest,python,python-tabulate,sphinx,terminal,toml,xml,yaml
 Author: Kevin Deldycke
@@ -60,11 +60,12 @@ Requires-Dist: docutils>=0.20 ; extra == 'sphinx'
 Requires-Dist: pygments>=2.14 ; extra == 'sphinx'
 Requires-Dist: pygments-ansi-color>=0.3 ; extra == 'sphinx'
 Requires-Dist: sphinx>=8 ; extra == 'sphinx'
+Requires-Dist: tomlkit>=0.13 ; extra == 'toml'
 Requires-Dist: xmltodict>=1 ; extra == 'xml'
 Requires-Dist: pyyaml>=6.0.3 ; extra == 'yaml'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/kdeldycke/click-extra
-Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.6.5
+Project-URL: Download, https://github.com/kdeldycke/click-extra/releases/tag/v7.7.0
 Project-URL: Changelog, https://github.com/kdeldycke/click-extra/blob/main/changelog.md
 Project-URL: Issues, https://github.com/kdeldycke/click-extra/issues
 Project-URL: Repository, https://github.com/kdeldycke/click-extra
@@ -75,6 +76,7 @@ Provides-Extra: jsonc
 Provides-Extra: pygments
 Provides-Extra: pytest
 Provides-Extra: sphinx
+Provides-Extra: toml
 Provides-Extra: xml
 Provides-Extra: yaml
 Description-Content-Type: text/markdown
@@ -106,7 +108,7 @@ It also comes with [workarounds and patches](https://kdeldycke.github.io/click-e
 You can try Click Extra right now in your terminal, without installing any dependency or virtual env [thanks to `uvx`](https://docs.astral.sh/uv/guides/tools/):
 
 ```shell-session
-$ uvx --from click-extra -- click-extra-demo
+$ uvx click-extra
 ```
 
 This is a great way to play with Click Extra and check that it runs fine on your system, and renders properly in your terminal.

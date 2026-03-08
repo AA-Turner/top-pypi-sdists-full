@@ -40,11 +40,14 @@ def _run_async(coro):
 class _VM:
     """Manages a Plato VM session for testing."""
 
-    def __init__(self):
+    def __init__(self, *, world_name: str = "plato-world-workspace-test", tags: list[str] | None = None):
         self.plato = None
         self.session = None
         self.env = None
         self.chronos_session_id = None
+        self.otel_url = None
+        self._world_name = world_name
+        self._tags = tags
 
     async def start(self):
         import httpx
@@ -73,19 +76,20 @@ class _VM:
         self.env = self.session.envs[0]
 
         # Create Chronos session (like `plato chronos dev` does)
+        req_kwargs = {"world_name": self._world_name, "world_config": {}}
+        if self._tags:
+            req_kwargs["tags"] = self._tags
         async with httpx.AsyncClient(
             base_url=CHRONOS_URL,
             timeout=30.0,
         ) as client:
             resp = await create_session.asyncio(
                 client,
-                body=CreateSessionRequest(
-                    world_name="plato-world-workspace-test",
-                    world_config={},
-                ),
+                body=CreateSessionRequest(**req_kwargs),
                 x_api_key=os.environ["PLATO_API_KEY"],
             )
         self.chronos_session_id = resp.public_id
+        self.otel_url = resp.otel_url
 
         # Setup SSH key and copy to VM (like dev runner does)
         self._ssh_key = SSHKeyPair.generate()
@@ -186,22 +190,13 @@ def vm():
                 )
             )
 
-        # pyfuse3 must be installed BEFORE the world process starts, because
-        # lazy_dvc.py does a hard `import pyfuse3` at module level.
+        # The Rust plato-fuse binary needs fuse3 userspace tools on the VM.
         loop.run_until_complete(
             v.exec_ok(
-                "apt-get update -qq && apt-get install -y -qq libfuse3-dev fuse3 pkg-config gcc python3-dev",
+                "dpkg -s fuse3 > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq fuse3)",
                 timeout=120,
             )
         )
-        loop.run_until_complete(
-            v.exec_ok(
-                "uv pip install --system pyfuse3",
-                timeout=120,
-            )
-        )
-        # Verify pyfuse3 is importable — fail fast if build was broken
-        loop.run_until_complete(v.exec_ok("python3 -c 'import pyfuse3; print(pyfuse3.__version__)'", timeout=10))
 
         yield v
     finally:
@@ -222,6 +217,7 @@ class TestWorkspaceVM:
                 "session_id": vm.chronos_session_id,
                 "plato_session": vm.session.dump().model_dump(),
                 "chronos_url": CHRONOS_URL,
+                "transport_mode": "nfs_kernel",
             },
             "dev": {
                 "ssh_key_path": "/root/.ssh/agent_key",

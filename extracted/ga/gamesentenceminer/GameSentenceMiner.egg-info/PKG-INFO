@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2.24.7
+Version: 2026.3.0
 Summary: A tool for mining sentences from games. Update: Dependencies, replay buffer based line searching, and bug fixes.
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -39,7 +39,6 @@ Requires-Dist: flask~=3.1.2
 Requires-Dist: pystray~=0.19.5
 Requires-Dist: pygetwindow==0.0.9; sys_platform == "win32"
 Requires-Dist: pywin32==311; sys_platform == "win32"
-Requires-Dist: win10toast==0.9; sys_platform == "win32"
 Requires-Dist: stable-ts~=2.19.1
 Requires-Dist: torchcodec~=0.8.1
 Requires-Dist: torchaudio~=2.8.0
@@ -61,16 +60,19 @@ Requires-Dist: pysbd~=0.3.4
 Requires-Dist: pypresence>=4.6.1
 Requires-Dist: tokenizers==0.22.1
 Requires-Dist: curl-cffi~=0.13.0
-Requires-Dist: betterproto==2.0.0b7
+Requires-Dist: protobuf>=6.33.2
 Requires-Dist: py7zr~=1.0.0
 Requires-Dist: waitress==3.0.2
 Requires-Dist: flasgger~=0.9.7
 Requires-Dist: pynput~=1.8.1; sys_platform == "win32"
-Requires-Dist: uv>=0.9.22
-Requires-Dist: pip>=25.3
-Requires-Dist: ollama>=0.6.1
+Requires-Dist: uv~=0.9.22
+Requires-Dist: pip~=25.3
+Requires-Dist: ollama~=0.6.1
+Requires-Dist: aiohttp~=3.13.3
+Requires-Dist: fpng~=0.1.0
+Requires-Dist: onnxruntime~=1.23.2
 Provides-Extra: lens
-Requires-Dist: betterproto==2.0.0b7; extra == "lens"
+Requires-Dist: protobuf>=6.33.2; extra == "lens"
 Provides-Extra: gpu
 Requires-Dist: onnxruntime-gpu[cuda,cudnn]; extra == "gpu"
 Provides-Extra: dev
@@ -141,7 +143,6 @@ https://github.com/user-attachments/assets/07240472-831a-40e6-be22-c64b880b0d66
 ### 🖥️ Overlay
 GSM includes a transparent overlay for instant dictionary lookups.
 
-Currently Windows only, Linux and Mac support are WIP.
 *   Hover over characters in-game to see definitions via Yomitan.
 *   Create cards without ever leaving the game window.
 *   Automatically Generated Furigana Display In Game.
@@ -204,7 +205,7 @@ This project includes modified versions of the following libraries, I got tired 
  </picture>
 </a>
 
-## Sponsors
+<!-- ## Sponsors
 
 | <img src="https://signpath.org/assets/favicon.png" width="25" height="25" align="center"> | Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). |
-| :--- | :--- |
+| :--- | :--- | -->

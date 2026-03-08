@@ -122,6 +122,35 @@ class Prompt:
             return response
 
 
+class Confirm(Prompt):
+    """Interactive confirmation prompt."""
+
+    @staticmethod
+    def ask(
+        prompt: str = "",
+        *,
+        console: Optional["Console"] = None,
+        default: bool = True,
+        markup: bool = True,
+    ) -> bool:
+        """Shortcut to ask for confirmation."""
+        c = console or Console()
+        suffix = "[Y/n]" if default else "[y/N]"
+        
+        # Build prompt string
+        prompt_text = f"{prompt} {suffix}"
+
+        while True:
+            response = c.input(prompt_text, markup=markup).lower().strip()
+            if not response:
+                return default
+            if response in ("y", "yes"):
+                return True
+            if response in ("n", "no"):
+                return False
+            c.print("[red]Please enter 'y' or 'n'[/red]")
+
+
 class Console:
     """Console for rich text output."""
     

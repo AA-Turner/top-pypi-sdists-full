@@ -5,21 +5,24 @@ use crate::http::HeaderMap;
 use crate::internal::allow_threads::AllowThreads;
 use crate::internal::json::{JsonDumpsContext, JsonHandler};
 use crate::internal::types::{Extensions, FormParams, HeaderName, HeaderValue, JsonValue, Method, QueryParams};
+use crate::internal::utils::{basic_auth, bearer_auth};
 use crate::middleware::NextInner;
 use crate::multipart::FormBuilder;
 use crate::request::consumed_request::{ConsumedRequest, SyncConsumedRequest};
+use crate::request::internal::RequestBuilderHeaders;
 use crate::request::request::RequestData;
 use crate::request::stream_request::{StreamRequest, SyncStreamRequest};
 use crate::request::{Request, RequestBody};
 use crate::response::internal::{BodyConsumeConfig, DEFAULT_READ_BUFFER_LIMIT, StreamedReadConfig};
 use crate::response::{Response, SyncResponse};
 use bytes::Bytes;
-use http::header::CONTENT_TYPE;
+use http::header::{AUTHORIZATION, CONTENT_TYPE};
 use pyo3::coroutine::CancelHandle;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::{PyTraverseError, PyVisit};
 use pyo3_bytes::PyBytes;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -27,7 +30,8 @@ use std::time::Duration;
 pub struct BaseRequestBuilder {
     inner: Option<reqwest::RequestBuilder>,
     spawner: Option<Spawner>,
-    body: Option<RequestBody>,
+    headers: RequestBuilderHeaders,
+    body: Option<Body>,
     extensions: Option<Extensions>,
     middlewares_next: Option<NextInner>,
     json_handler: Option<JsonHandler>,
@@ -195,31 +199,49 @@ impl BaseRequestBuilder {
         Ok(slf)
     }
 
-    fn header(slf: PyRefMut<Self>, name: HeaderName, value: HeaderValue) -> PyResult<PyRefMut<Self>> {
-        Self::apply(slf, false, |builder| Ok(builder.header(name.0, value.0)))
+    #[pyo3(signature = (key, value, *, is_sensitive=false))]
+    fn header(
+        mut slf: PyRefMut<Self>,
+        key: HeaderName,
+        value: HeaderValue,
+        is_sensitive: bool,
+    ) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        let mut value = value.0;
+        if is_sensitive {
+            value.set_sensitive(true);
+        }
+        slf.headers.header(key.0, value)?;
+        Ok(slf)
     }
 
-    fn headers(slf: PyRefMut<'_, Self>, headers: HeaderMap) -> PyResult<PyRefMut<'_, Self>> {
-        Self::apply(slf, false, |builder| Ok(builder.headers(headers.try_take_inner()?)))
+    fn headers(mut slf: PyRefMut<'_, Self>, headers: HeaderMap) -> PyResult<PyRefMut<'_, Self>> {
+        slf.check_inner()?;
+        slf.headers.headers(headers.try_take_inner()?)?;
+        Ok(slf)
     }
 
-    fn basic_auth(slf: PyRefMut<Self>, username: String, password: Option<String>) -> PyResult<PyRefMut<Self>> {
-        Self::apply(slf, false, |builder| Ok(builder.basic_auth(username, password)))
+    fn basic_auth(mut slf: PyRefMut<Self>, username: String, password: Option<String>) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.headers.header(AUTHORIZATION, basic_auth(username, password)?)?;
+        Ok(slf)
     }
 
-    fn bearer_auth(slf: PyRefMut<Self>, token: String) -> PyResult<PyRefMut<Self>> {
-        Self::apply(slf, false, |builder| Ok(builder.bearer_auth(token)))
+    fn bearer_auth(mut slf: PyRefMut<Self>, token: String) -> PyResult<PyRefMut<Self>> {
+        slf.check_inner()?;
+        slf.headers.header(AUTHORIZATION, bearer_auth(token)?)?;
+        Ok(slf)
     }
 
     fn body_bytes(mut slf: PyRefMut<Self>, body: PyBytes) -> PyResult<PyRefMut<Self>> {
         slf.check_inner()?;
-        slf.body = Some(RequestBody::from_bytes(body));
+        slf.body = Some(Body::Any(RequestBody::from_bytes(body)));
         Ok(slf)
     }
 
     fn body_text(mut slf: PyRefMut<Self>, body: String) -> PyResult<PyRefMut<Self>> {
         slf.check_inner()?;
-        slf.body = Some(RequestBody::from_text(body));
+        slf.body = Some(Body::Any(RequestBody::from_text(body)));
         Ok(slf)
     }
 
@@ -237,8 +259,8 @@ impl BaseRequestBuilder {
                     .map_err(|e| PyValueError::new_err(e.to_string()))
             })?
         };
-        slf.body = Some(RequestBody::from(bytes));
-        Self::apply(slf, false, |builder| Ok(builder.header(CONTENT_TYPE, "application/json")))
+        slf.body = Some(Body::Json(RequestBody::from(bytes)));
+        Ok(slf)
     }
 
     fn query<'py>(slf: PyRefMut<'py, Self>, query: Bound<'_, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
@@ -294,8 +316,10 @@ impl BaseRequestBuilder {
         if let Some(json_handler) = &self.json_handler {
             json_handler.__traverse__(&visit)?;
         }
-        if let Some(body) = &self.body {
-            body.__traverse__(visit)?;
+        match &self.body {
+            Some(Body::Any(body)) => body.__traverse__(visit)?,
+            Some(Body::Json(body)) => body.__traverse__(visit)?,
+            None => {}
         }
         Ok(())
     }
@@ -316,12 +340,14 @@ impl BaseRequestBuilder {
         middlewares_next: Option<NextInner>,
         json_handler: Option<JsonHandler>,
         error_for_status: bool,
+        default_headers: Option<http::HeaderMap>,
         connection_verbose: bool,
         is_blocking: bool,
     ) -> Self {
         BaseRequestBuilder {
             inner: Some(inner),
             spawner: Some(spawner),
+            headers: RequestBuilderHeaders::new(default_headers),
             body: None,
             extensions: None,
             middlewares_next,
@@ -335,12 +361,12 @@ impl BaseRequestBuilder {
 
     fn inner_body_stream<'py>(&mut self, stream: Bound<'py, PyAny>) -> PyResult<()> {
         self.check_inner()?;
-        self.body = Some(RequestBody::from_stream(stream)?);
+        self.body = Some(Body::Any(RequestBody::from_stream(stream)?));
         Ok(())
     }
 
     fn inner_build(&mut self, consume_body: BodyConsumeConfig) -> PyResult<Request> {
-        let request = self
+        let mut request = self
             .inner
             .take()
             .ok_or_else(|| PyRuntimeError::new_err("Request was already built"))?
@@ -350,6 +376,19 @@ impl BaseRequestBuilder {
         if request.body().is_some() && self.body.is_some() {
             return Err(BuilderError::from_msg("Can not set body when multipart or form is used"));
         }
+
+        self.headers.drain_into_headers(request.headers_mut());
+
+        let body = match self.body.take() {
+            Some(Body::Json(body)) => {
+                request
+                    .headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_str("application/json")?.0);
+                Some(body)
+            }
+            Some(Body::Any(body)) => Some(body),
+            None => None,
+        };
 
         let request_data = RequestData {
             spawner: self
@@ -363,7 +402,7 @@ impl BaseRequestBuilder {
             error_for_status: self.error_for_status,
             connection_verbose: self.connection_verbose,
         };
-        Ok(Request::new(request_data, self.body.take(), self.middlewares_next.take()))
+        Ok(Request::new(request_data, body, self.middlewares_next.take()))
     }
 
     fn body_consume_config(&self, is_streamed: bool) -> PyResult<BodyConsumeConfig> {
@@ -381,10 +420,6 @@ impl BaseRequestBuilder {
 
     pub fn inner_timeout(&mut self, timeout: Duration) -> PyResult<&mut Self> {
         self.apply_inner(|b| Ok(b.timeout(timeout)))
-    }
-
-    pub fn inner_headers(&mut self, headers: &HeaderMap) -> PyResult<&mut Self> {
-        self.apply_inner(|b| Ok(b.headers(headers.try_clone_inner()?)))
     }
 
     pub fn inner_with_middleware(&mut self, middleware: Bound<PyAny>) -> PyResult<()> {
@@ -431,4 +466,9 @@ impl BaseRequestBuilder {
         self.inner = Some(fun(builder)?);
         Ok(self)
     }
+}
+
+enum Body {
+    Json(RequestBody),
+    Any(RequestBody),
 }

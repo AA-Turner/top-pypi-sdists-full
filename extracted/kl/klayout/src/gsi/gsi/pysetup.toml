@@ -1,6 +1,0 @@
-
-[library]
-  name = "_gsi"
-  defines = [["MAKE_GSI_LIBRARY", 1]]
-  depends = ["_tl"]
-

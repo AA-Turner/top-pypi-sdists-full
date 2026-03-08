@@ -41,6 +41,47 @@ def get_field_annotations(config_cls: type[RunConfig]) -> dict[str, FieldMarker 
     return result
 
 
+def _collect_nested_agents(model_cls: type, prefix: str = "") -> list[dict[str, Any]]:
+    """Recursively find Agent-annotated fields in nested pydantic models.
+
+    Returns agent entries with dotted-path names (e.g. "backend_build.reviewer").
+    """
+    import typing
+
+    from pydantic import BaseModel
+
+    agents: list[dict[str, Any]] = []
+    for field_name, field_info in model_cls.model_fields.items():
+        marker = None
+        for meta in field_info.metadata:
+            if isinstance(meta, FieldMarker) and meta.kind == "agent":
+                marker = meta
+                break
+
+        path = f"{prefix}.{field_name}" if prefix else field_name
+        if marker is not None:
+            agents.append(
+                {
+                    "name": path,
+                    "description": marker.description,
+                    "required": marker.required,
+                }
+            )
+        else:
+            # Recurse into nested BaseModel fields
+            annotation = field_info.annotation
+            # Unwrap Optional / Union types (handles both typing.Optional and X | None)
+            origin = typing.get_origin(annotation)
+            if origin is not None:
+                args = typing.get_args(annotation)
+                non_none = [a for a in args if a is not type(None)]
+                if len(non_none) == 1:
+                    annotation = non_none[0]
+            if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+                agents.extend(_collect_nested_agents(annotation, prefix=path))
+    return agents
+
+
 def get_world_config_schema(config_cls: type[RunConfig]) -> dict[str, Any]:
     """Get JSON schema for a world config with agents, secrets, and envs separated.
 
@@ -122,6 +163,14 @@ def get_world_config_schema(config_cls: type[RunConfig]) -> dict[str, Any]:
                 "name": field_name,
                 "description": marker.description,
             }
+
+    # Collect agents from nested models (e.g. backend_build.reviewer)
+    nested_agents = _collect_nested_agents(config_cls)
+    # Add any nested agents not already found at top level
+    top_level_names = {a["name"] for a in agents}
+    for agent in nested_agents:
+        if agent["name"] not in top_level_names:
+            agents.append(agent)
 
     # Compute required fields (excluding runtime and annotated fields)
     required = [r for r in full_schema.get("required", []) if r not in runtime_fields and annotations.get(r) is None]

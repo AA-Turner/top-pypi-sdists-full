@@ -3,7 +3,8 @@
 import hashlib
 import json
 import os
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -172,6 +173,90 @@ class TestDVCManifest:
         assert set(d.keys()) == {"x", "y"}
         assert d["x"].md5 == "1"
 
+    @pytest.mark.asyncio
+    async def test_from_dvc_file_resolves_missing_sizes(self):
+        s3_config = S3Config(
+            bucket="test-bucket",
+            prefix="test-prefix",
+            credentials={"AWS_ACCESS_KEY_ID": "fake", "AWS_SECRET_ACCESS_KEY": "fake"},
+        )
+        dvc_content = "outs:\n- md5: deadbeef.dir\n"
+        manifest_items = [
+            {"relpath": "data.bin", "md5": "aa11", "size": 0},
+            {"relpath": "link.txt", "md5": "bb22", "size": 0, "islink": True, "symlink_target": "../target"},
+            {"relpath": "known.txt", "md5": "cc33", "size": 7},
+        ]
+
+        with (
+            patch(
+                "plato.worlds.dvc_models.s3_download_bytes",
+                new=AsyncMock(return_value=json.dumps(manifest_items).encode()),
+            ),
+            patch(
+                "plato.worlds.dvc_models.s3_head_size",
+                new=AsyncMock(return_value=123),
+            ) as mock_head,
+        ):
+            manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
+
+        by_relpath = manifest.entries_dict()
+        assert by_relpath["data.bin"].size == 123
+        assert by_relpath["link.txt"].size == len("../target")
+        assert by_relpath["known.txt"].size == 7
+        mock_head.assert_awaited_once_with(
+            s3_config,
+            f"{s3_config.cache_prefix}/aa/11",
+        )
+
+    @pytest.mark.asyncio
+    async def test_from_dvc_file_keeps_zero_size_when_s3_object_missing(self):
+        s3_config = S3Config(
+            bucket="test-bucket",
+            prefix="test-prefix",
+            credentials={"AWS_ACCESS_KEY_ID": "fake", "AWS_SECRET_ACCESS_KEY": "fake"},
+        )
+        dvc_content = "outs:\n- md5: deadbeef.dir\n"
+        manifest_items = [{"relpath": "missing.bin", "md5": "aa11", "size": 0}]
+
+        with (
+            patch(
+                "plato.worlds.dvc_models.s3_download_bytes",
+                new=AsyncMock(return_value=json.dumps(manifest_items).encode()),
+            ),
+            patch(
+                "plato.worlds.dvc_models.s3_head_size",
+                new=AsyncMock(side_effect=FileNotFoundError("missing")),
+            ),
+        ):
+            manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
+
+        assert manifest.entries_list[0].size == 0
+
+    @pytest.mark.asyncio
+    async def test_from_dvc_file_skips_head_for_existing_sizes(self):
+        s3_config = S3Config(
+            bucket="test-bucket",
+            prefix="test-prefix",
+            credentials={"AWS_ACCESS_KEY_ID": "fake", "AWS_SECRET_ACCESS_KEY": "fake"},
+        )
+        dvc_content = "outs:\n- md5: deadbeef.dir\n"
+        manifest_items = [{"relpath": "known.bin", "md5": "aa11", "size": 99}]
+
+        with (
+            patch(
+                "plato.worlds.dvc_models.s3_download_bytes",
+                new=AsyncMock(return_value=json.dumps(manifest_items).encode()),
+            ),
+            patch(
+                "plato.worlds.dvc_models.s3_head_size",
+                new=AsyncMock(),
+            ) as mock_head,
+        ):
+            manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
+
+        assert manifest.entries_list[0].size == 99
+        mock_head.assert_not_awaited()
+
 
 # ---------------------------------------------------------------------------
 # smart_commit with symlinks
@@ -205,6 +290,7 @@ class TestSmartCommitSymlinks:
             entries_list=[DVCFileEntry(relpath="file.txt", md5="orig_md5", size=5)],
             manifest_md5="orig_manifest",
         )
+        (mountpoint / "file.txt").write_text("hello")
 
         # Create a new symlink in the overlay
         link_dir = overlay_dir / "links"
@@ -227,7 +313,14 @@ class TestSmartCommitSymlinks:
         async def mock_upload(config, key, data):
             uploaded[key] = data
 
-        with patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload):
+        async def mock_batch_upload(config, uploads):
+            for local_path, key in uploads:
+                uploaded[key] = Path(local_path).read_bytes()
+
+        with (
+            patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload),
+            patch("plato.worlds.dvc_models.s3_upload_batch", side_effect=mock_batch_upload),
+        ):
             manifest_md5, dvc_yaml = await smart_commit(mount, s3_config)
 
         # The manifest should have been uploaded
@@ -274,7 +367,14 @@ class TestSmartCommitSymlinks:
         async def mock_upload(config, key, data):
             uploaded[key] = data
 
-        with patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload):
+        async def mock_batch_upload(config, uploads):
+            for local_path, key in uploads:
+                uploaded[key] = Path(local_path).read_bytes()
+
+        with (
+            patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload),
+            patch("plato.worlds.dvc_models.s3_upload_batch", side_effect=mock_batch_upload),
+        ):
             await smart_commit(mount, s3_config)
 
         # Find the manifest in uploads
@@ -298,6 +398,7 @@ class TestSmartCommitSymlinks:
             entries_list=[DVCFileEntry(relpath="run.sh", md5="old", size=10, mode=0o755)],
             manifest_md5="orig",
         )
+        (mountpoint / "run.sh").write_text("#!/bin/sh\necho hi\n")
 
         # Untouched file — should preserve mode in manifest
         meta = {"modified": [], "deleted": [], "created": []}
@@ -338,7 +439,14 @@ class TestSmartCommitSymlinks:
         async def mock_upload(config, key, data):
             uploaded[key] = data
 
-        with patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload):
+        async def mock_batch_upload(config, uploads):
+            for local_path, key in uploads:
+                uploaded[key] = Path(local_path).read_bytes()
+
+        with (
+            patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload),
+            patch("plato.worlds.dvc_models.s3_upload_batch", side_effect=mock_batch_upload),
+        ):
             await smart_commit(mount, s3_config)
 
         for key, data in uploaded.items():
@@ -348,3 +456,28 @@ class TestSmartCommitSymlinks:
                 assert "islink" not in entries[0]
                 assert entries[0]["md5"] == hashlib.md5(b"hello").hexdigest()
                 break
+
+
+class TestPlatoFuseBinarySelection:
+    @pytest.mark.asyncio
+    async def test_ensure_plato_fuse_honors_env_override(self, tmp_path, monkeypatch):
+        from plato.worlds import lazy_dvc
+
+        binary_path = tmp_path / "plato-fuse"
+        binary_path.write_text("binary")
+        binary_path.chmod(0o755)
+
+        monkeypatch.setenv("PLATO_FUSE_BINARY", str(binary_path))
+        monkeypatch.setattr(lazy_dvc.shutil, "which", lambda _: None)
+
+        binary = await lazy_dvc._ensure_plato_fuse()
+        assert binary == str(binary_path)
+
+    @pytest.mark.asyncio
+    async def test_ensure_plato_fuse_finds_on_path(self, monkeypatch):
+        from plato.worlds import lazy_dvc
+
+        monkeypatch.setattr(lazy_dvc.shutil, "which", lambda _: "/usr/local/bin/plato-fuse")
+
+        binary = await lazy_dvc._ensure_plato_fuse()
+        assert binary == "/usr/local/bin/plato-fuse"

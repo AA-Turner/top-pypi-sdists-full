@@ -18,12 +18,15 @@
 from __future__ import annotations
 
 import csv
+import json
 from enum import Enum
 from functools import partial
 from gettext import gettext as _
 from io import StringIO
 
+import click
 import tabulate
+from boltons.strutils import strip_ansi
 from tabulate import DataRow
 from tabulate import TableFormat as TabulateTableFormat
 
@@ -33,8 +36,6 @@ from .parameters import ExtraOption
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
-
-    import click
 
 
 tabulate.MIN_PADDING = 0
@@ -96,8 +97,12 @@ class TableFormat(Enum):
     GRID = "grid"
     HEAVY_GRID = "heavy-grid"
     HEAVY_OUTLINE = "heavy-outline"
+    HJSON = "hjson"
     HTML = "html"
     JIRA = "jira"
+    JSON = "json"
+    JSON5 = "json5"
+    JSONC = "jsonc"
     LATEX = "latex"
     LATEX_BOOKTABS = "latex-booktabs"
     LATEX_LONGTABLE = "latex-longtable"
@@ -120,43 +125,85 @@ class TableFormat(Enum):
     SIMPLE_GRID = "simple-grid"
     SIMPLE_OUTLINE = "simple-outline"
     TEXTILE = "textile"
+    TOML = "toml"
     TSV = "tsv"
     UNSAFEHTML = "unsafehtml"
     VERTICAL = "vertical"
+    XML = "xml"
+    YAML = "yaml"
     YOUTRACK = "youtrack"
 
     def __str__(self):
         return self.name.lower().replace("_", "-")
 
+    @property
+    def is_markup(self) -> bool:
+        """Whether this format is a markup rendering.
 
-MARKUP_FORMATS = {
-    TableFormat.ASCIIDOC,
-    TableFormat.CSV,
-    TableFormat.CSV_EXCEL,
-    TableFormat.CSV_EXCEL_TAB,
-    TableFormat.CSV_UNIX,
-    TableFormat.GITHUB,
-    TableFormat.HTML,
-    TableFormat.JIRA,
-    TableFormat.LATEX,
-    TableFormat.LATEX_BOOKTABS,
-    TableFormat.LATEX_LONGTABLE,
-    TableFormat.LATEX_RAW,
-    TableFormat.MEDIAWIKI,
-    TableFormat.MOINMOIN,
-    TableFormat.ORGTBL,
-    TableFormat.PIPE,
-    TableFormat.RST,
-    TableFormat.TEXTILE,
-    TableFormat.TSV,
-    TableFormat.UNSAFEHTML,
-    TableFormat.YOUTRACK,
-}
-"""Subset of table formats that are considered as markup rendering.
-"""
+        Markup formats have ANSI color codes stripped from their output by default.
+        Use the ``--color`` flag to preserve them.
+        """
+        return self in MARKUP_FORMATS
+
+
+MARKUP_FORMATS = frozenset(
+    {
+        TableFormat.ASCIIDOC,
+        TableFormat.CSV,
+        TableFormat.CSV_EXCEL,
+        TableFormat.CSV_EXCEL_TAB,
+        TableFormat.CSV_UNIX,
+        TableFormat.GITHUB,
+        TableFormat.HJSON,
+        TableFormat.HTML,
+        TableFormat.JIRA,
+        TableFormat.JSON,
+        TableFormat.JSON5,
+        TableFormat.JSONC,
+        TableFormat.LATEX,
+        TableFormat.LATEX_BOOKTABS,
+        TableFormat.LATEX_LONGTABLE,
+        TableFormat.LATEX_RAW,
+        TableFormat.MEDIAWIKI,
+        TableFormat.MOINMOIN,
+        TableFormat.ORGTBL,
+        TableFormat.PIPE,
+        TableFormat.RST,
+        TableFormat.TEXTILE,
+        TableFormat.TOML,
+        TableFormat.TSV,
+        TableFormat.UNSAFEHTML,
+        TableFormat.XML,
+        TableFormat.YAML,
+        TableFormat.YOUTRACK,
+    },
+)
+"""Subset of table formats that are considered as markup rendering."""
+
 
 DEFAULT_FORMAT = TableFormat.ROUNDED_OUTLINE
 """Default table format, if none is specified."""
+
+RECORD_KEY = "record"
+"""Key used for each record in structured formats that require named containers
+(TOML ``[[record]]``, XML ``<record>``)."""
+
+XML_ROOT_KEY = "records"
+"""Root element name for XML table output."""
+
+SERIALIZATION_FORMATS = frozenset(
+    {
+        TableFormat.HJSON,
+        TableFormat.JSON,
+        TableFormat.JSON5,
+        TableFormat.JSONC,
+        TableFormat.TOML,
+        TableFormat.XML,
+        TableFormat.YAML,
+    },
+)
+"""Structured serialization formats whose renderers escape raw ESC bytes, making
+post-render ``strip_ansi()`` ineffective."""
 
 
 def _get_csv_dialect(table_format: TableFormat | None = None) -> str:
@@ -200,6 +247,165 @@ def _render_csv(
             writer.writerow(headers)
         writer.writerows(table_data)
         return output.getvalue()
+
+
+def _rows_as_dicts(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None = None,
+) -> list[dict[str, str | None]] | list[list[str | None]]:
+    """Convert table data to a list of dicts keyed by headers.
+
+    Falls back to a list of lists when no headers are provided.
+    """
+    if headers:
+        return [{str(k): v for k, v in zip(headers, row)} for row in table_data]
+    return [list(row) for row in table_data]
+
+
+def _render_json(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None = None,
+    **kwargs,
+) -> str:
+    """Render a table as JSON."""
+    data = _rows_as_dicts(table_data, headers)
+    defaults: dict = {"ensure_ascii": False, "indent": 2}
+    defaults.update(kwargs)
+    return json.dumps(data, **defaults) + "\n"
+
+
+def _render_yaml(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None = None,
+    **kwargs,
+) -> str:
+    """Render a table as YAML.
+
+    Requires the ``pyyaml`` package (installable via the ``[yaml]`` extra).
+    """
+    try:
+        import yaml
+    except ImportError as exc:
+        msg = (
+            "PyYAML is required for YAML table output."
+            " Install it with: pip install click-extra[yaml]"
+        )
+        raise ImportError(msg) from exc
+
+    data = _rows_as_dicts(table_data, headers)
+    defaults: dict = {"allow_unicode": True, "default_flow_style": False}
+    defaults.update(kwargs)
+    return str(yaml.dump(data, **defaults))
+
+
+def _render_toml(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None = None,
+    **kwargs,
+) -> str:
+    """Render a table as TOML using array-of-tables syntax.
+
+    ``None`` values are omitted (TOML has no null type). Requires the ``tomlkit``
+    package (installable via the ``[toml]`` extra).
+    """
+    try:
+        import tomlkit
+    except ImportError as exc:
+        msg = (
+            "tomlkit is required for TOML table output."
+            " Install it with: pip install click-extra[toml]"
+        )
+        raise ImportError(msg) from exc
+
+    aot = tomlkit.aot()
+    for row in table_data:
+        t = tomlkit.table()
+        if headers:
+            for key, value in zip(headers, row):
+                if value is not None and key is not None:
+                    t.add(key, value)
+        else:
+            for i, value in enumerate(row):
+                if value is not None:
+                    t.add(str(i), value)
+        aot.append(t)
+
+    doc = tomlkit.document()
+    doc.add(RECORD_KEY, aot)
+    return tomlkit.dumps(doc)
+
+
+def _render_hjson(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None = None,
+    **kwargs,
+) -> str:
+    """Render a table as HJSON.
+
+    Requires the ``hjson`` package (installable via the ``[hjson]`` extra).
+    """
+    try:
+        import hjson
+    except ImportError as exc:
+        msg = (
+            "hjson is required for HJSON table output."
+            " Install it with: pip install click-extra[hjson]"
+        )
+        raise ImportError(msg) from exc
+
+    data = _rows_as_dicts(table_data, headers)
+    defaults: dict = {"ensure_ascii": False}
+    defaults.update(kwargs)
+    return str(hjson.dumps(data, **defaults)) + "\n"
+
+
+def _render_xml(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None = None,
+    **kwargs,
+) -> str:
+    """Render a table as XML.
+
+    ``None`` values are omitted. Requires the ``xmltodict`` package (installable
+    via the ``[xml]`` extra).
+    """
+    try:
+        import xmltodict
+    except ImportError as exc:
+        msg = (
+            "xmltodict is required for XML table output."
+            " Install it with: pip install click-extra[xml]"
+        )
+        raise ImportError(msg) from exc
+
+    def _xml_safe_name(name: str) -> str:
+        """Replace characters invalid in XML element names."""
+        safe = "".join(c if c.isalnum() or c in "_.-" else "_" for c in name)
+        return safe.lstrip("0123456789.-") or "_"
+
+    if headers:
+        records = [
+            {
+                _xml_safe_name(k): v
+                for k, v in zip(headers, row)
+                if v is not None and k is not None
+            }
+            for row in table_data
+        ]
+    else:
+        records = [
+            {str(i): v for i, v in enumerate(row) if v is not None}
+            for row in table_data
+        ]
+
+    defaults: dict = {
+        "pretty": True,
+        "encoding": "unicode",
+        "full_document": False,
+    }
+    defaults.update(kwargs)
+    result: str = xmltodict.unparse({XML_ROOT_KEY: {RECORD_KEY: records}}, **defaults)
+    return result + "\n"
 
 
 def _render_vertical(
@@ -273,10 +479,7 @@ def _select_table_funcs(
     to this the ``--color``/``--no-color`` option is automatically supported.
 
     For CSV formats we returns the Python standard ``print()`` function, to preserve
-    line terminations, avoid extra line returns and keep ANSI coloring.
-
-    .. todo::
-        Consider to force stripping of ANSI coloring for CSV and other markup formats.
+    line terminations and avoid extra line returns.
     """
     print_func = echo
     match table_format:
@@ -288,6 +491,21 @@ def _select_table_funcs(
         ):
             print_func = partial(print, end="")
             return partial(_render_csv, table_format=table_format), print_func
+        case TableFormat.HJSON:
+            print_func = partial(print, end="")
+            return _render_hjson, print_func
+        case TableFormat.JSON | TableFormat.JSON5 | TableFormat.JSONC:
+            print_func = partial(print, end="")
+            return _render_json, print_func
+        case TableFormat.TOML:
+            print_func = partial(print, end="")
+            return _render_toml, print_func
+        case TableFormat.XML:
+            print_func = partial(print, end="")
+            return _render_xml, print_func
+        case TableFormat.YAML:
+            print_func = partial(print, end="")
+            return _render_yaml, print_func
         case TableFormat.VERTICAL:
             return _render_vertical, print_func
         case _:
@@ -305,13 +523,50 @@ def render_table(
     return render_func(table_data, headers, **kwargs)
 
 
+def _strip_ansi_cells(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None = None,
+) -> tuple[list[list[str | None]], Sequence[str | None] | None]:
+    """Strip ANSI escape codes from all string cells and headers."""
+    cleaned_data: list[list[str | None]] = [
+        [strip_ansi(v) if isinstance(v, str) else v for v in row] for row in table_data
+    ]
+    cleaned_headers = (
+        [strip_ansi(h) if isinstance(h, str) else h for h in headers]
+        if headers
+        else headers
+    )
+    return cleaned_data, cleaned_headers
+
+
 def print_table(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None = None,
     table_format: TableFormat | None = None,
     **kwargs,
 ) -> None:
-    """Render a table and print it to the console."""
+    """Render a table and print it to the console.
+
+    For markup formats, ANSI color codes are stripped from cell values before
+    rendering unless ``--color`` is explicitly set.
+    """
+    # Strip ANSI codes from cell data before rendering for markup formats.
+    # Pre-render stripping is necessary because some renderers (JSON, YAML) escape
+    # raw ESC bytes, making post-render strip_ansi() ineffective.
+    if table_format and table_format.is_markup:
+        ctx = click.get_current_context(silent=True)
+        # Only preserve ANSI codes when --color was explicitly passed on the
+        # command line. The default True from ColorOption should not prevent
+        # stripping.
+        color_explicit = False
+        if ctx is not None:
+            source = ctx.get_parameter_source("color")
+            color_explicit = (
+                ctx.color is True and source == click.core.ParameterSource.COMMANDLINE
+            )
+        if not color_explicit:
+            table_data, headers = _strip_ansi_cells(table_data, headers)
+
     render_func, print_func = _select_table_funcs(table_format)
     print_func(render_func(table_data, headers, **kwargs))
 

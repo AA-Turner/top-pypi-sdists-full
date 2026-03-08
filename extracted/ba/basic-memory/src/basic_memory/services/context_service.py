@@ -1,8 +1,10 @@
 """Service for building rich context from the knowledge graph."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 
 from loguru import logger
@@ -15,6 +17,9 @@ from basic_memory.repository.search_repository import SearchRepository, SearchIn
 from basic_memory.schemas.memory import MemoryUrl, memory_url_path
 from basic_memory.schemas.search import SearchItemType
 from basic_memory.utils import generate_permalink
+
+if TYPE_CHECKING:
+    from basic_memory.services.link_resolver import LinkResolver
 
 
 @dataclass
@@ -57,6 +62,7 @@ class ContextMetadata:
     related_count: int = 0
     total_observations: int = 0
     total_relations: int = 0
+    has_more: bool = False
 
 
 @dataclass
@@ -81,10 +87,12 @@ class ContextService:
         search_repository: SearchRepository,
         entity_repository: EntityRepository,
         observation_repository: ObservationRepository,
+        link_resolver: Optional[LinkResolver] = None,
     ):
         self.search_repository = search_repository
         self.entity_repository = entity_repository
         self.observation_repository = observation_repository
+        self.link_resolver = link_resolver
 
     async def build_context(
         self,
@@ -102,6 +110,9 @@ class ContextService:
             f"Building context for URI: '{memory_url}' depth: '{depth}' since: '{since}' limit: '{limit}' offset: '{offset}'  max_related: '{max_related}'"
         )
 
+        # Fetch one extra item to detect whether more pages exist (N+1 trick)
+        fetch_limit = limit + 1
+
         normalized_path: Optional[str] = None
         if memory_url:
             path = memory_url_path(memory_url)
@@ -118,20 +129,43 @@ class ContextService:
                 normalized_path = "*".join(normalized_parts)
                 logger.debug(f"Pattern search for '{normalized_path}'")
                 primary = await self.search_repository.search(
-                    permalink_match=normalized_path, limit=limit, offset=offset
+                    permalink_match=normalized_path, limit=fetch_limit, offset=offset
                 )
             else:
                 # For exact paths, normalize the whole thing
                 normalized_path = generate_permalink(path, split_extension=False)
                 logger.debug(f"Direct lookup for '{normalized_path}'")
                 primary = await self.search_repository.search(
-                    permalink=normalized_path, limit=limit, offset=offset
+                    permalink=normalized_path, limit=fetch_limit, offset=offset
                 )
+
+                # Trigger: exact permalink lookup returned no results
+                # Why: the identifier may be valid but not an exact permalink match
+                #      (e.g., missing project prefix, title instead of permalink)
+                # Outcome: use LinkResolver's multi-strategy resolution to find the entity,
+                #          then retry search with its actual permalink
+                if not primary and self.link_resolver:
+                    entity = await self.link_resolver.resolve_link(
+                        path, use_search=True, strict=False
+                    )
+                    if entity:
+                        logger.debug(
+                            f"LinkResolver resolved '{path}' to permalink '{entity.permalink}'"
+                        )
+                        normalized_path = entity.permalink
+                        primary = await self.search_repository.search(
+                            permalink=entity.permalink, limit=fetch_limit, offset=offset
+                        )
         else:
             logger.debug(f"Build context for '{types}'")
             primary = await self.search_repository.search(
-                search_item_types=types, after_date=since, limit=limit, offset=offset
+                search_item_types=types, after_date=since, limit=fetch_limit, offset=offset
             )
+
+        # Trim to requested limit and set has_more flag
+        has_more = len(primary) > limit
+        if has_more:
+            primary = primary[:limit]
 
         # Get type_id pairs for traversal
 
@@ -171,6 +205,7 @@ class ContextService:
             related_count=len(related),
             total_observations=sum(len(obs) for obs in observations_by_entity.values()),
             total_relations=sum(1 for r in related if r.type == SearchItemType.RELATION),
+            has_more=has_more,
         )
 
         # Build context results list directly with ContextResultItem objects
@@ -539,9 +574,7 @@ class ContextService:
                 {relation_date_filter}
                 {relation_project_filter}
             )
-            LEFT JOIN entity e_to ON (r.to_id = e_to.id)
             WHERE eg.depth < :max_depth
-            AND (r.to_id IS NULL OR e_to.project_id = :project_id)
 
             UNION ALL
 

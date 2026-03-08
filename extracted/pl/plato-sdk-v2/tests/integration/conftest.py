@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import re
+import shutil
+import subprocess
 import tempfile
 import uuid
 from collections.abc import Generator
@@ -13,6 +16,9 @@ import pytest
 
 if TYPE_CHECKING:
     from plato.storage import RolloutStorage
+
+SDK_ROOT = Path(__file__).resolve().parents[2]
+PLATO_FUSE_ROOT = SDK_ROOT / "plato-fuse"
 
 
 # Skip tests that require PLATO_API_KEY
@@ -75,3 +81,60 @@ def temp_workspace() -> Generator[Path, None, None]:
     """Create temporary workspace directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
+
+
+def parse_glibc_versions(binary_path: Path) -> list[tuple[int, int]]:
+    proc = subprocess.run(
+        ["objdump", "-T", str(binary_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    versions: set[tuple[int, int]] = set()
+    for major, minor in re.findall(r"GLIBC_(\d+)\.(\d+)", proc.stdout):
+        versions.add((int(major), int(minor)))
+    return sorted(versions)
+
+
+def build_plato_fuse_binary(max_glibc_version: tuple[int, int]) -> Path:
+    """Build a VM-compatible plato-fuse binary from current source."""
+    build_root = Path("/tmp/plato-fuse-build-cache")
+    build_root.mkdir(parents=True, exist_ok=True)
+
+    zigbuild = shutil.which("cargo-zigbuild")
+    zig = shutil.which("zig")
+    assert zigbuild and zig, "zig and cargo-zigbuild are required to build a VM-compatible plato-fuse binary"
+
+    target = f"x86_64-unknown-linux-gnu.{max_glibc_version[0]}.{max_glibc_version[1]}"
+    cmd = [
+        "cargo",
+        "zigbuild",
+        "--release",
+        "--manifest-path",
+        str(PLATO_FUSE_ROOT / "Cargo.toml"),
+        "--target",
+        target,
+        "--target-dir",
+        str(build_root),
+    ]
+    binary_path = build_root / "x86_64-unknown-linux-gnu" / "release" / "plato-fuse"
+
+    subprocess.run(cmd, check=True, cwd=SDK_ROOT)
+    assert binary_path.exists(), f"Expected built binary at {binary_path}"
+
+    max_required = max(parse_glibc_versions(binary_path), default=(0, 0))
+    assert max_required <= max_glibc_version, (
+        f"Built binary requires GLIBC_{max_required[0]}.{max_required[1]}, "
+        f"expected <= GLIBC_{max_glibc_version[0]}.{max_glibc_version[1]}"
+    )
+    return binary_path
+
+
+@pytest.fixture(scope="module")
+def plato_fuse_binary_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Stage a source-built plato-fuse binary in a rsync-friendly directory."""
+    staged_dir = tmp_path_factory.mktemp("plato-fuse-bin")
+    binary_path = build_plato_fuse_binary((2, 34))
+    shutil.copy2(binary_path, staged_dir / "plato-fuse")
+    (staged_dir / "plato-fuse").chmod(0o755)
+    return staged_dir

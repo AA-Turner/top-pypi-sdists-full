@@ -25,11 +25,7 @@ def _find_agent_code(agent_code_path: Path | None, package_name: str | None) -> 
     if not agent_dirs:
         return None
 
-    # If only one agent, use it
-    if len(agent_dirs) == 1:
-        return agent_dirs[0]
-
-    # Multiple agents: match by package name from image URL
+    # Match by package name from image URL
     if package_name:
         import tomllib
 
@@ -44,8 +40,11 @@ def _find_agent_code(agent_code_path: Path | None, package_name: str | None) -> 
             except Exception:
                 continue
 
-    # Fallback to first
-    return agent_dirs[0]
+    # If only one agent and no package_name filter, use it
+    if len(agent_dirs) == 1 and not package_name:
+        return agent_dirs[0]
+
+    return None
 
 
 async def sync_dev_code(

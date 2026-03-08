@@ -1,264 +1,117 @@
-"""CLI tool commands for Basic Memory."""
+"""CLI tool commands for Basic Memory.
+
+Every command calls its MCP tool with output_format="json" and prints the result.
+No text formatting, no separate code paths, no duplicate data fetching.
+"""
 
 import json
 import sys
-from typing import Annotated, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 import typer
 from loguru import logger
-from rich import print as rprint
 
 from basic_memory.cli.app import app
 from basic_memory.cli.commands.command_utils import run_with_cleanup
 from basic_memory.cli.commands.routing import force_routing, validate_routing_flags
-from basic_memory.config import ConfigManager
-from basic_memory.mcp.async_client import get_client
-from basic_memory.mcp.clients import KnowledgeClient, ResourceClient
-from basic_memory.mcp.project_context import get_active_project
-from basic_memory.mcp.tools.utils import call_get
-from basic_memory.schemas.base import Entity, TimeFrame
-from basic_memory.schemas.memory import GraphContext, MemoryUrl, memory_url_path
-from basic_memory.schemas.search import SearchItemType
-
-# Import prompts
-from basic_memory.mcp.prompts.continue_conversation import (
-    continue_conversation as mcp_continue_conversation,
-)
-from basic_memory.mcp.prompts.recent_activity import (
-    recent_activity_prompt as recent_activity_prompt,
-)
 from basic_memory.mcp.tools import build_context as mcp_build_context
+from basic_memory.mcp.tools import edit_note as mcp_edit_note
+from basic_memory.mcp.tools import list_memory_projects as mcp_list_projects
+from basic_memory.mcp.tools import list_workspaces as mcp_list_workspaces
 from basic_memory.mcp.tools import read_note as mcp_read_note
 from basic_memory.mcp.tools import recent_activity as mcp_recent_activity
+from basic_memory.mcp.tools import schema_diff as mcp_schema_diff
+from basic_memory.mcp.tools import schema_infer as mcp_schema_infer
+from basic_memory.mcp.tools import schema_validate as mcp_schema_validate
 from basic_memory.mcp.tools import search_notes as mcp_search
 from basic_memory.mcp.tools import write_note as mcp_write_note
 
 tool_app = typer.Typer()
 app.add_typer(tool_app, name="tool", help="Access to MCP tools via CLI")
 
-
-# --- JSON output helpers ---
-# These async functions bypass the MCP tool (which returns formatted strings)
-# and use API clients directly to return structured data for --format json.
+VALID_EDIT_OPERATIONS = ["append", "prepend", "find_replace", "replace_section"]
 
 
-async def _write_note_json(
-    title: str, content: str, folder: str, project_name: Optional[str], tags: Optional[List[str]]
-) -> dict:
-    """Write a note and return structured JSON metadata."""
-    # Use the MCP tool to create/update the entity (handles create-or-update logic)
-    await mcp_write_note.fn(title, content, folder, project_name, tags)
-
-    # Resolve the entity to get metadata back
-    async with get_client() as client:
-        active_project = await get_active_project(client, project_name)
-        knowledge_client = KnowledgeClient(client, active_project.external_id)
-
-        entity = Entity(title=title, directory=folder)
-        if not entity.permalink:
-            raise ValueError(f"Could not generate permalink for title={title}, folder={folder}")
-        entity_id = await knowledge_client.resolve_entity(entity.permalink)
-        entity = await knowledge_client.get_entity(entity_id)
-
-        return {
-            "title": entity.title,
-            "permalink": entity.permalink,
-            "content": content,
-            "file_path": entity.file_path,
-        }
+# --- Shared helpers ---
 
 
-async def _read_note_json(
-    identifier: str, project_name: Optional[str], page: int, page_size: int
-) -> dict:
-    """Read a note and return structured JSON with content and metadata."""
-    async with get_client() as client:
-        active_project = await get_active_project(client, project_name)
-        knowledge_client = KnowledgeClient(client, active_project.external_id)
-        resource_client = ResourceClient(client, active_project.external_id)
-
-        # Try direct resolution first (works for permalinks and memory URLs)
-        entity_path = memory_url_path(identifier)
-        entity_id = None
-        try:
-            entity_id = await knowledge_client.resolve_entity(entity_path)
-        except Exception:
-            logger.info(f"Direct lookup failed for '{entity_path}', trying title search")
-
-        # Fallback: title search (handles plain titles like "My Note")
-        if entity_id is None:
-            from basic_memory.mcp.tools.search import search_notes as mcp_search_tool
-
-            title_results = await mcp_search_tool.fn(
-                query=identifier, search_type="title", project=project_name
-            )
-            if title_results and hasattr(title_results, "results") and title_results.results:
-                result = title_results.results[0]
-                if result.permalink:
-                    entity_id = await knowledge_client.resolve_entity(result.permalink)
-
-        if entity_id is None:
-            raise ValueError(f"Could not find note matching: {identifier}")
-
-        entity = await knowledge_client.get_entity(entity_id)
-        response = await resource_client.read(entity_id, page=page, page_size=page_size)
-
-        return {
-            "title": entity.title,
-            "permalink": entity.permalink,
-            "content": response.text,
-            "file_path": entity.file_path,
-        }
+def _print_json(result: Any) -> None:
+    """Print a result as formatted JSON."""
+    print(json.dumps(result, indent=2, ensure_ascii=True, default=str))
 
 
-async def _recent_activity_json(
-    type: Optional[List[SearchItemType]],
-    depth: Optional[int],
-    timeframe: Optional[TimeFrame],
-    project_name: Optional[str] = None,
-    page: int = 1,
-    page_size: int = 50,
-) -> list:
-    """Get recent activity and return structured JSON list."""
-    async with get_client() as client:
-        # Build query params matching the MCP tool's logic
-        params: dict = {"page": page, "page_size": page_size, "max_related": 10}
-        if depth:
-            params["depth"] = depth
-        if timeframe:
-            params["timeframe"] = timeframe
-        if type:
-            params["type"] = [t.value for t in type]
-
-        active_project = await get_active_project(client, project_name)
-        response = await call_get(
-            client,
-            f"/v2/projects/{active_project.external_id}/memory/recent",
-            params=params,
-        )
-        activity_data = GraphContext.model_validate(response.json())
-
-        # Extract entity results
-        results = []
-        for result in activity_data.results:
-            pr = result.primary_result
-            if pr.type == "entity":
-                results.append(
-                    {
-                        "title": pr.title,
-                        "permalink": pr.permalink,
-                        "file_path": pr.file_path,
-                        "created_at": str(pr.created_at) if pr.created_at else None,
-                    }
-                )
-        return results
+# --- Commands ---
 
 
 @tool_app.command()
 def write_note(
     title: Annotated[str, typer.Option(help="The title of the note")],
     folder: Annotated[str, typer.Option(help="The folder to create the note in")],
+    content: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The content of the note. If not provided, content will be read from stdin."
+        ),
+    ] = None,
+    tags: Annotated[
+        Optional[List[str]], typer.Option(help="A list of tags to apply to the note")
+    ] = None,
     project: Annotated[
         Optional[str],
         typer.Option(
             help="The project to write to. If not provided, the default project will be used."
         ),
     ] = None,
-    content: Annotated[
+    workspace: Annotated[
         Optional[str],
-        typer.Option(
-            help="The content of the note. If not provided, content will be read from stdin. This allows piping content from other commands, e.g.: cat file.md | basic-memory tools write-note"
-        ),
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
     ] = None,
-    tags: Annotated[
-        Optional[List[str]], typer.Option(help="A list of tags to apply to the note")
-    ] = None,
-    format: str = typer.Option("text", "--format", help="Output format: text or json"),
     local: bool = typer.Option(
         False, "--local", help="Force local API routing (ignore cloud mode)"
     ),
     cloud: bool = typer.Option(False, "--cloud", help="Force cloud API routing"),
 ):
-    """Create or update a markdown note. Content can be provided as an argument or read from stdin.
-
-    Content can be provided in two ways:
-    1. Using the --content parameter
-    2. Piping content through stdin (if --content is not provided)
-
-    Use --local to force local routing when cloud mode is enabled.
-    Use --cloud to force cloud routing when cloud mode is disabled.
+    """Create or update a markdown note. Content can be provided via --content or stdin.
 
     Examples:
 
-    # Using content parameter
-    basic-memory tools write-note --title "My Note" --folder "notes" --content "Note content"
-
-    # Using stdin pipe
-    echo "# My Note Content" | basic-memory tools write-note --title "My Note" --folder "notes"
-
-    # Using heredoc
-    cat << EOF | basic-memory tools write-note --title "My Note" --folder "notes"
-    # My Document
-
-    This is my document content.
-
-    - Point 1
-    - Point 2
-    EOF
-
-    # Reading from a file
-    cat document.md | basic-memory tools write-note --title "Document" --folder "docs"
-
-    # Force local routing in cloud mode
-    basic-memory tools write-note --title "My Note" --folder "notes" --content "..." --local
+    bm tool write-note --title "My Note" --folder "notes" --content "Note content"
+    echo "content" | bm tool write-note --title "My Note" --folder "notes"
+    bm tool write-note --title "My Note" --folder "notes" --local
     """
     try:
         validate_routing_flags(local, cloud)
 
         # If content is not provided, read from stdin
         if content is None:
-            # Check if we're getting data from a pipe or redirect
             if not sys.stdin.isatty():
                 content = sys.stdin.read()
             else:  # pragma: no cover
-                # If stdin is a terminal (no pipe/redirect), inform the user
                 typer.echo(
                     "No content provided. Please provide content via --content or by piping to stdin.",
                     err=True,
                 )
                 raise typer.Exit(1)
 
-        # Also check for empty content
         if content is not None and not content.strip():
             typer.echo("Empty content provided. Please provide non-empty content.", err=True)
             raise typer.Exit(1)
 
-        # look for the project in the config
-        config_manager = ConfigManager()
-        project_name = None
-        if project is not None:
-            project_name, _ = config_manager.get_project(project)
-            if not project_name:
-                typer.echo(f"No project found named: {project}", err=True)
-                raise typer.Exit(1)
-
-        # use the project name, or the default from the config
-        project_name = project_name or config_manager.default_project
-
-        # content is validated non-None above (stdin or --content)
         assert content is not None
 
         with force_routing(local=local, cloud=cloud):
-            if format == "json":
-                result = run_with_cleanup(
-                    _write_note_json(title, content, folder, project_name, tags)
+            result = run_with_cleanup(
+                mcp_write_note(
+                    title=title,
+                    content=content,
+                    directory=folder,
+                    project=project,
+                    workspace=workspace,
+                    tags=tags,
+                    output_format="json",
                 )
-                print(json.dumps(result, indent=2, ensure_ascii=True, default=str))
-            else:
-                note = run_with_cleanup(
-                    mcp_write_note.fn(title, content, folder, project_name, tags)
-                )
-                rprint(note)
+            )
+        _print_json(result)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -272,15 +125,19 @@ def write_note(
 @tool_app.command()
 def read_note(
     identifier: str,
+    include_frontmatter: bool = typer.Option(
+        False, "--include-frontmatter", help="Include YAML frontmatter in output"
+    ),
+    page: int = typer.Option(1, "--page", help="Page number for pagination"),
+    page_size: int = typer.Option(10, "--page-size", help="Number of results per page"),
     project: Annotated[
         Optional[str],
-        typer.Option(
-            help="The project to use for the note. If not provided, the default project will be used."
-        ),
+        typer.Option(help="The project to use. If not provided, the default project will be used."),
     ] = None,
-    page: int = 1,
-    page_size: int = 10,
-    format: str = typer.Option("text", "--format", help="Output format: text or json"),
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
+    ] = None,
     local: bool = typer.Option(
         False, "--local", help="Force local API routing (ignore cloud mode)"
     ),
@@ -288,33 +145,28 @@ def read_note(
 ):
     """Read a markdown note from the knowledge base.
 
-    Use --local to force local routing when cloud mode is enabled.
-    Use --cloud to force cloud routing when cloud mode is disabled.
+    Examples:
+
+    bm tool read-note my-note
+    bm tool read-note my-note --include-frontmatter
+    bm tool read-note my-note --page 2 --page-size 5
     """
     try:
         validate_routing_flags(local, cloud)
 
-        # look for the project in the config
-        config_manager = ConfigManager()
-        project_name = None
-        if project is not None:
-            project_name, _ = config_manager.get_project(project)
-            if not project_name:
-                typer.echo(f"No project found named: {project}", err=True)
-                raise typer.Exit(1)
-
-        # use the project name, or the default from the config
-        project_name = project_name or config_manager.default_project
-
         with force_routing(local=local, cloud=cloud):
-            if format == "json":
-                result = run_with_cleanup(
-                    _read_note_json(identifier, project_name, page, page_size)
+            result = run_with_cleanup(
+                mcp_read_note(
+                    identifier=identifier,
+                    project=project,
+                    workspace=workspace,
+                    page=page,
+                    page_size=page_size,
+                    include_frontmatter=include_frontmatter,
+                    output_format="json",
                 )
-                print(json.dumps(result, indent=2, ensure_ascii=True, default=str))
-            else:
-                note = run_with_cleanup(mcp_read_note.fn(identifier, project_name, page, page_size))
-                rprint(note)
+            )
+        _print_json(result)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -326,18 +178,97 @@ def read_note(
 
 
 @tool_app.command()
+def edit_note(
+    identifier: str,
+    operation: Annotated[str, typer.Option("--operation", help="Edit operation to apply")],
+    content: Annotated[str, typer.Option("--content", help="Content for the edit operation")],
+    find_text: Annotated[
+        Optional[str], typer.Option("--find-text", help="Text to find for find_replace operation")
+    ] = None,
+    section: Annotated[
+        Optional[str],
+        typer.Option("--section", help="Section heading for replace_section operation"),
+    ] = None,
+    expected_replacements: int = typer.Option(
+        1,
+        "--expected-replacements",
+        help="Expected replacement count for find_replace operation",
+    ),
+    project: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The project to edit. If not provided, the default project will be used."
+        ),
+    ] = None,
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
+    ] = None,
+    local: bool = typer.Option(
+        False, "--local", help="Force local API routing (ignore cloud mode)"
+    ),
+    cloud: bool = typer.Option(False, "--cloud", help="Force cloud API routing"),
+):
+    """Edit an existing markdown note using append/prepend/find_replace/replace_section.
+
+    Examples:
+
+    bm tool edit-note my-note --operation append --content "new content"
+    bm tool edit-note my-note --operation find_replace --find-text "old" --content "new"
+    bm tool edit-note my-note --operation replace_section --section "## Notes" --content "updated"
+    """
+    try:
+        validate_routing_flags(local, cloud)
+
+        with force_routing(local=local, cloud=cloud):
+            result = run_with_cleanup(
+                mcp_edit_note(
+                    identifier=identifier,
+                    operation=operation,
+                    content=content,
+                    project=project,
+                    workspace=workspace,
+                    section=section,
+                    find_text=find_text,
+                    expected_replacements=expected_replacements,
+                    output_format="json",
+                )
+            )
+
+        # MCP tool returns error field on failure in JSON mode
+        if isinstance(result, dict) and result.get("error"):
+            typer.echo(f"Error: {result['error']}", err=True)
+            raise typer.Exit(1)
+
+        _print_json(result)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:  # pragma: no cover
+        if not isinstance(e, typer.Exit):
+            typer.echo(f"Error during edit_note: {e}", err=True)
+            raise typer.Exit(1)
+        raise
+
+
+@tool_app.command()
 def build_context(
-    url: MemoryUrl,
+    url: str,
+    depth: Optional[int] = typer.Option(1, "--depth", help="Depth of context to build"),
+    timeframe: Optional[str] = typer.Option(
+        "7d", "--timeframe", help="Timeframe filter (e.g., '7d', '1 week')"
+    ),
+    page: int = typer.Option(1, "--page", help="Page number for pagination"),
+    page_size: int = typer.Option(10, "--page-size", help="Number of results per page"),
+    max_related: int = typer.Option(10, "--max-related", help="Maximum related items to return"),
     project: Annotated[
         Optional[str],
         typer.Option(help="The project to use. If not provided, the default project will be used."),
     ] = None,
-    depth: Optional[int] = 1,
-    timeframe: Optional[TimeFrame] = "7d",
-    page: int = 1,
-    page_size: int = 10,
-    max_related: int = 10,
-    format: str = typer.Option("json", "--format", help="Output format: text or json"),
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
+    ] = None,
     local: bool = typer.Option(
         False, "--local", help="Force local API routing (ignore cloud mode)"
     ),
@@ -345,38 +276,29 @@ def build_context(
 ):
     """Get context needed to continue a discussion.
 
-    Use --local to force local routing when cloud mode is enabled.
-    Use --cloud to force cloud routing when cloud mode is disabled.
+    Examples:
+
+    bm tool build-context memory://specs/search
+    bm tool build-context specs/search --depth 2 --timeframe 30d
     """
     try:
         validate_routing_flags(local, cloud)
 
-        # look for the project in the config
-        config_manager = ConfigManager()
-        project_name = None
-        if project is not None:
-            project_name, _ = config_manager.get_project(project)
-            if not project_name:
-                typer.echo(f"No project found named: {project}", err=True)
-                raise typer.Exit(1)
-
-        # use the project name, or the default from the config
-        project_name = project_name or config_manager.default_project
-
         with force_routing(local=local, cloud=cloud):
-            context = run_with_cleanup(
-                mcp_build_context.fn(
-                    project=project_name,
+            result = run_with_cleanup(
+                mcp_build_context(
                     url=url,
+                    project=project,
+                    workspace=workspace,
                     depth=depth,
                     timeframe=timeframe,
                     page=page,
                     page_size=page_size,
                     max_related=max_related,
+                    output_format="json",
                 )
             )
-        context_dict = context.model_dump(exclude_none=True)
-        print(json.dumps(context_dict, indent=2, ensure_ascii=True, default=str))
+        _print_json(result)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -389,18 +311,21 @@ def build_context(
 
 @tool_app.command()
 def recent_activity(
-    type: Annotated[Optional[List[SearchItemType]], typer.Option()] = None,
+    type: Annotated[Optional[List[str]], typer.Option(help="Filter by item type")] = None,
+    depth: Optional[int] = typer.Option(1, "--depth", help="Depth of context to build"),
+    timeframe: Optional[str] = typer.Option(
+        "7d", "--timeframe", help="Timeframe filter (e.g., '7d', '1 week')"
+    ),
+    page: int = typer.Option(1, "--page", help="Page number for pagination"),
+    page_size: int = typer.Option(50, "--page-size", help="Number of results per page"),
     project: Annotated[
         Optional[str],
         typer.Option(help="The project to use. If not provided, the default project will be used."),
     ] = None,
-    depth: Optional[int] = 1,
-    timeframe: Optional[TimeFrame] = "7d",
-    page: int = typer.Option(1, "--page", help="Page number for pagination (JSON format)"),
-    page_size: int = typer.Option(
-        50, "--page-size", help="Number of results per page (JSON format)"
-    ),
-    format: str = typer.Option("text", "--format", help="Output format: text or json"),
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
+    ] = None,
     local: bool = typer.Option(
         False, "--local", help="Force local API routing (ignore cloud mode)"
     ),
@@ -408,39 +333,29 @@ def recent_activity(
 ):
     """Get recent activity across the knowledge base.
 
-    Use --local to force local routing when cloud mode is enabled.
-    Use --cloud to force cloud routing when cloud mode is disabled.
+    Examples:
+
+    bm tool recent-activity
+    bm tool recent-activity --timeframe 30d --page-size 20
+    bm tool recent-activity --type entity --type observation
     """
     try:
         validate_routing_flags(local, cloud)
 
-        # Resolve project from config for JSON mode
-        config_manager = ConfigManager()
-        project_name = None
-        if project is not None:
-            project_name, _ = config_manager.get_project(project)
-            if not project_name:
-                typer.echo(f"No project found named: {project}", err=True)
-                raise typer.Exit(1)
-        project_name = project_name or config_manager.default_project
-
         with force_routing(local=local, cloud=cloud):
-            if format == "json":
-                result = run_with_cleanup(
-                    _recent_activity_json(type, depth, timeframe, project_name, page, page_size)
+            result = run_with_cleanup(
+                mcp_recent_activity(
+                    type=type,  # pyright: ignore[reportArgumentType]
+                    depth=depth if depth is not None else 1,
+                    timeframe=timeframe if timeframe is not None else "7d",
+                    page=page,
+                    page_size=page_size,
+                    project=project,
+                    workspace=workspace,
+                    output_format="json",
                 )
-                print(json.dumps(result, indent=2, ensure_ascii=True, default=str))
-            else:
-                result = run_with_cleanup(
-                    mcp_recent_activity.fn(
-                        type=type,  # pyright: ignore [reportArgumentType]
-                        depth=depth,
-                        timeframe=timeframe,
-                        project=project_name,
-                    )
-                )
-                # The tool returns a formatted string directly
-                print(result)
+            )
+        _print_json(result)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -459,12 +374,8 @@ def search_notes(
     ] = "",
     permalink: Annotated[bool, typer.Option("--permalink", help="Search permalink values")] = False,
     title: Annotated[bool, typer.Option("--title", help="Search title values")] = False,
-    project: Annotated[
-        Optional[str],
-        typer.Option(
-            help="The project to use for the note. If not provided, the default project will be used."
-        ),
-    ] = None,
+    vector: Annotated[bool, typer.Option("--vector", help="Use vector retrieval")] = False,
+    hybrid: Annotated[bool, typer.Option("--hybrid", help="Use hybrid retrieval")] = False,
     after_date: Annotated[
         Optional[str],
         typer.Option("--after_date", help="Search results after date, eg. '2d', '1 week'"),
@@ -481,6 +392,13 @@ def search_notes(
         Optional[List[str]],
         typer.Option("--type", help="Filter by frontmatter type (repeatable)"),
     ] = None,
+    entity_types: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--entity-type",
+            help="Filter by search item type: entity, observation, relation (repeatable)",
+        ),
+    ] = None,
     meta: Annotated[
         Optional[List[str]],
         typer.Option("--meta", help="Filter by frontmatter key=value (repeatable)"),
@@ -489,8 +407,16 @@ def search_notes(
         Optional[str],
         typer.Option("--filter", help="JSON metadata filter (advanced)"),
     ] = None,
-    page: int = 1,
-    page_size: int = 10,
+    page: int = typer.Option(1, "--page", help="Page number for pagination"),
+    page_size: int = typer.Option(10, "--page-size", help="Number of results per page"),
+    project: Annotated[
+        Optional[str],
+        typer.Option(help="The project to use. If not provided, the default project will be used."),
+    ] = None,
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
+    ] = None,
     local: bool = typer.Option(
         False, "--local", help="Force local API routing (ignore cloud mode)"
     ),
@@ -498,33 +424,26 @@ def search_notes(
 ):
     """Search across all content in the knowledge base.
 
-    Use --local to force local routing when cloud mode is enabled.
-    Use --cloud to force cloud routing when cloud mode is disabled.
+    Examples:
+
+    bm tool search-notes "my query"
+    bm tool search-notes --permalink "specs/*"
+    bm tool search-notes --tag python --tag async
+    bm tool search-notes --meta status=draft
     """
     try:
         validate_routing_flags(local, cloud)
 
-        # look for the project in the config
-        config_manager = ConfigManager()
-        project_name = None
-        if project is not None:
-            project_name, _ = config_manager.get_project(project)
-            if not project_name:
-                typer.echo(f"No project found named: {project}", err=True)
-                raise typer.Exit(1)
-
-        # use the project name, or the default from the config
-        project_name = project_name or config_manager.default_project
-
-        if permalink and title:  # pragma: no cover
+        mode_flags = [permalink, title, vector, hybrid]
+        if sum(1 for enabled in mode_flags if enabled) > 1:  # pragma: no cover
             typer.echo(
-                "Use either --permalink or --title, not both. Exiting.",
+                "Use only one mode flag: --permalink, --title, --vector, or --hybrid. Exiting.",
                 err=True,
             )
             raise typer.Exit(1)
 
-        # Build metadata filters from --filter and --meta
-        metadata_filters = {}
+        # --- Build metadata filters from --filter and --meta ---
+        metadata_filters: Dict[str, Any] | None = {}
         if filter_json:
             try:
                 metadata_filters = json.loads(filter_json)
@@ -552,32 +471,42 @@ def search_notes(
         if not metadata_filters:
             metadata_filters = None
 
-        # set search type
-        search_type = "text"
+        # --- Determine search type from mode flags ---
+        search_type: str | None = None
         if permalink:
             search_type = "permalink"
-            if query and "*" in query:
-                search_type = "permalink"
         if title:
             search_type = "title"
+        if vector:
+            search_type = "vector"
+        if hybrid:
+            search_type = "hybrid"
 
         with force_routing(local=local, cloud=cloud):
-            results = run_with_cleanup(
-                mcp_search.fn(
-                    query or "",
-                    project_name,
+            result = run_with_cleanup(
+                mcp_search(
+                    query=query or None,
+                    project=project,
+                    workspace=workspace,
                     search_type=search_type,
+                    output_format="json",
                     page=page,
                     after_date=after_date,
                     page_size=page_size,
-                    types=note_types,
+                    note_types=note_types,
+                    entity_types=entity_types,
                     metadata_filters=metadata_filters,
                     tags=tags,
                     status=status,
                 )
             )
-        results_dict = results.model_dump(exclude_none=True)
-        print(json.dumps(results_dict, indent=2, ensure_ascii=True, default=str))
+
+        # MCP tool may return a string error message
+        if isinstance(result, str):
+            typer.echo(result, err=True)
+            raise typer.Exit(1)
+
+        _print_json(result)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -589,56 +518,241 @@ def search_notes(
         raise
 
 
-@tool_app.command(name="continue-conversation")
-def continue_conversation(
-    topic: Annotated[Optional[str], typer.Option(help="Topic or keyword to search for")] = None,
-    timeframe: Annotated[
-        Optional[str], typer.Option(help="How far back to look for activity")
+# --- list-projects ---
+
+
+@tool_app.command("list-projects")
+def list_projects(
+    local: bool = typer.Option(
+        False, "--local", help="Force local API routing (ignore cloud mode)"
+    ),
+    cloud: bool = typer.Option(False, "--cloud", help="Force cloud API routing"),
+):
+    """List all available projects with their status (JSON output).
+
+    Examples:
+
+    bm tool list-projects
+    bm tool list-projects --local
+    """
+    try:
+        validate_routing_flags(local, cloud)
+
+        with force_routing(local=local, cloud=cloud):
+            result = run_with_cleanup(mcp_list_projects(output_format="json"))
+        _print_json(result)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:  # pragma: no cover
+        if not isinstance(e, typer.Exit):
+            typer.echo(f"Error during list_projects: {e}", err=True)
+            raise typer.Exit(1)
+        raise
+
+
+# --- list-workspaces ---
+
+
+@tool_app.command("list-workspaces")
+def list_workspaces(
+    local: bool = typer.Option(
+        False, "--local", help="Force local API routing (ignore cloud mode)"
+    ),
+    cloud: bool = typer.Option(False, "--cloud", help="Force cloud API routing"),
+):
+    """List available cloud workspaces (JSON output).
+
+    Examples:
+
+    bm tool list-workspaces
+    bm tool list-workspaces --cloud
+    """
+    try:
+        validate_routing_flags(local, cloud)
+
+        with force_routing(local=local, cloud=cloud):
+            result = run_with_cleanup(mcp_list_workspaces(output_format="json"))
+        _print_json(result)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:  # pragma: no cover
+        if not isinstance(e, typer.Exit):
+            typer.echo(f"Error during list_workspaces: {e}", err=True)
+            raise typer.Exit(1)
+        raise
+
+
+# --- schema-validate ---
+
+
+@tool_app.command("schema-validate")
+def schema_validate(
+    target: Annotated[
+        Optional[str],
+        typer.Argument(help="Note path or note type to validate"),
+    ] = None,
+    project: Annotated[
+        Optional[str],
+        typer.Option(help="The project to use. If not provided, the default project will be used."),
+    ] = None,
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
     ] = None,
     local: bool = typer.Option(
         False, "--local", help="Force local API routing (ignore cloud mode)"
     ),
     cloud: bool = typer.Option(False, "--cloud", help="Force cloud API routing"),
 ):
-    """Prompt to continue a previous conversation or work session.
+    """Validate notes against their schemas (JSON output).
 
-    Use --local to force local routing when cloud mode is enabled.
-    Use --cloud to force cloud routing when cloud mode is disabled.
+    TARGET can be a note path (e.g., people/ada-lovelace.md) or a note type
+    (e.g., person). If omitted, validates all notes that have schemas.
+
+    Examples:
+
+    bm tool schema-validate person
+    bm tool schema-validate people/ada-lovelace.md
+    bm tool schema-validate --project research
     """
     try:
         validate_routing_flags(local, cloud)
 
+        # Heuristic: if target contains / or ., treat as identifier; otherwise as note type
+        note_type, identifier = None, None
+        if target:
+            if "/" in target or "." in target:
+                identifier = target
+            else:
+                note_type = target
+
         with force_routing(local=local, cloud=cloud):
-            # Prompt functions return formatted strings directly
-            session = run_with_cleanup(
-                mcp_continue_conversation.fn(topic=topic, timeframe=timeframe)  # type: ignore[arg-type]
+            result = run_with_cleanup(
+                mcp_schema_validate(
+                    note_type=note_type,
+                    identifier=identifier,
+                    project=project,
+                    workspace=workspace,
+                    output_format="json",
+                )
             )
-        rprint(session)
+        _print_json(result)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
     except Exception as e:  # pragma: no cover
         if not isinstance(e, typer.Exit):
-            logger.exception("Error continuing conversation", e)
-            typer.echo(f"Error continuing conversation: {e}", err=True)
+            typer.echo(f"Error during schema_validate: {e}", err=True)
             raise typer.Exit(1)
         raise
 
 
-# @tool_app.command(name="show-recent-activity")
-# def show_recent_activity(
-#     timeframe: Annotated[
-#         str, typer.Option(help="How far back to look for activity")
-#     ] = "7d",
-# ):
-#     """Prompt to show recent activity."""
-#     try:
-#         # Prompt functions return formatted strings directly
-#         session = asyncio.run(recent_activity_prompt(timeframe=timeframe))
-#         rprint(session)
-#     except Exception as e:  # pragma: no cover
-#         if not isinstance(e, typer.Exit):
-#             logger.exception("Error continuing conversation", e)
-#             typer.echo(f"Error continuing conversation: {e}", err=True)
-#             raise typer.Exit(1)
-#         raise
+# --- schema-infer ---
+
+
+@tool_app.command("schema-infer")
+def schema_infer(
+    note_type: Annotated[
+        str,
+        typer.Argument(help="Note type to analyze (e.g., person, meeting)"),
+    ],
+    threshold: float = typer.Option(
+        0.25, "--threshold", help="Minimum frequency for optional fields (0-1)"
+    ),
+    project: Annotated[
+        Optional[str],
+        typer.Option(help="The project to use. If not provided, the default project will be used."),
+    ] = None,
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
+    ] = None,
+    local: bool = typer.Option(
+        False, "--local", help="Force local API routing (ignore cloud mode)"
+    ),
+    cloud: bool = typer.Option(False, "--cloud", help="Force cloud API routing"),
+):
+    """Infer schema from existing notes of a type (JSON output).
+
+    Examples:
+
+    bm tool schema-infer person
+    bm tool schema-infer meeting --threshold 0.5
+    bm tool schema-infer person --project research
+    """
+    try:
+        validate_routing_flags(local, cloud)
+
+        with force_routing(local=local, cloud=cloud):
+            result = run_with_cleanup(
+                mcp_schema_infer(
+                    note_type=note_type,
+                    threshold=threshold,
+                    project=project,
+                    workspace=workspace,
+                    output_format="json",
+                )
+            )
+        _print_json(result)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:  # pragma: no cover
+        if not isinstance(e, typer.Exit):
+            typer.echo(f"Error during schema_infer: {e}", err=True)
+            raise typer.Exit(1)
+        raise
+
+
+# --- schema-diff ---
+
+
+@tool_app.command("schema-diff")
+def schema_diff(
+    note_type: Annotated[
+        str,
+        typer.Argument(help="Note type to check for drift"),
+    ],
+    project: Annotated[
+        Optional[str],
+        typer.Option(help="The project to use. If not provided, the default project will be used."),
+    ] = None,
+    workspace: Annotated[
+        Optional[str],
+        typer.Option(help="Cloud workspace tenant ID or unique name to route this request."),
+    ] = None,
+    local: bool = typer.Option(
+        False, "--local", help="Force local API routing (ignore cloud mode)"
+    ),
+    cloud: bool = typer.Option(False, "--cloud", help="Force cloud API routing"),
+):
+    """Show drift between schema and actual usage (JSON output).
+
+    Examples:
+
+    bm tool schema-diff person
+    bm tool schema-diff person --project research
+    """
+    try:
+        validate_routing_flags(local, cloud)
+
+        with force_routing(local=local, cloud=cloud):
+            result = run_with_cleanup(
+                mcp_schema_diff(
+                    note_type=note_type,
+                    project=project,
+                    workspace=workspace,
+                    output_format="json",
+                )
+            )
+        _print_json(result)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:  # pragma: no cover
+        if not isinstance(e, typer.Exit):
+            typer.echo(f"Error during schema_diff: {e}", err=True)
+            raise typer.Exit(1)
+        raise

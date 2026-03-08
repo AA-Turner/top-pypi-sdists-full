@@ -35,12 +35,19 @@ from onnx2tf.tflite_builder.preprocess import (
 )
 from onnx2tf.tflite_builder.schema_loader import load_schema_module
 from onnx2tf.tflite_builder.split_planner import (
+    crop_model_ir_by_boundary_tensors,
     DEFAULT_TFLITE_SPLIT_MAX_BYTES,
     DEFAULT_TFLITE_SPLIT_TARGET_BYTES,
     plan_contiguous_partitions_by_size,
+    rewrite_model_ir_disable_group_convolution,
+    rewrite_model_ir_unfold_batchmatmul,
+    rewrite_model_ir_unroll_recurrent_ops,
     should_split_by_estimate,
     write_split_model_files_and_manifest,
     write_split_plan_report,
+)
+from onnx2tf.tflite_builder.split_saved_model_exporter import (
+    export_split_saved_models,
 )
 from onnx2tf.utils.common_functions import weights_export
 
@@ -106,7 +113,7 @@ def _create_progress_bar(
 def _build_export_progress_labels(
     *,
     report_op_coverage: bool,
-    auto_split_tflite_by_size: bool,
+    split_plan_requested: bool,
     output_dynamic_range_quantized_tflite: bool,
     output_integer_quantized_tflite: bool,
     output_weights: bool,
@@ -117,7 +124,7 @@ def _build_export_progress_labels(
     ]
     if report_op_coverage:
         labels.append("op coverage report")
-    if auto_split_tflite_by_size:
+    if split_plan_requested:
         labels.append("split planning")
     labels.extend(
         [
@@ -253,12 +260,23 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
     output_saved_model_from_model_ir = bool(
         kwargs.get("output_saved_model_from_model_ir", False)
     )
+    saved_model_output_folder_path = kwargs.get(
+        "saved_model_output_folder_path",
+        None,
+    )
+    if saved_model_output_folder_path is None:
+        saved_model_output_folder_path = output_folder_path
+    persist_saved_model_output = bool(
+        kwargs.get(
+            "persist_saved_model_output",
+            output_saved_model_from_model_ir,
+        )
+    )
     enable_accumulation_type_float16 = bool(
         kwargs.get("enable_accumulation_type_float16", False)
     )
-    auto_split_tflite_by_size = bool(
-        kwargs.get("auto_split_tflite_by_size", False)
-    )
+    force_split_manifest = bool(kwargs.get("force_split_manifest", False))
+    split_plan_requested = bool(force_split_manifest)
     report_op_coverage = bool(kwargs.get("report_op_coverage", False))
     output_nms_with_argmax = bool(kwargs.get("output_nms_with_argmax", False))
     switch_nms_version = str(kwargs.get("switch_nms_version", "v4")).strip().lower()
@@ -282,6 +300,13 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
     disable_group_convolution = bool(
         kwargs.get("disable_group_convolution", False)
     )
+    enable_batchmatmul_unfold = bool(
+        kwargs.get("enable_batchmatmul_unfold", False)
+    )
+    enable_rnn_unroll = bool(
+        kwargs.get("enable_rnn_unroll", False)
+    )
+    mvn_epsilon = float(kwargs.get("mvn_epsilon", 1e-10))
     flatbuffer_direct_allow_custom_ops = bool(
         kwargs.get("flatbuffer_direct_allow_custom_ops", False)
     )
@@ -327,6 +352,14 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
         kwargs.get("number_of_dimensions_after_flexstridedslice_compression", 5)
     )
     requested_pseudo_ops_raw = kwargs.get("replace_to_pseudo_operators", None)
+    input_names_to_interrupt_model_conversion = kwargs.get(
+        "input_names_to_interrupt_model_conversion",
+        None,
+    )
+    output_names_to_interrupt_model_conversion = kwargs.get(
+        "output_names_to_interrupt_model_conversion",
+        None,
+    )
     if requested_pseudo_ops_raw is None:
         requested_pseudo_ops: List[str] = []
     elif isinstance(requested_pseudo_ops_raw, (list, tuple, set)):
@@ -439,11 +472,51 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
             disable_group_convolution=disable_group_convolution,
             output_nms_with_argmax=output_nms_with_argmax,
             switch_nms_version=switch_nms_version,
+            mvn_epsilon=mvn_epsilon,
             show_progress=flatbuffer_direct_show_progress,
             number_of_dimensions_after_flextranspose_compression=number_of_dimensions_after_flextranspose_compression,
             number_of_dimensions_after_flexstridedslice_compression=number_of_dimensions_after_flexstridedslice_compression,
             replace_to_pseudo_operators=requested_pseudo_ops,
+            protected_boundary_tensor_names=list(
+                dict.fromkeys(
+                    list(input_names_to_interrupt_model_conversion or [])
+                    + list(output_names_to_interrupt_model_conversion or [])
+                )
+            ),
         )
+        if (
+            input_names_to_interrupt_model_conversion
+            or output_names_to_interrupt_model_conversion
+        ):
+            default_output_boundaries = (
+                list(model_ir.metadata.get("original_graph_output_names", []))
+                if (
+                    output_names_to_interrupt_model_conversion is None
+                    and input_names_to_interrupt_model_conversion
+                )
+                else None
+            )
+            model_ir = crop_model_ir_by_boundary_tensors(
+                model_ir=model_ir,
+                requested_inputs=input_names_to_interrupt_model_conversion,
+                requested_outputs=(
+                    output_names_to_interrupt_model_conversion
+                    if output_names_to_interrupt_model_conversion is not None
+                    else default_output_boundaries
+                ),
+            )
+        if disable_group_convolution:
+            model_ir, _ = rewrite_model_ir_disable_group_convolution(
+                model_ir=model_ir,
+            )
+        if enable_batchmatmul_unfold:
+            model_ir, _ = rewrite_model_ir_unfold_batchmatmul(
+                model_ir=model_ir,
+            )
+        if enable_rnn_unroll:
+            model_ir, _ = rewrite_model_ir_unroll_recurrent_ops(
+                model_ir=model_ir,
+            )
     except Exception as ex:
         try:
             _write_coverage_report(str(ex))
@@ -453,7 +526,7 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
 
     export_progress_labels = _build_export_progress_labels(
         report_op_coverage=report_op_coverage,
-        auto_split_tflite_by_size=auto_split_tflite_by_size,
+        split_plan_requested=split_plan_requested,
         output_dynamic_range_quantized_tflite=output_dynamic_range_quantized_tflite,
         output_integer_quantized_tflite=output_integer_quantized_tflite,
         output_weights=output_weights,
@@ -550,7 +623,8 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
         split_partition_paths = None
         split_partition_count = 0
         write_timing_report: Dict[str, Dict[str, Any]] = {}
-        if auto_split_tflite_by_size:
+        split_saved_model_dirs = None
+        if split_plan_requested:
             _set_export_progress_desc("split planning")
             split_plan_report = plan_contiguous_partitions_by_size(
                 model_ir=model_ir,
@@ -569,7 +643,7 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
                     f"{output_file_name}_split_plan.json",
                 ),
             )
-            if split_required_by_estimate:
+            if split_required_by_estimate or force_split_manifest:
                 from ai_edge_litert.interpreter import Interpreter
 
                 def _validate_split_tflite_loadable(tflite_path: str) -> None:
@@ -624,13 +698,22 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
 
         if output_saved_model_from_model_ir:
             _set_export_progress_desc("write saved_model")
-            from onnx2tf.tflite_builder.saved_model_exporter import (
-                export_saved_model_from_model_ir,
-            )
-            saved_model_path = export_saved_model_from_model_ir(
-                model_ir=model_ir_fp32,
-                output_folder_path=output_folder_path,
-            )
+            if split_manifest_path is not None:
+                split_saved_model_outputs = export_split_saved_models(
+                    model_ir=model_ir,
+                    split_manifest_path=split_manifest_path,
+                    output_folder_path=output_folder_path,
+                    output_file_name=output_file_name,
+                )
+                split_saved_model_dirs = split_saved_model_outputs["split_saved_model_dirs"]
+            else:
+                from onnx2tf.tflite_builder.saved_model_exporter import (
+                    export_saved_model_from_model_ir,
+                )
+                saved_model_path = export_saved_model_from_model_ir(
+                    model_ir=model_ir_fp32,
+                    output_folder_path=saved_model_output_folder_path,
+                )
             _advance_export_progress()
 
         _set_export_progress_desc("write float16 tflite")
@@ -911,6 +994,7 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
     }
     if saved_model_path is not None:
         outputs["saved_model_path"] = str(saved_model_path)
+        outputs["saved_model_persisted"] = bool(persist_saved_model_output)
     if len(write_timing_report) > 0:
         outputs["write_timing_report"] = write_timing_report
     if dynamic_range_path is not None:
@@ -933,6 +1017,9 @@ def export_tflite_model_flatbuffer_direct(**kwargs: Any) -> Dict[str, Any]:
     if split_partition_paths is not None:
         outputs["split_partition_paths"] = split_partition_paths
         outputs["split_partition_count"] = int(split_partition_count)
+    if split_saved_model_dirs is not None:
+        outputs["split_saved_model_dirs"] = list(split_saved_model_dirs)
+        outputs["split_saved_model_count"] = int(len(split_saved_model_dirs))
     if op_coverage_report_path is not None:
         outputs["op_coverage_report_path"] = op_coverage_report_path
     outputs["tensor_correspondence_report_path"] = tensor_correspondence_report_path

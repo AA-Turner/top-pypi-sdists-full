@@ -131,7 +131,7 @@ class LLMClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
         timeout: int = 120,
-        num_retries: int = 2,
+        num_retries: int = 5,
         **kwargs: Any,
     ) -> LLMResponse:
         if self._api_key:
@@ -206,7 +206,7 @@ class LLMClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
         timeout: int = 120,
-        num_retries: int = 2,
+        num_retries: int = 5,
         **kwargs: Any,
     ) -> LLMResponse:
         if self._api_key:
@@ -476,7 +476,7 @@ def completion(
     system: str | None = None,
     tracer_name: str = "plato.llm",
     timeout: int = 120,
-    num_retries: int = 2,
+    num_retries: int = 5,
     **kwargs: Any,
 ) -> LLMResponse:
     """Synchronous LLM completion with ATIF tracing.
@@ -545,7 +545,7 @@ async def acompletion(
     system: str | None = None,
     tracer_name: str = "plato.llm",
     timeout: int = 120,
-    num_retries: int = 2,
+    num_retries: int = 5,
     **kwargs: Any,
 ) -> LLMResponse:
     """Async LLM completion with ATIF tracing.

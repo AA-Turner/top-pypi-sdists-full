@@ -80,7 +80,7 @@ class DocType(_Enum):
 # todo: consider a parent object that can be used for returns that do
 # todo: not include the name attribute
 class Param:
-    """A tuple of param types and their names.
+    """Represents a docstring or signature param.
 
     :param kind: The type of the parameter.
     :param name: The name of the parameter.
@@ -89,7 +89,7 @@ class Param:
     :param closing_token: The token used for closing the parameter.
     """
 
-    # pylint: disable=too-many-arguments,too-many-positional-arguments
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def __init__(
         self,
         kind: DocType = DocType.PARAM,
@@ -98,11 +98,11 @@ class Param:
         indent: int = 0,
         closing_token: str = ":",
     ) -> None:
-        self.kind = kind
-        self.name = name
-        self.description = description
-        self.indent = indent
-        self.closing_token = closing_token
+        self._kind = kind
+        self._name = name
+        self._description = description
+        self._indent = indent
+        self._closing_token = closing_token
 
     def __eq__(self, other: object) -> bool:
         iseq = False
@@ -122,6 +122,31 @@ class Param:
     def isprotected(self) -> bool:
         """Boolean value for whether this parameter is protected."""
         return str(self.name).startswith("_")
+
+    @property
+    def kind(self) -> DocType:
+        """Type of the param."""
+        return self._kind
+
+    @property
+    def name(self) -> str | None:
+        """Name of the param."""
+        return self._name
+
+    @property
+    def description(self) -> str | None:
+        """Description of param."""
+        return self._description
+
+    @property
+    def indent(self) -> int:
+        """Number of spaces in the indent."""
+        return self._indent
+
+    @property
+    def closing_token(self) -> str:
+        """Token used to terminate the param name definition."""
+        return self._closing_token
 
 
 class Params(_t.List[Param]):

@@ -1,42 +1,33 @@
 from __future__ import annotations
 
-from coredis.typing import ManagedNode, Unpack
+from coredis.typing import Unpack
 
 from ._base import BaseConnectionParams
-from ._tcp import Connection
+from ._tcp import TCPConnection, TCPLocation
 
 
-class ClusterConnection(Connection):
+class ClusterConnection(TCPConnection):
     "Manages TCP communication to and from a Redis Cluster node"
 
     def __init__(
         self,
-        host: str = "127.0.0.1",
-        port: int = 6379,
+        location: TCPLocation,
         *,
         read_from_replicas: bool = False,
         **kwargs: Unpack[BaseConnectionParams],
     ) -> None:
         self._read_from_replicas = read_from_replicas
-        super().__init__(
-            host=host,
-            port=port,
-            **kwargs,
-        )
-        self.node = ManagedNode(host=host, port=port)
+        super().__init__(location, **kwargs)
+        if self._read_from_replicas:
+            self.register_connect_callback(self._set_readonly)
 
-    async def perform_handshake(self) -> None:
+    async def _set_readonly(self, connection: ClusterConnection) -> None:
         """
         Read only cluster connections need to explicitly
         request readonly during handshake
         """
-        await super().perform_handshake()
-        if self._read_from_replicas:
-            assert (await self.create_request(b"READONLY", decode=False)) == b"OK"
+        if not (await connection.create_request(b"READONLY", decode=False)) == b"OK":
+            raise ConnectionError("Could not set READONLY mode for cluster replica")
 
     def describe(self) -> str:
-        return f"ClusterConnection<path={self.host},db={self.port}>"
-
-    @property
-    def location(self) -> str:
-        return f"host={self.host},port={self.port}"
+        return f"ClusterConnection<path={self.location.host},db={self.location.port}>"

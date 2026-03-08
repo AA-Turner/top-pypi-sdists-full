@@ -38,7 +38,7 @@ from .config import (
 )
 from .envvar import clean_envvar_id, param_envvar_ids
 from .logging import VerboseOption, VerbosityOption
-from .parameters import ExtraOption, ShowParamsOption, search_params
+from .parameters import ExtraOption, ShowParamsOption
 from .table import TableFormatOption
 from .timer import TimerOption
 from .version import ExtraVersionOption
@@ -53,8 +53,12 @@ class ExtraContext(cloup.Context):
     """Like ``cloup._context.Context``, but with the ability to populate the context's
     ``meta`` property at instantiation.
 
-    Also inherits ``color`` property from parent context. And sets it to `True` for
-    parentless contexts at instantiatiom, so we can always have colorized output.
+    Also defaults ``color`` to ``True`` for root contexts (i.e. without a parent), so
+    help screens are always colorized — even when piped. Click's own default is ``None``
+    (auto-detect via TTY), which strips colors in non-interactive contexts.
+
+    Parent-to-child color inheritance is handled by Click itself at ``Context.__init__``
+    time, so no property override is needed.
 
     .. todo::
         Propose addition of ``meta`` keyword upstream to Click.
@@ -66,44 +70,21 @@ class ExtraContext(cloup.Context):
     def __init__(self, *args, meta: dict[str, Any] | None = None, **kwargs) -> None:
         """Like parent's context but with an extra ``meta`` keyword-argument.
 
-        Also force ``color`` property default to `True` if not provided by user and
-        this context has no parent.
+        Also force ``color`` default to ``True`` if not provided by user and this
+        context has no parent.
         """
         super().__init__(*args, **kwargs)
+
+        # Click defaults root ``ctx.color`` to ``None`` (auto-detect via TTY), which
+        # strips colors when piped. Override to ``True`` for parentless contexts so
+        # help screens are always colorized by default. The ``ColorOption`` callback
+        # will set the final value later, respecting ``--no-color`` and env vars.
+        if not self.parent and self.color is None:
+            self.color = True
 
         # Update the context's meta property with the one provided by user.
         if meta:
             self._meta.update(meta)
-
-        # Transfer user color setting to our internally managed value.
-        self._color: bool | None = kwargs.get("color", None)
-
-        # A Context created from scratch, i.e. without a parent, and whose color
-        # setting is set to auto-detect (i.e. is None), will defaults to forced
-        # colorized output.
-        if not self.parent and self._color is None:
-            self._color = True
-
-    @property
-    def color(self) -> bool | None:
-        """Overrides ``Context.color`` to allow inheritance from parent context.
-
-        Returns the color setting of the parent context if it exists and the color is
-        not set on the current context.
-        """
-        if self._color is None and self.parent:
-            return self.parent.color
-        return self._color
-
-    @color.setter
-    def color(self, value: bool | None) -> None:
-        """Set the color value of the current context."""
-        self._color = value
-
-    @color.deleter
-    def color(self) -> None:
-        """Reset the color value so it defaults to inheritance from parent's."""
-        self._color = None
 
 
 def default_extra_params() -> list[click.Option]:
@@ -188,16 +169,20 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
     def __init__(
         self,
         *args,
-        version: str | None = None,
+        version_fields: dict[str, Any] | None = None,
         extra_option_at_end: bool = True,
         populate_auto_envvars: bool = True,
         **kwargs: Any,
     ) -> None:
         """List of extra parameters:
 
-        :param version: allows a version string to be set directly on the command. Will
-            be passed to the first instance of ``ExtraVersionOption`` parameter
-            attached to the command.
+        :param version_fields: dictionary of
+            ``ExtraVersionOption`` template field overrides forwarded to the
+            version option.  Accepts any field from
+            ``ExtraVersionOption.template_fields`` (e.g. ``prog_name``,
+            ``version``, ``git_branch``).  Lets you customize ``--version``
+            output from the command decorator without replacing the default
+            ``params`` list.
         :param extra_option_at_end: `reorders all parameters attached to the command
             <https://kdeldycke.github.io/click-extra/commands.html#option-order>`_, by
             moving all instances of ``ExtraOption`` at the end of the parameter list.
@@ -329,14 +314,22 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
             del default_ctx_settings[setting]
         self.context_settings: dict[str, Any] = default_ctx_settings
 
+        # Forward version template fields to the version option.
+        if version_fields:
+            for param in self.params:
+                if isinstance(param, ExtraVersionOption):
+                    for field_id, field_value in version_fields.items():
+                        if field_id not in param.template_fields:
+                            msg = (
+                                f"Unknown version field {field_id!r}."
+                                f" Must be one of {param.template_fields}."
+                            )
+                            raise TypeError(msg)
+                        setattr(param, field_id, field_value)
+
         if populate_auto_envvars:
             for param in self.params:
                 param.envvar = param_envvar_ids(param, self.context_settings)
-
-        if version:
-            version_param = search_params(self.params, ExtraVersionOption)
-            if version_param:
-                version_param.version = version  # type: ignore[union-attr]
 
         if extra_option_at_end:
             self.params.sort(key=lambda p: isinstance(p, ExtraOption))

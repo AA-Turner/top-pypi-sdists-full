@@ -1,13 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: torchio
-Version: 0.21.3
+Version: 0.21.4
 Summary: Tools for medical image processing with PyTorch
 Keywords: medical,image processing,pytorch,augmentation,mri
 Author: TorchIO contributors
+License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -305,7 +305,7 @@ BibTeX entry:
 }
 ```
 
-This project is supported by the following institutions:
+This project was originally supported by the following institutions:
 
 - [Engineering and Physical Sciences Research Council (EPSRC) & UK Research and Innovation (UKRI)](https://epsrc.ukri.org/)
 - [EPSRC Centre for Doctoral Training in Intelligent, Integrated Imaging In Healthcare (i4health)](https://www.ucl.ac.uk/intelligent-imaging-healthcare/) (University College London)

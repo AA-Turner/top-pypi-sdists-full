@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 import sys
-from functools import lru_cache
-from typing import Any
+from functools import cache
+from typing import TYPE_CHECKING, Any
 
 KNOWN_MODULE_SPECIAL_CASES = {
     "__future__",
@@ -11,7 +11,9 @@ KNOWN_MODULE_SPECIAL_CASES = {
 }
 
 
-def is_stdlib_module(module: str) -> bool:
+# we need to hide the stdlib_list from the type checker because it's only conditionally installed depending on the python version
+# resulting in different errors being reported depending on the python version
+def is_stdlib_module(module: str) -> bool:  # pyright: ignore[reportReturnType]
     if module in KNOWN_MODULE_SPECIAL_CASES:
         return True
 
@@ -21,19 +23,19 @@ def is_stdlib_module(module: str) -> bool:
         if module in sys.stdlib_module_names:
             return True
         return False
-    else:
+    elif not TYPE_CHECKING:
         from stdlib_list import in_stdlib  # type: ignore
 
         return in_stdlib(module)  # type: ignore
 
 
-def get_stdlib_modules() -> list[str]:
+def get_stdlib_modules() -> list[str]:  # pyright: ignore[reportReturnType] see comment on is_stdlib_module
     if sys.version_info >= (3, 10):
         modules = set(sys.builtin_module_names)
         modules.update(sys.stdlib_module_names)
         modules.update(KNOWN_MODULE_SPECIAL_CASES)
         return sorted(modules)
-    else:
+    elif not TYPE_CHECKING:
         from stdlib_list import stdlib_list  # type: ignore
 
         modules: set[str] = set(stdlib_list())  # type: ignore
@@ -86,7 +88,7 @@ def _get_installed_modules(dist: Any) -> list[str]:
     return list(module_names)
 
 
-@lru_cache(maxsize=None)
+@cache
 def get_module_mappings() -> dict[str, list[str]]:
     if sys.version_info >= (3, 10):
         from importlib.metadata import packages_distributions

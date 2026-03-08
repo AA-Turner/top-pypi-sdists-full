@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from deprecated.sphinx import versionadded
 
+from ..commands._routing import FanoutStrategy, RandomStrategy
 from ..commands._utils import normalized_milliseconds, normalized_seconds
 from ..commands._validators import mutually_exclusive_parameters, mutually_inclusive_parameters
 from ..commands._wrappers import ClusterCommandConfig
@@ -75,6 +76,7 @@ class Field:
         PureToken.TAG,
         PureToken.NUMERIC,
         PureToken.GEO,
+        PureToken.GEOSHAPE,
         PureToken.VECTOR,
     ]
 
@@ -445,15 +447,7 @@ class Search(ModuleGroup[AnyStr]):
         return self.client.create_request(
             CommandName.FT_INFO,
             index,
-            callback=DictCallback[AnyStr, ResponseType](
-                recursive=[
-                    "attributes",
-                    "index_definition",
-                    "gc_stats",
-                    "cursor_stats",
-                    "dialect_stats",
-                ]
-            ),
+            callback=DictCallback[AnyStr, ResponseType](),
         )
 
     @module_command(
@@ -767,8 +761,9 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="2.0.0",
         group=COMMAND_GROUP,
         cluster=ClusterCommandConfig(
-            route=NodeFlag.PRIMARIES,
-            combine=ClusterMergeSets[AnyStr](),
+            routing_strategy=FanoutStrategy(
+                route=NodeFlag.PRIMARIES, merge_callback=ClusterMergeSets[AnyStr]()
+            )
         ),
     )
     def list(self) -> CommandRequest[set[AnyStr]]:
@@ -784,8 +779,10 @@ class Search(ModuleGroup[AnyStr]):
         version_deprecated="8.0.0",
         group=COMMAND_GROUP,
         cluster=ClusterCommandConfig(
-            route=NodeFlag.PRIMARIES,
-            combine=ClusterEnsureConsistent[bool](),
+            routing_strategy=FanoutStrategy(
+                route=NodeFlag.PRIMARIES,
+                merge_callback=ClusterEnsureConsistent[bool](),
+            )
         ),
     )
     def config_set(self, option: StringT, value: ValueT) -> CommandRequest[bool]:
@@ -804,7 +801,7 @@ class Search(ModuleGroup[AnyStr]):
         version_deprecated="8.0.0",
         group=COMMAND_GROUP,
         cluster=ClusterCommandConfig(
-            route=NodeFlag.RANDOM,
+            routing_strategy=RandomStrategy(),
         ),
     )
     def config_get(self, option: StringT) -> CommandRequest[dict[AnyStr, ResponsePrimitive]]:
@@ -1256,7 +1253,7 @@ class Search(ModuleGroup[AnyStr]):
         return self.client.create_request(
             CommandName.FT_HYBRID,
             *command_arguments,
-            callback=HybridSearchCallback(),
+            callback=HybridSearchCallback[AnyStr](),
         )
 
     @module_command(

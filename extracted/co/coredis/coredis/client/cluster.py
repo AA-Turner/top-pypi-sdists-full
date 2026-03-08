@@ -10,28 +10,34 @@ from abc import ABCMeta
 from ssl import SSLContext
 from typing import TYPE_CHECKING, Any, cast, overload
 
-from anyio import get_cancelled_exc_class, sleep
+from anyio import sleep
 from deprecated.sphinx import versionadded, versionchanged
 
 from coredis._concurrency import gather
-from coredis._utils import b, hash_slot
 from coredis.client.basic import Client, Redis
+from coredis.cluster._node import ClusterNodeLocation
 from coredis.commands._key_spec import KeySpec
+from coredis.commands._routing import NodeExecution
 from coredis.commands._validators import mutually_inclusive_parameters
-from coredis.commands.constants import CommandName, NodeFlag
+from coredis.commands.constants import CommandName
 from coredis.connection._base import RedisSSLContext
+from coredis.connection._tcp import TCPLocation
 from coredis.credentials import AbstractCredentialProvider
 from coredis.exceptions import (
     AskError,
-    BusyLoadingError,
     ClusterDownError,
     ClusterError,
     ConnectionError,
     MovedError,
-    RedisClusterException,
+    RedisError,
     TryAgainError,
 )
-from coredis.globals import CACHEABLE_COMMANDS, MODULE_GROUPS, READONLY_COMMANDS
+from coredis.globals import (
+    CACHEABLE_COMMANDS,
+    MODULE_GROUPS,
+    READONLY_COMMANDS,
+    ROUTING_STRATEGIES,
+)
 from coredis.patterns.cache import AbstractCache
 from coredis.patterns.pubsub import ClusterPubSub, ShardedPubSub, SubscriptionCallback
 from coredis.pool import ClusterConnectionPool
@@ -54,15 +60,12 @@ from coredis.typing import (
     Iterator,
     KeyT,
     Literal,
-    ManagedNode,
     Mapping,
     Node,
     Parameters,
     ParamSpec,
     RedisCommand,
     RedisCommandP,
-    RedisValueT,
-    ResponseType,
     Self,
     StringT,
     TypeAdapter,
@@ -80,17 +83,6 @@ if TYPE_CHECKING:
 
 
 class ClusterMeta(ABCMeta):
-    ROUTING_FLAGS: dict[bytes, NodeFlag]
-    SPLIT_FLAGS: dict[bytes, NodeFlag]
-    RESULT_CALLBACKS: dict[bytes, Callable[..., ResponseType]]
-    NODE_FLAG_DOC_MAPPING = {
-        NodeFlag.PRIMARIES: "all primaries",
-        NodeFlag.REPLICAS: "all replicas",
-        NodeFlag.RANDOM: "a random node",
-        NodeFlag.ALL: "all nodes",
-        NodeFlag.SLOT_ID: "one or more nodes based on the slots provided",
-    }
-
     def __new__(
         cls, name: str, bases: tuple[type, ...], namespace: dict[str, object]
     ) -> ClusterMeta:
@@ -113,56 +105,42 @@ class ClusterMeta(ABCMeta):
 .. warning:: Not supported in cluster mode
                     """
                 else:
-                    if cmd.cluster.route:
-                        kls.ROUTING_FLAGS[cmd.command] = cmd.cluster.route
-                        aggregate_note = ""
-                        if cmd.cluster.multi_node:
-                            if cmd.cluster.combine:
-                                aggregate_note = f"and return {cmd.cluster.combine.response_policy}"
-                            else:
-                                aggregate_note = (
-                                    "and a mapping of nodes to results will be returned"
-                                )
+                    if cmd.cluster.routing_strategy:
                         doc_addition = f"""
 .. admonition:: Cluster note
 
-   The command will be run on **{cls.NODE_FLAG_DOC_MAPPING[cmd.cluster.route]}** {aggregate_note}
-                        """
-                    elif cmd.cluster.split and cmd.cluster.combine:
-                        kls.SPLIT_FLAGS[cmd.command] = cmd.cluster.split
-                        doc_addition = f"""
-.. admonition:: Cluster note
+   The command will be **{cmd.cluster.routing_strategy.description}**
+   and return {cmd.cluster.routing_strategy.merge_callback.response_policy}.
 
-   The command will be run on **{cls.NODE_FLAG_DOC_MAPPING[cmd.cluster.split]}**
-   by distributing the keys to the appropriate nodes and return
-   {cmd.cluster.combine.response_policy}.
-
-   To disable this behavior set :paramref:`RedisCluster.non_atomic_cross_slot` to ``False``
                     """
-                    if cmd.cluster.multi_node:
-                        kls.RESULT_CALLBACKS[cmd.command] = cmd.cluster.combine
-            if doc_addition and not hasattr(method, "__cluster_docs"):
+                        if cmd.cluster.routing_strategy.cross_slot:
+                            doc_addition += """
+   To disable this behavior set :paramref:`RedisCluster.non_atomic_cross_slot` to ``False``
+                                            """
+            if doc_addition and not hasattr(method, "__cluster_docs") and cmd:
                 if not getattr(method, "__coredis_module", None):
+                    if not cmd.cluster.enabled:
 
-                    def __w(
-                        func: Callable[P, Awaitable[R]], enabled: bool
-                    ) -> Callable[P, Awaitable[R]]:
-                        @functools.wraps(func)
-                        async def _w(*a: P.args, **k: P.kwargs) -> R:
-                            if not enabled:
+                        def __w(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+                            @functools.wraps(func)
+                            def _w(*a: P.args, **k: P.kwargs) -> Awaitable[R]:
                                 raise NotImplementedError(
                                     f"{func.__name__} is disabled for cluster client"
                                 )
-                            return await func(*a, **k)
 
-                        _w.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
-{doc_addition}
-                    """
-                        return _w
+                            _w.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
+    {doc_addition}
+                            """
+                            return _w
 
-                    wrapped = __w(method, cmd.cluster.enabled if cmd else True)
-                    setattr(wrapped, "__cluster_docs", doc_addition)
-                    setattr(kls, method_name, wrapped)
+                        wrapped = __w(method)
+                        setattr(wrapped, "__cluster_docs", doc_addition)
+                        setattr(kls, method_name, wrapped)
+                    else:
+                        setattr(method, "__cluster_docs", doc_addition)
+                        method.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
+    {doc_addition}
+                        """
                 else:
                     method.__doc__ = f"""{textwrap.dedent(method.__doc__ or "")}
 {doc_addition}
@@ -179,9 +157,6 @@ class RedisCluster(
     metaclass=ClusterMeta,
 ):
     MAX_RETRIES = 16
-    ROUTING_FLAGS: dict[bytes, NodeFlag] = {}
-    SPLIT_FLAGS: dict[bytes, NodeFlag] = {}
-    RESULT_CALLBACKS: dict[bytes, Callable[..., Any]] = {}
 
     connection_pool: ClusterConnectionPool
 
@@ -232,7 +207,7 @@ class RedisCluster(
         host: str | None = ...,
         port: int | None = ...,
         *,
-        startup_nodes: Iterable[Node] | None = ...,
+        startup_nodes: Iterable[Node | TCPLocation] | None = ...,
         username: str | None = ...,
         password: str | None = ...,
         credential_provider: AbstractCredentialProvider | None = ...,
@@ -266,13 +241,53 @@ class RedisCluster(
         retry_policy: RetryPolicy = ...,
         type_adapter: TypeAdapter | None = ...,
     ) -> None: ...
+    @overload
+    def __init__(
+        self: Self,
+        host: str | None = ...,
+        port: int | None = ...,
+        *,
+        startup_nodes: Iterable[Node | TCPLocation] | None = ...,
+        username: str | None = ...,
+        password: str | None = ...,
+        credential_provider: AbstractCredentialProvider | None = ...,
+        stream_timeout: float | None = ...,
+        connect_timeout: float | None = ...,
+        pool_timeout: float | None = ...,
+        ssl: bool = ...,
+        ssl_context: SSLContext | None = ...,
+        ssl_keyfile: str | None = ...,
+        ssl_certfile: str | None = ...,
+        ssl_cert_reqs: Literal["optional", "required", "none"] | None = ...,
+        ssl_check_hostname: bool | None = ...,
+        ssl_ca_certs: str | None = ...,
+        max_connections: int = ...,
+        max_connections_per_node: bool = ...,
+        readonly: bool = ...,
+        read_from_replicas: bool = ...,
+        reinitialize_steps: int | None = ...,
+        skip_full_coverage_check: bool = ...,
+        nodemanager_follow_cluster: bool = ...,
+        encoding: str = ...,
+        decode_responses: bool = ...,
+        connection_pool: ClusterConnectionPool | None = ...,
+        connection_pool_cls: type[ClusterConnectionPool] = ...,
+        verify_version: bool = ...,
+        non_atomic_cross_slot: bool = ...,
+        cache: AbstractCache | None = ...,
+        noreply: bool = ...,
+        noevict: bool = ...,
+        notouch: bool = ...,
+        retry_policy: RetryPolicy = ...,
+        type_adapter: TypeAdapter | None = ...,
+    ) -> None: ...
 
     def __init__(
         self,
         host: str | None = None,
         port: int | None = None,
         *,
-        startup_nodes: Iterable[Node] | None = None,
+        startup_nodes: Iterable[Node | TCPLocation] | None = None,
         username: str | None = None,
         password: str | None = None,
         credential_provider: AbstractCredentialProvider | None = None,
@@ -464,13 +479,15 @@ class RedisCluster(
         if connection_pool:
             pool = connection_pool
         else:
-            startup_nodes = [] if startup_nodes is None else list(startup_nodes)
+            startup_nodes = list(
+                node if isinstance(node, TCPLocation) else TCPLocation(node["host"], node["port"])
+                for node in startup_nodes or []
+            )
 
             # Support host/port as argument
-
-            if host:
+            if host and not startup_nodes:
                 startup_nodes.append(
-                    Node(
+                    TCPLocation(
                         host=host,
                         port=port if port else 7000,
                     )
@@ -508,30 +525,13 @@ class RedisCluster(
             )
 
         super().__init__(
-            username=username,
-            password=password,
-            credential_provider=credential_provider,
-            stream_timeout=stream_timeout,
-            connect_timeout=connect_timeout,
-            pool_timeout=pool_timeout,
             connection_pool=pool,
-            connection_pool_cls=connection_pool_cls,
-            encoding=encoding,
-            decode_responses=decode_responses,
             verify_version=verify_version,
             noreply=noreply,
-            noevict=noevict,
-            notouch=notouch,
             retry_policy=retry_policy,
             type_adapter=type_adapter,
         )
 
-        self.refresh_table_asap: bool = True
-        self.route_flags: dict[bytes, NodeFlag] = self.__class__.ROUTING_FLAGS.copy()
-        self.split_flags: dict[bytes, NodeFlag] = self.__class__.SPLIT_FLAGS.copy()
-        self.result_callbacks: dict[bytes, Callable[..., Any]] = (
-            self.__class__.RESULT_CALLBACKS.copy()
-        )
         self.non_atomic_cross_slot = non_atomic_cross_slot
         self._decodecontext: contextvars.ContextVar[bool | None,] = contextvars.ContextVar(
             "decode", default=None
@@ -552,9 +552,10 @@ class RedisCluster(
         noreply: bool = ...,
         noevict: bool = ...,
         notouch: bool = ...,
+        non_atomic_cross_slot: bool = ...,
+        cache: AbstractCache | None = ...,
         retry_policy: RetryPolicy = ...,
         type_adapter: TypeAdapter | None = ...,
-        cache: AbstractCache | None = ...,
         **kwargs: Any,
     ) -> RedisCluster[bytes]: ...
 
@@ -570,9 +571,10 @@ class RedisCluster(
         noreply: bool = ...,
         noevict: bool = ...,
         notouch: bool = ...,
+        non_atomic_cross_slot: bool = ...,
+        cache: AbstractCache | None = ...,
         retry_policy: RetryPolicy = ...,
         type_adapter: TypeAdapter | None = ...,
-        cache: AbstractCache | None = ...,
         **kwargs: Any,
     ) -> RedisCluster[str]: ...
 
@@ -587,6 +589,7 @@ class RedisCluster(
         noreply: bool = False,
         noevict: bool = False,
         notouch: bool = False,
+        non_atomic_cross_slot: bool = True,
         cache: AbstractCache | None = None,
         retry_policy: RetryPolicy = CompositeRetryPolicy(
             ConstantRetryPolicy((ClusterDownError,), retries=2, delay=0.1),
@@ -613,7 +616,7 @@ class RedisCluster(
             - ``rediss://[:password]@localhost:6379``
 
         :paramref:`url` and :paramref:`kwargs` are passed as is to
-        the :func:`coredis.ConnectionPool.from_url`.
+        the :func:`coredis.pool.ClusterConnectionPool.from_url`.
         """
         if decode_responses:
             return cls(
@@ -655,13 +658,10 @@ class RedisCluster(
     @contextlib.asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
         async with self.connection_pool:
-            self.refresh_table_asap = False
             yield self
 
     def __repr__(self) -> str:
-        servers = list(
-            {f"{info.host}:{info.port}" for info in self.connection_pool.nodes.startup_nodes}
-        )
+        servers = list(node.name for node in self.connection_pool.cluster_layout.nodes)
         servers.sort()
 
         return "{}<{}>".format(type(self).__name__, ", ".join(servers))
@@ -669,29 +669,20 @@ class RedisCluster(
     @property
     def all_nodes(self) -> Iterator[Redis[AnyStr]]:
         """ """
-        for node in self.connection_pool.nodes.all_nodes():
-            yield cast(
-                Redis[AnyStr],
-                self.connection_pool.nodes.get_redis_link(node.host, node.port),
-            )
+        for node in self.connection_pool.cluster_layout.nodes:
+            yield node.as_client(**self.connection_pool.connection_kwargs)
 
     @property
     def primaries(self) -> Iterator[Redis[AnyStr]]:
         """ """
-        for primary in self.connection_pool.nodes.all_primaries():
-            yield cast(
-                Redis[AnyStr],
-                self.connection_pool.nodes.get_redis_link(primary.host, primary.port),
-            )
+        for primary in self.connection_pool.cluster_layout.primaries:
+            yield primary.as_client(**self.connection_pool.connection_kwargs)
 
     @property
     def replicas(self) -> Iterator[Redis[AnyStr]]:
         """ """
-        for replica in self.connection_pool.nodes.all_replicas():
-            yield cast(
-                Redis[AnyStr],
-                self.connection_pool.nodes.get_redis_link(replica.host, replica.port),
-            )
+        for replica in self.connection_pool.cluster_layout.replicas:
+            yield replica.as_client(**self.connection_pool.connection_kwargs)
 
     @property
     def num_replicas_per_shard(self) -> int:
@@ -699,79 +690,12 @@ class RedisCluster(
         Number of replicas per shard of the cluster determined by
         initial cluster topology discovery
         """
-        return self.connection_pool.nodes.replicas_per_shard
+        if replicas := list(self.replicas):
+            return int((len(list(self.all_nodes)) / len(replicas)) - 1)
+        return 0
 
-    async def _ensure_initialized(self) -> None:
-        if not self.connection_pool.initialized or self.refresh_table_asap:
-            await self.connection_pool.refresh_cluster_mapping(forced=True)
-            self.refresh_table_asap = False
-
-    def _determine_slots(
-        self, command: bytes, *args: RedisValueT, **options: Unpack[ExecutionParameters]
-    ) -> set[int]:
-        """Determines the slots the command and args would touch"""
-        keys = cast(tuple[RedisValueT, ...], options.get("keys")) or KeySpec.extract_keys(
-            command, *args, readonly_command=self.connection_pool.read_from_replicas
-        )
-        if (
-            command
-            in {
-                CommandName.EVAL,
-                CommandName.EVAL_RO,
-                CommandName.EVALSHA,
-                CommandName.EVALSHA_RO,
-                CommandName.FCALL,
-                CommandName.FCALL_RO,
-                CommandName.PUBLISH,
-            }
-            and not keys
-        ):
-            return set()
-
-        return {hash_slot(b(key)) for key in keys}
-
-    def _merge_result(
-        self,
-        command: bytes,
-        res: dict[str, R],
-        **kwargs: Unpack[ExecutionParameters],
-    ) -> R:
-        assert command in self.result_callbacks
-        return cast(
-            R,
-            self.result_callbacks[command](res, **kwargs),
-        )
-
-    def determine_node(
-        self, command: bytes, *args: RedisValueT, **kwargs: Unpack[ExecutionParameters]
-    ) -> list[ManagedNode] | None:
-        node_flag = self.route_flags.get(command)
-        if command in self.split_flags and self.non_atomic_cross_slot:
-            node_flag = self.split_flags[command]
-
-        if node_flag == NodeFlag.RANDOM:
-            return [self.connection_pool.nodes.random_node(primary=True)]
-        elif node_flag == NodeFlag.PRIMARIES:
-            return list(self.connection_pool.nodes.all_primaries())
-        elif node_flag == NodeFlag.ALL:
-            return list(self.connection_pool.nodes.all_nodes())
-        elif node_flag == NodeFlag.SLOT_ID and (
-            slot_arguments_range := kwargs.get("slot_arguments_range", None)
-        ):
-            slot_start, slot_end = slot_arguments_range
-            nodes = list(
-                self.connection_pool.nodes.nodes_from_slots(
-                    *cast(tuple[int, ...], args[slot_start:slot_end])
-                ).keys()
-            )
-            return [self.connection_pool.nodes.nodes[k] for k in nodes]
-        return None
-
-    async def on_connection_error(self, _: BaseException) -> None:
-        self.refresh_table_asap = True
-
-    async def on_cluster_down_error(self, _: BaseException) -> None:
-        self.refresh_table_asap = True
+    async def on_retry_error(self, error: Exception) -> None:
+        self.connection_pool.cluster_layout.report_errors(None, error)
 
     async def execute_command(
         self,
@@ -786,11 +710,7 @@ class RedisCluster(
 
         return await self.retry_policy.call_with_retries(
             lambda: self._execute_command(command, callback=callback, **kwargs),
-            failure_hook={
-                ConnectionError: self.on_connection_error,
-                ClusterDownError: self.on_cluster_down_error,
-            },
-            before_hook=self._ensure_initialized,
+            failure_hook=self.on_retry_error,
         )
 
     async def _execute_command(
@@ -802,146 +722,94 @@ class RedisCluster(
         """
         Sends a command to one or many nodes in the cluster
         """
-        nodes = self.determine_node(command.name, *command.arguments, **kwargs)
-        if nodes and len(nodes) > 1:
-            tasks: dict[str, Coroutine[Any, Any, R]] = {}
-            node_arg_mapping = self._split_args_over_nodes(
-                nodes,
-                command.name,
-                *command.arguments,
-                slot_arguments_range=kwargs.get("slot_arguments_range", None),
+        prefer_replica = (
+            command.name in READONLY_COMMANDS and self.connection_pool.read_from_replicas
+        )
+        affected_slots = len(
+            KeySpec.affected_slots(
+                command.name, *command.arguments, readonly_command=prefer_replica
             )
-            node_name_map = {n.name: n for n in nodes}
-            for node_name in node_arg_mapping:
-                for portion, pargs in enumerate(node_arg_mapping[node_name]):
-                    tasks[f"{node_name}:{portion}"] = self._execute_command_on_single_node(
-                        RedisCommand(command.name, pargs),
-                        callback=callback,
-                        node=node_name_map[node_name],
-                        slots=None,
-                        **kwargs,
-                    )
-
-            results = await gather(*tasks.values(), return_exceptions=True)
-            if self.noreply:
-                return None  # type: ignore
-            return self._merge_result(command.name, dict(zip(tasks.keys(), results)))
-        else:
-            node = None
-            slots = None
-            if not nodes:
-                slots = list(self._determine_slots(command.name, *command.arguments, **kwargs))
-            else:
-                node = nodes.pop()
+        )
+        if affected_slots == 1:
+            node = self.connection_pool.cluster_layout.node_for_request(
+                command.name,
+                command.arguments,
+                primary=not prefer_replica,
+                execution_parameters=kwargs,
+            )
             return await self._execute_command_on_single_node(
+                node,
                 command,
                 callback=callback,
-                node=node,
-                slots=slots,
+                **kwargs,
+            )
+        elif (routing_strategy := ROUTING_STRATEGIES.get(command.name)) and (
+            self.non_atomic_cross_slot or not routing_strategy.cross_slot
+        ):
+            node_executions = routing_strategy.distribute(
+                self.connection_pool.cluster_layout,
+                command.name,
+                command.arguments,
+                prefer_replica,
+                execution_parameters=kwargs,
+            )
+            node_command_executions: dict[NodeExecution[R], Coroutine[Any, Any, R]] = {}
+            for portion, execution in enumerate(node_executions):
+                node_command_executions[execution] = self._execute_command_on_single_node(
+                    execution.node,
+                    RedisCommand(command.name, execution.arguments),
+                    callback=callback,
+                    **kwargs,
+                )
+
+            results = await gather(*node_command_executions.values(), return_exceptions=True)
+            if self.noreply:
+                return None  # type: ignore
+            else:
+                for execution, result in zip(node_command_executions.keys(), results):
+                    execution.result = result
+                return cast(
+                    R,
+                    routing_strategy.combine(node_executions=node_executions),
+                )
+        else:
+            return await self._execute_command_on_single_node(
+                self.connection_pool.cluster_layout.random_node(not prefer_replica),
+                command,
+                callback=callback,
                 **kwargs,
             )
 
-    def _split_args_over_nodes(
-        self,
-        nodes: list[ManagedNode],
-        command: bytes,
-        *args: RedisValueT,
-        slot_arguments_range: tuple[int, int] | None = None,
-    ) -> dict[str, list[tuple[RedisValueT, ...]]]:
-        node_flag = self.route_flags.get(command)
-        node_arg_mapping: dict[str, list[tuple[RedisValueT, ...]]] = {}
-        if command in self.split_flags and self.non_atomic_cross_slot:
-            keys = KeySpec.extract_keys(command, *args)
-            if keys:
-                key_start: int = args.index(keys[0])
-                key_end: int = args.index(keys[-1])
-                assert args[key_start : 1 + key_end] == keys, (
-                    f"Unable to map {command.decode('latin-1')} by keys {keys}"
-                )
-
-                for (
-                    node_name,
-                    key_groups,
-                ) in self.connection_pool.nodes.keys_to_nodes_by_slot(*keys).items():
-                    for _, node_keys in key_groups.items():
-                        node_arg_mapping.setdefault(node_name, []).append(
-                            (
-                                *args[:key_start],
-                                *node_keys,  # type: ignore
-                                *args[1 + key_end :],
-                            )
-                        )
-            if self.connection_pool.cache and command not in READONLY_COMMANDS:
-                self.connection_pool.cache.invalidate(*keys)
-        elif node_flag == NodeFlag.SLOT_ID and slot_arguments_range:
-            # TODO: fix this nonsense put in place just to support a few cluster commands
-            # related to slot management in cluster client which really no one needs to be calling
-            # through the cluster client.
-            slot_start, slot_end = slot_arguments_range
-            all_slots = [int(k) for k in args[slot_start:slot_end] if k is not None]
-            for node, slots in self.connection_pool.nodes.nodes_from_slots(*all_slots).items():
-                node_arg_mapping[node] = [(*slots, *args[slot_end:])]  # type: ignore
-        else:
-            # This command is not meant to be split across nodes and each node
-            # should be called with the same arguments
-            node_arg_mapping = {node.name: [args] for node in nodes}
-        return node_arg_mapping
-
     async def _execute_command_on_single_node(
         self,
+        node: ClusterNodeLocation,
         command: RedisCommandP,
         callback: Callable[..., R] = NoopCallback(),
-        node: ManagedNode | None = None,
-        slots: list[int] | None = None,
         **kwargs: Unpack[ExecutionParameters],
     ) -> R:
-        redirect_addr = None
-        pool = self.connection_pool
+        redirect_location = None
         asking = False
 
-        if not node and not slots:
-            try_random_node = True
-            try_random_type = NodeFlag.PRIMARIES
-        else:
-            try_random_node = False
-            try_random_type = NodeFlag.ALL
         remaining_attempts = int(self.MAX_RETRIES)
         quick_release = self.should_quick_release(command)
         should_block = not quick_release or self.requires_wait or self.requires_waitaof
-
+        attempt_node: ClusterNodeLocation | None = node
         while remaining_attempts > 0:
             remaining_attempts -= 1
             released = False
-            if self.refresh_table_asap and not slots:
-                await self.connection_pool.refresh_cluster_mapping(forced=True)
-                self.refresh_table_asap = False
-            _node = None
-            if asking and redirect_addr:
-                _node = pool.nodes.nodes[redirect_addr]
-            elif try_random_node:
-                _node = None
-                if slots:
-                    try_random_node = False
-            elif node:
-                _node = node
-            elif slots:
-                if self.refresh_table_asap:
-                    # MOVED
-                    _node = pool.get_primary_node_by_slots(slots)
-                else:
-                    _node = pool.get_node_by_slots(slots, command=command.name)
-            else:
-                continue
-            r = await pool.get_connection(
-                _node, primary=not node and try_random_type == NodeFlag.PRIMARIES
-            )
+            if redirect_location:
+                attempt_node = self.connection_pool.cluster_layout.node_for_location(
+                    redirect_location
+                )
+                redirect_location = None
+            r = await self.connection_pool.get_connection(attempt_node, primary=node.is_primary)
             try:
                 if asking:
                     await r.create_request(CommandName.ASKING, noreply=self.noreply, decode=False)
                     asking = False
-                keys = KeySpec.extract_keys(command.name, *command.arguments)
+                keys = KeySpec.extract_keys(command.name, *command.arguments)[0]
                 cacheable = (
-                    pool.cache
+                    self.connection_pool.cache
                     and command.name in CACHEABLE_COMMANDS
                     and len(keys) == 1
                     and not self.noreply
@@ -951,23 +819,27 @@ class RedisCluster(
                 cached_reply = None
                 use_cached = False
                 reply = None
-                if pool.cache and pool.cache.healthy:
-                    if r.tracking_client_id != pool.cache.get_client_id(r):
-                        pool.cache.reset()
-                        await r.update_tracking_client(True, pool.cache.get_client_id(r))
+                if self.connection_pool.cache and self.connection_pool.cache.healthy:
+                    if r.tracking_client_id != self.connection_pool.cache.get_client_id(r):
+                        self.connection_pool.cache.reset()
+                        await r.update_tracking_client(
+                            True, self.connection_pool.cache.get_client_id(r)
+                        )
                     if command.name not in READONLY_COMMANDS:
-                        pool.cache.invalidate(*keys)
+                        self.connection_pool.cache.invalidate(*keys)
                     elif cacheable:
                         try:
                             cached_reply = cast(
                                 R,
-                                pool.cache.get(
+                                self.connection_pool.cache.get(
                                     command.name,
                                     keys[0],
                                     *command.arguments,
                                 ),
                             )
-                            use_cached = random.random() * 100.0 < min(100.0, pool.cache.confidence)
+                            use_cached = random.random() * 100.0 < min(
+                                100.0, self.connection_pool.cache.confidence
+                            )
                             cache_hit = True
                         except KeyError:
                             pass
@@ -986,7 +858,7 @@ class RedisCluster(
                     #  releasing early even in the cached response flow.
                     if not should_block:
                         released = True
-                        pool.release(r)
+                        self.connection_pool.release(r)
 
                     reply = await request
                     await self._ensure_wait_and_persist(command, r)
@@ -996,43 +868,37 @@ class RedisCluster(
                     response = callback(
                         cached_reply if cache_hit else reply,
                     )
-                    if pool.cache and cacheable:
+                    if self.connection_pool.cache and cacheable:
                         if cache_hit and not use_cached:
-                            pool.cache.feedback(
+                            self.connection_pool.cache.feedback(
                                 command.name,
                                 keys[0],
                                 *command.arguments,
                                 match=cached_reply == reply,
                             )
                         if not cache_hit:
-                            pool.cache.put(
+                            self.connection_pool.cache.put(
                                 command.name,
                                 keys[0],
                                 *command.arguments,
                                 value=reply,
                             )
                     return response
-            except (RedisClusterException, BusyLoadingError, get_cancelled_exc_class()):
-                raise
             except MovedError as e:
-                # Reinitialize on ever x number of MovedError.
-                # This counter will increase faster when the same client object
-                # is shared between multiple threads. To reduce the frequency you
-                # can set the variable 'reinitialize_steps' in the constructor.
-                self.refresh_table_asap = True
-                await pool.nodes.increment_reinitialize_counter()
-
-                node = pool.nodes.set_node(e.host, e.port, server_type="primary")
-                try_random_node = False
-                pool.nodes.slots[e.slot_id][0] = node
+                self.connection_pool.cluster_layout.report_errors(attempt_node, e)
+                redirect_location = TCPLocation(e.host, e.port)
+                attempt_node = None
             except TryAgainError:
                 if remaining_attempts < self.MAX_RETRIES / 2:
                     await sleep(0.05)
             except AskError as e:
-                redirect_addr, asking = f"{e.host}:{e.port}", True
+                redirect_location, asking = TCPLocation(e.host, e.port), True
+            except RedisError as err:
+                self.connection_pool.cluster_layout.report_errors(attempt_node, err)
+                raise
             finally:
                 if r and not released:
-                    pool.release(r)
+                    self.connection_pool.release(r)
                 self._ensure_server_version(r.server_version)
 
         raise ClusterError("Maximum retries exhausted.")
@@ -1379,7 +1245,6 @@ class RedisCluster(
         count: int | None = None,
         type_: StringT | None = None,
     ) -> AsyncIterator[AnyStr]:
-        await self._ensure_initialized()
         for node in self.primaries:
             async with node:
                 cursor = None

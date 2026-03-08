@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "telnetlib3"
-version = "4.0.0"  # Keep in sync with telnetlib3/accessories.py::get_version !
+version = "4.0.1"  # Keep in sync with telnetlib3/accessories.py::get_version !
 description = " Python Telnet server and client CLI and Protocol library"
 readme = "README.rst"
 license = "ISC"
@@ -45,6 +45,7 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "wcwidth>=0.6.0",
+    "blessed>=1.33; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]

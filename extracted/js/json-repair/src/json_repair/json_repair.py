@@ -36,9 +36,25 @@ from .utils.constants import JSONReturnType
 @overload
 def repair_json(
     json_str: str = "",
+    return_objects: bool = False,
+    skip_json_loads: bool = False,
+    logging: Literal[True] = True,
+    json_fd: TextIO | None = None,
+    chunk_length: int = 0,
+    stream_stable: bool = False,
+    strict: bool = False,
+    schema: Any | None = None,
+    schema_repair_mode: Literal["standard", "salvage"] = "standard",
+    **json_dumps_args: Any,
+) -> tuple[JSONReturnType, list[dict[str, str]]]: ...
+
+
+@overload
+def repair_json(
+    json_str: str = "",
     return_objects: Literal[False] = False,
     skip_json_loads: bool = False,
-    logging: bool = False,
+    logging: Literal[False] = False,
     json_fd: TextIO | None = None,
     chunk_length: int = 0,
     stream_stable: bool = False,
@@ -54,6 +70,22 @@ def repair_json(
     json_str: str = "",
     return_objects: Literal[True] = True,
     skip_json_loads: bool = False,
+    logging: Literal[False] = False,
+    json_fd: TextIO | None = None,
+    chunk_length: int = 0,
+    stream_stable: bool = False,
+    strict: bool = False,
+    schema: Any | None = None,
+    schema_repair_mode: Literal["standard", "salvage"] = "standard",
+    **json_dumps_args: Any,
+) -> JSONReturnType: ...
+
+
+@overload
+def repair_json(
+    json_str: str = "",
+    return_objects: bool = False,
+    skip_json_loads: bool = False,
     logging: bool = False,
     json_fd: TextIO | None = None,
     chunk_length: int = 0,
@@ -62,7 +94,7 @@ def repair_json(
     schema: Any | None = None,
     schema_repair_mode: Literal["standard", "salvage"] = "standard",
     **json_dumps_args: Any,
-) -> JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]]: ...
+) -> str | JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]]: ...
 
 
 def repair_json(
@@ -112,18 +144,6 @@ def repair_json(
         else None
     )
 
-    def try_repair_loaded_value(
-        value: JSONReturnType, schema_repairer: SchemaRepairer, resolved_schema: dict[str, Any] | bool
-    ) -> tuple[bool, JSONReturnType]:
-        try:
-            # repair_value may mutate containers in place; if validate fails we still fall back to parser.parse_with_schema,
-            # which fully replaces parsed_json.
-            repaired_value = schema_repairer.repair_value(value, resolved_schema, "$")
-            schema_repairer.validate(repaired_value, resolved_schema)
-            return True, repaired_value
-        except ValueError:
-            return False, None
-
     # Fast path for valid JSON: schema-aware mode still applies repair+validation.
     parsed_json: JSONReturnType = None
     is_valid_json = False
@@ -132,14 +152,18 @@ def repair_json(
             parsed_json = json.load(json_fd) if json_fd else json.loads(json_str)
             if repairer is not None and schema_obj is not None:
                 # Validate here to ensure that we reject values that cannot satisfy the schema and fall back to the more expensive parser+schema repair if needed, instead of just returning the valid but schema-noncompliant JSON.
-                try:
-                    repairer.validate(parsed_json, schema_obj)
+                if repairer.is_valid(parsed_json, schema_obj):
                     is_valid_json = True
-                except ValueError:
-                    repaired, repaired_value = try_repair_loaded_value(parsed_json, repairer, schema_obj)
-                    if repaired:
-                        parsed_json = repaired_value
-                        is_valid_json = True
+                else:
+                    try:
+                        # repair_value may mutate containers in place; if validate fails we still
+                        # fall back to parser.parse_with_schema, which fully replaces parsed_json.
+                        repaired_value = repairer.repair_value(parsed_json, schema_obj, "$")
+                        if repairer.is_valid(repaired_value, schema_obj):
+                            parsed_json = repaired_value
+                            is_valid_json = True
+                    except ValueError:
+                        pass
             else:
                 is_valid_json = True
     except (json.JSONDecodeError, TypeError, ValueError):
@@ -413,7 +437,7 @@ def cli(inline_args: list[str] | None = None) -> int:
         else:
             print(json.dumps(result, indent=args.indent, ensure_ascii=ensure_ascii))
     except (OSError, TypeError, ValueError) as e:  # pragma: no cover
-        print(f"Error: {str(e)}", file=sys.stderr)
+        print(f"Error: {e!s}", file=sys.stderr)
         return 1
 
     return 0  # Success

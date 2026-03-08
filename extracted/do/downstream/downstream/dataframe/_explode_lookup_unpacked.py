@@ -8,6 +8,7 @@ from .. import dstream
 from .._auxlib._unpack_hex import unpack_hex
 from ._impl._check_downstream_version import check_downstream_version
 from ._impl._check_expected_columns import check_expected_columns
+from ._unpack_data_packed import _apply_filters, _perform_validations
 
 
 def _check_df(df: pl.DataFrame) -> None:
@@ -120,8 +121,9 @@ def _prep_data(
             "|^dstream_T$"
             "|^dstream_T_dilation$"
             "|^dstream_T_raw$"
-            "|^downstream_validate_exploded$"
-            "|^downstream_exclude_exploded$",
+            "|^downstream_exclude_exploded$"
+            "|^downstream_filter_exploded$"
+            "|^downstream_validate_exploded$",
         ),
     )
 
@@ -193,28 +195,6 @@ def _check_lookup_bounds(df_long: pl.DataFrame) -> None:
             f"({num_oob} / {len(df_long)} rows)",
         )
 
-
-def _perform_validation(df_long: pl.DataFrame) -> pl.DataFrame:
-    validation_groups = df_long.with_columns(
-        pl.col("downstream_validate_exploded").set_sorted(),
-    ).group_by("downstream_validate_exploded")
-    num_validators = 0
-    for (validator,), group in validation_groups:
-        num_validators += bool(validator)
-        validation_expr = eval(validator or "pl.lit(True)", {"pl": pl})
-        validation_result = group.select(validation_expr).to_series()
-        if not validation_result.all():
-            err_msg = f"downstream_validate_exploded `{validator}` failed"
-            logging.error(err_msg)
-            logging.error(
-                group.filter(~validation_result).glimpse(return_as_string=True)
-            )
-            raise ValueError(err_msg)
-
-    df_long = df_long.drop("downstream_validate_exploded")
-    logging.info(f" - {num_validators} validation(s) passed!")
-
-    return df_long
 
 
 def _drop_excluded_rows(df_long: pl.DataFrame) -> pl.DataFrame:
@@ -297,6 +277,9 @@ def explode_lookup_unpacked(
             - If not provided, row number will be used as identifier.
         - 'downstream_exclude_exploded' : pl.Boolean
             - Should row be dropped after exploding unpacked data?
+        - 'downstream_filter_exploded' : pl.String, polars expression
+            - Polars expression to filter exploded data; non-matching rows
+            are dropped. Applied after validation.
         - 'dstream_T_dilation' : pl.UInt32
             - Dilation factor applied to T counter, if any; supports scenario
             where data items are ingested every `dstream_T_dilation`th counter
@@ -413,8 +396,12 @@ def explode_lookup_unpacked(
         _check_lookup_bounds(df_long)
 
     if "downstream_validate_exploded" in df_long:
-        logging.info(" - evaluating `downstream_validate_unpacked` exprs...")
-        df_long = _perform_validation(df_long)
+        logging.info(" - evaluating `downstream_validate_exploded` exprs...")
+        df_long = _perform_validations(df_long, "downstream_validate_exploded")
+
+    if "downstream_filter_exploded" in df_long:
+        logging.info(" - applying `downstream_filter_exploded` exprs...")
+        df_long = _apply_filters(df_long, "downstream_filter_exploded")
 
     if "downstream_exclude_exploded" in df_long:
         logging.info(" - dropping excluded rows...")

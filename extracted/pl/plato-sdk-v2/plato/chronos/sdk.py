@@ -12,6 +12,12 @@ from typing import Any
 
 import httpx
 
+from plato.chronos.analysis import (
+    SessionAnalysis,
+    analyze_session,
+    fetch_all_spans,
+    fetch_all_spans_async,
+)
 from plato.chronos.api.events import list_session_events
 from plato.chronos.api.jobs import launch_job
 from plato.chronos.api.otel import (
@@ -288,6 +294,15 @@ class Chronos(_ChronosBase):
     def get_traces(self, session_id: str) -> OTelTraceResponse:
         return get_traces_api.sync(self._client, session_id=session_id)
 
+    def get_all_traces(self, session_id: str) -> list[OTelSpan]:
+        """Auto-paginated: fetches ALL spans for a session."""
+        return fetch_all_spans(self._client, session_id)
+
+    def get_session_analysis(self, session_id: str) -> SessionAnalysis:
+        """One-call comprehensive session analysis."""
+        spans = self.get_all_traces(session_id)
+        return analyze_session(spans, session_id)
+
     def get_events(self, session_id: str) -> list[OTelSpan]:
         return list_session_events.sync(self._client, session_public_id=session_id).events
 
@@ -551,6 +566,15 @@ class AsyncChronos(_ChronosBase):
 
     async def get_traces(self, session_id: str) -> OTelTraceResponse:
         return await get_traces_api.asyncio(self._client, session_id=session_id)
+
+    async def get_all_traces(self, session_id: str) -> list[OTelSpan]:
+        """Auto-paginated: fetches ALL spans for a session."""
+        return await fetch_all_spans_async(self._client, session_id)
+
+    async def get_session_analysis(self, session_id: str) -> SessionAnalysis:
+        """One-call comprehensive session analysis."""
+        spans = await self.get_all_traces(session_id)
+        return analyze_session(spans, session_id)
 
     async def get_events(self, session_id: str) -> list[OTelSpan]:
         resp = await list_session_events.asyncio(self._client, session_public_id=session_id)

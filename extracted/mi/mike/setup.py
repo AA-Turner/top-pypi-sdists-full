@@ -19,7 +19,7 @@ class Coverage(Command):
         self.test_suite = None
 
     def finalize_options(self):
-        pass
+        self.test_suite = self.test_suite.split(',') if self.test_suite else []
 
     def run(self):
         env = dict(os.environ)
@@ -34,9 +34,9 @@ class Coverage(Command):
 
         subprocess.run(['coverage', 'erase'], check=True)
         subprocess.run(
-            ['coverage', 'run', 'setup.py', 'test'] +
-            (['-q'] if self.verbose == 0 else []) +
-            (['-s', self.test_suite] if self.test_suite else []),
+            ['coverage', 'run', '-m', 'unittest', 'discover'] +
+            (['-v'] if self.verbose != 0 else []) +
+            ['-k' + i for i in self.test_suite],
             env=env, check=True
         )
         subprocess.run(['coverage', 'combine'], check=True,
@@ -70,23 +70,22 @@ setup(
         'Development Status :: 5 - Production/Stable',
 
         'Intended Audience :: Developers',
-
         'Topic :: Documentation',
-        'License :: OSI Approved :: BSD License',
 
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
     ],
 
     packages=find_packages(exclude=['test', 'test.*']),
     include_package_data=True,
 
-    install_requires=(['importlib_metadata', 'importlib_resources',
+    install_requires=(['importlib_metadata;python_version<"3.10"',
+                       'importlib_resources;python_version<"3.10"',
                        'jinja2 >= 2.7', 'mkdocs >= 1.0', 'pyparsing >= 3.0',
                        'pyyaml >= 5.1', 'pyyaml_env_tag', 'verspec']),
     extras_require={

@@ -7,7 +7,7 @@ for terminal rendering without external dependencies.
 This module is organized into submodules for better maintainability.
 """
 
-from ascii_colors.rich.console import Console, ConsoleOptions, Measurement, Prompt
+from ascii_colors.rich.console import Console, ConsoleOptions, Measurement, Prompt, Confirm
 from ascii_colors.rich.style import Style, Color, BoxStyle
 from ascii_colors.rich.text import Text, Renderable
 from ascii_colors.rich.layout import Panel, Padding, Columns, Rule
@@ -142,6 +142,7 @@ class RichModule:
     Measurement = Measurement
     Rule = Rule
     Prompt = Prompt
+    Confirm = Confirm
 
 
 # Create module instance
@@ -169,7 +170,7 @@ def prompt(prompt_text="", **kwargs):
 __all__ = [
     # Core
     "rich", "print", "log", "rule",
-    "Console", "ConsoleOptions", "Measurement", "Prompt",
+    "Console", "ConsoleOptions", "Measurement", "Prompt", "Confirm",
     # Style
     "Style", "Color", "BoxStyle", "Renderable",
     # Text and Content

@@ -462,10 +462,11 @@ class DevRunner:
         import httpx
 
         world_config = self.config.world.config or {}
+        tags = list({*self.config.tags, "dev"})
         body = CreateSessionRequest(
             world_name=self.config.world.package or "",
             world_config=world_config,
-            tags=self.config.tags,
+            tags=tags,
         )
         async with httpx.AsyncClient(
             base_url=settings.chronos_url.rstrip("/"),
@@ -551,11 +552,11 @@ class DevRunner:
         if not self.world_env:
             raise RuntimeError("world_env must be initialized")
 
-        # Ensure system deps for pyfuse3 build
+        # Ensure fuse3 userspace tools are present for the Rust plato-fuse binary.
         with self._startup_profiler.time("setup.env.packages.system_deps"):
             await self.world_env.execute(
-                "dpkg -s libfuse3-dev pkg-config > /dev/null 2>&1 || "
-                "(apt-get update -qq && apt-get install -y -qq pkg-config libfuse3-dev fuse3) > /dev/null 2>&1",
+                "dpkg -s fuse3 > /dev/null 2>&1 || "
+                "(apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1",
                 timeout=60,
             )
 
@@ -685,6 +686,18 @@ class DevRunner:
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write config: {result.stderr}")
 
+        # Write serialized session to a well-known path so integration tests
+        # running on the VM can reuse the active Plato session.
+        if self.config.session.plato_session:
+            session_json = json.dumps(self.config.session.plato_session.model_dump(mode="json"))
+            escaped_session = session_json.replace("'", "'\\''")
+            result = await self.world_env.execute(
+                f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json",
+                timeout=30,
+            )
+            if result.exit_code != 0:
+                logger.warning("Failed to write session.json: %s", result.stderr)
+
     def _print_startup_profile(self) -> None:
         """Print startup timing summary sorted by slowest steps."""
         durations = self._startup_profiler.durations()
@@ -794,6 +807,10 @@ class DevRunner:
                 config_json = json.dumps(self.config.model_dump(mode="json"))
                 escaped_config = config_json.replace("'", "'\\''")
                 write_config_cmd = f"echo '{escaped_config}' > /tmp/config.json; "
+                if self.config.session.plato_session:
+                    session_json = json.dumps(self.config.session.plato_session.model_dump(mode="json"))
+                    escaped_session = session_json.replace("'", "'\\''")
+                    write_config_cmd += f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json; "
 
                 # Only reinstall editable packages on the first run;
                 # subsequent resumes reuse the existing editable install

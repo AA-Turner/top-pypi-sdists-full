@@ -155,16 +155,16 @@ class Geocif:
         self.run_every_time_period = self.parser.get("ML", "run_every_time_period")
         self.cat_features: list = ast.literal_eval(self.parser.get("ML", "cat_features"))
         self.use_spatial_neighbors = (
-            parser.getboolean("ML", "use_spatial_neighbors")
-            if parser.has_option("ML", "use_spatial_neighbors") else False
+            self.parser.getboolean("ML", "use_spatial_neighbors")
+            if self.parser.has_option("ML", "use_spatial_neighbors") else False
         )
         self.spatial_neighbor_method = (
-            parser.get("ML", "spatial_neighbor_method")
-            if parser.has_option("ML", "spatial_neighbor_method") else "knn"
+            self.parser.get("ML", "spatial_neighbor_method")
+            if self.parser.has_option("ML", "spatial_neighbor_method") else "knn"
         )
         self.spatial_neighbor_k = (
-            parser.getint("ML", "spatial_neighbor_k")
-            if parser.has_option("ML", "spatial_neighbor_k") else 5
+            self.parser.getint("ML", "spatial_neighbor_k")
+            if self.parser.has_option("ML", "spatial_neighbor_k") else 5
         )
 
     def _setup_feature_dictionaries(self):

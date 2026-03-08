@@ -1,6 +1,0 @@
-
-[library]
-  name = "_db"
-  defines = [["MAKE_DB_LIBRARY", 1]]
-  depends = ["_tl", "_gsi"]
-

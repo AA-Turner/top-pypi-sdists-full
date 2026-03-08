@@ -353,27 +353,6 @@ impl HeaderMap {
         })
     }
 
-    pub fn extend_into_inner(self, map: &mut http::HeaderMap) -> PyResult<()> {
-        let mut prev_k: Option<http::HeaderName> = None;
-        for (k, v) in self.try_take_inner()? {
-            match k {
-                Some(k) => {
-                    prev_k = Some(k.clone());
-                    map.try_append(k, v)
-                }
-                None => {
-                    let k = prev_k
-                        .as_ref()
-                        .ok_or_else(|| PyRuntimeError::new_err("Expected prev key"))?;
-                    map.try_append(k.clone(), v)
-                }
-            }
-            .map(|_| ())
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-        }
-        Ok(())
-    }
-
     pub fn dict_multi_value_inner<'py>(
         map: &http::HeaderMap,
         py: Python<'py>,

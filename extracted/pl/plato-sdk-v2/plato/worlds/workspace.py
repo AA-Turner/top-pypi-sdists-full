@@ -1,13 +1,8 @@
-"""Workspace: a directory with optional DVC versioning and agent-mountable transport.
+"""Workspace: a directory with S3 versioning and agent-mountable transport.
 
 The workspace path is always writable — agents write to it via NFS.
-Versioning (tracked=True) uses DVC + S3 for data storage, with Chronos
-tracking refs/metadata. Git exists only as local scaffolding required by DVC.
-
-    workspace/              <- writable, agent sees via NFS
-    workspace/.snapshots/
-        capture/            <- read-only, lazy-loaded from S3 (world-side only)
-        scrutinize/         <- read-only, lazy-loaded from S3 (world-side only)
+Versioning (tracked=True) uses FUSE overlay + S3 for data storage, with Chronos
+tracking refs/metadata.
 """
 
 from __future__ import annotations
@@ -29,20 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class Workspace:
-    """A workspace directory.
+    """A workspace directory backed by FUSE overlay + S3.
 
     Agents see this as a plain writable directory via NFS. The world uses
-    commit/restore/snapshot for versioning between steps.
-
-    Data flow on commit:
-      1. dvc add <dirs>  — hashes data, writes .dvc pointer files
-      2. dvc push         — uploads data to S3
-      3. Chronos ref      — stores step name, .dvc file contents (for restore)
-
-    Data flow on restore:
-      1. Chronos ref      — fetches .dvc file contents for the target step
-      2. Write .dvc files — reconstructs pointer files locally
-      3. dvc pull          — downloads data from S3
+    commit/restore for versioning between steps.
     """
 
     def __init__(
@@ -62,8 +47,8 @@ class Workspace:
         api_key: str = "",
         session_id: str = "",
     ):
-        self._repo_root = path  # DVC repo root (private)
-        self.path = path / "data" if tracked else path  # content directory (public)
+        self._repo_root = path
+        self.path = path / "data" if tracked else path
         self.name = name
         self.tracked = tracked
         self._mount_path = mount_path
@@ -77,19 +62,15 @@ class Workspace:
         self.api_key = api_key
         self.session_id = session_id
         self.transport: Transport | None = None
-        # STS credential cache
         self._sts_credentials: dict[str, str] = {}
         self._sts_expires_at: float = 0
         self._last_ref_step: str = ""
         self._last_changed_ref_step: str = ""
         self._lazy_mounts: dict[str, Any] = {}
+        self._commit_lock = asyncio.Lock()
 
     @property
     def mount_path(self) -> str:
-        """Path where this workspace is mounted on agent VMs.
-
-        Returns the explicit mount_path if set, otherwise the content path.
-        """
         if self._mount_path is not None:
             return self._mount_path
         return str(self.path)
@@ -103,7 +84,7 @@ class Workspace:
             if e.errno == 107:  # ENOTCONN — dead FUSE mount
                 import subprocess
 
-                logger.warning(f"Cleaning up stale FUSE mount at {path}")
+                logger.warning("Cleaning up stale FUSE mount at %s", path)
                 subprocess.run(["fusermount3", "-u", str(path)], check=False)
         except FileNotFoundError:
             pass
@@ -113,62 +94,29 @@ class Workspace:
     # ------------------------------------------------------------------
 
     async def init(self) -> None:
-        """Initialize workspace directory and DVC repo if tracked.
-
-        Idempotent — safe to call on restarts. Git exists only as local
-        scaffolding that DVC requires; it never leaves the container.
-        """
+        """Initialize workspace directory. Idempotent."""
         from plato.markers import WorkspaceMarker
 
         self._repo_root.mkdir(parents=True, exist_ok=True)
 
+        # Remove legacy .lazy_cache from repo root (now lives in /tmp)
+        legacy_cache = self._repo_root / ".lazy_cache"
+        if legacy_cache.exists():
+            import shutil
+
+            shutil.rmtree(legacy_cache, ignore_errors=True)
+
         if not self.tracked:
             return
 
-        # NFS mount points confuse git/DVC repo discovery
-        os.environ["GIT_DISCOVERY_ACROSS_FILESYSTEM"] = "1"
-
-        # Ensure STS credentials are available before any S3 operations
         await self._ensure_credentials()
-
-        already_init = (self._repo_root / ".dvc").exists()
-        if not already_init:
-            # Fresh init — git is just scaffolding for DVC
-            if not (self._repo_root / ".git").is_dir():
-                git_path = self._repo_root / ".git"
-                if git_path.exists():
-                    git_path.unlink()
-                await _run("git", "init", cwd=self._repo_root)
-
-            await _run(
-                "git", "config", "--global", "--add", "safe.directory", str(self._repo_root), cwd=self._repo_root
-            )
-            await _run("git", "config", "user.email", "plato@plato.so", cwd=self._repo_root)
-            await _run("git", "config", "user.name", "plato", cwd=self._repo_root)
-
-            await _run("dvc", "init", cwd=self._repo_root)
-            if self.s3_bucket:
-                await _run(
-                    "dvc",
-                    "remote",
-                    "add",
-                    "-d",
-                    "s3",
-                    f"s3://{self.s3_bucket}/{self.s3_prefix}/dvc-cache",
-                    cwd=self._repo_root,
-                )
-            # Commit DVC scaffolding so dvc add/push work
-            await _run("git", "add", ".", cwd=self._repo_root)
-            await _run("git", "commit", "-m", "init dvc", cwd=self._repo_root)
-
-        # Always create content dir and apply .dvcignore (idempotent)
         self._cleanup_stale_mount(self.path)
         self.path.mkdir(parents=True, exist_ok=True)
         all_entries = list(WorkspaceMarker.DEFAULT_DVCIGNORE) + self._custom_dvcignore
         self.add_dvcignore(all_entries)
 
     def add_dvcignore(self, entries: list[str]) -> None:
-        """Append entries to .dvcignore at the DVC repo root (idempotent)."""
+        """Append entries to .dvcignore at the workspace root (idempotent)."""
         dvcignore_path = self._repo_root / ".dvcignore"
         if dvcignore_path.exists():
             existing = [line.strip() for line in dvcignore_path.read_text().splitlines() if line.strip()]
@@ -181,93 +129,74 @@ class Workspace:
                 seen.add(entry)
         dvcignore_path.write_text("\n".join(existing) + "\n")
 
+    async def ensure_fuse_mount(self) -> None:
+        """Mount FUSE overlay. Skips if already mounted."""
+        if self._lazy_mounts:
+            return
+
+        from plato.worlds.dvc_models import DVCManifest, S3Config
+        from plato.worlds.lazy_dvc import mount_lazy
+
+        if self.tracked:
+            await self._ensure_credentials()
+            s3_config = S3Config(
+                bucket=self.s3_bucket,
+                prefix=self.s3_prefix,
+                credentials=self._aws_credentials(),
+            )
+        else:
+            s3_config = S3Config(bucket="", prefix="", credentials={})
+
+        empty_manifest = DVCManifest(entries_list=[], manifest_md5="")
+        dir_name = self.path.name
+        cache_dir = Path("/tmp/plato-lazy-cache") / self.name / dir_name
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        self.path.mkdir(parents=True, exist_ok=True)
+
+        # Move existing files into overlay dir so they're visible through FUSE
+        overlay_dir = cache_dir / "overlay"
+        overlay_dir.mkdir(parents=True, exist_ok=True)
+        contents = list(self.path.iterdir())
+        if contents:
+            logger.info("Moving %d items from %s into FUSE overlay", len(contents), self.path)
+            for item in contents:
+                dest = overlay_dir / item.name
+                os.rename(str(item), str(dest))
+
+        mount = await mount_lazy(self.path, empty_manifest, s3_config, cache_dir)
+        self._lazy_mounts[dir_name] = mount
+        logger.info("Mounted FUSE at %s", self.path)
+
     # ------------------------------------------------------------------
     # Commit
     # ------------------------------------------------------------------
 
     async def commit(self, step_name: str, message: str = "") -> str:
-        """Snapshot current workspace to S3 via DVC. Returns DVC ref hash.
+        """Snapshot current workspace to S3 via smart commit."""
+        async with self._commit_lock:
+            return await self._commit_inner(step_name, message)
 
-        1. dvc add on all data directories -> creates .dvc pointer files
-        2. git commit the pointer files (local only, DVC requires this)
-        3. dvc push -> uploads actual data to S3
-        4. Records ref in Chronos with .dvc file contents for cross-container restore
-
-        If this workspace was lazily restored, uses smart commit (only
-        uploads changed files) instead of the full dvc add/push cycle.
-        """
-        if self._lazy_mounts:
-            # Skip commit if the lazy mount has no modifications (overlay is empty)
-            has_changes = any(
-                any(mount.overlay_dir.iterdir()) if mount.overlay_dir.exists() else False
-                for mount in self._lazy_mounts.values()
-            )
-            if not has_changes:
-                logger.info("Workspace '%s': no changes at '%s', skipping commit", self.name, step_name)
-                dir_names = list(self._lazy_mounts.keys())
-                dvc_files = self._collect_dvc_files(dir_names)
-                if dvc_files:
-                    await self._ensure_credentials()
-                    await self._validate_dvc_files_restorable(dvc_files)
-                return json.dumps({"step": step_name, "changed": False})
-            return await self._smart_commit(step_name, message)
-
-        self._require_tracked()
-        await self._ensure_credentials()
-
-        # Verify DVC repo exists (init must have run)
-        dvc_dir = self._repo_root / ".dvc"
-        if not dvc_dir.is_dir():
-            contents = [p.name for p in self._repo_root.iterdir()]
+    async def _commit_inner(self, step_name: str, message: str = "") -> str:
+        if not self._lazy_mounts:
             raise RuntimeError(
-                f"DVC repo not found at {self._repo_root}. Expected {dvc_dir} to be a directory. Contents: {contents}"
+                f"Workspace '{self.name}' has no FUSE mounts. ensure_fuse_mount() must be called before commit()."
             )
 
-        # DVC-track all non-hidden directories
-        tracked_dirs: list[str] = []
-        for child in sorted(self._repo_root.iterdir()):
-            if child.name.startswith(".") or child.name.endswith(".dvc") or child.name == ".gitignore":
-                continue
-            if child.is_dir() and any(child.iterdir()):
-                await _run("dvc", "add", child.name, "--force", cwd=self._repo_root)
-                tracked_dirs.append(child.name)
-
-        # Git commit pointer files if anything changed (local scaffolding, never pushed)
-        await _run("git", "add", ".", cwd=self._repo_root)
-        status = (await _run("git", "status", "--porcelain", cwd=self._repo_root)).stdout_text
-        if not status.strip():
+        has_changes = any(
+            any(mount.overlay_dir.iterdir()) if mount.overlay_dir.exists() else False
+            for mount in self._lazy_mounts.values()
+        )
+        if not has_changes:
             logger.info("Workspace '%s': no changes at '%s', skipping commit", self.name, step_name)
-            dvc_files = self._collect_dvc_files(tracked_dirs if tracked_dirs else None)
+            dvc_files = self._collect_dvc_files(list(self._lazy_mounts.keys()))
             if dvc_files:
+                await self._ensure_credentials()
                 try:
                     await self._validate_dvc_files_restorable(dvc_files)
-                except Exception:
-                    logger.warning(
-                        "Workspace '%s': no-change checkpoint '%s' has missing DVC objects; "
-                        "running dvc push before recording ref",
-                        self.name,
-                        step_name,
-                    )
-                    if self.s3_bucket:
-                        await _run("dvc", "push", cwd=self._repo_root, env=self._s3_env())
-                    await self._validate_dvc_files_restorable(dvc_files)
+                except Exception as e:
+                    logger.warning("Workspace '%s': ref validation failed (no changes): %s", self.name, e)
             return json.dumps({"step": step_name, "changed": False})
-
-        msg = message or f"step: {step_name}"
-        await _run("git", "commit", "-m", msg, cwd=self._repo_root)
-
-        # Push actual data to S3
-        if self.s3_bucket:
-            await _run("dvc", "push", cwd=self._repo_root, env=self._s3_env())
-
-        # Collect .dvc file contents so Chronos can reconstruct on restore
-        dvc_files = self._collect_dvc_files(tracked_dirs if tracked_dirs else None)
-        await self._validate_dvc_files_restorable(dvc_files)
-
-        # Register ref with Chronos (only when there were actual changes)
-        await self._record_workspace_ref(step_name, "output", dvc_files, changed=True)
-
-        return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
+        return await self._smart_commit(step_name, message)
 
     def _collect_dvc_files(self, dir_names: list[str] | None = None) -> dict[str, str]:
         """Collect .dvc file contents keyed by tracked directory name."""
@@ -286,7 +215,7 @@ class Workspace:
         return dvc_files
 
     async def _validate_dvc_files_restorable(self, dvc_files: dict[str, str]) -> None:
-        """Validate that all DVC manifests referenced by .dvc files exist in S3."""
+        """Validate that all manifests referenced by .dvc files exist in S3."""
         if not dvc_files or not self.s3_bucket:
             return
 
@@ -303,20 +232,15 @@ class Workspace:
                 await DVCManifest.from_dvc_file(dvc_content, s3_config)
             except Exception as e:
                 raise RuntimeError(
-                    f"Workspace '{self.name}' DVC pointer for dir '{dir_name}' is not restorable "
-                    f"(repo={self.repo_name}): {e}"
+                    f"Workspace '{self.name}' manifest for '{dir_name}' not restorable (repo={self.repo_name}): {e}"
                 ) from e
 
     # ------------------------------------------------------------------
-    # Restore: pull data from S3 for a previous step
+    # Restore
     # ------------------------------------------------------------------
 
     async def restore(self, step_name: str, session_id: str | None = None) -> bool:
         """Restore workspace lazily via FUSE.
-
-        Args:
-            step_name: The checkpoint step to restore from.
-            session_id: Optional session to restore from. Defaults to this workspace's session.
 
         Returns True when at least one tracked directory was mounted, False when
         the ref exists but has no DVC files.
@@ -334,7 +258,7 @@ class Workspace:
 
         dvc_files = ref.get("dvc_files", {})
         if not dvc_files:
-            logger.info("Workspace '%s' step '%s' has no DVC files; restore is empty/no-op", self.name, step_name)
+            logger.info("Workspace '%s' step '%s' has no DVC files", self.name, step_name)
             self._last_ref_step = step_name
             return True
 
@@ -354,23 +278,21 @@ class Workspace:
                 ) from e
             mountpoint = self._repo_root / dir_name
             mountpoint.mkdir(parents=True, exist_ok=True)
-            cache_dir = self._repo_root / ".lazy_cache" / dir_name
+            cache_dir = Path("/tmp/plato-lazy-cache") / self.name / dir_name
             cache_dir.mkdir(parents=True, exist_ok=True)
             mount = await mount_lazy(mountpoint, manifest, s3_config, cache_dir)
             self._lazy_mounts[dir_name] = mount
 
-            # Write .dvc pointer file so git scaffolding stays consistent
             dvc_path = self._repo_root / f"{dir_name}.dvc"
             dvc_path.write_text(dvc_content)
 
-        logger.info("Lazy restore complete for step '%s': %d mount(s)", step_name, len(dvc_files))
+        logger.info("Restored workspace '%s' step '%s': %d mount(s)", self.name, step_name, len(dvc_files))
         self._last_ref_step = step_name
         return True
 
     async def _smart_commit(self, step_name: str, message: str = "") -> str:
         """Commit with smart diff — only upload changed files."""
-        from plato.worlds.dvc_models import DVCManifest, S3Config, smart_commit
-        from plato.worlds.lazy_dvc import mount_lazy, unmount_lazy
+        from plato.worlds.dvc_models import S3Config, smart_commit
 
         self._require_tracked()
         await self._ensure_credentials()
@@ -381,35 +303,25 @@ class Workspace:
             credentials=self._aws_credentials(),
         )
 
+        dvcignore_path = self._repo_root / ".dvcignore"
+        ignore_patterns: list[str] = []
+        if dvcignore_path.exists():
+            ignore_patterns = [
+                line.strip()
+                for line in dvcignore_path.read_text().splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ]
+
         dvc_files: dict[str, str] = {}
         for dir_name, mount in list(self._lazy_mounts.items()):
-            await unmount_lazy(mount)
-            manifest_md5, dvc_yaml = await smart_commit(mount, s3_config, dir_name=dir_name)
-
+            manifest_md5, dvc_yaml = await smart_commit(
+                mount, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns
+            )
             dvc_path = self._repo_root / f"{dir_name}.dvc"
             dvc_path.write_text(dvc_yaml)
             dvc_files[dir_name] = dvc_yaml
 
-            # Re-mount with updated manifest, reusing warm cache
-            meta_path = mount.cache_dir / "meta.json"
-            if meta_path.exists():
-                meta_path.unlink()
-
-            new_manifest = await DVCManifest.from_dvc_file(dvc_yaml, s3_config)
-            mountpoint = self._repo_root / dir_name
-            mountpoint.mkdir(parents=True, exist_ok=True)
-            new_mount = await mount_lazy(mountpoint, new_manifest, s3_config, mount.cache_dir)
-            self._lazy_mounts[dir_name] = new_mount
-
-        # Git commit pointer files
-        await _run("git", "add", ".", cwd=self._repo_root)
-        msg = message or f"step: {step_name}"
-        await _run("git", "commit", "-m", msg, "--allow-empty", cwd=self._repo_root)
-
-        # Validate refs before recording to Chronos.
         await self._validate_dvc_files_restorable(dvc_files)
-
-        # Record ref in Chronos
         await self._record_workspace_ref(step_name, "output", dvc_files, changed=True)
 
         return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
@@ -445,7 +357,6 @@ class Workspace:
         path: str,
         **kwargs: Any,
     ) -> httpx.Response:
-        """Send an HTTP request to the Chronos API."""
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.request(
                 method,
@@ -468,7 +379,7 @@ class Workspace:
         source_step_name: str | None = None,
         changed: bool | None = None,
     ) -> None:
-        """Record a workspace ref with Chronos, including DVC file contents."""
+        """Record a workspace ref with Chronos."""
         if not self.chronos_url or not self.repo_name or not self.session_id:
             return
         has_source_ref = bool(source_ref_public_id)
@@ -502,7 +413,11 @@ class Workspace:
             self._last_changed_ref_step = step_name
 
     async def _fetch_workspace_ref(self, step_name: str, session_id: str | None = None) -> dict[str, Any] | None:
-        """Fetch a specific workspace ref from Chronos."""
+        """Fetch a specific workspace ref from Chronos.
+
+        NOTE: The Chronos API returns refs from ALL repos in the session,
+        so we must filter by repo_name client-side.
+        """
         sid = session_id or self.session_id
         if not self.chronos_url or not self.repo_name or not sid:
             return None
@@ -511,15 +426,14 @@ class Workspace:
             f"/api/workspace-repos/sessions/{sid}/workspace-refs",
             params={"step_name": step_name, "repo_name": self.repo_name},
         )
-        data = resp.json()
-        refs = data.get("refs", [])
+        refs = resp.json().get("refs", [])
+        # Filter by repo_name — the API ignores this param
         for ref in reversed(refs):
-            if ref.get("step_name") == step_name:
+            if ref.get("step_name") == step_name and ref.get("repo_name") == self.repo_name:
                 return ref
         return None
 
     async def _list_workspace_refs(self, session_id: str | None = None) -> list[dict[str, Any]]:
-        """List all workspace refs for a session from Chronos."""
         sid = session_id or self.session_id
         resp = await self._chronos_request(
             "GET",
@@ -547,57 +461,19 @@ class Workspace:
 
         expires_at = datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
         self._sts_expires_at = expires_at.timestamp() - 300
-        logger.info(f"Refreshed STS credentials for repo '{self.repo_name}'")
+        logger.info("Refreshed STS credentials for repo '%s'", self.repo_name)
 
-    def _s3_env(self) -> dict[str, str]:
-        """Return environment variables for AWS CLI calls with STS creds."""
+    def _aws_credentials(self) -> dict[str, str]:
         env = dict(os.environ)
         if self._sts_credentials:
             env.update(self._sts_credentials)
-        return env
-
-    def _aws_credentials(self) -> dict[str, str]:
-        """Return only AWS_* credentials for boto3 / S3Config use."""
-        return {k: v for k, v in self._s3_env().items() if k.startswith("AWS_")}
+        return {k: v for k, v in env.items() if k.startswith("AWS_")}
 
     async def _ensure_credentials(self) -> None:
-        """Refresh STS credentials if expired or missing."""
         if self.chronos_url and self.repo_id:
             if not self._sts_credentials or time.time() >= self._sts_expires_at:
                 await self._refresh_credentials()
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
-
     def _require_tracked(self) -> None:
         if not self.tracked:
             raise RuntimeError(f"Workspace '{self.name}' is not tracked (tracked=False)")
-
-
-# ------------------------------------------------------------------
-# Subprocess helpers
-# ------------------------------------------------------------------
-
-
-class _ProcessResult:
-    def __init__(self, stdout_text: str):
-        self.stdout_text = stdout_text
-
-
-async def _run(*args: str, cwd: Path, env: dict[str, str] | None = None) -> _ProcessResult:
-    """Run a subprocess, raise on failure."""
-    run_env = env if env is not None else dict(os.environ)
-    # Always set — DVC stops at mount boundaries without this
-    run_env["GIT_DISCOVERY_ACROSS_FILESYSTEM"] = "1"
-    proc = await asyncio.create_subprocess_exec(
-        *args,
-        cwd=str(cwd),
-        env=run_env,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError(f"Command {args} failed: {stderr.decode()}")
-    return _ProcessResult(stdout.decode())

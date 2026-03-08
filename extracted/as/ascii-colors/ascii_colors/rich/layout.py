@@ -196,7 +196,34 @@ class Panel:
         self.width = width
         self.height = height
         self.expand = expand
-        
+
+    @classmethod
+    def fit(
+        cls,
+        renderable: Union[Renderable, str],
+        title: Optional[str] = None,
+        title_align: str = "center",
+        style: Optional[Union[str, Style]] = None,
+        border_style: Optional[Union[str, Style]] = None,
+        box: Union[BoxStyle, str] = BoxStyle.SQUARE,
+        padding: Union[int, Tuple[int, ...]] = (0, 1),
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ) -> "Panel":
+        """Create a panel that is just wide enough to fit its content."""
+        return cls(
+            renderable,
+            title=title,
+            title_align=title_align,
+            style=style,
+            border_style=border_style,
+            box=box,
+            padding=padding,
+            width=width,
+            height=height,
+            expand=False,
+        )
+
     def _normalize_padding(
         self,
         pad: Union[int, Tuple[int, ...]]

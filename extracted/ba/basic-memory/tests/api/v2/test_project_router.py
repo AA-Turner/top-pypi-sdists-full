@@ -12,6 +12,21 @@ from basic_memory.schemas.v2 import ProjectResolveResponse
 
 
 @pytest.mark.asyncio
+async def test_list_projects(client: AsyncClient, test_project: Project, v2_projects_url):
+    """Test listing projects returns default_project from the database."""
+    response = await client.get(f"{v2_projects_url}/")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # default_project must be populated from the is_default flag in the database
+    assert data["default_project"] == test_project.name
+
+    project_names = [p["name"] for p in data["projects"]]
+    assert test_project.name in project_names
+
+
+@pytest.mark.asyncio
 async def test_get_project_by_id(client: AsyncClient, test_project: Project, v2_projects_url):
     """Test getting a project by its external_id UUID."""
     response = await client.get(f"{v2_projects_url}/{test_project.external_id}")
@@ -361,8 +376,50 @@ async def test_legacy_v1_list_projects_endpoint(client: AsyncClient, test_projec
     assert response.status_code == 200
     data = response.json()
     assert "projects" in data
-    assert "default_project" in data
 
-    # Verify the test project is in the list
+    # default_project must be populated, not null
+    assert data["default_project"] == test_project.name
+
     project_names = [p["name"] for p in data["projects"]]
     assert test_project.name in project_names
+
+
+@pytest.mark.asyncio
+async def test_legacy_v1_add_project_endpoint(client: AsyncClient, test_project: Project):
+    """Test that the legacy POST /projects/projects endpoint still works for older CLI versions.
+
+    Older versions of basic-memory-cloud CLI call POST /projects/projects to add projects.
+    The legacy route must proxy through to the same handler as v2.
+
+    Uses the existing test project name+path to exercise the idempotent path (200 OK),
+    which proves the route is connected without needing a full config manager.
+    """
+    response = await client.post(
+        "/projects/projects",
+        json={
+            "name": test_project.name,
+            "path": test_project.path,
+            "set_default": False,
+        },
+    )
+
+    # Idempotent: same name + same path returns 200
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert test_project.name in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_legacy_v1_sync_config_endpoint(client: AsyncClient):
+    """Test that the legacy POST /projects/config/sync endpoint still works for older CLI versions.
+
+    Older versions of basic-memory-cloud CLI call POST /projects/config/sync to synchronize
+    projects between config file and database. The route must be reachable.
+    """
+    response = await client.post("/projects/config/sync")
+
+    # The handler synchronizes config ↔ DB; should succeed in test environment
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"

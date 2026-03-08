@@ -15,7 +15,14 @@ from ..commands._wrappers import (
 )
 from ..commands.constants import CommandFlag, CommandGroup, CommandName
 from ..commands.request import CommandRequest
-from ..globals import CACHEABLE_COMMANDS, COMMAND_FLAGS, MODULE_GROUPS, MODULES, READONLY_COMMANDS
+from ..globals import (
+    CACHEABLE_COMMANDS,
+    COMMAND_FLAGS,
+    MODULE_GROUPS,
+    MODULES,
+    READONLY_COMMANDS,
+    ROUTING_STRATEGIES,
+)
 from ..typing import (
     AnyStr,
     Callable,
@@ -58,9 +65,17 @@ def module_command(
         runtime_checkable = add_runtime_checks(func)
         if flags and CommandFlag.READONLY in flags:
             READONLY_COMMANDS.add(command_name)
+        COMMAND_FLAGS[command_name] = flags or set()
+
         if cacheable:
             CACHEABLE_COMMANDS.add(command_name)
-        COMMAND_FLAGS[command_name] = flags or set()
+
+        if cluster.routing_strategy:
+            ROUTING_STRATEGIES[command_name] = cluster.routing_strategy
+        # elif cluster.combine and cluster.route:
+        #    ROUTING_STRATEGIES[command_name] = FanoutStrategy(cluster.route, cluster.combine)
+        # elif cluster.route == NodeFlag.RANDOM:
+        #    ROUTING_STRATEGIES[command_name] = RandomStrategy()
 
         @functools.wraps(func)
         def wrapped(*args: P.args, **kwargs: P.kwargs) -> CommandRequest[R]:

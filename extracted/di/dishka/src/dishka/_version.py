@@ -1,13 +1,13 @@
 # This file auto generated!
 # DO NOT EDIT MANUALLY!
 
-version: str = "1.8.0"
-__version__: str = "1.8.0"
+version: str = "1.9.0"
+__version__: str = "1.9.0"
 
-commit_hash: str = "g8af430002d2e0fa4eecee172ea718757c75f4c4f"
-version_timestamp: str = "2026-02-11 11:04:56.747974+00:00"
+commit_hash: str = "g362327a12f871cef24fd42f58507e57a2d38389d"
+version_timestamp: str = "2026-03-07 17:26:41.736521+00:00"
 
-tag: str = "1.8.0"
+tag: str = "1.9.0"
 branch: str = "HEAD"
-commit_date: str = "2026-02-11"
+commit_date: str = "2026-03-07"
 commit_count_since_tag: int = 0

@@ -14485,12 +14485,10 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
     return result
 
 
-async def correct_txt_tags_for_tg(txt):
+async def correct_txt_tags_for_tg(txt, is_premium=False):
     result = txt
     try:
-        if not txt or txt == str_empty:
-            return result
-
+        if not txt or txt == str_empty: return result
         if random.choice([True, False]): print(f"correct_txt_tags_for_tg start {txt=}")
 
         txt = re.sub(
@@ -14536,6 +14534,11 @@ async def correct_txt_tags_for_tg(txt):
         txt = re.sub(r'</?div[^>]*>', '\n', txt, flags=re.IGNORECASE)
         txt = re.sub(r'<span[^>]*>', '', txt, flags=re.IGNORECASE)
         txt = txt.replace('</span>', '')
+
+        if not is_premium:
+            print('not prem')
+            txt = re.sub(r'<tg-emoji\b[^>]*>(.*?)</tg-emoji>', r'\1', txt, flags=re.DOTALL | re.IGNORECASE)
+            txt = re.sub(r'</?tg-emoji\b[^>]*\/?>', '', txt, flags=re.IGNORECASE)
 
         result = txt[0:4096].strip()
         print(f"correct_txt_tags_for_tg finish {result=}")

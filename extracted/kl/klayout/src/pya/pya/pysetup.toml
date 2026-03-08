@@ -1,7 +1,0 @@
-
-[library]
-  name = "_pya"
-  defines = [["MAKE_PYA_LIBRARY", 1]]
-  depends = ["_tl", "_gsi"]
-  includes = ["/src/version"]
-

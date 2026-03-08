@@ -32,7 +32,7 @@ from ascii_colors.logging import (
 from ascii_colors.questionary import (
     # Classes
     PromptText,  # The actual class, renamed to avoid conflict with rich.Text
-    Password, Confirm, Select, Checkbox, Autocomplete, 
+    Password, Select, Checkbox, Autocomplete, 
     Form, Validator, ValidationError,
     # Functions
     password, confirm, select, checkbox, autocomplete, form, ask,
@@ -42,7 +42,7 @@ from ascii_colors.questionary import (
 from ascii_colors.rich import (
     # Core classes
     Console, Text as RichText, Style, Renderable, ConsoleOptions, Measurement,
-    Prompt,
+    Prompt, Confirm,
     # Layout
     Panel, Padding, Columns, Rule,
     # Data display
@@ -120,14 +120,14 @@ __all__ = [
     # Questionary compat
     "questionary",  # Module-like object for `from ascii_colors import questionary`
     "PromptText",  # Explicit name for questionary text input class
-    "Password", "Confirm", "Select", "Checkbox", 
+    "Password", "Select", "Checkbox", 
     "Autocomplete", "Form", "Validator", "ValidationError",
     "text", "password", "confirm", "select", "checkbox", "autocomplete", 
     "form", "ask",
     # Rich compat (new!)
     "rich",  # Module-like object for `from ascii_colors import rich`
     "Console", "Style", "Renderable", "ConsoleOptions", "Measurement",
-    "Prompt",
+    "Prompt", "Confirm",
     "Panel", "Padding", "Columns", "Rule",
     "Table", "Tree",
     "Syntax", "Markdown",

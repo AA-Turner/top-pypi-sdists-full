@@ -8,6 +8,7 @@ import beets
 from beets import dbcore
 from beets.util import normpath
 
+from . import migrations
 from .models import Album, Item
 from .queries import PF_KEY_DEFAULT, parse_query_parts, parse_query_string
 
@@ -19,6 +20,10 @@ class Library(dbcore.Database):
     """A database of music containing songs and albums."""
 
     _models = (Item, Album)
+    _migrations = (
+        (migrations.MultiGenreFieldMigration, (Item, Album)),
+        (migrations.LyricsMetadataInFlexFieldsMigration, (Item,)),
+    )
 
     def __init__(
         self,

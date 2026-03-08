@@ -17,6 +17,9 @@ TEMPLATE = "{ref}: {description} ({symbolic})"
 FLAKE8 = "{ref} {description} ({symbolic})"
 
 
+Messages: _t.TypeAlias = _t.List["Message"]
+
+
 class Message(_t.NamedTuple):
     """Represents an error message."""
 
@@ -54,10 +57,6 @@ class Message(_t.NamedTuple):
         )
 
 
-class Messages(_t.List[Message]):
-    """List of messages."""
-
-
 class MessageMap(_t.Dict[int, Message]):
     """Messages mapped under an integer version of their codes."""
 
@@ -79,12 +78,12 @@ class MessageMap(_t.Dict[int, Message]):
         :param refs: List of codes or symbolic references.
         :return: List of message types.
         """
-        return Messages(self.from_ref(i) for i in refs)
+        return list(self.from_ref(i) for i in refs)
 
     @property
     def all(self) -> Messages:
         """Get all messages that aren't a config error."""
-        return Messages(v for k, v in self.items() if len(str(k)) > 1)
+        return list(v for k, v in self.items() if len(str(k)) > 1)
 
 
 # SIGxxx: Error

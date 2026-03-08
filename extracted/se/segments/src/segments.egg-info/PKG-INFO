@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: segments
-Version: 2.3.0
+Version: 2.4.0
 Summary: Segmentation with orthography profiles
 Home-page: https://github.com/cldf/segments
 Author: Steven Moran and Robert Forkel
@@ -20,10 +20,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: regex

@@ -1,62 +1,85 @@
-[tool.poetry]
+[project]
 name = "django-fsm-2"
-version = "4.1.0"
+version = "4.2.0"
 description = "Django friendly finite state machine support."
-authors = [
-    "Mikhail Podgurskiy <kmmbvnr@gmail.com>",
-]
-license = "MIT License"
+authors = [{ name = "Mikhail Podgurskiy", email = "kmmbvnr@gmail.com" }]
+requires-python = ">=3.10"
 readme = "README.md"
-homepage = "http://github.com/django-commons/django-fsm-2"
-repository = "http://github.com/django-commons/django-fsm-2"
-documentation = "http://github.com/django-commons/django-fsm-2"
+license = "MIT"
 classifiers = [
-    'Development Status :: 5 - Production/Stable',
-    'Environment :: Web Environment',
-    'Intended Audience :: Developers',
-    'License :: OSI Approved :: MIT License',
-    'Operating System :: OS Independent',
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Framework :: Django",
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
-    'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: 3.13',
-    'Programming Language :: Python :: 3.14',
-    'Topic :: Software Development :: Libraries :: Python Modules',
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-packages = [{ include = "django_fsm" }]
+dependencies = [
+    "django>=4.2.29",
+    "django-stubs-ext",
+    "typing-extensions; python_version < '3.12'",
+]
 
-[tool.poetry.dependencies]
-python = "^3.8"
-django = ">=4.2"
+[project.urls]
+Homepage = "http://github.com/django-commons/django-fsm-2"
+Repository = "http://github.com/django-commons/django-fsm-2"
+Documentation = "http://github.com/django-commons/django-fsm-2"
 
-[tool.poetry.group.graphviz.dependencies]
-graphviz = "*"
+[project.optional-dependencies]
+graphviz = [
+    "graphviz",
+]
 
-[tool.poetry.group.dev.dependencies]
-coverage = "*"
-django-guardian = "*"
-graphviz = "*"
-pre-commit = "*"
-pytest = "*"
-pytest-cov = "*"
-pytest-django = "*"
+[dependency-groups]
+dev = [
+    "coverage",
+    "django_fsm_log",
+    "django-guardian",
+    "graphviz",
+    "mypy",
+    "pre-commit",
+    "pytest",
+    "pytest-cov",
+    "pytest-django",
+    "pytest-randomly",
+    "tox",
+]
+
+[tool.uv]
+default-groups = [
+    "dev"
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["django_fsm", "fsm_admin", "django_fsm/py.typed"]
+
+[tool.hatch.build.targets.wheel]
+include = ["django_fsm", "fsm_admin", "django_fsm/py.typed"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
 
 [tool.ruff]
-line-length = 130
-target-version = "py38"
+line-length = 100
+target-version = "py310"
 fix = true
 
 [tool.ruff.lint]
@@ -84,6 +107,7 @@ extend-ignore = [
 fixable = [
     "I",  # isort
     "RUF100",  # Unused `noqa` directive
+    "E501",
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
@@ -95,6 +119,46 @@ fixable = [
 force-single-line = true
 required-imports = ["from __future__ import annotations"]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[tool.mypy]
+python_version = 3.12
+plugins = ["mypy_django_plugin.main"]
+mypy_path = "mypy_stubs"
+
+# Start off with these
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+# Getting these passing should be easy
+strict_equality = true
+extra_checks = true
+
+# Strongly recommend enabling this one as soon as you can
+check_untyped_defs = true
+
+# These shouldn't be too much additional work, but may be tricky to
+# get passing if you use a lot of untyped libraries
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+
+# These next few are various gradations of forcing use of type annotations
+disallow_untyped_calls = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+
+# This one isn't too hard to get passing, but return on investment is lower
+no_implicit_reexport = true
+
+# This one can be tricky to get passing if you use a lot of untyped libraries
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+    "django_fsm.tests.*"
+]
+disallow_untyped_defs = false

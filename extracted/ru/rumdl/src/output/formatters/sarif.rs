@@ -71,17 +71,18 @@ impl OutputFormatter for SarifFormatter {
     }
 }
 
-/// Format all warnings as SARIF 2.1.0 report
+/// Format all warnings from multiple files as a SARIF 2.1.0 report.
+///
+/// In fix mode, only remaining (unfixed) warnings are passed in,
+/// matching ESLint/Ruff convention of reporting only what's left.
 pub fn format_sarif_report(all_warnings: &[(String, Vec<LintWarning>)]) -> String {
     let mut results = Vec::new();
     let mut rules = std::collections::HashMap::new();
 
-    // Collect all results and build rule index
     for (file_path, warnings) in all_warnings {
         for warning in warnings {
             let rule_id = warning.rule_name.as_deref().unwrap_or("unknown");
 
-            // Add rule to index if not already present
             rules.entry(rule_id).or_insert_with(|| {
                 json!({
                     "id": rule_id,
@@ -123,7 +124,6 @@ pub fn format_sarif_report(all_warnings: &[(String, Vec<LintWarning>)]) -> Strin
         }
     }
 
-    // Build the complete SARIF document
     let sarif_doc = json!({
         "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
         "version": "2.1.0",

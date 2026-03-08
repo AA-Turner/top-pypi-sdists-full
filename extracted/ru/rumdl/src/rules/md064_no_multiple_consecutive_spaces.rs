@@ -338,6 +338,8 @@ impl Rule for MD064NoMultipleConsecutiveSpaces {
             .skip_html_comments()
             .skip_mkdocstrings()
             .skip_esm_blocks()
+            .skip_jsx_expressions()
+            .skip_mdx_comments()
             .skip_pymdown_blocks()
             .skip_obsidian_comments()
         {
@@ -468,6 +470,8 @@ impl Rule for MD064NoMultipleConsecutiveSpaces {
 
         // Get warnings to identify what needs to be fixed
         let warnings = self.check(ctx)?;
+        let warnings =
+            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
         if warnings.is_empty() {
             return Ok(content.to_string());
         }

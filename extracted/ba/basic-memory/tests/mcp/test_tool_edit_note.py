@@ -10,7 +10,7 @@ from basic_memory.mcp.tools.write_note import write_note
 async def test_edit_note_append_operation(client, test_project):
     """Test appending content to an existing note."""
     # Create initial note
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -18,7 +18,7 @@ async def test_edit_note_append_operation(client, test_project):
     )
 
     # Append content
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="test/test-note",
         operation="append",
@@ -29,7 +29,7 @@ async def test_edit_note_append_operation(client, test_project):
     assert "Edited note (append)" in result
     assert f"project: {test_project.name}" in result
     assert "file_path: test/Test Note.md" in result
-    assert "permalink: test/test-note" in result
+    assert f"permalink: {test_project.name}/test/test-note" in result
     assert "Added 3 lines to end of note" in result
     assert f"[Session: Using project '{test_project.name}']" in result
 
@@ -38,7 +38,7 @@ async def test_edit_note_append_operation(client, test_project):
 async def test_edit_note_prepend_operation(client, test_project):
     """Test prepending content to an existing note."""
     # Create initial note
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Meeting Notes",
         directory="meetings",
@@ -46,7 +46,7 @@ async def test_edit_note_prepend_operation(client, test_project):
     )
 
     # Prepend content
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="meetings/meeting-notes",
         operation="prepend",
@@ -57,7 +57,7 @@ async def test_edit_note_prepend_operation(client, test_project):
     assert "Edited note (prepend)" in result
     assert f"project: {test_project.name}" in result
     assert "file_path: meetings/Meeting Notes.md" in result
-    assert "permalink: meetings/meeting-notes" in result
+    assert f"permalink: {test_project.name}/meetings/meeting-notes" in result
     assert "Added 3 lines to beginning of note" in result
     assert f"[Session: Using project '{test_project.name}']" in result
 
@@ -66,7 +66,7 @@ async def test_edit_note_prepend_operation(client, test_project):
 async def test_edit_note_find_replace_operation(client, test_project):
     """Test find and replace operation."""
     # Create initial note with version info
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Config Document",
         directory="config",
@@ -74,7 +74,7 @@ async def test_edit_note_find_replace_operation(client, test_project):
     )
 
     # Replace version - expecting 2 replacements
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="config/config-document",
         operation="find_replace",
@@ -95,7 +95,7 @@ async def test_edit_note_find_replace_operation(client, test_project):
 async def test_edit_note_replace_section_operation(client, test_project):
     """Test replacing content under a specific section."""
     # Create initial note with sections
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="API Specification",
         directory="specs",
@@ -103,7 +103,7 @@ async def test_edit_note_replace_section_operation(client, test_project):
     )
 
     # Replace implementation section
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="specs/api-specification",
         operation="replace_section",
@@ -120,26 +120,148 @@ async def test_edit_note_replace_section_operation(client, test_project):
 
 
 @pytest.mark.asyncio
-async def test_edit_note_nonexistent_note(client, test_project):
-    """Test editing a note that doesn't exist - should return helpful guidance."""
-    result = await edit_note.fn(
+async def test_edit_note_nonexistent_note_find_replace(client, test_project):
+    """Test find_replace on a note that doesn't exist - should return helpful guidance."""
+    result = await edit_note(
         project=test_project.name,
         identifier="nonexistent/note",
-        operation="append",
-        content="Some content",
+        operation="find_replace",
+        content="replacement",
+        find_text="old text",
     )
 
     assert isinstance(result, str)
     assert "# Edit Failed" in result
     assert "search_notes" in result  # Should suggest searching
-    assert "read_note" in result  # Should suggest reading to verify
+    assert "append" in result  # Should suggest using append/prepend instead
+
+
+@pytest.mark.asyncio
+async def test_edit_note_nonexistent_note_replace_section(client, test_project):
+    """Test replace_section on a note that doesn't exist - should return helpful guidance."""
+    result = await edit_note(
+        project=test_project.name,
+        identifier="nonexistent/note",
+        operation="replace_section",
+        content="new section content",
+        section="## Missing Section",
+    )
+
+    assert isinstance(result, str)
+    assert "# Edit Failed" in result
+    assert "search_notes" in result  # Should suggest searching
+
+
+@pytest.mark.asyncio
+async def test_edit_note_append_creates_note_if_not_found(client, test_project):
+    """append to a non-existent note should create it automatically."""
+    result = await edit_note(
+        project=test_project.name,
+        identifier="auto-created-note",
+        operation="append",
+        content="# New Note\n\nCreated via append.",
+    )
+
+    assert isinstance(result, str)
+    assert "Created note (append)" in result
+    assert "fileCreated: true" in result
+    assert f"project: {test_project.name}" in result
+
+
+@pytest.mark.asyncio
+async def test_edit_note_prepend_creates_note_if_not_found(client, test_project):
+    """prepend to a non-existent note should create it automatically."""
+    result = await edit_note(
+        project=test_project.name,
+        identifier="auto-created-prepend",
+        operation="prepend",
+        content="# Prepended Note\n\nCreated via prepend.",
+    )
+
+    assert isinstance(result, str)
+    assert "Created note (prepend)" in result
+    assert "fileCreated: true" in result
+    assert f"project: {test_project.name}" in result
+
+
+@pytest.mark.asyncio
+async def test_edit_note_append_creates_with_directory_from_identifier(client, test_project):
+    """Identifier 'conversations/my-note' should create in conversations/ directory."""
+    result = await edit_note(
+        project=test_project.name,
+        identifier="conversations/my-note",
+        operation="append",
+        content="# My Note\n\nCreated in conversations directory.",
+    )
+
+    assert isinstance(result, str)
+    assert "Created note (append)" in result
+    assert "fileCreated: true" in result
+    assert "conversations/" in result
+
+
+@pytest.mark.asyncio
+async def test_edit_note_append_creates_at_root_when_no_directory(client, test_project):
+    """Identifier 'my-note' (no slash) should create at project root."""
+    result = await edit_note(
+        project=test_project.name,
+        identifier="root-level-note",
+        operation="append",
+        content="# Root Note\n\nCreated at root.",
+    )
+
+    assert isinstance(result, str)
+    assert "Created note (append)" in result
+    assert "fileCreated: true" in result
+
+
+@pytest.mark.asyncio
+async def test_edit_note_append_creates_json_format(client, test_project):
+    """JSON output should include fileCreated: true when note is auto-created."""
+    result = await edit_note(
+        project=test_project.name,
+        identifier="json-auto-create",
+        operation="append",
+        content="# JSON Test\n\nAuto-created.",
+        output_format="json",
+    )
+
+    assert isinstance(result, dict)
+    assert result["fileCreated"] is True
+    assert result["title"] is not None
+    assert result["operation"] == "append"
+
+
+@pytest.mark.asyncio
+async def test_edit_note_existing_note_json_includes_file_created_false(client, test_project):
+    """JSON output for editing an existing note should include fileCreated: false."""
+    # Create the note first
+    await write_note(
+        project=test_project.name,
+        title="Existing JSON Note",
+        directory="test",
+        content="# Existing Note\nOriginal content.",
+    )
+
+    result = await edit_note(
+        project=test_project.name,
+        identifier="test/existing-json-note",
+        operation="append",
+        content="\nAppended content.",
+        output_format="json",
+    )
+
+    assert isinstance(result, dict)
+    assert result["fileCreated"] is False
+    assert result["title"] == "Existing JSON Note"
+    assert result["operation"] == "append"
 
 
 @pytest.mark.asyncio
 async def test_edit_note_invalid_operation(client, test_project):
     """Test using an invalid operation."""
     # Create a note first
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -147,7 +269,7 @@ async def test_edit_note_invalid_operation(client, test_project):
     )
 
     with pytest.raises(ValueError) as exc_info:
-        await edit_note.fn(
+        await edit_note(
             project=test_project.name,
             identifier="test/test-note",
             operation="invalid_op",
@@ -161,7 +283,7 @@ async def test_edit_note_invalid_operation(client, test_project):
 async def test_edit_note_find_replace_missing_find_text(client, test_project):
     """Test find_replace operation without find_text parameter."""
     # Create a note first
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -169,7 +291,7 @@ async def test_edit_note_find_replace_missing_find_text(client, test_project):
     )
 
     with pytest.raises(ValueError) as exc_info:
-        await edit_note.fn(
+        await edit_note(
             project=test_project.name,
             identifier="test/test-note",
             operation="find_replace",
@@ -183,7 +305,7 @@ async def test_edit_note_find_replace_missing_find_text(client, test_project):
 async def test_edit_note_replace_section_missing_section(client, test_project):
     """Test replace_section operation without section parameter."""
     # Create a note first
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -191,7 +313,7 @@ async def test_edit_note_replace_section_missing_section(client, test_project):
     )
 
     with pytest.raises(ValueError) as exc_info:
-        await edit_note.fn(
+        await edit_note(
             project=test_project.name,
             identifier="test/test-note",
             operation="replace_section",
@@ -205,7 +327,7 @@ async def test_edit_note_replace_section_missing_section(client, test_project):
 async def test_edit_note_replace_section_nonexistent_section(client, test_project):
     """Test replacing a section that doesn't exist - should append it."""
     # Create initial note without the target section
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Document",
         directory="docs",
@@ -213,7 +335,7 @@ async def test_edit_note_replace_section_nonexistent_section(client, test_projec
     )
 
     # Try to replace non-existent section
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="docs/document",
         operation="replace_section",
@@ -233,7 +355,7 @@ async def test_edit_note_replace_section_nonexistent_section(client, test_projec
 async def test_edit_note_with_observations_and_relations(client, test_project):
     """Test editing a note that contains observations and relations."""
     # Create note with semantic content
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Feature Spec",
         directory="features",
@@ -241,7 +363,7 @@ async def test_edit_note_with_observations_and_relations(client, test_project):
     )
 
     # Append more semantic content
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="features/feature-spec",
         operation="append",
@@ -258,7 +380,7 @@ async def test_edit_note_with_observations_and_relations(client, test_project):
 async def test_edit_note_identifier_variations(client, test_project):
     """Test that various identifier formats work."""
     # Create a note
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Document",
         directory="docs",
@@ -273,7 +395,7 @@ async def test_edit_note_identifier_variations(client, test_project):
     ]
 
     for identifier in identifiers_to_test:
-        result = await edit_note.fn(
+        result = await edit_note(
             project=test_project.name,
             identifier=identifier,
             operation="append",
@@ -290,7 +412,7 @@ async def test_edit_note_identifier_variations(client, test_project):
 async def test_edit_note_find_replace_no_matches(client, test_project):
     """Test find_replace when the find_text doesn't exist - should return error."""
     # Create initial note
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -298,7 +420,7 @@ async def test_edit_note_find_replace_no_matches(client, test_project):
     )
 
     # Try to replace text that doesn't exist - should fail with default expected_replacements=1
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="test/test-note",
         operation="find_replace",
@@ -316,7 +438,7 @@ async def test_edit_note_find_replace_no_matches(client, test_project):
 async def test_edit_note_empty_content_operations(client, test_project):
     """Test operations with empty content."""
     # Create initial note
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -324,7 +446,7 @@ async def test_edit_note_empty_content_operations(client, test_project):
     )
 
     # Test append with empty content
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name, identifier="test/test-note", operation="append", content=""
     )
 
@@ -337,7 +459,7 @@ async def test_edit_note_empty_content_operations(client, test_project):
 async def test_edit_note_find_replace_wrong_count(client, test_project):
     """Test find_replace when replacement count doesn't match expected."""
     # Create initial note with version info
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Config Document",
         directory="config",
@@ -345,7 +467,7 @@ async def test_edit_note_find_replace_wrong_count(client, test_project):
     )
 
     # Try to replace expecting 1 occurrence, but there are actually 2
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="config/config-document",
         operation="find_replace",
@@ -366,7 +488,7 @@ async def test_edit_note_find_replace_wrong_count(client, test_project):
 async def test_edit_note_replace_section_multiple_sections(client, test_project):
     """Test replace_section with multiple sections having same header - should return helpful error."""
     # Create note with duplicate section headers
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Sample Note",
         directory="docs",
@@ -374,7 +496,7 @@ async def test_edit_note_replace_section_multiple_sections(client, test_project)
     )
 
     # Try to replace section when multiple exist
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="docs/sample-note",
         operation="replace_section",
@@ -393,7 +515,7 @@ async def test_edit_note_replace_section_multiple_sections(client, test_project)
 async def test_edit_note_find_replace_empty_find_text(client, test_project):
     """Test find_replace with empty/whitespace find_text - should return helpful error."""
     # Create initial note
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -401,7 +523,7 @@ async def test_edit_note_find_replace_empty_find_text(client, test_project):
     )
 
     # Try with whitespace-only find_text - this should be caught by service validation
-    result = await edit_note.fn(
+    result = await edit_note(
         project=test_project.name,
         identifier="test/test-note",
         operation="find_replace",
@@ -415,6 +537,39 @@ async def test_edit_note_find_replace_empty_find_text(client, test_project):
 
 
 @pytest.mark.asyncio
+async def test_edit_note_append_with_null_optional_fields(client, test_project):
+    """Regression test: MCP clients may send explicit null for unused optional fields.
+
+    When an MCP client sends find_text=None, section=None, expected_replacements=None
+    for an append operation, the tool should accept them without validation errors.
+    """
+    # Create initial note
+    await write_note(
+        project=test_project.name,
+        title="Null Fields Test",
+        directory="test",
+        content="# Null Fields Test\nOriginal content.",
+    )
+
+    # Call edit_note with explicit None for all optional fields (simulates MCP null)
+    result = await edit_note(
+        project=test_project.name,
+        identifier="test/null-fields-test",
+        operation="append",
+        content="\nAppended content.",
+        find_text=None,
+        section=None,
+        expected_replacements=None,
+    )
+
+    assert isinstance(result, str)
+    assert "Edited note (append)" in result
+    assert f"project: {test_project.name}" in result
+    assert "file_path: test/Null Fields Test.md" in result
+    assert f"[Session: Using project '{test_project.name}']" in result
+
+
+@pytest.mark.asyncio
 async def test_edit_note_preserves_permalink_when_frontmatter_missing(client, test_project):
     """Test that editing a note preserves the permalink when frontmatter doesn't contain one.
 
@@ -423,7 +578,7 @@ async def test_edit_note_preserves_permalink_when_frontmatter_missing(client, te
     in its frontmatter.
     """
     # Create initial note
-    await write_note.fn(
+    await write_note(
         project=test_project.name,
         title="Test Note",
         directory="test",
@@ -431,7 +586,7 @@ async def test_edit_note_preserves_permalink_when_frontmatter_missing(client, te
     )
 
     # Verify the note was created with a permalink
-    first_result = await edit_note.fn(
+    first_result = await edit_note(
         project=test_project.name,
         identifier="test/test-note",
         operation="append",
@@ -439,11 +594,11 @@ async def test_edit_note_preserves_permalink_when_frontmatter_missing(client, te
     )
 
     assert isinstance(first_result, str)
-    assert "permalink: test/test-note" in first_result
+    assert f"permalink: {test_project.name}/test/test-note" in first_result
 
     # Perform another edit - this should preserve the permalink even if the
     # file doesn't have a permalink in its frontmatter
-    second_result = await edit_note.fn(
+    second_result = await edit_note(
         project=test_project.name,
         identifier="test/test-note",
         operation="append",
@@ -453,6 +608,6 @@ async def test_edit_note_preserves_permalink_when_frontmatter_missing(client, te
     assert isinstance(second_result, str)
     assert "Edited note (append)" in second_result
     assert f"project: {test_project.name}" in second_result
-    assert "permalink: test/test-note" in second_result
+    assert f"permalink: {test_project.name}/test/test-note" in second_result
     assert f"[Session: Using project '{test_project.name}']" in second_result
     # The edit should succeed without validation errors

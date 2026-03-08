@@ -16,7 +16,7 @@ from pathlib import Path as _Path
 import tomli as _tomli
 
 from ._version import __version__
-from .messages import Messages
+from .messages import Messages as _Messages
 
 PYPROJECT_TOML = "pyproject.toml"
 
@@ -134,100 +134,44 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _argparse.Namespace:
     )
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument(
-        "-c",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_class",
-    )
-    group.add_argument(
         "--check-class",
         action="store_true",
         help="check class docstrings",
-        dest="check_class",
-    )
-    group.add_argument(
-        "-C",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_class_constructor",
     )
     group.add_argument(
         "--check-class-constructor",
         action="store_true",
         help="check __init__ methods",
-        dest="check_class_constructor",
-    )
-    parser.add_argument(
-        "-D",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_dunders",
     )
     parser.add_argument(
         "--check-dunders",
         action="store_true",
         help="check dunder methods",
-        dest="check_dunders",
-    )
-    parser.add_argument(
-        "-N",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_nested",
     )
     parser.add_argument(
         "--check-nested",
         action="store_true",
         help="check nested functions and classes",
-        dest="check_nested",
-    )
-    parser.add_argument(
-        "-o",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_overridden",
     )
     parser.add_argument(
         "--check-overridden",
         action="store_true",
         help="check overridden methods",
-        dest="check_overridden",
-    )
-    parser.add_argument(
-        "-P",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_property_returns",
     )
     parser.add_argument(
         "--check-property-returns",
         action="store_true",
         help="check property return values",
-        dest="check_property_returns",
-    )
-    parser.add_argument(
-        "-p",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_protected",
     )
     parser.add_argument(
         "--check-protected",
         action="store_true",
         help="check protected functions and classes",
-        dest="check_protected",
-    )
-    parser.add_argument(
-        "-m",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="check_protected_class_methods",
     )
     parser.add_argument(
         "--check-protected-class-methods",
         action="store_true",
         help="check public methods belonging to protected classes",
-        dest="check_protected_class_methods",
     )
     parser.add_argument(
         "--ignore-args",
@@ -240,21 +184,9 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _argparse.Namespace:
         help="ignore kwargs prefixed with two asterisks",
     )
     parser.add_argument(
-        "-i",
-        action="store_true",
-        help=_argparse.SUPPRESS,
-        dest="ignore_no_params",
-    )
-    parser.add_argument(
         "--ignore-no-params",
         action="store_true",
         help="ignore docstrings where parameters are not documented",
-        dest="ignore_no_params",
-    )
-    parser.add_argument(
-        "--ignore-typechecker",
-        action="store_true",
-        help="ignore checking return values",
     )
     parser.add_argument(
         "-d",
@@ -288,7 +220,7 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _argparse.Namespace:
         help="path glob patterns to exclude from checks",
     )
     parser.add_argument(
-        "-I",
+        "-i",
         "--include-ignored",
         action="store_true",
         help="check files even if they match a gitignore pattern",
@@ -303,8 +235,8 @@ def parse_args(args: _t.Sequence[str] | None = None) -> _argparse.Namespace:
     return parser.parse_args(args)
 
 
-# pylint: disable=too-many-instance-attributes,too-few-public-methods
 @_dataclass
+# pylint: disable-next=too-many-instance-attributes,too-few-public-methods
 class Check:
     """Configuration for what to check.
 
@@ -331,6 +263,7 @@ class Check:
 
 
 @_dataclass
+# pylint: disable-next=too-few-public-methods
 class Ignore:
     """Configuration for what to ignore.
 
@@ -338,16 +271,15 @@ class Ignore:
         documented.
     :param args: Ignore args prefixed with an asterisk.
     :param kwargs: Ignore kwargs prefixed with two asterisks.
-    :param typechecker: Ignore checking return values.
     """
 
     no_params: bool = False
     args: bool = False
     kwargs: bool = False
-    typechecker: bool = False
 
 
 @_dataclass(frozen=True)
+# pylint: disable-next=too-many-instance-attributes,too-few-public-methods
 class Config:
     """Internal run configuration for docsig.
 
@@ -355,11 +287,11 @@ class Config:
     takes a single config object instead of many parameters.
     """
 
-    check: Check = _field(default_factory=Check)
-    ignore: Ignore = _field(default_factory=Ignore)
-    target: Messages = _field(default_factory=Messages)
-    disable: Messages = _field(default_factory=Messages)
-    exclude: list[str] = _field(default_factory=list)
+    check: Check
+    ignore: Ignore
+    target: _Messages = _field(default_factory=list)
+    disable: _Messages = _field(default_factory=list)
+    exclude: str | None = None
     excludes: list[str] | None = None
     list_checks: bool = False
     include_ignored: bool = False

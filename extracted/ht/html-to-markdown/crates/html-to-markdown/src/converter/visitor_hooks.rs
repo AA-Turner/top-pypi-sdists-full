@@ -151,12 +151,15 @@ pub fn handle_visitor_element_end(
         is_inline: !is_block_level_element(tag_name),
     };
 
-    // When a child element's visitor returns Custom or Skip, the handler
-    // truncates `output` back to that child's `element_output_start`.  This
-    // can make the *parent* element's saved `element_output_start` stale —
-    // pointing past the end of the now-shorter `output`.  Clamp to prevent
-    // a panic on the string slice.
+    // The saved `element_output_start` can become stale in two ways:
+    // 1. A child visitor returning Custom/Skip truncates `output`, making the
+    //    saved position point past the end of the now-shorter string.
+    // 2. Element handlers (e.g. div) trim trailing whitespace that was present
+    //    when the position was captured, then append new multi-byte content.
+    //    The old position can land inside a multi-byte character.
+    // Clamp to output length, then retreat to a valid char boundary.
     let safe_start = element_output_start.min(output.len());
+    let safe_start = crate::converter::utility::content::floor_char_boundary(output, safe_start);
     let element_content = &output[safe_start..];
 
     let mut visitor = visitor_handle.borrow_mut();

@@ -482,7 +482,11 @@ class TelnetTerminalClient(TelnetClient):
             rows, cols, _, _ = struct.unpack(fmt, val)
             return rows, cols
         except (ImportError, IOError):
-            return (int(os.environ.get("LINES", 25)), int(os.environ.get("COLUMNS", 80)))
+            try:
+                sz = os.get_terminal_size()
+                return sz.lines, sz.columns
+            except OSError:
+                return (int(os.environ.get("LINES", 25)), int(os.environ.get("COLUMNS", 80)))
 
 
 async def open_connection(
@@ -586,7 +590,7 @@ async def open_connection(
     """
     if client_factory is None:
         client_factory = TelnetClient
-        if sys.platform != "win32" and sys.stdin.isatty():
+        if sys.stdin.isatty():
             client_factory = TelnetTerminalClient
 
     def connection_factory() -> client_base.BaseClient:
@@ -623,7 +627,7 @@ async def open_connection(
 
     try:
         _, protocol = await asyncio.wait_for(
-            asyncio.get_event_loop().create_connection(
+            asyncio.get_running_loop().create_connection(
                 connection_factory, host or "localhost", port, **conn_kwargs
             ),
             timeout=connect_timeout,
@@ -655,16 +659,19 @@ async def run_client() -> None:
 
     always_will: set[bytes] = args["always_will"]
     always_do: set[bytes] = args["always_do"]
+    always_wont: set[bytes] = args["always_wont"]
+    always_dont: set[bytes] = args["always_dont"]
 
-    # Wrap client factory to inject always_will/always_do and encoding
-    # flags before negotiation starts.
-    encoding_explicit = args["encoding"] not in ("utf8", "utf-8", False)
+    # Wrap client factory to inject always_will/always_do/always_wont/always_dont
+    # and encoding flags before negotiation starts.
+    environ_encoding = args["encoding"] or "ascii"
+    encoding_explicit = environ_encoding not in ("utf8", "utf-8", "ascii")
     gmcp_modules: Optional[List[str]] = args.get("gmcp_modules")
 
     def _client_factory(**kwargs: Any) -> client_base.BaseClient:
         client: TelnetClient
         kwargs["gmcp_modules"] = gmcp_modules
-        if sys.platform != "win32" and sys.stdin.isatty():
+        if sys.stdin.isatty():
             client = TelnetTerminalClient(**kwargs)
         else:
             client = TelnetClient(**kwargs)
@@ -675,9 +682,14 @@ async def run_client() -> None:
             if always_will:
                 client.writer.always_will = always_will
             client.writer.always_do = always_do
+            if always_wont:
+                client.writer.always_wont = always_wont
+            if always_dont:
+                client.writer.always_dont = always_dont
             from .telopt import GMCP as _GMCP
 
             client.writer.passive_do = {_GMCP}
+            client.writer.environ_encoding = environ_encoding
             client.writer._encoding_explicit = encoding_explicit
 
         client.connection_made = _patched_connection_made  # type: ignore[method-assign]
@@ -774,84 +786,37 @@ def _get_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("host", action="store", help="hostname")
     parser.add_argument("port", nargs="?", default=23, type=int, help="port number")
-    parser.add_argument("--term", default=os.environ.get("TERM", "unknown"), help="terminal type")
-    parser.add_argument("--loglevel", default="warn", help="log level")
-    parser.add_argument("--logfmt", default=accessories._DEFAULT_LOGFMT, help="log format")
-    parser.add_argument("--logfile", help="filepath")
     parser.add_argument(
-        "--logfile-mode",
-        default="append",
-        choices=["append", "rewrite"],
-        dest="logfile_mode",
-        help="Log file write mode: append (default) or rewrite.",
+        "--always-do",
+        action="append",
+        default=[],
+        metavar="OPT",
+        help="always send DO for this option (comma-separated, named like GMCP"
+        " or numeric like 201, repeatable)",
     )
     parser.add_argument(
-        "--shell", default="telnetlib3.telnet_client_shell", help="module.function_name"
-    )
-    parser.add_argument("--encoding", default="utf8", help="encoding name")
-    parser.add_argument("--speed", default=38400, type=int, help="connection speed")
-    parser.add_argument(
-        "--encoding-errors",
-        default="replace",
-        help="handler for encoding errors",
-        choices=("replace", "ignore", "strict"),
-    )
-
-    parser.add_argument("--force-binary", action="store_true", help="force encoding", default=True)
-    mode_group = parser.add_mutually_exclusive_group()
-    mode_group.add_argument(
-        "--raw-mode",
-        action="store_true",
-        default=False,
-        help="force raw terminal mode (no line buffering, no local echo). "
-        "Correct for BBS and retro systems. Default: auto-detect from "
-        "server negotiation.",
-    )
-    mode_group.add_argument(
-        "--line-mode",
-        action="store_true",
-        default=False,
-        help="force line-buffered input with local echo. Appropriate for "
-        "simple command-line services.",
-    )
-    parser.add_argument(
-        "--connect-minwait", default=0, type=float, help="shell delay for negotiation"
-    )
-    parser.add_argument(
-        "--connect-maxwait", default=4.0, type=float, help="timeout for pending negotiation"
-    )
-    parser.add_argument(
-        "--connect-timeout",
-        default=10,
-        type=float,
-        help="timeout for TCP connection in seconds (default: 10)",
-    )
-    parser.add_argument(
-        "--send-environ",
-        default="TERM,LANG,COLUMNS,LINES,COLORTERM",
-        help="comma-separated environment variables to send (NEW_ENVIRON)",
+        "--always-dont",
+        action="append",
+        default=[],
+        metavar="OPT",
+        help="always send DONT for this option, refusing even natively supported"
+        " options (comma-separated, named or numeric, repeatable)",
     )
     parser.add_argument(
         "--always-will",
         action="append",
         default=[],
         metavar="OPT",
-        help="always send WILL for this option (name like MXP or number, repeatable)",
+        help="always send WILL for this option (comma-separated, named like MXP"
+        " or numeric like 91, repeatable)",
     )
     parser.add_argument(
-        "--always-do",
+        "--always-wont",
         action="append",
         default=[],
         metavar="OPT",
-        help="always send DO for this option (name like GMCP or number, repeatable)",
-    )
-    parser.add_argument(
-        "--ascii-eol",
-        action="store_true",
-        default=False,
-        help="use ASCII CR/LF for line endings instead of encoding-native "
-        "EOL (e.g. ATASCII 0x9B).  Use for BBSes that display retro "
-        "graphics but use standard CR/LF for line breaks.",
+        help="always send WONT for this option, refusing even natively supported"
+        " options (comma-separated, named or numeric, repeatable)",
     )
     parser.add_argument(
         "--ansi-keys",
@@ -862,12 +827,83 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         "BBSes that expect ANSI cursor sequences.",
     )
     parser.add_argument(
+        "--ascii-eol",
+        action="store_true",
+        default=False,
+        help="use ASCII CR/LF for line endings instead of encoding-native "
+        "EOL (e.g. ATASCII 0x9B).  Use for BBSes that display retro "
+        "graphics but use standard CR/LF for line breaks.",
+    )
+    parser.add_argument(
         "--compression",
         action=argparse.BooleanOptionalAction,
         default=None,
         help="MCCP compression: --compression to request, --no-compression to reject, "
         "omit to passively accept (default)",
     )
+    parser.add_argument(
+        "--connect-maxwait", default=4.0, type=float, help="timeout for pending negotiation"
+    )
+    parser.add_argument(
+        "--connect-minwait", default=0, type=float, help="shell delay for negotiation"
+    )
+    parser.add_argument(
+        "--connect-timeout",
+        default=10,
+        type=float,
+        help="timeout for TCP connection in seconds (default: 10)",
+    )
+    parser.add_argument("--encoding", default="utf8", help="encoding name")
+    parser.add_argument(
+        "--encoding-errors",
+        default="replace",
+        help="handler for encoding errors",
+        choices=("replace", "ignore", "strict"),
+    )
+    parser.add_argument("--force-binary", action="store_true", help="force encoding", default=True)
+    parser.add_argument(
+        "--gmcp-modules",
+        default=None,
+        metavar="MODULES",
+        help="comma-separated GMCP module specs to request "
+        '(e.g. "Char 1,Room 1,IRE.Rift 1"). '
+        "When provided, replaces the built-in defaults.",
+    )
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--line-mode",
+        action="store_true",
+        default=False,
+        help="force line-buffered input with local echo. Appropriate for "
+        "simple command-line services.",
+    )
+    mode_group.add_argument(
+        "--raw-mode",
+        action="store_true",
+        default=False,
+        help="force raw terminal mode (no line buffering, no local echo). "
+        "Correct for BBS and retro systems. Default: auto-detect from "
+        "server negotiation.",
+    )
+    parser.add_argument("--logfile", help="filepath")
+    parser.add_argument(
+        "--logfile-mode",
+        default="append",
+        choices=["append", "rewrite"],
+        dest="logfile_mode",
+        help="Log file write mode: append (default) or rewrite.",
+    )
+    parser.add_argument("--logfmt", default=accessories._DEFAULT_LOGFMT, help="log format")
+    parser.add_argument("--loglevel", default="warn", help="log level")
+    parser.add_argument(
+        "--send-environ",
+        default="TERM,LANG,COLUMNS,LINES,COLORTERM",
+        help="comma-separated environment variables to send (NEW_ENVIRON)",
+    )
+    parser.add_argument(
+        "--shell", default="telnetlib3.telnet_client_shell", help="module.function_name"
+    )
+    parser.add_argument("--speed", default=38400, type=int, help="connection speed")
     parser.add_argument(
         "--ssl", action="store_true", default=False, help="connect using TLS (TELNETS)"
     )
@@ -886,14 +922,7 @@ def _get_argument_parser() -> argparse.ArgumentParser:
         "the server identity is not verified, allowing "
         "man-in-the-middle attacks",
     )
-    parser.add_argument(
-        "--gmcp-modules",
-        default=None,
-        metavar="MODULES",
-        help="comma-separated GMCP module specs to request "
-        '(e.g. "Char 1,Room 1,IRE.Rift 1"). '
-        "When provided, replaces the built-in defaults.",
-    )
+    parser.add_argument("--term", default=os.environ.get("TERM", "unknown"), help="terminal type")
     parser.add_argument(
         "--typescript",
         default=None,
@@ -924,6 +953,22 @@ def _parse_option_arg(value: str) -> bytes:
         return option_from_name(value)
     except KeyError:
         return bytes([int(value)])
+
+
+def _parse_option_list(values: List[str]) -> set[bytes]:
+    """
+    Parse a list of option arguments, splitting comma-separated values.
+
+    :param values: List of option strings, each may be comma-separated.
+    :returns: Set of parsed option bytes.
+    """
+    result: set[bytes] = set()
+    for v in values:
+        for item in v.split(","):
+            item = item.strip()
+            if item:
+                result.add(_parse_option_arg(item))
+    return result
 
 
 def _transform_args(args: argparse.Namespace) -> Dict[str, Any]:
@@ -972,8 +1017,10 @@ def _transform_args(args: argparse.Namespace) -> Dict[str, Any]:
         "connect_minwait": args.connect_minwait,
         "connect_timeout": args.connect_timeout or None,
         "send_environ": tuple(v.strip() for v in args.send_environ.split(",") if v.strip()),
-        "always_will": {_parse_option_arg(v) for v in args.always_will},
-        "always_do": {_parse_option_arg(v) for v in args.always_do},
+        "always_will": _parse_option_list(args.always_will),
+        "always_do": _parse_option_list(args.always_do),
+        "always_wont": _parse_option_list(args.always_wont),
+        "always_dont": _parse_option_list(args.always_dont),
         "raw_mode": raw_mode,
         "ascii_eol": args.ascii_eol,
         "ansi_keys": args.ansi_keys,
@@ -1009,27 +1056,56 @@ def _get_fingerprint_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("host", help="remote hostname or IP")
     parser.add_argument("port", nargs="?", default=23, type=int, help="port number")
     parser.add_argument(
-        "--data-dir",
-        default=None,
-        help="directory for fingerprint data (default: $TELNETLIB3_DATA_DIR)",
+        "--always-do",
+        action="append",
+        default=[],
+        metavar="OPT",
+        help="always send DO for this option (comma-separated, named like GMCP"
+        " or numeric like 201, repeatable)",
     )
     parser.add_argument(
-        "--save-json", default=None, metavar="PATH", help="write fingerprint JSON to this path"
+        "--always-dont",
+        action="append",
+        default=[],
+        metavar="OPT",
+        help="always send DONT for this option, refusing even natively supported"
+        " options (comma-separated, named or numeric, repeatable)",
+    )
+    parser.add_argument(
+        "--always-will",
+        action="append",
+        default=[],
+        metavar="OPT",
+        help="always send WILL for this option (comma-separated, named like MXP"
+        " or numeric like 91, repeatable)",
+    )
+    parser.add_argument(
+        "--always-wont",
+        action="append",
+        default=[],
+        metavar="OPT",
+        help="always send WONT for this option, refusing even natively supported"
+        " options (comma-separated, named or numeric, repeatable)",
+    )
+    parser.add_argument(
+        "--banner-max-bytes", default=65536, type=int, help="max bytes per banner read call"
+    )
+    parser.add_argument(
+        "--banner-max-wait", default=8.0, type=float, help="max seconds to wait for banner data"
+    )
+    parser.add_argument(
+        "--banner-quiet-time",
+        default=2.0,
+        type=float,
+        help="seconds of silence before considering banner complete",
     )
     parser.add_argument(
         "--connect-timeout", default=10, type=float, help="TCP connection timeout in seconds"
     )
-    parser.add_argument("--loglevel", default="warn", help="log level")
-    parser.add_argument("--logfmt", default=accessories._DEFAULT_LOGFMT, help="log format")
-    parser.add_argument("--logfile", default=None, help="filepath")
     parser.add_argument(
-        "--silent", action="store_true", help="suppress fingerprint output to stdout"
-    )
-    parser.add_argument(
-        "--set-name",
+        "--data-dir",
         default=None,
-        metavar="NAME",
-        help="store this name for the fingerprint in fingerprint_names.json",
+        help="directory for fingerprint data (default: $TELNETLIB3_DATA_DIR)",
     )
     parser.add_argument(
         "--encoding",
@@ -1038,8 +1114,17 @@ def _get_fingerprint_argument_parser() -> argparse.ArgumentParser:
         dest="stream_encoding",
         help="character encoding of the remote server (e.g. cp037 for EBCDIC)",
     )
+    parser.add_argument("--logfile", default=None, help="filepath")
+    parser.add_argument("--logfmt", default=accessories._DEFAULT_LOGFMT, help="log format")
+    parser.add_argument("--loglevel", default="warn", help="log level")
     parser.add_argument(
-        "--ttype", default="VT100", help="terminal type sent in response to TTYPE requests"
+        "--mssp-wait",
+        default=5.0,
+        type=float,
+        help="max seconds since connect to wait for MSSP data",
+    )
+    parser.add_argument(
+        "--save-json", default=None, metavar="PATH", help="write fingerprint JSON to this path"
     )
     parser.add_argument(
         "--scan-type",
@@ -1055,36 +1140,13 @@ def _get_fingerprint_argument_parser() -> argparse.ArgumentParser:
         help="environment variable to send (repeatable)",
     )
     parser.add_argument(
-        "--always-will",
-        action="append",
-        default=[],
-        metavar="OPT",
-        help="always send WILL for this option (name like MXP or number, repeatable)",
+        "--set-name",
+        default=None,
+        metavar="NAME",
+        help="store this name for the fingerprint in fingerprint_names.json",
     )
     parser.add_argument(
-        "--always-do",
-        action="append",
-        default=[],
-        metavar="OPT",
-        help="always send DO for this option (name like GMCP or number, repeatable)",
-    )
-    parser.add_argument(
-        "--mssp-wait",
-        default=5.0,
-        type=float,
-        help="max seconds since connect to wait for MSSP data",
-    )
-    parser.add_argument(
-        "--banner-quiet-time",
-        default=2.0,
-        type=float,
-        help="seconds of silence before considering banner complete",
-    )
-    parser.add_argument(
-        "--banner-max-wait", default=8.0, type=float, help="max seconds to wait for banner data"
-    )
-    parser.add_argument(
-        "--banner-max-bytes", default=65536, type=int, help="max bytes per banner read call"
+        "--silent", action="store_true", help="suppress fingerprint output to stdout"
     )
     parser.add_argument(
         "--ssl", action="store_true", default=False, help="connect using TLS (TELNETS)"
@@ -1103,6 +1165,9 @@ def _get_fingerprint_argument_parser() -> argparse.ArgumentParser:
         "WARNING: this is insecure -- connections are encrypted but "
         "the server identity is not verified, allowing "
         "man-in-the-middle attacks",
+    )
+    parser.add_argument(
+        "--ttype", default="VT100", help="terminal type sent in response to TTYPE requests"
     )
     return parser
 
@@ -1142,9 +1207,11 @@ async def run_fingerprint_client() -> None:
         banner_max_bytes=args.banner_max_bytes,
     )
 
-    # Parse --always-will/--always-do option names/numbers
-    fp_always_will = {_parse_option_arg(v) for v in args.always_will}
-    fp_always_do = {_parse_option_arg(v) for v in args.always_do}
+    # Parse --always-will/--always-do/--always-wont/--always-dont option names/numbers
+    fp_always_will = _parse_option_list(args.always_will)
+    fp_always_do = _parse_option_list(args.always_do)
+    fp_always_wont = _parse_option_list(args.always_wont)
+    fp_always_dont = _parse_option_list(args.always_dont)
 
     # Parse --send-env KEY=VALUE pairs
     extra_env: Dict[str, str] = {}
@@ -1179,6 +1246,10 @@ async def run_fingerprint_client() -> None:
             mud_opts = {opt for opt, _, _ in fingerprinting.EXTENDED_OPTIONS}
             client.writer.always_will = fp_always_will | mud_opts
             client.writer.always_do = fp_always_do | mud_opts
+            if fp_always_wont:
+                client.writer.always_wont = fp_always_wont
+            if fp_always_dont:
+                client.writer.always_dont = fp_always_dont
 
         def patched_send_env(keys: Sequence[str]) -> Dict[str, Any]:
             result = orig_send_env(keys)
@@ -1202,7 +1273,7 @@ async def run_fingerprint_client() -> None:
         else:
             fp_ssl = ssl_module.create_default_context()
 
-    waiter_closed: asyncio.Future[None] = asyncio.get_event_loop().create_future()
+    waiter_closed: asyncio.Future[None] = asyncio.get_running_loop().create_future()
 
     fp_conn_kwargs: Dict[str, Any] = {
         "host": args.host,

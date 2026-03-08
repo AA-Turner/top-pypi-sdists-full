@@ -1,11 +1,12 @@
 """Write note tool for Basic Memory MCP server."""
 
-from typing import List, Union, Optional
+import textwrap
+from typing import List, Union, Optional, Literal
 
 from loguru import logger
 
-from basic_memory.mcp.async_client import get_client
-from basic_memory.mcp.project_context import get_active_project, add_project_metadata
+from basic_memory.config import ConfigManager
+from basic_memory.mcp.project_context import get_project_client, add_project_metadata
 from basic_memory.mcp.server import mcp
 from fastmcp import Context
 from basic_memory.schemas.base import Entity
@@ -16,24 +17,32 @@ TagType = Union[List[str], str, None]
 
 
 @mcp.tool(
-    description="Create or update a markdown note. Returns a markdown formatted summary of the semantic content.",
+    description="Create a markdown note. If the note already exists, returns an error by default — pass overwrite=True to replace.",
+    annotations={"destructiveHint": True, "idempotentHint": False, "openWorldHint": False},
 )
 async def write_note(
     title: str,
     content: str,
     directory: str,
     project: Optional[str] = None,
+    workspace: Optional[str] = None,
     tags: list[str] | str | None = None,
     note_type: str = "note",
+    metadata: dict | None = None,
+    overwrite: bool | None = None,
+    output_format: Literal["text", "json"] = "text",
     context: Context | None = None,
-) -> str:
+) -> str | dict:
     """Write a markdown note to the knowledge base.
 
-    Creates or updates a markdown note with semantic observations and relations.
+    Creates a markdown note with semantic observations and relations.
+    If the note already exists, returns an error by default. Pass overwrite=True
+    to replace the existing note. For incremental updates, use edit_note instead.
 
     Project Resolution:
-    Server resolves projects in this order: Single Project Mode → project parameter → default project.
-    If project unknown, use list_memory_projects() or recent_activity() first.
+    Server resolves projects using a unified priority chain (same in local and cloud modes):
+    Single Project Mode → project parameter → default project.
+    Uses default project automatically. Specify `project` parameter to target a different project.
 
     The content can include semantic observations and relations using markdown syntax:
 
@@ -67,6 +76,13 @@ async def write_note(
               Note: If passing from external MCP clients, use a string format (e.g. "tag1,tag2,tag3")
         note_type: Type of note to create (stored in frontmatter). Defaults to "note".
                    Can be "guide", "report", "config", "person", etc.
+        metadata: Optional dict of extra frontmatter fields merged into entity_metadata.
+                  Useful for schema notes or any note that needs custom YAML frontmatter
+                  beyond title/type/tags. Nested dicts are supported.
+        overwrite: If True, replace existing note on conflict. If False, error on conflict.
+                   If None (default), consult write_note_overwrite_default config setting.
+        output_format: "text" returns the existing markdown summary. "json" returns
+                       machine-readable metadata.
         context: Optional FastMCP context for performance caching.
 
     Returns:
@@ -79,12 +95,7 @@ async def write_note(
         - Session tracking metadata for project awareness
 
     Examples:
-        # Assistant flow when project is unknown
-        # 1. list_memory_projects() -> Ask user which project
-        # 2. User: "Use my-research"
-        # 3. write_note(...) and remember "my-research" for session
-
-        # Create a simple note
+        # Create a simple note (uses default project automatically)
         write_note(
             project="my-research",
             title="Meeting Notes",
@@ -102,25 +113,44 @@ async def write_note(
             note_type="guide"
         )
 
-        # Update existing note (same title/directory)
+        # Overwrite an existing note explicitly
         write_note(
             project="my-research",
             title="Meeting Notes",
             directory="meetings",
-            content="# Weekly Standup\\n\\n- [decision] Use PostgreSQL instead #tech"
+            content="# Weekly Standup\\n\\n- [decision] Use PostgreSQL instead #tech",
+            overwrite=True
+        )
+
+        # Create a schema note with custom frontmatter via metadata
+        write_note(
+            title="Person",
+            directory="schemas",
+            note_type="schema",
+            content="# Person\\n\\nSchema for person entities.",
+            metadata={
+                "entity": "person",
+                "version": 1,
+                "schema": {"name": "string", "role?": "string"},
+                "settings": {"validation": "warn"},
+            },
         )
 
     Raises:
         HTTPError: If project doesn't exist or is inaccessible
         SecurityError: If directory path attempts path traversal
     """
-    async with get_client() as client:
-        logger.info(
-            f"MCP tool call tool=write_note project={project} directory={directory}, title={title}, tags={tags}"
-        )
+    # Resolve overwrite flag: explicit parameter > config default
+    # Trigger: caller omitted the parameter (None)
+    # Why: lets users set a global default without breaking per-call overrides
+    effective_overwrite = (
+        overwrite if overwrite is not None else ConfigManager().config.write_note_overwrite_default
+    )
 
-        # Get and validate the project (supports optional project parameter)
-        active_project = await get_active_project(client, project, context)
+    async with get_project_client(project, workspace, context) as (client, active_project):
+        logger.info(
+            f"MCP tool call tool=write_note project={active_project.name} directory={directory}, title={title}, tags={tags}"
+        )
 
         # Normalize "/" to empty string for root directory (must happen before validation)
         if directory == "/":
@@ -134,19 +164,35 @@ async def write_note(
                 directory=directory,
                 project=active_project.name,
             )
+            if output_format == "json":
+                return {
+                    "title": title,
+                    "permalink": None,
+                    "file_path": None,
+                    "checksum": None,
+                    "action": "created",
+                    "error": "SECURITY_VALIDATION_ERROR",
+                }
             return f"# Error\n\nDirectory path '{directory}' is not allowed - paths must stay within project boundaries"
 
         # Process tags using the helper function
         tag_list = parse_tags(tags)
-        # Create the entity request
-        metadata = {"tags": tag_list} if tag_list else None
+
+        # Build entity_metadata from optional metadata, then explicit tags on top
+        # Order matters: explicit tags parameter takes precedence over metadata["tags"]
+        entity_metadata = {}
+        if metadata:
+            entity_metadata.update(metadata)
+        if tag_list:
+            entity_metadata["tags"] = tag_list
+
         entity = Entity(
             title=title,
             directory=directory,
-            entity_type=note_type,
+            note_type=note_type,
             content_type="text/markdown",
             content=content,
-            entity_metadata=metadata,
+            entity_metadata=entity_metadata or None,
         )
 
         # Import here to avoid circular import
@@ -168,6 +214,23 @@ async def write_note(
                 or "conflict" in str(e).lower()
                 or "already exists" in str(e).lower()
             ):
+                # Guard: block overwrite unless explicitly enabled
+                if not effective_overwrite:
+                    logger.warning(
+                        f"write_note blocked: note already exists (overwrite not enabled) "
+                        f"permalink={entity.permalink}"
+                    )
+                    if output_format == "json":
+                        return {
+                            "title": title,
+                            "permalink": entity.permalink,
+                            "file_path": None,
+                            "checksum": None,
+                            "action": "conflict",
+                            "error": "NOTE_ALREADY_EXISTS",
+                        }
+                    return _format_overwrite_error(title, entity.permalink, active_project.name)
+
                 logger.debug(f"Entity exists, updating instead permalink={entity.permalink}")
                 try:
                     if not entity.permalink:
@@ -228,5 +291,34 @@ async def write_note(
         logger.info(
             f"MCP tool response: tool=write_note project={active_project.name} action={action} permalink={result.permalink} observations_count={len(result.observations)} relations_count={len(result.relations)} resolved_relations={resolved} unresolved_relations={unresolved}"
         )
+        if output_format == "json":
+            return {
+                "title": result.title,
+                "permalink": result.permalink,
+                "file_path": result.file_path,
+                "checksum": result.checksum,
+                "action": action.lower(),
+            }
+
         summary_result = "\n".join(summary)
         return add_project_metadata(summary_result, active_project.name)
+
+
+def _format_overwrite_error(title: str, permalink: str | None, project_name: str) -> str:
+    """Format a helpful error when write_note is blocked by the overwrite guard."""
+    return textwrap.dedent(f"""\
+        # Error: Note already exists
+
+        **"{title}"** already exists (permalink: `{permalink}`).
+
+        `write_note` does not overwrite by default. Choose an option:
+
+        | Goal | Action |
+        |------|--------|
+        | Append content | `edit_note("{permalink}", operation="append", content="...")` |
+        | Prepend content | `edit_note("{permalink}", operation="prepend", content="...")` |
+        | Replace a section | `edit_note("{permalink}", operation="replace_section", section="...", content="...")` |
+        | Full replace | `write_note("{title}", ..., overwrite=True)` |
+        | Inspect first | `read_note("{permalink}")` |
+
+        Project: {project_name}""")

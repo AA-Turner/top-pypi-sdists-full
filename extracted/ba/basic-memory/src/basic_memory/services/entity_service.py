@@ -1,5 +1,6 @@
 """Service for managing entities in the database."""
 
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple, Union
@@ -18,12 +19,17 @@ from basic_memory.file_utils import (
     dump_frontmatter,
 )
 from basic_memory.markdown import EntityMarkdown
-from basic_memory.markdown.entity_parser import EntityParser, normalize_frontmatter_metadata
+from basic_memory.markdown.entity_parser import (
+    EntityParser,
+    _coerce_to_string,
+    normalize_frontmatter_metadata,
+)
 from basic_memory.markdown.utils import entity_model_from_markdown, schema_to_markdown
 from basic_memory.models import Entity as EntityModel
 from basic_memory.models import Observation, Relation
 from basic_memory.models.knowledge import Entity
 from basic_memory.repository import ObservationRepository, RelationRepository
+from basic_memory.repository.project_repository import ProjectRepository
 from basic_memory.repository.entity_repository import EntityRepository
 from basic_memory.schemas import Entity as EntitySchema
 from basic_memory.schemas.base import Permalink
@@ -41,7 +47,7 @@ from basic_memory.services.exceptions import (
 )
 from basic_memory.services.link_resolver import LinkResolver
 from basic_memory.services.search_service import SearchService
-from basic_memory.utils import generate_permalink
+from basic_memory.utils import build_canonical_permalink
 
 
 class EntityService(BaseService[EntityModel]):
@@ -66,6 +72,10 @@ class EntityService(BaseService[EntityModel]):
         self.link_resolver = link_resolver
         self.search_service = search_service
         self.app_config = app_config
+        self._project_permalink: Optional[str] = None
+        # Callable that returns the current user ID (cloud user_profile_id UUID as string).
+        # Default returns None for local/CLI usage. Cloud overrides this to read from UserContext.
+        self.get_user_id: Callable[[], Optional[str]] = lambda: None
 
     async def detect_file_path_conflicts(
         self, file_path: str, skip_check: bool = False
@@ -159,7 +169,23 @@ class EntityService(BaseService[EntityModel]):
         if markdown and markdown.frontmatter.permalink:
             desired_permalink = markdown.frontmatter.permalink
         else:
-            desired_permalink = generate_permalink(file_path_str)
+            # Trigger: generating a permalink for a new file
+            # Why: canonical permalinks may require project prefix for global addressing
+            # Outcome: include project slug when enabled in config
+            include_project = True
+            if self.app_config:
+                include_project = self.app_config.permalinks_include_project
+
+            project_permalink = None
+            # Trigger: project-prefixed permalinks are enabled
+            # Why: we need the project slug to build the canonical permalink
+            # Outcome: fetch and cache the project's permalink
+            if include_project:
+                project_permalink = await self._get_project_permalink()
+
+            desired_permalink = build_canonical_permalink(
+                project_permalink, file_path_str, include_project=include_project
+            )
 
         # Make unique if needed - enhanced to handle character conflicts
         # Use lightweight existence check instead of loading full entity
@@ -172,15 +198,30 @@ class EntityService(BaseService[EntityModel]):
 
         return permalink
 
+    async def _get_project_permalink(self) -> Optional[str]:
+        """Get and cache the current project's permalink."""
+        if self._project_permalink is not None:
+            return self._project_permalink
+
+        project_id = self.repository.project_id
+        if project_id is None:  # pragma: no cover
+            return None  # pragma: no cover
+
+        project_repository = ProjectRepository(self.repository.session_maker)
+        project = await project_repository.get_by_id(project_id)
+        if project:
+            self._project_permalink = project.permalink
+        return self._project_permalink
+
     def _build_frontmatter_markdown(
-        self, title: str, entity_type: str, permalink: str
+        self, title: str, note_type: str, permalink: str
     ) -> EntityMarkdown:
         """Build a minimal EntityMarkdown object for permalink resolution."""
         from basic_memory.markdown.schemas import EntityFrontmatter
 
         frontmatter_metadata = {
             "title": title,
-            "type": entity_type,
+            "type": note_type,
             "permalink": permalink,
         }
         frontmatter_obj = EntityFrontmatter(metadata=frontmatter_metadata)
@@ -224,18 +265,18 @@ class EntityService(BaseService[EntityModel]):
                 f"file for entity {schema.directory}/{schema.title} already exists: {file_path}"
             )
 
-        # Parse content frontmatter to check for user-specified permalink and entity_type
+        # Parse content frontmatter to check for user-specified permalink and note_type
         content_markdown = None
         if schema.content and has_frontmatter(schema.content):
             content_frontmatter = parse_frontmatter(schema.content)
 
-            # If content has entity_type/type, use it to override the schema entity_type
+            # If content has type, use it to override the schema note_type
             if "type" in content_frontmatter:
-                schema.entity_type = content_frontmatter["type"]
+                schema.note_type = content_frontmatter["type"]
 
             if "permalink" in content_frontmatter:
                 content_markdown = self._build_frontmatter_markdown(
-                    schema.title, schema.entity_type, content_frontmatter["permalink"]
+                    schema.title, schema.note_type, content_frontmatter["permalink"]
                 )
 
         # Get unique permalink (prioritizing content frontmatter) unless disabled
@@ -282,18 +323,18 @@ class EntityService(BaseService[EntityModel]):
             content=existing_content,
         )
 
-        # Parse content frontmatter to check for user-specified permalink and entity_type
+        # Parse content frontmatter to check for user-specified permalink and note_type
         content_markdown = None
         if schema.content and has_frontmatter(schema.content):
             content_frontmatter = parse_frontmatter(schema.content)
 
-            # If content has entity_type/type, use it to override the schema entity_type
+            # If content has type, use it to override the schema note_type
             if "type" in content_frontmatter:
-                schema.entity_type = content_frontmatter["type"]
+                schema.note_type = content_frontmatter["type"]
 
             if "permalink" in content_frontmatter:
                 content_markdown = self._build_frontmatter_markdown(
-                    schema.title, schema.entity_type, content_frontmatter["permalink"]
+                    schema.title, schema.note_type, content_frontmatter["permalink"]
                 )
 
         # Check if we need to update the permalink based on content frontmatter (unless disabled)
@@ -313,12 +354,18 @@ class EntityService(BaseService[EntityModel]):
         # Merge new metadata with existing metadata
         existing_markdown.frontmatter.metadata.update(post.metadata)
 
-        # Ensure the permalink in the metadata is the resolved one
-        if new_permalink != entity.permalink:
-            existing_markdown.frontmatter.metadata["permalink"] = new_permalink
+        # Always ensure the permalink in the metadata is the canonical one from the database.
+        # The schema_to_markdown call above uses EntitySchema.permalink which computes a
+        # non-prefixed permalink (e.g., "test/note"). The metadata merge on the previous line
+        # would overwrite the project-prefixed permalink (e.g., "project/test/note") stored
+        # in the existing file. Setting it unconditionally preserves the correct value.
+        existing_markdown.frontmatter.metadata["permalink"] = new_permalink
 
-        # Create a new post with merged metadata
-        merged_post = frontmatter.Post(post.content, **existing_markdown.frontmatter.metadata)
+        # Create a new post with merged metadata.
+        # Avoid **metadata unpacking — user frontmatter may contain reserved keys
+        # like 'content' or 'handler' that conflict with Post.__init__ (cloud#375).
+        merged_post = frontmatter.Post(post.content)
+        merged_post.metadata.update(existing_markdown.frontmatter.metadata)
 
         # write file
         final_content = dump_frontmatter(merged_post)
@@ -370,11 +417,11 @@ class EntityService(BaseService[EntityModel]):
             content_frontmatter = parse_frontmatter(schema.content)
 
             if "type" in content_frontmatter:
-                schema.entity_type = content_frontmatter["type"]
+                schema.note_type = content_frontmatter["type"]
 
             if "permalink" in content_frontmatter:
                 content_markdown = self._build_frontmatter_markdown(
-                    schema.title, schema.entity_type, content_frontmatter["permalink"]
+                    schema.title, schema.note_type, content_frontmatter["permalink"]
                 )
 
         # --- Permalink Resolution ---
@@ -400,7 +447,7 @@ class EntityService(BaseService[EntityModel]):
         entity_metadata = {k: v for k, v in metadata.items() if v is not None}
         update_data = {
             "title": schema.title,
-            "entity_type": schema.entity_type,
+            "note_type": schema.note_type,
             "file_path": file_path.as_posix(),
             "content_type": schema.content_type,
             "entity_metadata": entity_metadata or None,
@@ -409,7 +456,12 @@ class EntityService(BaseService[EntityModel]):
             "updated_at": datetime.now().astimezone(),
         }
 
+        user_id = self.get_user_id()
+
         if existing:
+            # Preserve existing created_by; only update last_updated_by
+            if user_id is not None:
+                update_data["last_updated_by"] = user_id
             updated = await self.repository.update(existing.id, update_data)
             if not updated:
                 raise ValueError(f"Failed to update entity in database: {existing.id}")
@@ -418,6 +470,9 @@ class EntityService(BaseService[EntityModel]):
         create_data = dict(update_data)
         if external_id is not None:
             create_data["external_id"] = external_id
+        if user_id is not None:
+            create_data["created_by"] = user_id
+            create_data["last_updated_by"] = user_id
         return await self.repository.create(create_data)
 
     async def fast_edit_entity(
@@ -445,19 +500,24 @@ class EntityService(BaseService[EntityModel]):
             "checksum": checksum,
             "updated_at": datetime.now().astimezone(),
         }
+        user_id = self.get_user_id()
+        if user_id is not None:
+            update_data["last_updated_by"] = user_id
+
         content_markdown = None
         if has_frontmatter(new_content):
             content_frontmatter = parse_frontmatter(new_content)
 
+            # Coerce to string — YAML may parse these as lists (cloud#376)
             if "title" in content_frontmatter:
-                update_data["title"] = content_frontmatter["title"]
+                update_data["title"] = _coerce_to_string(content_frontmatter["title"])
             if "type" in content_frontmatter:
-                update_data["entity_type"] = content_frontmatter["type"]
+                update_data["note_type"] = _coerce_to_string(content_frontmatter["type"])
 
             if "permalink" in content_frontmatter:
                 content_markdown = self._build_frontmatter_markdown(
                     update_data.get("title", entity.title),
-                    update_data.get("entity_type", entity.entity_type),
+                    update_data.get("note_type", entity.note_type),
                     content_frontmatter["permalink"],
                 )
 
@@ -575,6 +635,12 @@ class EntityService(BaseService[EntityModel]):
         # Mark as incomplete because we still need to add relations
         model.checksum = None
 
+        # Set user tracking fields for cloud usage
+        user_id = self.get_user_id()
+        if user_id is not None:
+            model.created_by = user_id
+            model.last_updated_by = user_id
+
         # Use UPSERT to handle conflicts cleanly
         try:
             return await self.repository.upsert_entity(model)
@@ -616,6 +682,11 @@ class EntityService(BaseService[EntityModel]):
 
         # checksum value is None == not finished with sync
         db_entity.checksum = None
+
+        # Set last_updated_by for cloud usage (preserve existing created_by)
+        user_id = self.get_user_id()
+        if user_id is not None:
+            db_entity.last_updated_by = user_id
 
         # update entity
         return await self.repository.update(

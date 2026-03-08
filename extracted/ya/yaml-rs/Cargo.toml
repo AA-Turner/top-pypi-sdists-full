@@ -1,6 +1,6 @@
 [package]
 name = "yaml-rs"
-version = "0.0.14"
+version = "0.0.15"
 edition = "2024"
 license = "Unlicense"
 repository = "https://github.com/lava-sh/yaml-rs"
@@ -20,7 +20,6 @@ pyo3 = {
         "generate-import-lib",
     ]
 }
-atoi = "=2.0.0"
 itoa = "=1.0.17"
 num-bigint = "=0.4.6"
 rustc-hash = "=2.1.1"
@@ -38,12 +37,12 @@ simdutf8 = {
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 saphyr = {
     git = "https://github.com/bourumir-wyngs/saphyr",
-    rev = "1dcf7cd1b1d2f6b4087853905a4313478a142eb0",
+    rev = "6cc570b7a6a1690160732fff2d0b584a79c67215",
 }
 saphyr-parser = {
     package = "saphyr-parser-bw",
     git = "https://github.com/bourumir-wyngs/saphyr",
-    rev = "1dcf7cd1b1d2f6b4087853905a4313478a142eb0",
+    rev = "6cc570b7a6a1690160732fff2d0b584a79c67215",
 }
 lexical-core = {
     git = "https://github.com/Alexhuszagh/rust-lexical",

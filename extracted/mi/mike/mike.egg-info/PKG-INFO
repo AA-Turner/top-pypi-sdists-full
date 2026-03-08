@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mike
-Version: 2.1.3
+Version: 2.1.4
 Summary: Manage multiple versions of your MkDocs-powered documentation
 Home-page: https://github.com/jimporter/mike
 Author: Jim Porter
@@ -418,14 +418,13 @@ Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Documentation
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/markdown
 Provides-Extra: dev
 Provides-Extra: test

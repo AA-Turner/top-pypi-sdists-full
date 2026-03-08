@@ -18,8 +18,8 @@ copyright = "2016, Adrian Sampson"
 
 master_doc = "index"
 language = "en"
-version = "2.6"
-release = "2.6.2"
+version = "2.7"
+release = "2.7.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -69,6 +69,11 @@ linkcheck_ignore = [
     r"https?://127\.0\.0\.1",
     r"https://www.musixmatch.com/",  # blocks requests
     r"https://genius.com/",  # blocks requests
+    r"https://sourceforge\.net/",  # blocks requests
+    r"https://[^/]*fanart\.tv/",  # blocks requests
+    r"https://[^/]*fandom\.com/",  # blocks requests
+    r"https://imgur\.com/",  # not accessible from the UK
+    r"https://www.discogs.com/settings/developers",  # requires login
 ]
 
 # Options for HTML output
@@ -98,7 +103,7 @@ man_pages = [
 ]
 
 # Global substitutions that can be used anywhere in the documentation.
-rst_epilog = """
+rst_epilog = r"""
 .. |Album| replace:: :class:`~beets.library.models.Album`
 .. |AlbumInfo| replace:: :class:`beets.autotag.hooks.AlbumInfo`
 .. |BeetsPlugin| replace:: :class:`beets.plugins.BeetsPlugin`
@@ -108,6 +113,7 @@ rst_epilog = """
 .. |Library| replace:: :class:`~beets.library.library.Library`
 .. |Model| replace:: :class:`~beets.dbcore.db.Model`
 .. |TrackInfo| replace:: :class:`beets.autotag.hooks.TrackInfo`
+.. |semicolon_space| replace:: :literal:`; \ `
 """
 
 # -- Options for HTML output -------------------------------------------------

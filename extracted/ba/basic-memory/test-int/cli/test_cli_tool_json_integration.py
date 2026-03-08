@@ -1,4 +1,4 @@
-"""Integration tests for CLI tool --format json output."""
+"""Integration tests for CLI tool JSON output."""
 
 import json
 
@@ -9,8 +9,8 @@ from basic_memory.cli.main import app as cli_app
 runner = CliRunner()
 
 
-def test_write_note_json_format(app, app_config, test_project, config_manager):
-    """Test write-note --format json returns valid JSON with expected keys."""
+def test_write_note_json_output(app, app_config, test_project, config_manager):
+    """write-note returns valid JSON with expected keys."""
     result = runner.invoke(
         cli_app,
         [
@@ -22,8 +22,6 @@ def test_write_note_json_format(app, app_config, test_project, config_manager):
             "test-notes",
             "--content",
             "# Test\n\nThis is test content.",
-            "--format",
-            "json",
         ],
     )
 
@@ -36,12 +34,11 @@ def test_write_note_json_format(app, app_config, test_project, config_manager):
     data = json.loads(result.stdout)
     assert data["title"] == "Integration Test Note"
     assert "permalink" in data
-    assert data["content"] == "# Test\n\nThis is test content."
     assert "file_path" in data
 
 
-def test_read_note_json_format(app, app_config, test_project, config_manager):
-    """Test read-note --format json returns valid JSON with expected keys."""
+def test_read_note_json_output(app, app_config, test_project, config_manager):
+    """read-note returns valid JSON with expected keys."""
     # First, write a note
     write_result = runner.invoke(
         cli_app,
@@ -54,8 +51,6 @@ def test_read_note_json_format(app, app_config, test_project, config_manager):
             "test-notes",
             "--content",
             "# Read Test\n\nContent to read back.",
-            "--format",
-            "json",
         ],
     )
     assert write_result.exit_code == 0
@@ -65,7 +60,7 @@ def test_read_note_json_format(app, app_config, test_project, config_manager):
     # Now read it back
     result = runner.invoke(
         cli_app,
-        ["tool", "read-note", permalink, "--format", "json"],
+        ["tool", "read-note", permalink],
     )
 
     if result.exit_code != 0:
@@ -80,10 +75,43 @@ def test_read_note_json_format(app, app_config, test_project, config_manager):
     assert "file_path" in data
 
 
-def test_recent_activity_json_format(app, app_config, test_project, config_manager, monkeypatch):
-    """Test recent-activity --format json returns valid JSON list."""
-    # _recent_activity_json uses resolve_project_parameter which requires either
-    # default_project_mode=True or BASIC_MEMORY_MCP_PROJECT to resolve a project
+def test_read_note_include_frontmatter(app, app_config, test_project, config_manager):
+    """read-note --include-frontmatter includes frontmatter in output."""
+    write_result = runner.invoke(
+        cli_app,
+        [
+            "tool",
+            "write-note",
+            "--title",
+            "Read Frontmatter Note",
+            "--folder",
+            "test-notes",
+            "--content",
+            "# Read Frontmatter Note\n\nFrontmatter test content.",
+        ],
+    )
+    assert write_result.exit_code == 0
+    write_data = json.loads(write_result.stdout)
+
+    result = runner.invoke(
+        cli_app,
+        [
+            "tool",
+            "read-note",
+            write_data["permalink"],
+            "--include-frontmatter",
+        ],
+    )
+
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["title"] == "Read Frontmatter Note"
+    assert data["permalink"] == write_data["permalink"]
+    assert "content" in data
+
+
+def test_recent_activity_json_output(app, app_config, test_project, config_manager, monkeypatch):
+    """recent-activity returns valid JSON list."""
     monkeypatch.setenv("BASIC_MEMORY_MCP_PROJECT", test_project.name)
 
     # Write a note to ensure there's recent activity
@@ -98,8 +126,6 @@ def test_recent_activity_json_format(app, app_config, test_project, config_manag
             "test-notes",
             "--content",
             "# Activity\n\nTest content for activity.",
-            "--format",
-            "json",
         ],
     )
     assert write_result.exit_code == 0
@@ -107,7 +133,7 @@ def test_recent_activity_json_format(app, app_config, test_project, config_manag
     # Get recent activity
     result = runner.invoke(
         cli_app,
-        ["tool", "recent-activity", "--format", "json"],
+        ["tool", "recent-activity"],
     )
 
     if result.exit_code != 0:

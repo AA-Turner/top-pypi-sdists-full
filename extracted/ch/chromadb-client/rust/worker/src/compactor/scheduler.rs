@@ -6,7 +6,7 @@ use chroma_config::assignment::assignment_policy::AssignmentPolicy;
 use chroma_log::{CollectionInfo, CollectionRecord, Log};
 use chroma_memberlist::memberlist_provider::Memberlist;
 use chroma_sysdb::{DatabaseOrTopology, GetCollectionsOptions, SysDb};
-use chroma_types::{CollectionUuid, DatabaseName, JobId};
+use chroma_types::{CollectionUuid, DatabaseName, JobId, TopologyName};
 use figment::providers::Env;
 use figment::Figment;
 use opentelemetry::metrics::Counter;
@@ -39,9 +39,9 @@ impl SchedulerMetrics {
     }
 }
 
-struct InProgressJob {
-    expires_at: SystemTime,
-    database_name: DatabaseName,
+pub(crate) struct InProgressJob {
+    pub(crate) expires_at: SystemTime,
+    pub(crate) database_name: DatabaseName,
 }
 
 impl InProgressJob {
@@ -69,7 +69,7 @@ pub(crate) struct Scheduler {
     assignment_policy: Box<dyn AssignmentPolicy>,
     oneoff_collections: HashSet<CollectionUuid>,
     disabled_collections: HashSet<CollectionUuid>,
-    deleted_collections: HashSet<CollectionUuid>,
+    deleted_collections: HashMap<CollectionUuid, Option<TopologyName>>,
     collections_needing_repair: HashMap<CollectionUuid, (DatabaseName, i64)>,
     in_progress_jobs: HashMap<JobId, InProgressJob>,
     job_expiry_seconds: u64,
@@ -108,7 +108,7 @@ impl Scheduler {
             assignment_policy,
             oneoff_collections: HashSet::new(),
             disabled_collections,
-            deleted_collections: HashSet::new(),
+            deleted_collections: HashMap::new(),
             collections_needing_repair: HashMap::new(),
             in_progress_jobs: HashMap::new(),
             job_expiry_seconds,
@@ -125,7 +125,9 @@ impl Scheduler {
         self.oneoff_collections.iter().cloned().collect()
     }
 
-    pub(crate) fn drain_deleted_collections(&mut self) -> Vec<CollectionUuid> {
+    pub(crate) fn drain_deleted_collections(
+        &mut self,
+    ) -> Vec<(CollectionUuid, Option<TopologyName>)> {
         self.deleted_collections.drain().collect()
     }
 
@@ -255,8 +257,8 @@ impl Scheduler {
                     }
                 }
             }
-            for (id, _) in info_map {
-                self.deleted_collections.insert(id);
+            for (id, info) in info_map {
+                self.deleted_collections.insert(id, info.topology_name);
             }
             for (collection, info) in with_infos.into_iter() {
                 // offset in log is the first offset in the log that has not been compacted. Note that
@@ -505,12 +507,23 @@ impl Scheduler {
         self.job_queue.iter()
     }
 
+    pub(crate) fn get_in_progress_jobs(&self) -> Vec<(JobId, &InProgressJob)> {
+        self.in_progress_jobs
+            .iter()
+            .map(|(id, job)| (*id, job))
+            .collect()
+    }
+
     pub(crate) fn set_memberlist(&mut self, memberlist: Memberlist) {
         self.memberlist = Some(memberlist);
     }
 
     pub(crate) fn has_memberlist(&self) -> bool {
         self.memberlist.is_some()
+    }
+
+    pub(crate) fn get_assignment_policy(&mut self) -> &mut Box<dyn AssignmentPolicy> {
+        &mut self.assignment_policy
     }
 }
 
@@ -937,7 +950,7 @@ mod tests {
         let deleted = f.scheduler.drain_deleted_collections();
         assert_eq!(deleted.len(), 1, "collection_2 should be marked as deleted");
         assert_eq!(
-            deleted[0], f.collection_uuid_2,
+            deleted[0].0, f.collection_uuid_2,
             "the deleted collection should be collection_2"
         );
     }

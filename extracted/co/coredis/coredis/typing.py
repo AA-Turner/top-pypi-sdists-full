@@ -27,6 +27,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AnyStr,
+    AsyncContextManager,
     ClassVar,
     Concatenate,
     Final,
@@ -36,12 +37,12 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeAlias,
-    TypedDict,
     TypeGuard,
     TypeVar,
     cast,
     get_origin,
     get_type_hints,
+    overload,
     runtime_checkable,
 )
 
@@ -63,6 +64,7 @@ from beartype.door import is_bearable, is_subhint
 from typing_extensions import (
     NotRequired,
     Self,
+    TypedDict,
     TypeIs,
     Unpack,
 )
@@ -101,22 +103,6 @@ class Node(TypedDict):
 
     host: str
     port: int
-
-
-@dataclasses.dataclass(unsafe_hash=True)
-class ManagedNode:
-    """
-    Represents a cluster node (primary or replica) in a redis cluster
-    """
-
-    host: str
-    port: int
-    server_type: Literal["primary", "replica"] | None = None
-    node_id: str | None = None
-
-    @property
-    def name(self) -> str:
-        return f"{self.host}:{self.port}"
 
 
 class RedisCommandP(Protocol):
@@ -549,7 +535,35 @@ RedisValueT: TypeAlias = str | bytes | int | float
 #:     length({"1": 2})            # invalid
 #:     length("123")               # invalid
 #:     length(b"123")              # invalid
-Parameters = list[T_co] | Set[T_co] | tuple[T_co, ...] | ValuesView[T_co] | Iterator[T_co]
+
+
+@runtime_checkable
+class SequenceNotString(Protocol[T_co]):
+    """
+    Allow sequences *except* str | bytes.
+
+    Use this to disallow passing a single str | bytes instance where a sequence of
+    strings is expected.
+    """
+
+    def __contains__(self, value: object, /) -> bool: ...
+
+    @overload
+    def __getitem__(self, index: int, /) -> T_co: ...
+
+    @overload
+    def __getitem__(self, index: slice, /) -> Sequence[T_co]: ...
+
+    def __len__(self) -> int: ...
+
+    def __iter__(self) -> Iterator[T_co]: ...
+
+    def __reversed__(self, /) -> Iterator[T_co]: ...
+
+
+Parameters = (
+    SequenceNotString[T_co] | Set[T_co] | tuple[T_co, ...] | ValuesView[T_co] | Iterator[T_co]
+)
 
 if sys.version_info >= (3, 12):
     from ._py_312_typing import JsonType, ResponsePrimitive, ResponseType
@@ -560,6 +574,7 @@ else:
 __all__ = [
     "Serializable",
     "AnyStr",
+    "AsyncContextManager",
     "AsyncIterator",
     "AsyncGenerator",
     "Awaitable",

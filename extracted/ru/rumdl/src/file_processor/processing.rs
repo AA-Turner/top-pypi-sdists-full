@@ -16,6 +16,18 @@ use super::embedded::{
     should_lint_embedded_markdown,
 };
 
+/// Result of processing a file through lint and optional fix passes.
+pub struct FileProcessResult {
+    pub has_issues: bool,
+    pub issues_found: usize,
+    pub issues_fixed: usize,
+    pub fixable_issues: usize,
+    /// In fix mode, contains only remaining (unfixed) warnings.
+    /// In check mode, contains all warnings.
+    pub warnings: Vec<rumdl_lib::rule::LintWarning>,
+    pub file_index: rumdl_lib::workspace_index::FileIndex,
+}
+
 pub fn is_rule_actually_fixable(config: &rumdl_config::Config, rule_name: &str) -> bool {
     // Check unfixable list
     if config
@@ -75,14 +87,7 @@ pub fn process_file_with_formatter(
     project_root: Option<&Path>,
     show_full_path: bool,
     cache_hashes: Option<&CacheHashes>,
-) -> (
-    bool,
-    usize,
-    usize,
-    usize,
-    Vec<rumdl_lib::rule::LintWarning>,
-    rumdl_lib::workspace_index::FileIndex,
-) {
+) -> FileProcessResult {
     let formatter = output_format.create_formatter();
 
     // Convert to display path (relative) unless --show-full-path is set
@@ -111,7 +116,14 @@ pub fn process_file_with_formatter(
 
     // In check mode with no warnings, return early
     if total_warnings == 0 && fix_mode == crate::FixMode::Check && !diff {
-        return (false, 0, 0, 0, Vec::new(), file_index);
+        return FileProcessResult {
+            has_issues: false,
+            issues_found: 0,
+            issues_fixed: 0,
+            fixable_issues: 0,
+            warnings: Vec::new(),
+            file_index,
+        };
     }
 
     // In fix mode with no warnings to fix, check if there are embedded markdown blocks to format
@@ -127,7 +139,14 @@ pub fn process_file_with_formatter(
         let has_code_block_tools = config.code_block_tools.enabled;
 
         if !has_embedded && !has_code_block_tools {
-            return (false, 0, 0, 0, Vec::new(), file_index);
+            return FileProcessResult {
+                has_issues: false,
+                issues_found: 0,
+                issues_fixed: 0,
+                fixable_issues: 0,
+                warnings: Vec::new(),
+                file_index,
+            };
         }
     }
 
@@ -229,14 +248,14 @@ pub fn process_file_with_formatter(
         }
 
         // Don't actually write the file in diff mode, but report how many would be fixed
-        return (
-            total_warnings > 0 || warnings_fixed > 0,
-            total_warnings,
-            warnings_fixed,
-            fixable_warnings,
-            all_warnings,
+        return FileProcessResult {
+            has_issues: total_warnings > 0 || warnings_fixed > 0,
+            issues_found: total_warnings,
+            issues_fixed: warnings_fixed,
+            fixable_issues: fixable_warnings,
+            warnings: all_warnings,
             file_index,
-        );
+        };
     } else if fix_mode != crate::FixMode::Check {
         // Apply fixes using Fix Coordinator
         warnings_fixed = apply_fixes_coordinated(
@@ -308,7 +327,14 @@ pub fn process_file_with_formatter(
         // In this case, return success (no issues) without re-linting, since re-lint
         // doesn't apply per-file-ignores or inline config that the original lint did.
         if total_warnings == 0 {
-            return (false, 0, warnings_fixed, 0, Vec::new(), file_index);
+            return FileProcessResult {
+                has_issues: false,
+                issues_found: 0,
+                issues_fixed: warnings_fixed,
+                fixable_issues: 0,
+                warnings: Vec::new(),
+                file_index,
+            };
         }
 
         // Re-lint the fixed content to see which warnings remain
@@ -349,73 +375,98 @@ pub fn process_file_with_formatter(
             }
         }
 
-        // In fix mode, show warnings with [fixed] for issues that were fixed
-        if !silent {
-            // Create a custom formatter that shows [fixed] instead of [*]
-            let mut output = String::new();
-            for warning in &all_warnings {
+        // Compute per-warning fixed status by comparing pre-fix warnings
+        // against post-fix remaining warnings
+        let fixed_status: Vec<bool> = all_warnings
+            .iter()
+            .map(|warning| {
                 let rule_name = warning.rule_name.as_deref().unwrap_or("unknown");
-
-                // Check if the rule is CLI-fixable (config + rule capability)
                 let is_fixable = is_rule_cli_fixable(rules, config, rule_name);
-
-                let was_fixed = warning.fix.is_some()
+                warning.fix.is_some()
                     && is_fixable
                     && !remaining_warnings.iter().any(|w| {
-                        w.line == warning.line && w.column == warning.column && w.rule_name == warning.rule_name
-                    });
+                        w.line == warning.line
+                            && w.column == warning.column
+                            && w.rule_name == warning.rule_name
+                            && w.message == warning.message
+                    })
+            })
+            .collect();
 
-                // Show [fixed] only for issues that were actually fixed, nothing otherwise
-                let fix_indicator = if was_fixed {
-                    " [fixed]".green().to_string()
-                } else {
-                    String::new()
-                };
+        // Show fix results in streaming output
+        if !silent {
+            use rumdl_lib::output::OutputFormat;
+            match output_format {
+                // Human-readable text formats: show all warnings with [fixed] labels
+                OutputFormat::Text | OutputFormat::Full => {
+                    let mut output = String::new();
+                    for (warning, &was_fixed) in all_warnings.iter().zip(&fixed_status) {
+                        let rule_name = warning.rule_name.as_deref().unwrap_or("unknown");
 
-                // Format: file:line:column: [rule] message [fixed/*/]
-                // Use colors similar to TextFormatter
-                let line = format!(
-                    "{}:{}:{}: {} {}{}",
-                    display_path.blue().underline(),
-                    warning.line.to_string().cyan(),
-                    warning.column.to_string().cyan(),
-                    format!("[{rule_name:5}]").yellow(),
-                    warning.message,
-                    fix_indicator
-                );
+                        let fix_indicator = if was_fixed {
+                            " [fixed]".green().to_string()
+                        } else {
+                            String::new()
+                        };
 
-                output.push_str(&line);
-                output.push('\n');
-            }
+                        let line = format!(
+                            "{}:{}:{}: {} {}{}",
+                            display_path.blue().underline(),
+                            warning.line.to_string().cyan(),
+                            warning.column.to_string().cyan(),
+                            format!("[{rule_name:5}]").yellow(),
+                            warning.message,
+                            fix_indicator
+                        );
 
-            if !output.is_empty() {
-                output.pop(); // Remove trailing newline
-                output_writer.writeln(&output).unwrap_or_else(|e| {
-                    eprintln!("Error writing output: {e}");
-                });
+                        output.push_str(&line);
+                        output.push('\n');
+                    }
+
+                    if !output.is_empty() {
+                        output.pop(); // Remove trailing newline
+                        output_writer.writeln(&output).unwrap_or_else(|e| {
+                            eprintln!("Error writing output: {e}");
+                        });
+                    }
+                }
+                // Batch formats are handled by check_runner (silent=true suppresses this path)
+                OutputFormat::Json | OutputFormat::GitLab | OutputFormat::Sarif | OutputFormat::Junit => {}
+                // Other streaming formats: use their formatter with remaining-only warnings
+                _ => {
+                    if !remaining_warnings.is_empty() {
+                        let formatted =
+                            formatter.format_warnings_with_content(&remaining_warnings, &display_path, &content);
+                        if !formatted.is_empty() {
+                            output_writer.writeln(&formatted).unwrap_or_else(|e| {
+                                eprintln!("Error writing output: {e}");
+                            });
+                        }
+                    }
+                }
             }
         }
 
-        // Return false (no issues) if no warnings remain after fixing, true otherwise
-        // This follows Ruff's convention: exit 0 if all violations are fixed
-        return (
-            !remaining_warnings.is_empty(),
-            total_warnings,
-            warnings_fixed,
-            fixable_warnings,
-            all_warnings,
+        // Return remaining warnings for batch format collection
+        // Exit 0 if all violations are fixed (Ruff convention)
+        return FileProcessResult {
+            has_issues: !remaining_warnings.is_empty(),
+            issues_found: total_warnings,
+            issues_fixed: warnings_fixed,
+            fixable_issues: fixable_warnings,
+            warnings: remaining_warnings,
             file_index,
-        );
+        };
     }
 
-    (
-        true,
-        total_warnings,
-        warnings_fixed,
-        fixable_warnings,
-        all_warnings,
+    FileProcessResult {
+        has_issues: true,
+        issues_found: total_warnings,
+        issues_fixed: warnings_fixed,
+        fixable_issues: fixable_warnings,
+        warnings: all_warnings,
         file_index,
-    )
+    }
 }
 
 /// Result type for file processing that includes index data for cross-file analysis

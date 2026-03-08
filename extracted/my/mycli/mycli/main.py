@@ -9,6 +9,7 @@ import os
 import random
 import re
 import shutil
+import subprocess
 import sys
 import threading
 import traceback
@@ -34,7 +35,7 @@ from configobj import ConfigObj
 import keyring
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.application.current import get_app
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, ThreadedAutoSuggest
 from prompt_toolkit.completion import Completion, DynamicCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.enums import DEFAULT_BUFFER, EditingMode
@@ -79,6 +80,7 @@ from mycli.packages.special.favoritequeries import FavoriteQueries
 from mycli.packages.special.main import ArgType
 from mycli.packages.special.utils import format_uptime, get_ssl_version, get_uptime, get_warning_count
 from mycli.packages.sqlresult import SQLResult
+from mycli.packages.string_utils import sanitize_terminal_title
 from mycli.packages.tabular_output import sql_format
 from mycli.packages.toolkit.history import FileHistoryWithTimestamp
 from mycli.sqlcompleter import SQLCompleter
@@ -100,6 +102,7 @@ DEFAULT_WIDTH = 80
 DEFAULT_HEIGHT = 25
 MIN_COMPLETION_TRIGGER = 1
 MAX_MULTILINE_BATCH_STATEMENT = 5000
+EMPTY_PASSWORD_FLAG_SENTINEL = -1
 
 
 @Condition
@@ -129,6 +132,23 @@ def complete_while_typing_filter() -> bool:
         # characters, costing performance.  This still works within a backtick!  So
         # long as there are three trailing non-punctuation characters.
         return not bool(re.search(r'[\s!-/:-@\[-^\{-~]', last_word))
+
+
+class IntOrStringClickParamType(click.ParamType):
+    name = 'string'  # display as STRING in helpdoc
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, int):
+            return value
+        elif isinstance(value, str):
+            return value
+        elif value is None:
+            return value
+        else:
+            self.fail('Not a valid password string', param, ctx)
+
+
+INT_OR_STRING_CLICK_TYPE = IntOrStringClickParamType()
 
 
 class MyCli:
@@ -198,6 +218,8 @@ class MyCli:
         self.config_without_user_options = read_config_files(config_files, ignore_user_options=True)
         self.multi_line = c["main"].as_bool("multi_line")
         self.key_bindings = c["main"]["key_bindings"]
+        self.emacs_ttimeoutlen = c['keys'].as_float('emacs_ttimeoutlen')
+        self.vi_ttimeoutlen = c['keys'].as_float('vi_ttimeoutlen')
         special.set_timing_enabled(c["main"].as_bool("timing"))
         special.set_show_favorite_query(c["main"].as_bool("show_favorite_query"))
         self.beep_after_seconds = float(c["main"]["beep_after_seconds"] or 0)
@@ -306,6 +328,10 @@ class MyCli:
         self.prompt_lines = 0
         self.multiline_continuation_char = c["main"]["prompt_continuation"]
         self.toolbar_format = toolbar_format or c['main']['toolbar']
+        self.terminal_tab_title_format = c['main']['terminal_tab_title']
+        self.terminal_window_title_format = c['main']['terminal_window_title']
+        self.multiplex_window_title_format = c['main']['multiplex_window_title']
+        self.multiplex_pane_title_format = c['main']['multiplex_pane_title']
         self.prompt_app = None
         self.destructive_keywords = [
             keyword for keyword in c["main"].get("destructive_keywords", "DROP SHUTDOWN DELETE TRUNCATE ALTER UPDATE").split(' ') if keyword
@@ -426,6 +452,8 @@ class MyCli:
         else:
             self.sqlexecute.change_db(arg)
             msg = f'You are now connected to database "{self.sqlexecute.dbname}" as user "{self.sqlexecute.user}"'
+
+        self.set_all_external_titles()
 
         yield SQLResult(status=msg)
 
@@ -553,7 +581,7 @@ class MyCli:
         self,
         database: str | None = "",
         user: str | None = "",
-        passwd: str | None = None,
+        passwd: str | int | None = None,
         host: str | None = "",
         port: str | int | None = "",
         socket: str | None = "",
@@ -612,7 +640,7 @@ class MyCli:
                     or guess_socket_location()
                 )
 
-        passwd = passwd if isinstance(passwd, str) else cnf["password"]
+        passwd = passwd if isinstance(passwd, (str, int)) else cnf["password"]
 
         # default_character_set doesn't check in self.config_without_package_defaults, because the
         # option already existed before the my.cnf deprecation.  For the same reason,
@@ -679,17 +707,22 @@ class MyCli:
         # 5. cnf (.my.cnf / etc)
         # 6. keyring
 
-        keychain_identifier = f'{user}@{host}:{int_port}:{socket}'
-        keychain_domain = 'mycli.net'
-        keychain_retrieved = False
+        keyring_identifier = f'{user}@{host}:{"" if socket else int_port}:{socket or ""}'
+        keyring_domain = 'mycli.net'
+        keyring_retrieved_cleanly = False
 
         if passwd is None and use_keyring and not reset_keyring:
-            passwd = keyring.get_password(keychain_domain, keychain_identifier)
-            keychain_retrieved = True
+            passwd = keyring.get_password(keyring_domain, keyring_identifier)
+            if passwd is not None:
+                keyring_retrieved_cleanly = True
 
         # prompt for password if requested by user
-        if passwd == "MYCLI_ASK_PASSWORD":
+        if passwd == EMPTY_PASSWORD_FLAG_SENTINEL:
             passwd = click.prompt(f"Enter password for {user}", hide_input=True, show_default=False, default='', type=str, err=True)
+            keyring_retrieved_cleanly = False
+
+        # should not fail, but will help the typechecker
+        assert not isinstance(passwd, int)
 
         connection_info: dict[Any, Any] = {
             "database": database,
@@ -710,21 +743,27 @@ class MyCli:
             "unbuffered": unbuffered,
         }
 
-        def _update_keyring(password: str | None):
+        def _update_keyring(password: str | None, keyring_retrieved_cleanly: bool):
             if not password:
                 return
-            if reset_keyring or (use_keyring and not keychain_retrieved):
+            if reset_keyring or (use_keyring and not keyring_retrieved_cleanly):
                 try:
-                    saved_pw = keyring.get_password(keychain_domain, keychain_identifier)
+                    saved_pw = keyring.get_password(keyring_domain, keyring_identifier)
                     if password != saved_pw or reset_keyring:
-                        keyring.set_password(keychain_domain, keychain_identifier, password)
-                        click.secho('Password saved to the system keyring', err=True)
+                        keyring.set_password(keyring_domain, keyring_identifier, password)
+                        click.secho(f'Password saved to the system keyring at {keyring_domain}/{keyring_identifier}', err=True)
                 except Exception as e:
                     click.secho(f'Password not saved to the system keyring: {e}', err=True, fg='red')
 
-        def _connect(retry_ssl: bool = False, retry_password: bool = False) -> None:
+        def _connect(
+            retry_ssl: bool = False,
+            retry_password: bool = False,
+            keyring_save_eligible: bool = True,
+            keyring_retrieved_cleanly: bool = False,
+        ) -> None:
             try:
-                _update_keyring(connection_info["password"])
+                if keyring_save_eligible:
+                    _update_keyring(connection_info["password"], keyring_retrieved_cleanly=keyring_retrieved_cleanly)
                 self.sqlexecute = SQLExecute(**connection_info)
             except pymysql.OperationalError as e1:
                 if e1.args[0] == HANDSHAKE_ERROR and ssl is not None and ssl.get("mode", None) == "auto":
@@ -733,7 +772,9 @@ class MyCli:
                         raise e1
                     # disable SSL and try to connect again
                     connection_info["ssl"] = None
-                    _connect(retry_ssl=True)
+                    _connect(
+                        retry_ssl=True, keyring_retrieved_cleanly=keyring_retrieved_cleanly, keyring_save_eligible=keyring_save_eligible
+                    )
                 elif e1.args[0] == ACCESS_DENIED_ERROR and connection_info["password"] is None:
                     # if we already tried and failed to connect with a new password, raise the error
                     if retry_password:
@@ -743,7 +784,12 @@ class MyCli:
                         f"Enter password for {user}", hide_input=True, show_default=False, default='', type=str, err=True
                     )
                     connection_info["password"] = new_password
-                    _connect(retry_password=True)
+                    keyring_retrieved_cleanly = False
+                    _connect(
+                        retry_password=True,
+                        keyring_retrieved_cleanly=keyring_retrieved_cleanly,
+                        keyring_save_eligible=keyring_save_eligible,
+                    )
                 elif e1.args[0] == CR_SERVER_LOST:
                     self.echo(
                         (
@@ -765,7 +811,7 @@ class MyCli:
                     socket_owner = '<unknown>'
                 self.echo(f"Connecting to socket {socket}, owned by user {socket_owner}", err=True)
                 try:
-                    _connect()
+                    _connect(keyring_retrieved_cleanly=keyring_retrieved_cleanly)
                 except pymysql.OperationalError as e:
                     # These are "Can't open socket" and 2x "Can't connect"
                     if [code for code in (2001, 2002, 2003) if code == e.args[0]]:
@@ -780,12 +826,14 @@ class MyCli:
                         socket = ""
                         host = "localhost"
                         port = 3306
-                        _connect()
+                        # todo should reload the keyring identifier here instead of invalidating
+                        _connect(keyring_save_eligible=False)
                     else:
                         raise e
             else:
                 host = host or "localhost"
                 port = port or 3306
+                # could try loading the keyring again here instead of assuming nothing important changed
 
                 # Bad ports give particularly daft error messages
                 try:
@@ -794,7 +842,7 @@ class MyCli:
                     self.echo(f"Error: Invalid port number: '{port}'.", err=True, fg="red")
                     sys.exit(1)
 
-                _connect()
+                _connect(keyring_retrieved_cleanly=keyring_retrieved_cleanly)
         except Exception as e:  # Connecting to a database could fail.
             self.logger.debug("Database connection failed: %r.", e)
             self.logger.error("traceback: %r", traceback.format_exc())
@@ -1210,14 +1258,13 @@ class MyCli:
             except KeyboardInterrupt:
                 # get last connection id
                 connection_id_to_kill = sqlexecute.connection_id or 0
-                # some mysql compatible databases may not implemente connection_id()
+                # some mysql-compatible databases may not implement connection_id()
                 if connection_id_to_kill > 0:
                     logger.debug("connection id to kill: %r", connection_id_to_kill)
-                    # Restart connection to the database
-                    sqlexecute.connect()
                     try:
-                        for _preamble, _cur, _headers, status in sqlexecute.run(f"kill {connection_id_to_kill}"):
-                            status_str = str(status).lower()
+                        sqlexecute.connect()
+                        for kill_result in sqlexecute.run(f"kill {connection_id_to_kill}"):
+                            status_str = str(kill_result.status_plain).lower()
                             if status_str.find("ok") > -1:
                                 logger.debug("cancelled query, connection id: %r, sql: %r", connection_id_to_kill, text)
                                 self.echo(f"Cancelled query id: {connection_id_to_kill}", err=True, fg="blue")
@@ -1228,8 +1275,8 @@ class MyCli:
                                     text,
                                 )
                                 self.echo(f"Failed to confirm query cancellation, id: {connection_id_to_kill}", err=True, fg="red")
-                    except Exception as e:
-                        self.echo(f"Encountered error while cancelling query: {e}", err=True, fg="red")
+                    except Exception as e2:
+                        self.echo(f"Encountered error while cancelling query: {e2}", err=True, fg="red")
                 else:
                     logger.debug("Did not get a connection id, skip cancelling query")
                     self.echo("Did not get a connection id, skip cancelling query", err=True, fg="red")
@@ -1265,11 +1312,15 @@ class MyCli:
             query = Query(text, successful, mutating)
             self.query_history.append(query)
 
-        get_toolbar_tokens = create_toolbar_tokens_func(
-            self,
-            show_initial_toolbar_help,
-            self.toolbar_format,
-        )
+        if self.toolbar_format.lower() == 'none':
+            get_toolbar_tokens = None
+        else:
+            get_toolbar_tokens = create_toolbar_tokens_func(
+                self,
+                show_initial_toolbar_help,
+                self.toolbar_format,
+            )
+
         if self.wider_completion_menu:
             complete_style = CompleteStyle.MULTI_COLUMN
         else:
@@ -1297,7 +1348,7 @@ class MyCli:
                 completer=DynamicCompleter(lambda: self.completer),
                 complete_in_thread=True,
                 history=history,
-                auto_suggest=AutoSuggestFromHistory(),
+                auto_suggest=ThreadedAutoSuggest(AutoSuggestFromHistory()),
                 complete_while_typing=complete_while_typing_filter,
                 multiline=cli_is_multiline(self),
                 # why not self.toolkit_style here?
@@ -1310,6 +1361,13 @@ class MyCli:
                 editing_mode=editing_mode,
                 search_ignore_case=True,
             )
+
+            if self.key_bindings == 'vi':
+                self.prompt_app.app.ttimeoutlen = self.vi_ttimeoutlen
+            else:
+                self.prompt_app.app.ttimeoutlen = self.emacs_ttimeoutlen
+
+        self.set_all_external_titles()
 
         try:
             while True:
@@ -1403,9 +1461,11 @@ class MyCli:
         """Get the output margin (number of rows for the prompt, footer and
         timing message."""
         if not self.prompt_lines:
-            # self.prompt_app.app.render_counter failed in the test suite
-            app = get_app()
-            self.prompt_lines = self.get_prompt(self.prompt_format, app.render_counter).count('\n') + 1
+            if self.prompt_app and self.prompt_app.app:
+                render_counter = self.prompt_app.app.render_counter
+            else:
+                render_counter = 0
+            self.prompt_lines = self.get_prompt(self.prompt_format, render_counter).count('\n') + 1
         margin = self.get_reserved_space() + self.prompt_lines
         if special.is_timing_enabled():
             margin += 1
@@ -1542,11 +1602,74 @@ class MyCli:
         with self._completer_lock:
             return self.completer.get_completions(Document(text=text, cursor_position=cursor_position), None)
 
+    def set_all_external_titles(self) -> None:
+        self.set_external_terminal_tab_title()
+        self.set_external_terminal_window_title()
+        self.set_external_multiplex_window_title()
+        self.set_external_multiplex_pane_title()
+
+    def set_external_terminal_tab_title(self) -> None:
+        if not self.terminal_tab_title_format:
+            return
+        if not self.prompt_app:
+            return
+        if not sys.stderr.isatty():
+            return
+        title = sanitize_terminal_title(self.get_prompt(self.terminal_tab_title_format, self.prompt_app.app.render_counter))
+        print(f'\x1b]1;{title}\a', file=sys.stderr, end='')
+        sys.stderr.flush()
+
+    def set_external_terminal_window_title(self) -> None:
+        if not self.terminal_window_title_format:
+            return
+        if not self.prompt_app:
+            return
+        if not sys.stderr.isatty():
+            return
+        title = sanitize_terminal_title(self.get_prompt(self.terminal_window_title_format, self.prompt_app.app.render_counter))
+        print(f'\x1b]2;{title}\a', file=sys.stderr, end='')
+        sys.stderr.flush()
+
+    def set_external_multiplex_window_title(self) -> None:
+        if not self.multiplex_window_title_format:
+            return
+        if not os.getenv('TMUX'):
+            return
+        if not self.prompt_app:
+            return
+        title = sanitize_terminal_title(self.get_prompt(self.multiplex_window_title_format, self.prompt_app.app.render_counter))
+        try:
+            subprocess.run(
+                ['tmux', 'rename-window', title],
+                check=False,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            pass
+
+    def set_external_multiplex_pane_title(self) -> None:
+        if not self.multiplex_pane_title_format:
+            return
+        if not os.getenv('TMUX'):
+            return
+        if not self.prompt_app:
+            return
+        if not sys.stderr.isatty():
+            return
+        title = sanitize_terminal_title(self.get_prompt(self.multiplex_pane_title_format, self.prompt_app.app.render_counter))
+        print(f'\x1b]2;{title}\x1b\\', file=sys.stderr, end='')
+        sys.stderr.flush()
+
     def get_custom_toolbar(self, toolbar_format: str) -> ANSI:
-        if self.prompt_app and self.prompt_app.app.current_buffer.text:
+        if not self.prompt_app:
+            return ANSI('')
+        if not self.prompt_app.app:
+            return ANSI('')
+        if self.prompt_app.app.current_buffer.text:
             return self.last_custom_toolbar_message
-        app = get_app()
-        toolbar = self.get_prompt(toolbar_format, app.render_counter)
+        toolbar = self.get_prompt(toolbar_format, self.prompt_app.app.render_counter)
         toolbar = toolbar.replace("\\x1b", "\x1b")
         self.last_custom_toolbar_message = ANSI(toolbar)
         return self.last_custom_toolbar_message
@@ -1567,9 +1690,13 @@ class MyCli:
             prompt_host = sqlexecute.host
         else:
             prompt_host = "localhost"
+        short_prompt_host, _, _ = prompt_host.partition('.')
+        if re.match(r'^[\d\.]+$', short_prompt_host):
+            short_prompt_host = prompt_host
         now = datetime.now()
         string = string.replace("\\u", sqlexecute.user or "(none)")
         string = string.replace("\\h", prompt_host or "(none)")
+        string = string.replace("\\H", short_prompt_host or "(none)")
         string = string.replace("\\d", sqlexecute.dbname or "(none)")
         string = string.replace("\\t", sqlexecute.server_info.species.name)
         string = string.replace("\\n", "\n")
@@ -1780,9 +1907,9 @@ class MyCli:
     "--password",
     "password",
     is_flag=False,
-    flag_value="MYCLI_ASK_PASSWORD",
-    type=str,
-    help="Prompt for (or enter in cleartext) password to connect to the database.",
+    flag_value=EMPTY_PASSWORD_FLAG_SENTINEL,
+    type=INT_OR_STRING_CLICK_TYPE,
+    help="Prompt for (or pass in cleartext) the password to connect to the database.",
 )
 @click.option("--ssh-user", help="User name to connect to ssh server.")
 @click.option("--ssh-host", help="Host name to connect to ssh server.")
@@ -1880,7 +2007,7 @@ def cli(
     host: str | None,
     port: int | None,
     socket: str | None,
-    password: str | None,
+    password: str | int | None,
     dbname: str | None,
     verbose: bool,
     prompt: str | None,
@@ -1961,7 +2088,7 @@ def cli(
 
     # if the password value looks like a DSN, treat it as such and
     # prompt for password
-    if database is None and password is not None and "://" in password:
+    if database is None and isinstance(password, str) and "://" in password:
         # check if the scheme is valid. We do not actually have any logic for these, but
         # it will most usefully catch the case where we erroneously catch someone's
         # password, and give them an easy error message to follow / report
@@ -1970,7 +2097,7 @@ def cli(
             click.secho(f"Error: Unknown connection scheme provided for DSN URI ({scheme}://)", err=True, fg="red")
             sys.exit(1)
         database = password
-        password = "MYCLI_ASK_PASSWORD"
+        password = EMPTY_PASSWORD_FLAG_SENTINEL
 
     # if the password is not specified try to set it using the password_file option
     if password is None and password_file:
@@ -2068,10 +2195,12 @@ def cli(
     dsn_uri = None
 
     # Treat the database argument as a DSN alias only if it matches a configured alias
+    # todo why is port tested but not socket?
+    truthy_password = password not in (None, EMPTY_PASSWORD_FLAG_SENTINEL)
     if (
         database
         and "://" not in database
-        and not any([user, password, host, port, login_path])
+        and not any([user, truthy_password, host, port, login_path])
         and database in mycli.config.get("alias_dsn", {})
     ):
         dsn_alias, database = database, ""
@@ -2102,6 +2231,7 @@ def cli(
             database = uri.path[1:]  # ignore the leading fwd slash
         if not user and uri.username is not None:
             user = unquote(uri.username)
+        # todo: rationalize the behavior of empty-string passwords here
         if not password and uri.password is not None:
             password = unquote(uri.password)
         if not host:

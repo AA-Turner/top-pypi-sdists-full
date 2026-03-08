@@ -272,6 +272,77 @@ pub fn is_in_pymdown_markup(line: &str, position: usize, flavor: MarkdownFlavor)
     }
 }
 
+/// Check whether a position on a line falls inside an inline HTML code-like element.
+///
+/// Handles `<code>`, `<pre>`, `<samp>`, `<kbd>`, and `<var>` tags (case-insensitive).
+/// These are inline elements whose content should not be interpreted as markdown emphasis.
+pub fn is_in_inline_html_code(line: &str, position: usize) -> bool {
+    // Tags whose content should not be parsed as markdown
+    const TAGS: &[&str] = &["code", "pre", "samp", "kbd", "var"];
+
+    let bytes = line.as_bytes();
+
+    for tag in TAGS {
+        let open_bytes = format!("<{tag}").into_bytes();
+        let close_pattern = format!("</{tag}>").into_bytes();
+
+        let mut search_from = 0;
+        while search_from + open_bytes.len() <= bytes.len() {
+            // Find opening tag (case-insensitive byte search)
+            let Some(open_abs) = find_case_insensitive(bytes, &open_bytes, search_from) else {
+                break;
+            };
+
+            let after_tag = open_abs + open_bytes.len();
+
+            // Verify the character after the tag name is '>' or whitespace (not a longer tag name)
+            if after_tag < bytes.len() {
+                let next = bytes[after_tag];
+                if next != b'>' && next != b' ' && next != b'\t' {
+                    search_from = after_tag;
+                    continue;
+                }
+            }
+
+            // Find the end of the opening tag
+            let Some(tag_close) = bytes[after_tag..].iter().position(|&b| b == b'>') else {
+                break;
+            };
+            let content_start = after_tag + tag_close + 1;
+
+            // Find the closing tag (case-insensitive)
+            let Some(close_start) = find_case_insensitive(bytes, &close_pattern, content_start) else {
+                break;
+            };
+            let content_end = close_start;
+
+            if position >= content_start && position < content_end {
+                return true;
+            }
+
+            search_from = close_start + close_pattern.len();
+        }
+    }
+    false
+}
+
+/// Case-insensitive byte search within a slice, starting at `from`.
+fn find_case_insensitive(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
+    if needle.is_empty() || from + needle.len() > haystack.len() {
+        return None;
+    }
+    for i in from..=haystack.len() - needle.len() {
+        if haystack[i..i + needle.len()]
+            .iter()
+            .zip(needle.iter())
+            .all(|(h, n)| h.eq_ignore_ascii_case(n))
+        {
+            return Some(i);
+        }
+    }
+    None
+}
+
 /// Check if a byte position is within flavor-specific markup
 /// For MkDocs: icon shortcodes and PyMdown extensions
 /// For Obsidian: highlight syntax (==text==)
@@ -553,5 +624,65 @@ More content"#;
         let line = "This ==starts but never ends";
         assert!(!is_in_pymdown_markup(line, 5, MarkdownFlavor::Obsidian));
         assert!(!is_in_pymdown_markup(line, 10, MarkdownFlavor::Obsidian));
+    }
+
+    #[test]
+    fn test_inline_html_code_basic() {
+        let line = "The formula is <code>a * b * c</code> in math.";
+        // Position inside <code> content
+        assert!(is_in_inline_html_code(line, 21)); // 'a'
+        assert!(is_in_inline_html_code(line, 25)); // '*'
+        // Position outside <code> content
+        assert!(!is_in_inline_html_code(line, 0)); // 'T'
+        assert!(!is_in_inline_html_code(line, 40)); // after </code>
+    }
+
+    #[test]
+    fn test_inline_html_code_multiple_tags() {
+        let line = "<kbd>Ctrl</kbd> + <samp>output</samp>";
+        assert!(is_in_inline_html_code(line, 5)); // 'C' in Ctrl
+        assert!(is_in_inline_html_code(line, 24)); // 'o' in output
+        assert!(!is_in_inline_html_code(line, 16)); // '+'
+    }
+
+    #[test]
+    fn test_inline_html_code_with_attributes() {
+        let line = r#"<code class="lang">x * y</code>"#;
+        assert!(is_in_inline_html_code(line, 19)); // 'x'
+        assert!(is_in_inline_html_code(line, 23)); // '*'
+        assert!(!is_in_inline_html_code(line, 0)); // before tag
+    }
+
+    #[test]
+    fn test_inline_html_code_case_insensitive() {
+        let line = "<CODE>a * b</CODE>";
+        assert!(is_in_inline_html_code(line, 6)); // 'a'
+        assert!(is_in_inline_html_code(line, 8)); // '*'
+    }
+
+    #[test]
+    fn test_inline_html_code_var_and_pre() {
+        let line = "<var>x * y</var> and <pre>a * b</pre>";
+        assert!(is_in_inline_html_code(line, 5)); // 'x' in var
+        assert!(is_in_inline_html_code(line, 26)); // 'a' in pre
+        assert!(!is_in_inline_html_code(line, 17)); // 'and'
+    }
+
+    #[test]
+    fn test_inline_html_code_unclosed() {
+        // Unclosed tag should not match
+        let line = "<code>a * b without closing";
+        assert!(!is_in_inline_html_code(line, 6));
+    }
+
+    #[test]
+    fn test_inline_html_code_no_substring_match() {
+        // <variable> should NOT be treated as <var>
+        let line = "<variable>a * b</variable>";
+        assert!(!is_in_inline_html_code(line, 11));
+
+        // <keyboard> should NOT be treated as <kbd>
+        let line2 = "<keyboard>x * y</keyboard>";
+        assert!(!is_in_inline_html_code(line2, 11));
     }
 }

@@ -659,7 +659,8 @@ class Model(nn.Module):
         for wf in wf:
             weights.update(mx.load(wf))
 
-        model = Model(model_args, dtype)
+        model = cls(model_args, dtype)
+        model = cls.post_load_hook(model, model_path)
 
         if quantization is not None:
             class_predicate = (
@@ -769,6 +770,8 @@ class Model(nn.Module):
         audio: Union[str, np.ndarray, mx.array],
         *,
         verbose: Optional[bool] = None,
+        language: Optional[str] = None,
+        task: str = "transcribe",
         chunk_duration: float = 1.0,
         stream: bool = False,
         generation_stream: bool = False,
@@ -850,7 +853,10 @@ class Model(nn.Module):
 
         if stream:
             return self.generate_streaming(
-                audio, chunk_duration=chunk_duration, **decode_options
+                audio,
+                chunk_duration=chunk_duration,
+                language=language,
+                task=task,
             )
 
         decode_options.pop("max_tokens", None)
@@ -869,12 +875,12 @@ class Model(nn.Module):
                 make_safe = lambda x: x
 
         # Use shared language detection
-        language = self._detect_language(mel, language=decode_options.get("language"))
-        if decode_options.get("language") is None:
-            if verbose:
-                print(f"Detected language: {LANGUAGES[language].title()}")
+        detected = language is None
+        language = self._detect_language(mel, language=language)
+        if detected and verbose:
+            print(f"Detected language: {LANGUAGES[language].title()}")
         decode_options["language"] = language
-        task: str = decode_options.get("task", "transcribe")
+        decode_options["task"] = task
         tokenizer = self.get_tokenizer(language=language, task=task)
 
         if isinstance(clip_timestamps, str):

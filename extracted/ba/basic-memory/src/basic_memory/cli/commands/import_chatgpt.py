@@ -44,7 +44,7 @@ def import_chatgpt(
     2. Convert them to linear markdown conversations
     3. Save as clean, readable markdown files
 
-    After importing, run 'basic-memory sync' to index the new files.
+    After importing, run 'bm reindex --search' to index the new files.
     """
 
     try:
@@ -60,7 +60,9 @@ def import_chatgpt(
         console.print(f"\nImporting chats from {conversations_json}...writing to {base_path}")
 
         # Create importer and run import
-        importer = ChatGPTImporter(config.home, markdown_processor, file_service)
+        importer = ChatGPTImporter(
+            config.home, markdown_processor, file_service, project_name=config.name
+        )
         with conversations_json.open("r", encoding="utf-8") as file:
             json_data = json.load(file)
             result = run_with_cleanup(importer.import_data(json_data, folder))
@@ -79,7 +81,7 @@ def import_chatgpt(
             )
         )
 
-        console.print("\nRun 'basic-memory sync' to index the new files.")
+        console.print("\nRun 'bm reindex --search' to index the new files.")
 
     except Exception as e:
         logger.error("Import failed")

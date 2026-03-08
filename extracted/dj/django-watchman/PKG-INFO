@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-watchman
-Version: 1.4.0
+Version: 1.5.0
 Summary: django-watchman exposes a status endpoint for your backing services
 Project-URL: Homepage, https://github.com/mwarkentin/django-watchman
 Project-URL: Documentation, https://django-watchman.readthedocs.io

@@ -826,6 +826,18 @@ class CEIs:
                 continue
 
             eo_vals = df_time_period[col_name].values
+
+            # Mask FLDAS values where the forecast month falls outside the crop season
+            if var == "FLDAS" and "Month" in df_time_period.columns:
+                lead = int(iname.rsplit("LEAD", 1)[1])
+                season_months = set(df_harvest_year_region["Month"].unique())
+                months = df_time_period["Month"].values
+                forecast_months = ((months - 1 + lead) % 12) + 1
+                valid = np.isin(forecast_months, list(season_months))
+                if not valid.any():
+                    continue  # lead entirely out of season for this stage
+                eo_vals = np.where(valid, eo_vals, np.nan)
+
             # Derive the numeric aggregator from iname: e.g. if it ends with MIN, MAX, etc.
             aggregator = None
             if "MIN" in iname.upper():

@@ -26,7 +26,7 @@ async def search_entity(session_maker, test_project: Project):
         entity = Entity(
             project_id=test_project.id,
             title="Search Test Entity",
-            entity_type="test",
+            note_type="test",
             permalink="test/search-test-entity",
             file_path="test/search_test_entity.md",
             content_type="text/markdown",
@@ -68,7 +68,7 @@ async def second_entity(session_maker, second_project: Project):
         entity = Entity(
             project_id=second_project.id,
             title="Second Project Entity",
-            entity_type="test",
+            note_type="test",
             permalink="test/second-project-entity",
             file_path="test/second_project_entity.md",
             content_type="text/markdown",
@@ -128,7 +128,7 @@ async def test_init_search_index_preserves_data(search_repository, search_entity
         permalink=search_entity.permalink,
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -162,7 +162,7 @@ async def test_index_item(search_repository, search_entity):
         permalink=search_entity.permalink,
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -197,7 +197,7 @@ async def test_index_item_upsert_on_duplicate_permalink(search_repository, searc
         permalink=search_entity.permalink,
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -220,7 +220,7 @@ async def test_index_item_upsert_on_duplicate_permalink(search_repository, searc
         permalink=search_entity.permalink,  # Same permalink!
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -254,7 +254,7 @@ async def test_bulk_index_items_upsert_on_duplicate_permalink(search_repository,
         permalink=search_entity.permalink,
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -276,7 +276,7 @@ async def test_bulk_index_items_upsert_on_duplicate_permalink(search_repository,
         permalink=search_entity.permalink,  # Same permalink!
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -305,7 +305,7 @@ async def test_project_isolation(
         permalink=search_entity.permalink,
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -320,7 +320,7 @@ async def test_project_isolation(
         permalink=second_entity.permalink,
         file_path=second_entity.file_path,
         entity_id=second_entity.id,
-        metadata={"entity_type": second_entity.entity_type},
+        metadata={"note_type": second_entity.note_type},
         created_at=second_entity.created_at,
         updated_at=second_entity.updated_at,
         project_id=second_project_repository.project_id,
@@ -364,7 +364,7 @@ async def test_delete_by_permalink(search_repository, search_entity):
         permalink=search_entity.permalink,
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -397,7 +397,7 @@ async def test_delete_by_entity_id(search_repository, search_entity):
         permalink=search_entity.permalink,
         file_path=search_entity.file_path,
         entity_id=search_entity.id,
-        metadata={"entity_type": search_entity.entity_type},
+        metadata={"note_type": search_entity.note_type},
         created_at=search_entity.created_at,
         updated_at=search_entity.updated_at,
         project_id=search_repository.project_id,
@@ -725,7 +725,7 @@ class TestSearchTermPreparation:
             permalink=search_entity.permalink,
             file_path=search_entity.file_path,
             entity_id=search_entity.id,
-            metadata={"entity_type": search_entity.entity_type},
+            metadata={"note_type": search_entity.note_type},
             created_at=search_entity.created_at,
             updated_at=search_entity.updated_at,
             project_id=search_repository.project_id,
@@ -759,7 +759,7 @@ class TestSearchTermPreparation:
             permalink=search_entity.permalink,
             file_path=search_entity.file_path,
             entity_id=search_entity.id,
-            metadata={"entity_type": search_entity.entity_type},
+            metadata={"note_type": search_entity.note_type},
             created_at=search_entity.created_at,
             updated_at=search_entity.updated_at,
             project_id=search_repository.project_id,
@@ -847,7 +847,7 @@ async def _index_entity_with_metadata(search_repository, session_maker, title, e
         entity = Entity(
             project_id=search_repository.project_id,
             title=title,
-            entity_type="note",
+            note_type="note",
             permalink=permalink,
             file_path=file_path,
             content_type="text/markdown",
@@ -867,7 +867,7 @@ async def _index_entity_with_metadata(search_repository, session_maker, title, e
         permalink=entity.permalink,
         file_path=entity.file_path,
         entity_id=entity.id,
-        metadata={"entity_type": entity.entity_type},
+        metadata={"note_type": entity.note_type},
         created_at=entity.created_at,
         updated_at=entity.updated_at,
         project_id=search_repository.project_id,
@@ -941,3 +941,34 @@ async def test_search_metadata_filters_numeric_comparisons(search_repository, se
         metadata_filters={"schema.confidence": {"$between": [0.3, 0.6]}}
     )
     assert {result.id for result in results} == {entity_low.id}
+
+
+# --- SQL injection safety tests ---
+# These tests verify that user-supplied filter values are parameterized and cannot
+# alter query structure. Each test passes a malicious payload and asserts the query
+# completes safely (returning empty results) rather than causing a SQL error or
+# data exfiltration.
+
+
+@pytest.mark.asyncio
+async def test_note_types_sql_injection_returns_empty(search_repository):
+    """note_types with SQL injection payload must not alter query structure."""
+    malicious_payloads = [
+        "note' OR '1'='1",
+        "note'; DROP TABLE search_index;--",
+        'note" OR 1=1--',
+        "note') UNION SELECT * FROM entity--",
+    ]
+    for payload in malicious_payloads:
+        results = await search_repository.search(note_types=[payload])
+        # Injection should be treated as a literal string value, not executed as SQL
+        assert results == [], f"Injection payload should not match: {payload}"
+
+
+@pytest.mark.asyncio
+async def test_search_item_types_parameterized(search_repository):
+    """search_item_types enum values are parameterized, not interpolated."""
+    # Normal enum usage still works
+    results = await search_repository.search(search_item_types=[SearchItemType.ENTITY])
+    # Should not raise — parameterized query handles enum values safely
+    assert isinstance(results, list)

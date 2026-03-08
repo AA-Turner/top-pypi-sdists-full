@@ -244,6 +244,23 @@ pub(crate) fn truncate_at_char_boundary(value: &mut String, max_len: usize) {
     value.truncate(new_len);
 }
 
+/// Returns the largest valid char boundary index at or before `index`.
+///
+/// If `index` is already a char boundary it is returned unchanged.
+/// Otherwise it walks backwards to find one.  Returns 0 if no boundary
+/// is found before `index`.
+pub(crate) fn floor_char_boundary(s: &str, index: usize) -> usize {
+    if index >= s.len() {
+        s.len()
+    } else {
+        let mut i = index;
+        while i > 0 && !s.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
+    }
+}
+
 /// Escape special Markdown characters in a link label.
 ///
 /// Handles bracket escaping to prevent unintended link label termination.

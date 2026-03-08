@@ -13,13 +13,53 @@ from sqlalchemy import text
 
 from basic_memory.models import Entity
 from basic_memory.repository import EntityRepository
-from basic_memory.repository.search_repository import SearchRepository, SearchIndexRow
-from basic_memory.schemas.search import SearchQuery, SearchItemType
+from basic_memory.repository.search_repository import (
+    SearchIndexRow,
+    SearchRepository,
+    VectorSyncBatchResult,
+)
+from basic_memory.schemas.search import SearchQuery, SearchItemType, SearchRetrievalMode
 from basic_memory.services import FileService
 
 # Maximum size for content_stems field to stay under Postgres's 8KB index row limit.
 # We use 6000 characters to leave headroom for other indexed columns and overhead.
 MAX_CONTENT_STEMS_SIZE = 6000
+
+# Common glue words used to relax natural-language FTS queries after strict misses.
+FTS_RELAXED_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "by",
+    "for",
+    "from",
+    "how",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "our",
+    "the",
+    "their",
+    "this",
+    "to",
+    "was",
+    "we",
+    "what",
+    "when",
+    "where",
+    "who",
+    "why",
+    "with",
+    "you",
+    "your",
+}
 
 
 def _strip_nul(value: str) -> str:
@@ -71,6 +111,15 @@ class SearchService:
         logger.info("Starting full reindex")
         # Clear and recreate search index
         await self.repository.execute_query(text("DROP TABLE IF EXISTS search_index"), params={})
+        await self.repository.execute_query(
+            text("DROP TABLE IF EXISTS search_vector_embeddings"), params={}
+        )
+        await self.repository.execute_query(
+            text("DROP TABLE IF EXISTS search_vector_chunks"), params={}
+        )
+        await self.repository.execute_query(
+            text("DROP TABLE IF EXISTS search_vector_index"), params={}
+        )
         await self.init_search_index()
 
         # Reindex all entities
@@ -124,21 +173,109 @@ class SearchService:
             if query.status:
                 metadata_filters.setdefault("status", query.status)
 
-        # search
+        retrieval_mode = query.retrieval_mode or SearchRetrievalMode.FTS
+        strict_search_text = query.text
+
+        # First pass: preserve existing strict search behavior.
         results = await self.repository.search(
-            search_text=query.text,
+            search_text=strict_search_text,
             permalink=query.permalink,
             permalink_match=query.permalink_match,
             title=query.title,
-            types=query.types,
+            note_types=query.note_types,
             search_item_types=query.entity_types,
             after_date=after_date,
             metadata_filters=metadata_filters,
+            retrieval_mode=retrieval_mode,
+            min_similarity=query.min_similarity,
             limit=limit,
             offset=offset,
         )
 
-        return results
+        # Trigger: strict FTS with plain multi-term text returned no results.
+        # Why: natural-language queries often include stopwords that over-constrain implicit AND.
+        # Outcome: retry once with relaxed OR terms while preserving explicit boolean intent.
+        if results:
+            return results
+        if not self._is_relaxed_fts_fallback_eligible(query, strict_search_text, retrieval_mode):
+            return results
+
+        assert strict_search_text is not None
+        relaxed_search_text = self._build_relaxed_fts_query(strict_search_text)
+        if relaxed_search_text == strict_search_text:
+            return results
+
+        logger.debug(
+            "Strict FTS returned 0 results; retrying relaxed FTS query "
+            f"strict='{strict_search_text}' relaxed='{relaxed_search_text}'"
+        )
+        return await self.repository.search(
+            search_text=relaxed_search_text,
+            permalink=query.permalink,
+            permalink_match=query.permalink_match,
+            title=query.title,
+            note_types=query.note_types,
+            search_item_types=query.entity_types,
+            after_date=after_date,
+            metadata_filters=metadata_filters,
+            retrieval_mode=retrieval_mode,
+            min_similarity=query.min_similarity,
+            limit=limit,
+            offset=offset,
+        )
+
+    @staticmethod
+    def _tokenize_fts_text(search_text: str) -> list[str]:
+        """Tokenize text into alphanumeric terms for relaxed FTS fallback."""
+        return re.findall(r"[A-Za-z0-9]+", search_text.lower())
+
+    @classmethod
+    def _build_relaxed_fts_query(cls, search_text: str) -> str:
+        """Build a less strict OR query from natural-language input."""
+        normalized_terms = cls._tokenize_fts_text(search_text)
+        if not normalized_terms:
+            return search_text
+
+        deduped_terms: list[str] = []
+        seen_terms: set[str] = set()
+        for term in normalized_terms:
+            if term in seen_terms:
+                continue
+            seen_terms.add(term)
+            deduped_terms.append(term)
+
+        pruned_terms = [term for term in deduped_terms if term not in FTS_RELAXED_STOPWORDS]
+        relaxed_terms = pruned_terms or deduped_terms
+        return " OR ".join(relaxed_terms)
+
+    @classmethod
+    def _is_relaxed_fts_fallback_eligible(
+        cls,
+        query: SearchQuery,
+        search_text: str | None,
+        retrieval_mode: SearchRetrievalMode,
+    ) -> bool:
+        """Check whether we should run relaxed OR fallback after strict FTS returns empty."""
+        if retrieval_mode != SearchRetrievalMode.FTS:
+            return False
+        if not search_text or not search_text.strip():
+            return False
+        if '"' in search_text:
+            return False
+        if query.has_boolean_operators():
+            return False
+        tokens = cls._tokenize_fts_text(search_text)
+        # Trigger: query has only one or two terms (e.g., link titles like "New Feature").
+        # Why: OR-relaxing short queries can over-broaden and produce false positives.
+        # Outcome: require at least three tokens before enabling relaxed fallback.
+        if len(tokens) < 3:
+            return False
+        # Trigger: query contains explicit numeric identifiers (e.g., "root note 1").
+        # Why: OR-relaxing identifier-like queries can over-broaden and create false positives.
+        # Outcome: preserve strict matching for these targeted queries.
+        if any(token.isdigit() for token in tokens):
+            return False
+        return True
 
     @staticmethod
     def _generate_variants(text: str) -> Set[str]:
@@ -214,7 +351,7 @@ class SearchService:
         entity: Entity,
         content: str | None = None,
     ) -> None:
-        logger.info(
+        logger.debug(
             f"[BackgroundTask] Starting search index for entity_id={entity.id} "
             f"permalink={entity.permalink} project_id={entity.project_id}"
         )
@@ -227,7 +364,7 @@ class SearchService:
                 entity, content
             ) if entity.is_markdown else await self.index_entity_file(entity)
 
-            logger.info(
+            logger.debug(
                 f"[BackgroundTask] Completed search index for entity_id={entity.id} "
                 f"permalink={entity.permalink}"
             )
@@ -240,6 +377,48 @@ class SearchService:
             )
             raise  # pragma: no cover
 
+    async def sync_entity_vectors(self, entity_id: int) -> None:
+        """Refresh vector chunks for one entity in repositories that support semantic indexing."""
+        await self.repository.sync_entity_vectors(entity_id)
+
+    async def sync_entity_vectors_batch(
+        self,
+        entity_ids: list[int],
+        progress_callback=None,
+    ) -> VectorSyncBatchResult:
+        """Refresh vector chunks for a batch of entities."""
+        return await self.repository.sync_entity_vectors_batch(
+            entity_ids,
+            progress_callback=progress_callback,
+        )
+
+    async def reindex_vectors(self, progress_callback=None) -> dict:
+        """Rebuild vector embeddings for all entities.
+
+        Args:
+            progress_callback: Optional callable(entity_id, index, total) for progress reporting.
+
+        Returns:
+            dict with stats: total_entities, embedded, skipped, errors
+        """
+        entities = await self.entity_repository.find_all()
+        entity_ids = [entity.id for entity in entities]
+        batch_result = await self.repository.sync_entity_vectors_batch(
+            entity_ids,
+            progress_callback=progress_callback,
+        )
+        stats = {
+            "total_entities": batch_result.entities_total,
+            "embedded": batch_result.entities_synced,
+            "skipped": 0,
+            "errors": batch_result.entities_failed,
+        }
+
+        for failed_entity_id in batch_result.failed_entity_ids:
+            logger.warning(f"Failed to embed entity {failed_entity_id}")
+
+        return stats
+
     async def index_entity_file(
         self,
         entity: Entity,
@@ -250,11 +429,11 @@ class SearchService:
                 id=entity.id,
                 entity_id=entity.id,
                 type=SearchItemType.ENTITY.value,
-                title=entity.title,
+                title=_strip_nul(entity.title),
                 permalink=entity.permalink,  # Required for Postgres NOT NULL constraint
                 file_path=entity.file_path,
                 metadata={
-                    "entity_type": entity.entity_type,
+                    "note_type": entity.note_type,
                 },
                 created_at=entity.created_at,
                 updated_at=_mtime_to_datetime(entity),
@@ -306,7 +485,10 @@ class SearchService:
             content = await self.file_service.read_entity_content(entity)
         if content:
             content_stems.append(content)
-            content_snippet = _strip_nul(content[:250])
+            # Store full content for vector embedding quality.
+            # The chunker in the vector pipeline splits this into
+            # appropriately-sized pieces for embedding.
+            content_snippet = _strip_nul(content)
 
         if entity.permalink:
             content_stems.extend(self._generate_variants(entity.permalink))
@@ -329,14 +511,14 @@ class SearchService:
             SearchIndexRow(
                 id=entity.id,
                 type=SearchItemType.ENTITY.value,
-                title=entity.title,
+                title=_strip_nul(entity.title),
                 content_stems=entity_content_stems,
                 content_snippet=content_snippet,
                 permalink=entity.permalink,
                 file_path=entity.file_path,
                 entity_id=entity.id,
                 metadata={
-                    "entity_type": entity.entity_type,
+                    "note_type": entity.note_type,
                 },
                 created_at=entity.created_at,
                 updated_at=_mtime_to_datetime(entity),
@@ -365,7 +547,7 @@ class SearchService:
                 SearchIndexRow(
                     id=obs.id,
                     type=SearchItemType.OBSERVATION.value,
-                    title=f"{obs.category}: {obs.content[:100]}...",
+                    title=_strip_nul(f"{obs.category}: {obs.content[:100]}..."),
                     content_stems=obs_content_stems,
                     content_snippet=_strip_nul(obs.content),
                     permalink=obs_permalink,
@@ -384,7 +566,7 @@ class SearchService:
         # Add relation rows (only outgoing relations defined in this file)
         for rel in entity.outgoing_relations:
             # Create descriptive title showing the relationship
-            relation_title = (
+            relation_title = _strip_nul(
                 f"{rel.from_entity.title} → {rel.to_entity.title}"
                 if rel.to_entity
                 else f"{rel.from_entity.title}"

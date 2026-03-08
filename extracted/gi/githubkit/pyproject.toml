@@ -1,6 +1,6 @@
 [project]
 name = "GitHubKit"
-version = "0.14.6"
+version = "0.14.7"
 description = "GitHub SDK for Python"
 authors = [{ name = "yanyongyu", email = "yyy@yyydl.top" }]
 license = "MIT"
@@ -435,7 +435,7 @@ source = "descriptions-next/ghec/ghec.2022-11-28.json"
 ] }
 
 # get issue request body should be null
-"/paths/~1repos~1{owner}~1{repo}~1issues~1{issue_number}/get" = { requestBody = "<unset>" }
+# "/paths/~1repos~1{owner}~1{repo}~1issues~1{issue_number}/get" = { requestBody = "<unset>" }
 
 # get repo content request body should be null
 "/paths/~1repos~1{owner}~1{repo}~1contents~1{path}/get" = { requestBody = "<unset>" }
@@ -561,6 +561,29 @@ source = "descriptions-next/ghec/ghec.2022-11-28.json"
 "/components/schemas/webhook-code-scanning-alert-fixed/properties/alert/properties/state/enum" = { "<add>" = [
   "dismissed",
 ] }
+# https://github.com/yanyongyu/githubkit/issues/279
+# https://github.com/github/rest-api-description/issues/6081
+"/components/schemas/webhook-code-scanning-alert-closed-by-user/properties/alert/properties/fixed_at" = { type = [
+  "string",
+  "null",
+], format = "date-time" }
+# other same issues
+"/components/schemas/webhook-code-scanning-alert-appeared-in-branch/properties/alert/properties/fixed_at" = { type = [
+  "string",
+  "null",
+], format = "date-time" }
+"/components/schemas/webhook-code-scanning-alert-reopened/properties/alert/properties/fixed_at" = { type = [
+  "string",
+  "null",
+], format = "date-time" }
+"/components/schemas/webhook-code-scanning-alert-reopened-by-user/properties/alert/properties/fixed_at" = { type = [
+  "string",
+  "null",
+], format = "date-time" }
+"/components/schemas/webhook-code-scanning-alert-updated-assignment/properties/alert/properties/fixed_at" = { type = [
+  "string",
+  "null",
+], format = "date-time" }
 
 # webhook repository dispatch action can be any string
 "/webhooks/repository-dispatch-sample.collected/post" = { operationId = "repository-dispatch" }

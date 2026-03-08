@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpforunityserver
-Version: 9.4.7
+Version: 9.5.2
 Summary: MCP for Unity Server: A Unity package for Unity Editor integration via the Model Context Protocol (MCP).
 Author-email: Marcus Sanatan <msanatan@gmail.com>, David Sarno <david.sarno@gmail.com>, Wu Shutong <martinwfire@gmail.com>
 License-Expression: MIT
@@ -26,7 +26,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx>=0.27.2
-Requires-Dist: fastmcp==2.14.1
+Requires-Dist: fastmcp<4,>=3.0.2
 Requires-Dist: mcp>=1.16.0
 Requires-Dist: pydantic>=2.12.5
 Requires-Dist: tomli>=2.3.0
@@ -110,7 +110,7 @@ Use this to run the latest released version from the repository. Change the vers
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/CoplayDev/unity-mcp@v9.4.7#subdirectory=Server",
+        "git+https://github.com/CoplayDev/unity-mcp@v9.5.2#subdirectory=Server",
         "mcp-for-unity",
         "--transport",
         "stdio"

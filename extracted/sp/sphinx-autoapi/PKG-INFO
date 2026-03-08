@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-autoapi
-Version: 3.7.0
+Version: 3.8.0
 Summary: Sphinx API documentation generator
 Author-email: Eric Holscher <eric@ericholscher.com>
 Maintainer-email: Ashley Whetter <ashley@awhetter.co.uk>
@@ -20,8 +20,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE.rst
-Requires-Dist: astroid~=3.0;python_version<"3.12"
-Requires-Dist: astroid~=4.0;python_version>="3.12"
+Requires-Dist: astroid>=3.0
 Requires-Dist: Jinja2
 Requires-Dist: PyYAML
 Requires-Dist: sphinx>=7.4.0

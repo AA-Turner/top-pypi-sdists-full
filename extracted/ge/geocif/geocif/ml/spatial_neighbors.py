@@ -152,12 +152,11 @@ def add_neighbor_features(
     df = df.copy()
 
     nbr_cols = [f"{prefix}{c}" for c in feature_cols]
-    for col in nbr_cols:
-        df[col] = np.nan
-
-    df[f"{prefix}mean_yield_hist"] = np.nan
-    df[f"{prefix}yield_corr_mean"] = np.nan
-    df["n_neighbors"] = 0
+    new_cols = {col: np.nan for col in nbr_cols}
+    new_cols[f"{prefix}mean_yield_hist"] = np.nan
+    new_cols[f"{prefix}yield_corr_mean"] = np.nan
+    new_cols["n_neighbors"] = 0
+    df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
 
     # Pre-index: {(region, year): row_indices}
     grouped_idx = df.groupby([admin_col, year_col]).indices

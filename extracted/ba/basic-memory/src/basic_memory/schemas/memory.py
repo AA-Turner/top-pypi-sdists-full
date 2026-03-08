@@ -125,7 +125,8 @@ class EntitySummary(BaseModel):
 
     type: Literal["entity"] = "entity"
     external_id: str  # UUID for v2 API routing
-    entity_id: int  # Database ID for v2 API consistency
+    # COMPAT(v0.18): old clients expect these fields in JSON
+    entity_id: Optional[int] = None
     permalink: Optional[str]
     title: str
     content: Optional[str] = None
@@ -143,18 +144,19 @@ class RelationSummary(BaseModel):
     """Simplified relation representation."""
 
     type: Literal["relation"] = "relation"
-    relation_id: int  # Database ID for v2 API consistency
-    entity_id: Optional[int] = None  # ID of the entity this relation belongs to
+    # COMPAT(v0.18): old clients expect these fields in JSON
+    relation_id: Optional[int] = None
+    entity_id: Optional[int] = None
     title: str
     file_path: str
     permalink: str
     relation_type: str
     from_entity: Optional[str] = None
-    from_entity_id: Optional[int] = None  # ID of source entity
-    from_entity_external_id: Optional[str] = None  # UUID of source entity for v2 API routing
+    from_entity_id: Optional[int] = None
+    from_entity_external_id: Optional[str] = None
     to_entity: Optional[str] = None
-    to_entity_id: Optional[int] = None  # ID of target entity
-    to_entity_external_id: Optional[str] = None  # UUID of target entity for v2 API routing
+    to_entity_id: Optional[int] = None
+    to_entity_external_id: Optional[str] = None
     created_at: Annotated[
         datetime, Field(json_schema_extra={"type": "string", "format": "date-time"})
     ]
@@ -168,10 +170,11 @@ class ObservationSummary(BaseModel):
     """Simplified observation representation."""
 
     type: Literal["observation"] = "observation"
-    observation_id: int  # Database ID for v2 API consistency
-    entity_id: Optional[int] = None  # ID of the entity this observation belongs to
-    entity_external_id: Optional[str] = None  # UUID of parent entity for v2 API routing
-    title: str
+    # COMPAT(v0.18): old clients expect these fields in JSON
+    observation_id: Optional[int] = None
+    entity_id: Optional[int] = None
+    entity_external_id: Optional[str] = None
+    title: Optional[str] = None
     file_path: str
     permalink: str
     category: str
@@ -192,18 +195,17 @@ class MemoryMetadata(BaseModel):
     types: Optional[List[SearchItemType]] = None
     depth: int
     timeframe: Optional[str] = None
-    generated_at: Annotated[
-        datetime, Field(json_schema_extra={"type": "string", "format": "date-time"})
-    ]
-    primary_count: Optional[int] = None  # Changed field name
-    related_count: Optional[int] = None  # Changed field name
-    total_results: Optional[int] = None  # For backward compatibility
+    # COMPAT(v0.18): old clients expect generated_at and total_results in JSON
+    generated_at: Optional[datetime] = None
+    primary_count: Optional[int] = None
+    related_count: Optional[int] = None
+    total_results: Optional[int] = None
     total_relations: Optional[int] = None
     total_observations: Optional[int] = None
 
     @field_serializer("generated_at")
-    def serialize_generated_at(self, dt: datetime) -> str:
-        return dt.isoformat()
+    def serialize_generated_at(self, dt: Optional[datetime]) -> Optional[str]:
+        return dt.isoformat() if dt else None
 
 
 class ContextResult(BaseModel):
@@ -238,6 +240,7 @@ class GraphContext(BaseModel):
 
     page: Optional[int] = None
     page_size: Optional[int] = None
+    has_more: bool = False
 
 
 class ActivityStats(BaseModel):

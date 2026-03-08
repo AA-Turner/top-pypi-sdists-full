@@ -1148,6 +1148,7 @@ class TwitterQuotesExtractor(TwitterExtractor):
 class TwitterInfoExtractor(TwitterExtractor):
     """Extractor for a user's profile data"""
     subcategory = "info"
+    directory_fmt = ("{category}", "{name}")
     pattern = USER_PATTERN + r"/info"
     example = "https://x.com/USER/info"
 
@@ -1533,8 +1534,9 @@ class TwitterAPI():
             "withGrokTranslatedBio": False,
         }
 
-        if cfg("search-pagination") in ("max_id", "maxid", "id"):
-            update_variables = self._update_variables_search
+        pgn = cfg("search-pagination", "max_id")
+        if pgn in {"max_id", "maxid", "id"}:
+            update_variables = self._update_variables_search_maxid
         else:
             update_variables = None
 

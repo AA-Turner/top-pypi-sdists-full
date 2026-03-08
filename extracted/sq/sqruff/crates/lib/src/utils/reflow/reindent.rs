@@ -1201,7 +1201,6 @@ fn fix_long_line_with_comment(
     .collect_vec();
 
     let new_point;
-    let anchor;
     let prev_elems: Vec<ReflowElement>;
 
     if let Some(idx) = last_indent_idx {
@@ -1210,21 +1209,36 @@ fn fix_long_line_with_comment(
             SegmentBuilder::whitespace(tables.next_id(), current_indent),
         ]);
         prev_elems = elements[..=idx].to_vec();
-        anchor = elements[idx + 1].segments()[0].clone();
+
+        // Use the last segment of the indent point as anchor for create_after.
+        // This inserts the comment at the correct tree level (e.g. expression list)
+        // rather than deep inside a function name node where LT01 would remove
+        // the newline.
+        let indent_point = elements[idx].as_point().unwrap();
+        let indent_anchor = indent_point.segments().last().unwrap().clone();
+        fixes.push(LintFix::create_after(
+            indent_anchor,
+            chain(
+                Some(comment_seg.clone()),
+                new_point.segments().iter().cloned(),
+            )
+            .collect_vec(),
+            None,
+        ));
     } else {
         new_point = ReflowPoint::new(vec![SegmentBuilder::newline(tables.next_id(), "\n")]);
         prev_elems = Vec::new();
-        anchor = first_seg.clone();
-    }
 
-    fixes.push(LintFix::create_before(
-        anchor,
-        chain(
-            Some(comment_seg.clone()),
-            new_point.segments().iter().cloned(),
-        )
-        .collect_vec(),
-    ));
+        // No indent point: insert before the first segment on the line.
+        fixes.push(LintFix::create_before(
+            first_seg.clone(),
+            chain(
+                Some(comment_seg.clone()),
+                new_point.segments().iter().cloned(),
+            )
+            .collect_vec(),
+        ));
+    }
 
     let elements: Vec<_> = prev_elems
         .into_iter()
@@ -1711,7 +1725,7 @@ mod tests {
         use crate::core::linter::core::Linter;
 
         let sql = "with a as (select 1\nfrom t join u v on\n1=1\n)\nselect * from a\n";
-        let linter = Linter::new(<_>::default(), None, None, false);
+        let linter = Linter::new(<_>::default(), None, None, false).unwrap();
         let result = linter.lint_string(sql, None, false).unwrap();
         // The panic is caught by catch_unwind and surfaced as an
         // "Unexpected exception" violation. Assert none are present.

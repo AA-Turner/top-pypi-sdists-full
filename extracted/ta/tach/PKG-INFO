@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tach
-Version: 0.33.4
+Version: 0.34.0
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -8,7 +8,6 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -31,7 +30,7 @@ License-File: LICENSE
 Summary: A Python tool to maintain a modular package architecture.
 Keywords: python,module,package,guard,enforcement,boundary,enforcer,domain,architecture
 Author-email: Caelean Barnes <caeleanb@gmail.com>, Evan Doyle <evanmdoyle@gmail.com>
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/gauge-sh/tach
 Project-URL: Issues, https://github.com/gauge-sh/tach/issues

@@ -29,6 +29,7 @@ from basic_memory.repository import (
 )
 from basic_memory.repository.search_repository import create_search_repository
 from basic_memory.services import EntityService, FileService
+from basic_memory.repository.semantic_errors import SemanticDependenciesMissingError
 from basic_memory.services.exceptions import SyncFatalError
 from basic_memory.services.link_resolver import LinkResolver
 from basic_memory.services.search_service import SearchService
@@ -292,12 +293,16 @@ class SyncService:
         for path in report.deleted:
             await self.handle_delete(path)
 
-        # then new and modified
+        # then new and modified — collect entity IDs for batch vector embedding
+        synced_entity_ids: list[int] = []
+
         for path in report.new:
             entity, _ = await self.sync_file(path, new=True)
 
+            if entity is not None:
+                synced_entity_ids.append(entity.id)
             # Track if file was skipped
-            if entity is None and await self._should_skip_file(path):
+            elif await self._should_skip_file(path):
                 failure_info = self._file_failures[path]
                 report.skipped_files.append(
                     SkippedFile(
@@ -311,8 +316,10 @@ class SyncService:
         for path in report.modified:
             entity, _ = await self.sync_file(path, new=False)
 
+            if entity is not None:
+                synced_entity_ids.append(entity.id)
             # Track if file was skipped
-            if entity is None and await self._should_skip_file(path):
+            elif await self._should_skip_file(path):
                 failure_info = self._file_failures[path]
                 report.skipped_files.append(
                     SkippedFile(
@@ -329,6 +336,26 @@ class SyncService:
             await self.resolve_relations()
         else:
             logger.info("Skipping relation resolution - no file changes detected")
+
+        # Batch-generate vector embeddings for all synced entities
+        if synced_entity_ids and self.app_config.semantic_search_enabled:
+            try:
+                logger.info(
+                    f"Generating semantic embeddings for {len(synced_entity_ids)} entities..."
+                )
+                batch_result = await self.search_service.sync_entity_vectors_batch(
+                    synced_entity_ids
+                )
+                logger.info(
+                    f"Semantic embeddings complete: "
+                    f"synced={batch_result.entities_synced}, "
+                    f"failed={batch_result.entities_failed}"
+                )
+            except SemanticDependenciesMissingError:
+                logger.warning(
+                    "Semantic search dependencies missing — vector embeddings skipped. "
+                    "Run 'bm reindex --embeddings' after resolving the dependency issue."
+                )
 
         # Update scan watermark after successful sync
         # Use the timestamp from sync start (not end) to ensure we catch files
@@ -436,13 +463,13 @@ class SyncService:
         elif project.last_scan_timestamp is not None:
             # Incremental scan: only files modified since last scan
             scan_type = "incremental"
-            logger.info(
+            logger.debug(
                 f"Running incremental scan for files modified since {project.last_scan_timestamp}"
             )
             file_paths_to_scan = await self._scan_directory_modified_since(
                 directory, project.last_scan_timestamp
             )
-            logger.info(
+            logger.debug(
                 f"Incremental scan found {len(file_paths_to_scan)} potentially changed files"
             )
 
@@ -600,7 +627,18 @@ class SyncService:
                 entity, checksum = await self.sync_regular_file(path, new)
 
             if entity is not None:
-                await self.search_service.index_entity(entity)
+                try:
+                    await self.search_service.index_entity(entity)
+                except SemanticDependenciesMissingError:
+                    # Trigger: sqlite-vec or embedding provider unavailable
+                    # Why: FTS indexing succeeded but vector embeddings cannot be generated.
+                    #      Don't fail the entire sync — the entity is usable for text search.
+                    # Outcome: entity returned successfully, warning logged for visibility.
+                    logger.warning(
+                        f"Semantic search dependencies missing — vector embeddings skipped "
+                        f"for path={path}. Run 'bm reindex --embeddings' after resolving "
+                        f"the dependency issue."
+                    )
 
                 # Clear failure tracking on successful sync
                 self._clear_failure(path)
@@ -669,6 +707,21 @@ class SyncService:
             ctime=file_metadata.created_at.timestamp(),
         )
 
+        # Trigger: markdown file has no frontmatter and frontmatter enforcement is enabled
+        # Why: watch/sync consumers rely on normalized metadata and stable permalinks
+        # Outcome: file is updated in-place with derived title/type/permalink metadata
+        if not file_contains_frontmatter and self.app_config.ensure_frontmatter_on_sync:
+            permalink = await self.entity_service.resolve_permalink(
+                path, markdown=entity_markdown, skip_conflict_check=True
+            )
+            frontmatter_updates = {
+                "title": entity_markdown.frontmatter.title,
+                "type": entity_markdown.frontmatter.type,
+                "permalink": permalink,
+            }
+            await self.file_service.update_frontmatter(path, frontmatter_updates)
+            entity_markdown.frontmatter.metadata.update(frontmatter_updates)
+
         # if the file contains frontmatter, resolve a permalink (unless disabled)
         if file_contains_frontmatter and not self.app_config.disable_permalinks:
             # Resolve permalink - skip conflict checks during bulk sync for performance
@@ -678,7 +731,7 @@ class SyncService:
 
             # If permalink changed, update the file
             if permalink != entity_markdown.frontmatter.permalink:
-                logger.info(
+                logger.debug(
                     f"Updating permalink for path: {path}, old_permalink: {entity_markdown.frontmatter.permalink}, new_permalink: {permalink}"
                 )
 
@@ -746,7 +799,7 @@ class SyncService:
             try:
                 entity = await self.entity_repository.add(
                     Entity(
-                        entity_type="file",
+                        note_type="file",
                         file_path=path,
                         checksum=checksum,
                         title=file_path.name,

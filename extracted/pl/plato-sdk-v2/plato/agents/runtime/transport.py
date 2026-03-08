@@ -202,73 +202,41 @@ class RsyncTransport(Transport):
 # NFS Transport
 # ---------------------------------------------------------------------------
 
-NFS_ROOT = "/srv/nfs"
-
 
 class NFSTransport(Transport):
-    """Transport via NFSv4 mount from world VM.
+    """Transport via kernel NFSv4 mount from world VM.
 
-    All workspace data lives on a loopback ext4 filesystem mounted at
-    /srv/nfs (the NFSv4 pseudo-root). This uses real disk instead of tmpfs
-    to avoid eating RAM, while still being exportable via NFS (overlayfs
-    cannot be exported). The world VM's workspace path (e.g. /workspace)
-    is bind-mounted to /srv/nfs/workspace so both world code and NFS clients
-    see the same data.
+    Exports the workspace path directly via kernel NFS with ``crossmnt`` so
+    that FUSE sub-mounts (lazy DVC) are automatically traversed.  No loopback
+    ext4, no bind mounts — the workspace directory is the NFS pseudo-root.
     """
 
-    def __init__(self, path: str, world_vm_ip: str, ssh_key_path: Path, mount_path: str | None = None) -> None:
+    def __init__(
+        self,
+        path: str,
+        world_vm_ip: str,
+        ssh_key_path: Path,
+        mount_path: str | None = None,
+    ) -> None:
         self.path = path
         self.world_vm_ip = world_vm_ip
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
 
     async def initialize(self) -> None:
-        """Set up NFS server with disk-backed workspace on the world VM."""
+        """Install kernel NFS server, write exports, and start the service."""
         await run_local(
             "which exportfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-kernel-server)",
             timeout=120,
         )
 
-        loop_file = "/var/lib/nfs-workspace.img"
-        exit_code, _, _ = await run_local(f"mountpoint -q {NFS_ROOT}", timeout=5)
-        if exit_code != 0:
-            _, df_out, _ = await run_local("df --output=avail -B1 / | tail -1", timeout=5)
-            avail_bytes = int(df_out.strip())
-            loop_size = int(avail_bytes * 0.8)
-            loop_size = max(loop_size, 1 * 1024**3)
-            loop_size = min(loop_size, 50 * 1024**3)
-            loop_size_mb = loop_size // (1024 * 1024)
-
-            exit_code, _, stderr = await run_local(
-                f"mkdir -p {NFS_ROOT} && "
-                f"truncate -s {loop_size_mb}M {loop_file} && "
-                f"mkfs.ext4 -q -F {loop_file} && "
-                f"mount -o loop {loop_file} {NFS_ROOT}",
-                timeout=60,
-            )
-            if exit_code != 0:
-                logger.warning("Loopback mount failed (%s), falling back to tmpfs", stderr.strip())
-                exit_code, _, stderr = await run_local(
-                    f"mkdir -p {NFS_ROOT} && mount -t tmpfs tmpfs {NFS_ROOT}",
-                    timeout=10,
-                )
-                if exit_code != 0:
-                    raise RuntimeError(f"Failed to create workspace filesystem at {NFS_ROOT}: {stderr}")
-            else:
-                logger.info("Workspace: loopback ext4 (%dMB) mounted at %s", loop_size_mb, NFS_ROOT)
-
-        await run_local(f"chown 1000:1000 {NFS_ROOT} && chmod 1777 {NFS_ROOT}", timeout=5)
-        await run_local(
-            f"setfacl -Rdm u:1000:rwx,g:1000:rwx {NFS_ROOT} 2>/dev/null; "
-            f"setfacl -Rm u:1000:rwx,g:1000:rwx {NFS_ROOT} 2>/dev/null; "
-            f"true",
-            timeout=30,
-        )
-
         await self._setup_workspace_path(self.path)
 
+        # Export the workspace path directly as the NFSv4 pseudo-root.
+        # crossmnt: automatically traverse FUSE sub-mounts (lazy DVC).
+        export_line = f"{self.path} *(rw,sync,fsid=0,crossmnt,no_subtree_check,all_squash,anonuid=1000,anongid=1000)"
         exit_code, _, stderr = await run_local(
-            f"printf '%s\\n' '{NFS_ROOT} *(rw,sync,fsid=0,no_subtree_check,all_squash,anonuid=1000,anongid=1000)' > /etc/exports",
+            f"printf '%s\\n' '{export_line}' > /etc/exports",
             timeout=10,
         )
         if exit_code != 0:
@@ -296,31 +264,55 @@ class NFSTransport(Transport):
         exit_code, exports, _ = await run_local("exportfs -s", timeout=5)
         logger.info(f"NFS server running. Exports:\n{exports.strip()}")
 
-    async def _setup_workspace_path(self, path: str) -> None:
-        """Create workspace dir on the NFS filesystem and bind-mount the world path to it."""
-        nfs_path = f"{NFS_ROOT}{path}"
+    async def add_export(self, path: str, fsid: int) -> None:
+        """Add an additional NFS export line for a workspace path.
+
+        Raises RuntimeError if the path can't be NFS-exported (e.g. overlayfs).
+        """
+        await self._setup_workspace_path(path)
+        export_line = f"{path} *(rw,sync,fsid={fsid},crossmnt,no_subtree_check,all_squash,anonuid=1000,anongid=1000)"
         exit_code, _, stderr = await run_local(
-            f"mkdir -p {nfs_path} && mkdir -p {path} && mountpoint -q {path} || mount --bind {nfs_path} {path}",
+            f"printf '%s\\n' '{export_line}' >> /etc/exports",
             timeout=10,
         )
         if exit_code != 0:
-            raise RuntimeError(f"Failed to setup workspace path {path}: {stderr}")
+            raise RuntimeError(f"Failed to add NFS export for {path}: {stderr}")
+
+        # Verify the export actually works
+        exit_code, _, stderr = await run_local("exportfs -ra", timeout=10)
+        if exit_code != 0:
+            # Remove the bad export line and re-export
+            await run_local(f"sed -i '\\|^{path} |d' /etc/exports", timeout=5)
+            await run_local("exportfs -ra", timeout=10)
+            raise RuntimeError(f"Path {path} does not support NFS export: {stderr}")
+
+    async def refresh_exports(self) -> None:
+        """Re-export after FUSE mounts change so NFS picks up new sub-mounts."""
+        exit_code, _, stderr = await run_local("exportfs -ra", timeout=10)
+        if exit_code != 0:
+            logger.warning("exportfs -ra failed: %s", stderr.strip())
+        else:
+            logger.debug("NFS exports refreshed")
+
+    async def _setup_workspace_path(self, path: str) -> None:
+        """Create workspace directory with correct ownership."""
+        exit_code, _, stderr = await run_local(f"mkdir -p {path}", timeout=10)
+        if exit_code != 0:
+            raise RuntimeError(f"Failed to create workspace path {path}: {stderr}")
         await run_local(
-            f"chown 1000:1000 {nfs_path} 2>/dev/null; "
-            f"chmod 1777 {nfs_path} 2>/dev/null; "
-            f"setfacl -dm u:1000:rwx,g:1000:rwx {nfs_path} 2>/dev/null; "
+            f"chown 1000:1000 {path} 2>/dev/null; "
+            f"chmod 1777 {path} 2>/dev/null; "
+            f"setfacl -dm u:1000:rwx,g:1000:rwx {path} 2>/dev/null; "
             f"true",
             timeout=10,
         )
-        logger.info(f"Workspace {path} -> {nfs_path} (bind mount)")
+        logger.info(f"Workspace path ready: {path}")
 
     async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
         """Mount the world VM's NFS export on an agent VM via SSH."""
         await self._setup_workspace_path(self.path)
-
-        nfs_path = f"{NFS_ROOT}{self.path}"
         await run_local(
-            f"setfacl -Rm u:1000:rwx,g:1000:rwx {nfs_path} 2>/dev/null; chown -R 1000:1000 {nfs_path}",
+            f"setfacl -Rm u:1000:rwx,g:1000:rwx {self.path} 2>/dev/null; chown -R 1000:1000 {self.path}",
             timeout=120,
         )
 
@@ -328,11 +320,12 @@ class NFSTransport(Transport):
             self.ssh_key_path,
             hostname,
             "which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common)",
-            timeout=60,
+            timeout=180,
         )
 
         remote = self.agent_mount_path
-        mount_cmd = f"mkdir -p {remote} && mount -t nfs4 -o soft,timeo=30 {self.world_vm_ip}:{self.path} {remote}"
+        nfs_src = f"{self.world_vm_ip}:{self.path}"
+        mount_cmd = f"mkdir -p {remote} && mount -t nfs -o vers=3,soft,timeo=30,nolock {nfs_src} {remote}"
         exit_code, _, stderr = await run_ssh(
             self.ssh_key_path,
             hostname,
@@ -349,11 +342,16 @@ class NFSTransport(Transport):
         pass
 
     async def prepare(self) -> None:
-        """Set up the NFS bind mount for this workspace path."""
+        """Ensure workspace directory exists."""
         await self._setup_workspace_path(self.path)
 
     def with_path(self, path: str) -> NFSTransport:
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
-        return NFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount)
+        return NFSTransport(
+            path,
+            self.world_vm_ip,
+            self.ssh_key_path,
+            sub_mount,
+        )

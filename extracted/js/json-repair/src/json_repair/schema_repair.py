@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import copy
 import importlib
-import re
-from types import ModuleType
 from typing import Any, Literal, cast
 
 from .utils.constants import MISSING_VALUE, JSONReturnType, MissingValueType
+from .utils.pattern_properties import match_pattern_properties
 
 SchemaRepairMode = Literal["standard", "salvage"]
 SUPPORTED_SCHEMA_REPAIR_MODES: tuple[SchemaRepairMode, ...] = ("standard", "salvage")
@@ -20,7 +19,7 @@ def normalize_schema_repair_mode(mode: str | None) -> SchemaRepairMode:
     if mode is None:
         return "standard"
     if mode in SUPPORTED_SCHEMA_REPAIR_MODES:
-        return cast(SchemaRepairMode, mode)
+        return cast("SchemaRepairMode", mode)
     expected = ", ".join(SUPPORTED_SCHEMA_REPAIR_MODES)
     raise ValueError(f"schema_repair_mode must be one of: {expected}.")
 
@@ -39,11 +38,29 @@ def _require_pydantic() -> Any:
         raise ValueError("pydantic is required when using schema models.") from exc
 
 
+def _prepare_schema_for_validation_node(node: Any) -> Any:
+    if isinstance(node, dict):
+        normalized = {key: _prepare_schema_for_validation_node(value) for key, value in node.items()}
+        items = normalized.get("items")
+        if isinstance(items, list):
+            normalized.pop("items", None)
+            normalized["prefixItems"] = items
+            additional_items = normalized.pop("additionalItems", None)
+            if additional_items is False:
+                normalized["items"] = False
+            elif isinstance(additional_items, dict):
+                normalized["items"] = additional_items
+        return normalized
+    if isinstance(node, list):
+        return [_prepare_schema_for_validation_node(item) for item in node]
+    return node
+
+
 def load_schema_model(path: str) -> type[Any]:
     if ":" not in path:
         raise ValueError("Schema model must be in the form 'module:ClassName'.")
     module_name, class_name = path.split(":", 1)
-    module: ModuleType = importlib.import_module(module_name)
+    module = importlib.import_module(module_name)
     model: object | None = module.__dict__.get(class_name)
     if model is None or not isinstance(model, type):
         raise ValueError(f"Schema model '{class_name}' not found in module '{module_name}'.")
@@ -110,10 +127,33 @@ class SchemaRepairer:
         self.root_schema = schema
         self.log = log
         self.schema_repair_mode = normalize_schema_repair_mode(schema_repair_mode)
+        self._validator_cache: dict[int, tuple[dict[str, Any], Any]] = {}
 
     def _log(self, text: str, path: str) -> None:
         if self.log is not None:
             self.log.append({"text": text, "context": path})
+
+    def _get_validator(self, schema: dict[str, Any]) -> Any:
+        cache_key = id(schema)
+        cached_validator = self._validator_cache.get(cache_key)
+        if cached_validator is not None and cached_validator[0] is schema:
+            return cached_validator[1]
+
+        prepared_schema = self._prepare_schema_for_validation(schema)
+        jsonschema = _require_jsonschema()
+        validator_cls = jsonschema.validators.validator_for(prepared_schema)
+        validator = validator_cls(prepared_schema)
+        self._validator_cache[cache_key] = (schema, validator)
+        return validator
+
+    def is_valid(self, value: JSONReturnType, schema: dict[str, Any] | bool) -> bool:
+        schema = self.resolve_schema(schema)
+        if schema is True:
+            return True
+        if schema is False:
+            return False
+        validator = self._get_validator(schema)
+        return bool(validator.is_valid(value))
 
     def validate(self, value: JSONReturnType, schema: dict[str, Any] | bool) -> None:
         schema = self.resolve_schema(schema)
@@ -121,13 +161,12 @@ class SchemaRepairer:
             return
         if schema is False:
             raise ValueError("Schema does not allow any values.")
-        schema_for_validation = self._prepare_schema_for_validation(schema)
         jsonschema = _require_jsonschema()
-        validator_cls = jsonschema.validators.validator_for(schema_for_validation)
-        validator = validator_cls(schema_for_validation)
-        errors = sorted(validator.iter_errors(value), key=lambda e: e.path)
-        if errors:
-            raise ValueError(errors[0].message)
+        validator = self._get_validator(schema)
+        try:
+            validator.validate(value)
+        except jsonschema.exceptions.ValidationError as exc:
+            raise ValueError(exc.message) from exc
 
     def resolve_schema(self, schema: object | None) -> dict[str, Any] | bool:
         if schema is None:
@@ -239,9 +278,10 @@ class SchemaRepairer:
             try:
                 candidate = self.repair_value(copy.deepcopy(value), subschema, path)
                 self.validate(candidate, subschema)
-                return candidate
             except ValueError as exc:
                 last_error = exc
+            else:
+                return candidate
         if last_error:
             raise ValueError(str(last_error)) from last_error
         raise ValueError("No schema matched the value.")
@@ -261,9 +301,10 @@ class SchemaRepairer:
                 candidate = self._repair_by_type(copy.deepcopy(value), schema_type, schema, path)
                 candidate = self._apply_enum_const(candidate, branch_schema, path)
                 self.validate(candidate, branch_schema)
-                return candidate
             except ValueError as exc:
                 last_error = exc
+            else:
+                return candidate
         if last_error:
             raise ValueError(str(last_error)) from last_error
         raise ValueError("No schema type matched the value.")
@@ -391,7 +432,12 @@ class SchemaRepairer:
             if key in properties:
                 continue
             key_path = f"{path}.{key}"
-            matched = [prop_schema for pattern, prop_schema in pattern_properties.items() if re.search(pattern, key)]
+            matched: list[Any] = []
+            unsupported_patterns: list[str] = []
+            if pattern_properties:
+                matched, unsupported_patterns = match_pattern_properties(pattern_properties, key)
+            for pattern in unsupported_patterns:
+                self._log(f"Skipped unsupported patternProperties regex '{pattern}'", key_path)
             if matched:
                 repaired_value = self.repair_value(raw_value, matched[0], key_path)
                 for prop_schema in matched[1:]:
@@ -444,8 +490,9 @@ class SchemaRepairer:
             return True, self._copy_json_value(resolved_schema["default"], path, "default")
         if "const" in resolved_schema:
             return True, self._copy_json_value(resolved_schema["const"], path, "const")
-        if "enum" in resolved_schema and resolved_schema["enum"]:
-            return True, self._copy_json_value(resolved_schema["enum"][0], path, "enum")
+        enum_values = resolved_schema.get("enum")
+        if enum_values:
+            return True, self._copy_json_value(enum_values[0], path, "enum")
 
         expected_type = resolved_schema.get("type")
         if expected_type is None:
@@ -633,24 +680,7 @@ class SchemaRepairer:
         raise ValueError(f"{label.capitalize()} value at {path} is not JSON compatible.")
 
     def _prepare_schema_for_validation(self, schema: object) -> dict[str, Any]:
-        def normalize(node: Any) -> Any:
-            if isinstance(node, dict):
-                normalized = {key: normalize(value) for key, value in node.items()}
-                items = normalized.get("items")
-                if isinstance(items, list):
-                    normalized.pop("items", None)
-                    normalized["prefixItems"] = items
-                    additional_items = normalized.pop("additionalItems", None)
-                    if additional_items is False:
-                        normalized["items"] = False
-                    elif isinstance(additional_items, dict):
-                        normalized["items"] = additional_items
-                return normalized
-            if isinstance(node, list):
-                return [normalize(item) for item in node]
-            return node
-
-        normalized = normalize(schema)
+        normalized = _prepare_schema_for_validation_node(schema)
         if not isinstance(normalized, dict):
             raise ValueError("Schema must be an object.")
         return normalized

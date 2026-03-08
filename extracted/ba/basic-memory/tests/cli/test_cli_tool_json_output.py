@@ -1,12 +1,11 @@
-"""Tests for --format json output in CLI tool commands.
+"""Tests for CLI tool commands.
 
-Verifies that write-note, read-note, and recent-activity commands
-produce valid JSON output when invoked with --format json, and that
-the default text format still works via the MCP tool path.
+All commands return JSON via MCP tool output_format="json".
+Tests mock the MCP tool functions directly.
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from typer.testing import CliRunner
 
@@ -19,25 +18,44 @@ runner = CliRunner()
 WRITE_NOTE_RESULT = {
     "title": "Test Note",
     "permalink": "notes/test-note",
-    "content": "hello world",
     "file_path": "notes/Test Note.md",
+    "checksum": "abc123",
+    "action": "created",
 }
 
 READ_NOTE_RESULT = {
     "title": "Test Note",
     "permalink": "notes/test-note",
-    "content": "# Test Note\n\nhello world",
     "file_path": "notes/Test Note.md",
+    "content": "# Test Note\n\nhello world",
+    "frontmatter": {"title": "Test Note", "tags": ["test"]},
+}
+
+EDIT_NOTE_RESULT = {
+    "title": "Test Note",
+    "permalink": "notes/test-note",
+    "file_path": "notes/Test Note.md",
+    "checksum": "def456",
+    "operation": "append",
+}
+
+BUILD_CONTEXT_RESULT = {
+    "results": [],
+    "metadata": {"uri": "test/topic", "depth": 1},
+    "page": 1,
+    "page_size": 10,
 }
 
 RECENT_ACTIVITY_RESULT = [
     {
+        "type": "entity",
         "title": "Note A",
         "permalink": "notes/note-a",
         "file_path": "notes/Note A.md",
         "created_at": "2025-01-01 00:00:00",
     },
     {
+        "type": "entity",
         "title": "Note B",
         "permalink": "notes/note-b",
         "file_path": "notes/Note B.md",
@@ -45,29 +63,32 @@ RECENT_ACTIVITY_RESULT = [
     },
 ]
 
+SEARCH_RESULT = {
+    "query": "test",
+    "total": 1,
+    "page": 1,
+    "page_size": 10,
+    "results": [
+        {
+            "type": "entity",
+            "title": "Test Note",
+            "permalink": "notes/test-note",
+            "file_path": "notes/Test Note.md",
+        }
+    ],
+}
 
-def _mock_config_manager():
-    """Create a mock ConfigManager that avoids reading real config."""
-    mock_cm = MagicMock()
-    mock_cm.config = MagicMock()
-    mock_cm.default_project = "test-project"
-    mock_cm.get_project.return_value = ("test-project", "/tmp/test")
-    return mock_cm
+
+# --- write-note ---
 
 
-# --- write-note --format json ---
-
-
-@patch("basic_memory.cli.commands.tool.ConfigManager")
 @patch(
-    "basic_memory.cli.commands.tool._write_note_json",
+    "basic_memory.cli.commands.tool.mcp_write_note",
     new_callable=AsyncMock,
     return_value=WRITE_NOTE_RESULT,
 )
-def test_write_note_json_output(mock_write_json, mock_config_cls):
-    """write-note --format json outputs valid JSON with expected keys."""
-    mock_config_cls.return_value = _mock_config_manager()
-
+def test_write_note_json_output(mock_mcp_write):
+    """write-note outputs valid JSON from MCP tool."""
     result = runner.invoke(
         cli_app,
         [
@@ -79,8 +100,6 @@ def test_write_note_json_output(mock_write_json, mock_config_cls):
             "notes",
             "--content",
             "hello world",
-            "--format",
-            "json",
         ],
     )
 
@@ -88,22 +107,19 @@ def test_write_note_json_output(mock_write_json, mock_config_cls):
     data = json.loads(result.output)
     assert data["title"] == "Test Note"
     assert data["permalink"] == "notes/test-note"
-    assert data["content"] == "hello world"
     assert data["file_path"] == "notes/Test Note.md"
-    mock_write_json.assert_called_once()
+    mock_mcp_write.assert_called_once()
+    # Verify output_format="json" was passed
+    assert mock_mcp_write.call_args.kwargs["output_format"] == "json"
 
 
-@patch("basic_memory.cli.commands.tool.ConfigManager")
 @patch(
     "basic_memory.cli.commands.tool.mcp_write_note",
+    new_callable=AsyncMock,
+    return_value=WRITE_NOTE_RESULT,
 )
-def test_write_note_text_output(mock_mcp_write, mock_config_cls):
-    """write-note with default text format uses the MCP tool path."""
-    mock_config_cls.return_value = _mock_config_manager()
-
-    # MCP tool .fn returns a formatted string
-    mock_mcp_write.fn = AsyncMock(return_value="Created note: Test Note")
-
+def test_write_note_with_tags(mock_mcp_write):
+    """write-note passes tags through to MCP tool."""
     result = runner.invoke(
         cli_app,
         [
@@ -114,31 +130,31 @@ def test_write_note_text_output(mock_mcp_write, mock_config_cls):
             "--folder",
             "notes",
             "--content",
-            "hello world",
+            "hello",
+            "--tags",
+            "python",
+            "--tags",
+            "async",
         ],
     )
 
     assert result.exit_code == 0, f"CLI failed: {result.output}"
-    assert "Created note: Test Note" in result.output
-    mock_mcp_write.fn.assert_called_once()
+    assert mock_mcp_write.call_args.kwargs["tags"] == ["python", "async"]
 
 
-# --- read-note --format json ---
+# --- read-note ---
 
 
-@patch("basic_memory.cli.commands.tool.ConfigManager")
 @patch(
-    "basic_memory.cli.commands.tool._read_note_json",
+    "basic_memory.cli.commands.tool.mcp_read_note",
     new_callable=AsyncMock,
     return_value=READ_NOTE_RESULT,
 )
-def test_read_note_json_output(mock_read_json, mock_config_cls):
-    """read-note --format json outputs valid JSON with expected keys."""
-    mock_config_cls.return_value = _mock_config_manager()
-
+def test_read_note_json_output(mock_mcp_read):
+    """read-note outputs valid JSON from MCP tool."""
     result = runner.invoke(
         cli_app,
-        ["tool", "read-note", "test-note", "--format", "json"],
+        ["tool", "read-note", "test-note"],
     )
 
     assert result.exit_code == 0, f"CLI failed: {result.output}"
@@ -146,163 +162,124 @@ def test_read_note_json_output(mock_read_json, mock_config_cls):
     assert data["title"] == "Test Note"
     assert data["permalink"] == "notes/test-note"
     assert data["content"] == "# Test Note\n\nhello world"
-    assert data["file_path"] == "notes/Test Note.md"
-    mock_read_json.assert_called_once()
+    assert data["frontmatter"] == {"title": "Test Note", "tags": ["test"]}
+    mock_mcp_read.assert_called_once()
+    assert mock_mcp_read.call_args.kwargs["output_format"] == "json"
 
 
-@patch("basic_memory.cli.commands.tool.ConfigManager")
 @patch(
     "basic_memory.cli.commands.tool.mcp_read_note",
-)
-def test_read_note_text_output(mock_mcp_read, mock_config_cls):
-    """read-note with default text format uses the MCP tool path."""
-    mock_config_cls.return_value = _mock_config_manager()
-
-    mock_mcp_read.fn = AsyncMock(return_value="# Test Note\n\nhello world")
-
-    result = runner.invoke(
-        cli_app,
-        ["tool", "read-note", "test-note"],
-    )
-
-    assert result.exit_code == 0, f"CLI failed: {result.output}"
-    assert "Test Note" in result.output
-    mock_mcp_read.fn.assert_called_once()
-
-
-# --- recent-activity --format json ---
-
-
-@patch(
-    "basic_memory.cli.commands.tool._recent_activity_json",
-    new_callable=AsyncMock,
-    return_value=RECENT_ACTIVITY_RESULT,
-)
-def test_recent_activity_json_output(mock_recent_json):
-    """recent-activity --format json outputs valid JSON list."""
-    result = runner.invoke(
-        cli_app,
-        ["tool", "recent-activity", "--format", "json"],
-    )
-
-    assert result.exit_code == 0, f"CLI failed: {result.output}"
-    data = json.loads(result.output)
-    assert isinstance(data, list)
-    assert len(data) == 2
-    assert data[0]["title"] == "Note A"
-    assert data[0]["permalink"] == "notes/note-a"
-    assert data[0]["file_path"] == "notes/Note A.md"
-    assert data[0]["created_at"] == "2025-01-01 00:00:00"
-    assert data[1]["title"] == "Note B"
-    mock_recent_json.assert_called_once()
-
-
-@patch(
-    "basic_memory.cli.commands.tool.mcp_recent_activity",
-)
-def test_recent_activity_text_output(mock_mcp_recent):
-    """recent-activity with default text format uses the MCP tool path."""
-    mock_mcp_recent.fn = AsyncMock(return_value="Recent activity:\n- Note A\n- Note B")
-
-    result = runner.invoke(
-        cli_app,
-        ["tool", "recent-activity"],
-    )
-
-    assert result.exit_code == 0, f"CLI failed: {result.output}"
-    assert "Recent activity:" in result.output
-    mock_mcp_recent.fn.assert_called_once()
-
-
-# --- read-note title fallback ---
-
-
-@patch("basic_memory.cli.commands.tool.ConfigManager")
-@patch(
-    "basic_memory.cli.commands.tool._read_note_json",
     new_callable=AsyncMock,
     return_value=READ_NOTE_RESULT,
 )
-def test_read_note_json_with_plain_title(mock_read_json, mock_config_cls):
-    """read-note --format json works with plain titles (not just permalinks)."""
-    mock_config_cls.return_value = _mock_config_manager()
-
+def test_read_note_workspace_passthrough(mock_mcp_read):
+    """read-note --workspace passes workspace through to the MCP tool call."""
     result = runner.invoke(
         cli_app,
-        ["tool", "read-note", "My Note Title", "--format", "json"],
+        ["tool", "read-note", "test-note", "--workspace", "tenant-123"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert mock_mcp_read.call_args.kwargs["workspace"] == "tenant-123"
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_read_note",
+    new_callable=AsyncMock,
+    return_value=READ_NOTE_RESULT,
+)
+def test_read_note_include_frontmatter(mock_mcp_read):
+    """read-note --include-frontmatter passes flag through to MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "read-note", "test-note", "--include-frontmatter"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert mock_mcp_read.call_args.kwargs["include_frontmatter"] is True
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_read_note",
+    new_callable=AsyncMock,
+    return_value=READ_NOTE_RESULT,
+)
+def test_read_note_pagination(mock_mcp_read):
+    """read-note --page and --page-size are passed through."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "read-note", "test-note", "--page", "2", "--page-size", "5"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert mock_mcp_read.call_args.kwargs["page"] == 2
+    assert mock_mcp_read.call_args.kwargs["page_size"] == 5
+
+
+# --- edit-note ---
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_edit_note",
+    new_callable=AsyncMock,
+    return_value=EDIT_NOTE_RESULT,
+)
+def test_edit_note_json_output(mock_mcp_edit):
+    """edit-note outputs valid JSON from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        [
+            "tool",
+            "edit-note",
+            "test-note",
+            "--operation",
+            "append",
+            "--content",
+            "new content",
+        ],
     )
 
     assert result.exit_code == 0, f"CLI failed: {result.output}"
     data = json.loads(result.output)
     assert data["title"] == "Test Note"
-    # Verify the identifier was passed through
-    call_args = mock_read_json.call_args
-    assert call_args[0][0] == "My Note Title" or call_args[1].get("identifier") == "My Note Title"
-
-
-# --- recent-activity pagination ---
+    assert data["operation"] == "append"
+    mock_mcp_edit.assert_called_once()
+    assert mock_mcp_edit.call_args.kwargs["output_format"] == "json"
 
 
 @patch(
-    "basic_memory.cli.commands.tool._recent_activity_json",
+    "basic_memory.cli.commands.tool.mcp_edit_note",
     new_callable=AsyncMock,
-    return_value=RECENT_ACTIVITY_RESULT,
+    return_value={"title": "Test", "permalink": "test", "error": "Edit failed: not found"},
 )
-def test_recent_activity_json_pagination(mock_recent_json):
-    """recent-activity --format json passes --page and --page-size to helper."""
+def test_edit_note_error_response(mock_mcp_edit):
+    """edit-note exits with code 1 when MCP tool returns error field."""
     result = runner.invoke(
         cli_app,
-        ["tool", "recent-activity", "--format", "json", "--page", "2", "--page-size", "10"],
+        [
+            "tool",
+            "edit-note",
+            "test-note",
+            "--operation",
+            "append",
+            "--content",
+            "content",
+        ],
     )
 
-    assert result.exit_code == 0, f"CLI failed: {result.output}"
-    data = json.loads(result.output)
-    assert isinstance(data, list)
-    # Verify pagination params were passed through
-    mock_recent_json.assert_called_once()
-    call_kwargs = mock_recent_json.call_args
-    # positional args: type, depth, timeframe, project_name, page, page_size
-    assert call_kwargs[0][4] == 2  # page
-    assert call_kwargs[0][5] == 10  # page_size
+    assert result.exit_code == 1
 
 
-# --- build-context --format json ---
+# --- build-context ---
 
 
-@patch("basic_memory.cli.commands.tool.ConfigManager")
-@patch("basic_memory.cli.commands.tool.mcp_build_context")
-def test_build_context_format_json(mock_build_ctx, mock_config_cls):
-    """build-context --format json outputs valid JSON."""
-    mock_config_cls.return_value = _mock_config_manager()
-
-    mock_context = MagicMock()
-    mock_context.model_dump.return_value = {
-        "primary_results": [],
-        "related_results": [],
-    }
-    mock_build_ctx.fn = AsyncMock(return_value=mock_context)
-
-    result = runner.invoke(
-        cli_app,
-        ["tool", "build-context", "memory://test/topic", "--format", "json"],
-    )
-
-    assert result.exit_code == 0, f"CLI failed: {result.output}"
-    data = json.loads(result.output)
-    assert "primary_results" in data
-    mock_build_ctx.fn.assert_called_once()
-
-
-@patch("basic_memory.cli.commands.tool.ConfigManager")
-@patch("basic_memory.cli.commands.tool.mcp_build_context")
-def test_build_context_default_format_is_json(mock_build_ctx, mock_config_cls):
-    """build-context defaults to JSON output (backward compatible)."""
-    mock_config_cls.return_value = _mock_config_manager()
-
-    mock_context = MagicMock()
-    mock_context.model_dump.return_value = {"results": []}
-    mock_build_ctx.fn = AsyncMock(return_value=mock_context)
-
+@patch(
+    "basic_memory.cli.commands.tool.mcp_build_context",
+    new_callable=AsyncMock,
+    return_value=BUILD_CONTEXT_RESULT,
+)
+def test_build_context_json_output(mock_build_ctx):
+    """build-context outputs valid JSON from MCP tool."""
     result = runner.invoke(
         cli_app,
         ["tool", "build-context", "memory://test/topic"],
@@ -310,24 +287,452 @@ def test_build_context_default_format_is_json(mock_build_ctx, mock_config_cls):
 
     assert result.exit_code == 0, f"CLI failed: {result.output}"
     data = json.loads(result.output)
-    assert isinstance(data, dict)
-
-
-# --- Edge cases ---
+    assert "results" in data
+    mock_build_ctx.assert_called_once()
+    assert mock_build_ctx.call_args.kwargs["output_format"] == "json"
 
 
 @patch(
-    "basic_memory.cli.commands.tool._recent_activity_json",
+    "basic_memory.cli.commands.tool.mcp_build_context",
+    new_callable=AsyncMock,
+    return_value=BUILD_CONTEXT_RESULT,
+)
+def test_build_context_with_options(mock_build_ctx):
+    """build-context passes depth, timeframe, pagination through."""
+    result = runner.invoke(
+        cli_app,
+        [
+            "tool",
+            "build-context",
+            "memory://test/topic",
+            "--depth",
+            "2",
+            "--timeframe",
+            "30d",
+            "--page",
+            "3",
+            "--max-related",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    kwargs = mock_build_ctx.call_args.kwargs
+    assert kwargs["depth"] == 2
+    assert kwargs["timeframe"] == "30d"
+    assert kwargs["page"] == 3
+    assert kwargs["max_related"] == 5
+
+
+# --- recent-activity ---
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_recent_activity",
+    new_callable=AsyncMock,
+    return_value=RECENT_ACTIVITY_RESULT,
+)
+def test_recent_activity_json_output(mock_mcp_recent):
+    """recent-activity outputs valid JSON list from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "recent-activity"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert isinstance(data, list)
+    assert len(data) == 2
+    assert data[0]["title"] == "Note A"
+    assert data[1]["title"] == "Note B"
+    mock_mcp_recent.assert_called_once()
+    assert mock_mcp_recent.call_args.kwargs["output_format"] == "json"
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_recent_activity",
+    new_callable=AsyncMock,
+    return_value=RECENT_ACTIVITY_RESULT,
+)
+def test_recent_activity_pagination(mock_mcp_recent):
+    """recent-activity passes --page and --page-size through."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "recent-activity", "--page", "2", "--page-size", "10"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    kwargs = mock_mcp_recent.call_args.kwargs
+    assert kwargs["page"] == 2
+    assert kwargs["page_size"] == 10
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_recent_activity",
     new_callable=AsyncMock,
     return_value=[],
 )
-def test_recent_activity_json_empty(mock_recent_json):
-    """recent-activity --format json handles empty results."""
+def test_recent_activity_empty(mock_mcp_recent):
+    """recent-activity handles empty results."""
     result = runner.invoke(
         cli_app,
-        ["tool", "recent-activity", "--format", "json"],
+        ["tool", "recent-activity"],
     )
 
     assert result.exit_code == 0, f"CLI failed: {result.output}"
     data = json.loads(result.output)
     assert data == []
+
+
+# --- search-notes ---
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_search",
+    new_callable=AsyncMock,
+    return_value=SEARCH_RESULT,
+)
+def test_search_notes_json_output(mock_mcp_search):
+    """search-notes outputs valid JSON from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "search-notes", "test query"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert data["total"] == 1
+    assert data["results"][0]["title"] == "Test Note"
+    mock_mcp_search.assert_called_once()
+    assert mock_mcp_search.call_args.kwargs["output_format"] == "json"
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_search",
+    new_callable=AsyncMock,
+    return_value=SEARCH_RESULT,
+)
+def test_search_notes_with_meta_filter(mock_mcp_search):
+    """search-notes --meta key=value builds metadata filters."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "search-notes", "query", "--meta", "status=draft"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert mock_mcp_search.call_args.kwargs["metadata_filters"] == {"status": "draft"}
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_search",
+    new_callable=AsyncMock,
+    return_value=SEARCH_RESULT,
+)
+def test_search_notes_permalink_mode(mock_mcp_search):
+    """search-notes --permalink sets search_type."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "search-notes", "specs/*", "--permalink"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert mock_mcp_search.call_args.kwargs["search_type"] == "permalink"
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_search",
+    new_callable=AsyncMock,
+    return_value="Error: search failed",
+)
+def test_search_notes_string_error(mock_mcp_search):
+    """search-notes exits with code 1 when MCP returns string error."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "search-notes", "query"],
+    )
+
+    assert result.exit_code == 1
+
+
+# --- Routing flags ---
+
+
+def test_routing_both_flags_error():
+    """Commands exit with error when both --local and --cloud are specified."""
+    result = runner.invoke(
+        cli_app,
+        [
+            "tool",
+            "recent-activity",
+            "--local",
+            "--cloud",
+        ],
+    )
+
+    assert result.exit_code == 1
+
+
+# --- schema-validate ---
+
+SCHEMA_VALIDATE_RESULT = {
+    "note_type": "person",
+    "total_notes": 2,
+    "total_entities": 2,
+    "valid_count": 1,
+    "warning_count": 1,
+    "error_count": 1,
+    "results": [
+        {
+            "note_identifier": "people/alice",
+            "schema_entity": "person",
+            "passed": True,
+            "warnings": [],
+            "errors": [],
+        },
+        {
+            "note_identifier": "people/bob",
+            "schema_entity": "person",
+            "passed": False,
+            "warnings": ["Missing optional field: role"],
+            "errors": ["Missing required field: name"],
+        },
+    ],
+}
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_schema_validate",
+    new_callable=AsyncMock,
+    return_value=SCHEMA_VALIDATE_RESULT,
+)
+def test_schema_validate_json_output(mock_mcp):
+    """schema-validate outputs valid JSON from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "schema-validate", "person"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert data["note_type"] == "person"
+    assert data["total_notes"] == 2
+    mock_mcp.assert_called_once()
+    assert mock_mcp.call_args.kwargs["output_format"] == "json"
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_schema_validate",
+    new_callable=AsyncMock,
+    return_value=SCHEMA_VALIDATE_RESULT,
+)
+def test_schema_validate_identifier_heuristic(mock_mcp):
+    """schema-validate treats target with / as identifier, not note_type."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "schema-validate", "people/alice.md"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert mock_mcp.call_args.kwargs["identifier"] == "people/alice.md"
+    assert mock_mcp.call_args.kwargs["note_type"] is None
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_schema_validate",
+    new_callable=AsyncMock,
+    return_value={"error": "No notes found of type 'person'"},
+)
+def test_schema_validate_error_response(mock_mcp):
+    """schema-validate outputs error JSON when MCP returns error dict."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "schema-validate", "person"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert "error" in data
+
+
+# --- schema-infer ---
+
+SCHEMA_INFER_RESULT = {
+    "note_type": "person",
+    "notes_analyzed": 5,
+    "field_frequencies": [
+        {"name": "name", "source": "observation", "count": 5, "total": 5, "percentage": 1.0},
+        {"name": "role", "source": "observation", "count": 3, "total": 5, "percentage": 0.6},
+    ],
+    "suggested_schema": {"name": "string, full name", "role?": "string, job title"},
+    "suggested_required": ["name"],
+    "suggested_optional": ["role"],
+    "excluded": [],
+}
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_schema_infer",
+    new_callable=AsyncMock,
+    return_value=SCHEMA_INFER_RESULT,
+)
+def test_schema_infer_json_output(mock_mcp):
+    """schema-infer outputs valid JSON from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "schema-infer", "person"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert data["note_type"] == "person"
+    assert data["notes_analyzed"] == 5
+    mock_mcp.assert_called_once()
+    assert mock_mcp.call_args.kwargs["output_format"] == "json"
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_schema_infer",
+    new_callable=AsyncMock,
+    return_value=SCHEMA_INFER_RESULT,
+)
+def test_schema_infer_threshold_passthrough(mock_mcp):
+    """schema-infer passes --threshold through to MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "schema-infer", "person", "--threshold", "0.5"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    assert mock_mcp.call_args.kwargs["threshold"] == 0.5
+
+
+# --- schema-diff ---
+
+SCHEMA_DIFF_RESULT = {
+    "note_type": "person",
+    "schema_found": True,
+    "new_fields": [
+        {"name": "email", "source": "observation", "count": 3, "total": 5, "percentage": 0.6}
+    ],
+    "dropped_fields": [],
+    "cardinality_changes": [],
+}
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_schema_diff",
+    new_callable=AsyncMock,
+    return_value=SCHEMA_DIFF_RESULT,
+)
+def test_schema_diff_json_output(mock_mcp):
+    """schema-diff outputs valid JSON from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "schema-diff", "person"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert data["note_type"] == "person"
+    assert data["schema_found"] is True
+    assert len(data["new_fields"]) == 1
+    mock_mcp.assert_called_once()
+    assert mock_mcp.call_args.kwargs["output_format"] == "json"
+
+
+# --- list-projects ---
+
+LIST_PROJECTS_RESULT = {
+    "projects": [
+        {
+            "name": "main",
+            "path": "/home/user/notes",
+            "is_default": True,
+            "status": "active",
+        },
+        {
+            "name": "research",
+            "path": "/home/user/research",
+            "is_default": False,
+            "status": "active",
+        },
+    ],
+    "count": 2,
+}
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_list_projects",
+    new_callable=AsyncMock,
+    return_value=LIST_PROJECTS_RESULT,
+)
+def test_list_projects_json_output(mock_mcp):
+    """list-projects outputs valid JSON from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "list-projects"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert data["count"] == 2
+    assert len(data["projects"]) == 2
+    assert data["projects"][0]["name"] == "main"
+    mock_mcp.assert_called_once()
+    assert mock_mcp.call_args.kwargs["output_format"] == "json"
+
+
+# --- list-workspaces ---
+
+LIST_WORKSPACES_RESULT = {
+    "workspaces": [
+        {
+            "tenant_id": "tenant-abc",
+            "name": "My Workspace",
+            "workspace_type": "personal",
+            "role": "owner",
+            "organization_id": None,
+            "has_active_subscription": True,
+        },
+    ],
+    "count": 1,
+}
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_list_workspaces",
+    new_callable=AsyncMock,
+    return_value=LIST_WORKSPACES_RESULT,
+)
+def test_list_workspaces_json_output(mock_mcp):
+    """list-workspaces outputs valid JSON from MCP tool."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "list-workspaces"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert data["count"] == 1
+    assert data["workspaces"][0]["tenant_id"] == "tenant-abc"
+    assert data["workspaces"][0]["name"] == "My Workspace"
+    mock_mcp.assert_called_once()
+    assert mock_mcp.call_args.kwargs["output_format"] == "json"
+
+
+@patch(
+    "basic_memory.cli.commands.tool.mcp_list_workspaces",
+    new_callable=AsyncMock,
+    return_value={"workspaces": [], "count": 0},
+)
+def test_list_workspaces_empty(mock_mcp):
+    """list-workspaces handles empty workspace list."""
+    result = runner.invoke(
+        cli_app,
+        ["tool", "list-workspaces"],
+    )
+
+    assert result.exit_code == 0, f"CLI failed: {result.output}"
+    data = json.loads(result.output)
+    assert data["workspaces"] == []
+    assert data["count"] == 0

@@ -38,9 +38,9 @@
     Help message would be: *you can use this option with other options or environment
     variables to have them set in the generated configuration*.
 
-.. todo::
-    Add a ``ParameterSource.CONFIG_FILE`` entry to the ``ParameterSource`` enum?
-    Also see: https://github.com/pallets/click/issues/2879
+Dotted keys in configuration files (e.g. ``"subcommand.option": value``) are
+automatically expanded into nested dicts before merging, so users can freely mix
+flat dot-notation and nested structures in any supported format.
 """
 
 from __future__ import annotations
@@ -281,6 +281,95 @@ def _strip_reserved_keys(conf: dict, keys: frozenset[str] | None = None) -> dict
             continue
         cleaned[k] = _strip_reserved_keys(v, keys) if isinstance(v, dict) else v
     return cleaned
+
+
+def _check_type_conflict(
+    target: dict,
+    parts: list[str],
+    new_value: object,
+    label: str,
+    strict: bool,
+) -> None:
+    """Walk *parts* into *target* and warn on scalar/dict mismatches.
+
+    Checks every level (intermediate and leaf) so that deep conflicts like
+    ``{"a.b.c": 1, "a.b": 2}`` are caught.
+
+    In strict mode, raises ``ValueError`` instead of logging a warning.
+    """
+    logger = logging.getLogger("click_extra")
+    node = target
+    for i, part in enumerate(parts):
+        if part not in node:
+            return
+        existing = node[part]
+        is_last = i == len(parts) - 1
+        if is_last:
+            # Leaf: flag when one side is a dict and the other is not.
+            if isinstance(existing, dict) != isinstance(new_value, dict):
+                msg = (
+                    f"Configuration key {label!r} conflicts with "
+                    f"{'.'.join(parts[: i + 1])!r}: "
+                    f"mixing scalar and nested values."
+                )
+                if strict:
+                    raise ValueError(msg)
+                logger.warning(f"{msg} Last value wins.")
+            return
+        # Intermediate segment: the new value expects a dict here.
+        if not isinstance(existing, dict):
+            msg = (
+                f"Configuration key {label!r} conflicts with "
+                f"{'.'.join(parts[: i + 1])!r}: "
+                f"mixing scalar and nested values."
+            )
+            if strict:
+                raise ValueError(msg)
+            logger.warning(f"{msg} Last value wins.")
+            return
+        node = existing
+
+
+def _expand_dotted_keys(conf: dict, strict: bool = False) -> dict:
+    """Expand dotted keys into nested dicts, then deep-merge.
+
+    Allows configuration files to mix flat dot-notation and nested structures::
+
+        {"subcommand.option_a": 1, "subcommand": {"option_b": 2}}
+
+    becomes::
+
+        {"subcommand": {"option_a": 1, "option_b": 2}}
+
+    Recurses into nested dicts so dotted keys at any level are expanded.
+
+    In non-strict mode, logs a warning when a key resolves to both a scalar
+    and a dict (e.g. ``{"a": 1, "a.b": 2}``), as one value will silently
+    override the other.
+
+    In strict mode, raises ``ValueError`` on type conflicts and invalid
+    dotted keys (empty segments).
+    """
+    logger = logging.getLogger("click_extra")
+    expanded: dict = {}
+    for key, value in conf.items():
+        if isinstance(value, dict):
+            value = _expand_dotted_keys(value, strict=strict)
+        if "." in key:
+            parts = key.split(".")
+            if not all(parts):
+                msg = f"Configuration key {key!r} contains empty segments."
+                if strict:
+                    raise ValueError(msg)
+                logger.warning(f"Ignoring {msg.lower()}")
+                continue
+            nested = ParamStructure.init_tree_dict(*parts, leaf=value)
+            _check_type_conflict(expanded, parts, value, key, strict)
+            expanded = always_merger.merge(expanded, nested)
+        else:
+            _check_type_conflict(expanded, [key], value, key, strict)
+            expanded = always_merger.merge(expanded, {key: value})
+    return expanded
 
 
 class Sentinel(Enum):
@@ -598,9 +687,11 @@ class ConfigOption(ExtraOption, ParamStructure):
             dotfiles: list[str] = []
             if file_part.startswith("."):
                 dotfiles.append(self.default)
-            for pat in all_format_patterns:
-                if PurePosixPath(pat).name.startswith("."):
-                    dotfiles.append(pat)
+            dotfiles.extend(
+                pat
+                for pat in all_format_patterns
+                if PurePosixPath(pat).name.startswith(".")
+            )
             if dotfiles:
                 logger.debug(
                     f"Dotfile(s) {dotfiles!r} referenced but DOTGLOB is not set "
@@ -1085,8 +1176,11 @@ class ConfigOption(ExtraOption, ParamStructure):
         The first layer wins on key lookup, which makes parameter-source precedence
         explicit and future-proofs for multi-file config loading.
         """
+        normalized_conf = _expand_dotted_keys(
+            _strip_reserved_keys(user_conf), strict=self.strict
+        )
         filtered_conf = _recursive_update(
-            self.params_template, _strip_reserved_keys(user_conf), self.strict
+            self.params_template, normalized_conf, self.strict
         )
 
         # Clean-up the conf by removing all blank values left-over by the template
@@ -1105,7 +1199,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         param: click.Parameter,
         path_pattern: str | Path | Literal[Sentinel.NO_CONFIG],
     ) -> None:
-        """Fetch parameters values from configuration file and sets them as defaults.
+        """Fetch parameter values from a configuration file and set them as defaults.
 
         User configuration is merged to the `context's default_map
         <https://click.palletsprojects.com/en/stable/commands/#overriding-defaults>`_,
@@ -1113,8 +1207,20 @@ class ConfigOption(ExtraOption, ParamStructure):
         <https://click.palletsprojects.com/en/stable/commands/#context-defaults>`_.
 
         By relying on Click's ``default_map``, we make sure that precedence is
-        respected. And direct CLI parameters, environment variables or interactive
-        prompts takes precedence over any values from the config file.
+        respected. Direct CLI parameters, environment variables or interactive prompts
+        take precedence over any values from the config file.
+
+        ..hint::
+            Once loading is complete, the resolved file path and its full parsed content
+            are stored in ``ctx.meta["click_extra.conf_source"]`` and
+            ``ctx.meta["click_extra.conf_full"]`` respectively. This is the recommended
+            way to identify which configuration file was loaded.
+
+            We intentionally do not
+            add a custom ``ParameterSource.CONFIG_FILE`` enum member: ``ParameterSource``
+            is a closed enum in Click, and monkeypatching it would be fragile. Besides,
+            config values end up in ``default_map``, so Click already reports them as
+            ``ParameterSource.DEFAULT_MAP``, which is accurate.
         """
         logger = logging.getLogger("click_extra")
 
@@ -1126,6 +1232,8 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         if path_pattern is NO_CONFIG:
             logger.debug(f"{NO_CONFIG} received.")
+            # TODO: simplify to ``source < ParameterSource.DEFAULT_MAP`` once
+            # https://github.com/pallets/click/pull/3248 is merged.
             explicit = ctx.get_parameter_source(self.name) in (  # type: ignore[arg-type]
                 ParameterSource.COMMANDLINE,
                 ParameterSource.ENVIRONMENT,
@@ -1137,6 +1245,8 @@ class ConfigOption(ExtraOption, ParamStructure):
                 logger.debug("Configuration file autodiscovery disabled by default.")
             return
 
+        # TODO: simplify to ``source < ParameterSource.DEFAULT_MAP`` once
+        # https://github.com/pallets/click/pull/3248 is merged.
         explicit_conf = ctx.get_parameter_source(self.name) in (  # type: ignore[arg-type]
             ParameterSource.COMMANDLINE,
             ParameterSource.ENVIRONMENT,
@@ -1191,8 +1301,10 @@ class ConfigOption(ExtraOption, ParamStructure):
                 self.merge_default_map(ctx, user_conf)
                 logger.debug(f"New defaults: {ctx.default_map}")
 
-        # Save the location and content of the configuration file into the context's
-        # meta dict, for the convenience of CLI developers.
+        # Expose the resolved config file path and its full parsed content via
+        # ctx.meta, so downstream CLI code can inspect what was loaded and from where.
+        # See the load_conf docstring for why we use ctx.meta instead of a custom
+        # ParameterSource enum member.
         ctx.meta["click_extra.conf_source"] = conf_path
         ctx.meta["click_extra.conf_full"] = user_conf
 
@@ -1305,7 +1417,7 @@ class ValidateConfigOption(ExtraOption):
 
         # Read and parse the config file.
         try:
-            conf_path, user_conf = config_option.read_and_parse_conf(value)
+            _conf_path, user_conf = config_option.read_and_parse_conf(value)
         except FileNotFoundError:
             info_msg(f"Configuration file not found: {value}")
             ctx.exit(2)
@@ -1324,7 +1436,7 @@ class ValidateConfigOption(ExtraOption):
         try:
             _recursive_update(
                 config_option.params_template,
-                _strip_reserved_keys(user_conf),
+                _expand_dotted_keys(_strip_reserved_keys(user_conf), strict=True),
                 strict=True,
             )
         except ValueError as exc:

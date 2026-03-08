@@ -47640,60 +47640,6 @@ class GeometryNodeSetCurveNormal(GeometryNode, NodeInternal, Node, bpy_struct):
         :return: The class or default when not found.
         """
 
-class GeometryNodeSetCurveOrder(GeometryNode, NodeInternal, Node, bpy_struct):
-    """Control how many control points influence each evaluated point by changing the "nurbs_order" attribute"""
-
-    @classmethod
-    def is_registered_node_type(cls) -> bool:
-        """True if a registered node type
-
-        :return: Result
-        """
-
-    @classmethod
-    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate:
-        """Input socket template
-
-        :param index: Index, (in [0, inf])
-        :return: result
-        """
-
-    @classmethod
-    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate:
-        """Output socket template
-
-        :param index: Index, (in [0, inf])
-        :return: result
-        """
-
-    @classmethod
-    def bl_rna_get_subclass(
-        cls,
-        id: str | None,
-        default: None | Struct | None = None,
-        /,
-    ) -> Struct:
-        """
-
-        :param id: The RNA type identifier.
-        :param default: The value to return when not found.
-        :return: The RNA type or default when not found.
-        """
-
-    @classmethod
-    def bl_rna_get_subclass_py(
-        cls,
-        id: str | None,
-        default: None | typing.Any | None = None,
-        /,
-    ) -> typing.Any:
-        """
-
-        :param id: The RNA type identifier.
-        :param default: The value to return when not found.
-        :return: The class or default when not found.
-        """
-
 class GeometryNodeSetCurveRadius(GeometryNode, NodeInternal, Node, bpy_struct):
     """Set the radius of the curve at each control point"""
 
@@ -48416,6 +48362,60 @@ class GeometryNodeSetMeshNormal(GeometryNode, NodeInternal, Node, bpy_struct):
 
     mode: typing.Literal["SHARPNESS", "FREE", "TANGENT_SPACE"]
     """ Storage mode for custom normal data (default 'SHARPNESS')"""
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class GeometryNodeSetNURBSOrder(GeometryNode, NodeInternal, Node, bpy_struct):
+    """Control how many curve control points influence each evaluated point by changing the "nurbs_order" attribute"""
 
     @classmethod
     def is_registered_node_type(cls) -> bool:

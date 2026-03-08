@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -92,6 +92,7 @@ class SessionConfig(BaseModel):
     session_id: str = ""
     otel_url: str = ""
     chronos_url: str = ""  # Base URL for Chronos API (presigned URL requests)
+    transport_mode: Literal["nfs_kernel"] = "nfs_kernel"
     plato_session: SerializedSession | None = None
     parent_trace_id: str | None = None  # Parent trace ID (hex) for cross-world linking
     parent_span_id: str | None = None  # Parent span ID (hex) for cross-world linking

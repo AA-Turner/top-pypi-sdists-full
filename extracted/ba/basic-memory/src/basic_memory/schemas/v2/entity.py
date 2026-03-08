@@ -118,7 +118,7 @@ class EntityResponseV2(BaseModel):
 
     # Core entity fields
     title: str = Field(..., description="Entity title")
-    entity_type: str = Field(..., description="Entity type")
+    note_type: str = Field(..., description="Note type (from frontmatter 'type' field)")
     content_type: str = Field(default="text/markdown", description="Content MIME type")
 
     # Secondary identifiers (for compatibility and convenience)
@@ -138,6 +138,10 @@ class EntityResponseV2(BaseModel):
     # Timestamps
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
+
+    # User tracking (cloud only, null for local/CLI usage)
+    created_by: Optional[str] = Field(None, description="User profile ID of creator")
+    last_updated_by: Optional[str] = Field(None, description="User profile ID of last editor")
 
     # V2-specific metadata
     api_version: Literal["v2"] = Field(

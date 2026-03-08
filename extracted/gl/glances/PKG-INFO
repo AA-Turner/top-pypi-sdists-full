@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Glances
-Version: 4.5.0.5
+Version: 4.5.1
 Summary: A cross-platform curses-based monitoring tool
 Author-email: Nicolas Hennion <nicolas@nicolargo.com>
 License-Expression: LGPL-3.0-only
@@ -27,8 +27,7 @@ License-File: COPYING
 License-File: AUTHORS
 Requires-Dist: defusedxml
 Requires-Dist: packaging
-Requires-Dist: psutil>=5.6.7; platform_system != "Darwin" or platform_version >= "11."
-Requires-Dist: psutil<=7.1.1,>=5.6.7; platform_system == "Darwin" and platform_version < "11."
+Requires-Dist: psutil>=5.6.7
 Requires-Dist: windows-curses; platform_system == "Windows"
 Requires-Dist: shtab; platform_system != "Windows"
 Requires-Dist: jinja2
@@ -36,7 +35,7 @@ Requires-Dist: pyinstrument>=5.1.2
 Provides-Extra: action
 Requires-Dist: chevron; extra == "action"
 Provides-Extra: all
-Requires-Dist: glances[action,browser,cloud,containers,export,gpu,graph,ip,raid,sensors,smart,snmp,sparklines,web,wifi]; extra == "all"
+Requires-Dist: glances[action,browser,cloud,containers,export,gpu,graph,ip,mcp,raid,sensors,smart,snmp,sparklines,web,wifi]; extra == "all"
 Provides-Extra: browser
 Requires-Dist: zeroconf; extra == "browser"
 Provides-Extra: cloud
@@ -69,6 +68,8 @@ Provides-Extra: gpu
 Requires-Dist: nvidia-ml-py; extra == "gpu"
 Provides-Extra: graph
 Requires-Dist: pygal; extra == "graph"
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.0.0; extra == "mcp"
 Provides-Extra: raid
 Requires-Dist: pymdstat; extra == "raid"
 Provides-Extra: sensors

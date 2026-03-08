@@ -89,6 +89,7 @@ class BasePostprocessorTest(unittest.TestCase):
 
     def tearDown(self):
         self.job.hooks.clear()
+        self.job.status = 0
 
     def _create(self, options=None, data=None):
         kwdict = {"category": "test", "filename": "file", "extension": "ext"}
@@ -109,6 +110,39 @@ class BasePostprocessorTest(unittest.TestCase):
         for event in (events or ("prepare", "file")):
             for callback in self.job.hooks[event]:
                 callback(self.pathfmt)
+
+    def _output(self, mock):
+        return "".join(
+            call[1][0]
+            for call in mock.mock_calls
+            if call[0].endswith("write")
+        )
+
+
+class ActionsTest(BasePostprocessorTest):
+
+    def test_raises(self):
+        self._create({"action": "raise AbortExtraction foobar"})
+
+        with self.assertRaises(exception.AbortExtraction) as cm:
+            self._trigger()
+
+        self.assertEqual(str(cm.exception), "foobar")
+
+    def test_print(self):
+        self._create({"action": "print Hello World"})
+
+        with patch("sys.stdout") as m:
+            self._trigger()
+
+        self.assertEqual(self._output(m), "Hello World\n")
+
+    def test_status(self):
+        self._create({"action": "status = 123"})
+
+        self.assertEqual(self.job.status, 0)
+        self._trigger()
+        self.assertEqual(self.job.status, 123)
 
 
 class ClassifyTest(BasePostprocessorTest):
@@ -463,6 +497,23 @@ class HashTest(BasePostprocessorTest):
             "3e1095b50736c4fd1e2deea152e3c8ecd5993462a747208e4d842659935a1c62",
             kwdict["b"], "sha512")
 
+    def test_mode(self):
+        self._create({"mode": "sha256,sha512"})
+
+        with self.pathfmt.open() as fp:
+            fp.write(b"Foo Bar\n")
+
+        self._trigger()
+
+        kwdict = self.pathfmt.kwdict
+        self.assertEqual(
+            "4775b55be17206445d7015a5fc7656f38a74b880670523c3b175455f885f2395",
+            kwdict["sha256"], "sha256")
+        self.assertEqual(
+            "6028f9e6957f4ca929941318c4bba6258713fd5162f9e33bd10e1c456d252700"
+            "3e1095b50736c4fd1e2deea152e3c8ecd5993462a747208e4d842659935a1c62",
+            kwdict["sha512"], "sha512")
+
 
 class MetadataTest(BasePostprocessorTest):
 
@@ -623,7 +674,7 @@ class MetadataTest(BasePostprocessorTest):
             {"foo": "bar"},
         )
 
-        with patch("sys.stdout", Mock()) as m:
+        with patch("sys.stdout") as m:
             self._trigger()
 
         self.assertEqual(self._output(m), "bar\nNone\n")
@@ -746,7 +797,7 @@ class MetadataTest(BasePostprocessorTest):
     def test_metadata_stdout(self):
         self._create({"filename": "-", "indent": None, "sort": True})
 
-        with patch("sys.stdout", Mock()) as m:
+        with patch("sys.stdout") as m:
             self._trigger()
 
         self.assertEqual(self._output(m), """\
@@ -910,13 +961,6 @@ class MetadataTest(BasePostprocessorTest):
 
         m_aa.assert_called_once_with(self.pathfmt.kwdict)
         m_ac.assert_called_once()
-
-    def _output(self, mock):
-        return "".join(
-            call[1][0]
-            for call in mock.mock_calls
-            if call[0].endswith("write")
-        )
 
 
 class MtimeTest(BasePostprocessorTest):

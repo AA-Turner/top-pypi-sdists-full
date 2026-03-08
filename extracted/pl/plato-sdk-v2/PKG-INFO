@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plato-sdk-v2
-Version: 2.31.4
+Version: 2.31.8
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -55,7 +55,6 @@ Requires-Dist: pillow>=10.0.0; extra == 'segmentation'
 Provides-Extra: worlds
 Requires-Dist: dvc; extra == 'worlds'
 Requires-Dist: dvc-s3; extra == 'worlds'
-Requires-Dist: pyfuse3>=3.3; extra == 'worlds'
 Description-Content-Type: text/markdown
 
 # Plato Python SDK
@@ -357,7 +356,3 @@ plato/
 
 - [Generating Simulator SDKs](docs/GENERATING_SIM_SDKS.md) - How to create API clients for simulators
 - [Building Simulators](BUILDING_SIMS.md) - Internal docs for snapshotting simulators
-
-## License
-
-MIT

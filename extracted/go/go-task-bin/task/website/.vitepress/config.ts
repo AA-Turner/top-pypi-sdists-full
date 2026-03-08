@@ -90,12 +90,16 @@ export default defineConfig({
     head.push(['link', { rel: 'canonical', href: canonicalUrl }])
 
     // Dynamic Open Graph and Twitter meta tags
-    const pageTitle = pageData.frontmatter.title || pageData.title || taskName
+    const isHome = pageData.relativePath === 'index.md';
+    var pageTitle = pageData.frontmatter.title || pageData.title || taskName;
+    if (!isHome) {
+      pageTitle = `${pageTitle} | ${taskName}`;
+    }
     const pageDescription = pageData.frontmatter.description || pageData.description || taskDescription
-    head.push(['meta', { property: 'og:title', content: `${pageTitle} | Task` }])
+    head.push(['meta', { property: 'og:title', content: pageTitle }])
     head.push(['meta', { property: 'og:description', content: pageDescription }])
     head.push(['meta', { property: 'og:url', content: canonicalUrl }])
-    head.push(['meta', { name: 'twitter:title', content: `${pageTitle} | Task` }])
+    head.push(['meta', { name: 'twitter:title', content: pageTitle }])
     head.push(['meta', { name: 'twitter:description', content: pageDescription }])
 
     // Noindex pour 404
@@ -369,6 +373,11 @@ export default defineConfig({
       { icon: 'bluesky', link: 'https://bsky.app/profile/taskfile.dev' },
       { icon: 'mastodon', link: 'https://fosstodon.org/@task' }
     ],
+
+    editLink: {
+      text: 'Edit this page on GitHub',
+      pattern: 'https://github.com/go-task/task/edit/main/website/src/:path'
+    },
 
     footer: {
       message:

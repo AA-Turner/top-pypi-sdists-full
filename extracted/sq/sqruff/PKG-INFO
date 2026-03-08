@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqruff
-Version: 0.35.0
+Version: 0.35.1
 Requires-Dist: regex ; extra == 'dbt'
 Requires-Dist: jinja2>=3.0.0 ; extra == 'dbt'
 Requires-Dist: jinja2-simple-tags>=0.3.1 ; extra == 'dbt'

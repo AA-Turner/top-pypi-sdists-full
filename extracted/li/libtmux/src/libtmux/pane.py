@@ -411,7 +411,7 @@ class Pane(
         if preserve_trailing:
             cmd.append("-N")
         if trim_trailing:
-            if has_gte_version("3.4"):
+            if has_gte_version("3.4", tmux_bin=self.server.tmux_bin):
                 cmd.append("-T")
             else:
                 warnings.warn(
@@ -566,6 +566,15 @@ class Pane(
 
         if proc.stderr:
             raise exc.LibTmuxException(proc.stderr)
+
+        extra: dict[str, str] = {
+            "tmux_subcommand": "kill-pane",
+        }
+        if self.pane_id is not None:
+            extra["tmux_pane"] = str(self.pane_id)
+            extra["tmux_target"] = str(self.pane_id)
+        msg = "other panes killed" if all_except else "pane killed"
+        logger.info(msg, extra=extra)
 
     """
     Commands ("climber"-helpers)
@@ -769,7 +778,22 @@ class Pane(
             zip(["pane_id"], pane_output.split(FORMAT_SEPARATOR), strict=False),
         )
 
-        return self.from_pane_id(server=self.server, pane_id=pane_formatters["pane_id"])
+        pane = self.from_pane_id(server=self.server, pane_id=pane_formatters["pane_id"])
+
+        extra: dict[str, str] = {
+            "tmux_subcommand": "split-window",
+            "tmux_pane": str(pane.pane_id),
+        }
+        if self.session.session_name is not None:
+            extra["tmux_session"] = str(self.session.session_name)
+        if self.window.window_name is not None:
+            extra["tmux_window"] = str(self.window.window_name)
+        if target is not None:
+            extra["tmux_target"] = str(target)
+
+        logger.info("pane created", extra=extra)
+
+        return pane
 
     """
     Commands (helpers)
@@ -805,6 +829,33 @@ class Pane(
             Self, for method chaining.
         """
         self.resize(height=height)
+        return self
+
+    def set_title(self, title: str) -> Pane:
+        """Set pane title via ``select-pane -T``.
+
+        Parameters
+        ----------
+        title : str
+            Title to set for the pane.
+
+        Returns
+        -------
+        :class:`Pane`
+            The pane instance, for method chaining.
+
+        Examples
+        --------
+        >>> pane.set_title('my-title')
+        Pane(...)
+
+        >>> pane.pane_title
+        'my-title'
+        """
+        proc = self.cmd("select-pane", "-T", title)
+        if proc.stderr:
+            raise exc.LibTmuxException(proc.stderr)
+        self.refresh()
         return self
 
     def enter(self) -> Pane:
@@ -888,6 +939,18 @@ class Pane(
         True
         """
         return self.pane_width
+
+    @property
+    def title(self) -> str | None:
+        """Alias for :attr:`pane_title`.
+
+        >>> pane.set_title('test-alias')
+        Pane(...)
+
+        >>> pane.title == pane.pane_title
+        True
+        """
+        return self.pane_title
 
     @property
     def at_top(self) -> bool:

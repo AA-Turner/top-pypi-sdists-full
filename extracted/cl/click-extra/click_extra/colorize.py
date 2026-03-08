@@ -34,7 +34,7 @@ from boltons.strutils import complement_int_list, int_ranges_from_int_list
 from cloup._util import identity
 from cloup.styling import Color
 
-from . import ParameterSource, Style, get_current_context
+from . import ParameterSource, Style
 from .parameters import ExtraOption
 
 TYPE_CHECKING = False
@@ -258,18 +258,9 @@ class ColorOption(ExtraOption):
                 # One env var is enough to activate colorization.
                 value = True in colorize_from_env
 
-        # There is an undocumented color flag in context:
-        # https://github.com/pallets/click/blob/65eceb0/src/click/globals.py#L56-L69
+        # Set the official context color flag. This is used by Click's
+        # ``resolve_color_default()`` → ``should_strip_ansi()`` chain in ``echo()``.
         ctx.color = value
-
-        if not value:
-
-            def restore_original_styling():
-                """Reset color flag in context."""
-                ctx = get_current_context()
-                ctx.color = None
-
-            ctx.call_on_close(restore_original_styling)
 
     def __init__(
         self,
@@ -372,13 +363,26 @@ class ExtraHelpColorsMixin:  # (Command)??
             options.update(param.opts)
             options.update(param.secondary_opts)
 
+            # Only Choice and DateTime types produce their own structured
+            # metavar (with delimiters like brackets and pipes). All other
+            # types fall back to a plain uppercased name (e.g. TEXT, INTEGER).
             if isinstance(param.type, click.Choice):
+                # Click's Choice type use the enum member names, not their values:
+                # https://github.com/pallets/click/issues/2911#issuecomment-2891534372
                 choices.update(
                     i.name if isinstance(i, Enum) else str(i)
                     for i in param.type.choices
                 )
+            elif isinstance(param.type, click.DateTime):
+                # Highlight each datetime format string as a choice.
+                choices.update(param.type.formats)
+            else:
+                metavars.add(param.make_metavar(ctx=ctx))
 
-            metavars.add(param.make_metavar(ctx=ctx))
+            # A user-provided metavar (e.g. ``metavar="LEVEL"``) is always
+            # a plain token worth highlighting, even for Choice/DateTime.
+            if param.metavar:
+                metavars.add(param.metavar)
 
             if param.envvar:
                 if isinstance(param.envvar, str):

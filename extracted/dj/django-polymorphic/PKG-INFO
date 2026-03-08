@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: django-polymorphic
-Version: 4.11.1
+Version: 4.11.2
 Summary: Seamless polymorphic inheritance for Django models.
-Project-URL: Download, https://github.com/jazzband/django-polymorphic/tarball/master
+Project-URL: Download, https://github.com/jazzband/django-polymorphic/tarball/main
 Project-URL: Documentation, https://django-polymorphic.readthedocs.io
 Project-URL: Homepage, https://github.com/jazzband/django-polymorphic
 Project-URL: Repository, https://github.com/jazzband/django-polymorphic
@@ -37,6 +37,7 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.10
 Requires-Dist: django>=4.2
 Requires-Dist: typing-extensions>=4.12.0
@@ -50,11 +51,13 @@ Description-Content-Type: text/markdown
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/django-polymorphic.svg)](https://pypi.python.org/pypi/django-polymorphic/)
 [![PyPI djversions](https://img.shields.io/pypi/djversions/django-polymorphic.svg)](https://pypi.org/project/django-polymorphic/)
 [![PyPI status](https://img.shields.io/pypi/status/django-polymorphic.svg)](https://pypi.python.org/pypi/django-polymorphic)
+[![PyPI - Types](https://img.shields.io/pypi/types/django-polymorphic.svg)](https://pypi.python.org/pypi/django-polymorphic)
 [![Documentation Status](https://readthedocs.org/projects/django-polymorphic/badge/?version=latest)](http://django-polymorphic.readthedocs.io/?badge=latest/)
-[![Code Cov](https://img.shields.io/codecov/c/github/jazzband/django-polymorphic/master.svg)](https://codecov.io/github/jazzband/django-polymorphic?branch=master)
-[![Test Status](https://github.com/jazzband/django-polymorphic/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/jazzband/django-polymorphic/actions/workflows/test.yml?query=branch:master)
-[![Lint Status](https://github.com/jazzband/django-polymorphic/actions/workflows/lint.yml/badge.svg?branch=master)](https://github.com/jazzband/django-polymorphic/actions/workflows/lint.yml?query=branch:master)
+[![Code Cov](https://img.shields.io/codecov/c/github/jazzband/django-polymorphic/main.svg)](https://codecov.io/github/jazzband/django-polymorphic?branch=main)
+[![Test Status](https://github.com/jazzband/django-polymorphic/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/jazzband/django-polymorphic/actions/workflows/test.yml?query=branch:main)
+[![Lint Status](https://github.com/jazzband/django-polymorphic/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/jazzband/django-polymorphic/actions/workflows/lint.yml?query=branch:main)
 [![Published on Django Packages](https://img.shields.io/badge/Published%20on-Django%20Packages-0c3c26)](https://djangopackages.org/packages/p/django-polymorphic/)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/jazzband/django-polymorphic/badge)](https://securityscorecards.dev/viewer/?uri=github.com/jazzband/django-polymorphic)
 [![Jazzband](https://jazzband.co/static/img/badge.svg)](https://jazzband.co/)
 
 ---------------------------------------------------------------------------------------------------

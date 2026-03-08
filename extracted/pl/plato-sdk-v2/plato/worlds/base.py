@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, get_args, get_origin
 import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from opentelemetry.trace import StatusCode
 from pydantic import BaseModel as PydanticBaseModel
 from typing_extensions import TypeVar
 
@@ -182,6 +183,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self._agent_containers: list[str] = []  # Track spawned agent containers for cleanup
         self._state: StateT | None = None
         self._transport: Transport | None = None  # NFS/rsync transport (set during session connect)
+        self._nfs_mesh_ip: str | None = None
         self._ssh_key_path: Path | None = None
         self._workspaces: dict[str, Workspace] = {}  # declared workspaces
         self._tailscaled_proc: asyncio.subprocess.Process | None = None
@@ -373,7 +375,12 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self.logger.debug("SSH key added to session")
 
     async def _create_transport(self) -> None:
-        """Create the NFS transport for sharing workspaces with agent VMs."""
+        """Create the transport object (does NOT start the NFS server).
+
+        The server is started later by ``_start_transport()`` so that FUSE
+        mounts from workspace restore are already in place when NFS begins
+        exporting with ``crossmnt``.
+        """
         assert self._ssh_key_path is not None, "SSH key must be set before creating transport"
 
         mesh_ip = None
@@ -388,9 +395,38 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         if not mesh_ip or not self.plato_session:
             raise RuntimeError("NFS transport requires mesh IP from Plato session")
 
-        self._transport = NFSTransport("/workspace", mesh_ip, self._ssh_key_path)
-        self.logger.info(f"Transport: NFS (mesh_ip={mesh_ip})")
+        self._nfs_mesh_ip = mesh_ip
+        self._transport = None
+        self.logger.info(f"Transport: nfs_kernel (mesh_ip={mesh_ip})")
+
+    async def _start_transport(self) -> None:
+        """Start the NFS server after workspaces (and any FUSE mounts) are ready."""
+        if not self._nfs_mesh_ip or not self._workspaces:
+            return
+        assert self._ssh_key_path is not None
+
+        # Ensure all workspaces have FUSE mounts (overlayfs can't be NFS-exported)
+        for ws in self._workspaces.values():
+            await ws.ensure_fuse_mount()
+
+        # Each workspace gets its own NFSTransport and NFS export.
+        ws_list = list(self._workspaces.values())
+        first = ws_list[0]
+        first_path = str(first.path)
+
+        self._transport = NFSTransport(first_path, self._nfs_mesh_ip, self._ssh_key_path)
         await self._transport.initialize()
+
+        for i, ws in enumerate(ws_list[1:], start=1):
+            await self._transport.add_export(str(ws.path), fsid=i)
+
+        await self._transport.refresh_exports()
+
+        # Assign per-workspace transports
+        for ws in ws_list:
+            t = NFSTransport(str(ws.path), self._nfs_mesh_ip, self._ssh_key_path)
+            t.mount_path = ws.mount_path
+            ws.transport = t
 
     async def _disconnect_plato_session(self) -> None:
         """Stop heartbeat for the Plato session (does not close the session)."""
@@ -893,6 +929,18 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 await self._run_loop(tracer)
             except Exception as e:
                 run_error = e
+                root_span.set_status(StatusCode.ERROR, str(e))
+                root_span.record_exception(e)
+
+                # Log error as a dedicated span so it's clearly visible in traces
+                import traceback
+
+                with tracer.start_as_current_span("world_error") as err_span:
+                    err_span.set_status(StatusCode.ERROR, str(e))
+                    err_span.set_attribute("error.type", type(e).__name__)
+                    err_span.set_attribute("error.message", str(e))
+                    err_span.set_attribute("error.traceback", traceback.format_exc())
+                    err_span.record_exception(e)
             finally:
                 await self.close()
                 await self._disconnect_plato_session()
@@ -998,16 +1046,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 api_key=repo_info.api_key,
                 session_id=self.session.session_id if self.session else "",
             )
-
-            # Set up NFS/rsync transport BEFORE init — the bind mount
-            # overwrites the directory, so git/dvc must be created after
-            if self._transport:
-                Workspace._cleanup_stale_mount(workspace.path)
-                workspace.path.mkdir(parents=True, exist_ok=True)
-                transport = self._transport.with_path(str(workspace.path))
-                transport.mount_path = workspace.mount_path
-                await transport.prepare()
-                workspace.transport = transport
 
             await workspace.init()
 
@@ -1183,6 +1221,10 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         resumed = await self._try_resume()
         if resumed:
             self.logger.info("Resumed from saved state")
+
+        # Start NFS server AFTER workspaces are restored (FUSE mounts must exist
+        # before NFS begins exporting with crossmnt).
+        await self._start_transport()
 
         # Reset phase — world-specific initialization
         with tracer.start_as_current_span("reset") as reset_span:

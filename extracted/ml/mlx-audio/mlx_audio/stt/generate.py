@@ -3,6 +3,7 @@ import contextlib
 import inspect
 import json
 import os
+import sys
 import time
 from pprint import pprint
 from typing import List, Optional, Union
@@ -41,7 +42,7 @@ def parse_args():
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=128,
+        default=8192,
         help="Maximum number of new tokens to generate",
     )
     parser.add_argument(
@@ -108,12 +109,20 @@ def format_vtt_timestamp(seconds: float) -> str:
 
 
 def save_as_txt(segments, output_path: str):
-    with open(f"{output_path}.txt", "w", encoding="utf-8") as f:
+    with (
+        open(f"{output_path}.txt", "w", encoding="utf-8")
+        if output_path != "-"
+        else contextlib.nullcontext(sys.stdout)
+    ) as f:
         f.write(segments.text)
 
 
 def save_as_srt(segments, output_path: str):
-    with open(f"{output_path}.srt", "w", encoding="utf-8") as f:
+    with (
+        open(f"{output_path}.srt", "w", encoding="utf-8")
+        if output_path != "-"
+        else contextlib.nullcontext(sys.stdout)
+    ) as f:
         if hasattr(segments, "sentences"):
             # Parakeet model (AlignedResult)
             for i, sentence in enumerate(segments.sentences, 1):
@@ -133,7 +142,11 @@ def save_as_srt(segments, output_path: str):
 
 
 def save_as_vtt(segments, output_path: str):
-    with open(f"{output_path}.vtt", "w", encoding="utf-8") as f:
+    with (
+        open(f"{output_path}.vtt", "w", encoding="utf-8")
+        if output_path != "-"
+        else contextlib.nullcontext(sys.stdout)
+    ) as f:
         f.write("WEBVTT\n\n")
         if hasattr(segments, "sentences"):
             sentences = segments.sentences
@@ -199,7 +212,11 @@ def save_as_json(segments, output_path: str):
             if "speaker_id" in s:
                 result["segments"][i]["speaker_id"] = s["speaker_id"]
 
-    with open(f"{output_path}.json", "w", encoding="utf-8") as f:
+    with (
+        open(f"{output_path}.json", "w", encoding="utf-8")
+        if output_path != "-"
+        else contextlib.nullcontext(sys.stdout)
+    ) as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
 
@@ -303,6 +320,8 @@ def generate_transcription(
         all_segments = []
         accumulated_text = ""
         language = "en"
+        prompt_tokens = 0
+        generation_tokens = 0
         for result in model.generate(audio, verbose=verbose, **kwargs):
             segment_dict = {
                 "text": result.text,
@@ -316,10 +335,26 @@ def generate_transcription(
             accumulated_text += result.text
             language = result.language
 
+            # Extract token counts from results (final result has cumulative totals)
+            if hasattr(result, "prompt_tokens") and result.prompt_tokens > 0:
+                prompt_tokens = result.prompt_tokens
+            if hasattr(result, "generation_tokens") and result.generation_tokens > 0:
+                generation_tokens = result.generation_tokens
+
+        stream_end_time = time.time()
+        stream_duration = stream_end_time - start_time
         segments = STTOutput(
             text=accumulated_text.strip(),
             segments=all_segments,
             language=language,
+            prompt_tokens=prompt_tokens,
+            generation_tokens=generation_tokens,
+            total_tokens=prompt_tokens + generation_tokens,
+            total_time=stream_duration,
+            prompt_tps=prompt_tokens / stream_duration if stream_duration > 0 else 0,
+            generation_tps=(
+                generation_tokens / stream_duration if stream_duration > 0 else 0
+            ),
         )
     else:
         segments = model.generate(
@@ -331,7 +366,7 @@ def generate_transcription(
             print("\033[94mTranscription:\033[0m\n")
             print(f"{segments.text[:500]}...\n")
 
-        if hasattr(segments, "segments"):
+        if hasattr(segments, "segments") and segments.segments is not None:
             print("\033[94mSegments:\033[0m\n")
             pprint(segments.segments[:3] + ["..."])
 

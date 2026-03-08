@@ -17,9 +17,10 @@ from typing import Any, Dict, List, Literal, Optional, Set
 
 import psutil
 import requests
+from packaging.version import Version
 
 from .config_file import LanguageToolConfig
-from .download_lt import LTP_DOWNLOAD_VERSION, download_lt
+from .download_lt import LTP_DOWNLOAD_VERSION, LocalLanguageTool
 from .exceptions import (
     LanguageToolError,
     PathError,
@@ -31,9 +32,7 @@ from .match import Match
 from .utils import (
     FAILSAFE_LANGUAGE,
     correct,
-    get_language_tool_directory,
     get_locale_language,
-    get_server_cmd,
     kill_process_force,
     parse_url,
     startupinfo,
@@ -108,6 +107,9 @@ class LanguageTool:
     _language_tool_download_version: str
     """The version of LanguageTool to download."""
 
+    _local_language_tool: Optional[LocalLanguageTool]
+    """The LocalLanguageTool instance."""
+
     _new_spellings: Optional[List[str]]
     """A list of new spellings to register."""
 
@@ -170,6 +172,7 @@ class LanguageTool:
         """
         self._remote = False
         self._language_tool_download_version = language_tool_download_version
+        self._local_language_tool = None
         self._new_spellings = None
         self._new_spellings_persist = new_spellings_persist
         self._host = host or socket.gethostbyname("localhost")
@@ -204,10 +207,10 @@ class LanguageTool:
                 language = get_locale_language()
             except ValueError:
                 language = FAILSAFE_LANGUAGE
+        self._language = LanguageTag(language, self._get_languages())
         if new_spellings:
             self._new_spellings = new_spellings
             self._register_spellings()
-        self._language = LanguageTag(language, self._get_languages())
         self._mother_tongue = mother_tongue
         self._disabled_rules = set()
         self._enabled_rules = set()
@@ -716,8 +719,7 @@ class LanguageTool:
         """
         self._disabled_categories.update(self._SPELL_CHECKING_CATEGORIES)
 
-    @staticmethod
-    def _get_valid_spelling_file_path() -> Path:
+    def _get_valid_spelling_file_path(self) -> Path:
         """
         Retrieve the valid file path for the spelling file.
         This function constructs the file path for the spelling file used by the
@@ -729,13 +731,29 @@ class LanguageTool:
         :return: The valid file path for the spelling file.
         :rtype: Path
         """
-        library_path = get_language_tool_directory()
+        if self._local_language_tool is None:
+            err = "LocalLanguageTool instance is not initialized."
+            raise PathError(err)
+        library_path = self._local_language_tool.get_directory_path()
+
+        language = self._language.normalized_tag.split("-")[
+            0
+        ].lower()  # if language is "en-US", we want "en"
+
+        if language == "auto":
+            # Default to English if auto is selected, as the spelling file is needed for new spellings
+            # The new spellings will only be taken into account if the server detects the language as English
+            logger.debug(
+                "Language is set to 'auto'. Defaulting to 'en' for spelling file path."
+            )
+            language = "en"
+
         spelling_file_path = (
             library_path
             / "org"
             / "languagetool"
             / "resource"
-            / "en"
+            / language
             / "hunspell"
             / "spelling.txt"
         )
@@ -928,13 +946,19 @@ class LanguageTool:
         :raises ServerError: If the server fails to start or exits early.
         """
         # Before starting local server, download language tool if needed.
-        download_lt(self._language_tool_download_version)
+
+        self._local_language_tool = LocalLanguageTool.from_version_name(
+            self._language_tool_download_version
+        )
+        self._local_language_tool.download()
         try:
             if self._port:
                 logger.info(
                     "language_tool_python initializing with port: %s", self._port
                 )
-            server_cmd = get_server_cmd(self._port, self._config)
+            server_cmd = self._local_language_tool.get_server_cmd(
+                self._port, self._config
+            )
         except PathError as e:
             err = (
                 "Failed to find LanguageTool. Please ensure it is downloaded correctly."
@@ -975,7 +999,13 @@ class LanguageTool:
         if self._server is None:
             err = "Server process is not initialized."
             raise ServerError(err)
-        url = urllib.parse.urljoin(self._url, "healthcheck")
+        url = (
+            urllib.parse.urljoin(self._url, "check?text=healthcheck&language=en")
+            if re.match(r"^\d+\.\d+$", self._language_tool_download_version)
+            and Version(self._language_tool_download_version)
+            < Version("4.2")  # healthcheck endpoint added in 4.2
+            else urllib.parse.urljoin(self._url, "healthcheck")
+        )
         start = time.time()
 
         logger.debug("Waiting for LanguageTool server readiness at %s", url)

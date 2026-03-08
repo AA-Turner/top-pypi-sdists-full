@@ -69,7 +69,7 @@ async def run_ssh(
     timeout: int = 300,
     extra_opts: list[tuple[str, str]] | None = None,
 ) -> tuple[int, str, str]:
-    """Run a command on a remote host via SSH as root and return (exit_code, stdout, stderr)."""
+    """Run a command on a remote host via SSH and return (exit_code, stdout, stderr)."""
     ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
     ssh_cmd.append(command)
     log_command = _sanitize_command_for_logs(command)
@@ -115,7 +115,7 @@ async def run_ssh_streaming(
     user: str = "root",
     extra_opts: list[tuple[str, str]] | None = None,
 ) -> int:
-    """Run a command via SSH as root with real-time output streaming. Returns exit code."""
+    """Run a command via SSH with real-time output streaming. Returns exit code."""
     ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
     ssh_cmd.append(command)
     log_command = _sanitize_command_for_logs(command)

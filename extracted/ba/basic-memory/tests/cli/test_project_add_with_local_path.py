@@ -8,6 +8,11 @@ import pytest
 from typer.testing import CliRunner
 
 from basic_memory.cli.app import app
+from basic_memory.mcp.clients.project import ProjectClient
+from basic_memory.schemas.project_info import ProjectStatusResponse
+
+# Importing registers project subcommands on the shared app instance.
+import basic_memory.cli.commands.project as project_cmd  # noqa: F401
 
 
 @pytest.fixture
@@ -17,7 +22,7 @@ def runner():
 
 @pytest.fixture
 def mock_config(tmp_path, monkeypatch):
-    """Create a mock config in cloud mode using environment variables."""
+    """Create a mock config with cloud credentials using environment variables."""
     # Invalidate config cache to ensure clean state for each test
     from basic_memory import config as config_module
 
@@ -31,8 +36,7 @@ def mock_config(tmp_path, monkeypatch):
         "env": "dev",
         "projects": {},
         "default_project": "main",
-        "cloud_mode": True,
-        "cloud_projects": {},
+        "cloud_api_key": "bmc_test_key_123",
     }
 
     config_file.write_text(json.dumps(config_data, indent=2))
@@ -46,36 +50,33 @@ def mock_config(tmp_path, monkeypatch):
 @pytest.fixture
 def mock_api_client(monkeypatch):
     """Stub the API client for project add without stdlib mocks."""
-    import basic_memory.cli.commands.project as project_cmd
 
     @asynccontextmanager
     async def fake_get_client():
         yield object()
 
-    class _Resp:
-        def json(self):
-            return {
-                "message": "Project 'test-project' added successfully",
-                "status": "success",
-                "default": False,
-                "old_project": None,
-                "new_project": {
-                    "id": 1,
-                    "external_id": "12345678-1234-1234-1234-123456789012",
-                    "name": "test-project",
-                    "path": "/test-project",
-                    "is_default": False,
-                },
-            }
+    _response_data = {
+        "message": "Project 'test-project' added successfully",
+        "status": "success",
+        "default": False,
+        "old_project": None,
+        "new_project": {
+            "id": 1,
+            "external_id": "12345678-1234-1234-1234-123456789012",
+            "name": "test-project",
+            "path": "/test-project",
+            "is_default": False,
+        },
+    }
 
-    calls: list[tuple[str, dict]] = []
+    calls: list[dict] = []
 
-    async def fake_call_post(client, path: str, json: dict, **kwargs):
-        calls.append((path, json))
-        return _Resp()
+    async def fake_create_project(self, project_data):
+        calls.append(project_data)
+        return ProjectStatusResponse.model_validate(_response_data)
 
     monkeypatch.setattr(project_cmd, "get_client", fake_get_client)
-    monkeypatch.setattr(project_cmd, "call_post", fake_call_post)
+    monkeypatch.setattr(ProjectClient, "create_project", fake_create_project)
 
     return calls
 
@@ -92,6 +93,7 @@ def test_project_add_with_local_path_saves_to_config(
             "project",
             "add",
             "test-project",
+            "--cloud",
             "--local-path",
             str(local_sync_dir),
         ],
@@ -104,13 +106,14 @@ def test_project_add_with_local_path_saves_to_config(
     assert "test-project" in result.stdout
     assert "sync" in result.stdout
 
-    # Verify config was updated
+    # Verify config was updated — sync path stored on the project entry
     config_data = json.loads(mock_config.read_text())
-    assert "test-project" in config_data["cloud_projects"]
+    assert "test-project" in config_data["projects"]
+    entry = config_data["projects"]["test-project"]
     # Use as_posix() for cross-platform compatibility (Windows uses backslashes)
-    assert config_data["cloud_projects"]["test-project"]["local_path"] == local_sync_dir.as_posix()
-    assert config_data["cloud_projects"]["test-project"]["last_sync"] is None
-    assert config_data["cloud_projects"]["test-project"]["bisync_initialized"] is False
+    assert entry["local_sync_path"] == local_sync_dir.as_posix()
+    assert entry.get("last_sync") is None
+    assert entry.get("bisync_initialized", False) is False
 
     # Verify local directory was created
     assert local_sync_dir.exists()
@@ -121,30 +124,33 @@ def test_project_add_without_local_path_no_config_entry(runner, mock_config, moc
     """Test that bm project add without --local-path doesn't save to config."""
     result = runner.invoke(
         app,
-        ["project", "add", "test-project"],
+        ["project", "add", "test-project", "--cloud"],
     )
 
     assert result.exit_code == 0
     assert "Project 'test-project' added successfully" in result.stdout
     assert "Local sync path configured" not in result.stdout
 
-    # Verify config was NOT updated with cloud_projects entry
+    # Verify config was NOT updated with cloud sync path
     config_data = json.loads(mock_config.read_text())
-    assert "test-project" not in config_data.get("cloud_projects", {})
+    # Project may or may not be in config, but if it is, local_sync_path should be null
+    entry = config_data.get("projects", {}).get("test-project")
+    if entry:
+        assert entry.get("local_sync_path") is None
 
 
 def test_project_add_local_path_expands_tilde(runner, mock_config, mock_api_client):
     """Test that --local-path ~/path expands to absolute path."""
     result = runner.invoke(
         app,
-        ["project", "add", "test-project", "--local-path", "~/test-sync"],
+        ["project", "add", "test-project", "--cloud", "--local-path", "~/test-sync"],
     )
 
     assert result.exit_code == 0
 
     # Verify config has expanded path
     config_data = json.loads(mock_config.read_text())
-    local_path = config_data["cloud_projects"]["test-project"]["local_path"]
+    local_path = config_data["projects"]["test-project"]["local_sync_path"]
     # Path should be absolute (starts with / on Unix or drive letter on Windows)
     assert Path(local_path).is_absolute()
     assert "~" not in local_path
@@ -159,7 +165,7 @@ def test_project_add_local_path_creates_nested_directories(
 
     result = runner.invoke(
         app,
-        ["project", "add", "test-project", "--local-path", str(nested_path)],
+        ["project", "add", "test-project", "--cloud", "--local-path", str(nested_path)],
     )
 
     assert result.exit_code == 0

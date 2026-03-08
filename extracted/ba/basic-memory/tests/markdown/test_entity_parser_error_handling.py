@@ -2,6 +2,7 @@
 
 import pytest
 from textwrap import dedent
+from types import SimpleNamespace
 
 from basic_memory.markdown.entity_parser import EntityParser
 
@@ -78,12 +79,12 @@ async def test_parse_file_with_completely_invalid_yaml(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_parse_file_without_entity_type(tmp_path):
-    """Test that files without entity_type get a default value (issue #184).
+async def test_parse_file_without_note_type(tmp_path):
+    """Test that files without note_type get a default value (issue #184).
 
-    This reproduces the NOT NULL constraint error where entity_type was missing.
+    This reproduces the NOT NULL constraint error where note_type was missing.
     """
-    # Create a file without entity_type in frontmatter
+    # Create a file without note_type in frontmatter
     test_file = tmp_path / "no_type.md"
     content = dedent(
         """
@@ -101,7 +102,7 @@ async def test_parse_file_without_entity_type(tmp_path):
     parser = EntityParser(tmp_path)
     result = await parser.parse_file(test_file)
 
-    # Should have default entity_type
+    # Should have default note_type
     assert result is not None
     assert result.frontmatter.type == "note"  # Default type applied
     assert result.frontmatter.title == "The Invisible Weight of Mental Habits"
@@ -158,9 +159,9 @@ async def test_parse_file_without_frontmatter(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_parse_file_with_null_entity_type(tmp_path):
-    """Test that files with explicit null entity_type get default (issue #184)."""
-    # Create a file with null/None entity_type
+async def test_parse_file_with_null_note_type(tmp_path):
+    """Test that files with explicit null note_type get default (issue #184)."""
+    # Create a file with null/None note_type
     test_file = tmp_path / "null_type.md"
     content = dedent(
         """
@@ -385,3 +386,36 @@ async def test_frontmatter_roundtrip_preserves_user_metadata(tmp_path):
     assert "metadata:" not in output, "Should not have 'metadata:' key in output"
     assert "citekey: authorTitleYear2024" in output, "User's citekey should be preserved"
     assert "type: litnote" in output, "User's type should be preserved"
+
+
+@pytest.mark.asyncio
+async def test_schema_to_markdown_empty_metadata_no_metadata_key():
+    """Regression test: schema_to_markdown with entity_metadata={} must not emit 'metadata:' in YAML.
+
+    The bug was that an empty entity_metadata dict would still call post.metadata.update({}),
+    which is harmless, but prior versions could produce a spurious 'metadata: {}' key via
+    incorrect Post() construction. This test ensures the guard (`if entity_metadata:`) prevents
+    that — an empty dict is falsy and should skip the update entirely.
+    """
+    from basic_memory.markdown.utils import schema_to_markdown
+    from basic_memory.file_utils import dump_frontmatter
+
+    schema = SimpleNamespace(
+        title="Empty Metadata Test",
+        note_type="note",
+        permalink="empty-metadata-test",
+        content="# Empty Metadata Test\n\nSome content.",
+        entity_metadata={},
+    )
+
+    post = await schema_to_markdown(schema)
+    output = dump_frontmatter(post)
+
+    # The YAML output should NOT contain a 'metadata:' key
+    assert "metadata:" not in output, (
+        f"Empty entity_metadata should not produce 'metadata:' in YAML output.\nGot:\n{output}"
+    )
+    # Should still have the expected frontmatter fields
+    assert "title: Empty Metadata Test" in output
+    assert "type: note" in output
+    assert "permalink: empty-metadata-test" in output
